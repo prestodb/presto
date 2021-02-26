@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.relation;
 
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeWithName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -61,6 +62,9 @@ public class SpecialFormExpression
     @JsonProperty("returnType")
     public Type getType()
     {
+        if (returnType instanceof TypeWithName) {
+            return ((TypeWithName) returnType).getType();
+        }
         return returnType;
     }
 

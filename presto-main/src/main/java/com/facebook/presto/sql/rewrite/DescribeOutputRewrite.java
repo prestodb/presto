@@ -16,6 +16,7 @@ package com.facebook.presto.sql.rewrite;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.FixedWidthType;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.WarningCollector;
@@ -134,8 +135,9 @@ final class DescribeOutputRewrite
         private static Row createDescribeOutputRow(Field field, Analysis analysis)
         {
             LongLiteral typeSize = new LongLiteral("0");
-            if (field.getType() instanceof FixedWidthType) {
-                typeSize = new LongLiteral(String.valueOf(((FixedWidthType) field.getType()).getFixedSize()));
+            Type physicalType = field.getType().getType();
+            if (physicalType instanceof FixedWidthType) {
+                typeSize = new LongLiteral(String.valueOf(((FixedWidthType) physicalType).getFixedSize()));
             }
 
             String columnName;

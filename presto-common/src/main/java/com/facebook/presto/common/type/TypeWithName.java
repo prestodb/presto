@@ -36,14 +36,27 @@ public class TypeWithName
     public TypeWithName(QualifiedObjectName name, Type type)
     {
         this.name = requireNonNull(name, "name is null").toString();
-        this.type = requireNonNull(type, "type is null");
+        requireNonNull(type, "type is null");
+        if (type instanceof TypeWithName) {
+            this.type = ((TypeWithName) type).getType();
+        }
+        else {
+            this.type = type;
+        }
         this.typeSignature = new TypeSignature(new UserDefinedType(name, type.getTypeSignature()));
     }
 
     public TypeWithName(Type type)
     {
-        this.type = requireNonNull(type, "type is null");
-        this.name = type.getTypeSignature().toString();
+        requireNonNull(type, "type is null");
+        if (type instanceof TypeWithName) {
+            this.type = ((TypeWithName) type).getType();
+            this.name = ((TypeWithName) type).getName();
+        }
+        else {
+            this.type = type;
+            this.name = type.getTypeSignature().toString();
+        }
         this.typeSignature = type.getTypeSignature();
     }
 
@@ -56,7 +69,10 @@ public class TypeWithName
     @Override
     public String getDisplayName()
     {
-        return name;
+        if (typeSignature.getTypeSignatureBase().hasTypeName()) {
+            return name;
+        }
+        return type.getDisplayName();
     }
 
     public String getName()

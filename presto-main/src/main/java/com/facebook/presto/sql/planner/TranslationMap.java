@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.ResolvedField;
@@ -238,8 +239,8 @@ class TranslationMap
                     return node;
                 }
 
-                Type nodeType = analysis.getType(node);
-                Type baseType = analysis.getType(node.getBase());
+                TypeWithName nodeType = analysis.getType(node);
+                TypeWithName baseType = analysis.getType(node.getBase());
                 if (isEnumType(baseType) && isEnumType(nodeType)) {
                     return new EnumLiteral(nodeType.getTypeSignature().toString(), resolveEnumLiteral(node, nodeType));
                 }

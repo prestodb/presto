@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.type.LikeFunctions;
@@ -56,6 +57,11 @@ public class Interpreters
             return returnType.getObject(row, index);
         }
         throw new UnsupportedOperationException("Dereference a unsupported primitive type: " + javaType.getName());
+    }
+
+    static boolean interpretLikePredicate(TypeWithName valueType, Slice value, Regex regex)
+    {
+        return interpretLikePredicate(valueType.getType(), value, regex);
     }
 
     static boolean interpretLikePredicate(Type valueType, Slice value, Regex regex)

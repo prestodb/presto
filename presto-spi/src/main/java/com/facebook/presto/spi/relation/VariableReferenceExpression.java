@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.relation;
 
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeWithName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -37,7 +38,13 @@ public final class VariableReferenceExpression
             @JsonProperty("type") Type type)
     {
         this.name = requireNonNull(name, "name is null");
-        this.type = requireNonNull(type, "type is null");
+        requireNonNull(type, "type is null");
+        if (type instanceof TypeWithName) {
+            this.type = ((TypeWithName) type).getType();
+        }
+        else {
+            this.type = type;
+        }
     }
 
     @JsonProperty
@@ -50,13 +57,17 @@ public final class VariableReferenceExpression
     @JsonProperty
     public Type getType()
     {
+        if (type instanceof TypeWithName) {
+            return ((TypeWithName) type).getType();
+        }
         return type;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, type);
+        // TODO: Changed to getType() during semantic type refactoring because. Switch back to type after done.
+        return Objects.hash(name, getType());
     }
 
     @Override
@@ -81,7 +92,8 @@ public final class VariableReferenceExpression
             return false;
         }
         VariableReferenceExpression other = (VariableReferenceExpression) obj;
-        return Objects.equals(this.name, other.name) && Objects.equals(this.type, other.type);
+        // TODO: Changed to getType() during semantic type refactoring because. Switch back to Objects.equals(this.type, other.type) after done.
+        return Objects.equals(this.name, other.name) && Objects.equals(this.getType(), other.getType());
     }
 
     @Override

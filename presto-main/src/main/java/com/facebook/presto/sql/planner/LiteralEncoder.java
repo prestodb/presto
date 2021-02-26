@@ -29,6 +29,7 @@ import com.facebook.presto.common.type.SqlDate;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.VarcharEnumType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.operator.scalar.VarbinaryFunctions;
@@ -132,6 +133,10 @@ public final class LiteralEncoder
     public Expression toExpression(Object object, Type type, boolean typeOnly)
     {
         requireNonNull(type, "type is null");
+
+        if (type instanceof TypeWithName) {
+            type = ((TypeWithName) type).getType();
+        }
 
         if (object instanceof Expression) {
             return (Expression) object;

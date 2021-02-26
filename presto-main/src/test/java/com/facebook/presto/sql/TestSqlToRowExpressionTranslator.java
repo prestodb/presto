@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql;
 
-import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.LongLiteral;
@@ -23,12 +23,12 @@ import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 
-import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DecimalType.createDecimalType;
 import static com.facebook.presto.common.type.Decimals.encodeScaledValue;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static com.facebook.presto.type.TypeUtils.BIGINT_TYPE;
 
 public class TestSqlToRowExpressionTranslator
 {
@@ -38,11 +38,11 @@ public class TestSqlToRowExpressionTranslator
     public void testPossibleExponentialOptimizationTime()
     {
         Expression expression = new LongLiteral("1");
-        ImmutableMap.Builder<NodeRef<Expression>, Type> types = ImmutableMap.builder();
-        types.put(NodeRef.of(expression), BIGINT);
+        ImmutableMap.Builder<NodeRef<Expression>, TypeWithName> types = ImmutableMap.builder();
+        types.put(NodeRef.of(expression), BIGINT_TYPE);
         for (int i = 0; i < 100; i++) {
             expression = new CoalesceExpression(expression, new LongLiteral("2"));
-            types.put(NodeRef.of(expression), BIGINT);
+            types.put(NodeRef.of(expression), BIGINT_TYPE);
         }
         translator.translateAndOptimize(expression, types.build());
     }

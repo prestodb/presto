@@ -23,6 +23,7 @@ import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.operator.HashGenerator;
 import com.facebook.presto.operator.InterpretedHashGenerator;
@@ -34,7 +35,29 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.CharType.createCharType;
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.DecimalType.createDecimalType;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.HyperLogLogType.HYPER_LOG_LOG;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.JsonType.JSON;
+import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.TimeType.TIME;
+import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.type.ColorType.COLOR;
+import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
+import static com.facebook.presto.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -42,9 +65,44 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 public final class TypeUtils
 {
     public static final long NULL_HASH_CODE = 0;
+    public static final TypeWithName BOOLEAN_TYPE = new TypeWithName(BOOLEAN);
+    public static final TypeWithName BIGINT_TYPE = new TypeWithName(BIGINT);
+    public static final TypeWithName COLOR_TYPE = new TypeWithName(COLOR);
+    public static final TypeWithName DATE_TYPE = new TypeWithName(DATE);
+    public static final TypeWithName DOUBLE_TYPE = new TypeWithName(DOUBLE);
+    public static final TypeWithName HYPER_LOG_LOG_TYPE = new TypeWithName(HYPER_LOG_LOG);
+    public static final TypeWithName INTEGER_TYPE = new TypeWithName(INTEGER);
+    public static final TypeWithName INTERVAL_DAY_TIME_TYPE = new TypeWithName(INTERVAL_DAY_TIME);
+    public static final TypeWithName INTERVAL_YEAR_MONTH_TYPE = new TypeWithName(INTERVAL_YEAR_MONTH);
+    public static final TypeWithName JSON_TYPE = new TypeWithName(JSON);
+    public static final TypeWithName REAL_TYPE = new TypeWithName(REAL);
+    public static final TypeWithName SMALLINT_TYPE = new TypeWithName(SMALLINT);
+    public static final TypeWithName TINYINT_TYPE = new TypeWithName(TINYINT);
+    public static final TypeWithName TIME_TYPE = new TypeWithName(TIME);
+    public static final TypeWithName TIME_WITH_TIME_ZONE_TYPE = new TypeWithName(TIME_WITH_TIME_ZONE);
+    public static final TypeWithName TIMESTAMP_TYPE = new TypeWithName(TIMESTAMP);
+    public static final TypeWithName TIMESTAMP_WITH_TIME_ZONE_TYPE = new TypeWithName(TIMESTAMP_WITH_TIME_ZONE);
+    public static final TypeWithName UNKNOWN_TYPE = new TypeWithName(UNKNOWN);
+    public static final TypeWithName VARCHAR_TYPE = new TypeWithName(VARCHAR);
+    public static final TypeWithName VARBINARY_TYPE = new TypeWithName(VARBINARY);
 
     private TypeUtils()
     {
+    }
+
+    public static TypeWithName createDecimalSemanticType(int precision, int scale)
+    {
+        return new TypeWithName(createDecimalType(precision, scale));
+    }
+
+    public static TypeWithName createVarcharSemanticType(int length)
+    {
+        return new TypeWithName(createVarcharType(length));
+    }
+
+    public static TypeWithName createCharSemanticType(long length)
+    {
+        return new TypeWithName(createCharType(length));
     }
 
     public static int expectedValueSize(Type type, int defaultSize)

@@ -531,7 +531,7 @@ public class SignatureBinder
             return functionAndTypeManager.canCoerce(fromType, functionAndTypeManager.getSemanticType(toTypeSignature));
         }
         else {
-            return fromType.getTypeSignature().equals(toTypeSignature);
+            return fromType.getTypeSignature().equals(functionAndTypeManager.getType(toTypeSignature).getTypeSignature());
         }
     }
 
@@ -740,7 +740,7 @@ public class SignatureBinder
                     return SolverReturnStatus.UNSOLVABLE;
                 }
                 // TODO Use TypeWithName once ExpressionAnalyzer can produce semantic types
-                verify(getLambdaArgumentTypeSignatures(actualLambdaTypeSignature).equals(toTypeSignatures(lambdaArgumentTypes.get().stream().map(TypeWithName::getType).collect(toImmutableList()))));
+                verify(getLambdaArgumentTypeSignatures(actualLambdaTypeSignature).equals(toTypeSignatures(lambdaArgumentTypes.get())));
             }
 
             TypeWithName actualLambdaType = functionAndTypeManager.getSemanticType(actualLambdaTypeSignature);
@@ -792,10 +792,10 @@ public class SignatureBinder
                     .collect(toImmutableList());
         }
 
-        private List<TypeSignature> toTypeSignatures(List<Type> types)
+        private List<TypeSignature> toTypeSignatures(List<TypeWithName> types)
         {
             return types.stream()
-                    .map(Type::getTypeSignature)
+                    .map(TypeWithName::getTypeSignature)
                     .collect(toImmutableList());
         }
     }

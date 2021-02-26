@@ -422,6 +422,11 @@ public class FunctionAndTypeManager
         return typeCoercer.isTypeOnlyCoercion(actualType, expectedType);
     }
 
+    public boolean isTypeOnlyCoercion(TypeWithName actualType, TypeWithName expectedType)
+    {
+        return typeCoercer.isTypeOnlyCoercion(actualType.getType(), expectedType.getType());
+    }
+
     public Optional<TypeWithName> coerceTypeBase(TypeWithName sourceType, String resultTypeBase)
     {
         return typeCoercer.coerceTypeBase(sourceType.getType(), resultTypeBase).map(TypeWithName::new);
