@@ -101,7 +101,7 @@ public final class ZipFunction
     @Override
     public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
-        List<Type> types = this.typeParameters.stream().map(boundVariables::getTypeVariable).collect(toImmutableList());
+        List<Type> types = this.typeParameters.stream().map(boundVariables::getPhysicalType).collect(toImmutableList());
         List<ArgumentProperty> argumentProperties = nCopies(types.size(), valueTypeArgumentProperty(RETURN_NULL_ON_NULL));
         List<Class<?>> javaArgumentTypes = nCopies(types.size(), Block.class);
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(types).asVarargsCollector(Block[].class).asType(methodType(Block.class, javaArgumentTypes));

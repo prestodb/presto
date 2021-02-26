@@ -77,8 +77,8 @@ public class MultimapAggregationFunction
     @Override
     public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
-        Type keyType = boundVariables.getTypeVariable("K");
-        Type valueType = boundVariables.getTypeVariable("V");
+        Type keyType = boundVariables.getPhysicalType("K");
+        Type valueType = boundVariables.getPhysicalType("V");
         Type outputType = functionAndTypeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
                 TypeSignatureParameter.of(keyType.getTypeSignature()),
                 TypeSignatureParameter.of(new ArrayType(valueType).getTypeSignature())));

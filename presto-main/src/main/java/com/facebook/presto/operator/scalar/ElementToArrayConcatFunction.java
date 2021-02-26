@@ -79,7 +79,7 @@ public class ElementToArrayConcatFunction
     @Override
     public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
-        Type type = boundVariables.getTypeVariable("E");
+        Type type = boundVariables.getPhysicalType("E");
         MethodHandle methodHandle;
         if (type.getJavaType() == boolean.class) {
             methodHandle = METHOD_HANDLE_BOOLEAN;

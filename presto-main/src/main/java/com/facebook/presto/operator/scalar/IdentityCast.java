@@ -47,7 +47,7 @@ public class IdentityCast
     public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
         checkArgument(boundVariables.getTypeVariables().size() == 1, "Expected only one type");
-        Type type = boundVariables.getTypeVariable("T");
+        Type type = boundVariables.getPhysicalType("T");
         MethodHandle identity = MethodHandles.identity(type.getJavaType());
         return new BuiltInScalarFunctionImplementation(
                 false,

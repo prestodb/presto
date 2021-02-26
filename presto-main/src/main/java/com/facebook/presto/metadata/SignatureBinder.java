@@ -98,7 +98,7 @@ public class SignatureBinder
         return Optional.of(applyBoundVariables(declaredSignature, boundVariables.get(), actualArgumentTypes.size()));
     }
 
-    public Optional<Signature> bind(List<? extends TypeSignatureProvider> actualArgumentTypes, Type actualReturnType)
+    public Optional<Signature> bind(List<? extends TypeSignatureProvider> actualArgumentTypes, SemanticType actualReturnType)
     {
         Optional<BoundVariables> boundVariables = bindVariables(actualArgumentTypes, actualReturnType);
         if (!boundVariables.isPresent()) {
@@ -117,7 +117,7 @@ public class SignatureBinder
         return iterativeSolve(constraintSolvers.build());
     }
 
-    public Optional<BoundVariables> bindVariables(List<? extends TypeSignatureProvider> actualArgumentTypes, Type actualReturnType)
+    public Optional<BoundVariables> bindVariables(List<? extends TypeSignatureProvider> actualArgumentTypes, SemanticType actualReturnType)
     {
         ImmutableList.Builder<TypeConstraintSolver> constraintSolvers = ImmutableList.builder();
         if (!appendConstraintSolversForReturnValue(constraintSolvers, new TypeSignatureProvider(actualReturnType.getTypeSignature()))) {
@@ -191,18 +191,14 @@ public class SignatureBinder
         String baseType = typeSignature.getBase();
         if (boundVariables.containsTypeVariable(baseType)) {
             checkState(typeSignature.getParameters().isEmpty(), "Type parameters cannot have parameters");
-            Type type = boundVariables.getTypeVariable(baseType);
-            if (type instanceof SemanticType) {
-                return ((SemanticType) type).getType();
-            }
-            return type;
+            return boundVariables.getTypeVariable(baseType).getType();
         }
 
         List<TypeSignatureParameter> parameters = typeSignature.getParameters().stream()
                 .map(typeSignatureParameter -> applyBoundVariables(typeSignatureParameter, boundVariables))
                 .collect(toList());
 
-        return functionAndTypeManager.getParameterizedType(baseType, parameters);
+        return functionAndTypeManager.getParameterizedSemanticType(baseType, parameters).getType();
     }
 
     /**
@@ -321,7 +317,7 @@ public class SignatureBinder
             if (typeVariableConstraint == null) {
                 return true;
             }
-            Type actualType = functionAndTypeManager.getType(actualTypeSignatureProvider.getTypeSignature());
+            SemanticType actualType = functionAndTypeManager.getSemanticType(actualTypeSignatureProvider.getTypeSignature());
             resultBuilder.add(new TypeParameterSolver(
                     formalTypeSignature.getBase(),
                     actualType,
@@ -329,14 +325,14 @@ public class SignatureBinder
             return true;
         }
 
-        Type actualType = functionAndTypeManager.getType(actualTypeSignatureProvider.getTypeSignature());
+        SemanticType actualType = functionAndTypeManager.getSemanticType(actualTypeSignatureProvider.getTypeSignature());
         if (isTypeWithLiteralParameters(formalTypeSignature)) {
             resultBuilder.add(new TypeWithLiteralParametersSolver(formalTypeSignature, actualType));
             return true;
         }
 
         List<TypeSignatureProvider> actualTypeParametersTypeSignatureProvider;
-        if (UNKNOWN.equals(actualType)) {
+        if (UNKNOWN.equals(actualType.getType())) {
             actualTypeParametersTypeSignatureProvider = Collections.nCopies(formalTypeSignature.getParameters().size(), new TypeSignatureProvider(UNKNOWN.getTypeSignature()));
         }
         else {
@@ -529,10 +525,10 @@ public class SignatureBinder
         return builder.build();
     }
 
-    private boolean satisfiesCoercion(boolean allowCoercion, Type fromType, TypeSignature toTypeSignature)
+    private boolean satisfiesCoercion(boolean allowCoercion, SemanticType fromType, TypeSignature toTypeSignature)
     {
         if (allowCoercion) {
-            return functionAndTypeManager.canCoerce(fromType, functionAndTypeManager.getType(toTypeSignature));
+            return functionAndTypeManager.canCoerce(fromType, functionAndTypeManager.getSemanticType(toTypeSignature));
         }
         else if (fromType.getTypeSignature().equals(toTypeSignature)) {
             return true;
@@ -608,12 +604,12 @@ public class SignatureBinder
             implements TypeConstraintSolver
     {
         private final String typeParameter;
-        private final Type actualType;
+        private final SemanticType actualType;
         private final TypeVariableConstraint typeVariableConstraint;
 
         public TypeParameterSolver(
                 String typeParameter,
-                Type actualType,
+                SemanticType actualType,
                 TypeVariableConstraint typeVariableConstraint)
         {
             this.typeParameter = typeParameter;
@@ -631,8 +627,8 @@ public class SignatureBinder
                 bindings.setTypeVariable(typeParameter, actualType);
                 return SolverReturnStatus.CHANGED;
             }
-            Type originalType = bindings.getTypeVariable(typeParameter);
-            Optional<Type> commonSuperType = functionAndTypeManager.getCommonSuperType(originalType, actualType);
+            SemanticType originalType = bindings.getTypeVariable(typeParameter);
+            Optional<SemanticType> commonSuperType = functionAndTypeManager.getCommonSuperType(originalType, actualType);
             if (!commonSuperType.isPresent()) {
                 return SolverReturnStatus.UNSOLVABLE;
             }
@@ -652,9 +648,9 @@ public class SignatureBinder
             implements TypeConstraintSolver
     {
         private final TypeSignature formalTypeSignature;
-        private final Type actualType;
+        private final SemanticType actualType;
 
-        public TypeWithLiteralParametersSolver(TypeSignature formalTypeSignature, Type actualType)
+        public TypeWithLiteralParametersSolver(TypeSignature formalTypeSignature, SemanticType actualType)
         {
             this.formalTypeSignature = formalTypeSignature;
             this.actualType = actualType;
@@ -673,7 +669,7 @@ public class SignatureBinder
                     }
                     else {
                         // if an existing value doesn't exist for the given variable name, use the value that comes from the actual type.
-                        Optional<Type> type = functionAndTypeManager.coerceTypeBase(actualType, formalTypeSignature.getBase());
+                        Optional<SemanticType> type = functionAndTypeManager.coerceTypeBase(actualType, formalTypeSignature.getBase());
                         if (!type.isPresent()) {
                             return SolverReturnStatus.UNSOLVABLE;
                         }
@@ -686,8 +682,8 @@ public class SignatureBinder
                     originalTypeTypeParametersBuilder.add(typeSignatureParameter);
                 }
             }
-            Type originalType = functionAndTypeManager.getType(new TypeSignature(formalTypeSignature.getBase(), originalTypeTypeParametersBuilder.build()));
-            Optional<Type> commonSuperType = functionAndTypeManager.getCommonSuperType(originalType, actualType);
+            SemanticType originalType = functionAndTypeManager.getSemanticType(new TypeSignature(formalTypeSignature.getBase(), originalTypeTypeParametersBuilder.build()));
+            Optional<SemanticType> commonSuperType = functionAndTypeManager.getCommonSuperType(originalType, actualType);
             if (!commonSuperType.isPresent()) {
                 return SolverReturnStatus.UNSOLVABLE;
             }
@@ -737,14 +733,14 @@ public class SignatureBinder
         @Override
         public SolverReturnStatus update(BoundVariables.Builder bindings)
         {
-            Optional<List<Type>> lambdaArgumentTypes = synthesizeLambdaArgumentTypes(bindings, formalLambdaArgumentsTypeSignature);
+            Optional<List<SemanticType>> lambdaArgumentTypes = synthesizeLambdaArgumentTypes(bindings, formalLambdaArgumentsTypeSignature);
             if (!lambdaArgumentTypes.isPresent()) {
                 return SolverReturnStatus.UNCHANGED_NOT_SATISFIED;
             }
             TypeSignature actualLambdaTypeSignature;
             if (!typeSignatureProvider.hasDependency()) {
                 actualLambdaTypeSignature = typeSignatureProvider.getTypeSignature();
-                if (!FunctionType.NAME.equals(actualLambdaTypeSignature.getBase()) || !getLambdaArgumentTypeSignatures(actualLambdaTypeSignature).equals(toTypeSignatures(lambdaArgumentTypes.get()))) {
+                if (!FunctionType.NAME.equals(actualLambdaTypeSignature.getBase()) || !getLambdaArgumentTypeSignatures(actualLambdaTypeSignature).equals(toTypeSignaturesWithName(lambdaArgumentTypes.get()))) {
                     return SolverReturnStatus.UNSOLVABLE;
                 }
             }
@@ -753,11 +749,13 @@ public class SignatureBinder
                 if (!FunctionType.NAME.equals(actualLambdaTypeSignature.getBase())) {
                     return SolverReturnStatus.UNSOLVABLE;
                 }
-                verify(getLambdaArgumentTypeSignatures(actualLambdaTypeSignature).equals(toTypeSignatures(lambdaArgumentTypes.get())));
+                // TODO Use SemanticType once ExpressionAnalyzer can produce semantic types
+                verify(getLambdaArgumentTypeSignatures(actualLambdaTypeSignature).equals(toTypeSignatures(lambdaArgumentTypes.get().stream().map(SemanticType::getType).collect(toImmutableList()))));
             }
 
-            Type actualLambdaType = functionAndTypeManager.getType(actualLambdaTypeSignature);
-            Type actualReturnType = ((FunctionType) actualLambdaType).getReturnType();
+            SemanticType actualLambdaType = functionAndTypeManager.getSemanticType(actualLambdaTypeSignature);
+            // TODO FunctionType should use SemanticType
+            SemanticType actualReturnType = SemanticType.from(((FunctionType) actualLambdaType.getType()).getReturnType());
 
             ImmutableList.Builder<TypeConstraintSolver> constraintsBuilder = ImmutableList.builder();
             // Coercion on function type is not supported yet.
@@ -777,24 +775,31 @@ public class SignatureBinder
             return statusMerger.getCurrent();
         }
 
-        private Optional<List<Type>> synthesizeLambdaArgumentTypes(
+        private Optional<List<SemanticType>> synthesizeLambdaArgumentTypes(
                 BoundVariables.Builder bindings,
                 List<TypeSignature> formalLambdaArgumentTypeSignatures)
         {
-            ImmutableList.Builder<Type> lambdaArgumentTypesBuilder = ImmutableList.builder();
+            ImmutableList.Builder<SemanticType> lambdaArgumentTypesBuilder = ImmutableList.builder();
             for (TypeSignature lambdaArgument : formalLambdaArgumentTypeSignatures) {
                 if (typeVariableConstraints.containsKey(lambdaArgument.getBase())) {
                     if (!bindings.containsTypeVariable(lambdaArgument.getBase())) {
                         return Optional.empty();
                     }
-                    Type typeVariable = bindings.getTypeVariable(lambdaArgument.getBase());
+                    SemanticType typeVariable = bindings.getTypeVariable(lambdaArgument.getBase());
                     lambdaArgumentTypesBuilder.add(typeVariable);
                 }
                 else {
-                    lambdaArgumentTypesBuilder.add(functionAndTypeManager.getType(lambdaArgument));
+                    lambdaArgumentTypesBuilder.add(functionAndTypeManager.getSemanticType(lambdaArgument));
                 }
             }
             return Optional.of(lambdaArgumentTypesBuilder.build());
+        }
+
+        private List<TypeSignature> toTypeSignaturesWithName(List<SemanticType> types)
+        {
+            return types.stream()
+                    .map(SemanticType::getTypeSignature)
+                    .collect(toImmutableList());
         }
 
         private List<TypeSignature> toTypeSignatures(List<Type> types)
@@ -822,7 +827,7 @@ public class SignatureBinder
                 formalTypeSignature,
                 typeVariables,
                 longVariables,
-                functionAndTypeManager.getType(actualTypeSignatureProvider.getTypeSignature()),
+                functionAndTypeManager.getSemanticType(actualTypeSignatureProvider.getTypeSignature()),
                 allowCoercion));
         return true;
     }
@@ -833,10 +838,10 @@ public class SignatureBinder
         private final TypeSignature superTypeSignature;
         private final Set<String> typeVariables;
         private final Set<String> longVariables;
-        private final Type actualType;
+        private final SemanticType actualType;
         private final boolean allowCoercion;
 
-        public TypeRelationshipConstraintSolver(TypeSignature superTypeSignature, Set<String> typeVariables, Set<String> longVariables, Type actualType, boolean allowCoercion)
+        public TypeRelationshipConstraintSolver(TypeSignature superTypeSignature, Set<String> typeVariables, Set<String> longVariables, SemanticType actualType, boolean allowCoercion)
         {
             this.superTypeSignature = superTypeSignature;
             this.typeVariables = typeVariables;

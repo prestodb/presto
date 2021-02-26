@@ -15,6 +15,7 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.google.common.collect.ImmutableSet;
@@ -214,11 +215,11 @@ public class TestBuiltInTypeRegistry
     @Test
     public void testCoerceTypeBase()
     {
-        assertEquals(functionAndTypeManager.coerceTypeBase(createDecimalType(21, 1), "decimal"), Optional.of(createDecimalType(21, 1)));
-        assertEquals(functionAndTypeManager.coerceTypeBase(BIGINT, "decimal"), Optional.of(createDecimalType(19, 0)));
-        assertEquals(functionAndTypeManager.coerceTypeBase(INTEGER, "decimal"), Optional.of(createDecimalType(10, 0)));
-        assertEquals(functionAndTypeManager.coerceTypeBase(TINYINT, "decimal"), Optional.of(createDecimalType(3, 0)));
-        assertEquals(functionAndTypeManager.coerceTypeBase(SMALLINT, "decimal"), Optional.of(createDecimalType(5, 0)));
+        assertEquals(functionAndTypeManager.coerceTypeBase(SemanticType.from(createDecimalType(21, 1)), "decimal").map(SemanticType::getType), Optional.of(createDecimalType(21, 1)));
+        assertEquals(functionAndTypeManager.coerceTypeBase(SemanticType.from(BIGINT), "decimal").map(SemanticType::getType), Optional.of(createDecimalType(19, 0)));
+        assertEquals(functionAndTypeManager.coerceTypeBase(SemanticType.from(INTEGER), "decimal").map(SemanticType::getType), Optional.of(createDecimalType(10, 0)));
+        assertEquals(functionAndTypeManager.coerceTypeBase(SemanticType.from(TINYINT), "decimal").map(SemanticType::getType), Optional.of(createDecimalType(3, 0)));
+        assertEquals(functionAndTypeManager.coerceTypeBase(SemanticType.from(SMALLINT), "decimal").map(SemanticType::getType), Optional.of(createDecimalType(5, 0)));
     }
 
     @Test

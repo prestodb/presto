@@ -18,6 +18,7 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.BlockBuilderStatus;
 import com.facebook.presto.common.block.UncheckedBlock;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import io.airlift.slice.Slice;
 
 import java.util.ArrayList;
@@ -41,6 +42,11 @@ public class FunctionType
         this.signature = new TypeSignature(NAME, typeParameters(argumentTypes, returnType));
         this.returnType = requireNonNull(returnType, "returnType is null");
         this.argumentTypes = unmodifiableList(new ArrayList<>(requireNonNull(argumentTypes, "argumentTypes is null")));
+    }
+
+    public FunctionType(List<SemanticType> argumentTypes, SemanticType returnType)
+    {
+        this(argumentTypes.stream().map(SemanticType::getType).collect(toList()), returnType.getType());
     }
 
     private static List<TypeSignatureParameter> typeParameters(List<Type> argumentTypes, Type returnType)

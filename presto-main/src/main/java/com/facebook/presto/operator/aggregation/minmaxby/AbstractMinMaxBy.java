@@ -96,8 +96,8 @@ public abstract class AbstractMinMaxBy
     @Override
     public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
-        Type keyType = boundVariables.getTypeVariable("K");
-        Type valueType = boundVariables.getTypeVariable("V");
+        Type keyType = boundVariables.getPhysicalType("K");
+        Type valueType = boundVariables.getPhysicalType("V");
         return generateAggregation(valueType, keyType, functionAndTypeManager);
     }
 
