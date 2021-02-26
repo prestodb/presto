@@ -42,7 +42,6 @@ import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
@@ -122,23 +121,22 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static com.facebook.presto.common.function.OperatorType.SUBSCRIPT;
-import static com.facebook.presto.common.type.BigintType.BIGINT;
-import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.common.type.DateType.DATE;
-import static com.facebook.presto.common.type.DoubleType.DOUBLE;
-import static com.facebook.presto.common.type.IntegerType.INTEGER;
-import static com.facebook.presto.common.type.JsonType.JSON;
-import static com.facebook.presto.common.type.RealType.REAL;
-import static com.facebook.presto.common.type.SmallintType.SMALLINT;
-import static com.facebook.presto.common.type.TimeType.TIME;
-import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
-import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.common.type.BigintType.BIGINT_TYPE;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN_TYPE;
+import static com.facebook.presto.common.type.DateType.DATE_TYPE;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE_TYPE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER_TYPE;
+import static com.facebook.presto.common.type.JsonType.JSON_TYPE;
+import static com.facebook.presto.common.type.TimeType.TIME_TYPE;
+import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE_TYPE;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_TYPE;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE_TYPE;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
-import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.TypeUtils.isCharacterType;
+import static com.facebook.presto.common.type.TypeUtils.isNonDecimalNumericType;
+import static com.facebook.presto.common.type.UnknownType.UNKNOWN_TYPE;
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY_TYPE;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR_TYPE;
 import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
@@ -158,8 +156,8 @@ import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.tree.Extract.Field.TIMEZONE_HOUR;
 import static com.facebook.presto.sql.tree.Extract.Field.TIMEZONE_MINUTE;
 import static com.facebook.presto.type.ArrayParametricType.ARRAY;
-import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
-import static com.facebook.presto.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
+import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME_TYPE;
+import static com.facebook.presto.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH_TYPE;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampLiteral;
 import static com.facebook.presto.util.DateTimeUtils.timeHasTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.timestampHasTimeZone;
@@ -182,17 +180,17 @@ public class ExpressionAnalyzer
 
     private final FunctionAndTypeManager functionAndTypeManager;
     private final Function<Node, StatementAnalyzer> statementAnalyzerFactory;
-    private final TypeProvider symbolTypes;
+    private final SemanticTypeProvider symbolTypes;
     private final boolean isDescribe;
 
     private final Map<NodeRef<FunctionCall>, FunctionHandle> resolvedFunctions = new LinkedHashMap<>();
     private final Set<NodeRef<SubqueryExpression>> scalarSubqueries = new LinkedHashSet<>();
     private final Set<NodeRef<ExistsPredicate>> existsSubqueries = new LinkedHashSet<>();
-    private final Map<NodeRef<Expression>, Type> expressionCoercions = new LinkedHashMap<>();
+    private final Map<NodeRef<Expression>, SemanticType> expressionCoercions = new LinkedHashMap<>();
     private final Set<NodeRef<Expression>> typeOnlyCoercions = new LinkedHashSet<>();
     private final Set<NodeRef<InPredicate>> subqueryInPredicates = new LinkedHashSet<>();
     private final Map<NodeRef<Expression>, FieldId> columnReferences = new LinkedHashMap<>();
-    private final Map<NodeRef<Expression>, Type> expressionTypes = new LinkedHashMap<>();
+    private final Map<NodeRef<Expression>, SemanticType> expressionTypes = new LinkedHashMap<>();
     private final Set<NodeRef<QuantifiedComparisonExpression>> quantifiedComparisons = new LinkedHashSet<>();
     // For lambda argument references, maps each QualifiedNameReference to the referenced LambdaArgumentDeclaration
     private final Map<NodeRef<Identifier>, LambdaArgumentDeclaration> lambdaArgumentReferences = new LinkedHashMap<>();
@@ -211,7 +209,7 @@ public class ExpressionAnalyzer
             Optional<Map<SqlFunctionId, SqlInvokedFunction>> sessionFunctions,
             Optional<TransactionId> transactionId,
             SqlFunctionProperties sqlFunctionProperties,
-            TypeProvider symbolTypes,
+            SemanticTypeProvider symbolTypes,
             List<Expression> parameters,
             WarningCollector warningCollector,
             boolean isDescribe)
@@ -232,12 +230,12 @@ public class ExpressionAnalyzer
         return unmodifiableMap(resolvedFunctions);
     }
 
-    public Map<NodeRef<Expression>, Type> getExpressionTypes()
+    public Map<NodeRef<Expression>, SemanticType> getExpressionTypes()
     {
         return unmodifiableMap(expressionTypes);
     }
 
-    public Type setExpressionType(Expression expression, Type type)
+    public SemanticType setExpressionType(Expression expression, SemanticType type)
     {
         requireNonNull(expression, "expression cannot be null");
         requireNonNull(type, "type cannot be null");
@@ -247,16 +245,16 @@ public class ExpressionAnalyzer
         return type;
     }
 
-    private Type getExpressionType(Expression expression)
+    private SemanticType getExpressionType(Expression expression)
     {
         requireNonNull(expression, "expression cannot be null");
 
-        Type type = expressionTypes.get(NodeRef.of(expression));
+        SemanticType type = expressionTypes.get(NodeRef.of(expression));
         checkState(type != null, "Expression not yet analyzed: %s", expression);
         return type;
     }
 
-    public Map<NodeRef<Expression>, Type> getExpressionCoercions()
+    public Map<NodeRef<Expression>, SemanticType> getExpressionCoercions()
     {
         return unmodifiableMap(expressionCoercions);
     }
@@ -281,13 +279,13 @@ public class ExpressionAnalyzer
         return unmodifiableMap(lambdaArgumentReferences);
     }
 
-    public Type analyze(Expression expression, Scope scope)
+    public SemanticType analyze(Expression expression, Scope scope)
     {
         Visitor visitor = new Visitor(scope, warningCollector);
         return visitor.process(expression, new StackableAstVisitor.StackableAstVisitorContext<>(Context.notInLambda(scope)));
     }
 
-    private Type analyze(Expression expression, Scope baseScope, Context context)
+    private SemanticType analyze(Expression expression, Scope baseScope, Context context)
     {
         Visitor visitor = new Visitor(baseScope, warningCollector);
         return visitor.process(expression, new StackableAstVisitor.StackableAstVisitorContext<>(context));
@@ -319,7 +317,7 @@ public class ExpressionAnalyzer
     }
 
     private class Visitor
-            extends StackableAstVisitor<Type, Context>
+            extends StackableAstVisitor<SemanticType, Context>
     {
         // Used to resolve FieldReferences (e.g. during local execution planning)
         private final Scope baseScope;
@@ -332,11 +330,11 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        public Type process(Node node, @Nullable StackableAstVisitorContext<Context> context)
+        public SemanticType process(Node node, @Nullable StackableAstVisitorContext<Context> context)
         {
             if (node instanceof Expression) {
                 // don't double process a node
-                Type type = expressionTypes.get(NodeRef.of(((Expression) node)));
+                SemanticType type = expressionTypes.get(NodeRef.of(((Expression) node)));
                 if (type != null) {
                     return type;
                 }
@@ -345,39 +343,39 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitRow(Row node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitRow(Row node, StackableAstVisitorContext<Context> context)
         {
             List<Type> types = node.getItems().stream()
-                    .map((child) -> process(child, context))
+                    .map((child) -> process(child, context).getType())
                     .collect(toImmutableList());
 
-            Type type = RowType.anonymous(types);
+            SemanticType type = SemanticType.from(RowType.anonymous(types));
             return setExpressionType(node, type);
         }
 
         @Override
-        protected Type visitCurrentTime(CurrentTime node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitCurrentTime(CurrentTime node, StackableAstVisitorContext<Context> context)
         {
             if (node.getPrecision() != null) {
                 throw new SemanticException(NOT_SUPPORTED, node, "non-default precision not yet supported");
             }
 
-            Type type;
+            SemanticType type;
             switch (node.getFunction()) {
                 case DATE:
-                    type = DATE;
+                    type = DATE_TYPE;
                     break;
                 case TIME:
-                    type = TIME_WITH_TIME_ZONE;
+                    type = TIME_WITH_TIME_ZONE_TYPE;
                     break;
                 case LOCALTIME:
-                    type = TIME;
+                    type = TIME_TYPE;
                     break;
                 case TIMESTAMP:
-                    type = TIMESTAMP_WITH_TIME_ZONE;
+                    type = TIMESTAMP_WITH_TIME_ZONE_TYPE;
                     break;
                 case LOCALTIMESTAMP:
-                    type = TIMESTAMP;
+                    type = TIMESTAMP_TYPE;
                     break;
                 default:
                     throw new SemanticException(NOT_SUPPORTED, node, "%s not yet supported", node.getFunction().getName());
@@ -387,7 +385,7 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitSymbolReference(SymbolReference node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitSymbolReference(SymbolReference node, StackableAstVisitorContext<Context> context)
         {
             if (context.getContext().isInLambda()) {
                 Optional<ResolvedField> resolvedField = context.getContext().getScope().tryResolveField(node, QualifiedName.of(node.getName()));
@@ -395,23 +393,23 @@ public class ExpressionAnalyzer
                     return setExpressionType(node, resolvedField.get().getType());
                 }
             }
-            Type type = symbolTypes.get(node);
+            SemanticType type = symbolTypes.get(node);
             return setExpressionType(node, type);
         }
 
         @Override
-        protected Type visitIdentifier(Identifier node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitIdentifier(Identifier node, StackableAstVisitorContext<Context> context)
         {
             ResolvedField resolvedField = context.getContext().getScope().resolveField(node, QualifiedName.of(node.getValue()));
             return handleResolvedField(node, resolvedField, context);
         }
 
-        private Type handleResolvedField(Expression node, ResolvedField resolvedField, StackableAstVisitorContext<Context> context)
+        private SemanticType handleResolvedField(Expression node, ResolvedField resolvedField, StackableAstVisitorContext<Context> context)
         {
             return handleResolvedField(node, FieldId.from(resolvedField), resolvedField.getField(), context);
         }
 
-        private Type handleResolvedField(Expression node, FieldId fieldId, Field field, StackableAstVisitorContext<Context> context)
+        private SemanticType handleResolvedField(Expression node, FieldId fieldId, Field field, StackableAstVisitorContext<Context> context)
         {
             if (context.getContext().isInLambda()) {
                 LambdaArgumentDeclaration lambdaArgumentDeclaration = context.getContext().getFieldToLambdaArgumentDeclaration().get(fieldId);
@@ -432,7 +430,7 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitDereferenceExpression(DereferenceExpression node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitDereferenceExpression(DereferenceExpression node, StackableAstVisitorContext<Context> context)
         {
             QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(node);
 
@@ -455,15 +453,12 @@ public class ExpressionAnalyzer
                 }
             }
 
-            Type baseType = process(node.getBase(), context);
-            if (((baseType instanceof SemanticType) && ((SemanticType) baseType).getType() instanceof RowType)) {
-                baseType = ((SemanticType) baseType).getType();
-            }
-            if (!(baseType instanceof RowType)) {
+            SemanticType baseType = process(node.getBase(), context);
+            if (!(baseType.getType() instanceof RowType)) {
                 throw new SemanticException(TYPE_MISMATCH, node.getBase(), "Expression %s is not of type ROW", node.getBase());
             }
 
-            RowType rowType = (RowType) baseType;
+            RowType rowType = (RowType) baseType.getType();
             String fieldName = node.getField().getValue();
 
             Type rowFieldType = null;
@@ -485,54 +480,55 @@ public class ExpressionAnalyzer
                 throw missingAttributeException(node);
             }
 
-            return setExpressionType(node, rowFieldType);
+            // TODO Field of RowType should use SemanticType
+            return setExpressionType(node, SemanticType.from(rowFieldType));
         }
 
         @Override
-        protected Type visitNotExpression(NotExpression node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitNotExpression(NotExpression node, StackableAstVisitorContext<Context> context)
         {
-            coerceType(context, node.getValue(), BOOLEAN, "Value of logical NOT expression");
+            coerceType(context, node.getValue(), BOOLEAN_TYPE, "Value of logical NOT expression");
 
-            return setExpressionType(node, BOOLEAN);
+            return setExpressionType(node, BOOLEAN_TYPE);
         }
 
         @Override
-        protected Type visitLogicalBinaryExpression(LogicalBinaryExpression node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitLogicalBinaryExpression(LogicalBinaryExpression node, StackableAstVisitorContext<Context> context)
         {
-            coerceType(context, node.getLeft(), BOOLEAN, "Left side of logical expression");
-            coerceType(context, node.getRight(), BOOLEAN, "Right side of logical expression");
+            coerceType(context, node.getLeft(), BOOLEAN_TYPE, "Left side of logical expression");
+            coerceType(context, node.getRight(), BOOLEAN_TYPE, "Right side of logical expression");
 
-            return setExpressionType(node, BOOLEAN);
+            return setExpressionType(node, BOOLEAN_TYPE);
         }
 
         @Override
-        protected Type visitComparisonExpression(ComparisonExpression node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitComparisonExpression(ComparisonExpression node, StackableAstVisitorContext<Context> context)
         {
             OperatorType operatorType = OperatorType.valueOf(node.getOperator().name());
             return getOperator(context, node, operatorType, node.getLeft(), node.getRight());
         }
 
         @Override
-        protected Type visitIsNullPredicate(IsNullPredicate node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitIsNullPredicate(IsNullPredicate node, StackableAstVisitorContext<Context> context)
         {
             process(node.getValue(), context);
 
-            return setExpressionType(node, BOOLEAN);
+            return setExpressionType(node, BOOLEAN_TYPE);
         }
 
         @Override
-        protected Type visitIsNotNullPredicate(IsNotNullPredicate node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitIsNotNullPredicate(IsNotNullPredicate node, StackableAstVisitorContext<Context> context)
         {
             process(node.getValue(), context);
 
-            return setExpressionType(node, BOOLEAN);
+            return setExpressionType(node, BOOLEAN_TYPE);
         }
 
         @Override
-        protected Type visitNullIfExpression(NullIfExpression node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitNullIfExpression(NullIfExpression node, StackableAstVisitorContext<Context> context)
         {
-            Type firstType = process(node.getFirst(), context);
-            Type secondType = process(node.getSecond(), context);
+            SemanticType firstType = process(node.getFirst(), context);
+            SemanticType secondType = process(node.getSecond(), context);
 
             if (!functionAndTypeManager.getCommonSuperType(firstType, secondType).isPresent()) {
                 throw new SemanticException(TYPE_MISMATCH, node, "Types are not comparable with NULLIF: %s vs %s", firstType, secondType);
@@ -542,11 +538,11 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitIfExpression(IfExpression node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitIfExpression(IfExpression node, StackableAstVisitorContext<Context> context)
         {
-            coerceType(context, node.getCondition(), BOOLEAN, "IF condition");
+            coerceType(context, node.getCondition(), BOOLEAN_TYPE, "IF condition");
 
-            Type type;
+            SemanticType type;
             if (node.getFalseValue().isPresent()) {
                 type = coerceToSingleType(context, node, "Result types for IF must be the same: %s vs %s", node.getTrueValue(), node.getFalseValue().get());
             }
@@ -558,19 +554,19 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitSearchedCaseExpression(SearchedCaseExpression node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitSearchedCaseExpression(SearchedCaseExpression node, StackableAstVisitorContext<Context> context)
         {
             for (WhenClause whenClause : node.getWhenClauses()) {
-                coerceType(context, whenClause.getOperand(), BOOLEAN, "CASE WHEN clause");
+                coerceType(context, whenClause.getOperand(), BOOLEAN_TYPE, "CASE WHEN clause");
             }
 
-            Type type = coerceToSingleType(context,
+            SemanticType type = coerceToSingleType(context,
                     "All CASE results must be the same type: %s",
                     getCaseResultExpressions(node.getWhenClauses(), node.getDefaultValue()));
             setExpressionType(node, type);
 
             for (WhenClause whenClause : node.getWhenClauses()) {
-                Type whenClauseType = process(whenClause.getResult(), context);
+                SemanticType whenClauseType = process(whenClause.getResult(), context);
                 setExpressionType(whenClause, whenClauseType);
             }
 
@@ -578,19 +574,19 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitSimpleCaseExpression(SimpleCaseExpression node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitSimpleCaseExpression(SimpleCaseExpression node, StackableAstVisitorContext<Context> context)
         {
             for (WhenClause whenClause : node.getWhenClauses()) {
                 coerceToSingleType(context, whenClause, "CASE operand type does not match WHEN clause operand type: %s vs %s", node.getOperand(), whenClause.getOperand());
             }
 
-            Type type = coerceToSingleType(context,
+            SemanticType type = coerceToSingleType(context,
                     "All CASE results must be the same type: %s",
                     getCaseResultExpressions(node.getWhenClauses(), node.getDefaultValue()));
             setExpressionType(node, type);
 
             for (WhenClause whenClause : node.getWhenClauses()) {
-                Type whenClauseType = process(whenClause.getResult(), context);
+                SemanticType whenClauseType = process(whenClause.getResult(), context);
                 setExpressionType(whenClause, whenClauseType);
             }
 
@@ -608,21 +604,21 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitCoalesceExpression(CoalesceExpression node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitCoalesceExpression(CoalesceExpression node, StackableAstVisitorContext<Context> context)
         {
-            Type type = coerceToSingleType(context, "All COALESCE operands must be the same type: %s", node.getOperands());
+            SemanticType type = coerceToSingleType(context, "All COALESCE operands must be the same type: %s", node.getOperands());
 
             return setExpressionType(node, type);
         }
 
         @Override
-        protected Type visitArithmeticUnary(ArithmeticUnaryExpression node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitArithmeticUnary(ArithmeticUnaryExpression node, StackableAstVisitorContext<Context> context)
         {
             switch (node.getSign()) {
                 case PLUS:
-                    Type type = process(node.getValue(), context);
+                    SemanticType type = process(node.getValue(), context);
 
-                    if (!type.equals(DOUBLE) && !type.equals(REAL) && !type.equals(BIGINT) && !type.equals(INTEGER) && !type.equals(SMALLINT) && !type.equals(TINYINT)) {
+                    if (!isNonDecimalNumericType(type.getType())) {
                         // TODO: figure out a type-agnostic way of dealing with this. Maybe add a special unary operator
                         // that types can chose to implement, or piggyback on the existence of the negation operator
                         throw new SemanticException(TYPE_MISMATCH, node, "Unary '+' operator cannot by applied to %s type", type);
@@ -636,53 +632,53 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitArithmeticBinary(ArithmeticBinaryExpression node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitArithmeticBinary(ArithmeticBinaryExpression node, StackableAstVisitorContext<Context> context)
         {
             return getOperator(context, node, OperatorType.valueOf(node.getOperator().name()), node.getLeft(), node.getRight());
         }
 
         @Override
-        protected Type visitLikePredicate(LikePredicate node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitLikePredicate(LikePredicate node, StackableAstVisitorContext<Context> context)
         {
-            Type valueType = process(node.getValue(), context);
-            if (!(valueType instanceof CharType) && !(valueType instanceof VarcharType)) {
-                coerceType(context, node.getValue(), VARCHAR, "Left side of LIKE expression");
+            SemanticType valueType = process(node.getValue(), context);
+            if (!isCharacterType(valueType.getType())) {
+                coerceType(context, node.getValue(), VARCHAR_TYPE, "Left side of LIKE expression");
             }
 
-            Type patternType = getVarcharType(node.getPattern(), context);
+            SemanticType patternType = getVarcharType(node.getPattern(), context);
             coerceType(context, node.getPattern(), patternType, "Pattern for LIKE expression");
             if (node.getEscape().isPresent()) {
                 Expression escape = node.getEscape().get();
-                Type escapeType = getVarcharType(escape, context);
+                SemanticType escapeType = getVarcharType(escape, context);
                 coerceType(context, escape, escapeType, "Escape for LIKE expression");
             }
 
-            return setExpressionType(node, BOOLEAN);
+            return setExpressionType(node, BOOLEAN_TYPE);
         }
 
-        private Type getVarcharType(Expression value, StackableAstVisitorContext<Context> context)
+        private SemanticType getVarcharType(Expression value, StackableAstVisitorContext<Context> context)
         {
-            Type type = process(value, context);
-            if (!(type instanceof VarcharType)) {
-                return VARCHAR;
+            SemanticType type = process(value, context);
+            if (!(type.getType() instanceof VarcharType)) {
+                return VARCHAR_TYPE;
             }
             return type;
         }
 
         @Override
-        protected Type visitSubscriptExpression(SubscriptExpression node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitSubscriptExpression(SubscriptExpression node, StackableAstVisitorContext<Context> context)
         {
-            Type baseType = process(node.getBase(), context);
+            SemanticType baseType = process(node.getBase(), context);
             // Subscript on Row hasn't got a dedicated operator. Its Type is resolved by hand.
-            if (baseType instanceof RowType) {
+            if (baseType.getType() instanceof RowType) {
                 if (!(node.getIndex() instanceof LongLiteral)) {
                     throw new SemanticException(
                             INVALID_PARAMETER_USAGE,
                             node.getIndex(),
                             "Subscript expression on ROW requires a constant index");
                 }
-                Type indexType = process(node.getIndex(), context);
-                if (!indexType.equals(INTEGER)) {
+                SemanticType indexType = process(node.getIndex(), context);
+                if (!indexType.equals(INTEGER_TYPE)) {
                     throw new SemanticException(
                             TYPE_MISMATCH,
                             node.getIndex(),
@@ -695,89 +691,89 @@ public class ExpressionAnalyzer
                             node.getIndex(),
                             "Invalid subscript index: %s. ROW indices start at 1", indexValue);
                 }
-                List<Type> rowTypes = baseType.getTypeParameters();
+                List<Type> rowTypes = baseType.getType().getTypeParameters();
                 if (indexValue > rowTypes.size()) {
                     throw new SemanticException(
                             INVALID_PARAMETER_USAGE,
                             node.getIndex(),
                             "Subscript index out of bounds: %s, max value is %s", indexValue, rowTypes.size());
                 }
-                return setExpressionType(node, rowTypes.get(indexValue - 1));
+                return setExpressionType(node, SemanticType.from(rowTypes.get(indexValue - 1)));
             }
             return getOperator(context, node, SUBSCRIPT, node.getBase(), node.getIndex());
         }
 
         @Override
-        protected Type visitArrayConstructor(ArrayConstructor node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitArrayConstructor(ArrayConstructor node, StackableAstVisitorContext<Context> context)
         {
-            Type type = coerceToSingleType(context, "All ARRAY elements must be the same type: %s", node.getValues());
-            Type arrayType = functionAndTypeManager.getParameterizedType(ARRAY.getName(), ImmutableList.of(TypeSignatureParameter.of(type.getTypeSignature())));
+            SemanticType type = coerceToSingleType(context, "All ARRAY elements must be the same type: %s", node.getValues());
+            SemanticType arrayType = functionAndTypeManager.getParameterizedSemanticType(ARRAY.getName(), ImmutableList.of(TypeSignatureParameter.of(type.getTypeSignature())));
             return setExpressionType(node, arrayType);
         }
 
         @Override
-        protected Type visitStringLiteral(StringLiteral node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitStringLiteral(StringLiteral node, StackableAstVisitorContext<Context> context)
         {
-            VarcharType type = VarcharType.createVarcharType(SliceUtf8.countCodePoints(node.getSlice()));
+            SemanticType type = SemanticType.from(VarcharType.createVarcharType(SliceUtf8.countCodePoints(node.getSlice())));
             return setExpressionType(node, type);
         }
 
         @Override
-        protected Type visitCharLiteral(CharLiteral node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitCharLiteral(CharLiteral node, StackableAstVisitorContext<Context> context)
         {
-            CharType type = CharType.createCharType(node.getValue().length());
+            SemanticType type = SemanticType.from(CharType.createCharType(node.getValue().length()));
             return setExpressionType(node, type);
         }
 
         @Override
-        protected Type visitBinaryLiteral(BinaryLiteral node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitBinaryLiteral(BinaryLiteral node, StackableAstVisitorContext<Context> context)
         {
-            return setExpressionType(node, VARBINARY);
+            return setExpressionType(node, VARBINARY_TYPE);
         }
 
         @Override
-        protected Type visitLongLiteral(LongLiteral node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitLongLiteral(LongLiteral node, StackableAstVisitorContext<Context> context)
         {
             if (node.getValue() >= Integer.MIN_VALUE && node.getValue() <= Integer.MAX_VALUE) {
-                return setExpressionType(node, INTEGER);
+                return setExpressionType(node, INTEGER_TYPE);
             }
 
-            return setExpressionType(node, BIGINT);
+            return setExpressionType(node, BIGINT_TYPE);
         }
 
         @Override
-        protected Type visitDoubleLiteral(DoubleLiteral node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitDoubleLiteral(DoubleLiteral node, StackableAstVisitorContext<Context> context)
         {
-            return setExpressionType(node, DOUBLE);
+            return setExpressionType(node, DOUBLE_TYPE);
         }
 
         @Override
-        protected Type visitDecimalLiteral(DecimalLiteral node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitDecimalLiteral(DecimalLiteral node, StackableAstVisitorContext<Context> context)
         {
             DecimalParseResult parseResult = Decimals.parse(node.getValue());
-            return setExpressionType(node, parseResult.getType());
+            return setExpressionType(node, SemanticType.from(parseResult.getType()));
         }
 
         @Override
-        protected Type visitBooleanLiteral(BooleanLiteral node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitBooleanLiteral(BooleanLiteral node, StackableAstVisitorContext<Context> context)
         {
-            return setExpressionType(node, BOOLEAN);
+            return setExpressionType(node, BOOLEAN_TYPE);
         }
 
         @Override
-        protected Type visitGenericLiteral(GenericLiteral node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitGenericLiteral(GenericLiteral node, StackableAstVisitorContext<Context> context)
         {
-            Type type;
+            SemanticType type;
             try {
-                type = functionAndTypeManager.getType(parseTypeSignature(node.getType()));
+                type = functionAndTypeManager.getSemanticType(parseTypeSignature(node.getType()));
             }
             catch (IllegalArgumentException e) {
                 throw new SemanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
             }
 
-            if (!JSON.equals(type)) {
+            if (!type.equals(JSON_TYPE)) {
                 try {
-                    functionAndTypeManager.lookupCast(CAST, VARCHAR.getTypeSignature(), type.getTypeSignature());
+                    functionAndTypeManager.lookupCast(CAST, VARCHAR_TYPE.getTypeSignature(), type.getTypeSignature());
                 }
                 catch (IllegalArgumentException e) {
                     throw new SemanticException(TYPE_MISMATCH, node, "No literal form for type %s", type);
@@ -788,11 +784,11 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitEnumLiteral(EnumLiteral node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitEnumLiteral(EnumLiteral node, StackableAstVisitorContext<Context> context)
         {
-            Type type;
+            SemanticType type;
             try {
-                type = functionAndTypeManager.getType(parseTypeSignature(node.getType()));
+                type = functionAndTypeManager.getSemanticType(parseTypeSignature(node.getType()));
             }
             catch (IllegalArgumentException e) {
                 throw new SemanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
@@ -802,7 +798,7 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitTimeLiteral(TimeLiteral node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitTimeLiteral(TimeLiteral node, StackableAstVisitorContext<Context> context)
         {
             boolean hasTimeZone;
             try {
@@ -811,12 +807,12 @@ public class ExpressionAnalyzer
             catch (IllegalArgumentException e) {
                 throw new SemanticException(INVALID_LITERAL, node, "'%s' is not a valid time literal", node.getValue());
             }
-            Type type = hasTimeZone ? TIME_WITH_TIME_ZONE : TIME;
+            SemanticType type = hasTimeZone ? TIME_WITH_TIME_ZONE_TYPE : TIME_TYPE;
             return setExpressionType(node, type);
         }
 
         @Override
-        protected Type visitTimestampLiteral(TimestampLiteral node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitTimestampLiteral(TimestampLiteral node, StackableAstVisitorContext<Context> context)
         {
             try {
                 if (sqlFunctionProperties.isLegacyTimestamp()) {
@@ -830,42 +826,42 @@ public class ExpressionAnalyzer
                 throw new SemanticException(INVALID_LITERAL, node, "'%s' is not a valid timestamp literal", node.getValue());
             }
 
-            Type type;
+            SemanticType type;
             if (timestampHasTimeZone(node.getValue())) {
-                type = TIMESTAMP_WITH_TIME_ZONE;
+                type = TIMESTAMP_WITH_TIME_ZONE_TYPE;
             }
             else {
-                type = TIMESTAMP;
+                type = TIMESTAMP_TYPE;
             }
             return setExpressionType(node, type);
         }
 
         @Override
-        protected Type visitIntervalLiteral(IntervalLiteral node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitIntervalLiteral(IntervalLiteral node, StackableAstVisitorContext<Context> context)
         {
-            Type type;
+            SemanticType type;
             if (node.isYearToMonth()) {
-                type = INTERVAL_YEAR_MONTH;
+                type = INTERVAL_YEAR_MONTH_TYPE;
             }
             else {
-                type = INTERVAL_DAY_TIME;
+                type = INTERVAL_DAY_TIME_TYPE;
             }
             return setExpressionType(node, type);
         }
 
         @Override
-        protected Type visitNullLiteral(NullLiteral node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitNullLiteral(NullLiteral node, StackableAstVisitorContext<Context> context)
         {
-            return setExpressionType(node, UNKNOWN);
+            return setExpressionType(node, UNKNOWN_TYPE);
         }
 
         @Override
-        protected Type visitFunctionCall(FunctionCall node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitFunctionCall(FunctionCall node, StackableAstVisitorContext<Context> context)
         {
             if (node.getWindow().isPresent()) {
                 for (Expression expression : node.getWindow().get().getPartitionBy()) {
                     process(expression, context);
-                    Type type = getExpressionType(expression);
+                    SemanticType type = getExpressionType(expression);
                     if (!type.isComparable()) {
                         throw new SemanticException(TYPE_MISMATCH, node, "%s is not comparable, and therefore cannot be used in window function PARTITION BY", type);
                     }
@@ -873,7 +869,7 @@ public class ExpressionAnalyzer
 
                 for (SortItem sortItem : getSortItemsFromOrderBy(node.getWindow().get().getOrderBy())) {
                     process(sortItem.getSortKey(), context);
-                    Type type = getExpressionType(sortItem.getSortKey());
+                    SemanticType type = getExpressionType(sortItem.getSortKey());
                     if (!type.isOrderable()) {
                         throw new SemanticException(TYPE_MISMATCH, node, "%s is not orderable, and therefore cannot be used in window function ORDER BY", type);
                     }
@@ -883,15 +879,15 @@ public class ExpressionAnalyzer
                     WindowFrame frame = node.getWindow().get().getFrame().get();
 
                     if (frame.getStart().getValue().isPresent()) {
-                        Type type = process(frame.getStart().getValue().get(), context);
-                        if (!type.equals(INTEGER) && !type.equals(BIGINT)) {
+                        SemanticType type = process(frame.getStart().getValue().get(), context);
+                        if (!type.equals(INTEGER_TYPE) && !type.equals(BIGINT_TYPE)) {
                             throw new SemanticException(TYPE_MISMATCH, node, "Window frame start value type must be INTEGER or BIGINT(actual %s)", type);
                         }
                     }
 
                     if (frame.getEnd().isPresent() && frame.getEnd().get().getValue().isPresent()) {
-                        Type type = process(frame.getEnd().get().getValue().get(), context);
-                        if (!type.equals(INTEGER) && !type.equals(BIGINT)) {
+                        SemanticType type = process(frame.getEnd().get().getValue().get(), context);
+                        if (!type.equals(INTEGER_TYPE) && !type.equals(BIGINT_TYPE)) {
                             throw new SemanticException(TYPE_MISMATCH, node, "Window frame end value type must be INTEGER or BIGINT (actual %s)", type);
                         }
                     }
@@ -925,7 +921,7 @@ public class ExpressionAnalyzer
                                         innerExpressionAnalyzer.setExpressionType(argument, getExpressionType(argument));
                                     }
                                 }
-                                Type type = innerExpressionAnalyzer.analyze(expression, baseScope, context.getContext().expectingLambda(types.stream().map(SemanticType::getType).collect(toImmutableList())));
+                                SemanticType type = innerExpressionAnalyzer.analyze(expression, baseScope, context.getContext().expectingLambda(types));
                                 if (expression instanceof LambdaExpression) {
                                     verifyNoAggregateWindowOrGroupingFunctions(innerExpressionAnalyzer.getResolvedFunctions(), functionAndTypeManager, ((LambdaExpression) expression).getBody(), "Lambda expression");
                                     verifyNoExternalFunctions(innerExpressionAnalyzer.getResolvedFunctions(), functionAndTypeManager, ((LambdaExpression) expression).getBody(), "Lambda expression");
@@ -944,7 +940,7 @@ public class ExpressionAnalyzer
 
             if (node.getOrderBy().isPresent()) {
                 for (SortItem sortItem : node.getOrderBy().get().getSortItems()) {
-                    Type sortKeyType = process(sortItem.getSortKey(), context);
+                    SemanticType sortKeyType = process(sortItem.getSortKey(), context);
                     if (!sortKeyType.isOrderable()) {
                         throw new SemanticException(TYPE_MISMATCH, node, "ORDER BY can only be applied to orderable types (actual: %s)", sortKeyType.getDisplayName());
                     }
@@ -953,56 +949,57 @@ public class ExpressionAnalyzer
 
             for (int i = 0; i < node.getArguments().size(); i++) {
                 Expression expression = node.getArguments().get(i);
-                Type expectedType = functionAndTypeManager.getType(functionMetadata.getArgumentTypes().get(i));
+                SemanticType expectedType = functionAndTypeManager.getSemanticType(functionMetadata.getArgumentTypes().get(i));
                 requireNonNull(expectedType, format("Type %s not found", functionMetadata.getArgumentTypes().get(i)));
                 if (node.isDistinct() && !expectedType.isComparable()) {
                     throw new SemanticException(TYPE_MISMATCH, node, "DISTINCT can only be applied to comparable types (actual: %s)", expectedType);
                 }
                 if (argumentTypes.get(i).hasDependency()) {
-                    FunctionType expectedFunctionType = (FunctionType) expectedType;
-                    process(expression, new StackableAstVisitorContext<>(context.getContext().expectingLambda(expectedFunctionType.getArgumentPysicalTypes())));
+                    FunctionType expectedFunctionType = (FunctionType) expectedType.getType();
+                    process(expression, new StackableAstVisitorContext<>(context.getContext().expectingLambda(expectedFunctionType.getArgumentTypes())));
                 }
                 else {
-                    Type actualType = functionAndTypeManager.getType(argumentTypes.get(i).getTypeSignature());
+                    SemanticType actualType = functionAndTypeManager.getSemanticType(argumentTypes.get(i).getTypeSignature());
                     coerceType(expression, actualType, expectedType, format("Function %s argument %d", function, i));
                 }
             }
             resolvedFunctions.put(NodeRef.of(node), function);
 
-            Type type = functionAndTypeManager.getType(functionMetadata.getReturnType());
+            SemanticType type = functionAndTypeManager.getSemanticType(functionMetadata.getReturnType());
             return setExpressionType(node, type);
         }
 
         @Override
-        protected Type visitAtTimeZone(AtTimeZone node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitAtTimeZone(AtTimeZone node, StackableAstVisitorContext<Context> context)
         {
-            Type valueType = process(node.getValue(), context);
+            SemanticType valueType = process(node.getValue(), context);
             process(node.getTimeZone(), context);
-            if (!valueType.equals(TIME_WITH_TIME_ZONE) && !valueType.equals(TIMESTAMP_WITH_TIME_ZONE) && !valueType.equals(TIME) && !valueType.equals(TIMESTAMP)) {
+
+            if (!isTimeType(valueType)) {
                 throw new SemanticException(TYPE_MISMATCH, node.getValue(), "Type of value must be a time or timestamp with or without time zone (actual %s)", valueType);
             }
-            Type resultType = valueType;
-            if (valueType.equals(TIME)) {
-                resultType = TIME_WITH_TIME_ZONE;
+            SemanticType resultType = valueType;
+            if (valueType.equals(TIME_TYPE)) {
+                resultType = TIME_WITH_TIME_ZONE_TYPE;
             }
-            else if (valueType.equals(TIMESTAMP)) {
-                resultType = TIMESTAMP_WITH_TIME_ZONE;
+            else if (valueType.equals(TIMESTAMP_TYPE)) {
+                resultType = TIMESTAMP_WITH_TIME_ZONE_TYPE;
             }
 
             return setExpressionType(node, resultType);
         }
 
         @Override
-        protected Type visitCurrentUser(CurrentUser node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitCurrentUser(CurrentUser node, StackableAstVisitorContext<Context> context)
         {
-            return setExpressionType(node, VARCHAR);
+            return setExpressionType(node, VARCHAR_TYPE);
         }
 
         @Override
-        protected Type visitParameter(Parameter node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitParameter(Parameter node, StackableAstVisitorContext<Context> context)
         {
             if (isDescribe) {
-                return setExpressionType(node, UNKNOWN);
+                return setExpressionType(node, UNKNOWN_TYPE);
             }
             if (parameters.size() == 0) {
                 throw new SemanticException(INVALID_PARAMETER_USAGE, node, "query takes no parameters");
@@ -1011,66 +1008,71 @@ public class ExpressionAnalyzer
                 throw new SemanticException(INVALID_PARAMETER_USAGE, node, "invalid parameter index %s, max value is %s", node.getPosition(), parameters.size() - 1);
             }
 
-            Type resultType = process(parameters.get(node.getPosition()), context);
+            SemanticType resultType = process(parameters.get(node.getPosition()), context);
             return setExpressionType(node, resultType);
         }
 
         @Override
-        protected Type visitExtract(Extract node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitExtract(Extract node, StackableAstVisitorContext<Context> context)
         {
-            Type type = process(node.getExpression(), context);
+            SemanticType type = process(node.getExpression(), context);
             if (!isDateTimeType(type)) {
                 throw new SemanticException(TYPE_MISMATCH, node.getExpression(), "Type of argument to extract must be DATE, TIME, TIMESTAMP, or INTERVAL (actual %s)", type);
             }
             Extract.Field field = node.getField();
-            if ((field == TIMEZONE_HOUR || field == TIMEZONE_MINUTE) && !(type.equals(TIME_WITH_TIME_ZONE) || type.equals(TIMESTAMP_WITH_TIME_ZONE))) {
+            if ((field == TIMEZONE_HOUR || field == TIMEZONE_MINUTE) && !(type.equals(TIME_WITH_TIME_ZONE_TYPE) || type.equals(TIMESTAMP_WITH_TIME_ZONE_TYPE))) {
                 throw new SemanticException(TYPE_MISMATCH, node.getExpression(), "Type of argument to extract time zone field must have a time zone (actual %s)", type);
             }
 
-            return setExpressionType(node, BIGINT);
+            return setExpressionType(node, BIGINT_TYPE);
         }
 
-        private boolean isDateTimeType(Type type)
+        private boolean isTimeType(SemanticType type)
         {
-            return type.equals(DATE) ||
-                    type.equals(TIME) ||
-                    type.equals(TIME_WITH_TIME_ZONE) ||
-                    type.equals(TIMESTAMP) ||
-                    type.equals(TIMESTAMP_WITH_TIME_ZONE) ||
-                    type.equals(INTERVAL_DAY_TIME) ||
-                    type.equals(INTERVAL_YEAR_MONTH);
+            return type.equals(TIME_TYPE) ||
+                    type.equals(TIME_WITH_TIME_ZONE_TYPE) ||
+                    type.equals(TIMESTAMP_TYPE) ||
+                    type.equals(TIMESTAMP_WITH_TIME_ZONE_TYPE);
+        }
+
+        private boolean isDateTimeType(SemanticType type)
+        {
+            return isTimeType(type) ||
+                    type.equals(DATE_TYPE) ||
+                    type.equals(INTERVAL_DAY_TIME_TYPE) ||
+                    type.equals(INTERVAL_YEAR_MONTH_TYPE);
         }
 
         @Override
-        protected Type visitBetweenPredicate(BetweenPredicate node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitBetweenPredicate(BetweenPredicate node, StackableAstVisitorContext<Context> context)
         {
             return getOperator(context, node, OperatorType.BETWEEN, node.getValue(), node.getMin(), node.getMax());
         }
 
         @Override
-        public Type visitTryExpression(TryExpression node, StackableAstVisitorContext<Context> context)
+        public SemanticType visitTryExpression(TryExpression node, StackableAstVisitorContext<Context> context)
         {
-            Type type = process(node.getInnerExpression(), context);
+            SemanticType type = process(node.getInnerExpression(), context);
             return setExpressionType(node, type);
         }
 
         @Override
-        public Type visitCast(Cast node, StackableAstVisitorContext<Context> context)
+        public SemanticType visitCast(Cast node, StackableAstVisitorContext<Context> context)
         {
-            Type type;
+            SemanticType type;
             try {
-                type = functionAndTypeManager.getType(parseTypeSignature(node.getType()));
+                type = functionAndTypeManager.getSemanticType(parseTypeSignature(node.getType()));
             }
             catch (IllegalArgumentException e) {
                 throw new SemanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
             }
 
-            if (type.equals(UNKNOWN)) {
+            if (type.equals(UNKNOWN_TYPE)) {
                 throw new SemanticException(TYPE_MISMATCH, node, "UNKNOWN is not a valid type");
             }
 
-            Type value = process(node.getExpression(), context);
-            if (!value.equals(UNKNOWN) && !node.isTypeOnly()) {
+            SemanticType value = process(node.getExpression(), context);
+            if (!value.equals(UNKNOWN_TYPE) && !node.isTypeOnly()) {
                 try {
                     functionAndTypeManager.lookupCast(CAST, value.getTypeSignature(), type.getTypeSignature());
                 }
@@ -1083,7 +1085,7 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitInPredicate(InPredicate node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitInPredicate(InPredicate node, StackableAstVisitorContext<Context> context)
         {
             Expression value = node.getValue();
             process(value, context);
@@ -1102,20 +1104,20 @@ public class ExpressionAnalyzer
                 coerceToSingleType(context, node, "value and result of subquery must be of the same type for IN expression: %s vs %s", value, valueList);
             }
 
-            return setExpressionType(node, BOOLEAN);
+            return setExpressionType(node, BOOLEAN_TYPE);
         }
 
         @Override
-        protected Type visitInListExpression(InListExpression node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitInListExpression(InListExpression node, StackableAstVisitorContext<Context> context)
         {
-            Type type = coerceToSingleType(context, "All IN list values must be the same type: %s", node.getValues());
+            SemanticType type = coerceToSingleType(context, "All IN list values must be the same type: %s", node.getValues());
 
             setExpressionType(node, type);
             return type; // TODO: this really should a be relation type
         }
 
         @Override
-        protected Type visitSubqueryExpression(SubqueryExpression node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitSubqueryExpression(SubqueryExpression node, StackableAstVisitorContext<Context> context)
         {
             if (context.getContext().isInLambda()) {
                 throw new SemanticException(NOT_SUPPORTED, node, "Lambda expression cannot contain subqueries");
@@ -1145,12 +1147,12 @@ public class ExpressionAnalyzer
                 scalarSubqueries.add(NodeRef.of(node));
             }
 
-            Type type = getOnlyElement(queryScope.getRelationType().getVisibleFields()).getType();
+            SemanticType type = getOnlyElement(queryScope.getRelationType().getVisibleFields()).getType();
             return setExpressionType(node, type);
         }
 
         @Override
-        protected Type visitExists(ExistsPredicate node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitExists(ExistsPredicate node, StackableAstVisitorContext<Context> context)
         {
             StatementAnalyzer analyzer = statementAnalyzerFactory.apply(node);
             Scope subqueryScope = Scope.builder().withParent(context.getContext().getScope()).build();
@@ -1158,11 +1160,11 @@ public class ExpressionAnalyzer
 
             existsSubqueries.add(NodeRef.of(node));
 
-            return setExpressionType(node, BOOLEAN);
+            return setExpressionType(node, BOOLEAN_TYPE);
         }
 
         @Override
-        protected Type visitQuantifiedComparisonExpression(QuantifiedComparisonExpression node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitQuantifiedComparisonExpression(QuantifiedComparisonExpression node, StackableAstVisitorContext<Context> context)
         {
             Expression value = node.getValue();
             process(value, context);
@@ -1170,7 +1172,7 @@ public class ExpressionAnalyzer
             Expression subquery = node.getSubquery();
             process(subquery, context);
 
-            Type comparisonType = coerceToSingleType(context, node, "Value expression and result of subquery must be of the same type for quantified comparison: %s vs %s", value, subquery);
+            SemanticType comparisonType = coerceToSingleType(context, node, "Value expression and result of subquery must be of the same type for quantified comparison: %s vs %s", value, subquery);
 
             switch (node.getOperator()) {
                 case LESS_THAN:
@@ -1191,24 +1193,24 @@ public class ExpressionAnalyzer
                     throw new IllegalStateException(format("Unexpected comparison type: %s", node.getOperator()));
             }
 
-            return setExpressionType(node, BOOLEAN);
+            return setExpressionType(node, BOOLEAN_TYPE);
         }
 
         @Override
-        public Type visitFieldReference(FieldReference node, StackableAstVisitorContext<Context> context)
+        public SemanticType visitFieldReference(FieldReference node, StackableAstVisitorContext<Context> context)
         {
             Field field = baseScope.getRelationType().getFieldByIndex(node.getFieldIndex());
             return handleResolvedField(node, new FieldId(baseScope.getRelationId(), node.getFieldIndex()), field, context);
         }
 
         @Override
-        protected Type visitLambdaExpression(LambdaExpression node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitLambdaExpression(LambdaExpression node, StackableAstVisitorContext<Context> context)
         {
             if (!context.getContext().isExpectingLambda()) {
                 throw new SemanticException(STANDALONE_LAMBDA, node, "Lambda expression should always be used inside a function");
             }
 
-            List<Type> types = context.getContext().getFunctionInputTypes();
+            List<SemanticType> types = context.getContext().getFunctionInputTypes();
             List<LambdaArgumentDeclaration> lambdaArguments = node.getArguments();
 
             if (types.size() != lambdaArguments.size()) {
@@ -1219,7 +1221,7 @@ public class ExpressionAnalyzer
             ImmutableList.Builder<Field> fields = ImmutableList.builder();
             for (int i = 0; i < lambdaArguments.size(); i++) {
                 LambdaArgumentDeclaration lambdaArgument = lambdaArguments.get(i);
-                Type type = types.get(i);
+                SemanticType type = types.get(i);
                 fields.add(com.facebook.presto.sql.analyzer.Field.newUnqualified(lambdaArgument.getName().getValue(), type));
                 setExpressionType(lambdaArgument, type);
             }
@@ -1238,51 +1240,52 @@ public class ExpressionAnalyzer
                 fieldToLambdaArgumentDeclaration.put(FieldId.from(resolvedField), lambdaArgument);
             }
 
-            Type returnType = process(node.getBody(), new StackableAstVisitorContext<>(Context.inLambda(lambdaScope, fieldToLambdaArgumentDeclaration.build())));
-            FunctionType functionType = new FunctionType(types.stream().map(SemanticType::from).collect(toImmutableList()), SemanticType.from(returnType));
-            return setExpressionType(node, functionType);
+            SemanticType returnType = process(node.getBody(), new StackableAstVisitorContext<>(Context.inLambda(lambdaScope, fieldToLambdaArgumentDeclaration.build())));
+            FunctionType functionType = new FunctionType(types, SemanticType.from(returnType));
+            return setExpressionType(node, SemanticType.from(functionType));
         }
 
         @Override
-        protected Type visitBindExpression(BindExpression node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitBindExpression(BindExpression node, StackableAstVisitorContext<Context> context)
         {
             verify(context.getContext().isExpectingLambda(), "bind expression found when lambda is not expected");
 
             StackableAstVisitorContext<Context> innerContext = new StackableAstVisitorContext<>(context.getContext().notExpectingLambda());
-            ImmutableList.Builder<Type> functionInputTypesBuilder = ImmutableList.builder();
+            ImmutableList.Builder<SemanticType> functionInputTypesBuilder = ImmutableList.builder();
             for (Expression value : node.getValues()) {
                 functionInputTypesBuilder.add(process(value, innerContext));
             }
             functionInputTypesBuilder.addAll(context.getContext().getFunctionInputTypes());
-            List<Type> functionInputTypes = functionInputTypesBuilder.build();
+            List<SemanticType> functionInputTypes = functionInputTypesBuilder.build();
 
-            FunctionType functionType = (FunctionType) process(node.getFunction(), new StackableAstVisitorContext<>(context.getContext().expectingLambda(functionInputTypes)));
-
+            SemanticType type = process(node.getFunction(), new StackableAstVisitorContext<>(context.getContext().expectingLambda(functionInputTypes)));
+            checkState(type.getType() instanceof FunctionType, "Expected physical type of be FunctionType, got %s", type.getType().getClass());
+            FunctionType functionType = (FunctionType) type.getType();
             List<SemanticType> argumentTypes = functionType.getArgumentTypes();
             int numCapturedValues = node.getValues().size();
             verify(argumentTypes.size() == functionInputTypes.size());
             for (int i = 0; i < numCapturedValues; i++) {
-                verify(functionInputTypes.get(i).equals(argumentTypes.get(i).getType()));
+                verify(functionInputTypes.get(i).equals(argumentTypes.get(i)));
             }
 
             FunctionType result = new FunctionType(argumentTypes.subList(numCapturedValues, argumentTypes.size()), functionType.getReturnType());
-            return setExpressionType(node, result);
+            return setExpressionType(node, SemanticType.from(result));
         }
 
         @Override
-        protected Type visitExpression(Expression node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitExpression(Expression node, StackableAstVisitorContext<Context> context)
         {
             throw new SemanticException(NOT_SUPPORTED, node, "not yet implemented: " + node.getClass().getName());
         }
 
         @Override
-        protected Type visitNode(Node node, StackableAstVisitorContext<Context> context)
+        protected SemanticType visitNode(Node node, StackableAstVisitorContext<Context> context)
         {
             throw new SemanticException(NOT_SUPPORTED, node, "not yet implemented: " + node.getClass().getName());
         }
 
         @Override
-        public Type visitGroupingOperation(GroupingOperation node, StackableAstVisitorContext<Context> context)
+        public SemanticType visitGroupingOperation(GroupingOperation node, StackableAstVisitorContext<Context> context)
         {
             if (node.getGroupingColumns().size() > MAX_NUMBER_GROUPING_ARGUMENTS_BIGINT) {
                 throw new SemanticException(INVALID_PROCEDURE_ARGUMENTS, node, String.format("GROUPING supports up to %d column arguments", MAX_NUMBER_GROUPING_ARGUMENTS_BIGINT));
@@ -1293,14 +1296,14 @@ public class ExpressionAnalyzer
             }
 
             if (node.getGroupingColumns().size() <= MAX_NUMBER_GROUPING_ARGUMENTS_INTEGER) {
-                return setExpressionType(node, INTEGER);
+                return setExpressionType(node, INTEGER_TYPE);
             }
             else {
-                return setExpressionType(node, BIGINT);
+                return setExpressionType(node, BIGINT_TYPE);
             }
         }
 
-        private Type getOperator(StackableAstVisitorContext<Context> context, Expression node, OperatorType operatorType, Expression... arguments)
+        private SemanticType getOperator(StackableAstVisitorContext<Context> context, Expression node, OperatorType operatorType, Expression... arguments)
         {
             ImmutableList.Builder<Type> argumentTypes = ImmutableList.builder();
             for (Expression expression : arguments) {
@@ -1323,15 +1326,15 @@ public class ExpressionAnalyzer
 
             for (int i = 0; i < arguments.length; i++) {
                 Expression expression = arguments[i];
-                Type type = functionAndTypeManager.getType(operatorMetadata.getArgumentTypes().get(i));
+                SemanticType type = functionAndTypeManager.getSemanticType(operatorMetadata.getArgumentTypes().get(i));
                 coerceType(context, expression, type, format("Operator %s argument %d", operatorMetadata, i));
             }
 
-            Type type = functionAndTypeManager.getType(operatorMetadata.getReturnType());
+            SemanticType type = functionAndTypeManager.getSemanticType(operatorMetadata.getReturnType());
             return setExpressionType(node, type);
         }
 
-        private void coerceType(Expression expression, Type actualType, Type expectedType, String message)
+        private void coerceType(Expression expression, SemanticType actualType, SemanticType expectedType, String message)
         {
             if (!actualType.equals(expectedType)) {
                 if (!functionAndTypeManager.canCoerce(actualType, expectedType)) {
@@ -1341,29 +1344,30 @@ public class ExpressionAnalyzer
             }
         }
 
-        private void coerceType(StackableAstVisitorContext<Context> context, Expression expression, Type expectedType, String message)
+        private void coerceType(StackableAstVisitorContext<Context> context, Expression expression, SemanticType expectedType, String message)
         {
-            Type actualType = process(expression, context);
+            SemanticType actualType = process(expression, context);
             coerceType(expression, actualType, expectedType, message);
         }
 
-        private Type coerceToSingleType(StackableAstVisitorContext<Context> context, Node node, String message, Expression first, Expression second)
+        private SemanticType coerceToSingleType(StackableAstVisitorContext<Context> context, Node node, String message, Expression first, Expression second)
         {
-            Type firstType = UNKNOWN;
+            SemanticType unknwon = UNKNOWN_TYPE;
+            SemanticType firstType = unknwon;
             if (first != null) {
                 firstType = process(first, context);
             }
-            Type secondType = UNKNOWN;
+            SemanticType secondType = unknwon;
             if (second != null) {
                 secondType = process(second, context);
             }
 
             // coerce types if possible
-            Optional<Type> superTypeOptional = functionAndTypeManager.getCommonSuperType(firstType, secondType);
+            Optional<SemanticType> superTypeOptional = functionAndTypeManager.getCommonSuperType(firstType, secondType);
             if (superTypeOptional.isPresent()
                     && functionAndTypeManager.canCoerce(firstType, superTypeOptional.get())
                     && functionAndTypeManager.canCoerce(secondType, superTypeOptional.get())) {
-                Type superType = superTypeOptional.get();
+                SemanticType superType = superTypeOptional.get();
                 if (!firstType.equals(superType)) {
                     addOrReplaceExpressionCoercion(first, firstType, superType);
                 }
@@ -1376,12 +1380,12 @@ public class ExpressionAnalyzer
             throw new SemanticException(TYPE_MISMATCH, node, message, firstType, secondType);
         }
 
-        private Type coerceToSingleType(StackableAstVisitorContext<Context> context, String message, List<Expression> expressions)
+        private SemanticType coerceToSingleType(StackableAstVisitorContext<Context> context, String message, List<Expression> expressions)
         {
             // determine super type
-            Type superType = UNKNOWN;
+            SemanticType superType = UNKNOWN_TYPE;
             for (Expression expression : expressions) {
-                Optional<Type> newSuperType = functionAndTypeManager.getCommonSuperType(superType, process(expression, context));
+                Optional<SemanticType> newSuperType = functionAndTypeManager.getCommonSuperType(superType, process(expression, context));
                 if (!newSuperType.isPresent()) {
                     throw new SemanticException(TYPE_MISMATCH, expression, message, superType.getDisplayName());
                 }
@@ -1390,7 +1394,7 @@ public class ExpressionAnalyzer
 
             // verify all expressions can be coerced to the superType
             for (Expression expression : expressions) {
-                Type type = process(expression, context);
+                SemanticType type = process(expression, context);
                 if (!type.equals(superType)) {
                     if (!functionAndTypeManager.canCoerce(type, superType)) {
                         throw new SemanticException(TYPE_MISMATCH, expression, message, superType.getDisplayName());
@@ -1402,7 +1406,7 @@ public class ExpressionAnalyzer
             return superType;
         }
 
-        private void addOrReplaceExpressionCoercion(Expression expression, Type type, Type superType)
+        private void addOrReplaceExpressionCoercion(Expression expression, SemanticType type, SemanticType superType)
         {
             if (sqlFunctionProperties.isLegacyTypeCoercionWarningEnabled()) {
                 if ((type.getTypeSignature().getBase().equals(StandardTypes.DATE) || type.getTypeSignature().getBase().equals(StandardTypes.TIMESTAMP)) && superType.getTypeSignature().getBase().equals(StandardTypes.VARCHAR)) {
@@ -1428,14 +1432,14 @@ public class ExpressionAnalyzer
 
         // The list of types when expecting a lambda (i.e. processing lambda parameters of a function); null otherwise.
         // Empty list represents expecting a lambda with no arguments.
-        private final List<Type> functionInputTypes;
+        private final List<SemanticType> functionInputTypes;
         // The mapping from names to corresponding lambda argument declarations when inside a lambda; null otherwise.
         // Empty map means that the all lambda expressions surrounding the current node has no arguments.
         private final Map<FieldId, LambdaArgumentDeclaration> fieldToLambdaArgumentDeclaration;
 
         private Context(
                 Scope scope,
-                List<Type> functionInputTypes,
+                List<SemanticType> functionInputTypes,
                 Map<FieldId, LambdaArgumentDeclaration> fieldToLambdaArgumentDeclaration)
         {
             this.scope = requireNonNull(scope, "scope is null");
@@ -1453,7 +1457,7 @@ public class ExpressionAnalyzer
             return new Context(scope, null, requireNonNull(fieldToLambdaArgumentDeclaration, "fieldToLambdaArgumentDeclaration is null"));
         }
 
-        public Context expectingLambda(List<Type> functionInputTypes)
+        public Context expectingLambda(List<SemanticType> functionInputTypes)
         {
             return new Context(scope, requireNonNull(functionInputTypes, "functionInputTypes is null"), this.fieldToLambdaArgumentDeclaration);
         }
@@ -1484,7 +1488,7 @@ public class ExpressionAnalyzer
             return fieldToLambdaArgumentDeclaration;
         }
 
-        public List<Type> getFunctionInputTypes()
+        public List<SemanticType> getFunctionInputTypes()
         {
             checkState(isExpectingLambda());
             return functionInputTypes;
@@ -1512,11 +1516,11 @@ public class ExpressionAnalyzer
         }
     }
 
-    public static Map<NodeRef<Expression>, Type> getExpressionTypes(
+    public static Map<NodeRef<Expression>, SemanticType> getExpressionTypes(
             Session session,
             Metadata metadata,
             SqlParser sqlParser,
-            TypeProvider types,
+            SemanticTypeProvider types,
             Expression expression,
             List<Expression> parameters,
             WarningCollector warningCollector)
@@ -1524,11 +1528,11 @@ public class ExpressionAnalyzer
         return getExpressionTypes(session, metadata, sqlParser, types, expression, parameters, warningCollector, false);
     }
 
-    public static Map<NodeRef<Expression>, Type> getExpressionTypes(
+    public static Map<NodeRef<Expression>, SemanticType> getExpressionTypes(
             Session session,
             Metadata metadata,
             SqlParser sqlParser,
-            TypeProvider types,
+            SemanticTypeProvider types,
             Expression expression,
             List<Expression> parameters,
             WarningCollector warningCollector,
@@ -1537,11 +1541,11 @@ public class ExpressionAnalyzer
         return getExpressionTypes(session, metadata, sqlParser, types, ImmutableList.of(expression), parameters, warningCollector, isDescribe);
     }
 
-    public static Map<NodeRef<Expression>, Type> getExpressionTypes(
+    public static Map<NodeRef<Expression>, SemanticType> getExpressionTypes(
             Session session,
             Metadata metadata,
             SqlParser sqlParser,
-            TypeProvider types,
+            SemanticTypeProvider types,
             Iterable<Expression> expressions,
             List<Expression> parameters,
             WarningCollector warningCollector,
@@ -1554,7 +1558,7 @@ public class ExpressionAnalyzer
             Session session,
             Metadata metadata,
             SqlParser sqlParser,
-            TypeProvider types,
+            SemanticTypeProvider types,
             Iterable<Expression> expressions,
             List<Expression> parameters,
             WarningCollector warningCollector,
@@ -1591,11 +1595,11 @@ public class ExpressionAnalyzer
             Expression expression,
             WarningCollector warningCollector)
     {
-        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, accessControl, TypeProvider.empty(), warningCollector);
+        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, accessControl, SemanticTypeProvider.empty(), warningCollector);
         analyzer.analyze(expression, scope);
 
-        Map<NodeRef<Expression>, Type> expressionTypes = analyzer.getExpressionTypes();
-        Map<NodeRef<Expression>, Type> expressionCoercions = analyzer.getExpressionCoercions();
+        Map<NodeRef<Expression>, SemanticType> expressionTypes = analyzer.getExpressionTypes();
+        Map<NodeRef<Expression>, SemanticType> expressionCoercions = analyzer.getExpressionCoercions();
         Set<NodeRef<Expression>> typeOnlyCoercions = analyzer.getTypeOnlyCoercions();
         Map<NodeRef<FunctionCall>, FunctionHandle> resolvedFunctions = analyzer.getResolvedFunctions();
 
@@ -1623,14 +1627,14 @@ public class ExpressionAnalyzer
             Metadata metadata,
             SqlFunctionProperties sqlFunctionProperties,
             Expression expression,
-            Map<String, Type> argumentTypes)
+            Map<String, SemanticType> argumentTypes)
     {
         ExpressionAnalyzer analyzer = ExpressionAnalyzer.createWithoutSubqueries(
                 metadata.getFunctionAndTypeManager(),
                 Optional.empty(), // SQL function expression cannot contain session functions
                 Optional.empty(),
                 sqlFunctionProperties,
-                TypeProvider.copyOf(argumentTypes),
+                SemanticTypeProvider.copyOf(argumentTypes),
                 emptyList(),
                 node -> new SemanticException(NOT_SUPPORTED, node, "SQL function does not support subquery"),
                 WarningCollector.NOOP,
@@ -1663,7 +1667,7 @@ public class ExpressionAnalyzer
             Metadata metadata,
             SqlParser sqlParser,
             AccessControl accessControl,
-            TypeProvider types,
+            SemanticTypeProvider types,
             WarningCollector warningCollector)
     {
         return new ExpressionAnalyzer(
@@ -1714,7 +1718,7 @@ public class ExpressionAnalyzer
         return createWithoutSubqueries(
                 functionAndTypeManager,
                 session,
-                TypeProvider.empty(),
+                SemanticTypeProvider.empty(),
                 parameters,
                 node -> new SemanticException(errorCode, node, message),
                 warningCollector,
@@ -1724,7 +1728,7 @@ public class ExpressionAnalyzer
     public static ExpressionAnalyzer createWithoutSubqueries(
             FunctionAndTypeManager functionAndTypeManager,
             Session session,
-            TypeProvider symbolTypes,
+            SemanticTypeProvider symbolTypes,
             List<Expression> parameters,
             Function<? super Node, ? extends RuntimeException> statementAnalyzerRejection,
             WarningCollector warningCollector,
@@ -1747,7 +1751,7 @@ public class ExpressionAnalyzer
             Optional<Map<SqlFunctionId, SqlInvokedFunction>> sessionFunctions,
             Optional<TransactionId> transactionId,
             SqlFunctionProperties sqlFunctionProperties,
-            TypeProvider symbolTypes,
+            SemanticTypeProvider symbolTypes,
             List<Expression> parameters,
             Function<? super Node, ? extends RuntimeException> statementAnalyzerRejection,
             WarningCollector warningCollector,

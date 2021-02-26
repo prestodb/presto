@@ -22,6 +22,7 @@ import com.facebook.presto.common.predicate.Utils;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.Metadata;
@@ -63,11 +64,11 @@ import com.facebook.presto.sql.analyzer.ExpressionAnalysis;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import com.facebook.presto.sql.analyzer.SemanticException;
+import com.facebook.presto.sql.analyzer.SemanticTypeProvider;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.DereferenceExpression;
@@ -195,7 +196,7 @@ public final class FunctionAssertions
             .put(new VariableReferenceExpression("bound_row", TEST_ROW_TYPE), 10)
             .build();
 
-    private static final TypeProvider SYMBOL_TYPES = TypeProvider.fromVariables(INPUT_MAPPING.keySet());
+    private static final SemanticTypeProvider SYMBOL_TYPES = SemanticTypeProvider.fromVariables(INPUT_MAPPING.keySet());
 
     private static final PageSourceProvider PAGE_SOURCE_PROVIDER = new TestPageSourceProvider();
     private static final PlanNodeId SOURCE_ID = new PlanNodeId("scan");
@@ -632,7 +633,7 @@ public final class FunctionAssertions
 
     private RowExpression toRowExpression(Session session, Expression projectionExpression)
     {
-        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(
+        Map<NodeRef<Expression>, SemanticType> expressionTypes = getExpressionTypes(
                 session,
                 metadata,
                 SQL_PARSER,
@@ -742,12 +743,12 @@ public final class FunctionAssertions
         return results;
     }
 
-    public static Expression createExpression(String expression, Metadata metadata, TypeProvider symbolTypes)
+    public static Expression createExpression(String expression, Metadata metadata, SemanticTypeProvider symbolTypes)
     {
         return createExpression(TEST_SESSION, expression, metadata, symbolTypes);
     }
 
-    public static Expression createExpression(Session session, String expression, Metadata metadata, TypeProvider symbolTypes)
+    public static Expression createExpression(Session session, String expression, Metadata metadata, SemanticTypeProvider symbolTypes)
     {
         Expression parsedExpression = SQL_PARSER.createExpression(expression, createParsingOptions(session));
 
@@ -875,7 +876,7 @@ public final class FunctionAssertions
 
     private Object interpret(Expression expression, Type expectedType, Session session)
     {
-        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, SQL_PARSER, SYMBOL_TYPES, expression, emptyList(), WarningCollector.NOOP);
+        Map<NodeRef<Expression>, SemanticType> expressionTypes = getExpressionTypes(session, metadata, SQL_PARSER, SYMBOL_TYPES, expression, emptyList(), WarningCollector.NOOP);
         ExpressionInterpreter evaluator = ExpressionInterpreter.expressionInterpreter(expression, metadata, session, expressionTypes);
 
         Object result = evaluator.evaluate(variable -> {
@@ -986,7 +987,7 @@ public final class FunctionAssertions
         }
     }
 
-    private RowExpression toRowExpression(Expression projection, Map<NodeRef<Expression>, Type> expressionTypes, Map<VariableReferenceExpression, Integer> layout)
+    private RowExpression toRowExpression(Expression projection, Map<NodeRef<Expression>, SemanticType> expressionTypes, Map<VariableReferenceExpression, Integer> layout)
     {
         return translate(projection, expressionTypes, layout, metadata.getFunctionAndTypeManager(), session);
     }

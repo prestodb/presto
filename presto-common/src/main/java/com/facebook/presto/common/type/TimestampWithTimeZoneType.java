@@ -15,6 +15,7 @@ package com.facebook.presto.common.type;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.semantic.SemanticType;
 
 import static com.facebook.presto.common.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -23,6 +24,7 @@ public final class TimestampWithTimeZoneType
         extends AbstractLongType
 {
     public static final TimestampWithTimeZoneType TIMESTAMP_WITH_TIME_ZONE = new TimestampWithTimeZoneType();
+    public static final SemanticType TIMESTAMP_WITH_TIME_ZONE_TYPE = SemanticType.from(TIMESTAMP_WITH_TIME_ZONE);
 
     private TimestampWithTimeZoneType()
     {

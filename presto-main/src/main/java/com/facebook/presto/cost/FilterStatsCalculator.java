@@ -15,7 +15,7 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.function.OperatorType;
-import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorSession;
@@ -31,12 +31,12 @@ import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
 import com.facebook.presto.sql.analyzer.Scope;
+import com.facebook.presto.sql.analyzer.SemanticTypeProvider;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.LiteralInterpreter;
 import com.facebook.presto.sql.planner.NoOpVariableResolver;
 import com.facebook.presto.sql.planner.RowExpressionInterpreter;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
@@ -123,7 +123,7 @@ public class FilterStatsCalculator
             PlanNodeStatsEstimate statsEstimate,
             Expression predicate,
             Session session,
-            TypeProvider types)
+            SemanticTypeProvider types)
     {
         Expression simplifiedExpression = simplifyExpression(session, predicate, types);
         return new FilterExpressionStatsCalculatingVisitor(statsEstimate, session, types)
@@ -147,11 +147,11 @@ public class FilterStatsCalculator
         return filterStats(statsEstimate, predicate, session.toConnectorSession());
     }
 
-    private Expression simplifyExpression(Session session, Expression predicate, TypeProvider types)
+    private Expression simplifyExpression(Session session, Expression predicate, SemanticTypeProvider types)
     {
         // TODO reuse com.facebook.presto.sql.planner.iterative.rule.SimplifyExpressions.rewrite
 
-        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, predicate, types);
+        Map<NodeRef<Expression>, SemanticType> expressionTypes = getExpressionTypes(session, predicate, types);
         ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(predicate, metadata, session, expressionTypes);
         Object value = interpreter.optimize(NoOpVariableResolver.INSTANCE);
 
@@ -174,7 +174,7 @@ public class FilterStatsCalculator
         return LiteralEncoder.toRowExpression(value, BOOLEAN);
     }
 
-    private Map<NodeRef<Expression>, Type> getExpressionTypes(Session session, Expression expression, TypeProvider types)
+    private Map<NodeRef<Expression>, SemanticType> getExpressionTypes(Session session, Expression expression, SemanticTypeProvider types)
     {
         ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
                 metadata.getFunctionAndTypeManager(),
@@ -193,9 +193,9 @@ public class FilterStatsCalculator
     {
         private final PlanNodeStatsEstimate input;
         private final Session session;
-        private final TypeProvider types;
+        private final SemanticTypeProvider types;
 
-        FilterExpressionStatsCalculatingVisitor(PlanNodeStatsEstimate input, Session session, TypeProvider types)
+        FilterExpressionStatsCalculatingVisitor(PlanNodeStatsEstimate input, Session session, SemanticTypeProvider types)
         {
             this.input = input;
             this.session = session;
@@ -452,7 +452,7 @@ public class FilterStatsCalculator
             return estimateExpressionToExpressionComparison(input, leftStats, leftVariable, rightStats, rightVariable, operator);
         }
 
-        private Type getType(Expression expression)
+        private SemanticType getType(Expression expression)
         {
             if (expression instanceof SymbolReference) {
                 return requireNonNull(types.get(expression), () -> format("No type for expression %s", expression));

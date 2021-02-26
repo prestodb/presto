@@ -18,6 +18,7 @@ import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.metadata.IndexHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
@@ -49,6 +50,7 @@ import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.ExpressionUtils;
+import com.facebook.presto.sql.analyzer.SemanticTypeProvider;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -902,11 +904,11 @@ public class PlanBuilder
     public RowExpression rowExpression(String sql)
     {
         Expression expression = expression(sql);
-        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(
+        Map<NodeRef<Expression>, SemanticType> expressionTypes = getExpressionTypes(
                 session,
                 metadata,
                 new SqlParser(),
-                getTypes(),
+                SemanticTypeProvider.fromTypeProvider(getTypes()),
                 expression,
                 ImmutableList.of(),
                 WarningCollector.NOOP);

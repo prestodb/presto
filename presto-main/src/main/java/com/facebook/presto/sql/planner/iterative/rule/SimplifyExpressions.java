@@ -14,9 +14,10 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.sql.analyzer.SemanticTypeProvider;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.LiteralEncoder;
@@ -51,9 +52,9 @@ public class SimplifyExpressions
         }
         expression = pushDownNegations(expression);
         expression = extractCommonPredicates(expression);
-        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, variableAllocator.getTypes(), expression, emptyList(), WarningCollector.NOOP);
+        Map<NodeRef<Expression>, SemanticType> expressionTypes = getExpressionTypes(session, metadata, sqlParser, SemanticTypeProvider.fromTypeProvider(variableAllocator.getTypes()), expression, emptyList(), WarningCollector.NOOP);
         ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes);
-        return literalEncoder.toExpression(interpreter.optimize(NoOpVariableResolver.INSTANCE), expressionTypes.get(NodeRef.of(expression)));
+        return literalEncoder.toExpression(interpreter.optimize(NoOpVariableResolver.INSTANCE), expressionTypes.get(NodeRef.of(expression)).getType());
     }
 
     public SimplifyExpressions(Metadata metadata, SqlParser sqlParser)

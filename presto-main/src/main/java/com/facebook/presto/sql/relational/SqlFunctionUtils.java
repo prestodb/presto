@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.common.function.SqlFunctionProperties;
-import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.expressions.RowExpressionRewriter;
 import com.facebook.presto.expressions.RowExpressionTreeRewriter;
 import com.facebook.presto.metadata.Metadata;
@@ -98,7 +98,7 @@ public final class SqlFunctionUtils
                                 sqlFunctionProperties,
                                 expression,
                                 argumentVariables.values().stream()
-                                        .collect(toImmutableMap(VariableReferenceExpression::getName, VariableReferenceExpression::getType))).getExpressionTypes(),
+                                        .collect(toImmutableMap(VariableReferenceExpression::getName, variable -> SemanticType.from(variable.getType())))).getExpressionTypes(),
                         ImmutableMap.of(),
                         metadata.getFunctionAndTypeManager(),
                         Optional.empty(),
@@ -126,7 +126,7 @@ public final class SqlFunctionUtils
                 sqlFunctionProperties,
                 expression,
                 argumentVariables.entrySet().stream()
-                        .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().getType())));
+                        .collect(toImmutableMap(Map.Entry::getKey, entry -> SemanticType.from(entry.getValue().getType()))));
         expression = coerceIfNecessary(expression, functionAnalysis);
         return rewriteLambdaExpression(expression, argumentVariables, functionAnalysis, variableAllocator);
     }
@@ -159,7 +159,7 @@ public final class SqlFunctionUtils
     private static Map<String, VariableReferenceExpression> allocateFunctionArgumentVariables(FunctionMetadata functionMetadata, Metadata metadata, PlanVariableAllocator variableAllocator)
     {
         List<String> argumentNames = functionMetadata.getArgumentNames().get();
-        List<Type> argumentTypes = functionMetadata.getArgumentTypes().stream().map(metadata::getType).collect(toImmutableList());
+        List<SemanticType> argumentTypes = functionMetadata.getArgumentTypes().stream().map(type -> metadata.getFunctionAndTypeManager().getSemanticType(type)).collect(toImmutableList());
         checkState(argumentNames.size() == argumentTypes.size(), format("Expect argumentNames (size %d) and argumentTypes (size %d) to be of the same size", argumentNames.size(), argumentTypes.size()));
         ImmutableMap.Builder<String, VariableReferenceExpression> builder = ImmutableMap.builder();
         for (int i = 0; i < argumentNames.size(); i++) {
@@ -171,7 +171,7 @@ public final class SqlFunctionUtils
     private static Expression rewriteLambdaExpression(Expression sqlFunction, Map<String, VariableReferenceExpression> arguments, ExpressionAnalysis functionAnalysis, PlanVariableAllocator variableAllocator)
     {
         Map<NodeRef<Identifier>, LambdaArgumentDeclaration> lambdaArgumentReferences = functionAnalysis.getLambdaArgumentReferences();
-        Map<NodeRef<Expression>, Type> expressionTypes = functionAnalysis.getExpressionTypes();
+        Map<NodeRef<Expression>, SemanticType> expressionTypes = functionAnalysis.getExpressionTypes();
         // Rewrite reference to LambdaArgumentDeclaration
         Map<NodeRef<LambdaArgumentDeclaration>, VariableReferenceExpression> variables = expressionTypes.entrySet().stream()
                 .filter(entry -> entry.getKey().getNode() instanceof LambdaArgumentDeclaration)
@@ -227,7 +227,7 @@ public final class SqlFunctionUtils
             {
                 Expression rewritten = treeRewriter.defaultRewrite(expression, null);
 
-                Type coercion = analysis.getCoercion(expression);
+                SemanticType coercion = analysis.getCoercion(expression);
                 if (coercion != null) {
                     return new Cast(
                             rewritten,

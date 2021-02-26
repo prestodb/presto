@@ -15,7 +15,7 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
-import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.WarningCollector;
@@ -29,6 +29,7 @@ import com.facebook.presto.spi.relation.RowExpressionVisitor;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression.Form;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.analyzer.SemanticTypeProvider;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.tree.Expression;
@@ -109,11 +110,11 @@ public class ExpressionEquivalence
         // replace qualified names with input references since row expressions do not support these
 
         // determine the type of every expression
-        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(
+        Map<NodeRef<Expression>, SemanticType> expressionTypes = getExpressionTypes(
                 session,
                 metadata,
                 sqlParser,
-                types,
+                SemanticTypeProvider.fromTypeProvider(types),
                 expression,
                 emptyList(), /* parameters have already been replaced */
                 WarningCollector.NOOP);

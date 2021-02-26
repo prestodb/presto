@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.relation;
 
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -51,13 +52,17 @@ public final class InputReferenceExpression
     @JsonProperty
     public Type getType()
     {
+        if (type instanceof SemanticType) {
+            return ((SemanticType) type).getType();
+        }
         return type;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(field, type);
+        // TODO: Changed to getType() during semantic type refactoring because. Switch back to type after done.
+        return Objects.hash(field, getType());
     }
 
     @Override
@@ -82,6 +87,7 @@ public final class InputReferenceExpression
             return false;
         }
         InputReferenceExpression other = (InputReferenceExpression) obj;
-        return Objects.equals(this.field, other.field) && Objects.equals(this.type, other.type);
+        // TODO: Changed to getType() during semantic type refactoring because. Switch back to Objects.equals(this.type, other.type) after done.
+        return Objects.equals(this.field, other.field) && Objects.equals(this.getType(), other.getType());
     }
 }

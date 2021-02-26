@@ -18,7 +18,7 @@ import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.analyzer.SemanticTypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 
 import java.util.Map;
@@ -49,7 +49,7 @@ public class ProjectStatsRule
     }
 
     @Override
-    protected Optional<PlanNodeStatsEstimate> doCalculate(ProjectNode node, StatsProvider statsProvider, Lookup lookup, Session session, TypeProvider types)
+    protected Optional<PlanNodeStatsEstimate> doCalculate(ProjectNode node, StatsProvider statsProvider, Lookup lookup, Session session, SemanticTypeProvider types)
     {
         PlanNodeStatsEstimate sourceStats = statsProvider.getStats(node.getSource());
         PlanNodeStatsEstimate.Builder calculatedStats = PlanNodeStatsEstimate.builder()

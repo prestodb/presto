@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.common.type.EnumType;
-import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.function.FunctionHandle;
@@ -146,11 +145,11 @@ public final class ExpressionTreeUtils
         return Optional.empty();
     }
 
-    public static Object resolveEnumLiteral(DereferenceExpression node, Type nodeType)
+    public static Object resolveEnumLiteral(DereferenceExpression node, SemanticType nodeType)
     {
         QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(node);
 
-        EnumType enumType = (EnumType) ((SemanticType) nodeType).getType();
+        EnumType<?> enumType = (EnumType<?>) nodeType.getType();
         String enumKey = qualifiedName.getSuffix().toUpperCase(ENGLISH);
         checkArgument(enumType.getEnumMap().containsKey(enumKey), format("No key '%s' in enum '%s'", enumKey, nodeType.getDisplayName()));
         Object enumValue = enumType.getEnumMap().get(enumKey);

@@ -21,7 +21,6 @@ import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.RowType.Field;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.UnknownType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
@@ -96,19 +95,20 @@ import static com.facebook.presto.common.function.OperatorType.BETWEEN;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.function.OperatorType.NEGATION;
 import static com.facebook.presto.common.function.OperatorType.SUBSCRIPT;
-import static com.facebook.presto.common.type.BigintType.BIGINT;
-import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.BigintType.BIGINT_TYPE;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN_TYPE;
 import static com.facebook.presto.common.type.CharType.createCharType;
-import static com.facebook.presto.common.type.DoubleType.DOUBLE;
-import static com.facebook.presto.common.type.IntegerType.INTEGER;
-import static com.facebook.presto.common.type.JsonType.JSON;
-import static com.facebook.presto.common.type.SmallintType.SMALLINT;
-import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE_TYPE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER_TYPE;
+import static com.facebook.presto.common.type.JsonType.JSON_TYPE;
+import static com.facebook.presto.common.type.SmallintType.SMALLINT_TYPE;
+import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE_TYPE;
+import static com.facebook.presto.common.type.TinyintType.TINYINT_TYPE;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.TypeUtils.isEnumType;
-import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.UnknownType.UNKNOWN_TYPE;
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY_TYPE;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR_TYPE;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.metadata.CastType.TRY_CAST;
@@ -153,7 +153,7 @@ public final class SqlToRowExpressionTranslator
 
     public static RowExpression translate(
             Expression expression,
-            Map<NodeRef<Expression>, Type> types,
+            Map<NodeRef<Expression>, SemanticType> types,
             Map<VariableReferenceExpression, Integer> layout,
             FunctionAndTypeManager functionAndTypeManager,
             Session session)
@@ -171,7 +171,7 @@ public final class SqlToRowExpressionTranslator
 
     public static RowExpression translate(
             Expression expression,
-            Map<NodeRef<Expression>, Type> types,
+            Map<NodeRef<Expression>, SemanticType> types,
             Map<VariableReferenceExpression, Integer> layout,
             FunctionAndTypeManager functionAndTypeManager,
             Optional<String> user,
@@ -195,7 +195,7 @@ public final class SqlToRowExpressionTranslator
     private static class Visitor
             extends AstVisitor<RowExpression, Void>
     {
-        private final Map<NodeRef<Expression>, Type> types;
+        private final Map<NodeRef<Expression>, SemanticType> types;
         private final Map<VariableReferenceExpression, Integer> layout;
         private final FunctionAndTypeManager functionAndTypeManager;
         private final Optional<String> user;
@@ -205,7 +205,7 @@ public final class SqlToRowExpressionTranslator
         private final FunctionResolution functionResolution;
 
         private Visitor(
-                Map<NodeRef<Expression>, Type> types,
+                Map<NodeRef<Expression>, SemanticType> types,
                 Map<VariableReferenceExpression, Integer> layout,
                 FunctionAndTypeManager functionAndTypeManager,
                 Optional<String> user,
@@ -223,7 +223,7 @@ public final class SqlToRowExpressionTranslator
             this.sessionFunctions = sessionFunctions;
         }
 
-        private Type getType(Expression node)
+        private SemanticType getType(Expression node)
         {
             return types.get(NodeRef.of(node));
         }
@@ -244,7 +244,7 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitCurrentUser(CurrentUser node, Void context)
         {
-            return user.map(user -> constant(Slices.utf8Slice(user), VARCHAR)).orElseThrow(() -> new UnsupportedOperationException("Do not have current user"));
+            return user.map(user -> constant(Slices.utf8Slice(user), VARCHAR_TYPE)).orElseThrow(() -> new UnsupportedOperationException("Do not have current user"));
         }
 
         @Override
@@ -256,61 +256,61 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitNullLiteral(NullLiteral node, Void context)
         {
-            return constantNull(UnknownType.UNKNOWN);
+            return constantNull(UNKNOWN_TYPE);
         }
 
         @Override
         protected RowExpression visitBooleanLiteral(BooleanLiteral node, Void context)
         {
-            return constant(node.getValue(), BOOLEAN);
+            return constant(node.getValue(), BOOLEAN_TYPE);
         }
 
         @Override
         protected RowExpression visitLongLiteral(LongLiteral node, Void context)
         {
             if (node.getValue() >= Integer.MIN_VALUE && node.getValue() <= Integer.MAX_VALUE) {
-                return constant(node.getValue(), INTEGER);
+                return constant(node.getValue(), INTEGER_TYPE);
             }
-            return constant(node.getValue(), BIGINT);
+            return constant(node.getValue(), BIGINT_TYPE);
         }
 
         @Override
         protected RowExpression visitDoubleLiteral(DoubleLiteral node, Void context)
         {
-            return constant(node.getValue(), DOUBLE);
+            return constant(node.getValue(), DOUBLE_TYPE);
         }
 
         @Override
         protected RowExpression visitDecimalLiteral(DecimalLiteral node, Void context)
         {
             DecimalParseResult parseResult = Decimals.parse(node.getValue());
-            return constant(parseResult.getObject(), parseResult.getType());
+            return constant(parseResult.getObject(), SemanticType.from(parseResult.getType()));
         }
 
         @Override
         protected RowExpression visitStringLiteral(StringLiteral node, Void context)
         {
-            return constant(node.getSlice(), createVarcharType(countCodePoints(node.getSlice())));
+            return constant(node.getSlice(), SemanticType.from(createVarcharType(countCodePoints(node.getSlice()))));
         }
 
         @Override
         protected RowExpression visitCharLiteral(CharLiteral node, Void context)
         {
-            return constant(node.getSlice(), createCharType(node.getValue().length()));
+            return constant(node.getSlice(), SemanticType.from(createCharType(node.getValue().length())));
         }
 
         @Override
         protected RowExpression visitBinaryLiteral(BinaryLiteral node, Void context)
         {
-            return constant(node.getValue(), VARBINARY);
+            return constant(node.getValue(), VARBINARY_TYPE);
         }
 
         @Override
         protected RowExpression visitEnumLiteral(EnumLiteral node, Void context)
         {
-            Type type;
+            SemanticType type;
             try {
-                type = functionAndTypeManager.getType(parseTypeSignature(node.getType()));
+                type = functionAndTypeManager.getSemanticType(parseTypeSignature(node.getType()));
             }
             catch (IllegalArgumentException e) {
                 throw new IllegalArgumentException("Unsupported type: " + node.getType());
@@ -322,49 +322,49 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitGenericLiteral(GenericLiteral node, Void context)
         {
-            Type type;
+            SemanticType type;
             try {
-                type = functionAndTypeManager.getType(parseTypeSignature(node.getType()));
+                type = functionAndTypeManager.getSemanticType(parseTypeSignature(node.getType()));
             }
             catch (IllegalArgumentException e) {
                 throw new IllegalArgumentException("Unsupported type: " + node.getType());
             }
 
             try {
-                if (TINYINT.equals(type)) {
-                    return constant((long) Byte.parseByte(node.getValue()), TINYINT);
+                if (TINYINT_TYPE.equals(type)) {
+                    return constant((long) Byte.parseByte(node.getValue()), TINYINT_TYPE);
                 }
-                else if (SMALLINT.equals(type)) {
-                    return constant((long) Short.parseShort(node.getValue()), SMALLINT);
+                else if (SMALLINT_TYPE.equals(type)) {
+                    return constant((long) Short.parseShort(node.getValue()), SMALLINT_TYPE);
                 }
-                else if (BIGINT.equals(type)) {
-                    return constant(Long.parseLong(node.getValue()), BIGINT);
+                else if (BIGINT_TYPE.equals(type)) {
+                    return constant(Long.parseLong(node.getValue()), BIGINT_TYPE);
                 }
             }
             catch (NumberFormatException e) {
                 throw new SemanticException(SemanticErrorCode.INVALID_LITERAL, node, format("Invalid formatted generic %s literal: %s", type, node));
             }
 
-            if (JSON.equals(type)) {
+            if (JSON_TYPE.equals(type)) {
                 return call(
                         "json_parse",
-                        functionAndTypeManager.lookupFunction("json_parse", fromTypes(VARCHAR)),
+                        functionAndTypeManager.lookupFunction("json_parse", fromTypes(VARCHAR_TYPE)),
                         getType(node),
-                        constant(utf8Slice(node.getValue()), VARCHAR));
+                        constant(utf8Slice(node.getValue()), VARCHAR_TYPE));
             }
 
             return call(
                     CAST.name(),
-                    functionAndTypeManager.lookupCast(CAST, VARCHAR.getTypeSignature(), getType(node).getTypeSignature()),
+                    functionAndTypeManager.lookupCast(CAST, VARCHAR_TYPE.getTypeSignature(), getType(node).getTypeSignature()),
                     getType(node),
-                    constant(utf8Slice(node.getValue()), VARCHAR));
+                    constant(utf8Slice(node.getValue()), VARCHAR_TYPE));
         }
 
         @Override
         protected RowExpression visitTimeLiteral(TimeLiteral node, Void context)
         {
             long value;
-            if (getType(node).equals(TIME_WITH_TIME_ZONE)) {
+            if (getType(node).equals(TIME_WITH_TIME_ZONE_TYPE)) {
                 value = parseTimeWithTimeZone(node.getValue());
             }
             else {
@@ -414,7 +414,7 @@ public final class SqlToRowExpressionTranslator
             return call(
                     node.getOperator().name(),
                     functionResolution.comparisonFunction(node.getOperator(), left.getType(), right.getType()),
-                    BOOLEAN,
+                    BOOLEAN_TYPE,
                     left,
                     right);
         }
@@ -459,7 +459,7 @@ public final class SqlToRowExpressionTranslator
         {
             RowExpression body = process(node.getBody(), context);
 
-            Type type = getType(node);
+            SemanticType type = getType(node);
             List<Type> typeParameters = type.getTypeParameters();
             List<Type> argumentTypes = typeParameters.subList(0, typeParameters.size() - 1);
             List<String> argumentNames = node.getArguments().stream()
@@ -473,11 +473,9 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitBindExpression(BindExpression node, Void context)
         {
-            ImmutableList.Builder<Type> valueTypesBuilder = ImmutableList.builder();
             ImmutableList.Builder<RowExpression> argumentsBuilder = ImmutableList.builder();
             for (Expression value : node.getValues()) {
                 RowExpression valueRowExpression = process(value, context);
-                valueTypesBuilder.add(valueRowExpression.getType());
                 argumentsBuilder.add(valueRowExpression);
             }
             RowExpression function = process(node.getFunction(), context);
@@ -533,7 +531,7 @@ public final class SqlToRowExpressionTranslator
                 default:
                     throw new IllegalStateException("Unknown logical operator: " + node.getOperator());
             }
-            return specialForm(form, BOOLEAN, process(node.getLeft(), context), process(node.getRight(), context));
+            return specialForm(form, BOOLEAN_TYPE, process(node.getLeft(), context), process(node.getRight(), context));
         }
 
         @Override
@@ -568,10 +566,10 @@ public final class SqlToRowExpressionTranslator
         protected RowExpression visitSearchedCaseExpression(SearchedCaseExpression node, Void context)
         {
             // We rewrite this as - CASE true WHEN p1 THEN v1 WHEN p2 THEN v2 .. ELSE v END
-            return buildSwitch(new ConstantExpression(true, BOOLEAN), node.getWhenClauses(), node.getDefaultValue(), getType(node), context);
+            return buildSwitch(new ConstantExpression(true, BOOLEAN_TYPE), node.getWhenClauses(), node.getDefaultValue(), getType(node), context);
         }
 
-        private RowExpression buildSwitch(RowExpression operand, List<WhenClause> whenClauses, Optional<Expression> defaultValue, Type returnType, Void context)
+        private RowExpression buildSwitch(RowExpression operand, List<WhenClause> whenClauses, Optional<Expression> defaultValue, SemanticType returnType, Void context)
         {
             ImmutableList.Builder<RowExpression> arguments = ImmutableList.builder();
 
@@ -595,17 +593,14 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitDereferenceExpression(DereferenceExpression node, Void context)
         {
-            Type returnType = getType(node);
-            Type baseType = getType(node.getBase());
+            SemanticType returnType = getType(node);
+            SemanticType baseType = getType(node.getBase());
 
             if (isEnumType(baseType) && isEnumType(returnType)) {
                 return constant(resolveEnumLiteral(node, baseType), returnType);
             }
 
-            if (baseType instanceof SemanticType) {
-                baseType = ((SemanticType) baseType).getType();
-            }
-            RowType rowType = (RowType) baseType;
+            RowType rowType = (RowType) baseType.getType();
             String fieldName = node.getField().getValue();
             List<Field> fields = rowType.getFields();
             int index = -1;
@@ -625,7 +620,7 @@ public final class SqlToRowExpressionTranslator
             }
 
             checkState(index >= 0, "could not find field name: %s", node.getField());
-            return specialForm(DEREFERENCE, returnType, process(node.getBase(), context), constant((long) index, INTEGER));
+            return specialForm(DEREFERENCE, returnType, process(node.getBase(), context), constant((long) index, INTEGER_TYPE));
         }
 
         @Override
@@ -657,7 +652,7 @@ public final class SqlToRowExpressionTranslator
             return call(
                     EQUAL.getOperator(),
                     functionResolution.comparisonFunction(ComparisonExpression.Operator.EQUAL, lhs.getType(), rhs.getType()),
-                    BOOLEAN,
+                    BOOLEAN_TYPE,
                     lhs,
                     rhs);
         }
@@ -678,7 +673,7 @@ public final class SqlToRowExpressionTranslator
                 arguments.add(process(inValue, context));
             }
 
-            return specialForm(IN, BOOLEAN, arguments.build());
+            return specialForm(IN, BOOLEAN_TYPE, arguments.build());
         }
 
         @Override
@@ -689,8 +684,8 @@ public final class SqlToRowExpressionTranslator
             return call(
                     "not",
                     functionResolution.notFunction(),
-                    BOOLEAN,
-                    specialForm(IS_NULL, BOOLEAN, ImmutableList.of(expression)));
+                    BOOLEAN_TYPE,
+                    specialForm(IS_NULL, BOOLEAN_TYPE, ImmutableList.of(expression)));
         }
 
         @Override
@@ -698,13 +693,13 @@ public final class SqlToRowExpressionTranslator
         {
             RowExpression expression = process(node.getValue(), context);
 
-            return specialForm(IS_NULL, BOOLEAN, expression);
+            return specialForm(IS_NULL, BOOLEAN_TYPE, expression);
         }
 
         @Override
         protected RowExpression visitNotExpression(NotExpression node, Void context)
         {
-            return call("not", functionResolution.notFunction(), BOOLEAN, process(node.getValue(), context));
+            return call("not", functionResolution.notFunction(), BOOLEAN_TYPE, process(node.getValue(), context));
         }
 
         @Override
@@ -726,7 +721,7 @@ public final class SqlToRowExpressionTranslator
             return call(
                     BETWEEN.name(),
                     functionAndTypeManager.resolveOperator(BETWEEN, fromTypes(value.getType(), min.getType(), max.getType())),
-                    BOOLEAN,
+                    BOOLEAN_TYPE,
                     value,
                     min,
                     max);
@@ -743,17 +738,17 @@ public final class SqlToRowExpressionTranslator
                 return likeFunctionCall(value, call("LIKE_PATTERN", functionResolution.likePatternFunction(), LIKE_PATTERN, pattern, escape));
             }
 
-            return likeFunctionCall(value, call(CAST.name(), functionAndTypeManager.lookupCast(CAST, VARCHAR.getTypeSignature(), LIKE_PATTERN.getTypeSignature()), LIKE_PATTERN, pattern));
+            return likeFunctionCall(value, call(CAST.name(), functionAndTypeManager.lookupCast(CAST, VARCHAR_TYPE.getTypeSignature(), LIKE_PATTERN.getTypeSignature()), LIKE_PATTERN, pattern));
         }
 
         private RowExpression likeFunctionCall(RowExpression value, RowExpression pattern)
         {
             if (value.getType() instanceof VarcharType) {
-                return call("LIKE", functionResolution.likeVarcharFunction(), BOOLEAN, value, pattern);
+                return call("LIKE", functionResolution.likeVarcharFunction(), BOOLEAN_TYPE, value, pattern);
             }
 
             checkState(value.getType() instanceof CharType, "LIKE value type is neither VARCHAR or CHAR");
-            return call("LIKE", functionResolution.likeCharFunction(value.getType()), BOOLEAN, value, pattern);
+            return call("LIKE", functionResolution.likeCharFunction(value.getType()), BOOLEAN_TYPE, value, pattern);
         }
 
         @Override
@@ -773,7 +768,7 @@ public final class SqlToRowExpressionTranslator
                         "Subscript index out of bounds %s: should be >= 1 and <= %s",
                         offset,
                         base.getType().getTypeParameters().size());
-                return specialForm(DEREFERENCE, getType(node), base, Expressions.constant(offset - 1, INTEGER));
+                return specialForm(DEREFERENCE, getType(node), base, Expressions.constant(offset - 1, INTEGER_TYPE));
             }
             return call(
                     SUBSCRIPT.name(),
@@ -801,7 +796,7 @@ public final class SqlToRowExpressionTranslator
             List<RowExpression> arguments = node.getItems().stream()
                     .map(value -> process(value, context))
                     .collect(toImmutableList());
-            Type returnType = getType(node);
+            SemanticType returnType = getType(node);
             return specialForm(ROW_CONSTRUCTOR, returnType, arguments);
         }
     }

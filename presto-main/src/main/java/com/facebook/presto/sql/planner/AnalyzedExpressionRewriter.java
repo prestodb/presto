@@ -14,9 +14,10 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.sql.analyzer.SemanticTypeProvider;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
@@ -35,9 +36,9 @@ public class AnalyzedExpressionRewriter
     private final Session session;
     private final Metadata metadata;
     private final SqlParser sqlParser;
-    private final TypeProvider typeProvider;
+    private final SemanticTypeProvider typeProvider;
 
-    public AnalyzedExpressionRewriter(Session session, Metadata metadata, SqlParser sqlParser, TypeProvider typeProvider)
+    public AnalyzedExpressionRewriter(Session session, Metadata metadata, SqlParser sqlParser, SemanticTypeProvider typeProvider)
     {
         this.session = session;
         this.metadata = metadata;
@@ -57,7 +58,7 @@ public class AnalyzedExpressionRewriter
             LambdaExpression lambdaExpression = (LambdaExpression) expression;
             return new LambdaExpression(lambdaExpression.getArguments(), rewriteWith(rewriterProvider, lambdaExpression.getBody(), context));
         }
-        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(
+        Map<NodeRef<Expression>, SemanticType> expressionTypes = getExpressionTypes(
                 session,
                 metadata,
                 sqlParser,
@@ -70,6 +71,6 @@ public class AnalyzedExpressionRewriter
 
     interface RewriterProvider<C>
     {
-        ExpressionRewriter<C> get(Map<NodeRef<Expression>, Type> expressionTypes);
+        ExpressionRewriter<C> get(Map<NodeRef<Expression>, SemanticType> expressionTypes);
     }
 }

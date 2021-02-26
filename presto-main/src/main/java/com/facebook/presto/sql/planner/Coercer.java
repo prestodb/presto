@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.Expression;
@@ -35,7 +35,7 @@ public class Coercer
         return ExpressionTreeRewriter.rewriteWith(new Rewriter(analysis.getCoercions(), analysis.getTypeOnlyCoercions()), expression);
     }
 
-    public static Expression addCoercions(Expression expression, Map<NodeRef<Expression>, Type> coercions, Set<NodeRef<Expression>> typeOnlyCoercions)
+    public static Expression addCoercions(Expression expression, Map<NodeRef<Expression>, SemanticType> coercions, Set<NodeRef<Expression>> typeOnlyCoercions)
     {
         return ExpressionTreeRewriter.rewriteWith(new Rewriter(coercions, typeOnlyCoercions), expression);
     }
@@ -43,10 +43,10 @@ public class Coercer
     private static class Rewriter
             extends ExpressionRewriter<Void>
     {
-        private final Map<NodeRef<Expression>, Type> coercions;
+        private final Map<NodeRef<Expression>, SemanticType> coercions;
         private final Set<NodeRef<Expression>> typeOnlyCoercions;
 
-        public Rewriter(Map<NodeRef<Expression>, Type> coercions, Set<NodeRef<Expression>> typeOnlyCoercions)
+        public Rewriter(Map<NodeRef<Expression>, SemanticType> coercions, Set<NodeRef<Expression>> typeOnlyCoercions)
         {
             this.coercions = coercions;
             this.typeOnlyCoercions = typeOnlyCoercions;
@@ -55,7 +55,7 @@ public class Coercer
         @Override
         public Expression rewriteExpression(Expression expression, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
-            Type target = coercions.get(NodeRef.of(expression));
+            SemanticType target = coercions.get(NodeRef.of(expression));
 
             Expression rewritten = treeRewriter.defaultRewrite(expression, null);
             if (target != null) {

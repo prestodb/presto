@@ -19,12 +19,14 @@ import com.facebook.presto.common.block.BlockBuilderStatus;
 import com.facebook.presto.common.block.ByteArrayBlockBuilder;
 import com.facebook.presto.common.block.PageBuilderStatus;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.semantic.SemanticType;
 
 public final class UnknownType
         extends AbstractType
         implements FixedWidthType
 {
     public static final UnknownType UNKNOWN = new UnknownType();
+    public static final SemanticType UNKNOWN_TYPE = SemanticType.from(UNKNOWN);
     public static final String NAME = "unknown";
 
     private UnknownType()

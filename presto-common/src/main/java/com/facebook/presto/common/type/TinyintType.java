@@ -21,6 +21,7 @@ import com.facebook.presto.common.block.ByteArrayBlockBuilder;
 import com.facebook.presto.common.block.PageBuilderStatus;
 import com.facebook.presto.common.block.UncheckedBlock;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.semantic.SemanticType;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static java.lang.Long.rotateLeft;
@@ -31,6 +32,7 @@ public final class TinyintType
         implements FixedWidthType
 {
     public static final TinyintType TINYINT = new TinyintType();
+    public static final SemanticType TINYINT_TYPE = SemanticType.from(TINYINT);
 
     private TinyintType()
     {

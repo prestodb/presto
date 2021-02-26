@@ -26,6 +26,7 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.Utils;
 import com.facebook.presto.common.predicate.ValueSet;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.spi.WarningCollector;
@@ -33,6 +34,7 @@ import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.InterpretedFunctionInvoker;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
+import com.facebook.presto.sql.analyzer.SemanticTypeProvider;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
@@ -255,7 +257,7 @@ public final class ExpressionDomainTranslator
             Metadata metadata,
             Session session,
             Expression predicate,
-            TypeProvider types)
+            SemanticTypeProvider types)
     {
         return new Visitor(metadata, session, types).process(predicate, false);
     }
@@ -266,10 +268,10 @@ public final class ExpressionDomainTranslator
         private final Metadata metadata;
         private final LiteralEncoder literalEncoder;
         private final Session session;
-        private final TypeProvider types;
+        private final SemanticTypeProvider types;
         private final InterpretedFunctionInvoker functionInvoker;
 
-        private Visitor(Metadata metadata, Session session, TypeProvider types)
+        private Visitor(Metadata metadata, Session session, SemanticTypeProvider types)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
@@ -280,7 +282,7 @@ public final class ExpressionDomainTranslator
 
         private Type checkedTypeLookup(Expression expression)
         {
-            Type type = types.get(expression);
+            Type type = types.get(expression).getType();
             checkArgument(type != null, "Types is missing info for expression: %s", expression);
             return type;
         }
@@ -404,7 +406,7 @@ public final class ExpressionDomainTranslator
                     return super.visitComparisonExpression(node, complement);
                 }
 
-                Type castSourceType = typeOf(castExpression.getExpression(), session, metadata, types); // type of expression which is then cast to type of value
+                Type castSourceType = typeOf(castExpression.getExpression(), session, metadata, types).getType(); // type of expression which is then cast to type of value
 
                 // we use saturated floor cast value -> castSourceType to rewrite original expression to new one with one cast peeled off the symbol side
                 Optional<Expression> coercedExpression = coerceComparisonWithRounding(
@@ -426,12 +428,12 @@ public final class ExpressionDomainTranslator
          */
         private Optional<NormalizedSimpleComparison> toNormalizedSimpleComparison(ComparisonExpression comparison)
         {
-            Map<NodeRef<Expression>, Type> expressionTypes = analyzeExpression(comparison);
+            Map<NodeRef<Expression>, SemanticType> expressionTypes = analyzeExpression(comparison);
             Object left = ExpressionInterpreter.expressionOptimizer(comparison.getLeft(), metadata, session, expressionTypes).optimize(NoOpVariableResolver.INSTANCE);
             Object right = ExpressionInterpreter.expressionOptimizer(comparison.getRight(), metadata, session, expressionTypes).optimize(NoOpVariableResolver.INSTANCE);
 
-            Type leftType = expressionTypes.get(NodeRef.of(comparison.getLeft()));
-            Type rightType = expressionTypes.get(NodeRef.of(comparison.getRight()));
+            Type leftType = expressionTypes.get(NodeRef.of(comparison.getLeft())).getType();
+            Type rightType = expressionTypes.get(NodeRef.of(comparison.getRight())).getType();
 
             // TODO: re-enable this check once we fix the type coercions in the optimizers
             // checkArgument(leftType.equals(rightType), "left and right type do not match in comparison expression (%s)", comparison);
@@ -461,13 +463,13 @@ public final class ExpressionDomainTranslator
 
         private boolean isImplicitCoercion(Cast cast)
         {
-            Map<NodeRef<Expression>, Type> expressionTypes = analyzeExpression(cast);
-            Type actualType = expressionTypes.get(NodeRef.of(cast.getExpression()));
-            Type expectedType = expressionTypes.get(NodeRef.<Expression>of(cast));
+            Map<NodeRef<Expression>, SemanticType> expressionTypes = analyzeExpression(cast);
+            SemanticType actualType = expressionTypes.get(NodeRef.of(cast.getExpression()));
+            SemanticType expectedType = expressionTypes.get(NodeRef.<Expression>of(cast));
             return metadata.getFunctionAndTypeManager().canCoerce(actualType, expectedType);
         }
 
-        private Map<NodeRef<Expression>, Type> analyzeExpression(Expression expression)
+        private Map<NodeRef<Expression>, SemanticType> analyzeExpression(Expression expression)
         {
             return ExpressionAnalyzer.getExpressionTypes(session, metadata, new SqlParser(), types, expression, emptyList(), WarningCollector.NOOP);
         }
@@ -733,9 +735,9 @@ public final class ExpressionDomainTranslator
         }
     }
 
-    private static Type typeOf(Expression expression, Session session, Metadata metadata, TypeProvider types)
+    private static SemanticType typeOf(Expression expression, Session session, Metadata metadata, SemanticTypeProvider types)
     {
-        Map<NodeRef<Expression>, Type> expressionTypes = ExpressionAnalyzer.getExpressionTypes(session, metadata, new SqlParser(), types, expression, emptyList(), WarningCollector.NOOP);
+        Map<NodeRef<Expression>, SemanticType> expressionTypes = ExpressionAnalyzer.getExpressionTypes(session, metadata, new SqlParser(), types, expression, emptyList(), WarningCollector.NOOP);
         return expressionTypes.get(NodeRef.of(expression));
     }
 

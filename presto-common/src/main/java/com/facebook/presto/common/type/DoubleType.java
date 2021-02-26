@@ -20,6 +20,7 @@ import com.facebook.presto.common.block.LongArrayBlockBuilder;
 import com.facebook.presto.common.block.PageBuilderStatus;
 import com.facebook.presto.common.block.UncheckedBlock;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.semantic.SemanticType;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static java.lang.Double.doubleToLongBits;
@@ -30,6 +31,7 @@ public final class DoubleType
         implements FixedWidthType
 {
     public static final DoubleType DOUBLE = new DoubleType();
+    public static final SemanticType DOUBLE_TYPE = SemanticType.from(DOUBLE);
 
     private DoubleType()
     {

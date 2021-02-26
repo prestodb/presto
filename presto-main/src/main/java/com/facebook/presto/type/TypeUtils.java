@@ -23,6 +23,7 @@ import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.operator.HashGenerator;
 import com.facebook.presto.operator.InterpretedHashGenerator;
@@ -34,6 +35,9 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.CharType.createCharType;
+import static com.facebook.presto.common.type.DecimalType.createDecimalType;
+import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
@@ -45,6 +49,21 @@ public final class TypeUtils
 
     private TypeUtils()
     {
+    }
+
+    public static SemanticType createDecimalSemanticType(int precision, int scale)
+    {
+        return SemanticType.from(createDecimalType(precision, scale));
+    }
+
+    public static SemanticType createVarcharSemanticType(int length)
+    {
+        return SemanticType.from(createVarcharType(length));
+    }
+
+    public static SemanticType createCharSemanticType(long length)
+    {
+        return SemanticType.from(createCharType(length));
     }
 
     public static int expectedValueSize(Type type, int defaultSize)

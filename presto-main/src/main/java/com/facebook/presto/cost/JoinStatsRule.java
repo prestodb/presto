@@ -18,7 +18,7 @@ import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.analyzer.SemanticTypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
@@ -80,7 +80,7 @@ public class JoinStatsRule
     }
 
     @Override
-    protected Optional<PlanNodeStatsEstimate> doCalculate(JoinNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types)
+    protected Optional<PlanNodeStatsEstimate> doCalculate(JoinNode node, StatsProvider sourceStats, Lookup lookup, Session session, SemanticTypeProvider types)
     {
         PlanNodeStatsEstimate leftStats = sourceStats.getStats(node.getLeft());
         PlanNodeStatsEstimate rightStats = sourceStats.getStats(node.getRight());
@@ -106,7 +106,7 @@ public class JoinStatsRule
             PlanNodeStatsEstimate rightStats,
             PlanNodeStatsEstimate crossJoinStats,
             Session session,
-            TypeProvider types)
+            SemanticTypeProvider types)
     {
         PlanNodeStatsEstimate rightJoinComplementStats = calculateJoinComplementStats(node.getFilter(), flippedCriteria(node), rightStats, leftStats);
         return addJoinComplementStats(
@@ -121,7 +121,7 @@ public class JoinStatsRule
             PlanNodeStatsEstimate rightStats,
             PlanNodeStatsEstimate crossJoinStats,
             Session session,
-            TypeProvider types)
+            SemanticTypeProvider types)
     {
         PlanNodeStatsEstimate innerJoinStats = computeInnerJoinStats(node, crossJoinStats, session, types);
         PlanNodeStatsEstimate leftJoinComplementStats = calculateJoinComplementStats(node.getFilter(), node.getCriteria(), leftStats, rightStats);
@@ -137,7 +137,7 @@ public class JoinStatsRule
             PlanNodeStatsEstimate rightStats,
             PlanNodeStatsEstimate crossJoinStats,
             Session session,
-            TypeProvider types)
+            SemanticTypeProvider types)
     {
         PlanNodeStatsEstimate innerJoinStats = computeInnerJoinStats(node, crossJoinStats, session, types);
         PlanNodeStatsEstimate rightJoinComplementStats = calculateJoinComplementStats(node.getFilter(), flippedCriteria(node), rightStats, leftStats);
@@ -147,7 +147,7 @@ public class JoinStatsRule
                 rightJoinComplementStats);
     }
 
-    private PlanNodeStatsEstimate computeInnerJoinStats(JoinNode node, PlanNodeStatsEstimate crossJoinStats, Session session, TypeProvider types)
+    private PlanNodeStatsEstimate computeInnerJoinStats(JoinNode node, PlanNodeStatsEstimate crossJoinStats, Session session, SemanticTypeProvider types)
     {
         List<EquiJoinClause> equiJoinCriteria = node.getCriteria();
 
@@ -193,7 +193,7 @@ public class JoinStatsRule
             PlanNodeStatsEstimate stats,
             Collection<EquiJoinClause> clauses,
             Session session,
-            TypeProvider types)
+            SemanticTypeProvider types)
     {
         checkArgument(!clauses.isEmpty(), "clauses is empty");
         PlanNodeStatsEstimate result = PlanNodeStatsEstimate.unknown();
@@ -220,7 +220,7 @@ public class JoinStatsRule
             EquiJoinClause drivingClause,
             Collection<EquiJoinClause> remainingClauses,
             Session session,
-            TypeProvider types)
+            SemanticTypeProvider types)
     {
         ComparisonExpression drivingPredicate = new ComparisonExpression(EQUAL, new SymbolReference(drivingClause.getLeft().getName()), new SymbolReference(drivingClause.getRight().getName()));
         PlanNodeStatsEstimate filteredStats = filterStatsCalculator.filterStats(stats, drivingPredicate, session, types);

@@ -17,12 +17,14 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.AbstractIntType;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.operator.scalar.ColorFunctions;
 
 public class ColorType
         extends AbstractIntType
 {
     public static final ColorType COLOR = new ColorType();
+    public static final SemanticType COLOR_TYPE = SemanticType.from(COLOR);
     public static final String NAME = "color";
 
     private ColorType()

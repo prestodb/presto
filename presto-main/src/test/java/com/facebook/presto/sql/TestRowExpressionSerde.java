@@ -29,6 +29,7 @@ import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.Metadata;
@@ -40,8 +41,8 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.Scope;
+import com.facebook.presto.sql.analyzer.SemanticTypeProvider;
 import com.facebook.presto.sql.parser.ParsingOptions;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.relational.RowExpressionOptimizer;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.Expression;
@@ -276,12 +277,12 @@ public class TestRowExpressionSerde
         return rowExpression;
     }
 
-    private Map<NodeRef<Expression>, Type> getExpressionTypes(Expression expression)
+    private Map<NodeRef<Expression>, SemanticType> getExpressionTypes(Expression expression)
     {
         ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
                 metadata.getFunctionAndTypeManager(),
                 TEST_SESSION,
-                TypeProvider.empty(),
+                SemanticTypeProvider.empty(),
                 emptyList(),
                 node -> new IllegalStateException("Unexpected node: %s" + node),
                 WarningCollector.NOOP,

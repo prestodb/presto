@@ -65,6 +65,11 @@ public final class TypeUtils
         return type.equals(DOUBLE) || type.equals(REAL);
     }
 
+    public static boolean isCharacterType(Type type)
+    {
+        return type instanceof VarcharType || type instanceof CharType;
+    }
+
     public static boolean isEnumType(Type type)
     {
         return type instanceof EnumType || type instanceof SemanticType && ((SemanticType) type).getType() instanceof EnumType;

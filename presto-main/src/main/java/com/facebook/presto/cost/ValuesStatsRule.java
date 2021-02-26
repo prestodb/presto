@@ -15,6 +15,7 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.cost.ComposableStatsCalculator.Rule;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
@@ -69,7 +70,7 @@ public class ValuesStatsRule
         for (int variableId = 0; variableId < node.getOutputVariables().size(); ++variableId) {
             VariableReferenceExpression variable = node.getOutputVariables().get(variableId);
             List<Object> symbolValues = getVariableValues(node, variableId, session, variable.getType());
-            statsBuilder.addVariableStatistics(variable, buildVariableStatistics(symbolValues, session, variable.getType()));
+            statsBuilder.addVariableStatistics(variable, buildVariableStatistics(symbolValues, session, SemanticType.from(variable.getType())));
         }
 
         return Optional.of(statsBuilder.build());
@@ -87,14 +88,14 @@ public class ValuesStatsRule
                 .map(row -> row.get(symbolId))
                 .map(rowExpression -> {
                     if (isExpression(rowExpression)) {
-                        return evaluateConstantExpression(castToExpression(rowExpression), type, metadata, session, ImmutableList.of());
+                        return evaluateConstantExpression(castToExpression(rowExpression), SemanticType.from(type), metadata, session, ImmutableList.of());
                     }
                     return evaluateConstantRowExpression(rowExpression, metadata, session.toConnectorSession());
                 })
                 .collect(toList());
     }
 
-    private VariableStatsEstimate buildVariableStatistics(List<Object> values, Session session, Type type)
+    private VariableStatsEstimate buildVariableStatistics(List<Object> values, Session session, SemanticType type)
     {
         List<Object> nonNullValues = values.stream()
                 .filter(Objects::nonNull)

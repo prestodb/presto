@@ -19,8 +19,10 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.ValueSet;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.SemanticTypeProvider;
 import com.facebook.presto.sql.planner.ExpressionDomainTranslator.ExtractionResult;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.Cast;
@@ -58,20 +60,31 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.common.predicate.TupleDomain.withColumnDomains;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BigintType.BIGINT_TYPE;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN_TYPE;
 import static com.facebook.presto.common.type.CharType.createCharType;
 import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.DateType.DATE_TYPE;
 import static com.facebook.presto.common.type.DecimalType.createDecimalType;
 import static com.facebook.presto.common.type.Decimals.encodeScaledValue;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE_TYPE;
 import static com.facebook.presto.common.type.HyperLogLogType.HYPER_LOG_LOG;
+import static com.facebook.presto.common.type.HyperLogLogType.HYPER_LOG_LOG_TYPE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.IntegerType.INTEGER_TYPE;
 import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.common.type.RealType.REAL_TYPE;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.SmallintType.SMALLINT_TYPE;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_TYPE;
+import static com.facebook.presto.common.type.TinyintType.TINYINT_TYPE;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY_TYPE;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR_TYPE;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.or;
@@ -87,6 +100,7 @@ import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_TH
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.NOT_EQUAL;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.facebook.presto.type.ColorType.COLOR;
+import static com.facebook.presto.type.ColorType.COLOR_TYPE;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
@@ -122,31 +136,31 @@ public class TestExpressionDomainTranslator
     private static final String C_TINYINT = "c_tinyint";
     private static final String C_REAL = "c_real";
 
-    private static final TypeProvider TYPES = TypeProvider.viewOf(ImmutableMap.<String, Type>builder()
-            .put(C_BIGINT, BIGINT)
-            .put(C_DOUBLE, DOUBLE)
-            .put(C_VARCHAR, VARCHAR)
-            .put(C_BOOLEAN, BOOLEAN)
-            .put(C_BIGINT_1, BIGINT)
-            .put(C_DOUBLE_1, DOUBLE)
-            .put(C_VARCHAR_1, VARCHAR)
-            .put(C_TIMESTAMP, TIMESTAMP)
-            .put(C_DATE, DATE)
-            .put(C_COLOR, COLOR) // Equatable, but not orderable
-            .put(C_HYPER_LOG_LOG, HYPER_LOG_LOG) // Not Equatable or orderable
-            .put(C_VARBINARY, VARBINARY)
-            .put(C_DECIMAL_26_5, createDecimalType(26, 5))
-            .put(C_DECIMAL_23_4, createDecimalType(23, 4))
-            .put(C_INTEGER, INTEGER)
-            .put(C_CHAR, createCharType(10))
-            .put(C_DECIMAL_21_3, createDecimalType(21, 3))
-            .put(C_DECIMAL_12_2, createDecimalType(12, 2))
-            .put(C_DECIMAL_6_1, createDecimalType(6, 1))
-            .put(C_DECIMAL_3_0, createDecimalType(3, 0))
-            .put(C_DECIMAL_2_0, createDecimalType(2, 0))
-            .put(C_SMALLINT, SMALLINT)
-            .put(C_TINYINT, TINYINT)
-            .put(C_REAL, REAL)
+    private static final SemanticTypeProvider TYPES = SemanticTypeProvider.viewOf(ImmutableMap.<String, SemanticType>builder()
+            .put(C_BIGINT, BIGINT_TYPE)
+            .put(C_DOUBLE, DOUBLE_TYPE)
+            .put(C_VARCHAR, VARCHAR_TYPE)
+            .put(C_BOOLEAN, BOOLEAN_TYPE)
+            .put(C_BIGINT_1, BIGINT_TYPE)
+            .put(C_DOUBLE_1, DOUBLE_TYPE)
+            .put(C_VARCHAR_1, VARCHAR_TYPE)
+            .put(C_TIMESTAMP, TIMESTAMP_TYPE)
+            .put(C_DATE, DATE_TYPE)
+            .put(C_COLOR, COLOR_TYPE) // Equatable, but not orderable
+            .put(C_HYPER_LOG_LOG, HYPER_LOG_LOG_TYPE) // Not Equatable or orderable
+            .put(C_VARBINARY, VARBINARY_TYPE)
+            .put(C_DECIMAL_26_5, SemanticType.from(createDecimalType(26, 5)))
+            .put(C_DECIMAL_23_4, SemanticType.from(createDecimalType(23, 4)))
+            .put(C_INTEGER, INTEGER_TYPE)
+            .put(C_CHAR, SemanticType.from(createCharType(10)))
+            .put(C_DECIMAL_21_3, SemanticType.from(createDecimalType(21, 3)))
+            .put(C_DECIMAL_12_2, SemanticType.from(createDecimalType(12, 2)))
+            .put(C_DECIMAL_6_1, SemanticType.from(createDecimalType(6, 1)))
+            .put(C_DECIMAL_3_0, SemanticType.from(createDecimalType(3, 0)))
+            .put(C_DECIMAL_2_0, SemanticType.from(createDecimalType(2, 0)))
+            .put(C_SMALLINT, SMALLINT_TYPE)
+            .put(C_TINYINT, TINYINT_TYPE)
+            .put(C_REAL, REAL_TYPE)
             .build());
 
     private static final long TIMESTAMP_VALUE = new DateTime(2013, 3, 30, 1, 5, 0, 0, DateTimeZone.UTC).getMillis();
@@ -1505,7 +1519,7 @@ public class TestExpressionDomainTranslator
         private NumericValues(String column, T min, T integerNegative, T fractionalNegative, T integerPositive, T fractionalPositive, T max)
         {
             this.column = requireNonNull(column, "column is null");
-            this.type = requireNonNull(TYPES.get(new SymbolReference(column)), "type for column not found: " + column);
+            this.type = requireNonNull(TYPES.get(new SymbolReference(column)), "type for column not found: " + column).getType();
             this.min = requireNonNull(min, "min is null");
             this.integerNegative = requireNonNull(integerNegative, "integerNegative is null");
             this.fractionalNegative = requireNonNull(fractionalNegative, "fractionalNegative is null");

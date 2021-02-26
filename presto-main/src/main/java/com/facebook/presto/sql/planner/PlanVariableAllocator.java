@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -83,6 +84,9 @@ public class PlanVariableAllocator
     {
         requireNonNull(nameHint, "name is null");
         requireNonNull(type, "type is null");
+        if (type instanceof SemanticType) {
+            type = ((SemanticType) type).getType();
+        }
 
         // TODO: workaround for the fact that QualifiedName lowercases parts
         nameHint = nameHint.toLowerCase(ENGLISH);

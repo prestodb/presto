@@ -16,6 +16,7 @@ package com.facebook.presto.common.type;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import io.airlift.slice.Slice;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -24,6 +25,7 @@ public final class VarbinaryType
         extends AbstractVariableWidthType
 {
     public static final VarbinaryType VARBINARY = new VarbinaryType();
+    public static final SemanticType VARBINARY_TYPE = SemanticType.from(VARBINARY);
 
     private VarbinaryType()
     {

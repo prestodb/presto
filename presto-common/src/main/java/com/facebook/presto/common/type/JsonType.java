@@ -16,6 +16,7 @@ package com.facebook.presto.common.type;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
@@ -26,6 +27,7 @@ public class JsonType
         extends AbstractVariableWidthType
 {
     public static final JsonType JSON = new JsonType();
+    public static final SemanticType JSON_TYPE = SemanticType.from(JSON);
 
     public JsonType()
     {

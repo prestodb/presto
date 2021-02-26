@@ -20,6 +20,7 @@ import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.DictionaryBlock;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.DriverYieldSignal;
@@ -30,8 +31,8 @@ import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.analyzer.SemanticTypeProvider;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.relational.RowExpressionOptimizer;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.Expression;
@@ -89,7 +90,7 @@ public class CommonSubExpressionBenchmark
     private PageProcessor pageProcessor;
     private CursorProcessor cursorProcessor;
     private Page inputPage;
-    private Map<String, Type> symbolTypes;
+    private Map<String, SemanticType> symbolTypes;
     private Map<VariableReferenceExpression, Integer> sourceLayout;
     private List<Type> projectionTypes;
 
@@ -108,7 +109,7 @@ public class CommonSubExpressionBenchmark
         Type type = TYPE_MAP.get(this.functionType);
 
         VariableReferenceExpression variable = new VariableReferenceExpression(type.getDisplayName().toLowerCase(ENGLISH) + "0", type);
-        symbolTypes = ImmutableMap.of(variable.getName(), type);
+        symbolTypes = ImmutableMap.of(variable.getName(), SemanticType.from(type));
         sourceLayout = ImmutableMap.of(variable, 0);
         inputPage = createPage(functionType, dictionaryBlocks);
 
@@ -181,9 +182,9 @@ public class CommonSubExpressionBenchmark
 
     private RowExpression rowExpression(String value)
     {
-        Expression expression = createExpression(value, METADATA, TypeProvider.copyOf(symbolTypes));
+        Expression expression = createExpression(value, METADATA, SemanticTypeProvider.copyOf(symbolTypes));
 
-        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(TEST_SESSION, METADATA, SQL_PARSER, TypeProvider.copyOf(symbolTypes), expression, emptyList(), WarningCollector.NOOP);
+        Map<NodeRef<Expression>, SemanticType> expressionTypes = getExpressionTypes(TEST_SESSION, METADATA, SQL_PARSER, SemanticTypeProvider.copyOf(symbolTypes), expression, emptyList(), WarningCollector.NOOP);
         RowExpression rowExpression = SqlToRowExpressionTranslator.translate(expression, expressionTypes, sourceLayout, METADATA.getFunctionAndTypeManager(), TEST_SESSION);
         RowExpressionOptimizer optimizer = new RowExpressionOptimizer(METADATA);
         return optimizer.optimize(rowExpression, OPTIMIZED, TEST_SESSION.toConnectorSession());

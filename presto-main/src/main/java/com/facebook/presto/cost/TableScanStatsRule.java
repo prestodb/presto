@@ -22,7 +22,7 @@ import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
-import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.analyzer.SemanticTypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.google.common.collect.ImmutableList;
 
@@ -53,7 +53,7 @@ public class TableScanStatsRule
     }
 
     @Override
-    protected Optional<PlanNodeStatsEstimate> doCalculate(TableScanNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types)
+    protected Optional<PlanNodeStatsEstimate> doCalculate(TableScanNode node, StatsProvider sourceStats, Lookup lookup, Session session, SemanticTypeProvider types)
     {
         // TODO Construct predicate like AddExchanges's LayoutConstraintEvaluator
         Constraint<ColumnHandle> constraint = new Constraint<>(node.getCurrentConstraint());

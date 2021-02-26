@@ -16,7 +16,9 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.sql.analyzer.SemanticTypeProvider;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.DereferenceExpression;
@@ -51,28 +53,21 @@ import static java.util.Objects.requireNonNull;
  */
 public class DesugarRowSubscriptRewriter
 {
-    private DesugarRowSubscriptRewriter()
-    {
-    }
-
-    public static Expression rewrite(Expression expression, Map<NodeRef<Expression>, Type> expressionTypes)
-    {
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(expressionTypes), expression, null);
-    }
+    private DesugarRowSubscriptRewriter() {}
 
     public static Expression rewrite(Expression expression, Session session, Metadata metadata, SqlParser sqlParser, PlanVariableAllocator variableAllocator)
     {
         requireNonNull(metadata, "metadata is null");
         requireNonNull(sqlParser, "sqlParser is null");
-        return new AnalyzedExpressionRewriter(session, metadata, sqlParser, variableAllocator.getTypes()).rewriteWith(Visitor::new, expression);
+        return new AnalyzedExpressionRewriter(session, metadata, sqlParser, SemanticTypeProvider.fromTypeProvider(variableAllocator.getTypes())).rewriteWith(Visitor::new, expression);
     }
 
     private static class Visitor
             extends ExpressionRewriter<Void>
     {
-        private final Map<NodeRef<Expression>, Type> expressionTypes;
+        private final Map<NodeRef<Expression>, SemanticType> expressionTypes;
 
-        public Visitor(Map<NodeRef<Expression>, Type> expressionTypes)
+        public Visitor(Map<NodeRef<Expression>, SemanticType> expressionTypes)
         {
             this.expressionTypes = ImmutableMap.copyOf(requireNonNull(expressionTypes, "expressionTypes is null"));
         }
@@ -85,7 +80,7 @@ public class DesugarRowSubscriptRewriter
 
             Expression result = node;
 
-            Type type = getType(base);
+            Type type = getType(base).getType();
             if (type instanceof RowType) {
                 RowType rowType = (RowType) type;
                 int position = toIntExact(((LongLiteral) index).getValue() - 1);
@@ -111,7 +106,7 @@ public class DesugarRowSubscriptRewriter
             return treeRewriter.defaultRewrite(result, context);
         }
 
-        private Type getType(Expression expression)
+        private SemanticType getType(Expression expression)
         {
             return expressionTypes.get(NodeRef.of(expression));
         }

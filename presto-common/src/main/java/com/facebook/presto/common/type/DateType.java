@@ -15,6 +15,7 @@ package com.facebook.presto.common.type;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.semantic.SemanticType;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 
@@ -30,6 +31,7 @@ public final class DateType
         extends AbstractIntType
 {
     public static final DateType DATE = new DateType();
+    public static final SemanticType DATE_TYPE = SemanticType.from(DATE);
 
     private DateType()
     {

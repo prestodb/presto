@@ -33,7 +33,7 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
-import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.analyzer.SemanticTypeProvider;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
@@ -43,9 +43,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.common.type.BigintType.BIGINT;
-import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.BigintType.BIGINT_TYPE;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN_TYPE;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE_TYPE;
 import static com.facebook.presto.expressions.translator.FunctionTranslator.buildFunctionTranslator;
 import static com.facebook.presto.expressions.translator.RowExpressionTreeTranslator.translateWith;
 import static com.facebook.presto.expressions.translator.TranslatedExpression.untranslated;
@@ -74,7 +74,7 @@ public class TestRowExpressionTranslator
     public void testEndToEndFunctionTranslation()
     {
         String untranslated = "LN(bitwise_and(1, col1))";
-        TypeProvider typeProvider = TypeProvider.copyOf(ImmutableMap.of("col1", BIGINT));
+        SemanticTypeProvider typeProvider = SemanticTypeProvider.viewOf(ImmutableMap.of("col1", BIGINT_TYPE));
         CallExpression callExpression = (CallExpression) sqlToRowExpressionTranslator.translate(expression(untranslated), typeProvider);
 
         TranslatedExpression translatedExpression = translateWith(
@@ -89,7 +89,7 @@ public class TestRowExpressionTranslator
     public void testEndToEndSpecialFormTranslation()
     {
         String untranslated = "col1 AND col2";
-        TypeProvider typeProvider = TypeProvider.copyOf(ImmutableMap.of("col1", BOOLEAN, "col2", BOOLEAN));
+        SemanticTypeProvider typeProvider = SemanticTypeProvider.viewOf(ImmutableMap.of("col1", BOOLEAN_TYPE, "col2", BOOLEAN_TYPE));
 
         RowExpression specialForm = sqlToRowExpressionTranslator.translate(expression(untranslated), typeProvider);
 
@@ -105,7 +105,7 @@ public class TestRowExpressionTranslator
     public void testMissingFunctionTranslator()
     {
         String untranslated = "ABS(col1)";
-        TypeProvider typeProvider = TypeProvider.copyOf(ImmutableMap.of("col1", DOUBLE));
+        SemanticTypeProvider typeProvider = SemanticTypeProvider.viewOf(ImmutableMap.of("col1", DOUBLE_TYPE));
 
         RowExpression specialForm = sqlToRowExpressionTranslator.translate(expression(untranslated), typeProvider);
 
@@ -120,7 +120,7 @@ public class TestRowExpressionTranslator
     public void testIncorrectFunctionSignatureInDefinition()
     {
         String untranslated = "CEIL(col1)";
-        TypeProvider typeProvider = TypeProvider.copyOf(ImmutableMap.of("col1", DOUBLE));
+        SemanticTypeProvider typeProvider = SemanticTypeProvider.viewOf(ImmutableMap.of("col1", DOUBLE_TYPE));
 
         RowExpression specialForm = sqlToRowExpressionTranslator.translate(expression(untranslated), typeProvider);
 
@@ -135,7 +135,7 @@ public class TestRowExpressionTranslator
     public void testHiddenFunctionNot()
     {
         String untranslated = "NOT true";
-        RowExpression specialForm = sqlToRowExpressionTranslator.translate(expression(untranslated), TypeProvider.empty());
+        RowExpression specialForm = sqlToRowExpressionTranslator.translate(expression(untranslated), SemanticTypeProvider.empty());
 
         TranslatedExpression translatedExpression = translateWith(
                 specialForm,
@@ -149,7 +149,7 @@ public class TestRowExpressionTranslator
     public void testBasicOperator()
     {
         String untranslated = "col1 + col2";
-        TypeProvider typeProvider = TypeProvider.copyOf(ImmutableMap.of("col1", BIGINT, "col2", BIGINT));
+        SemanticTypeProvider typeProvider = SemanticTypeProvider.viewOf(ImmutableMap.of("col1", BIGINT_TYPE, "col2", BIGINT_TYPE));
         RowExpression specialForm = sqlToRowExpressionTranslator.translate(expression(untranslated), typeProvider);
 
         TranslatedExpression translatedExpression = translateWith(
@@ -164,7 +164,7 @@ public class TestRowExpressionTranslator
     public void testLessThanOperator()
     {
         String untranslated = "col1 < col2";
-        TypeProvider typeProvider = TypeProvider.copyOf(ImmutableMap.of("col1", BIGINT, "col2", BIGINT));
+        SemanticTypeProvider typeProvider = SemanticTypeProvider.viewOf(ImmutableMap.of("col1", BIGINT_TYPE, "col2", BIGINT_TYPE));
         RowExpression specialForm = sqlToRowExpressionTranslator.translate(expression(untranslated), typeProvider);
 
         TranslatedExpression translatedExpression = translateWith(
@@ -179,7 +179,7 @@ public class TestRowExpressionTranslator
     public void testUntranslatableSpecialForm()
     {
         String untranslated = "col1 OR col2";
-        TypeProvider typeProvider = TypeProvider.copyOf(ImmutableMap.of("col1", BOOLEAN, "col2", BOOLEAN));
+        SemanticTypeProvider typeProvider = SemanticTypeProvider.viewOf(ImmutableMap.of("col1", BOOLEAN_TYPE, "col2", BOOLEAN_TYPE));
         RowExpression specialForm = sqlToRowExpressionTranslator.translate(expression(untranslated), typeProvider);
 
         TranslatedExpression translatedExpression = translateWith(

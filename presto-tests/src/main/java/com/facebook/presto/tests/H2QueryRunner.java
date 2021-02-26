@@ -21,6 +21,7 @@ import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.RecordCursor;
@@ -219,6 +220,9 @@ public class H2QueryRunner
                 List<Object> row = new ArrayList<>(count);
                 for (int i = 1; i <= count; i++) {
                     Type type = types.get(i - 1);
+                    if (type instanceof SemanticType) {
+                        type = ((SemanticType) type).getType();
+                    }
                     if (BOOLEAN.equals(type)) {
                         boolean booleanValue = resultSet.getBoolean(i);
                         if (resultSet.wasNull()) {

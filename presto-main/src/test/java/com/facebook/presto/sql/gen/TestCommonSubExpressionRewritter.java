@@ -15,11 +15,13 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.analyzer.SemanticTypeProvider;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
@@ -134,11 +136,11 @@ public class TestCommonSubExpressionRewritter
     private RowExpression rowExpression(String sql)
     {
         Expression expression = rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(sql));
-        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(
+        Map<NodeRef<Expression>, SemanticType> expressionTypes = getExpressionTypes(
                 SESSION,
                 METADATA,
                 new SqlParser(),
-                TYPES,
+                SemanticTypeProvider.fromTypeProvider(TYPES),
                 expression,
                 ImmutableList.of(),
                 WarningCollector.NOOP);

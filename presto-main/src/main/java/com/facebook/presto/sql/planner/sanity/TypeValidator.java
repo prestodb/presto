@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.sanity;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.WarningCollector;
@@ -29,6 +30,7 @@ import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.analyzer.SemanticTypeProvider;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.SimplePlanVisitor;
 import com.facebook.presto.sql.planner.TypeProvider;
@@ -60,7 +62,7 @@ public final class TypeValidator
     @Override
     public void validate(PlanNode plan, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
     {
-        plan.accept(new Visitor(session, metadata, sqlParser, types, warningCollector), null);
+        plan.accept(new Visitor(session, metadata, sqlParser, SemanticTypeProvider.fromTypeProvider(types), warningCollector), null);
     }
 
     private static class Visitor
@@ -69,10 +71,10 @@ public final class TypeValidator
         private final Session session;
         private final Metadata metadata;
         private final SqlParser sqlParser;
-        private final TypeProvider types;
+        private final SemanticTypeProvider types;
         private final WarningCollector warningCollector;
 
-        public Visitor(Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
+        public Visitor(Session session, Metadata metadata, SqlParser sqlParser, SemanticTypeProvider types, WarningCollector warningCollector)
         {
             this.session = requireNonNull(session, "session is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
@@ -124,8 +126,8 @@ public final class TypeValidator
                         verifyTypeSignature(entry.getKey(), types.get(symbolReference).getTypeSignature());
                         continue;
                     }
-                    Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, types, castToExpression(expression), emptyList(), warningCollector);
-                    Type actualType = expressionTypes.get(NodeRef.of(castToExpression(expression)));
+                    Map<NodeRef<Expression>, SemanticType> expressionTypes = getExpressionTypes(session, metadata, sqlParser, types, castToExpression(expression), emptyList(), warningCollector);
+                    SemanticType actualType = expressionTypes.get(NodeRef.of(castToExpression(expression)));
                     verifyTypeSignature(entry.getKey(), actualType.getTypeSignature());
                 }
                 else {
@@ -214,7 +216,7 @@ public final class TypeValidator
             // UNKNOWN should be considered as a wildcard type, which matches all the other types
             FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
             if (!actual.equals(UNKNOWN.getTypeSignature()) && !functionAndTypeManager.isTypeOnlyCoercion(functionAndTypeManager.getType(actual), variable.getType())) {
-                checkArgument(variable.getType().getTypeSignature().equals(actual), "type of variable '%s' is expected to be %s, but the actual type is %s", variable.getName(), variable.getType(), actual);
+                checkArgument(variable.getType().getTypeSignature().equals(actual.getStandardTypeSignature()), "type of variable '%s' is expected to be %s, but the actual type is %s", variable.getName(), variable.getType(), actual);
             }
         }
     }

@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.cost.CachingCostProvider;
 import com.facebook.presto.cost.CachingStatsProvider;
 import com.facebook.presto.cost.CostCalculator;
@@ -418,7 +419,7 @@ public class LogicalPlanner
         ProjectNode projectNode = new ProjectNode(idAllocator.getNextId(), plan.getRoot(), assignments.build());
 
         List<Field> fields = visibleTableColumns.stream()
-                .map(column -> Field.newUnqualified(column.getName(), column.getType()))
+                .map(column -> Field.newUnqualified(column.getName(), SemanticType.from(column.getType())))
                 .collect(toImmutableList());
         Scope scope = Scope.builder().withRelationType(RelationId.anonymous(), new RelationType(fields)).build();
 
@@ -594,7 +595,7 @@ public class LogicalPlanner
         int aliasPosition = 0;
         for (Field field : plan.getDescriptor().getVisibleFields()) {
             String columnName = columnAliases.isPresent() ? columnAliases.get().get(aliasPosition).getValue() : field.getName().get();
-            columns.add(new ColumnMetadata(columnName, field.getType()));
+            columns.add(new ColumnMetadata(columnName, field.getType().getType()));
             aliasPosition++;
         }
         return columns.build();
@@ -603,7 +604,7 @@ public class LogicalPlanner
     private static Map<NodeRef<LambdaArgumentDeclaration>, VariableReferenceExpression> buildLambdaDeclarationToVariableMap(Analysis analysis, PlanVariableAllocator variableAllocator)
     {
         Map<NodeRef<LambdaArgumentDeclaration>, VariableReferenceExpression> resultMap = new LinkedHashMap<>();
-        for (Entry<NodeRef<Expression>, Type> entry : analysis.getTypes().entrySet()) {
+        for (Entry<NodeRef<Expression>, SemanticType> entry : analysis.getTypes().entrySet()) {
             if (!(entry.getKey().getNode() instanceof LambdaArgumentDeclaration)) {
                 continue;
             }

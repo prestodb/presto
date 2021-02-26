@@ -21,7 +21,7 @@ import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.VarbinaryType;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
@@ -34,12 +34,12 @@ import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.analyzer.SemanticTypeProvider;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.RowExpressionInterpreter;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
@@ -72,16 +72,16 @@ import java.util.stream.IntStream;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
-import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.common.type.DateType.DATE;
-import static com.facebook.presto.common.type.DecimalType.createDecimalType;
-import static com.facebook.presto.common.type.DoubleType.DOUBLE;
-import static com.facebook.presto.common.type.IntegerType.INTEGER;
-import static com.facebook.presto.common.type.TimeType.TIME;
+import static com.facebook.presto.common.type.BigintType.BIGINT_TYPE;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN_TYPE;
+import static com.facebook.presto.common.type.DateType.DATE_TYPE;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE_TYPE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER_TYPE;
+import static com.facebook.presto.common.type.TimeType.TIME_TYPE;
 import static com.facebook.presto.common.type.TimeZoneKey.getTimeZoneKey;
-import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.facebook.presto.common.type.VarcharType.createVarcharType;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_TYPE;
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY_TYPE;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR_TYPE;
 import static com.facebook.presto.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
@@ -93,7 +93,9 @@ import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionT
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionInterpreter;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionOptimizer;
 import static com.facebook.presto.sql.planner.RowExpressionInterpreter.rowExpressionInterpreter;
-import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
+import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME_TYPE;
+import static com.facebook.presto.type.TypeUtils.createDecimalSemanticType;
+import static com.facebook.presto.type.TypeUtils.createVarcharSemanticType;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
@@ -106,35 +108,35 @@ import static org.testng.Assert.assertTrue;
 public class TestExpressionInterpreter
 {
     private static final int TEST_VARCHAR_TYPE_LENGTH = 17;
-    private static final TypeProvider SYMBOL_TYPES = TypeProvider.viewOf(ImmutableMap.<String, Type>builder()
-            .put("bound_integer", INTEGER)
-            .put("bound_long", BIGINT)
-            .put("bound_string", createVarcharType(TEST_VARCHAR_TYPE_LENGTH))
-            .put("bound_varbinary", VarbinaryType.VARBINARY)
-            .put("bound_double", DOUBLE)
-            .put("bound_boolean", BOOLEAN)
-            .put("bound_date", DATE)
-            .put("bound_time", TIME)
-            .put("bound_timestamp", TIMESTAMP)
-            .put("bound_pattern", VARCHAR)
-            .put("bound_null_string", VARCHAR)
-            .put("bound_decimal_short", createDecimalType(5, 2))
-            .put("bound_decimal_long", createDecimalType(23, 3))
-            .put("time", BIGINT) // for testing reserved identifiers
-            .put("unbound_integer", INTEGER)
-            .put("unbound_long", BIGINT)
-            .put("unbound_long2", BIGINT)
-            .put("unbound_long3", BIGINT)
-            .put("unbound_string", VARCHAR)
-            .put("unbound_double", DOUBLE)
-            .put("unbound_boolean", BOOLEAN)
-            .put("unbound_date", DATE)
-            .put("unbound_time", TIME)
-            .put("unbound_array", new ArrayType(BIGINT))
-            .put("unbound_timestamp", TIMESTAMP)
-            .put("unbound_interval", INTERVAL_DAY_TIME)
-            .put("unbound_pattern", VARCHAR)
-            .put("unbound_null_string", VARCHAR)
+    private static final SemanticTypeProvider SYMBOL_TYPES = SemanticTypeProvider.viewOf(ImmutableMap.<String, SemanticType>builder()
+            .put("bound_integer", INTEGER_TYPE)
+            .put("bound_long", BIGINT_TYPE)
+            .put("bound_string", createVarcharSemanticType(TEST_VARCHAR_TYPE_LENGTH))
+            .put("bound_varbinary", VARBINARY_TYPE)
+            .put("bound_double", DOUBLE_TYPE)
+            .put("bound_boolean", BOOLEAN_TYPE)
+            .put("bound_date", DATE_TYPE)
+            .put("bound_time", TIME_TYPE)
+            .put("bound_timestamp", TIMESTAMP_TYPE)
+            .put("bound_pattern", VARCHAR_TYPE)
+            .put("bound_null_string", VARCHAR_TYPE)
+            .put("bound_decimal_short", createDecimalSemanticType(5, 2))
+            .put("bound_decimal_long", createDecimalSemanticType(23, 3))
+            .put("time", BIGINT_TYPE) // for testing reserved identifiers
+            .put("unbound_integer", INTEGER_TYPE)
+            .put("unbound_long", BIGINT_TYPE)
+            .put("unbound_long2", BIGINT_TYPE)
+            .put("unbound_long3", BIGINT_TYPE)
+            .put("unbound_string", VARCHAR_TYPE)
+            .put("unbound_double", DOUBLE_TYPE)
+            .put("unbound_boolean", BOOLEAN_TYPE)
+            .put("unbound_date", DATE_TYPE)
+            .put("unbound_time", TIME_TYPE)
+            .put("unbound_array", SemanticType.from(new ArrayType(BIGINT)))
+            .put("unbound_timestamp", TIMESTAMP_TYPE)
+            .put("unbound_interval", INTERVAL_DAY_TIME_TYPE)
+            .put("unbound_pattern", VARCHAR_TYPE)
+            .put("unbound_null_string", VARCHAR_TYPE)
             .build());
 
     private static final SqlParser SQL_PARSER = new SqlParser();
@@ -1566,7 +1568,7 @@ public class TestExpressionInterpreter
 
     private static Object optimize(Expression expression)
     {
-        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(TEST_SESSION, METADATA, SQL_PARSER, SYMBOL_TYPES, expression, emptyList(), WarningCollector.NOOP);
+        Map<NodeRef<Expression>, SemanticType> expressionTypes = getExpressionTypes(TEST_SESSION, METADATA, SQL_PARSER, SYMBOL_TYPES, expression, emptyList(), WarningCollector.NOOP);
         ExpressionInterpreter interpreter = expressionOptimizer(expression, METADATA, TEST_SESSION, expressionTypes);
         return interpreter.optimize(variable -> {
             Symbol symbol = new Symbol(variable.getName());
@@ -1751,7 +1753,7 @@ public class TestExpressionInterpreter
 
     private static Object evaluate(Expression expression, boolean deterministic)
     {
-        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(TEST_SESSION, METADATA, SQL_PARSER, SYMBOL_TYPES, expression, emptyList(), WarningCollector.NOOP);
+        Map<NodeRef<Expression>, SemanticType> expressionTypes = getExpressionTypes(TEST_SESSION, METADATA, SQL_PARSER, SYMBOL_TYPES, expression, emptyList(), WarningCollector.NOOP);
         Object expressionResult = expressionInterpreter(expression, METADATA, TEST_SESSION, expressionTypes).evaluate();
         Object rowExpressionResult = rowExpressionInterpreter(TRANSLATOR.translateAndOptimize(expression), METADATA, TEST_SESSION.toConnectorSession()).evaluate();
 

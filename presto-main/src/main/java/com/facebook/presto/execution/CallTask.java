@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ConnectorId;
@@ -134,7 +135,7 @@ public class CallTask
             Argument argument = procedure.getArguments().get(index);
 
             Expression expression = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameters), callArgument.getValue());
-            Type type = metadata.getType(argument.getType());
+            SemanticType type = metadata.getFunctionAndTypeManager().getSemanticType(argument.getType());
             checkCondition(type != null, INVALID_PROCEDURE_DEFINITION, "Unknown procedure argument type: %s", argument.getType());
 
             Object value = evaluateConstantExpression(expression, type, metadata, session, parameters);
@@ -148,7 +149,7 @@ public class CallTask
 
             if (!names.containsKey(argument.getName())) {
                 verify(argument.isOptional());
-                values[i] = toTypeObjectValue(session, metadata.getType(argument.getType()), argument.getDefaultValue());
+                values[i] = toTypeObjectValue(session, metadata.getFunctionAndTypeManager().getSemanticType(argument.getType()), argument.getDefaultValue());
             }
         }
 
@@ -187,10 +188,11 @@ public class CallTask
         return immediateFuture(null);
     }
 
-    private static Object toTypeObjectValue(Session session, Type type, Object value)
+    private static Object toTypeObjectValue(Session session, SemanticType type, Object value)
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
-        writeNativeValue(type, blockBuilder, value);
-        return type.getObjectValue(session.getSqlFunctionProperties(), blockBuilder, 0);
+        Type physicalType = type.getType();
+        BlockBuilder blockBuilder = physicalType.createBlockBuilder(null, 1);
+        writeNativeValue(physicalType, blockBuilder, value);
+        return physicalType.getObjectValue(session.getSqlFunctionProperties(), blockBuilder, 0);
     }
 }

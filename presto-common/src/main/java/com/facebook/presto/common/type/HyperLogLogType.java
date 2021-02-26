@@ -16,6 +16,7 @@ package com.facebook.presto.common.type;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import io.airlift.slice.Slice;
 
@@ -28,6 +29,7 @@ public class HyperLogLogType
         extends AbstractVariableWidthType
 {
     public static final HyperLogLogType HYPER_LOG_LOG = new HyperLogLogType();
+    public static final SemanticType HYPER_LOG_LOG_TYPE = SemanticType.from(HYPER_LOG_LOG);
 
     @JsonCreator
     public HyperLogLogType()

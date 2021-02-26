@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.analyzer;
 
-import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -33,8 +33,8 @@ import static java.util.Objects.requireNonNull;
 
 public class ExpressionAnalysis
 {
-    private final Map<NodeRef<Expression>, Type> expressionTypes;
-    private final Map<NodeRef<Expression>, Type> expressionCoercions;
+    private final Map<NodeRef<Expression>, SemanticType> expressionTypes;
+    private final Map<NodeRef<Expression>, SemanticType> expressionCoercions;
     private final Set<NodeRef<Expression>> typeOnlyCoercions;
     private final Map<NodeRef<Expression>, FieldId> columnReferences;
     private final Set<NodeRef<InPredicate>> subqueryInPredicates;
@@ -46,8 +46,8 @@ public class ExpressionAnalysis
     private final Set<NodeRef<FunctionCall>> windowFunctions;
 
     public ExpressionAnalysis(
-            Map<NodeRef<Expression>, Type> expressionTypes,
-            Map<NodeRef<Expression>, Type> expressionCoercions,
+            Map<NodeRef<Expression>, SemanticType> expressionTypes,
+            Map<NodeRef<Expression>, SemanticType> expressionCoercions,
             Set<NodeRef<InPredicate>> subqueryInPredicates,
             Set<NodeRef<SubqueryExpression>> scalarSubqueries,
             Set<NodeRef<ExistsPredicate>> existsSubqueries,
@@ -69,17 +69,17 @@ public class ExpressionAnalysis
         this.windowFunctions = ImmutableSet.copyOf(requireNonNull(windowFunctions, "windowFunctions is null"));
     }
 
-    public Type getType(Expression expression)
+    public SemanticType getType(Expression expression)
     {
         return expressionTypes.get(NodeRef.of(expression));
     }
 
-    public Map<NodeRef<Expression>, Type> getExpressionTypes()
+    public Map<NodeRef<Expression>, SemanticType> getExpressionTypes()
     {
         return expressionTypes;
     }
 
-    public Type getCoercion(Expression expression)
+    public SemanticType getCoercion(Expression expression)
     {
         return expressionCoercions.get(NodeRef.of(expression));
     }

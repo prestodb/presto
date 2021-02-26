@@ -33,6 +33,7 @@ import com.facebook.presto.orc.TupleDomainFilter.DoubleRange;
 import com.facebook.presto.orc.TupleDomainFilter.FloatRange;
 import com.facebook.presto.orc.TupleDomainFilter.LongDecimalRange;
 import com.facebook.presto.orc.TupleDomainFilter.MultiRange;
+import com.facebook.presto.sql.analyzer.SemanticTypeProvider;
 import com.facebook.presto.sql.planner.ExpressionDomainTranslator;
 import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.Symbol;
@@ -422,7 +423,7 @@ public class TestTupleDomainFilterUtils
 
     private ExpressionDomainTranslator.ExtractionResult fromPredicate(Expression originalPredicate)
     {
-        return ExpressionDomainTranslator.fromPredicate(metadata, TEST_SESSION, originalPredicate, TYPES);
+        return ExpressionDomainTranslator.fromPredicate(metadata, TEST_SESSION, originalPredicate, SemanticTypeProvider.fromTypeProvider(TYPES));
     }
 
     private static ComparisonExpression equal(Symbol symbol, Expression expression)

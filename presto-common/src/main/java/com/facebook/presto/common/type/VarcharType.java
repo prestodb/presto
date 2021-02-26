@@ -13,12 +13,15 @@
  */
 package com.facebook.presto.common.type;
 
+import com.facebook.presto.common.type.semantic.SemanticType;
+
 import static java.util.Collections.singletonList;
 
 public final class VarcharType
         extends AbstractVarcharType
 {
     public static final VarcharType VARCHAR = new VarcharType(UNBOUNDED_LENGTH);
+    public static final SemanticType VARCHAR_TYPE = SemanticType.from(VARCHAR);
 
     public static VarcharType createUnboundedVarcharType()
     {

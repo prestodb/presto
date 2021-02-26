@@ -17,6 +17,7 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.predicate.Primitives;
 import com.facebook.presto.common.predicate.Utils;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -71,6 +72,9 @@ public final class ConstantExpression
     @JsonProperty
     public Type getType()
     {
+        if (type instanceof SemanticType) {
+            return ((SemanticType) type).getType();
+        }
         return type;
     }
 
@@ -83,7 +87,8 @@ public final class ConstantExpression
     @Override
     public int hashCode()
     {
-        return Objects.hash(value, type);
+        // TODO: Changed to getType() during semantic type refactoring because. Switch back to type after done.
+        return Objects.hash(value, getType());
     }
 
     @Override
@@ -96,7 +101,8 @@ public final class ConstantExpression
             return false;
         }
         ConstantExpression other = (ConstantExpression) obj;
-        return Objects.equals(this.value, other.value) && Objects.equals(this.type, other.type);
+        // TODO: Changed to getType() during semantic type refactoring because. Switch back to Objects.equals(this.type, other.type) after done.
+        return Objects.equals(this.value, other.value) && Objects.equals(this.getType(), other.getType());
     }
 
     @Override

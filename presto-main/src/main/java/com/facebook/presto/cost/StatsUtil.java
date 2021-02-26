@@ -24,6 +24,7 @@ import com.facebook.presto.common.type.RealType;
 import com.facebook.presto.common.type.SmallintType;
 import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorSession;
@@ -42,14 +43,17 @@ final class StatsUtil
 {
     private StatsUtil() {}
 
-    static OptionalDouble toStatsRepresentation(Metadata metadata, Session session, Type type, Object value)
+    static OptionalDouble toStatsRepresentation(Metadata metadata, Session session, SemanticType type, Object value)
     {
-        return toStatsRepresentation(metadata.getFunctionAndTypeManager(), session.toConnectorSession(), type, value);
+        return toStatsRepresentation(metadata.getFunctionAndTypeManager(), session.toConnectorSession(), type.getType(), value);
     }
 
     static OptionalDouble toStatsRepresentation(FunctionAndTypeManager functionAndTypeManager, ConnectorSession session, Type type, Object value)
     {
         requireNonNull(value, "value is null");
+        if (type instanceof SemanticType) {
+            type = ((SemanticType) type).getType();
+        }
 
         if (convertibleToDoubleWithCast(type)) {
             InterpretedFunctionInvoker functionInvoker = new InterpretedFunctionInvoker(functionAndTypeManager);

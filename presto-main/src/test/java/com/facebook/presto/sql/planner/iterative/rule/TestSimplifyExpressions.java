@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
+import com.facebook.presto.sql.analyzer.SemanticTypeProvider;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
@@ -41,6 +41,7 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN_TYPE;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.sql.ExpressionUtils.binaryExpression;
 import static com.facebook.presto.sql.ExpressionUtils.extractPredicates;
@@ -57,10 +58,10 @@ public class TestSimplifyExpressions
     private static final SqlParser SQL_PARSER = new SqlParser();
     private static final MetadataManager METADATA = createTestMetadataManager();
     private static final LiteralEncoder LITERAL_ENCODER = new LiteralEncoder(METADATA.getBlockEncodingSerde());
-    private static final Map<String, Type> TYPES = Streams.concat(
+    private static final Map<String, SemanticType> TYPES = Streams.concat(
             Stream.of("A", "B", "C", "D", "E", "F", "I", "V", "X", "Y", "Z"),
             IntStream.range(1, 61).boxed().map(i -> format("A%s", i)))
-            .collect(toMap(Function.identity(), string -> BOOLEAN));
+            .collect(toMap(Function.identity(), string -> BOOLEAN_TYPE));
 
     @Test
     public void testPushesDownNegations()
@@ -146,10 +147,10 @@ public class TestSimplifyExpressions
                 normalize(rewritten),
                 normalize(expectedExpression));
         TestingRowExpressionTranslator translator = new TestingRowExpressionTranslator(METADATA);
-        RowExpression actualRowExpression = translator.translate(actualExpression, TypeProvider.viewOf(TYPES));
+        RowExpression actualRowExpression = translator.translate(actualExpression, SemanticTypeProvider.viewOf(TYPES));
         RowExpression simplifiedRowExpression = SimplifyRowExpressions.rewrite(actualRowExpression, METADATA, TEST_SESSION.toConnectorSession());
         Expression expectedByRowExpression = Optional.ofNullable(rowExpressionExpected).map(expr -> rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expr))).orElse(rewritten);
-        RowExpression simplifiedByExpression = translator.translate(expectedByRowExpression, TypeProvider.viewOf(TYPES));
+        RowExpression simplifiedByExpression = translator.translate(expectedByRowExpression, SemanticTypeProvider.viewOf(TYPES));
         assertEquals(simplifiedRowExpression, simplifiedByExpression);
     }
 

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.analyzer;
 
-import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.semantic.SemanticType;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -37,7 +37,7 @@ public class ResolvedField
         this.local = local;
     }
 
-    public Type getType()
+    public SemanticType getType()
     {
         return field.getType();
     }

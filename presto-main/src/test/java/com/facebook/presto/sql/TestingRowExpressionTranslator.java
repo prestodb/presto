@@ -13,18 +13,18 @@
  */
 package com.facebook.presto.sql;
 
-import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
 import com.facebook.presto.sql.analyzer.Scope;
+import com.facebook.presto.sql.analyzer.SemanticTypeProvider;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.NoOpVariableResolver;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.relational.RowExpressionOptimizer;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.Expression;
@@ -55,20 +55,20 @@ public class TestingRowExpressionTranslator
 
     public RowExpression translateAndOptimize(Expression expression)
     {
-        return translateAndOptimize(expression, getExpressionTypes(expression, TypeProvider.empty()));
+        return translateAndOptimize(expression, getExpressionTypes(expression, SemanticTypeProvider.empty()));
     }
 
-    public RowExpression translateAndOptimize(Expression expression, TypeProvider typeProvider)
+    public RowExpression translateAndOptimize(Expression expression, SemanticTypeProvider typeProvider)
     {
         return translateAndOptimize(expression, getExpressionTypes(expression, typeProvider));
     }
 
-    public RowExpression translate(String sql, Map<String, Type> types)
+    public RowExpression translate(String sql, Map<String, SemanticType> types)
     {
-        return translate(ExpressionUtils.rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(sql)), TypeProvider.viewOf(types));
+        return translate(ExpressionUtils.rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(sql)), SemanticTypeProvider.viewOf(types));
     }
 
-    public RowExpression translate(Expression expression, TypeProvider typeProvider)
+    public RowExpression translate(Expression expression, SemanticTypeProvider typeProvider)
     {
         return SqlToRowExpressionTranslator.translate(
                 expression,
@@ -78,7 +78,7 @@ public class TestingRowExpressionTranslator
                 TEST_SESSION);
     }
 
-    public RowExpression translateAndOptimize(Expression expression, Map<NodeRef<Expression>, Type> types)
+    public RowExpression translateAndOptimize(Expression expression, Map<NodeRef<Expression>, SemanticType> types)
     {
         RowExpression rowExpression = SqlToRowExpressionTranslator.translate(expression, types, ImmutableMap.of(), metadata.getFunctionAndTypeManager(), TEST_SESSION);
         RowExpressionOptimizer optimizer = new RowExpressionOptimizer(metadata);
@@ -89,13 +89,13 @@ public class TestingRowExpressionTranslator
     {
         // Testing simplified expressions is important, since simplification may create CASTs or function calls that cannot be simplified by the ExpressionOptimizer
 
-        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(expression, TypeProvider.empty());
+        Map<NodeRef<Expression>, SemanticType> expressionTypes = getExpressionTypes(expression, SemanticTypeProvider.empty());
         ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(expression, metadata, TEST_SESSION, expressionTypes);
         Object value = interpreter.optimize(NoOpVariableResolver.INSTANCE);
-        return literalEncoder.toExpression(value, expressionTypes.get(NodeRef.of(expression)));
+        return literalEncoder.toExpression(value, expressionTypes.get(NodeRef.of(expression)).getType());
     }
 
-    private Map<NodeRef<Expression>, Type> getExpressionTypes(Expression expression, TypeProvider typeProvider)
+    private Map<NodeRef<Expression>, SemanticType> getExpressionTypes(Expression expression, SemanticTypeProvider typeProvider)
     {
         ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
                 metadata.getFunctionAndTypeManager(),

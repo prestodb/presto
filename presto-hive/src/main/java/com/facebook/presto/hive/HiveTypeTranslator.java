@@ -19,6 +19,7 @@ import com.facebook.presto.common.type.NamedTypeSignature;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.hive.common.type.HiveChar;
@@ -65,8 +66,16 @@ public class HiveTypeTranslator
         implements TypeTranslator
 {
     @Override
-    public TypeInfo translate(Type type, Optional<HiveType> defaultHiveType)
+    public TypeInfo translate(Type semanticType, Optional<HiveType> defaultHiveType)
     {
+        Type type;
+        if (semanticType instanceof SemanticType) {
+            type = ((SemanticType) semanticType).getType();
+        }
+        else {
+            type = semanticType;
+        }
+
         if (BOOLEAN.equals(type)) {
             return HIVE_BOOLEAN.getTypeInfo();
         }

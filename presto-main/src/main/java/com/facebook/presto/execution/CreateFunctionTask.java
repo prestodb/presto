@@ -14,8 +14,8 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.common.QualifiedObjectName;
-import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.PrestoException;
@@ -116,7 +116,7 @@ public class CreateFunctionTask
 
         if (statement.getBody() instanceof Return) {
             Expression bodyExpression = ((Return) statement.getBody()).getExpression();
-            Type bodyType = analysis.getType(bodyExpression);
+            SemanticType bodyType = analysis.getType(bodyExpression);
 
             // Coerce expressions in body if necessary
             bodyExpression = ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
@@ -126,11 +126,11 @@ public class CreateFunctionTask
                 {
                     Expression rewritten = treeRewriter.defaultRewrite(expression, null);
 
-                    Type coercion = analysis.getCoercion(expression);
+                    SemanticType coercion = analysis.getCoercion(expression);
                     if (coercion != null) {
                         return new Cast(
                                 rewritten,
-                                coercion.getTypeSignature().toString(),
+                                coercion.getName(),
                                 false,
                                 analysis.isTypeOnlyCoercion(expression));
                     }
@@ -138,7 +138,7 @@ public class CreateFunctionTask
                 }
             }, bodyExpression, null);
 
-            if (!bodyType.equals(metadata.getType(returnType))) {
+            if (!bodyType.equals(metadata.getFunctionAndTypeManager().getSemanticType(returnType))) {
                 // Casting is safe here, since we have verified at analysis time that the actual type of the body is coercible to declared return type.
                 bodyExpression = new Cast(bodyExpression, statement.getReturnType());
             }

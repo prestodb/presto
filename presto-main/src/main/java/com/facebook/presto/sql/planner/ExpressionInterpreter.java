@@ -28,6 +28,7 @@ import com.facebook.presto.common.type.RowType.Field;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeUtils;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.expressions.DynamicFilters;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
@@ -45,6 +46,7 @@ import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import com.facebook.presto.sql.analyzer.SemanticException;
+import com.facebook.presto.sql.analyzer.SemanticTypeProvider;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Interpreters.LambdaVariableResolver;
 import com.facebook.presto.sql.planner.iterative.rule.DesugarCurrentUser;
@@ -168,7 +170,7 @@ public class ExpressionInterpreter
     private final ConnectorSession connectorSession;
     // if optimize flag is on, we will ways return evaluated result or throw.
     private final boolean optimize;
-    private final Map<NodeRef<Expression>, Type> expressionTypes;
+    private final Map<NodeRef<Expression>, SemanticType> expressionTypes;
     private final InterpretedFunctionInvoker functionInvoker;
     private final boolean legacyRowFieldOrdinalAccess;
 
@@ -178,12 +180,12 @@ public class ExpressionInterpreter
     private final IdentityHashMap<LikePredicate, Regex> likePatternCache = new IdentityHashMap<>();
     private final IdentityHashMap<InListExpression, Set<?>> inListCache = new IdentityHashMap<>();
 
-    public static ExpressionInterpreter expressionInterpreter(Expression expression, Metadata metadata, Session session, Map<NodeRef<Expression>, Type> expressionTypes)
+    public static ExpressionInterpreter expressionInterpreter(Expression expression, Metadata metadata, Session session, Map<NodeRef<Expression>, SemanticType> expressionTypes)
     {
         return new ExpressionInterpreter(expression, metadata, session, expressionTypes, false);
     }
 
-    public static ExpressionInterpreter expressionOptimizer(Expression expression, Metadata metadata, Session session, Map<NodeRef<Expression>, Type> expressionTypes)
+    public static ExpressionInterpreter expressionOptimizer(Expression expression, Metadata metadata, Session session, Map<NodeRef<Expression>, SemanticType> expressionTypes)
     {
         requireNonNull(expression, "expression is null");
         requireNonNull(metadata, "metadata is null");
@@ -192,19 +194,19 @@ public class ExpressionInterpreter
         return new ExpressionInterpreter(expression, metadata, session, expressionTypes, true);
     }
 
-    public static Object evaluateConstantExpression(Expression expression, Type expectedType, Metadata metadata, Session session, List<Expression> parameters)
+    public static Object evaluateConstantExpression(Expression expression, SemanticType expectedType, Metadata metadata, Session session, List<Expression> parameters)
     {
         ExpressionAnalyzer analyzer = createConstantAnalyzer(metadata, session, parameters, WarningCollector.NOOP);
         analyzer.analyze(expression, Scope.create());
 
-        Type actualType = analyzer.getExpressionTypes().get(NodeRef.of(expression));
+        SemanticType actualType = analyzer.getExpressionTypes().get(NodeRef.of(expression));
         if (!metadata.getFunctionAndTypeManager().canCoerce(actualType, expectedType)) {
             throw new SemanticException(SemanticErrorCode.TYPE_MISMATCH, expression, format("Cannot cast type %s to %s",
                     actualType.getTypeSignature(),
                     expectedType.getTypeSignature()));
         }
 
-        Map<NodeRef<Expression>, Type> coercions = ImmutableMap.<NodeRef<Expression>, Type>builder()
+        Map<NodeRef<Expression>, SemanticType> coercions = ImmutableMap.<NodeRef<Expression>, SemanticType>builder()
                 .putAll(analyzer.getExpressionCoercions())
                 .put(NodeRef.of(expression), expectedType)
                 .build();
@@ -213,7 +215,7 @@ public class ExpressionInterpreter
 
     private static Object evaluateConstantExpression(
             Expression expression,
-            Map<NodeRef<Expression>, Type> coercions,
+            Map<NodeRef<Expression>, SemanticType> coercions,
             Set<NodeRef<Expression>> typeOnlyCoercions,
             Metadata metadata,
             Session session,
@@ -249,7 +251,7 @@ public class ExpressionInterpreter
         return result;
     }
 
-    private ExpressionInterpreter(Expression expression, Metadata metadata, Session session, Map<NodeRef<Expression>, Type> expressionTypes, boolean optimize)
+    private ExpressionInterpreter(Expression expression, Metadata metadata, Session session, Map<NodeRef<Expression>, SemanticType> expressionTypes, boolean optimize)
     {
         this.expression = requireNonNull(expression, "expression is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -265,7 +267,7 @@ public class ExpressionInterpreter
         this.visitor = new Visitor();
     }
 
-    public Type getType()
+    public SemanticType getType()
     {
         return expressionTypes.get(NodeRef.of(expression));
     }
@@ -292,7 +294,7 @@ public class ExpressionInterpreter
     private class Visitor
             extends AstVisitor<Object, Object>
     {
-        private final Map<NodeRef<Expression>, Type> generatedExpressionTypes = new HashMap<>();
+        private final Map<NodeRef<Expression>, SemanticType> generatedExpressionTypes = new HashMap<>();
 
         @Override
         public Object visitFieldReference(FieldReference node, Object context)
@@ -303,13 +305,13 @@ public class ExpressionInterpreter
         @Override
         protected Object visitDereferenceExpression(DereferenceExpression node, Object context)
         {
-            Type type = type(node.getBase());
+            SemanticType type = type(node.getBase());
             // if there is no type for the base of Dereference, it must be QualifiedName
             if (type == null) {
                 return node;
             }
 
-            Type returnType = type(node);
+            SemanticType returnType = type(node);
             if (isEnumType(type) && isEnumType(returnType)) {
                 return resolveEnumLiteral(node, returnType);
             }
@@ -324,7 +326,7 @@ public class ExpressionInterpreter
                 return new DereferenceExpression(toExpression(base, type), node.getField());
             }
 
-            RowType rowType = (RowType) type;
+            RowType rowType = (RowType) type.getType();
             String fieldName = node.getField().getValue();
             List<Field> fields = rowType.getFields();
             int index = -1;
@@ -472,7 +474,7 @@ public class ExpressionInterpreter
         protected Object visitSimpleCaseExpression(SimpleCaseExpression node, Object context)
         {
             Object operand = processWithExceptionHandling(node.getOperand(), context);
-            Type operandType = type(node.getOperand());
+            SemanticType operandType = type(node.getOperand());
 
             // evaluate defaultClause
             Expression defaultClause = node.getDefaultValue().orElse(null);
@@ -509,19 +511,19 @@ public class ExpressionInterpreter
             return new SimpleCaseExpression(toExpression(operand, type(node.getOperand())), whenClauses, Optional.ofNullable(defaultExpression));
         }
 
-        private boolean isEqual(Object operand1, Type type1, Object operand2, Type type2)
+        private boolean isEqual(Object operand1, SemanticType type1, Object operand2, SemanticType type2)
         {
             return Boolean.TRUE.equals(invokeOperator(OperatorType.EQUAL, ImmutableList.of(type1, type2), ImmutableList.of(operand1, operand2)));
         }
 
-        private void addGeneratedExpressionType(Expression expression, Type type)
+        private void addGeneratedExpressionType(Expression expression, SemanticType type)
         {
             generatedExpressionTypes.put(NodeRef.of(expression), type);
         }
 
-        private Type type(Expression expression)
+        private SemanticType type(Expression expression)
         {
-            Type type = generatedExpressionTypes.get(NodeRef.of(expression));
+            SemanticType type = generatedExpressionTypes.get(NodeRef.of(expression));
             if (type != null) {
                 return type;
             }
@@ -531,7 +533,7 @@ public class ExpressionInterpreter
         @Override
         protected Object visitCoalesceExpression(CoalesceExpression node, Object context)
         {
-            Type type = type(node);
+            SemanticType type = type(node);
             List<Object> values = node.getOperands().stream()
                     .map(value -> processWithExceptionHandling(value, context))
                     .filter(Objects::nonNull)
@@ -643,7 +645,7 @@ public class ExpressionInterpreter
             }
 
             if (hasUnresolvedValue) {
-                Type type = type(node.getValue());
+                SemanticType type = type(node.getValue());
                 List<Expression> expressionValues = toExpressions(values, types);
                 List<Expression> simplifiedExpressionValues = Stream.concat(
                         expressionValues.stream()
@@ -802,15 +804,15 @@ public class ExpressionInterpreter
                 return first;
             }
 
-            Type firstType = type(node.getFirst());
-            Type secondType = type(node.getSecond());
+            SemanticType firstType = type(node.getFirst());
+            SemanticType secondType = type(node.getSecond());
 
             if (hasUnresolvedValue(first, second)) {
                 return new NullIfExpression(toExpression(first, firstType), toExpression(second, secondType));
             }
 
             FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
-            Type commonType = functionAndTypeManager.getCommonSuperType(firstType, secondType).get();
+            SemanticType commonType = functionAndTypeManager.getCommonSuperType(firstType, secondType).get();
 
             FunctionHandle firstCast = functionAndTypeManager.lookupCast(CAST, firstType.getTypeSignature(), commonType.getTypeSignature());
             FunctionHandle secondCast = functionAndTypeManager.lookupCast(CAST, secondType.getTypeSignature(), commonType.getTypeSignature());
@@ -911,7 +913,7 @@ public class ExpressionInterpreter
             List<Object> argumentValues = new ArrayList<>();
             for (Expression expression : node.getArguments()) {
                 Object value = process(expression, context);
-                Type type = type(expression);
+                Type type = type(expression).getType();
                 argumentValues.add(value);
                 argumentTypes.add(type);
             }
@@ -956,7 +958,7 @@ public class ExpressionInterpreter
                         function,
                         metadata,
                         session,
-                        getExpressionTypes(session, metadata, new SqlParser(), TypeProvider.empty(), function, emptyList(), WarningCollector.NOOP),
+                        getExpressionTypes(session, metadata, new SqlParser(), SemanticTypeProvider.empty(), function, emptyList(), WarningCollector.NOOP),
                         optimize);
                 result = functionInterpreter.visitor.process(function, context);
                 if (result instanceof FunctionCall) {
@@ -985,7 +987,7 @@ public class ExpressionInterpreter
                     .map(LambdaArgumentDeclaration::getName)
                     .map(Identifier::getValue)
                     .collect(toImmutableList());
-            FunctionType functionType = (FunctionType) expressionTypes.get(NodeRef.<Expression>of(node));
+            FunctionType functionType = (FunctionType) expressionTypes.get(NodeRef.<Expression>of(node)).getType();
             checkArgument(argumentNames.size() == functionType.getArgumentTypes().size());
 
             return generateVarArgsToMapAdapter(
@@ -1068,14 +1070,14 @@ public class ExpressionInterpreter
             // if pattern is a constant without % or _ replace with a comparison
             if (pattern instanceof Slice && (escape == null || escape instanceof Slice) && !isLikePattern((Slice) pattern, (Slice) escape)) {
                 Slice unescapedPattern = unescapeLiteralLikePattern((Slice) pattern, (Slice) escape);
-                Type valueType = type(node.getValue());
-                Type patternType = createVarcharType(unescapedPattern.length());
+                SemanticType valueType = type(node.getValue());
+                SemanticType patternType = SemanticType.from(createVarcharType(unescapedPattern.length()));
                 FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
-                Optional<Type> commonSuperType = functionAndTypeManager.getCommonSuperType(valueType, patternType);
+                Optional<SemanticType> commonSuperType = functionAndTypeManager.getCommonSuperType(valueType, patternType);
                 checkArgument(commonSuperType.isPresent(), "Missing super type when optimizing %s", node);
                 Expression valueExpression = toExpression(value, valueType);
                 Expression patternExpression = toExpression(unescapedPattern, patternType);
-                Type superType = commonSuperType.get();
+                SemanticType superType = commonSuperType.get();
                 if (!valueType.equals(superType)) {
                     valueExpression = new Cast(valueExpression, superType.getTypeSignature().toString(), false, functionAndTypeManager.isTypeOnlyCoercion(valueType, superType));
                 }
@@ -1121,7 +1123,7 @@ public class ExpressionInterpreter
         public Object visitCast(Cast node, Object context)
         {
             Object value = process(node.getExpression(), context);
-            Type targetType = metadata.getType(parseTypeSignature(node.getType()));
+            SemanticType targetType = metadata.getFunctionAndTypeManager().getSemanticType(parseTypeSignature(node.getType()));
             if (targetType == null) {
                 throw new IllegalArgumentException("Unsupported type: " + node.getType());
             }
@@ -1130,7 +1132,7 @@ public class ExpressionInterpreter
                 return null;
             }
 
-            Type sourceType = type(node.getExpression());
+            SemanticType sourceType = type(node.getExpression());
             if (value instanceof Expression) {
                 if (targetType.equals(sourceType)) {
                     return value;
@@ -1143,7 +1145,7 @@ public class ExpressionInterpreter
                 return value;
             }
 
-            if (optimize && !isSupportedLiteralType(type(node))) {
+            if (optimize && !isSupportedLiteralType(type(node).getType())) {
                 // do not invoke cast function if it can produce unserializable type
                 return new Cast(toExpression(value, sourceType), node.getType(), node.isSafe(), node.isTypeOnly());
             }
@@ -1168,7 +1170,7 @@ public class ExpressionInterpreter
         @Override
         protected Object visitArrayConstructor(ArrayConstructor node, Object context)
         {
-            Type elementType = ((ArrayType) type(node)).getElementType();
+            Type elementType = ((ArrayType) type(node).getType()).getElementType();
             BlockBuilder arrayBlockBuilder = elementType.createBlockBuilder(null, node.getValues().size());
 
             for (Expression expression : node.getValues()) {
@@ -1195,7 +1197,7 @@ public class ExpressionInterpreter
         @Override
         protected Object visitRow(Row node, Object context)
         {
-            RowType rowType = (RowType) type(node);
+            RowType rowType = (RowType) type(node).getType();
             List<Type> parameterTypes = rowType.getTypeParameters();
             List<Expression> arguments = node.getItems();
 
@@ -1273,7 +1275,7 @@ public class ExpressionInterpreter
             throw new UnsupportedOperationException("Evaluator visitor can only handle Expression nodes");
         }
 
-        private List<Type> types(Expression... types)
+        private List<SemanticType> types(Expression... types)
         {
             return Stream.of(types)
                     .map(NodeRef::of)
@@ -1297,22 +1299,22 @@ public class ExpressionInterpreter
             return values.stream().anyMatch(instanceOf(Expression.class)::apply);
         }
 
-        private Object invokeOperator(OperatorType operatorType, List<? extends Type> argumentTypes, List<Object> argumentValues)
+        private Object invokeOperator(OperatorType operatorType, List<SemanticType> argumentTypes, List<Object> argumentValues)
         {
             FunctionHandle operatorHandle = metadata.getFunctionAndTypeManager().resolveOperator(operatorType, fromTypes(argumentTypes));
             return functionInvoker.invoke(operatorHandle, session.getSqlFunctionProperties(), argumentValues);
         }
 
-        private Expression toExpression(Object base, Type type)
+        private Expression toExpression(Object base, SemanticType type)
         {
-            return literalEncoder.toExpression(base, type);
+            return literalEncoder.toExpression(base, type.getType());
         }
 
-        private boolean isSerializable(Object value, Type type)
+        private boolean isSerializable(Object value, SemanticType type)
         {
             requireNonNull(type, "type is null");
             // If value is already Expression, literal values contained inside should already have been made serializable. Otherwise, we make sure the object is small and serializable.
-            return value instanceof Expression || (isSupportedLiteralType(type) && estimatedSizeInBytes(value) <= MAX_SERIALIZABLE_OBJECT_SIZE);
+            return value instanceof Expression || (isSupportedLiteralType(type.getType()) && estimatedSizeInBytes(value) <= MAX_SERIALIZABLE_OBJECT_SIZE);
         }
 
         private List<Expression> toExpressions(List<Object> values, List<Type> types)

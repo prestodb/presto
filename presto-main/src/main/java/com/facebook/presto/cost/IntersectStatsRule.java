@@ -18,7 +18,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.plan.IntersectNode;
 import com.facebook.presto.spi.plan.PlanNode;
-import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.analyzer.SemanticTypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 
 import java.util.Optional;
@@ -45,7 +45,7 @@ public class IntersectStatsRule
 
     @Override
     protected Optional<PlanNodeStatsEstimate> doCalculate(
-            IntersectNode node, StatsProvider statsProvider, Lookup lookup, Session session, TypeProvider types)
+            IntersectNode node, StatsProvider statsProvider, Lookup lookup, Session session, SemanticTypeProvider types)
     {
         checkArgument(!node.getSources().isEmpty(), "Empty intersection is not supported");
 

@@ -14,9 +14,10 @@
 package com.facebook.presto.plugin.geospatial;
 
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
-import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.analyzer.SemanticTypeProvider;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.ExtractSpatialJoins.ExtractSpatialLeftJoin;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -37,6 +38,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.projec
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.spatialLeftJoin;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 public class TestExtractSpatialLeftJoin
         extends BaseRuleTest
@@ -316,6 +318,6 @@ public class TestExtractSpatialLeftJoin
 
     private RowExpression sqlToRowExpression(String sql, Map<String, Type> typeMap)
     {
-        return sqlToRowExpressionTranslator.translateAndOptimize(PlanBuilder.expression(sql), TypeProvider.copyOf(typeMap));
+        return sqlToRowExpressionTranslator.translateAndOptimize(PlanBuilder.expression(sql), SemanticTypeProvider.viewOf(typeMap.entrySet().stream().collect(toImmutableMap(Map.Entry::getKey, entry -> SemanticType.from(entry.getValue())))));
     }
 }

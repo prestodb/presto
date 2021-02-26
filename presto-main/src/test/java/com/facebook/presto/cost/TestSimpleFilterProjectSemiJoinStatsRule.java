@@ -18,6 +18,7 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
+import com.facebook.presto.sql.analyzer.SemanticTypeProvider;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import org.testng.annotations.DataProvider;
@@ -126,7 +127,7 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
 
             if (toRowExpression) {
                 return pb.filter(
-                        TRANSLATOR.translateAndOptimize(expression("sjo"), pb.getTypes()),
+                        TRANSLATOR.translateAndOptimize(expression("sjo"), SemanticTypeProvider.fromTypeProvider(pb.getTypes())),
                         pb.project(identityAssignmentsAsSymbolReferences(semiJoinOutput, a), semiJoinNode));
             }
             return pb.filter(expression("sjo"), pb.project(identityAssignmentsAsSymbolReferences(semiJoinOutput, a), semiJoinNode));
@@ -206,7 +207,7 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
                     Optional.empty());
 
             if (toRowExpression) {
-                return pb.filter(TRANSLATOR.translateAndOptimize(expression, pb.getTypes()), semiJoinNode);
+                return pb.filter(TRANSLATOR.translateAndOptimize(expression, SemanticTypeProvider.fromTypeProvider(pb.getTypes())), semiJoinNode);
             }
             return pb.filter(expression, semiJoinNode);
         });

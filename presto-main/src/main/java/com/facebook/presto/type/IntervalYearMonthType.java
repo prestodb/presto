@@ -17,6 +17,7 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.AbstractIntType;
 import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.common.type.semantic.SemanticType;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 
@@ -24,6 +25,7 @@ public final class IntervalYearMonthType
         extends AbstractIntType
 {
     public static final IntervalYearMonthType INTERVAL_YEAR_MONTH = new IntervalYearMonthType();
+    public static final SemanticType INTERVAL_YEAR_MONTH_TYPE = SemanticType.from(INTERVAL_YEAR_MONTH);
 
     private IntervalYearMonthType()
     {

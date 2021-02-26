@@ -15,7 +15,7 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
-import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.SchemaTableName;
@@ -123,10 +123,10 @@ public class Analysis
 
     private final Map<NodeRef<Table>, TableHandle> tables = new LinkedHashMap<>();
 
-    private final Map<NodeRef<Expression>, Type> types = new LinkedHashMap<>();
-    private final Map<NodeRef<Expression>, Type> coercions = new LinkedHashMap<>();
+    private final Map<NodeRef<Expression>, SemanticType> types = new LinkedHashMap<>();
+    private final Map<NodeRef<Expression>, SemanticType> coercions = new LinkedHashMap<>();
     private final Set<NodeRef<Expression>> typeOnlyCoercions = new LinkedHashSet<>();
-    private final Map<NodeRef<Relation>, List<Type>> relationCoercions = new LinkedHashMap<>();
+    private final Map<NodeRef<Relation>, List<SemanticType>> relationCoercions = new LinkedHashMap<>();
     private final Map<NodeRef<FunctionCall>, FunctionHandle> functionHandles = new LinkedHashMap<>();
     private final Map<NodeRef<Identifier>, LambdaArgumentDeclaration> lambdaArgumentReferences = new LinkedHashMap<>();
 
@@ -224,19 +224,19 @@ public class Analysis
         return orderByAggregates.get(NodeRef.of(node));
     }
 
-    public Map<NodeRef<Expression>, Type> getTypes()
+    public Map<NodeRef<Expression>, SemanticType> getTypes()
     {
         return unmodifiableMap(types);
     }
 
-    public Type getType(Expression expression)
+    public SemanticType getType(Expression expression)
     {
-        Type type = types.get(NodeRef.of(expression));
+        SemanticType type = types.get(NodeRef.of(expression));
         checkArgument(type != null, "Expression not analyzed: %s", expression);
         return type;
     }
 
-    public Type getTypeWithCoercions(Expression expression)
+    public SemanticType getTypeWithCoercions(Expression expression)
     {
         NodeRef<Expression> key = NodeRef.of(expression);
         checkArgument(types.containsKey(key), "Expression not analyzed: %s", expression);
@@ -246,19 +246,19 @@ public class Analysis
         return types.get(key);
     }
 
-    public Type[] getRelationCoercion(Relation relation)
+    public SemanticType[] getRelationCoercion(Relation relation)
     {
         return Optional.ofNullable(relationCoercions.get(NodeRef.of(relation)))
-                .map(types -> types.stream().toArray(Type[]::new))
+                .map(types -> types.stream().toArray(SemanticType[]::new))
                 .orElse(null);
     }
 
-    public void addRelationCoercion(Relation relation, Type[] types)
+    public void addRelationCoercion(Relation relation, SemanticType[] types)
     {
         relationCoercions.put(NodeRef.of(relation), ImmutableList.copyOf(types));
     }
 
-    public Map<NodeRef<Expression>, Type> getCoercions()
+    public Map<NodeRef<Expression>, SemanticType> getCoercions()
     {
         return unmodifiableMap(coercions);
     }
@@ -268,7 +268,7 @@ public class Analysis
         return unmodifiableSet(typeOnlyCoercions);
     }
 
-    public Type getCoercion(Expression expression)
+    public SemanticType getCoercion(Expression expression)
     {
         return coercions.get(NodeRef.of(expression));
     }
@@ -532,12 +532,12 @@ public class Analysis
         return columnReferences.containsKey(NodeRef.of(expression));
     }
 
-    public void addTypes(Map<NodeRef<Expression>, Type> types)
+    public void addTypes(Map<NodeRef<Expression>, SemanticType> types)
     {
         this.types.putAll(types);
     }
 
-    public void addCoercion(Expression expression, Type type, boolean isTypeOnlyCoercion)
+    public void addCoercion(Expression expression, SemanticType type, boolean isTypeOnlyCoercion)
     {
         this.coercions.put(NodeRef.of(expression), type);
         if (isTypeOnlyCoercion) {
@@ -545,7 +545,7 @@ public class Analysis
         }
     }
 
-    public void addCoercions(Map<NodeRef<Expression>, Type> coercions, Set<NodeRef<Expression>> typeOnlyCoercions)
+    public void addCoercions(Map<NodeRef<Expression>, SemanticType> coercions, Set<NodeRef<Expression>> typeOnlyCoercions)
     {
         this.coercions.putAll(coercions);
         this.typeOnlyCoercions.addAll(typeOnlyCoercions);

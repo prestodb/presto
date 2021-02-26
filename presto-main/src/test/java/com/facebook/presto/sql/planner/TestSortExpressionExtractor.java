@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
+import com.facebook.presto.sql.analyzer.SemanticTypeProvider;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
@@ -29,6 +30,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BigintType.BIGINT_TYPE;
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -41,11 +43,11 @@ public class TestSortExpressionExtractor
     private static final Set<VariableReferenceExpression> BUILD_VARIABLES = ImmutableSet.of(
             new VariableReferenceExpression("b1", BIGINT),
             new VariableReferenceExpression("b2", BIGINT));
-    private static final TypeProvider TYPES = TypeProvider.fromVariables(ImmutableList.of(
-            new VariableReferenceExpression("b1", BIGINT),
-            new VariableReferenceExpression("b2", BIGINT),
-            new VariableReferenceExpression("p1", BIGINT),
-            new VariableReferenceExpression("p2", BIGINT)));
+    private static final SemanticTypeProvider TYPES = SemanticTypeProvider.fromVariables(ImmutableList.of(
+            new VariableReferenceExpression("b1", BIGINT_TYPE),
+            new VariableReferenceExpression("b2", BIGINT_TYPE),
+            new VariableReferenceExpression("p1", BIGINT_TYPE),
+            new VariableReferenceExpression("p2", BIGINT_TYPE)));
 
     @Test
     public void testGetSortExpression()

@@ -15,6 +15,7 @@ package com.facebook.presto.common.type;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.semantic.SemanticType;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 
@@ -26,6 +27,7 @@ public final class TimestampType
         extends AbstractLongType
 {
     public static final TimestampType TIMESTAMP = new TimestampType();
+    public static final SemanticType TIMESTAMP_TYPE = SemanticType.from(TIMESTAMP);
 
     private TimestampType()
     {

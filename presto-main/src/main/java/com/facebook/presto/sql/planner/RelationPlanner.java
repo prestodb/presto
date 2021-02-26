@@ -20,6 +20,7 @@ import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.TableHandle;
@@ -159,7 +160,7 @@ class RelationPlanner
 
             // Add implicit coercions if view query produces types that don't match the declared output types
             // of the view (e.g., if the underlying tables referenced by the view changed)
-            Type[] types = scope.getRelationType().getAllFields().stream().map(Field::getType).toArray(Type[]::new);
+            SemanticType[] types = scope.getRelationType().getAllFields().stream().map(Field::getType).toArray(SemanticType[]::new);
             RelationPlan withCoercions = addCoercions(subPlan, types);
             return new RelationPlan(withCoercions.getRoot(), scope, withCoercions.getFieldMappings());
         }
@@ -480,7 +481,7 @@ class RelationPlanner
         rightCoercions.putAll(identitiesAsSymbolReferences(right.getRoot().getOutputVariables()));
         for (int i = 0; i < joinColumns.size(); i++) {
             Identifier identifier = joinColumns.get(i);
-            Type type = analysis.getType(identifier);
+            SemanticType type = analysis.getType(identifier);
 
             // compute the coercion for the field on the left to the common supertype of left & right
             VariableReferenceExpression leftOutput = variableAllocator.newVariable(identifier, type);
@@ -612,7 +613,7 @@ class RelationPlanner
         ImmutableMap.Builder<VariableReferenceExpression, List<VariableReferenceExpression>> unnestVariables = ImmutableMap.builder();
         UnmodifiableIterator<VariableReferenceExpression> unnestedVariablesIterator = unnestedVariables.iterator();
         for (Expression expression : node.getExpressions()) {
-            Type type = analysis.getType(expression);
+            Type type = analysis.getType(expression).getType();
             VariableReferenceExpression inputVariable = new VariableReferenceExpression(translations.get(expression).getName(), type);
             if (type instanceof ArrayType) {
                 Type elementType = ((ArrayType) type).getElementType();
@@ -696,8 +697,8 @@ class RelationPlanner
             @Override
             public Expression rewriteDereferenceExpression(DereferenceExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                Type baseType = analysis.getType(node.getBase());
-                Type nodeType = analysis.getType(node);
+                SemanticType baseType = analysis.getType(node.getBase());
+                SemanticType nodeType = analysis.getType(node);
                 if (isEnumType(baseType) && isEnumType(nodeType)) {
                     return new EnumLiteral(nodeType.getTypeSignature().toString(), resolveEnumLiteral(node, nodeType));
                 }
@@ -726,7 +727,7 @@ class RelationPlanner
         ImmutableMap.Builder<VariableReferenceExpression, List<VariableReferenceExpression>> unnestVariables = ImmutableMap.builder();
         Iterator<VariableReferenceExpression> unnestedVariablesIterator = unnestedVariables.iterator();
         for (Expression expression : node.getExpressions()) {
-            Type type = analysis.getType(expression);
+            Type type = analysis.getType(expression).getType();
             Expression rewritten = Coercer.addCoercions(expression, analysis);
             rewritten = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), rewritten);
             values.add(castToRowExpression(rewritten));
@@ -764,7 +765,7 @@ class RelationPlanner
 
     private RelationPlan processAndCoerceIfNecessary(Relation node, Void context)
     {
-        Type[] coerceToTypes = analysis.getRelationCoercion(node);
+        SemanticType[] coerceToTypes = analysis.getRelationCoercion(node);
 
         RelationPlan plan = this.process(node, context);
 
@@ -775,7 +776,7 @@ class RelationPlanner
         return addCoercions(plan, coerceToTypes);
     }
 
-    private RelationPlan addCoercions(RelationPlan plan, Type[] targetColumnTypes)
+    private RelationPlan addCoercions(RelationPlan plan, SemanticType[] targetColumnTypes)
     {
         RelationType oldRelation = plan.getDescriptor();
         List<VariableReferenceExpression> oldVisibleVariables = oldRelation.getVisibleFields().stream()
@@ -789,8 +790,8 @@ class RelationPlanner
         Assignments.Builder assignments = Assignments.builder();
         for (int i = 0; i < targetColumnTypes.length; i++) {
             VariableReferenceExpression inputVariable = oldVisibleVariables.get(i);
-            Type outputType = targetColumnTypes[i];
-            if (!outputType.equals(inputVariable.getType())) {
+            SemanticType outputType = targetColumnTypes[i];
+            if (!outputType.equals(inputVariable.getType()) && (inputVariable.getType() instanceof SemanticType || !outputType.getType().equals(inputVariable.getType()))) {
                 Expression cast = new Cast(new SymbolReference(inputVariable.getName()), outputType.getTypeSignature().toString());
                 VariableReferenceExpression outputVariable = variableAllocator.newVariable(cast, outputType);
                 assignments.put(outputVariable, castToRowExpression(cast));

@@ -20,6 +20,7 @@ import com.facebook.presto.common.block.ByteArrayBlockBuilder;
 import com.facebook.presto.common.block.PageBuilderStatus;
 import com.facebook.presto.common.block.UncheckedBlock;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.semantic.SemanticType;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 
@@ -28,6 +29,7 @@ public final class BooleanType
         implements FixedWidthType
 {
     public static final BooleanType BOOLEAN = new BooleanType();
+    public static final SemanticType BOOLEAN_TYPE = SemanticType.from(BOOLEAN);
 
     private BooleanType()
     {

@@ -15,11 +15,12 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.FunctionType;
-import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.sql.analyzer.SemanticTypeProvider;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
@@ -68,7 +69,7 @@ public class TranslateExpressions
 
             private RowExpression removeOriginalExpressionArguments(CallExpression callExpression, Session session, PlanVariableAllocator variableAllocator)
             {
-                Map<NodeRef<Expression>, Type> types = analyzeCallExpressionTypes(callExpression, session, variableAllocator.getTypes());
+                Map<NodeRef<Expression>, SemanticType> types = analyzeCallExpressionTypes(callExpression, session, variableAllocator.getTypes());
                 return new CallExpression(
                         callExpression.getDisplayName(),
                         callExpression.getFunctionHandle(),
@@ -78,7 +79,7 @@ public class TranslateExpressions
                                 .collect(toImmutableList()));
             }
 
-            private Map<NodeRef<Expression>, Type> analyzeCallExpressionTypes(CallExpression callExpression, Session session, TypeProvider typeProvider)
+            private Map<NodeRef<Expression>, SemanticType> analyzeCallExpressionTypes(CallExpression callExpression, Session session, TypeProvider typeProvider)
             {
                 List<LambdaExpression> lambdaExpressions = callExpression.getArguments().stream()
                         .filter(OriginalExpressionUtils::isExpression)
@@ -86,7 +87,7 @@ public class TranslateExpressions
                         .filter(LambdaExpression.class::isInstance)
                         .map(LambdaExpression.class::cast)
                         .collect(toImmutableList());
-                ImmutableMap.Builder<NodeRef<Expression>, Type> builder = ImmutableMap.<NodeRef<Expression>, Type>builder();
+                ImmutableMap.Builder<NodeRef<Expression>, SemanticType> builder = ImmutableMap.<NodeRef<Expression>, SemanticType>builder();
                 if (!lambdaExpressions.isEmpty()) {
                     List<FunctionType> functionTypes = metadata.getFunctionAndTypeManager().getFunctionMetadata(callExpression.getFunctionHandle()).getArgumentTypes().stream()
                             .filter(typeSignature -> typeSignature.getBase().equals(FunctionType.NAME))
@@ -114,16 +115,16 @@ public class TranslateExpressions
                         // TODO: Once the final aggregation function call representation is fixed,
                         // the same mechanism in project and filter expression should be used here.
                         verify(lambdaExpression.getArguments().size() == functionType.getArgumentTypes().size());
-                        Map<NodeRef<Expression>, Type> lambdaArgumentExpressionTypes = new HashMap<>();
-                        Map<String, Type> lambdaArgumentSymbolTypes = new HashMap<>();
+                        Map<NodeRef<Expression>, SemanticType> lambdaArgumentExpressionTypes = new HashMap<>();
+                        Map<String, SemanticType> lambdaArgumentSymbolTypes = new HashMap<>();
                         for (int j = 0; j < lambdaExpression.getArguments().size(); j++) {
                             LambdaArgumentDeclaration argument = lambdaExpression.getArguments().get(j);
-                            Type type = functionType.getArgumentTypes().get(j);
+                            SemanticType type = functionType.getArgumentTypes().get(j);
                             lambdaArgumentExpressionTypes.put(NodeRef.of(argument), type);
                             lambdaArgumentSymbolTypes.put(argument.getName().getValue(), type);
                         }
                         // the lambda expression itself
-                        builder.put(NodeRef.of(lambdaExpression), functionType)
+                        builder.put(NodeRef.of(lambdaExpression), SemanticType.from(functionType))
                                 // expressions from lambda arguments
                                 .putAll(lambdaArgumentExpressionTypes)
                                 // expressions from lambda body
@@ -131,7 +132,7 @@ public class TranslateExpressions
                                         session,
                                         metadata,
                                         sqlParser,
-                                        TypeProvider.copyOf(lambdaArgumentSymbolTypes),
+                                        SemanticTypeProvider.copyOf(lambdaArgumentSymbolTypes),
                                         lambdaExpression.getBody(),
                                         emptyList(),
                                         NOOP));
@@ -146,19 +147,19 @@ public class TranslateExpressions
                 return builder.build();
             }
 
-            private Map<NodeRef<Expression>, Type> analyze(Expression expression, Session session, TypeProvider typeProvider)
+            private Map<NodeRef<Expression>, SemanticType> analyze(Expression expression, Session session, TypeProvider typeProvider)
             {
                 return getExpressionTypes(
                         session,
                         metadata,
                         sqlParser,
-                        typeProvider,
+                        SemanticTypeProvider.fromTypeProvider(typeProvider),
                         expression,
                         emptyList(),
                         NOOP);
             }
 
-            private RowExpression toRowExpression(Expression expression, Session session, Map<NodeRef<Expression>, Type> types)
+            private RowExpression toRowExpression(Expression expression, Session session, Map<NodeRef<Expression>, SemanticType> types)
             {
                 return SqlToRowExpressionTranslator.translate(expression, types, ImmutableMap.of(), metadata.getFunctionAndTypeManager(), session);
             }
@@ -174,7 +175,7 @@ public class TranslateExpressions
                 return expression;
             }
 
-            private RowExpression removeOriginalExpression(RowExpression rowExpression, Session session, Map<NodeRef<Expression>, Type> types)
+            private RowExpression removeOriginalExpression(RowExpression rowExpression, Session session, Map<NodeRef<Expression>, SemanticType> types)
             {
                 if (isExpression(rowExpression)) {
                     Expression expression = castToExpression(rowExpression);

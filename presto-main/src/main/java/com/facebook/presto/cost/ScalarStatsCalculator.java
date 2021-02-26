@@ -15,8 +15,8 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.function.OperatorType;
-import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.WarningCollector;
@@ -31,9 +31,9 @@ import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
 import com.facebook.presto.sql.analyzer.Scope;
+import com.facebook.presto.sql.analyzer.SemanticTypeProvider;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.NoOpVariableResolver;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionOptimizer;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
@@ -85,7 +85,7 @@ public class ScalarStatsCalculator
     }
 
     @Deprecated
-    public VariableStatsEstimate calculate(Expression scalarExpression, PlanNodeStatsEstimate inputStatistics, Session session, TypeProvider types)
+    public VariableStatsEstimate calculate(Expression scalarExpression, PlanNodeStatsEstimate inputStatistics, Session session, SemanticTypeProvider types)
     {
         return new ExpressionStatsVisitor(inputStatistics, session, types).process(scalarExpression);
     }
@@ -324,9 +324,9 @@ public class ScalarStatsCalculator
     {
         private final PlanNodeStatsEstimate input;
         private final Session session;
-        private final TypeProvider types;
+        private final SemanticTypeProvider types;
 
-        ExpressionStatsVisitor(PlanNodeStatsEstimate input, Session session, TypeProvider types)
+        ExpressionStatsVisitor(PlanNodeStatsEstimate input, Session session, SemanticTypeProvider types)
         {
             this.input = input;
             this.session = session;
@@ -355,7 +355,7 @@ public class ScalarStatsCalculator
         protected VariableStatsEstimate visitLiteral(Literal node, Void context)
         {
             Object value = evaluate(metadata, session.toConnectorSession(), node);
-            Type type = ExpressionAnalyzer.createConstantAnalyzer(metadata, session, ImmutableList.of(), WarningCollector.NOOP).analyze(node, Scope.create());
+            SemanticType type = ExpressionAnalyzer.createConstantAnalyzer(metadata, session, ImmutableList.of(), WarningCollector.NOOP).analyze(node, Scope.create());
             OptionalDouble doubleValue = toStatsRepresentation(metadata, session, type, value);
             VariableStatsEstimate.Builder estimate = VariableStatsEstimate.builder()
                     .setNullsFraction(0)
@@ -371,7 +371,7 @@ public class ScalarStatsCalculator
         @Override
         protected VariableStatsEstimate visitFunctionCall(FunctionCall node, Void context)
         {
-            Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, node, types);
+            Map<NodeRef<Expression>, SemanticType> expressionTypes = getExpressionTypes(session, node, types);
             ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(node, metadata, session, expressionTypes);
             Object value = interpreter.optimize(NoOpVariableResolver.INSTANCE);
 
@@ -391,7 +391,7 @@ public class ScalarStatsCalculator
                     .build();
         }
 
-        private Map<NodeRef<Expression>, Type> getExpressionTypes(Session session, Expression expression, TypeProvider types)
+        private Map<NodeRef<Expression>, SemanticType> getExpressionTypes(Session session, Expression expression, SemanticTypeProvider types)
         {
             ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
                     metadata.getFunctionAndTypeManager(),

@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
+import com.facebook.presto.sql.analyzer.SemanticTypeProvider;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Expression;
@@ -57,7 +58,7 @@ public class TestVariableExtractor
     private static void assertVariables(String expression)
     {
         Expression expected = rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(expression, new ParsingOptions()));
-        RowExpression actual = TRANSLATOR.translate(expected, SYMBOL_TYPES);
+        RowExpression actual = TRANSLATOR.translate(expected, SemanticTypeProvider.fromTypeProvider(SYMBOL_TYPES));
         assertEquals(VariablesExtractor.extractUnique(expected, SYMBOL_TYPES), extractUnique(actual));
         assertEquals(
                 VariablesExtractor.extractAll(expected, SYMBOL_TYPES).stream().sorted().collect(toImmutableList()),

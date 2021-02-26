@@ -43,6 +43,7 @@ import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
+import com.facebook.presto.sql.analyzer.SemanticTypeProvider;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.assertions.MatchResult;
@@ -70,7 +71,9 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BigintType.BIGINT_TYPE;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN_TYPE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
@@ -114,7 +117,7 @@ public class TestJdbcComputePushdown
         String schema = "test_schema";
 
         String expression = "(c1 + c2) - c2";
-        TypeProvider typeProvider = TypeProvider.copyOf(ImmutableMap.of("c1", BIGINT, "c2", BIGINT));
+        SemanticTypeProvider typeProvider = SemanticTypeProvider.viewOf(ImmutableMap.of("c1", BIGINT_TYPE, "c2", BIGINT_TYPE));
         RowExpression rowExpression = sqlToRowExpressionTranslator.translateAndOptimize(expression(expression), typeProvider);
         Set<ColumnHandle> columns = Stream.of("c1", "c2").map(TestJdbcComputePushdown::integerJdbcColumnHandle).collect(Collectors.toSet());
         PlanNode original = filter(jdbcTableScan(schema, table, BIGINT, "c1", "c2"), rowExpression);
@@ -136,7 +139,7 @@ public class TestJdbcComputePushdown
         String schema = "test_schema";
 
         String expression = "(((c1 + c2) - c2 <> c2) OR c2 = c1) AND c1 <> c2";
-        TypeProvider typeProvider = TypeProvider.copyOf(ImmutableMap.of("c1", BIGINT, "c2", BIGINT));
+        SemanticTypeProvider typeProvider = SemanticTypeProvider.viewOf(ImmutableMap.of("c1", BIGINT_TYPE, "c2", BIGINT_TYPE));
         RowExpression rowExpression = sqlToRowExpressionTranslator.translateAndOptimize(expression(expression), typeProvider);
         Set<ColumnHandle> columns = Stream.of("c1", "c2").map(TestJdbcComputePushdown::integerJdbcColumnHandle).collect(Collectors.toSet());
         PlanNode original = filter(jdbcTableScan(schema, table, BIGINT, "c1", "c2"), rowExpression);
@@ -161,7 +164,7 @@ public class TestJdbcComputePushdown
         String schema = "test_schema";
 
         String expression = "(c1 + c2) > c2";
-        TypeProvider typeProvider = TypeProvider.copyOf(ImmutableMap.of("c1", BIGINT, "c2", BIGINT));
+        SemanticTypeProvider typeProvider = SemanticTypeProvider.viewOf(ImmutableMap.of("c1", BIGINT_TYPE, "c2", BIGINT_TYPE));
         RowExpression rowExpression = sqlToRowExpressionTranslator.translateAndOptimize(expression(expression), typeProvider);
         Set<ColumnHandle> columns = Stream.of("c1", "c2").map(TestJdbcComputePushdown::integerJdbcColumnHandle).collect(Collectors.toSet());
         PlanNode original = filter(jdbcTableScan(schema, table, BIGINT, "c1", "c2"), rowExpression);
@@ -184,7 +187,7 @@ public class TestJdbcComputePushdown
         String schema = "test_schema";
 
         String expression = "(c1 + c2) = 3";
-        TypeProvider typeProvider = TypeProvider.copyOf(ImmutableMap.of("c1", BIGINT, "c2", BIGINT));
+        SemanticTypeProvider typeProvider = SemanticTypeProvider.viewOf(ImmutableMap.of("c1", BIGINT_TYPE, "c2", BIGINT_TYPE));
         RowExpression rowExpression = sqlToRowExpressionTranslator.translateAndOptimize(expression(expression), typeProvider);
         Set<ColumnHandle> columns = Stream.of("c1", "c2").map(TestJdbcComputePushdown::integerJdbcColumnHandle).collect(Collectors.toSet());
         PlanNode original = filter(jdbcTableScan(schema, table, BIGINT, "c1", "c2"), rowExpression);
@@ -209,7 +212,7 @@ public class TestJdbcComputePushdown
         String schema = "test_schema";
 
         String expression = "c1 AND NOT(c2)";
-        TypeProvider typeProvider = TypeProvider.copyOf(ImmutableMap.of("c1", BOOLEAN, "c2", BOOLEAN));
+        SemanticTypeProvider typeProvider = SemanticTypeProvider.viewOf(ImmutableMap.of("c1", BOOLEAN_TYPE, "c2", BOOLEAN_TYPE));
         RowExpression rowExpression = sqlToRowExpressionTranslator.translateAndOptimize(expression(expression), typeProvider);
         PlanNode original = filter(jdbcTableScan(schema, table, BOOLEAN, "c1", "c2"), rowExpression);
 

@@ -14,14 +14,14 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
+import com.facebook.presto.sql.analyzer.SemanticTypeProvider;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.LiteralEncoder;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.DoubleLiteral;
@@ -41,23 +41,25 @@ import org.testng.annotations.Test;
 import java.util.Map;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BigintType.BIGINT_TYPE;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE_TYPE;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.type.TypeUtils.createVarcharSemanticType;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.POSITIVE_INFINITY;
 import static org.testng.Assert.assertEquals;
 
 public class TestScalarStatsCalculator
 {
-    private static final Map<String, Type> DEFAULT_SYMBOL_TYPES = ImmutableMap.of(
-            "a", BIGINT,
-            "x", BIGINT,
-            "y", BIGINT,
-            "all_null", BIGINT);
+    private static final Map<String, SemanticType> DEFAULT_SYMBOL_TYPES = ImmutableMap.of(
+            "a", BIGINT_TYPE,
+            "x", BIGINT_TYPE,
+            "y", BIGINT_TYPE,
+            "all_null", BIGINT_TYPE);
 
     private ScalarStatsCalculator calculator;
     private Session session;
@@ -141,7 +143,7 @@ public class TestScalarStatsCalculator
                         QualifiedName.of("length"),
                         ImmutableList.of(new SymbolReference("x"))),
                 PlanNodeStatsEstimate.unknown(),
-                TypeProvider.viewOf(ImmutableMap.of("x", createVarcharType(2))))
+                SemanticTypeProvider.viewOf(ImmutableMap.of("x", createVarcharSemanticType(2))))
                 .distinctValuesCountUnknown()
                 .lowValueUnknown()
                 .highValueUnknown()
@@ -255,7 +257,7 @@ public class TestScalarStatsCalculator
                         .build())
                 .build();
 
-        assertCalculate(new Cast(new SymbolReference("a"), "double"), inputStatistics, TypeProvider.viewOf(ImmutableMap.of("a", DOUBLE)))
+        assertCalculate(new Cast(new SymbolReference("a"), "double"), inputStatistics, SemanticTypeProvider.viewOf(ImmutableMap.of("a", DOUBLE_TYPE)))
                 .lowValue(2.0)
                 .highValue(10.0)
                 .distinctValuesCount(4)
@@ -281,10 +283,10 @@ public class TestScalarStatsCalculator
 
     private VariableStatsAssertion assertCalculate(Expression scalarExpression, PlanNodeStatsEstimate inputStatistics)
     {
-        return assertCalculate(scalarExpression, inputStatistics, TypeProvider.viewOf(DEFAULT_SYMBOL_TYPES));
+        return assertCalculate(scalarExpression, inputStatistics, SemanticTypeProvider.viewOf(DEFAULT_SYMBOL_TYPES));
     }
 
-    private VariableStatsAssertion assertCalculate(Expression scalarExpression, PlanNodeStatsEstimate inputStatistics, TypeProvider types)
+    private VariableStatsAssertion assertCalculate(Expression scalarExpression, PlanNodeStatsEstimate inputStatistics, SemanticTypeProvider types)
     {
         // assert both visitors yield the same result
         RowExpression scalarRowExpression = translator.translate(scalarExpression, types);

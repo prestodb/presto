@@ -17,6 +17,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
@@ -180,7 +181,7 @@ public class MaterializedViewQueryOptimizer
 
             for (ColumnHandle columnHandle : metadata.getColumnHandles(session, tableHandle.get()).values()) {
                 ColumnMetadata columnMetadata = metadata.getColumnMetadata(session, tableHandle.get(), columnHandle);
-                fields.add(Field.newUnqualified(columnMetadata.getName(), columnMetadata.getType()));
+                fields.add(Field.newUnqualified(columnMetadata.getName(), SemanticType.from(columnMetadata.getType())));
             }
 
             Scope scope = Scope.builder()

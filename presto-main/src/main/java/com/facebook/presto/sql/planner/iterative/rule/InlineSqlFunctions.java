@@ -14,12 +14,13 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.SqlInvokedScalarFunctionImplementation;
+import com.facebook.presto.sql.analyzer.SemanticTypeProvider;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -65,7 +66,7 @@ public class InlineSqlFunctions
                         context.getSession(),
                         metadata,
                         sqlParser,
-                        context.getVariableAllocator().getTypes(),
+                        SemanticTypeProvider.fromTypeProvider(context.getVariableAllocator().getTypes()),
                         expression,
                         emptyList(),
                         context.getWarningCollector()));
@@ -86,7 +87,7 @@ public class InlineSqlFunctions
     {
         private InlineSqlFunctionsRewriter() {}
 
-        public static Expression rewrite(Expression expression, Session session, Metadata metadata, PlanVariableAllocator variableAllocator, Map<NodeRef<Expression>, Type> expressionTypes)
+        public static Expression rewrite(Expression expression, Session session, Metadata metadata, PlanVariableAllocator variableAllocator, Map<NodeRef<Expression>, SemanticType> expressionTypes)
         {
             if (isInlineSqlFunctions(session)) {
                 return ExpressionTreeRewriter.rewriteWith(new Visitor(session, metadata, variableAllocator, expressionTypes), expression);
@@ -100,9 +101,9 @@ public class InlineSqlFunctions
             private final Session session;
             private final Metadata metadata;
             private final PlanVariableAllocator variableAllocator;
-            private final Map<NodeRef<Expression>, Type> expressionTypes;
+            private final Map<NodeRef<Expression>, SemanticType> expressionTypes;
 
-            public Visitor(Session session, Metadata metadata, PlanVariableAllocator variableAllocator, Map<NodeRef<Expression>, Type> expressionTypes)
+            public Visitor(Session session, Metadata metadata, PlanVariableAllocator variableAllocator, Map<NodeRef<Expression>, SemanticType> expressionTypes)
             {
                 this.session = requireNonNull(session, "session is null");
                 this.metadata = requireNonNull(metadata, "metadata is null");
@@ -113,7 +114,7 @@ public class InlineSqlFunctions
             @Override
             public Expression rewriteFunctionCall(FunctionCall node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                List<Type> argumentTypes = new ArrayList<>();
+                List<SemanticType> argumentTypes = new ArrayList<>();
                 List<Expression> rewrittenArguments = new ArrayList<>();
                 for (Expression argument : node.getArguments()) {
                     argumentTypes.add(expressionTypes.get(NodeRef.of(argument)));

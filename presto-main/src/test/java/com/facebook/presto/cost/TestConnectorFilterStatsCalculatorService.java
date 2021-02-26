@@ -25,7 +25,7 @@ import com.facebook.presto.spi.statistics.DoubleRange;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
-import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.analyzer.SemanticTypeProvider;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -35,6 +35,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE_TYPE;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
@@ -48,7 +49,7 @@ public class TestConnectorFilterStatsCalculatorService
     private TableStatistics originalTableStatistics;
     private TableStatistics originalTableStatisticsWithoutTotalSize;
     private TableStatistics zeroTableStatistics;
-    private TypeProvider standardTypes;
+    private SemanticTypeProvider standardTypes;
     private TestingRowExpressionTranslator translator;
 
     @BeforeClass
@@ -76,8 +77,8 @@ public class TestConnectorFilterStatsCalculatorService
                 .setRowCount(Estimate.of(100))
                 .setColumnStatistics(xColumn, xStats)
                 .build();
-        standardTypes = TypeProvider.fromVariables(ImmutableList.<VariableReferenceExpression>builder()
-                .add(new VariableReferenceExpression("x", DOUBLE))
+        standardTypes = SemanticTypeProvider.fromVariables(ImmutableList.<VariableReferenceExpression>builder()
+                .add(new VariableReferenceExpression("x", DOUBLE_TYPE))
                 .build());
         translator = new TestingRowExpressionTranslator(MetadataManager.createTestMetadataManager());
     }

@@ -17,15 +17,15 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
+import com.facebook.presto.sql.analyzer.SemanticTypeProvider;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BigintType.BIGINT_TYPE;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -113,6 +113,6 @@ public class TestExpressionVerifier
 
     private RowExpression translate(Expression expression)
     {
-        return translator.translate(expression, TypeProvider.viewOf(ImmutableMap.of("orderkey", BIGINT, "custkey", BIGINT)));
+        return translator.translate(expression, SemanticTypeProvider.viewOf(ImmutableMap.of("orderkey", BIGINT_TYPE, "custkey", BIGINT_TYPE)));
     }
 }

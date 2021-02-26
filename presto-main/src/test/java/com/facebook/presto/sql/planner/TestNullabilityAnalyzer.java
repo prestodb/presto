@@ -21,6 +21,7 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
+import com.facebook.presto.sql.analyzer.SemanticTypeProvider;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.iterative.rule.LambdaCaptureDesugaringRewriter;
@@ -79,7 +80,7 @@ public class TestNullabilityAnalyzer
     {
         Expression rawExpression = rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(expression, new ParsingOptions()));
         Expression desugaredExpression = new TestingDesugarExpressions(TYPES.allVariables()).rewrite(rawExpression);
-        RowExpression rowExpression = TRANSLATOR.translate(desugaredExpression, TYPES);
+        RowExpression rowExpression = TRANSLATOR.translate(desugaredExpression, SemanticTypeProvider.fromTypeProvider(TYPES));
         assertEquals(analyzer.mayReturnNullOnNonNullInput(rowExpression), mayReturnNullForNotNullInput);
     }
 

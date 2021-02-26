@@ -20,16 +20,17 @@ import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.SqlDecimal;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.analyzer.SemanticTypeProvider;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.relational.RowExpressionOptimizer;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.Expression;
@@ -547,7 +548,7 @@ public class BenchmarkDecimalOperators
         private final MetadataManager metadata = createTestMetadataManager();
         private final Random random = new Random();
 
-        protected final Map<String, Type> symbolTypes = new HashMap<>();
+        protected final Map<String, SemanticType> symbolTypes = new HashMap<>();
         private final Map<VariableReferenceExpression, Integer> sourceLayout = new HashMap<>();
         protected final List<Type> types = new LinkedList<>();
 
@@ -567,7 +568,7 @@ public class BenchmarkDecimalOperators
 
         protected void addSymbol(String name, Type type)
         {
-            symbolTypes.put(name, type);
+            symbolTypes.put(name, SemanticType.from(type));
             sourceLayout.put(new VariableReferenceExpression(name, type), types.size());
             types.add(type);
         }
@@ -606,9 +607,9 @@ public class BenchmarkDecimalOperators
 
         private RowExpression rowExpression(String value)
         {
-            Expression expression = createExpression(value, metadata, TypeProvider.copyOf(symbolTypes));
+            Expression expression = createExpression(value, metadata, SemanticTypeProvider.copyOf(symbolTypes));
 
-            Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(TEST_SESSION, metadata, SQL_PARSER, TypeProvider.copyOf(symbolTypes), expression, emptyList(), WarningCollector.NOOP);
+            Map<NodeRef<Expression>, SemanticType> expressionTypes = getExpressionTypes(TEST_SESSION, metadata, SQL_PARSER, SemanticTypeProvider.copyOf(symbolTypes), expression, emptyList(), WarningCollector.NOOP);
             RowExpression rowExpression = SqlToRowExpressionTranslator.translate(expression, expressionTypes, sourceLayout, metadata.getFunctionAndTypeManager(), TEST_SESSION);
             RowExpressionOptimizer optimizer = new RowExpressionOptimizer(metadata);
             return optimizer.optimize(rowExpression, OPTIMIZED, TEST_SESSION.toConnectorSession());

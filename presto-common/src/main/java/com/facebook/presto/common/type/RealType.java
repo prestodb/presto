@@ -17,6 +17,7 @@ import com.facebook.presto.common.GenericInternalException;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.semantic.SemanticType;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static java.lang.Float.floatToIntBits;
@@ -28,6 +29,7 @@ public final class RealType
         extends AbstractIntType
 {
     public static final RealType REAL = new RealType();
+    public static final SemanticType REAL_TYPE = SemanticType.from(REAL);
 
     private RealType()
     {
