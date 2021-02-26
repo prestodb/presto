@@ -16,6 +16,7 @@ package com.facebook.presto.spi.relation;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.FunctionType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeWithName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.slice.Slice;
@@ -29,11 +30,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 @Immutable
 public final class LambdaDefinitionExpression
@@ -78,7 +79,7 @@ public final class LambdaDefinitionExpression
     @Override
     public Type getType()
     {
-        return new FunctionType(argumentTypes, body.getType());
+        return new FunctionType(argumentTypes.stream().map(TypeWithName::new).collect(toList()), new TypeWithName(body.getType()));
     }
 
     @Override
@@ -134,7 +135,7 @@ public final class LambdaDefinitionExpression
         @Override
         public String visitCall(CallExpression call, Void context)
         {
-            return format("%s.%s(%s):%s", call.getFunctionHandle().getCatalogSchemaName(), call.getDisplayName(), String.join(", ", call.getArguments().stream().map(e -> e.accept(this, null)).collect(Collectors.toList())), call.getType());
+            return format("%s.%s(%s):%s", call.getFunctionHandle().getCatalogSchemaName(), call.getDisplayName(), String.join(", ", call.getArguments().stream().map(e -> e.accept(this, null)).collect(toList())), call.getType());
         }
 
         @Override
@@ -164,7 +165,7 @@ public final class LambdaDefinitionExpression
         @Override
         public String visitLambda(LambdaDefinitionExpression lambda, Void context)
         {
-            return format("(%s) -> %s", String.join(", ", lambda.argumentTypes.stream().map(Type::toString).collect(Collectors.toList())), lambda.body.accept(this, null));
+            return format("(%s) -> %s", String.join(", ", lambda.argumentTypes.stream().map(Type::toString).collect(toList())), lambda.body.accept(this, null));
         }
 
         @Override
@@ -179,7 +180,7 @@ public final class LambdaDefinitionExpression
         @Override
         public String visitSpecialForm(SpecialFormExpression specialForm, Void context)
         {
-            return format("%s(%s)", specialForm.getForm(), String.join(", ", specialForm.getArguments().stream().map(e -> e.accept(this, null)).collect(Collectors.toList())));
+            return format("%s(%s)", specialForm.getForm(), String.join(", ", specialForm.getArguments().stream().map(e -> e.accept(this, null)).collect(toList())));
         }
     }
 }
