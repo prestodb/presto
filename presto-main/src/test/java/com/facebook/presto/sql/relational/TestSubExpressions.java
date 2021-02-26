@@ -15,6 +15,7 @@ package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.FunctionType;
+import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
@@ -39,6 +40,7 @@ import static org.testng.Assert.assertEquals;
 public class TestSubExpressions
 {
     private static final FunctionAndTypeManager FUNCTION_MANAGER = createTestMetadataManager().getFunctionAndTypeManager();
+    private static final TypeWithName BIGINT_TYPE = new TypeWithName(BIGINT);
 
     @Test
     void testExtract()
@@ -48,7 +50,7 @@ public class TestSubExpressions
         RowExpression c = call(ADD, a, b);
         RowExpression d = new LambdaDefinitionExpression(ImmutableList.of(BIGINT), ImmutableList.of("a"), c);
         RowExpression e = constant(1L, BIGINT);
-        RowExpression f = specialForm(BIND, new FunctionType(ImmutableList.of(BIGINT), BIGINT), e, d);
+        RowExpression f = specialForm(BIND, new FunctionType(ImmutableList.of(BIGINT_TYPE), BIGINT_TYPE), e, d);
         assertEquals(subExpressions(a), ImmutableList.of(a));
         assertEquals(subExpressions(b), ImmutableList.of(b));
         assertEquals(subExpressions(c), ImmutableList.of(c, a, b));
