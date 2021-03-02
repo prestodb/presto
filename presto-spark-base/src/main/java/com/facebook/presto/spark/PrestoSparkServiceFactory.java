@@ -47,7 +47,7 @@ public class PrestoSparkServiceFactory
                 configuration.getSessionPropertyConfigurationProperties(),
                 configuration.getFunctionNamespaceProperties(),
                 getSqlParserOptions(),
-                getAdditionalModules());
+                getAdditionalModules(configuration));
 
         Injector injector = prestoSparkInjectorFactory.create();
         PrestoSparkService prestoSparkService = injector.getInstance(PrestoSparkService.class);
@@ -55,7 +55,7 @@ public class PrestoSparkServiceFactory
         return prestoSparkService;
     }
 
-    protected List<Module> getAdditionalModules()
+    protected List<Module> getAdditionalModules(PrestoSparkConfiguration configuration)
     {
         return ImmutableList.of(new PrestoSparkMetadataStorageModule());
     }
