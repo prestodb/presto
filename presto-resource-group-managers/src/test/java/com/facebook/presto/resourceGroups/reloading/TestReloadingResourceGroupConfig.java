@@ -11,34 +11,40 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.resourceGroups.db;
+package com.facebook.presto.resourceGroups.reloading;
 
 import com.facebook.airlift.configuration.testing.ConfigAssertions;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static java.util.concurrent.TimeUnit.HOURS;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
-public class TestDbResourceGroupConfig
+public class TestReloadingResourceGroupConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(ConfigAssertions.recordDefaults(DbResourceGroupConfig.class)
-                .setConfigDbUrl(null));
+        assertRecordedDefaults(ConfigAssertions.recordDefaults(ReloadingResourceGroupConfig.class)
+                .setMaxRefreshInterval(new Duration(1, HOURS))
+                .setExactMatchSelectorEnabled(false));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("resource-groups.config-db-url", "jdbc:mysql//localhost:3306/config?user=presto_admin")
+                .put("resource-groups.max-refresh-interval", "1m")
+                .put("resource-groups.exact-match-selector-enabled", "true")
                 .build();
-        DbResourceGroupConfig expected = new DbResourceGroupConfig()
-                .setConfigDbUrl("jdbc:mysql//localhost:3306/config?user=presto_admin");
+        ReloadingResourceGroupConfig expected = new ReloadingResourceGroupConfig()
+                .setMaxRefreshInterval(new Duration(1, MINUTES))
+                .setExactMatchSelectorEnabled(true);
 
         assertFullMapping(properties, expected);
     }
