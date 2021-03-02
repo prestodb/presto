@@ -31,6 +31,7 @@ public class PrestoSparkDistribution
     private final PackageSupplier packageSupplier;
     private final Map<String, String> configProperties;
     private final Map<String, Map<String, String>> catalogProperties;
+    private final String metadataStorageType;
     private final Optional<Map<String, String>> eventListenerProperties;
     private final Optional<Map<String, String>> accessControlProperties;
     private final Optional<Map<String, String>> sessionPropertyConfigurationProperties;
@@ -41,6 +42,7 @@ public class PrestoSparkDistribution
             PackageSupplier packageSupplier,
             Map<String, String> configProperties,
             Map<String, Map<String, String>> catalogProperties,
+            String metadataStorageType,
             Optional<Map<String, String>> eventListenerProperties,
             Optional<Map<String, String>> accessControlProperties,
             Optional<Map<String, String>> sessionPropertyConfigurationProperties,
@@ -51,6 +53,7 @@ public class PrestoSparkDistribution
         this.configProperties = ImmutableMap.copyOf(requireNonNull(configProperties, "configProperties is null"));
         this.catalogProperties = requireNonNull(catalogProperties, "catalogProperties is null").entrySet().stream()
                 .collect(toImmutableMap(Map.Entry::getKey, entry -> ImmutableMap.copyOf(entry.getValue())));
+        this.metadataStorageType = requireNonNull(metadataStorageType, "metadataStorageType is null");
         this.eventListenerProperties = requireNonNull(eventListenerProperties, "eventListenerProperties is null")
                 .map(properties -> unmodifiableMap(new HashMap<>(properties)));
         this.accessControlProperties = requireNonNull(accessControlProperties, "accessControlProperties is null")
@@ -80,6 +83,11 @@ public class PrestoSparkDistribution
     public Map<String, Map<String, String>> getCatalogProperties()
     {
         return catalogProperties;
+    }
+
+    public String getMetadataStorageType()
+    {
+        return metadataStorageType;
     }
 
     public Optional<Map<String, String>> getEventListenerProperties()
