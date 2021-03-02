@@ -78,6 +78,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.isEnableDynamicFiltering;
+import static com.facebook.presto.SystemSessionProperties.isEnableHashJoinDynamicFiltering;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -510,7 +511,7 @@ public class PredicatePushDown
             PlanNode leftSource;
             PlanNode rightSource;
 
-            boolean dynamicFilterEnabled = isEnableDynamicFiltering(session);
+            boolean dynamicFilterEnabled = isEnableDynamicFiltering(session) || isEnableHashJoinDynamicFiltering(session);
             Map<String, VariableReferenceExpression> dynamicFilters = ImmutableMap.of();
             if (dynamicFilterEnabled) {
                 DynamicFiltersResult dynamicFiltersResult = createDynamicFilters(node, equiJoinClauses, idAllocator, metadata.getFunctionAndTypeManager());
@@ -615,7 +616,7 @@ public class PredicatePushDown
                     VariableReferenceExpression probeSymbol = clause.getLeft();
                     VariableReferenceExpression buildSymbol = clause.getRight();
                     String id = idAllocator.getNextId().toString();
-                    predicatesBuilder.add(createDynamicFilterExpression(id, probeSymbol, functionAndTypeManager));
+                    predicatesBuilder.add(createDynamicFilterExpression(id, node.getId().toString(), probeSymbol, functionAndTypeManager));
                     dynamicFiltersBuilder.put(id, buildSymbol);
                 }
                 dynamicFilters = dynamicFiltersBuilder.build();
@@ -624,16 +625,17 @@ public class PredicatePushDown
             return new DynamicFiltersResult(dynamicFilters, predicates);
         }
 
-        private static RowExpression createDynamicFilterExpression(String id, VariableReferenceExpression input, FunctionAndTypeManager functionAndTypeManager)
+        private static RowExpression createDynamicFilterExpression(String id, String sourceId, VariableReferenceExpression input, FunctionAndTypeManager functionAndTypeManager)
         {
             return call(
                     functionAndTypeManager,
                     DynamicFilters.DynamicFilterPlaceholderFunction.NAME,
                     BooleanType.BOOLEAN,
-                    ImmutableList.of(new ConstantExpression(Slices.utf8Slice(id), VarcharType.VARCHAR), input));
+                    ImmutableList.of(new ConstantExpression(Slices.utf8Slice(id + "$" + sourceId), VarcharType.VARCHAR), input));
         }
 
         private static DynamicFiltersResult createDynamicFilters(
+                String sourceId,
                 VariableReferenceExpression probeVariable,
                 VariableReferenceExpression buildVariable,
                 PlanNodeIdAllocator idAllocator,
@@ -642,7 +644,7 @@ public class PredicatePushDown
             ImmutableMap.Builder<String, VariableReferenceExpression> dynamicFiltersBuilder = ImmutableMap.builder();
             ImmutableList.Builder<RowExpression> predicatesBuilder = ImmutableList.builder();
             String id = idAllocator.getNextId().toString();
-            predicatesBuilder.add(createDynamicFilterExpression(id, probeVariable, functionAndTypeManager));
+            predicatesBuilder.add(createDynamicFilterExpression(id, sourceId, probeVariable, functionAndTypeManager));
             dynamicFiltersBuilder.put(id, buildVariable);
             return new DynamicFiltersResult(dynamicFiltersBuilder.build(), predicatesBuilder.build());
         }
@@ -1301,7 +1303,7 @@ public class PredicatePushDown
 
             Map<String, VariableReferenceExpression> dynamicFilters = ImmutableMap.of();
             if (isEnableDynamicFiltering(session)) {
-                DynamicFiltersResult dynamicFiltersResult = createDynamicFilters(node.getSourceJoinVariable(), node.getFilteringSourceJoinVariable(), idAllocator, metadata.getFunctionAndTypeManager());
+                DynamicFiltersResult dynamicFiltersResult = createDynamicFilters(node.getId().toString(), node.getSourceJoinVariable(), node.getFilteringSourceJoinVariable(), idAllocator, metadata.getFunctionAndTypeManager());
                 dynamicFilters = dynamicFiltersResult.getDynamicFilters();
                 // add filter node on top of probe
                 rewrittenSource = new FilterNode(idAllocator.getNextId(), rewrittenSource, logicalRowExpressions.combineConjuncts(dynamicFiltersResult.getPredicates()));

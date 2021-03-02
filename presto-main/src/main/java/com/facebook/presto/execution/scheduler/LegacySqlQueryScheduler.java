@@ -33,6 +33,7 @@ import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.server.DynamicFilterService;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -139,6 +140,8 @@ public class LegacySqlQueryScheduler
     private final AtomicBoolean started = new AtomicBoolean();
     private final AtomicBoolean scheduling = new AtomicBoolean();
 
+    private final DynamicFilterService dynamicFilterService;
+
     public static LegacySqlQueryScheduler createSqlQueryScheduler(
             LocationFactory locationFactory,
             ExecutionPolicy executionPolicy,
@@ -159,7 +162,8 @@ public class LegacySqlQueryScheduler
             PlanVariableAllocator variableAllocator,
             PlanChecker planChecker,
             Metadata metadata,
-            SqlParser sqlParser)
+            SqlParser sqlParser,
+            DynamicFilterService dynamicFilterService)
     {
         LegacySqlQueryScheduler sqlQueryScheduler = new LegacySqlQueryScheduler(
                 locationFactory,
@@ -181,7 +185,8 @@ public class LegacySqlQueryScheduler
                 variableAllocator,
                 planChecker,
                 metadata,
-                sqlParser);
+                sqlParser,
+                dynamicFilterService);
         sqlQueryScheduler.initialize();
         return sqlQueryScheduler;
     }
@@ -206,7 +211,8 @@ public class LegacySqlQueryScheduler
             PlanVariableAllocator variableAllocator,
             PlanChecker planChecker,
             Metadata metadata,
-            SqlParser sqlParser)
+            SqlParser sqlParser,
+            DynamicFilterService dynamicFilterService)
     {
         this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
         this.executionPolicy = requireNonNull(executionPolicy, "schedulerPolicyFactory is null");
@@ -223,6 +229,7 @@ public class LegacySqlQueryScheduler
         this.planChecker = requireNonNull(planChecker, "planChecker is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+        this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
         this.sectionExecutionFactory = requireNonNull(sectionExecutionFactory, "sectionExecutionFactory is null");
         this.remoteTaskFactory = requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
         this.splitSourceFactory = requireNonNull(splitSourceFactory, "splitSourceFactory is null");
@@ -349,7 +356,8 @@ public class LegacySqlQueryScheduler
                         summarizeTaskInfo,
                         remoteTaskFactory,
                         splitSourceFactory,
-                        0).getSectionStages();
+                        0,
+                        dynamicFilterService).getSectionStages();
         stages.addAll(sectionStages);
 
         return stages.build();
@@ -639,7 +647,8 @@ public class LegacySqlQueryScheduler
                 summarizeTaskInfo,
                 remoteTaskFactory,
                 splitSourceFactory,
-                0);
+                0,
+                dynamicFilterService);
         addStateChangeListeners(sectionExecution);
         Map<StageId, StageExecutionAndScheduler> updatedStageExecutions = sectionExecution.getSectionStages().stream()
                 .collect(toImmutableMap(execution -> execution.getStageExecution().getStageExecutionId().getStageId(), identity()));

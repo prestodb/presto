@@ -118,8 +118,13 @@ public final class DynamicFilters
         checkArgument(firstArgument instanceof ConstantExpression);
         checkArgument(firstArgument.getType() instanceof VarcharType);
 
-        String id = ((Slice) ((ConstantExpression) firstArgument).getValue()).toStringUtf8();
-        return Optional.of(new DynamicFilterPlaceholder(id, arguments.get(1)));
+        String[] value = ((Slice) ((ConstantExpression) firstArgument).getValue()).toStringUtf8().split("\\$");
+        if (value.length == 1) {
+            return Optional.of(new DynamicFilterPlaceholder(value[0], arguments.get(1)));
+        }
+        else {
+            return Optional.of(new DynamicFilterPlaceholder(value[0], value[1], arguments.get(1)));
+        }
     }
 
     public static RowExpression removeNestedDynamicFilters(RowExpression expression)
@@ -222,17 +227,29 @@ public final class DynamicFilters
     public static final class DynamicFilterPlaceholder
     {
         private final String id;
+        private final String source;
         private final RowExpression input;
 
         public DynamicFilterPlaceholder(String id, RowExpression input)
         {
+            this(id, "", input);
+        }
+
+        public DynamicFilterPlaceholder(String id, String source, RowExpression input)
+        {
             this.id = requireNonNull(id, "id is null");
+            this.source = requireNonNull(source, "source is null");
             this.input = requireNonNull(input, "input is null");
         }
 
         public String getId()
         {
             return id;
+        }
+
+        public String getSource()
+        {
+            return source;
         }
 
         public RowExpression getInput()

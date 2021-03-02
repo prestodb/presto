@@ -53,6 +53,9 @@ import com.facebook.presto.operator.AssignUniqueIdOperator;
 import com.facebook.presto.operator.DeleteOperator.DeleteOperatorFactory;
 import com.facebook.presto.operator.DevNullOperator.DevNullOperatorFactory;
 import com.facebook.presto.operator.DriverFactory;
+import com.facebook.presto.operator.DynamicFilterClient;
+import com.facebook.presto.operator.DynamicFilterClientSupplier;
+import com.facebook.presto.operator.DynamicFilterCollect;
 import com.facebook.presto.operator.DynamicFilterSourceOperator;
 import com.facebook.presto.operator.EnforceSingleRowOperator;
 import com.facebook.presto.operator.ExplainAnalyzeOperator.ExplainAnalyzeOperatorFactory;
@@ -61,6 +64,7 @@ import com.facebook.presto.operator.FragmentResultCacheManager;
 import com.facebook.presto.operator.GroupIdOperator;
 import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
 import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
+import com.facebook.presto.operator.HashJoinDynamicFilterSourceOperator;
 import com.facebook.presto.operator.HashSemiJoinOperator.HashSemiJoinOperatorFactory;
 import com.facebook.presto.operator.JoinBridgeManager;
 import com.facebook.presto.operator.JoinOperatorFactory;
@@ -251,6 +255,7 @@ import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
 import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
 import static com.facebook.presto.SystemSessionProperties.isEnableDynamicFiltering;
+import static com.facebook.presto.SystemSessionProperties.isEnableHashJoinDynamicFiltering;
 import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isJoinSpillingEnabled;
 import static com.facebook.presto.SystemSessionProperties.isOptimizeCommonSubExpressions;
@@ -356,6 +361,7 @@ public class LocalExecutionPlanner
     private final LogicalRowExpressions logicalRowExpressions;
     private final FragmentResultCacheManager fragmentResultCacheManager;
     private final ObjectMapper objectMapper;
+    private final DynamicFilterClientSupplier dynamicFilterClientSupplier;
 
     private static final TypeSignature SPHERICAL_GEOGRAPHY_TYPE_SIGNATURE = parseTypeSignature("SphericalGeography");
 
@@ -385,7 +391,8 @@ public class LocalExecutionPlanner
             JsonCodec<TableCommitContext> tableCommitContextCodec,
             DeterminismEvaluator determinismEvaluator,
             FragmentResultCacheManager fragmentResultCacheManager,
-            ObjectMapper objectMapper)
+            ObjectMapper objectMapper,
+            DynamicFilterClientSupplier dynamicFilterClientSupplier)
     {
         this.explainAnalyzeContext = requireNonNull(explainAnalyzeContext, "explainAnalyzeContext is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
@@ -418,6 +425,7 @@ public class LocalExecutionPlanner
                 metadata.getFunctionAndTypeManager());
         this.fragmentResultCacheManager = requireNonNull(fragmentResultCacheManager, "fragmentResultCacheManager is null");
         this.objectMapper = requireNonNull(objectMapper, "objectMapper is null");
+        this.dynamicFilterClientSupplier = requireNonNull(dynamicFilterClientSupplier, "dynamicFilterClientSupplier is null");
     }
 
     public LocalExecutionPlan plan(
@@ -1381,13 +1389,30 @@ public class LocalExecutionPlanner
                             sourceNode.getId(),
                             isOptimizeCommonSubExpressions(session),
                             session.getSessionFunctions());
-                    Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(
-                            session.getSqlFunctionProperties(),
-                            filterExpression,
-                            projections,
-                            isOptimizeCommonSubExpressions(session),
-                            session.getSessionFunctions(),
-                            Optional.of(context.getStageExecutionId() + "_" + planNodeId));
+
+                    Supplier<PageProcessor> pageProcessor;
+                    if (isEnableHashJoinDynamicFiltering(context.getSession()) && dynamicFilters.isPresent() && !dynamicFilters.get().isEmpty()) {
+                        DynamicFilterClient client = dynamicFilterClientSupplier.createClient(metadata.getFunctionAndTypeManager());
+                        DynamicFilterCollect dynamicFilterCollect = new DynamicFilterCollect(metadata, dynamicFilters.get(), filterExpression, client, session.getQueryId());
+                        pageProcessor = expressionCompiler.compilePageProcessor(
+                                session.getSqlFunctionProperties(),
+                                filterExpression,
+                                projections,
+                                isOptimizeCommonSubExpressions(session),
+                                session.getSessionFunctions(),
+                                Optional.of(context.getStageExecutionId() + "_" + planNodeId),
+                                OptionalInt.empty(),
+                                Optional.of(dynamicFilterCollect));
+                    }
+                    else {
+                        pageProcessor = expressionCompiler.compilePageProcessor(
+                                session.getSqlFunctionProperties(),
+                                filterExpression,
+                                projections,
+                                isOptimizeCommonSubExpressions(session),
+                                session.getSessionFunctions(),
+                                Optional.of(context.getStageExecutionId() + "_" + planNodeId));
+                    }
 
                     SourceOperatorFactory operatorFactory = new ScanFilterAndProjectOperatorFactory(
                             context.getNextOperatorId(),
@@ -1406,13 +1431,29 @@ public class LocalExecutionPlanner
                     return new PhysicalOperation(operatorFactory, outputMappings, context, stageExecutionDescriptor.isScanGroupedExecution(sourceNode.getId()) ? GROUPED_EXECUTION : UNGROUPED_EXECUTION);
                 }
                 else if (locality.equals(LOCAL)) {
-                    Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(
-                            session.getSqlFunctionProperties(),
-                            filterExpression,
-                            projections,
-                            isOptimizeCommonSubExpressions(session),
-                            session.getSessionFunctions(),
-                            Optional.of(context.getStageExecutionId() + "_" + planNodeId));
+                    Supplier<PageProcessor> pageProcessor;
+                    if (isEnableHashJoinDynamicFiltering(context.getSession()) && dynamicFilters.isPresent() && !dynamicFilters.get().isEmpty()) {
+                        DynamicFilterClient client = dynamicFilterClientSupplier.createClient(metadata.getFunctionAndTypeManager());
+                        DynamicFilterCollect dynamicFilterCollect = new DynamicFilterCollect(metadata, dynamicFilters.get(), filterExpression, client, session.getQueryId());
+                        pageProcessor = expressionCompiler.compilePageProcessor(
+                                session.getSqlFunctionProperties(),
+                                filterExpression,
+                                projections,
+                                isOptimizeCommonSubExpressions(session),
+                                session.getSessionFunctions(),
+                                Optional.of(context.getStageExecutionId() + "_" + planNodeId),
+                                OptionalInt.empty(),
+                                Optional.of(dynamicFilterCollect));
+                    }
+                    else {
+                        pageProcessor = expressionCompiler.compilePageProcessor(
+                                session.getSqlFunctionProperties(),
+                                filterExpression,
+                                projections,
+                                isOptimizeCommonSubExpressions(session),
+                                session.getSessionFunctions(),
+                                Optional.of(context.getStageExecutionId() + "_" + planNodeId));
+                    }
 
                     OperatorFactory operatorFactory = new FilterAndProjectOperatorFactory(
                             context.getNextOperatorId(),
@@ -2251,8 +2292,13 @@ public class LocalExecutionPlanner
             ImmutableList.Builder<OperatorFactory> factoriesBuilder = new ImmutableList.Builder<>();
             factoriesBuilder.addAll(buildSource.getOperatorFactories());
 
-            createDynamicFilter(buildSource, node, context, partitionCount).ifPresent(
-                    filter -> factoriesBuilder.add(createDynamicFilterSourceOperatorFactory(filter, node.getId(), buildSource, buildContext)));
+            Optional<LocalDynamicFilter> localDynamicFilter = createDynamicFilter(buildSource, node, context, partitionCount);
+            if (localDynamicFilter.isPresent() && isEnableDynamicFiltering(context.getSession())) {
+                factoriesBuilder.add(createDynamicFilterSourceOperatorFactory(localDynamicFilter.get(), node.getId(), buildSource, buildContext));
+            }
+            else if (localDynamicFilter.isPresent() && isEnableHashJoinDynamicFiltering(context.getSession()) && node.getType() == INNER) {
+                factoriesBuilder.add(createHashJoinDynamicFilterSourceOperatorFactory(localDynamicFilter.get(), node.getId(), buildSource, buildContext));
+            }
 
             // spill does not work for probe only grouped execution because PartitionedLookupSourceFactory.finishProbe() expects a defined number of probe operators
             boolean isProbeOnlyGroupedExecution = probeSource.getPipelineExecutionStrategy() == GROUPED_EXECUTION && buildSource.getPipelineExecutionStrategy() != GROUPED_EXECUTION;
@@ -2286,6 +2332,28 @@ public class LocalExecutionPlanner
             return lookupSourceFactoryManager;
         }
 
+        private HashJoinDynamicFilterSourceOperator.HashJoinDynamicFilterSourceOperatorFactory createHashJoinDynamicFilterSourceOperatorFactory(
+                LocalDynamicFilter dynamicFilter,
+                PlanNodeId planNodeId,
+                PhysicalOperation buildSource,
+                LocalExecutionPlanContext context)
+        {
+            List<HashJoinDynamicFilterSourceOperator.Channel> filterBuildChannels = dynamicFilter.getBuildChannels().entrySet().stream()
+                    .map(entry -> {
+                        int index = entry.getValue();
+                        Type type = buildSource.getTypes().get(index);
+                        return new HashJoinDynamicFilterSourceOperator.Channel(type, index);
+                    })
+                    .collect(Collectors.toList());
+            return new HashJoinDynamicFilterSourceOperator.HashJoinDynamicFilterSourceOperatorFactory(session,
+                    context.getNextOperatorId(),
+                    planNodeId,
+                    filterBuildChannels,
+                    dynamicFilterClientSupplier,
+                    planNodeId.toString(),
+                    context.getDriverInstanceCount().orElse(1));
+        }
+
         private DynamicFilterSourceOperator.DynamicFilterSourceOperatorFactory createDynamicFilterSourceOperatorFactory(
                 LocalDynamicFilter dynamicFilter,
                 PlanNodeId planNodeId,
@@ -2311,7 +2379,7 @@ public class LocalExecutionPlanner
 
         private Optional<LocalDynamicFilter> createDynamicFilter(PhysicalOperation buildSource, AbstractJoinNode node, LocalExecutionPlanContext context, int partitionCount)
         {
-            if (!isEnableDynamicFiltering(context.getSession())) {
+            if (!isEnableDynamicFiltering(context.getSession()) && !isEnableHashJoinDynamicFiltering(session)) {
                 return Optional.empty();
             }
             if (node.getDynamicFilters().isEmpty()) {

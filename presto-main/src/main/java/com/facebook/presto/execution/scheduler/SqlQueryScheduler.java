@@ -35,6 +35,7 @@ import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.server.DynamicFilterService;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -150,6 +151,8 @@ public class SqlQueryScheduler
     private final AtomicBoolean scheduling = new AtomicBoolean();
     private final AtomicInteger retriedSections = new AtomicInteger();
 
+    private final DynamicFilterService dynamicFilterService;
+
     public static SqlQueryScheduler createSqlQueryScheduler(
             LocationFactory locationFactory,
             ExecutionPolicy executionPolicy,
@@ -170,7 +173,8 @@ public class SqlQueryScheduler
             PlanVariableAllocator variableAllocator,
             PlanChecker planChecker,
             Metadata metadata,
-            SqlParser sqlParser)
+            SqlParser sqlParser,
+            DynamicFilterService dynamicFilterService)
     {
         SqlQueryScheduler sqlQueryScheduler = new SqlQueryScheduler(
                 locationFactory,
@@ -192,7 +196,8 @@ public class SqlQueryScheduler
                 variableAllocator,
                 planChecker,
                 metadata,
-                sqlParser);
+                sqlParser,
+                dynamicFilterService);
         sqlQueryScheduler.initialize();
         return sqlQueryScheduler;
     }
@@ -217,7 +222,8 @@ public class SqlQueryScheduler
             PlanVariableAllocator variableAllocator,
             PlanChecker planChecker,
             Metadata metadata,
-            SqlParser sqlParser)
+            SqlParser sqlParser,
+            DynamicFilterService dynamicFilterService)
     {
         this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
         this.executionPolicy = requireNonNull(executionPolicy, "schedulerPolicyFactory is null");
@@ -237,6 +243,7 @@ public class SqlQueryScheduler
         this.planChecker = requireNonNull(planChecker, "planChecker is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+        this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
         this.plan.compareAndSet(null, requireNonNull(plan, "plan is null"));
         this.sectionedPlan = extractStreamingSections(plan);
         this.summarizeTaskInfo = summarizeTaskInfo;
@@ -614,7 +621,8 @@ public class SqlQueryScheduler
                     summarizeTaskInfo,
                     remoteTaskFactory,
                     splitSourceFactory,
-                    attemptId);
+                    attemptId,
+                    dynamicFilterService);
 
             addStateChangeListeners(sectionExecution);
             attempts.add(sectionExecution);

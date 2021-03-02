@@ -20,6 +20,7 @@ import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.failureDetector.NoOpFailureDetector;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.operator.StageExecutionDescriptor;
+import com.facebook.presto.server.DynamicFilterService;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -108,7 +109,8 @@ public class TestSqlStageExecution
                 executor,
                 new NoOpFailureDetector(),
                 new SplitSchedulerStats(),
-                new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()));
+                new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()),
+                new DynamicFilterService());
         stage.setOutputBuffers(createInitialEmptyOutputBuffers(ARBITRARY));
 
         // add listener that fetches stage info when the final status is available

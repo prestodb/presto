@@ -143,6 +143,9 @@ public class FeaturesConfig
     private boolean enableDynamicFiltering;
     private int dynamicFilteringMaxPerDriverRowCount = 100;
     private DataSize dynamicFilteringMaxPerDriverSize = new DataSize(10, KILOBYTE);
+    private boolean enableHashJoinDynamicFiltering;
+    private DataSize bloomFilterForDynamicFilterSize = new DataSize(4, DataSize.Unit.MEGABYTE);
+    private double bloomFilterForDynamicFilteringFalsePositiveProbability = 0.03;
 
     private boolean fragmentResultCachingEnabled;
 
@@ -1043,6 +1046,42 @@ public class FeaturesConfig
     public FeaturesConfig setDynamicFilteringMaxPerDriverSize(DataSize dynamicFilteringMaxPerDriverSize)
     {
         this.dynamicFilteringMaxPerDriverSize = dynamicFilteringMaxPerDriverSize;
+        return this;
+    }
+
+    public boolean isEnableHashJoinDynamicFiltering()
+    {
+        return enableHashJoinDynamicFiltering;
+    }
+
+    @Config("experimental.enable-hash-join-dynamic-filtering")
+    public FeaturesConfig setEnableHashJoinDynamicFiltering(boolean value)
+    {
+        this.enableHashJoinDynamicFiltering = value;
+        return this;
+    }
+
+    public DataSize getBloomFilterForDynamicFilterSize()
+    {
+        return bloomFilterForDynamicFilterSize;
+    }
+
+    @Config("experimental.bloom-filter-for-dynamic-filtering-size")
+    public FeaturesConfig setBloomFilterForDynamicFilterSize(DataSize value)
+    {
+        this.bloomFilterForDynamicFilterSize = value;
+        return this;
+    }
+
+    public double getBloomFilterForDynamicFilteringFalsePositiveProbability()
+    {
+        return bloomFilterForDynamicFilteringFalsePositiveProbability;
+    }
+
+    @Config("experimental.bloom-filter-for-dynamic-filtering-false-positive-probability")
+    public FeaturesConfig setBloomFilterForDynamicFilteringFalsePositiveProbability(Double value)
+    {
+        this.bloomFilterForDynamicFilteringFalsePositiveProbability = value;
         return this;
     }
 

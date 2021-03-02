@@ -22,6 +22,7 @@ import com.facebook.presto.common.block.LazyBlock;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.DriverYieldSignal;
+import com.facebook.presto.operator.DynamicPageFilter;
 import com.facebook.presto.operator.Work;
 import com.facebook.presto.operator.WorkProcessor;
 import com.facebook.presto.operator.WorkProcessor.ProcessState;
@@ -85,7 +86,7 @@ public class PageProcessor
 
         this.filter = requireNonNull(filter, "filter is null")
                 .map(pageFilter -> {
-                    if (pageFilter.getInputChannels().size() == 1 && pageFilter.isDeterministic()) {
+                    if (pageFilter.getInputChannels().size() == 1 && pageFilter.isDeterministic() && !(pageFilter instanceof DynamicPageFilter)) {
                         return new DictionaryAwarePageFilter(pageFilter);
                     }
                     return pageFilter;

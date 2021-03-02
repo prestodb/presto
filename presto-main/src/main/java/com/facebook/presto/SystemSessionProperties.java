@@ -172,6 +172,9 @@ public final class SystemSessionProperties
     public static final String CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY = "check_access_control_on_utilized_columns_only";
     public static final String SKIP_REDUNDANT_SORT = "skip_redundant_sort";
     public static final String ALLOW_WINDOW_ORDER_BY_LITERALS = "allow_window_order_by_literals";
+    public static final String ENABLE_HASH_JOIN_DYNAMIC_FILTERING = "enable_hash_join_dynamic_filtering";
+    public static final String BLOOM_FILTER_FOR_DYNAMIC_FILTERING_SIZE = "bloom_filter_for_dynamic_filtering_size";
+    public static final String BLOOM_FILTER_FOR_DYNAMIC_FILTERING_FALSE_POSITIVE_PROBABILITY = "bloom_filter_for_dynamic_filtering_false_positive_probability";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -896,6 +899,25 @@ public final class SystemSessionProperties
                         ALLOW_WINDOW_ORDER_BY_LITERALS,
                         "Allow ORDER BY literals in window functions",
                         featuresConfig.isAllowWindowOrderByLiterals(),
+                        false),
+                booleanProperty(
+                        ENABLE_HASH_JOIN_DYNAMIC_FILTERING,
+                        "Enable hash join dynamic filtering",
+                        featuresConfig.isEnableHashJoinDynamicFiltering(),
+                        false),
+                new PropertyMetadata<>(
+                        BLOOM_FILTER_FOR_DYNAMIC_FILTERING_SIZE,
+                        "Hash join dynamic filtering bloom filter size",
+                        VARCHAR,
+                        DataSize.class,
+                        featuresConfig.getBloomFilterForDynamicFilterSize(),
+                        false,
+                        value -> DataSize.valueOf((String) value),
+                        DataSize::toString),
+                doubleProperty(
+                        BLOOM_FILTER_FOR_DYNAMIC_FILTERING_FALSE_POSITIVE_PROBABILITY,
+                        "Hash join dynamic filtering bloom filter false positive probability",
+                        featuresConfig.getBloomFilterForDynamicFilteringFalsePositiveProbability(),
                         false));
     }
 
@@ -1516,5 +1538,20 @@ public final class SystemSessionProperties
     public static boolean isCheckAccessControlOnUtilizedColumnsOnly(Session session)
     {
         return session.getSystemProperty(CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY, Boolean.class);
+    }
+
+    public static boolean isEnableHashJoinDynamicFiltering(Session session)
+    {
+        return session.getSystemProperty(ENABLE_HASH_JOIN_DYNAMIC_FILTERING, Boolean.class);
+    }
+
+    public static DataSize getBloomFilterForDynamicFilteringSize(Session session)
+    {
+        return session.getSystemProperty(BLOOM_FILTER_FOR_DYNAMIC_FILTERING_SIZE, DataSize.class);
+    }
+
+    public static Double getBloomFilterForDynamicFilteringFalsePositiveProbability(Session session)
+    {
+        return session.getSystemProperty(BLOOM_FILTER_FOR_DYNAMIC_FILTERING_FALSE_POSITIVE_PROBABILITY, Double.class);
     }
 }

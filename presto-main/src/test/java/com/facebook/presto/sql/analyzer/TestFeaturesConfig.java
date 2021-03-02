@@ -152,7 +152,10 @@ public class TestFeaturesConfig
                 .setWarnOnNoTableLayoutFilter("")
                 .setInlineSqlFunctions(true)
                 .setCheckAccessControlOnUtilizedColumnsOnly(false)
-                .setAllowWindowOrderByLiterals(true));
+                .setAllowWindowOrderByLiterals(true)
+                .setEnableHashJoinDynamicFiltering(false)
+                .setBloomFilterForDynamicFilterSize(new DataSize(4, MEGABYTE))
+                .setBloomFilterForDynamicFilteringFalsePositiveProbability(0.03));
     }
 
     @Test
@@ -258,6 +261,9 @@ public class TestFeaturesConfig
                 .put("check-access-control-on-utilized-columns-only", "true")
                 .put("optimizer.skip-redundant-sort", "false")
                 .put("is-allow-window-order-by-literals", "false")
+                .put("experimental.enable-hash-join-dynamic-filtering", "true")
+                .put("experimental.bloom-filter-for-dynamic-filtering-size", "1MB")
+                .put("experimental.bloom-filter-for-dynamic-filtering-false-positive-probability", "0.01")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -360,7 +366,10 @@ public class TestFeaturesConfig
                 .setInlineSqlFunctions(false)
                 .setCheckAccessControlOnUtilizedColumnsOnly(true)
                 .setSkipRedundantSort(false)
-                .setAllowWindowOrderByLiterals(false);
+                .setAllowWindowOrderByLiterals(false)
+                .setEnableHashJoinDynamicFiltering(true)
+                .setBloomFilterForDynamicFilterSize(new DataSize(1, MEGABYTE))
+                .setBloomFilterForDynamicFilteringFalsePositiveProbability(0.01);
         assertFullMapping(properties, expected);
     }
 

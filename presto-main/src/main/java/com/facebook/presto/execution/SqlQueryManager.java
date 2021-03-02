@@ -25,6 +25,7 @@ import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.warnings.WarningCollectorFactory;
 import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.server.BasicQueryInfo;
+import com.facebook.presto.server.DynamicFilterService;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.sql.planner.Plan;
@@ -82,8 +83,10 @@ public class SqlQueryManager
 
     private final QueryManagerStats stats = new QueryManagerStats();
 
+    private final DynamicFilterService dynamicFilterService;
+
     @Inject
-    public SqlQueryManager(ClusterMemoryManager memoryManager, QueryMonitor queryMonitor, EmbedVersion embedVersion, QueryManagerConfig queryManagerConfig, WarningCollectorFactory warningCollectorFactory)
+    public SqlQueryManager(ClusterMemoryManager memoryManager, QueryMonitor queryMonitor, EmbedVersion embedVersion, QueryManagerConfig queryManagerConfig, WarningCollectorFactory warningCollectorFactory, DynamicFilterService dynamicFilterService)
     {
         this.memoryManager = requireNonNull(memoryManager, "memoryManager is null");
         this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
@@ -97,6 +100,8 @@ public class SqlQueryManager
         this.queryManagementExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) queryManagementExecutor);
 
         this.queryTracker = new QueryTracker<>(queryManagerConfig, queryManagementExecutor);
+
+        this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
     }
 
     @PostConstruct
@@ -246,6 +251,9 @@ public class SqlQueryManager
             finally {
                 // execution MUST be added to the expiration queue or there will be a leak
                 queryTracker.expireQuery(queryExecution.getQueryId());
+
+                // query MUST be removed from dynamic filter service or there will be a leak
+                dynamicFilterService.removeQuery(queryExecution.getQueryInfo().getQueryId().toString());
             }
         });
 

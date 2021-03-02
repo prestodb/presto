@@ -125,6 +125,7 @@ import com.facebook.presto.operator.scalar.EmptyMapConstructor;
 import com.facebook.presto.operator.scalar.FailureFunction;
 import com.facebook.presto.operator.scalar.HmacFunctions;
 import com.facebook.presto.operator.scalar.HyperLogLogFunctions;
+import com.facebook.presto.operator.scalar.InBloomFilterFunction;
 import com.facebook.presto.operator.scalar.IpPrefixFunctions;
 import com.facebook.presto.operator.scalar.JoniRegexpCasts;
 import com.facebook.presto.operator.scalar.JoniRegexpFunctions;
@@ -837,7 +838,8 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalar(DynamicFilterPlaceholderFunction.class)
                 .scalars(EnumCasts.class)
                 .scalars(LongEnumOperators.class)
-                .scalars(VarcharEnumOperators.class);
+                .scalars(VarcharEnumOperators.class)
+                .scalar(InBloomFilterFunction.class);
 
         switch (featuresConfig.getRegexLibrary()) {
             case JONI:
