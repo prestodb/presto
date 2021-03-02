@@ -11,23 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.resourceGroups.db;
 
-import com.facebook.airlift.configuration.Config;
+package com.facebook.presto.resourceGroups.reloading;
 
-public class DbResourceGroupConfig
+import com.facebook.presto.resourceGroups.ManagerSpec;
+import com.facebook.presto.resourceGroups.ResourceGroupSelector;
+
+import java.util.List;
+
+/**
+ * Provides the ReloadingResourceGroupConfigurationManager class with an updated ManagerSpec with the base
+ * resource group configuration data. These methods can be implemented to retrieve data from various
+ * data sources.
+ */
+
+public interface ManagerSpecProvider
 {
-    private String configUrl;
+    ManagerSpec getManagerSpec();
 
-    public String getConfigDbUrl()
-    {
-        return configUrl;
-    }
-
-    @Config("resource-groups.config-db-url")
-    public DbResourceGroupConfig setConfigDbUrl(String configUrl)
-    {
-        this.configUrl = configUrl;
-        return this;
-    }
+    List<ResourceGroupSelector> getExactMatchSelectors();
 }
