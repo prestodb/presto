@@ -19,6 +19,8 @@ import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.json.Codec;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.smile.SmileCodec;
+import com.facebook.airlift.stats.DecayCounter;
+import com.facebook.airlift.stats.ExponentialDecay;
 import com.facebook.drift.codec.ThriftCodec;
 import com.facebook.drift.transport.netty.codec.Protocol;
 import com.facebook.presto.Session;
@@ -89,6 +91,7 @@ public class HttpRemoteTaskFactory
     private final int maxTaskUpdateSizeInBytes;
     private final MetadataManager metadataManager;
     private final QueryManager queryManager;
+    private final DecayCounter taskUpdateRequestSize;
 
     @Inject
     public HttpRemoteTaskFactory(
@@ -155,6 +158,7 @@ public class HttpRemoteTaskFactory
 
         this.updateScheduledExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("task-info-update-scheduler-%s"));
         this.errorScheduledExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("remote-task-error-delay-%s"));
+        this.taskUpdateRequestSize = new DecayCounter(ExponentialDecay.oneMinute());
     }
 
     @Managed
@@ -162,6 +166,12 @@ public class HttpRemoteTaskFactory
     public ThreadPoolExecutorMBean getExecutor()
     {
         return executorMBean;
+    }
+
+    @Managed
+    public double getTaskUpdateRequestSize()
+    {
+        return taskUpdateRequestSize.getCount();
     }
 
     @PreDestroy
@@ -215,6 +225,7 @@ public class HttpRemoteTaskFactory
                 tableWriteInfo,
                 maxTaskUpdateSizeInBytes,
                 metadataManager,
-                queryManager);
+                queryManager,
+                taskUpdateRequestSize);
     }
 }

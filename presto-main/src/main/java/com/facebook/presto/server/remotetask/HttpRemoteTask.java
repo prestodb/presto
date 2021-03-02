@@ -23,6 +23,7 @@ import com.facebook.airlift.json.Codec;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.smile.SmileCodec;
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.stats.DecayCounter;
 import com.facebook.drift.transport.netty.codec.Protocol;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.FutureStateChange;
@@ -202,6 +203,8 @@ public final class HttpRemoteTask
 
     private final TableWriteInfo tableWriteInfo;
 
+    private final DecayCounter taskUpdateRequestSize;
+
     public HttpRemoteTask(
             Session session,
             TaskId taskId,
@@ -233,7 +236,8 @@ public final class HttpRemoteTask
             TableWriteInfo tableWriteInfo,
             int maxTaskUpdateSizeInBytes,
             MetadataManager metadataManager,
-            QueryManager queryManager)
+            QueryManager queryManager,
+            DecayCounter taskUpdateRequestSize)
     {
         requireNonNull(session, "session is null");
         requireNonNull(taskId, "taskId is null");
@@ -256,6 +260,7 @@ public final class HttpRemoteTask
         requireNonNull(metadataManager, "metadataManager is null");
         requireNonNull(queryManager, "queryManager is null");
         requireNonNull(thriftProtocol, "thriftProtocol is null");
+        requireNonNull(taskUpdateRequestSize, "taskUpdateRequestSize cannot be null");
 
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             this.taskId = taskId;
@@ -288,6 +293,7 @@ public final class HttpRemoteTask
             this.remoteSourcePlanNodeIds = planFragment.getRemoteSourceNodes().stream()
                     .map(PlanNode::getId)
                     .collect(toImmutableSet());
+            this.taskUpdateRequestSize = taskUpdateRequestSize;
 
             for (Entry<PlanNodeId, Split> entry : requireNonNull(initialSplits, "initialSplits is null").entries()) {
                 ScheduledSplit scheduledSplit = new ScheduledSplit(nextSplitId.getAndIncrement(), entry.getKey(), entry.getValue());
@@ -700,6 +706,7 @@ public final class HttpRemoteTask
                 outputBuffers.get(),
                 writeInfo);
         byte[] taskUpdateRequestJson = taskUpdateRequestCodec.toBytes(updateRequest);
+        taskUpdateRequestSize.add(taskUpdateRequestJson.length);
 
         if (taskUpdateRequestJson.length > maxTaskUpdateSizeInBytes) {
             failTask(new PrestoException(EXCEEDED_TASK_UPDATE_SIZE_LIMIT, format("TaskUpdate size of %d Bytes has exceeded the limit of %d Bytes", taskUpdateRequestJson.length, maxTaskUpdateSizeInBytes)));
