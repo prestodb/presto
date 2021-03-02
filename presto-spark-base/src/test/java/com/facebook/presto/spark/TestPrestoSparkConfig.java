@@ -40,7 +40,8 @@ public class TestPrestoSparkConfig
                 .setShuffleOutputTargetAverageRowSize(new DataSize(1, KILOBYTE))
                 .setStorageBasedBroadcastJoinEnabled(false)
                 .setStorageBasedBroadcastJoinStorage("local")
-                .setStorageBasedBroadcastJoinWriteBufferSize(new DataSize(24, MEGABYTE)));
+                .setStorageBasedBroadcastJoinWriteBufferSize(new DataSize(24, MEGABYTE))
+                .setSparkBroadcastJoinMaxMemoryOverride(null));
     }
 
     @Test
@@ -56,6 +57,7 @@ public class TestPrestoSparkConfig
                 .put("spark.storage-based-broadcast-join-enabled", "true")
                 .put("spark.storage-based-broadcast-join-storage", "tempfs")
                 .put("spark.storage-based-broadcast-join-write-buffer-size", "4MB")
+                .put("spark.broadcast-join-max-memory-override", "1GB")
                 .build();
         PrestoSparkConfig expected = new PrestoSparkConfig()
                 .setSparkPartitionCountAutoTuneEnabled(false)
@@ -66,7 +68,8 @@ public class TestPrestoSparkConfig
                 .setShuffleOutputTargetAverageRowSize(new DataSize(10, KILOBYTE))
                 .setStorageBasedBroadcastJoinEnabled(true)
                 .setStorageBasedBroadcastJoinStorage("tempfs")
-                .setStorageBasedBroadcastJoinWriteBufferSize(new DataSize(4, MEGABYTE));
+                .setStorageBasedBroadcastJoinWriteBufferSize(new DataSize(4, MEGABYTE))
+                .setSparkBroadcastJoinMaxMemoryOverride(new DataSize(1, GIGABYTE));
         assertFullMapping(properties, expected);
     }
 }

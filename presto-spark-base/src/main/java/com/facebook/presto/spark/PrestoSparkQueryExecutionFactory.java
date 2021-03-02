@@ -43,6 +43,7 @@ import com.facebook.presto.execution.scheduler.StreamingPlanSection;
 import com.facebook.presto.execution.scheduler.StreamingSubPlan;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.execution.warnings.WarningCollectorFactory;
+import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.server.BasicQueryInfo;
@@ -146,6 +147,7 @@ import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.execution.scheduler.StreamingPlanSection.extractStreamingSections;
 import static com.facebook.presto.execution.scheduler.TableWriteInfo.createTableWriteInfo;
 import static com.facebook.presto.server.protocol.QueryResourceUtil.toStatementStats;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.getSparkBroadcastJoinMaxMemoryOverride;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.isStorageBasedBroadcastJoinEnabled;
 import static com.facebook.presto.spark.SparkErrorCode.EXCEEDED_SPARK_DRIVER_MAX_RESULT_SIZE;
 import static com.facebook.presto.spark.SparkErrorCode.GENERIC_SPARK_ERROR;
@@ -175,8 +177,10 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.Futures.getUnchecked;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Math.max;
+import static java.lang.Math.min;
 import static java.nio.file.Files.notExists;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
@@ -213,6 +217,7 @@ public class PrestoSparkQueryExecutionFactory
     private final Set<PrestoSparkAuthenticatorProvider> authenticatorProviders;
     private final TempStorageManager tempStorageManager;
     private final String storageBasedBroadcastJoinStorage;
+    private final NodeMemoryConfig nodeMemoryConfig;
 
     @Inject
     public PrestoSparkQueryExecutionFactory(
@@ -239,7 +244,8 @@ public class PrestoSparkQueryExecutionFactory
             Set<PrestoSparkCredentialsProvider> credentialsProviders,
             Set<PrestoSparkAuthenticatorProvider> authenticatorProviders,
             TempStorageManager tempStorageManager,
-            PrestoSparkConfig prestoSparkConfig)
+            PrestoSparkConfig prestoSparkConfig,
+            NodeMemoryConfig nodeMemoryConfig)
     {
         this.queryIdGenerator = requireNonNull(queryIdGenerator, "queryIdGenerator is null");
         this.sessionSupplier = requireNonNull(sessionSupplier, "sessionSupplier is null");
@@ -265,6 +271,7 @@ public class PrestoSparkQueryExecutionFactory
         this.authenticatorProviders = ImmutableSet.copyOf(requireNonNull(authenticatorProviders, "authenticatorProviders is null"));
         this.tempStorageManager = requireNonNull(tempStorageManager, "tempStorageManager is null");
         this.storageBasedBroadcastJoinStorage = requireNonNull(prestoSparkConfig, "prestoSparkConfig is null").getStorageBasedBroadcastJoinStorage();
+        this.nodeMemoryConfig = requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null");
     }
 
     @Override
@@ -370,7 +377,8 @@ public class PrestoSparkQueryExecutionFactory
                     queryCompletionDeadline,
                     queryStatusInfoOutputPath,
                     queryDataOutputPath,
-                    tempStorage);
+                    tempStorage,
+                    nodeMemoryConfig);
         }
         catch (Throwable executionFailure) {
             queryStateTimer.beginFinishing();
@@ -724,6 +732,7 @@ public class PrestoSparkQueryExecutionFactory
 
         private final long queryCompletionDeadline;
         private final TempStorage tempStorage;
+        private final NodeMemoryConfig nodeMemoryConfig;
 
         private PrestoSparkQueryExecution(
                 JavaSparkContext sparkContext,
@@ -752,7 +761,8 @@ public class PrestoSparkQueryExecutionFactory
                 long queryCompletionDeadline,
                 Optional<Path> queryStatusInfoOutputPath,
                 Optional<Path> queryDataOutputPath,
-                TempStorage tempStorage)
+                TempStorage tempStorage,
+                NodeMemoryConfig nodeMemoryConfig)
         {
             this.sparkContext = requireNonNull(sparkContext, "sparkContext is null");
             this.session = requireNonNull(session, "session is null");
@@ -782,6 +792,7 @@ public class PrestoSparkQueryExecutionFactory
             this.queryStatusInfoOutputPath = requireNonNull(queryStatusInfoOutputPath, "queryStatusInfoOutputPath is null");
             this.queryDataOutputPath = requireNonNull(queryDataOutputPath, "queryDataOutputPath is null");
             this.tempStorage = requireNonNull(tempStorage, "tempStorage is null");
+            this.nodeMemoryConfig = requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null");
         }
 
         @Override
@@ -963,6 +974,10 @@ public class PrestoSparkQueryExecutionFactory
             for (SubPlan child : subPlan.getChildren()) {
                 PlanFragment childFragment = child.getFragment();
                 if (childFragment.getPartitioningScheme().getPartitioning().getHandle().equals(FIXED_BROADCAST_DISTRIBUTION)) {
+                    DataSize maxBroadcastMemory = getSparkBroadcastJoinMaxMemoryOverride(session);
+                    if (maxBroadcastMemory == null) {
+                        maxBroadcastMemory = new DataSize(min(nodeMemoryConfig.getMaxQueryBroadcastMemory().toBytes(), getQueryMaxBroadcastMemory(session).toBytes()), BYTE);
+                    }
                     PrestoSparkBroadcastDependency broadcastDependency;
                     if (isStorageBasedBroadcastJoinEnabled(session)) {
                         validateStorageCapabilities(tempStorage);
@@ -975,7 +990,7 @@ public class PrestoSparkQueryExecutionFactory
 
                         broadcastDependency = new PrestoSparkStorageBasedBroadcastDependency(
                                 childRdd,
-                                getQueryMaxBroadcastMemory(session),
+                                maxBroadcastMemory,
                                 queryCompletionDeadline,
                                 tempStorage,
                                 tempDataOperationContext);
@@ -984,7 +999,7 @@ public class PrestoSparkQueryExecutionFactory
                         RddAndMore<PrestoSparkSerializedPage> childRdd = createRdd(child, PrestoSparkSerializedPage.class);
                         broadcastDependency = new PrestoSparkMemoryBasedBroadcastDependency(
                                 childRdd,
-                                getQueryMaxBroadcastMemory(session),
+                                maxBroadcastMemory,
                                 queryCompletionDeadline);
                     }
 
