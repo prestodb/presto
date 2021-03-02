@@ -196,6 +196,26 @@ public class TestHttpRemoteTask
         httpRemoteTaskFactory.stop();
     }
 
+    @Test(timeOut = 30000)
+    public void testHTTPRemoteTaskSize()
+            throws Exception
+    {
+        AtomicLong lastActivityNanos = new AtomicLong(System.nanoTime());
+        TestingTaskResource testingTaskResource = new TestingTaskResource(lastActivityNanos, FailureScenario.NO_FAILURE);
+
+        HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource, false);
+
+        RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory);
+
+        testingTaskResource.setInitialTaskInfo(remoteTask.getTaskInfo());
+        remoteTask.start();
+        // just need to run a TaskUpdateRequest to increment the decay counter
+        remoteTask.cancel();
+        httpRemoteTaskFactory.stop();
+
+        assertTrue(httpRemoteTaskFactory.getTaskUpdateRequestSize() > 0);
+    }
+
     private void runTest(FailureScenario failureScenario, boolean useThriftEncoding)
             throws Exception
     {
