@@ -121,6 +121,7 @@ import static com.facebook.presto.execution.TaskStatus.STARTING_VERSION;
 import static com.facebook.presto.execution.buffer.BufferState.FINISHED;
 import static com.facebook.presto.metadata.MetadataUpdates.DEFAULT_METADATA_UPDATES;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getShuffleOutputTargetAverageRowSize;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.getSparkBroadcastJoinMaxMemoryOverride;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getStorageBasedBroadcastJoinWriteBufferSize;
 import static com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleStats.Operation.WRITE;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.compress;
@@ -132,6 +133,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.propagateIfPossible;
 import static com.google.common.collect.Iterables.getFirst;
+import static io.airlift.units.DataSize.Unit.BYTE;
+import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 
@@ -159,6 +162,7 @@ public class PrestoSparkTaskExecutorFactory
 
     private final Set<PrestoSparkAuthenticatorProvider> authenticatorProviders;
 
+    private final NodeMemoryConfig nodeMemoryConfig;
     private final DataSize maxRevocableMemory;
     private final DataSize maxSpillMemory;
     private final DataSize sinkMaxBufferSize;
@@ -212,6 +216,7 @@ public class PrestoSparkTaskExecutorFactory
                 taskExecutor,
                 splitMonitor,
                 authenticatorProviders,
+                nodeMemoryConfig,
                 requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").getMaxRevocableMemoryPerNode(),
                 requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").getMaxSpillPerNode(),
                 requireNonNull(taskManagerConfig, "taskManagerConfig is null").getSinkMaxBufferSize(),
@@ -239,6 +244,7 @@ public class PrestoSparkTaskExecutorFactory
             TaskExecutor taskExecutor,
             SplitMonitor splitMonitor,
             Set<PrestoSparkAuthenticatorProvider> authenticatorProviders,
+            NodeMemoryConfig nodeMemoryConfig,
             DataSize maxRevocableMemory,
             DataSize maxSpillMemory,
             DataSize sinkMaxBufferSize,
@@ -265,6 +271,7 @@ public class PrestoSparkTaskExecutorFactory
         this.splitMonitor = requireNonNull(splitMonitor, "splitMonitor is null");
         this.authenticatorProviders = ImmutableSet.copyOf(requireNonNull(authenticatorProviders, "authenticatorProviders is null"));
         // Ordering is needed to make sure serialized plans are consistent for the same map
+        this.nodeMemoryConfig = requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null");
         this.maxRevocableMemory = requireNonNull(maxRevocableMemory, "maxRevocableMemory is null");
         this.maxSpillMemory = requireNonNull(maxSpillMemory, "maxSpillMemory is null");
         this.sinkMaxBufferSize = requireNonNull(sinkMaxBufferSize, "sinkMaxBufferSize is null");
@@ -349,14 +356,21 @@ public class PrestoSparkTaskExecutorFactory
 
         log.info(PlanPrinter.textPlanFragment(fragment, functionAndTypeManager, session, true));
 
-        MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("spark-executor-memory-pool"), getQueryMaxTotalMemoryPerNode(session));
+        DataSize maxUserMemory = new DataSize(min(nodeMemoryConfig.getMaxQueryMemoryPerNode().toBytes(), getQueryMaxMemoryPerNode(session).toBytes()), BYTE);
+        DataSize maxTotalMemory = new DataSize(min(nodeMemoryConfig.getMaxQueryTotalMemoryPerNode().toBytes(), getQueryMaxTotalMemoryPerNode(session).toBytes()), BYTE);
+        DataSize maxBroadcastMemory = getSparkBroadcastJoinMaxMemoryOverride(session);
+        if (maxBroadcastMemory == null) {
+            maxBroadcastMemory = new DataSize(min(nodeMemoryConfig.getMaxQueryBroadcastMemory().toBytes(), getQueryMaxBroadcastMemory(session).toBytes()), BYTE);
+        }
+
+        MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("spark-executor-memory-pool"), maxTotalMemory);
         SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(maxSpillMemory);
 
         QueryContext queryContext = new QueryContext(
                 session.getQueryId(),
-                getQueryMaxMemoryPerNode(session),
-                getQueryMaxTotalMemoryPerNode(session),
-                getQueryMaxBroadcastMemory(session),
+                maxUserMemory,
+                maxTotalMemory,
+                maxBroadcastMemory,
                 maxRevocableMemory,
                 memoryPool,
                 new TestingGcMonitor(),
