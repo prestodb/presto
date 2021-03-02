@@ -34,6 +34,7 @@ public class PrestoSparkConfig
     private boolean storageBasedBroadcastJoinEnabled;
     private DataSize storageBasedBroadcastJoinWriteBufferSize = new DataSize(24, MEGABYTE);
     private String storageBasedBroadcastJoinStorage = "local";
+    private DataSize sparkBroadcastJoinMaxMemoryOverride;
 
     public boolean isSparkPartitionCountAutoTuneEnabled()
     {
@@ -150,6 +151,18 @@ public class PrestoSparkConfig
     public PrestoSparkConfig setStorageBasedBroadcastJoinStorage(String storageBasedBroadcastJoinStorage)
     {
         this.storageBasedBroadcastJoinStorage = storageBasedBroadcastJoinStorage;
+        return this;
+    }
+
+    public DataSize getSparkBroadcastJoinMaxMemoryOverride()
+    {
+        return sparkBroadcastJoinMaxMemoryOverride;
+    }
+
+    @Config("spark.broadcast-join-max-memory-override")
+    public PrestoSparkConfig setSparkBroadcastJoinMaxMemoryOverride(DataSize sparkBroadcastJoinMaxMemoryOverride)
+    {
+        this.sparkBroadcastJoinMaxMemoryOverride = sparkBroadcastJoinMaxMemoryOverride;
         return this;
     }
 }
