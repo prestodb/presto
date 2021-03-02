@@ -57,6 +57,7 @@ public class PrestoSparkLauncherCommand
                 packageSupplier,
                 loadProperties(checkFile(new File(clientOptions.config))),
                 loadCatalogProperties(new File(clientOptions.catalogs)),
+                "LOCAL",
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
