@@ -11,23 +11,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.resourceGroups.db;
+package com.facebook.presto.resourceGroups.reloading;
 
-import com.facebook.presto.resourceGroups.reloading.ManagerSpecProvider;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
-public class DbResourceGroupsModule
+public class ReloadingResourceGroupConfigurationManagerModule
         implements Module
 {
     @Override
     public void configure(Binder binder)
     {
-        configBinder(binder).bindConfig(DbResourceGroupConfig.class);
-        binder.bind(ResourceGroupsDao.class).toProvider(MysqlDaoProvider.class).in(Scopes.SINGLETON);
-        binder.bind(ManagerSpecProvider.class).to(DbManagerSpecProvider.class).in(Scopes.SINGLETON);
+        configBinder(binder).bindConfig(ReloadingResourceGroupConfig.class);
+        binder.bind(ReloadingResourceGroupConfigurationManager.class).in(Scopes.SINGLETON);
+        binder.bind(ResourceGroupConfigurationManager.class).to(ReloadingResourceGroupConfigurationManager.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(ReloadingResourceGroupConfigurationManager.class).withGeneratedName();
     }
 }
