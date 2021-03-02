@@ -61,6 +61,7 @@ public class PrestoSparkLauncherCommand
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
 
         String query = readFileUtf8(checkFile(new File(clientOptions.file)));
