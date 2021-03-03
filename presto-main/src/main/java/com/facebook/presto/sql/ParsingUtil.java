@@ -18,6 +18,7 @@ import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.sql.parser.ParsingOptions;
 
+import static com.facebook.presto.SystemSessionProperties.isApplyRewriting;
 import static com.facebook.presto.SystemSessionProperties.isParseDecimalLiteralsAsDouble;
 import static com.facebook.presto.spi.StandardWarningCode.PARSER_WARNING;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
@@ -37,6 +38,7 @@ public class ParsingUtil
         return ParsingOptions.builder()
                 .setDecimalLiteralTreatment(isParseDecimalLiteralsAsDouble(session) ? AS_DOUBLE : AS_DECIMAL)
                 .setWarningConsumer(warning -> warningCollector.add(new PrestoWarning(PARSER_WARNING, warning.getMessage())))
+                .setApplyRewriting(isApplyRewriting(session))
                 .build();
     }
 }

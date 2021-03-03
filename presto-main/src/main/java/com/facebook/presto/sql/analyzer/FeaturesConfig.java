@@ -187,6 +187,8 @@ public class FeaturesConfig
 
     private boolean enforceFixedDistributionForOutputOperator;
 
+    private boolean applyRewriting = false;
+
     public enum PartitioningPrecisionStrategy
     {
         // Let Presto decide when to repartition
@@ -1581,6 +1583,18 @@ public class FeaturesConfig
     public FeaturesConfig setSpoolingOutputBufferTempStorage(String spoolingOutputBufferTempStorage)
     {
         this.spoolingOutputBufferTempStorage = spoolingOutputBufferTempStorage;
+        return this;
+    }
+
+    public boolean isApplyRewriting()
+    {
+        return applyRewriting;
+    }
+
+    @Config("apply-rewriting")
+    public FeaturesConfig setApplyRewriting(boolean applyRewriting)
+    {
+        this.applyRewriting = applyRewriting;
         return this;
     }
 }

@@ -65,6 +65,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGA
 import static com.facebook.presto.sql.tree.ExplainType.Type.DISTRIBUTED;
 import static com.facebook.presto.sql.tree.ExplainType.Type.IO;
 import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
+import static com.facebook.presto.testing.MaterializedResult.DEFAULT_PRECISION;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_TABLE;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.DELETE_TABLE;
@@ -5680,9 +5681,39 @@ public abstract class AbstractTestQueries
     {
         assertQueryFails(
                 "select y, map_union_sum(x) from (select 1 y, map(array['x', 'z', 'y'], cast(array[null,30,100] as array<tinyint>)) x " +
-                "union all select 1 y, map(array['x', 'y'], cast(array[1,100] as array<tinyint>))x) group by y", ".*Value 200 exceeds MAX_BYTE.*");
+                        "union all select 1 y, map(array['x', 'y'], cast(array[1,100] as array<tinyint>))x) group by y", ".*Value 200 exceeds MAX_BYTE.*");
         assertQueryFails(
                 "select y, map_union_sum(x) from (select 1 y, map(array['x', 'z', 'y'], cast(array[null,30, 32760] as array<smallint>)) x " +
-                "union all select 1 y, map(array['x', 'y'], cast(array[1,100] as array<smallint>))x) group by y", ".*Value 32860 exceeds MAX_SHORT.*");
+                        "union all select 1 y, map(array['x', 'y'], cast(array[1,100] as array<smallint>))x) group by y", ".*Value 32860 exceeds MAX_SHORT.*");
+    }
+
+    @Test
+    public void testApplyApproxPercentileRewrite()
+    {
+        @Language("SQL") String approxPercentileAntiPattern = "" +
+                "SELECT " +
+                "approx_percentile(totalprice, 0.5), " +
+                "approx_percentile(totalprice, 0.75)," +
+                "approx_percentile(totalprice, 0.99) " +
+                "FROM orders";
+        Session session = Session.builder(getSession())
+                .setSystemProperty(SystemSessionProperties.APPLY_REWRITING, "true")
+                .build();
+        MaterializedRow actual = computeActual(session, approxPercentileAntiPattern).getMaterializedRows().get(0);
+        MaterializedRow expected = new MaterializedRow(DEFAULT_PRECISION, 135723.94, 201213.06, 341782.09);
+        assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testApplyOrderByRewrite()
+    {
+        @Language("SQL") String orderByAntiPattern = "SELECT totalprice " +
+                "FROM (SELECT totalprice FROM orders ORDER BY custkey) " +
+                "LIMIT 1";
+        Session session = Session.builder(getSession())
+                .setSystemProperty(SystemSessionProperties.APPLY_REWRITING, "true")
+                .build();
+        assertQuery(session, orderByAntiPattern, "SELECT 172799.49");
     }
 }
+

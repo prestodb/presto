@@ -13,10 +13,16 @@
  */
 package com.facebook.presto.sql.parser;
 
+import com.facebook.coresql.parser.AstNode;
+import com.facebook.coresql.rewriter.ApproxPercentileRewriter;
+import com.facebook.coresql.rewriter.OrderByRewriter;
+import com.facebook.coresql.rewriter.RewriteResult;
+import com.facebook.coresql.rewriter.Rewriter;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.Return;
 import com.facebook.presto.sql.tree.Statement;
+import com.google.common.collect.ImmutableList;
 import org.antlr.v4.runtime.BaseErrorListener;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonToken;
@@ -38,10 +44,13 @@ import javax.inject.Inject;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+import static com.facebook.coresql.parser.ParserHelper.parseStatement;
+import static com.facebook.coresql.parser.Unparser.unparse;
 import static com.facebook.presto.sql.parser.SqlParserOptions.RESERVED_WORDS_WARNING;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -127,9 +136,45 @@ public class SqlParser
         return (Return) invokeParser("return", routineBody, SqlBaseParser::standaloneRoutineBody, parsingOptions);
     }
 
+    private AstNode applyEachRewriter(AstNode root)
+    {
+        List<Class<? extends Rewriter>> rewriters = ImmutableList.of(
+                OrderByRewriter.class,
+                ApproxPercentileRewriter.class
+        );
+
+        for (Class<? extends Rewriter> rewriter : rewriters) {
+            Rewriter rewriterInstance;
+            try {
+                rewriterInstance = rewriter.getConstructor(AstNode.class).newInstance(root);
+            }
+            catch (Exception e) {
+                continue;
+            }
+            Optional<RewriteResult> result = rewriterInstance.rewrite();
+            if (result.isPresent()) {
+                root = parseStatement(result.get().getRewrittenSql());
+            }
+        }
+        return root;
+    }
+
+    private String getRewrittenSql(String sql)
+    {
+        Optional<AstNode> ast = Optional.ofNullable(parseStatement(sql + ";"));
+        if (ast.isPresent()) {
+            AstNode rewrittenAst = applyEachRewriter(ast.get());
+            return unparse(rewrittenAst).trim().replaceAll(".$", "");
+        }
+        return sql;
+    }
+
     private Node invokeParser(String name, String sql, Function<SqlBaseParser, ParserRuleContext> parseFunction, ParsingOptions parsingOptions)
     {
         try {
+            if (parsingOptions.isApplyRewriting()) {
+                sql = getRewrittenSql(sql);
+            }
             SqlBaseLexer lexer = new SqlBaseLexer(new CaseInsensitiveStream(CharStreams.fromString(sql)));
             CommonTokenStream tokenStream = new CommonTokenStream(lexer);
             SqlBaseParser parser = new SqlBaseParser(tokenStream);

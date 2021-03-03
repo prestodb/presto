@@ -30,6 +30,7 @@ public class ParsingOptions
 
     private final DecimalLiteralTreatment decimalLiteralTreatment;
     private final Consumer<ParsingWarning> warningConsumer;
+    private final boolean applyRewriting;
 
     /**
      * @deprecated Use (@link #builder())
@@ -46,13 +47,14 @@ public class ParsingOptions
     @Deprecated
     public ParsingOptions(DecimalLiteralTreatment decimalLiteralTreatment)
     {
-        this(decimalLiteralTreatment, NOOP_WARNING_CONSUMER);
+        this(decimalLiteralTreatment, NOOP_WARNING_CONSUMER, false);
     }
 
-    private ParsingOptions(DecimalLiteralTreatment decimalLiteralTreatment, Consumer<ParsingWarning> warningConsumer)
+    private ParsingOptions(DecimalLiteralTreatment decimalLiteralTreatment, Consumer<ParsingWarning> warningConsumer, boolean rewritingEnabled)
     {
         this.decimalLiteralTreatment = requireNonNull(decimalLiteralTreatment, "decimalLiteralTreatment is null");
         this.warningConsumer = requireNonNull(warningConsumer, "warningConsumer is null");
+        this.applyRewriting = rewritingEnabled;
     }
 
     public DecimalLiteralTreatment getDecimalLiteralTreatment()
@@ -65,6 +67,11 @@ public class ParsingOptions
         return warningConsumer;
     }
 
+    public boolean isApplyRewriting()
+    {
+        return applyRewriting;
+    }
+
     public static Builder builder()
     {
         return new Builder();
@@ -74,6 +81,7 @@ public class ParsingOptions
     {
         private DecimalLiteralTreatment decimalLiteralTreatment = DecimalLiteralTreatment.REJECT;
         private Consumer<ParsingWarning> warningConsumer = NOOP_WARNING_CONSUMER;
+        private boolean applyRewriting = false;
 
         private Builder() {}
 
@@ -89,9 +97,15 @@ public class ParsingOptions
             return this;
         }
 
+        public Builder setApplyRewriting(boolean applyRewriting)
+        {
+            this.applyRewriting = applyRewriting;
+            return this;
+        }
+
         public ParsingOptions build()
         {
-            return new ParsingOptions(decimalLiteralTreatment, warningConsumer);
+            return new ParsingOptions(decimalLiteralTreatment, warningConsumer, applyRewriting);
         }
     }
 }
