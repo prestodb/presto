@@ -295,6 +295,21 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testCreateMaterializedView()
+    {
+        computeActual("CREATE TABLE test_customer_base WITH (partitioned_by = ARRAY['nationkey']) AS SELECT custkey, name, address, nationkey FROM customer LIMIT 10");
+
+        // Test successful create
+        assertUpdate("CREATE MATERIALIZED VIEW test_customer_mv WITH (partitioned_by = ARRAY['nationkey']) AS SELECT name, nationkey FROM test_customer_base");
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_customer_mv"));
+        assertTableColumnNames("test_customer_mv", "name", "nationkey");
+
+        MaterializedResult result = getQueryRunner().execute(getSession(), "select name from test_customer_mv");
+        List<MaterializedRow> materializedRows = result.getMaterializedRows();
+        System.out.println(materializedRows);
+    }
+
+    @Test
     public void createTableWithEveryType()
     {
         @Language("SQL") String query = "" +

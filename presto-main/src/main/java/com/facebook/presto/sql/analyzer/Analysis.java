@@ -55,6 +55,7 @@ import javax.annotation.concurrent.Immutable;
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -148,6 +149,8 @@ public class Analysis
 
     // for recursive view detection
     private final Deque<Table> tablesForView = new ArrayDeque<>();
+
+    private final Map<Table, Integer> tablesForMV = new HashMap<>();
 
     public Analysis(@Nullable Statement root, List<Expression> parameters, boolean isDescribe)
     {
@@ -648,9 +651,20 @@ public class Analysis
         tablesForView.push(requireNonNull(tableReference, "table is null"));
     }
 
+    public void registerTableForMV(Table table)
+    {
+        requireNonNull(table, "table is null");
+        tablesForMV.put(table, tablesForMV.getOrDefault(table, 0) + 1);
+    }
+
     public void unregisterTableForView()
     {
         tablesForView.pop();
+    }
+
+    public void unregisterTableForMV(Table table)
+    {
+        tablesForMV.remove(table);
     }
 
     public boolean hasTableInView(Table tableReference)
@@ -658,11 +672,11 @@ public class Analysis
         return tablesForView.contains(tableReference);
     }
 
-    public boolean hasTableInMaterializedView(Table tableReference)
+    //TODO: Better name?
+    public Integer getTableCountForMaterializedView(Table tableReference)
     {
-        return tablesForView.contains(tableReference);
+        return tablesForMV.getOrDefault(tableReference, 0);
     }
-
 
     public void setSampleRatio(SampledRelation relation, double ratio)
     {

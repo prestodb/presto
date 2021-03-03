@@ -180,6 +180,9 @@ import static com.facebook.presto.spi.function.FunctionKind.WINDOW;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
 import static com.facebook.presto.sql.NodeUtils.mapFromProperties;
 import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
+import static com.facebook.presto.sql.QueryUtil.selectList;
+import static com.facebook.presto.sql.QueryUtil.simpleQuery;
+import static com.facebook.presto.sql.QueryUtil.subquery;
 import static com.facebook.presto.sql.analyzer.AggregationAnalyzer.verifyOrderByAggregations;
 import static com.facebook.presto.sql.analyzer.AggregationAnalyzer.verifySourceAggregations;
 import static com.facebook.presto.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
@@ -332,7 +335,7 @@ class StatementAnalyzer
                 throw new SemanticException(NOT_SUPPORTED, insert, "Inserting into views is not supported");
             }
             if (metadata.getMaterializedView(session, targetTable).isPresent()) {
-                throw new SemanticException(NOT_SUPPORTED, insert, "Inserting into materialized views is not supported");
+//                throw new SemanticException(NOT_SUPPORTED, insert, "Inserting into materialized views is not supported");
             }
 
             // analyze the query that creates the data
@@ -1069,43 +1072,15 @@ class StatementAnalyzer
                     throw new SemanticException(NOT_SUPPORTED, table, "Materialized view is not supported in this statement.");
                 }
 
-                //TODO: add a validation logic for MV recursion.
-                if (analysis.hasTableInView(table)) {
-                    throw new SemanticException(MATERIALIZED_VIEW_IS_RECURSIVE, table, "Materialized view is recursive");
+                //When the MV has already been expanded, do not process it. Just use it as a table.
+                Integer tableCountForMaterializedView = analysis.getTableCountForMaterializedView(table);
+
+                if (tableCountForMaterializedView == 0) {
+                    return processMV(table, scope, name, optionalMaterializedView, statement);
                 }
-
-                ConnectorMaterializedViewDefinition view = optionalMaterializedView.get();
-                String originalMVSql = view.getOriginalSql();
-                String originalSql = SqlFormatterUtil.getFormattedSql(statement, sqlParser, Optional.empty());
-                String newSql = originalSql + " Union " + originalMVSql;
-                System.out.println("New generated SQL is: " + newSql);
-                Query query = parseView(newSql, name, table);
-
-                analysis.registerNamedQuery(table, query);
-
-                analysis.registerTableForView(table);
-                RelationType descriptor = analyzeView(query, name, view.getCatalog(), Optional.of(view.getSchema()), view.getOwner(), table);
-                analysis.unregisterTableForView();
-
-                ImmutableList.Builder<Field> fields = ImmutableList.builder();
-
-                List<ViewDefinition.ViewColumn> columns = analysis.getOutputDescriptor(query)
-                        .getVisibleFields().stream()
-                        .map(field -> new ViewDefinition.ViewColumn(field.getName().get(), field.getType()))
-                        .collect(toImmutableList());
-
-                List<Field> outputFields = columns.stream()
-                        .map(column -> Field.newQualified(
-                                table.getName(),
-                                Optional.of(column.getName()),
-                                column.getType(),
-                                false,
-                                Optional.of(name),
-                                Optional.of(column.getName()),
-                                false))
-                        .collect(toImmutableList());
-
-                return createAndAssignScope(table, scope, outputFields);
+                if (tableCountForMaterializedView > 1) {
+                    throw new SemanticException(MATERIALIZED_VIEW_IS_RECURSIVE, table, "Materialized view recursion has reached the limit");
+                }
             }
 
             Optional<TableHandle> tableHandle = metadata.getTableHandle(session, name);
@@ -1141,6 +1116,95 @@ class StatementAnalyzer
             analysis.registerTable(table, tableHandle.get());
 
             return createAndAssignScope(table, scope, fields.build());
+        }
+
+        private Scope processMV(
+                Table table,
+                Optional<Scope> scope,
+                QualifiedObjectName name,
+                Optional<ConnectorMaterializedViewDefinition> optionalMaterializedView,
+                Statement statement)
+        {
+            ConnectorMaterializedViewDefinition view = optionalMaterializedView.get();
+            String newSql = getMaterializedViewSQL((Query) statement, view);
+
+            Query query = (Query) sqlParser.createStatement(newSql, createParsingOptions(session, warningCollector));
+            analysis.registerNamedQuery(table, query);
+
+            analysis.registerTableForMV(table);
+            RelationType descriptor = analyzeView(query, name, view.getCatalog(), Optional.of(view.getSchema()), view.getOwner(), table);
+            analysis.unregisterTableForMV(table);
+
+            RelationType outputDescriptor = analysis.getOutputDescriptor(query);
+            Collection<Field> visibleFields = outputDescriptor.getVisibleFields();
+
+            //TODO: We should not really be using view classes
+/*            List<ViewDefinition.ViewColumn> columns = visibleFields.stream()
+                    .map(field -> new ViewDefinition.ViewColumn(field.getName().get(), field.getType()))
+                    .collect(toImmutableList());
+
+            List<Field> outputFields = columns.stream()
+                    .map(column -> Field.newQualified(
+                            table.getName(),
+                            Optional.of(column.getName()),
+                            column.getType(),
+                            false,
+                            Optional.of(name),
+                            Optional.of(column.getName()),
+                            false))
+                    .collect(toImmutableList());*/
+
+            return createAndAssignScope(table, scope, visibleFields.stream().collect(toImmutableList()));
+        }
+
+        private String getMaterializedViewSQL(Query statement, ConnectorMaterializedViewDefinition view)
+        {
+            /**
+             * userQuery => select a_c,b_c from mv_table where c=1;
+             *      with
+             *  mvQuery = > create mv_table as select a*c as a_c, b*c as b_c, c from base_table
+             *      gets converted to
+             *  select a_c,b_c from (select * from mv_table UNION ALL select a*c as a_c, b*c as b_c, c from base_table) where c=1;
+             *  The optimizer should convert this query to
+             *  select a_c, b_c from mv_table where c=1 UNION ALL select a*c, b*c from base_table where c=1;
+             */
+
+            //select a*c as a_c, b*c as b_c, c from base_table
+            String mvCreateSql = view.getOriginalSql();
+            Statement mvCreateSqlStatement = sqlParser.createStatement(mvCreateSql, createParsingOptions(session, warningCollector));
+            QuerySpecification mvCreateSqlSpecification = (QuerySpecification) ((Query) mvCreateSqlStatement).getQueryBody();
+            Query mvCreateSqlQuery = new Query(Optional.empty(), mvCreateSqlSpecification, Optional.empty(), Optional.empty());
+
+            QuerySpecification userQuerySpecification = (QuerySpecification) statement.getQueryBody(); //select a_c,b_c from mv_table where c=1
+
+            //select * from mv_table
+            QuerySpecification newQueryMVPart = new QuerySpecification(
+                    selectList(new AllColumns()),
+                    userQuerySpecification.getFrom(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty());
+            Query newQueryMV = new Query(Optional.empty(), newQueryMVPart, Optional.empty(), Optional.empty());
+
+            //select * from mv_table UNION ALL select a*c as a_c, b*c as b_c, c from base_table
+            Union union = new Union(ImmutableList.of(mvCreateSqlQuery.getQueryBody(), newQueryMV.getQueryBody()), Optional.of(Boolean.FALSE));
+            Query unionQuery = new Query(Optional.empty(), union, Optional.empty(), Optional.empty());
+
+            //select a_c,b_c from (select * from mv_table UNION ALL select a*c as a_c, b*c as b_c, c from base_table) where c=1;
+            Query q = simpleQuery(
+                    userQuerySpecification.getSelect(),
+                    subquery(unionQuery),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty());
+
+            String newSql = SqlFormatterUtil.getFormattedSql(q, sqlParser, Optional.empty());
+            System.out.println("New generated SQL is: \n" + newSql);
+            return newSql;
         }
 
         @Override

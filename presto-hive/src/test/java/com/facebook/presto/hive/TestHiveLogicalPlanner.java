@@ -45,6 +45,7 @@ import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.StringLiteral;
+import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
@@ -112,16 +113,20 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.output;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictTableScan;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
+import static com.facebook.presto.sql.tree.ExplainType.Type.DISTRIBUTED;
+import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.tpch.TpchTable.LINE_ITEM;
 import static io.airlift.tpch.TpchTable.ORDERS;
@@ -516,7 +521,8 @@ public class TestHiveLogicalPlanner
 
     private static PlanMatchPattern tableScanWithConstraint(String tableName, Map<String, Domain> expectedConstraint)
     {
-        return PlanMatchPattern.tableScan(tableName).with(new Matcher() {
+        return PlanMatchPattern.tableScan(tableName).with(new Matcher()
+        {
             @Override
             public boolean shapeMatches(PlanNode node)
             {
@@ -544,45 +550,45 @@ public class TestHiveLogicalPlanner
     public void testPushdownFilterOnSubfields()
     {
         assertUpdate("CREATE TABLE test_pushdown_filter_on_subfields(" +
-                         "id bigint, " +
-                         "a array(bigint), " +
-                         "b map(varchar, bigint), " +
-                         "c row(" +
-                             "a bigint, " +
-                             "b row(x bigint), " +
-                             "c array(bigint), " +
-                             "d map(bigint, bigint), " +
-                             "e map(varchar, bigint)))");
+                "id bigint, " +
+                "a array(bigint), " +
+                "b map(varchar, bigint), " +
+                "c row(" +
+                "a bigint, " +
+                "b row(x bigint), " +
+                "c array(bigint), " +
+                "d map(bigint, bigint), " +
+                "e map(varchar, bigint)))");
 
         assertPushdownFilterOnSubfields("SELECT * FROM test_pushdown_filter_on_subfields WHERE a[1] = 1",
-                        ImmutableMap.of(new Subfield("a[1]"), singleValue(BIGINT, 1L)));
+                ImmutableMap.of(new Subfield("a[1]"), singleValue(BIGINT, 1L)));
 
         assertPushdownFilterOnSubfields("SELECT * FROM test_pushdown_filter_on_subfields where a[1 + 1] = 1",
-                        ImmutableMap.of(new Subfield("a[2]"), singleValue(BIGINT, 1L)));
+                ImmutableMap.of(new Subfield("a[2]"), singleValue(BIGINT, 1L)));
 
         assertPushdownFilterOnSubfields("SELECT *  FROM test_pushdown_filter_on_subfields WHERE b['foo'] = 1",
-                        ImmutableMap.of(new Subfield("b[\"foo\"]"), singleValue(BIGINT, 1L)));
+                ImmutableMap.of(new Subfield("b[\"foo\"]"), singleValue(BIGINT, 1L)));
 
         assertPushdownFilterOnSubfields("SELECT * FROM test_pushdown_filter_on_subfields WHERE b[concat('f','o', 'o')] = 1",
-                        ImmutableMap.of(new Subfield("b[\"foo\"]"), singleValue(BIGINT, 1L)));
+                ImmutableMap.of(new Subfield("b[\"foo\"]"), singleValue(BIGINT, 1L)));
 
         assertPushdownFilterOnSubfields("SELECT * FROM test_pushdown_filter_on_subfields WHERE c.a = 1",
-                        ImmutableMap.of(new Subfield("c.a"), singleValue(BIGINT, 1L)));
+                ImmutableMap.of(new Subfield("c.a"), singleValue(BIGINT, 1L)));
 
         assertPushdownFilterOnSubfields("SELECT * FROM test_pushdown_filter_on_subfields WHERE c.b.x = 1",
-                        ImmutableMap.of(new Subfield("c.b.x"), singleValue(BIGINT, 1L)));
+                ImmutableMap.of(new Subfield("c.b.x"), singleValue(BIGINT, 1L)));
 
         assertPushdownFilterOnSubfields("SELECT * FROM test_pushdown_filter_on_subfields WHERE c.c[5] = 1",
-                        ImmutableMap.of(new Subfield("c.c[5]"), singleValue(BIGINT, 1L)));
+                ImmutableMap.of(new Subfield("c.c[5]"), singleValue(BIGINT, 1L)));
 
         assertPushdownFilterOnSubfields("SELECT * FROM test_pushdown_filter_on_subfields WHERE c.d[5] = 1",
-                        ImmutableMap.of(new Subfield("c.d[5]"), singleValue(BIGINT, 1L)));
+                ImmutableMap.of(new Subfield("c.d[5]"), singleValue(BIGINT, 1L)));
 
         assertPushdownFilterOnSubfields("SELECT * FROM test_pushdown_filter_on_subfields WHERE c.e[concat('f', 'o', 'o')] = 1",
-                        ImmutableMap.of(new Subfield("c.e[\"foo\"]"), singleValue(BIGINT, 1L)));
+                ImmutableMap.of(new Subfield("c.e[\"foo\"]"), singleValue(BIGINT, 1L)));
 
         assertPushdownFilterOnSubfields("SELECT * FROM test_pushdown_filter_on_subfields WHERE c.e['foo'] = 1",
-                        ImmutableMap.of(new Subfield("c.e[\"foo\"]"), singleValue(BIGINT, 1L)));
+                ImmutableMap.of(new Subfield("c.e[\"foo\"]"), singleValue(BIGINT, 1L)));
 
         assertPushdownFilterOnSubfields("SELECT * FROM test_pushdown_filter_on_subfields WHERE c.a IS NOT NULL AND c.c IS NOT NULL",
                 ImmutableMap.of(new Subfield("c.a"), notNull(BIGINT), new Subfield("c.c"), notNull(new ArrayType(BIGINT))));
@@ -1028,6 +1034,63 @@ public class TestHiveLogicalPlanner
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS test_virtual_bucket");
+        }
+    }
+
+    @Test
+    public void testMaterializedViewOptimization()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        try {
+            queryRunner.execute("CREATE TABLE orders_partitioned WITH (partitioned_by = ARRAY['ds']) AS " +
+                    "SELECT orderkey, orderpriority, '2020-01-01' as ds FROM orders WHERE orderkey < 1000 " +
+                    "UNION ALL " +
+                    "SELECT orderkey, orderpriority, '2019-01-02' as ds FROM orders WHERE orderkey < 1000");
+
+            assertUpdate("CREATE MATERIALIZED VIEW test_orders_mv WITH (partitioned_by = ARRAY['ds']) AS SELECT orderkey, orderpriority, ds FROM orders_partitioned");
+            assertTrue(getQueryRunner().tableExists(getSession(), "test_orders_mv"));
+            assertUpdate("INSERT INTO test_orders_mv(orderkey, orderpriority, ds) select orderkey, orderpriority, ds from orders_partitioned where ds='2020-01-01'", 255);
+
+            String query = "SELECT orderkey from test_orders_mv";
+            MaterializedResult result = computeActual("EXPLAIN " + query);
+            Object onlyColumnAsSet = getOnlyElement(result.getOnlyColumnAsSet());
+            System.out.println("Explain plan is: \n" + onlyColumnAsSet);
+            assertEquals(onlyColumnAsSet, getExplainPlan(query, LOGICAL));
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS test_orders_mv");
+            queryRunner.execute("DROP TABLE IF EXISTS orders_partitioned");
+        }
+    }
+
+    @Test
+    public void testMaterializedViewOptimizationWithDerivedFields()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        try {
+            queryRunner.execute("CREATE TABLE lineitem_partitioned WITH (partitioned_by = ARRAY['ds']) AS " +
+                    "SELECT discount, extendedprice, '2020-01-01' as ds FROM lineitem WHERE orderkey < 1000 " +
+                    "UNION ALL " +
+                    "SELECT discount, extendedprice, '2020-01-02' as ds FROM lineitem WHERE orderkey < 1000 ");
+
+            assertUpdate("CREATE MATERIALIZED VIEW test_lineitem_mv WITH (partitioned_by = ARRAY['ds']) " +
+                    "AS SELECT SUM(discount*extendedprice) as _discount_multi_extendedprice_, ds FROM lineitem_partitioned " +
+                    "GROUP BY ds");
+
+            assertTrue(getQueryRunner().tableExists(getSession(), "test_lineitem_mv"));
+            assertUpdate("INSERT INTO test_lineitem_mv(_discount_multi_extendedprice_, ds) select SUM(discount*extendedprice), ds from lineitem_partitioned where ds='2020-01-01' group by ds", 1);
+
+
+            String explainPlan = getExplainPlan("SELECT _discount_multi_extendedprice_ from test_lineitem_mv", LOGICAL);
+            System.out.println(explainPlan);
+
+            //TODO: Fails as the scope has a field with empty name
+            explainPlan = getExplainPlan("SELECT SUM(_discount_multi_extendedprice_) from test_lineitem_mv", LOGICAL);
+            System.out.println(explainPlan);
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS test_lineitem_mv");
+            queryRunner.execute("DROP TABLE IF EXISTS lineitem_partitioned");
         }
     }
 
@@ -1552,7 +1615,7 @@ public class TestHiveLogicalPlanner
         return new ConstantExpression(value, BIGINT);
     }
 
-    private static Map<String, String> identityMap(String...values)
+    private static Map<String, String> identityMap(String... values)
     {
         return Arrays.stream(values).collect(toImmutableMap(Functions.identity(), Functions.identity()));
     }
@@ -1643,7 +1706,8 @@ public class TestHiveLogicalPlanner
 
     private static PlanMatchPattern tableScan(String tableName, TupleDomain<String> domainPredicate, RowExpression remainingPredicate, Set<String> predicateColumnNames)
     {
-        return PlanMatchPattern.tableScan(tableName).with(new Matcher() {
+        return PlanMatchPattern.tableScan(tableName).with(new Matcher()
+        {
             @Override
             public boolean shapeMatches(PlanNode node)
             {
