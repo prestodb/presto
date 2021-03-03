@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spark;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -22,7 +21,6 @@ import java.nio.file.Paths;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.nio.file.Files.notExists;
-import static java.nio.file.Files.readAllBytes;
 
 public class PrestoSparkLocalMetadataStorage
         implements PrestoSparkMetadataStorage
@@ -34,20 +32,6 @@ public class PrestoSparkLocalMetadataStorage
             Path outputFile = Paths.get(outputPath);
             checkArgument(notExists(outputFile), "File already exist: %s", outputFile);
             Files.write(Paths.get(outputPath), data);
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
-    @Override
-    public byte[] read(String inputPath)
-    {
-        File file = new File(inputPath);
-        checkArgument(file.exists() && file.isFile(), "file does not exist: %s", file);
-        checkArgument(file.canRead(), "file is not readable: %s", file);
-        try {
-            return readAllBytes(Paths.get(inputPath));
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
