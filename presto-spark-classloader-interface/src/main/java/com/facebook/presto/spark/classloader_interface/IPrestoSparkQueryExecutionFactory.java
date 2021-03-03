@@ -22,8 +22,7 @@ public interface IPrestoSparkQueryExecutionFactory
     IPrestoSparkQueryExecution create(
             SparkContext sparkContext,
             PrestoSparkSession session,
-            Optional<String> sqlText,
-            Optional<String> sqlLocation,
+            String sql,
             Optional<String> sparkQueueName,
             PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider,
             Optional<String> queryStatusInfoOutputLocation,
