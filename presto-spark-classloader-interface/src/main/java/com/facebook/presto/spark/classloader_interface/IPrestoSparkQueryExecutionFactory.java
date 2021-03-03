@@ -15,6 +15,7 @@ package com.facebook.presto.spark.classloader_interface;
 
 import org.apache.spark.SparkContext;
 
+import java.nio.file.Path;
 import java.util.Optional;
 
 public interface IPrestoSparkQueryExecutionFactory
@@ -25,6 +26,6 @@ public interface IPrestoSparkQueryExecutionFactory
             String sql,
             Optional<String> sparkQueueName,
             PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider,
-            Optional<String> queryStatusInfoOutputLocation,
-            Optional<String> queryDataOutputLocation);
+            Optional<Path> queryStatusInfoOutputPath,
+            Optional<Path> queryDataOutputPath);
 }
