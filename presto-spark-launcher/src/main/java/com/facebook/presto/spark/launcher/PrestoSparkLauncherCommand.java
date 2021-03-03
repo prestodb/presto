@@ -78,8 +78,8 @@ public class PrestoSparkLauncherCommand
                     ImmutableSet.of(),
                     ImmutableMap.of(),
                     ImmutableMap.of(),
-                    query,
                     Optional.empty(),
+                    query,
                     Optional.empty(),
                     Optional.empty(),
                     Optional.empty());

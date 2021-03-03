@@ -57,7 +57,7 @@ public class PrestoSparkServiceFactory
 
     protected List<Module> getAdditionalModules()
     {
-        return ImmutableList.of(new PrestoSparkMetadataStorageModule());
+        return ImmutableList.of();
     }
 
     protected SqlParserOptions getSqlParserOptions()
