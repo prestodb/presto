@@ -33,7 +33,7 @@ import java.util.Optional;
 @RegisterRowMappers({
         @RegisterRowMapper(SqlInvokedFunctionRowMapper.class),
         @RegisterRowMapper(SqlInvokedFunctionRecordRowMapper.class),
-        @RegisterRowMapper(EnumTypeRowMapper.class)
+        @RegisterRowMapper(UserDefinedTypeRowMapper.class)
 })
 @RegisterArgumentFactories({
         @RegisterArgumentFactory(SqlFunctionIdArgumentFactory.class),
@@ -43,7 +43,7 @@ import java.util.Optional;
 })
 @DefineFunctionNamespacesTable
 @DefineSqlFunctionsTable
-@DefineEnumTypesTable
+@DefineUserDefinedTypesTable
 public interface FunctionNamespaceDao
 {
     @SqlUpdate("CREATE TABLE IF NOT EXISTS <function_namespaces_table> (\n" +
@@ -74,7 +74,7 @@ public interface FunctionNamespaceDao
             "  KEY qualified_function_name (catalog_name, schema_name, function_name))")
     void createSqlFunctionsTableIfNotExists();
 
-    @SqlUpdate("CREATE TABLE IF NOT EXISTS <enum_types_table> (\n" +
+    @SqlUpdate("CREATE TABLE IF NOT EXISTS <user_defined_types_table> (\n" +
             "   id bigint(20) NOT NULL AUTO_INCREMENT,\n" +
             "  catalog_name varchar(128) NOT NULL,\n" +
             "  schema_name varchar(128) NOT NULL,\n" +
@@ -82,7 +82,7 @@ public interface FunctionNamespaceDao
             "  physical_type text NOT NULL,\n" +
             "  PRIMARY KEY (id), \n" +
             "  UNIQUE KEY type_name (catalog_name, schema_name, type_name))")
-    void createEnumTypesTableIfNotExists();
+    void createUserDefinedTypesTableIfNotExists();
 
     @SqlQuery("SELECT\n" +
             "   count(1) > 0\n" +
@@ -314,11 +314,11 @@ public interface FunctionNamespaceDao
 
     @SqlQuery("SELECT\n" +
             "   count(1) > 0\n" +
-            "FROM <enum_types_table>\n" +
+            "FROM <user_defined_types_table>\n" +
             "WHERE catalog_name = :catalog_name\n" +
             "  AND schema_name = :schema_name\n" +
             "  AND type_name = :type_name")
-    boolean enumTypeExists(
+    boolean typeExists(
             @Bind("catalog_name") String catalogName,
             @Bind("schema_name") String schemaName,
             @Bind("type_name") String typeName);
@@ -328,17 +328,17 @@ public interface FunctionNamespaceDao
             "    schema_name,\n" +
             "    type_name,\n" +
             "    physical_type\n" +
-            "  FROM <enum_types_table>\n" +
+            "  FROM <user_defined_types_table>\n" +
             "WHERE\n" +
             "    catalog_name = :catalog_name\n" +
             "    AND schema_name = :schema_name\n" +
             "    AND type_name = :type_name")
-    Optional<UserDefinedType> getEnumType(
+    Optional<UserDefinedType> getUserDefinedType(
             @Bind("catalog_name") String catalogName,
             @Bind("schema_name") String schemaName,
             @Bind("type_name") String typeName);
 
-    @SqlUpdate("INSERT INTO <enum_types_table> (\n" +
+    @SqlUpdate("INSERT INTO <user_defined_types_table> (\n" +
             "        catalog_name,\n" +
             "        schema_name,\n" +
             "        type_name,\n" +
@@ -351,7 +351,7 @@ public interface FunctionNamespaceDao
             "        :type_name,\n" +
             "        :physical_type\n" +
             "    )")
-    void insertEnumType(
+    void insertUserDefinedType(
             @Bind("catalog_name") String catalogName,
             @Bind("schema_name") String schemaName,
             @Bind("type_name") String typeName,

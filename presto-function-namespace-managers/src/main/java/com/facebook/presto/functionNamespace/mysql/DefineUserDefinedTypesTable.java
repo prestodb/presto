@@ -20,9 +20,9 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-@SqlStatementCustomizingAnnotation(EnumTypesTableCustomizerFactory.class)
+@SqlStatementCustomizingAnnotation(UserDefinedTypesTableCustomizerFactory.class)
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.TYPE, ElementType.METHOD, ElementType.PARAMETER})
-public @interface DefineEnumTypesTable
+public @interface DefineUserDefinedTypesTable
 {
 }

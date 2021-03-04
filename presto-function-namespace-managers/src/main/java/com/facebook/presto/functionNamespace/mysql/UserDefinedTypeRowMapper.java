@@ -23,9 +23,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.google.common.base.Preconditions.checkArgument;
 
-public class EnumTypeRowMapper
+public class UserDefinedTypeRowMapper
         implements RowMapper<UserDefinedType>
 {
     @Override
@@ -38,7 +37,6 @@ public class EnumTypeRowMapper
                 rs.getString("type_name"));
         String physicalType = rs.getString("physical_type");
         TypeSignature typeSignature = parseTypeSignature(physicalType);
-        checkArgument(typeSignature.isEnum(), "Expect enum type");
         return new UserDefinedType(typeName, typeSignature);
     }
 }

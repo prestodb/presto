@@ -15,7 +15,6 @@ package com.facebook.presto.functionNamespace.mysql;
 
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.TypeSignature;
-import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.UserDefinedType;
 import com.facebook.presto.functionNamespace.AbstractSqlInvokedFunctionNamespaceManager;
 import com.facebook.presto.functionNamespace.InvalidFunctionHandleException;
@@ -93,7 +92,7 @@ public class MySqlFunctionNamespaceManager
     {
         functionNamespaceDao.createFunctionNamespacesTableIfNotExists();
         functionNamespaceDao.createSqlFunctionsTableIfNotExists();
-        functionNamespaceDao.createEnumTypesTableIfNotExists();
+        functionNamespaceDao.createUserDefinedTypesTableIfNotExists();
     }
 
     @Override
@@ -105,24 +104,20 @@ public class MySqlFunctionNamespaceManager
     @Override
     public void addUserDefinedType(UserDefinedType type)
     {
-        TypeSignature physicalType = type.getPhysicalTypeSignature();
-        checkArgument(physicalType.getParameters().size() == 1, "Expect enum types to only have 1 type parameter");
-        TypeSignatureParameter parameter = physicalType.getParameters().get(0);
-        checkArgument(parameter.isLongEnum() || parameter.isVarcharEnum(), format("Expect enum type but get %s", parameter.getKind()));
         jdbi.useTransaction(handle -> {
             FunctionNamespaceDao transactionDao = handle.attach(functionNamespaceDaoClass);
             QualifiedObjectName typeName = type.getUserDefinedTypeName();
-            if (functionNamespaceDao.enumTypeExists(typeName.getCatalogName(), typeName.getSchemaName(), typeName.getObjectName())) {
+            if (functionNamespaceDao.typeExists(typeName.getCatalogName(), typeName.getSchemaName(), typeName.getObjectName())) {
                 throw new PrestoException(ALREADY_EXISTS, format("Type %s already exists", typeName));
             }
-            transactionDao.insertEnumType(typeName.getCatalogName(), typeName.getSchemaName(), typeName.getObjectName(), type.getPhysicalTypeSignature().toString());
+            transactionDao.insertUserDefinedType(typeName.getCatalogName(), typeName.getSchemaName(), typeName.getObjectName(), type.getPhysicalTypeSignature().toString());
         });
     }
 
     @Override
     public UserDefinedType fetchUserDefinedTypeDirect(QualifiedObjectName typeName)
     {
-        Optional<UserDefinedType> type = functionNamespaceDao.getEnumType(typeName.getCatalogName(), typeName.getSchemaName(), typeName.getObjectName());
+        Optional<UserDefinedType> type = functionNamespaceDao.getUserDefinedType(typeName.getCatalogName(), typeName.getSchemaName(), typeName.getObjectName());
         if (!type.isPresent()) {
             throw new PrestoException(NOT_FOUND, format("Type %s not found", typeName));
         }
