@@ -1754,7 +1754,7 @@ public class LocalExecutionPlanner
             }
 
             OperatorFactory lookupJoinOperatorFactory;
-            OptionalInt totalOperatorsCount = getJoinOperatorsCountForSpill(context, session);
+            OptionalInt totalOperatorsCount = OptionalInt.empty(); // spill not supported for index joins
             switch (node.getType()) {
                 case INNER:
                     lookupJoinOperatorFactory = lookupJoinOperators.innerJoin(context.getNextOperatorId(), node.getId(), lookupSourceFactoryManager, probeSource.getTypes(), probeChannels, probeHashChannel, Optional.empty(), totalOperatorsCount, partitioningSpillerFactory);
