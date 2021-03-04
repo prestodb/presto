@@ -50,6 +50,7 @@ import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_SORT;
 import static com.facebook.presto.SystemSessionProperties.FORCE_SINGLE_NODE_OUTPUT;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
+import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_JOINS_WITH_EMPTY_SOURCES;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_NULLS_IN_JOINS;
 import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_LAST;
 import static com.facebook.presto.common.predicate.Domain.singleValue;
@@ -73,6 +74,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expres
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.limit;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.markDistinct;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.output;
@@ -496,9 +498,9 @@ public class TestLogicalPlanner
         // same query used for left, right and complex join condition
         assertEquals(
                 countOfMatchingNodes(
-                        plan("SELECT * FROM orders o1 JOIN orders o2 ON o1.orderkey = (SELECT 1) AND o2.orderkey = (SELECT 1) AND o1.orderkey + o2.orderkey = (SELECT 1)"),
+                        plan("SELECT * FROM orders o1 JOIN orders o2 ON o1.orderkey = (SELECT 1) AND o2.orderkey = (SELECT 1) AND o1.orderkey + o2.orderkey = (SELECT 2)"),
                         EnforceSingleRowNode.class::isInstance),
-                1);
+                2);
     }
 
     @Test
@@ -1008,6 +1010,89 @@ public class TestLogicalPlanner
                                         filter(
                                                 "p_comment = '42' ",
                                                 tableScan("partsupp", ImmutableMap.of("p_suppkey", "suppkey", "p_partkey", "partkey", "p_comment", "comment")))))));
+    }
+
+    @Test
+    public void testEmptyJoins()
+    {
+        Session applyEmptyJoinOptimization = Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(OPTIMIZE_JOINS_WITH_EMPTY_SOURCES, Boolean.toString(true))
+                .build();
+
+        // Right child empty.
+        assertPlanWithSession(
+                "SELECT orderkey FROM orders join (select custkey from orders where 1=0) on 1=1",
+                applyEmptyJoinOptimization, true,
+                output(
+                        values("orderkey_0")));
+
+        // Left child empty with empty predicate
+        assertPlanWithSession(
+                "SELECT orderkey FROM (select custkey from orders where 1=0) join orders on 1=1",
+                applyEmptyJoinOptimization, true,
+                output(
+                        values("orderkey_0")));
+
+        // Three way join with empty middle child.
+        assertPlanWithSession(
+                "SELECT O1.orderkey FROM orders O1 join (select custkey C from orders where 1=0) ON O1.custkey = C join orders on 1=1",
+                applyEmptyJoinOptimization, true,
+                output(
+                        values("orderkey_0")));
+
+        // Three way join with empty middle child and aggregate children.
+        assertPlanWithSession(
+                "SELECT O1 FROM (select orderkey O1 from orders group by orderkey) join (select custkey C from orders where 1=0) ON O1 = C join orders on 1=1",
+                applyEmptyJoinOptimization, true,
+                output(
+                        values("orderkey_0")));
+
+        // Three way join with empty right child.
+        assertPlanWithSession(
+                "SELECT O1.orderkey FROM orders O1 join orders O2 ON 1=1 join (select custkey C from orders where 1=0) ON O1.custkey = C",
+                applyEmptyJoinOptimization, true,
+                output(
+                        values("orderkey_0")));
+
+        // Limit query with empty left child.
+        assertPlanWithSession(
+                "WITH DT AS (SELECT orderkey FROM (select custkey from orders where 1=0) join orders on 1=1) SELECT * FROM DT LIMIT 2",
+                applyEmptyJoinOptimization, true,
+                output(limit(2, values("orderkey_0"))));
+
+        // Left child empty with zero limit
+        assertPlanWithSession(
+                "SELECT orderkey FROM (select custkey from orders limit 0) join orders on 1=1",
+                applyEmptyJoinOptimization, true,
+                output(
+                        values("orderkey_0")));
+
+        // Left child empty with zero Sample
+        assertPlanWithSession(
+                "SELECT orderkey FROM (select custkey from orders TABLESAMPLE BERNOULLI (0)) join orders on 1=1",
+                applyEmptyJoinOptimization, true,
+                output(values("orderkey_0")));
+
+        // Negative tests. Both children are not empty
+        assertPlanWithSession(
+                "SELECT orderkey FROM (select custkey as C from orders where 1>0) join orders on orderkey=C",
+                applyEmptyJoinOptimization, true,
+                output(
+                        node(JoinNode.class,
+                                anyTree(node(TableScanNode.class)),
+                                anyTree(node(TableScanNode.class)))));
+        assertPlanWithSession(
+                "SELECT orderkey FROM (select custkey as C from orders TABLESAMPLE BERNOULLI (1)) join orders on orderkey=C",
+                applyEmptyJoinOptimization, true,
+                output(
+                        node(JoinNode.class,
+                                anyTree(node(TableScanNode.class)),
+                                anyTree(node(TableScanNode.class)))));
+
+        // Negative test with optimization off
+        assertPlan(
+                "SELECT C, orderkey FROM (select orderkey as C from orders where 1=0) join orders on 1=1",
+                output(node(JoinNode.class, values("orderkey_0"), values("orderkey_3"))));
     }
 
     @Test
