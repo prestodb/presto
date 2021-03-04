@@ -20,9 +20,7 @@ import com.facebook.presto.common.type.DateType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.RowType;
-import com.facebook.presto.common.type.TimeWithTimeZoneType;
 import com.facebook.presto.common.type.TimestampType;
-import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
@@ -34,7 +32,23 @@ import org.testng.annotations.Test;
 
 import java.time.LocalDateTime;
 
+import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.plugin.bigquery.BigQueryType.toLocalDateTime;
+import static com.google.cloud.bigquery.Field.Mode.NULLABLE;
+import static com.google.cloud.bigquery.Field.Mode.REPEATED;
+import static com.google.cloud.bigquery.LegacySQLTypeName.BOOLEAN;
+import static com.google.cloud.bigquery.LegacySQLTypeName.BYTES;
+import static com.google.cloud.bigquery.LegacySQLTypeName.DATE;
+import static com.google.cloud.bigquery.LegacySQLTypeName.DATETIME;
+import static com.google.cloud.bigquery.LegacySQLTypeName.FLOAT;
+import static com.google.cloud.bigquery.LegacySQLTypeName.GEOGRAPHY;
+import static com.google.cloud.bigquery.LegacySQLTypeName.INTEGER;
+import static com.google.cloud.bigquery.LegacySQLTypeName.NUMERIC;
+import static com.google.cloud.bigquery.LegacySQLTypeName.RECORD;
+import static com.google.cloud.bigquery.LegacySQLTypeName.STRING;
+import static com.google.cloud.bigquery.LegacySQLTypeName.TIME;
+import static com.google.cloud.bigquery.LegacySQLTypeName.TIMESTAMP;
 import static java.time.Month.APRIL;
 import static java.time.Month.FEBRUARY;
 import static java.time.Month.JANUARY;
@@ -49,67 +63,67 @@ public class TestTypeConversions
     @Test
     public void testConvertBooleanField()
     {
-        assertSimpleFieldTypeConversion(LegacySQLTypeName.BOOLEAN, BooleanType.BOOLEAN);
+        assertSimpleFieldTypeConversion(BOOLEAN, BooleanType.BOOLEAN);
     }
 
     @Test
     public void testConvertBytesField()
     {
-        assertSimpleFieldTypeConversion(LegacySQLTypeName.BYTES, VarbinaryType.VARBINARY);
+        assertSimpleFieldTypeConversion(BYTES, VarbinaryType.VARBINARY);
     }
 
     @Test
     public void testConvertDateField()
     {
-        assertSimpleFieldTypeConversion(LegacySQLTypeName.DATE, DateType.DATE);
+        assertSimpleFieldTypeConversion(DATE, DateType.DATE);
     }
 
     @Test
     public void testConvertDateTimeField()
     {
-        assertSimpleFieldTypeConversion(LegacySQLTypeName.DATETIME, TimestampType.TIMESTAMP);
+        assertSimpleFieldTypeConversion(DATETIME, TimestampType.TIMESTAMP);
     }
 
     @Test
     public void testConvertFloatField()
     {
-        assertSimpleFieldTypeConversion(LegacySQLTypeName.FLOAT, DoubleType.DOUBLE);
+        assertSimpleFieldTypeConversion(FLOAT, DoubleType.DOUBLE);
     }
 
     @Test
     public void testConvertGeographyField()
     {
-        assertSimpleFieldTypeConversion(LegacySQLTypeName.GEOGRAPHY, VarcharType.VARCHAR);
+        assertSimpleFieldTypeConversion(GEOGRAPHY, VarcharType.VARCHAR);
     }
 
     @Test
     public void testConvertIntegerField()
     {
-        assertSimpleFieldTypeConversion(LegacySQLTypeName.INTEGER, BigintType.BIGINT);
+        assertSimpleFieldTypeConversion(INTEGER, BigintType.BIGINT);
     }
 
     @Test
     public void testConvertNumericField()
     {
-        assertSimpleFieldTypeConversion(LegacySQLTypeName.NUMERIC, DecimalType.createDecimalType(38, 9));
+        assertSimpleFieldTypeConversion(NUMERIC, DecimalType.createDecimalType(38, 9));
     }
 
     @Test
     public void testConvertStringField()
     {
-        assertSimpleFieldTypeConversion(LegacySQLTypeName.STRING, VarcharType.VARCHAR);
+        assertSimpleFieldTypeConversion(STRING, VarcharType.VARCHAR);
     }
 
     @Test
     public void testConvertTimeField()
     {
-        assertSimpleFieldTypeConversion(LegacySQLTypeName.TIME, TimeWithTimeZoneType.TIME_WITH_TIME_ZONE);
+        assertSimpleFieldTypeConversion(TIME, TIME_WITH_TIME_ZONE);
     }
 
     @Test
     public void testConvertTimestampField()
     {
-        assertSimpleFieldTypeConversion(LegacySQLTypeName.TIMESTAMP, TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE);
+        assertSimpleFieldTypeConversion(TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE);
     }
 
     @Test
@@ -117,9 +131,9 @@ public class TestTypeConversions
     {
         Field field = Field.of(
                 "rec",
-                LegacySQLTypeName.RECORD,
-                Field.of("sub_s", LegacySQLTypeName.STRING),
-                Field.of("sub_i", LegacySQLTypeName.INTEGER));
+                RECORD,
+                Field.of("sub_s", STRING),
+                Field.of("sub_i", INTEGER));
         ColumnMetadata metadata = Conversions.toColumnMetadata(field);
         RowType targetType = RowType.from(ImmutableList.of(
                 RowType.field("sub_s", VarcharType.VARCHAR),
@@ -132,12 +146,12 @@ public class TestTypeConversions
     {
         Field field = Field.of(
                 "rec",
-                LegacySQLTypeName.RECORD,
-                Field.of("sub_rec", LegacySQLTypeName.RECORD,
-                        Field.of("sub_sub_s", LegacySQLTypeName.STRING),
-                        Field.of("sub_sub_i", LegacySQLTypeName.INTEGER)),
-                Field.of("sub_s", LegacySQLTypeName.STRING),
-                Field.of("sub_i", LegacySQLTypeName.INTEGER));
+                RECORD,
+                Field.of("sub_rec", RECORD,
+                        Field.of("sub_sub_s", STRING),
+                        Field.of("sub_sub_i", INTEGER)),
+                Field.of("sub_s", STRING),
+                Field.of("sub_i", INTEGER));
         ColumnMetadata metadata = Conversions.toColumnMetadata(field);
         RowType targetType = RowType.from(ImmutableList.of(
                 RowType.field("sub_rec", RowType.from(ImmutableList.of(
@@ -151,8 +165,8 @@ public class TestTypeConversions
     @Test
     public void testConvertStringArrayField()
     {
-        Field field = Field.newBuilder("test", LegacySQLTypeName.STRING)
-                .setMode(Field.Mode.REPEATED)
+        Field field = Field.newBuilder("test", STRING)
+                .setMode(REPEATED)
                 .build();
         ColumnMetadata metadata = Conversions.toColumnMetadata(field);
         assertThat(metadata.getType()).isEqualTo(new ArrayType(VarcharType.VARCHAR));
@@ -172,25 +186,25 @@ public class TestTypeConversions
     @Test
     public void testConvertBooleanColumn()
     {
-        assertSimpleColumnTypeConversion(LegacySQLTypeName.BOOLEAN, BooleanType.BOOLEAN);
+        assertSimpleColumnTypeConversion(BOOLEAN, BooleanType.BOOLEAN);
     }
 
     @Test
     public void testConvertBytesColumn()
     {
-        assertSimpleColumnTypeConversion(LegacySQLTypeName.BYTES, VarbinaryType.VARBINARY);
+        assertSimpleColumnTypeConversion(BYTES, VarbinaryType.VARBINARY);
     }
 
     @Test
     public void testConvertDateColumn()
     {
-        assertSimpleColumnTypeConversion(LegacySQLTypeName.DATE, DateType.DATE);
+        assertSimpleColumnTypeConversion(DATE, DateType.DATE);
     }
 
     @Test
     public void testConvertDateTimeColumn()
     {
-        assertSimpleColumnTypeConversion(LegacySQLTypeName.DATETIME, TimestampType.TIMESTAMP);
+        assertSimpleColumnTypeConversion(DATETIME, TimestampType.TIMESTAMP);
     }
 
     @Test
@@ -202,45 +216,45 @@ public class TestTypeConversions
     @Test
     public void testConvertGeographyColumn()
     {
-        assertSimpleColumnTypeConversion(LegacySQLTypeName.GEOGRAPHY, VarcharType.VARCHAR);
+        assertSimpleColumnTypeConversion(GEOGRAPHY, VarcharType.VARCHAR);
     }
 
     @Test
     public void testConvertIntegerColumn()
     {
-        assertSimpleColumnTypeConversion(LegacySQLTypeName.INTEGER, BigintType.BIGINT);
+        assertSimpleColumnTypeConversion(INTEGER, BigintType.BIGINT);
     }
 
     @Test
     public void testConvertNumericColumn()
     {
-        assertSimpleColumnTypeConversion(LegacySQLTypeName.NUMERIC, DecimalType.createDecimalType(38, 9));
+        assertSimpleColumnTypeConversion(NUMERIC, DecimalType.createDecimalType(38, 9));
     }
 
     @Test
     public void testConvertStringColumn()
     {
-        assertSimpleColumnTypeConversion(LegacySQLTypeName.STRING, VarcharType.VARCHAR);
+        assertSimpleColumnTypeConversion(STRING, VarcharType.VARCHAR);
     }
 
     @Test
     public void testConvertTimeColumn()
     {
-        assertSimpleColumnTypeConversion(LegacySQLTypeName.TIME, TimeWithTimeZoneType.TIME_WITH_TIME_ZONE);
+        assertSimpleColumnTypeConversion(TIME, TIME_WITH_TIME_ZONE);
     }
 
     @Test
     public void testConvertTimestampColumn()
     {
-        assertSimpleColumnTypeConversion(LegacySQLTypeName.TIMESTAMP, TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE);
+        assertSimpleColumnTypeConversion(TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE);
     }
 
     @Test
     public void testConvertOneLevelRecordColumn()
     {
-        BigQueryColumnHandle column = new BigQueryColumnHandle("rec", BigQueryType.RECORD, Field.Mode.NULLABLE, ImmutableList.of(
-                new BigQueryColumnHandle("sub_s", BigQueryType.STRING, Field.Mode.NULLABLE, ImmutableList.of(), null),
-                new BigQueryColumnHandle("sub_i", BigQueryType.INTEGER, Field.Mode.NULLABLE, ImmutableList.of(), null)
+        BigQueryColumnHandle column = new BigQueryColumnHandle("rec", BigQueryType.RECORD, NULLABLE, ImmutableList.of(
+                new BigQueryColumnHandle("sub_s", BigQueryType.STRING, NULLABLE, ImmutableList.of(), null),
+                new BigQueryColumnHandle("sub_i", BigQueryType.INTEGER, NULLABLE, ImmutableList.of(), null)
         ), null);
         ColumnMetadata metadata = column.getColumnMetadata();
         RowType targetType = RowType.from(ImmutableList.of(
@@ -252,13 +266,13 @@ public class TestTypeConversions
     @Test
     public void testConvertTwoLevelsRecordColumn()
     {
-        BigQueryColumnHandle column = new BigQueryColumnHandle("rec", BigQueryType.RECORD, Field.Mode.NULLABLE, ImmutableList.of(
-                new BigQueryColumnHandle("sub_rec", BigQueryType.RECORD, Field.Mode.NULLABLE, ImmutableList.of(
-                        new BigQueryColumnHandle("sub_sub_s", BigQueryType.STRING, Field.Mode.NULLABLE, ImmutableList.of(), null),
-                        new BigQueryColumnHandle("sub_sub_i", BigQueryType.INTEGER, Field.Mode.NULLABLE, ImmutableList.of(), null)
+        BigQueryColumnHandle column = new BigQueryColumnHandle("rec", BigQueryType.RECORD, NULLABLE, ImmutableList.of(
+                new BigQueryColumnHandle("sub_rec", BigQueryType.RECORD, NULLABLE, ImmutableList.of(
+                        new BigQueryColumnHandle("sub_sub_s", BigQueryType.STRING, NULLABLE, ImmutableList.of(), null),
+                        new BigQueryColumnHandle("sub_sub_i", BigQueryType.INTEGER, NULLABLE, ImmutableList.of(), null)
                 ), null),
-                new BigQueryColumnHandle("sub_s", BigQueryType.STRING, Field.Mode.NULLABLE, ImmutableList.of(), null),
-                new BigQueryColumnHandle("sub_i", BigQueryType.INTEGER, Field.Mode.NULLABLE, ImmutableList.of(), null)
+                new BigQueryColumnHandle("sub_s", BigQueryType.STRING, NULLABLE, ImmutableList.of(), null),
+                new BigQueryColumnHandle("sub_i", BigQueryType.INTEGER, NULLABLE, ImmutableList.of(), null)
         ), null);
         ColumnMetadata metadata = column.getColumnMetadata();
         RowType targetType = RowType.from(ImmutableList.of(
@@ -273,7 +287,7 @@ public class TestTypeConversions
     @Test
     public void testConvertStringArrayColumn()
     {
-        BigQueryColumnHandle column = new BigQueryColumnHandle("test", BigQueryType.STRING, Field.Mode.REPEATED, ImmutableList.of(), null);
+        BigQueryColumnHandle column = new BigQueryColumnHandle("test", BigQueryType.STRING, REPEATED, ImmutableList.of(), null);
         ColumnMetadata metadata = column.getColumnMetadata();
         assertThat(metadata.getType()).isEqualTo(new ArrayType(VarcharType.VARCHAR));
     }
@@ -286,7 +300,7 @@ public class TestTypeConversions
 
     private BigQueryColumnHandle createColumn(LegacySQLTypeName type)
     {
-        return new BigQueryColumnHandle("test", BigQueryType.valueOf(type.name()), Field.Mode.NULLABLE, ImmutableList.of(), null);
+        return new BigQueryColumnHandle("test", BigQueryType.valueOf(type.name()), NULLABLE, ImmutableList.of(), null);
     }
 
     @Test

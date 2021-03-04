@@ -40,6 +40,7 @@ import static com.facebook.presto.plugin.bigquery.BigQueryErrorCode.BIGQUERY_QUE
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.joining;
 
@@ -48,27 +49,17 @@ public class BigQueryClient
     private final BigQuery bigQuery;
     private final Optional<String> viewMaterializationProject;
     private final Optional<String> viewMaterializationDataset;
+    private final String tablePrefix = "_pbc_";
 
-    // holds caches and mappings
     // presto converts the dataset and table names to lower case, while BigQuery is case sensitive
-    // the mappings here keep the mappings
     private final ConcurrentMap<TableId, TableId> tableIds = new ConcurrentHashMap<>();
     private final ConcurrentMap<DatasetId, DatasetId> datasetIds = new ConcurrentHashMap<>();
 
     BigQueryClient(BigQuery bigQuery, BigQueryConfig config)
     {
-        this.bigQuery = bigQuery;
-        this.viewMaterializationProject = config.getViewMaterializationProject();
-        this.viewMaterializationDataset = config.getViewMaterializationDataset();
-    }
-
-    // return empty if no filters are used
-    private static Optional<String> createWhereClause(String[] filters)
-    {
-        if (filters == null || filters.length == 0) {
-            return Optional.empty();
-        }
-        return Optional.of(String.join("", filters));
+        this.bigQuery = requireNonNull(bigQuery, "bigQuery is null");
+        this.viewMaterializationProject = requireNonNull(config.getViewMaterializationProject(), "viewMaterializationProject is null");
+        this.viewMaterializationDataset = requireNonNull(config.getViewMaterializationDataset(), "viewMaterializationDataset is null");
     }
 
     public TableInfo getTable(TableId tableId)
@@ -103,11 +94,18 @@ public class BigQueryClient
         Set<TableDefinition.Type> allowedTypes = ImmutableSet.copyOf(types);
         DatasetId bigQueryDatasetId = datasetIds.getOrDefault(datasetId, datasetId);
         Iterable<Table> allTables = bigQuery.listTables(bigQueryDatasetId).iterateAll();
+        allTables.forEach(table -> addTableMappingIfNeeded(bigQueryDatasetId, table));
         return StreamSupport.stream(allTables.spliterator(), false)
                 .filter(table -> allowedTypes.contains(table.getDefinition().getType()))
                 .collect(toImmutableList());
     }
 
+    private void addTableMappingIfNeeded(DatasetId datasetID, Table table)
+    {
+        TableId bigQueryTableId = table.getTableId();
+        TableId prestoTableId = TableId.of(datasetID.getProject(), datasetID.getDataset(), createTableName());
+        tableIds.putIfAbsent(bigQueryTableId, prestoTableId);
+    }
     private Dataset addDataSetMappingIfNeeded(Dataset dataset)
     {
         DatasetId bigQueryDatasetId = dataset.getDatasetId();
@@ -121,8 +119,12 @@ public class BigQueryClient
         String project = viewMaterializationProject.orElse(tableId.getProject());
         String dataset = viewMaterializationDataset.orElse(tableId.getDataset());
         DatasetId datasetId = mapIfNeeded(project, dataset);
-        String name = format("_pbc_%s", randomUUID().toString().toLowerCase(ENGLISH).replace("-", ""));
-        return TableId.of(datasetId.getProject(), datasetId.getDataset(), name);
+        return TableId.of(datasetId.getProject(), datasetId.getDataset(), createTableName());
+    }
+
+    private String createTableName()
+    {
+        return format(tablePrefix + "%s", randomUUID().toString().toLowerCase(ENGLISH).replace("-", ""));
     }
 
     private DatasetId mapIfNeeded(String project, String dataset)
@@ -157,11 +159,10 @@ public class BigQueryClient
         String columns = requiredColumns.isEmpty() ? "*" :
                 requiredColumns.stream().map(column -> format("`%s`", column)).collect(joining(","));
 
-        return createSql(table, columns, new String[] {});
+        return createFormatSql(table, columns, new String[] {});
     }
 
-    // properly formatting SELECT statement
-    protected String createSql(TableId table, String requiredColumns, String[] filters)
+    protected String createFormatSql(TableId table, String requiredColumns, String[] filters)
     {
         String tableName = fullTableName(table);
 
@@ -170,6 +171,15 @@ public class BigQueryClient
                 .orElse("");
 
         return format("SELECT %s FROM `%s` %s", requiredColumns, tableName, whereClause);
+    }
+
+    // return empty if no filters are used
+    private static Optional<String> createWhereClause(String[] filters)
+    {
+        if (filters == null || filters.length == 0) {
+            return Optional.empty();
+        }
+        return Optional.of(String.join("", filters));
     }
 
     private String fullTableName(TableId tableId)

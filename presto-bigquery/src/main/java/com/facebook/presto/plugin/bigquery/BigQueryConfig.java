@@ -28,6 +28,8 @@ public class BigQueryConfig
 {
     public static final int DEFAULT_MAX_READ_ROWS_RETRIES = 3;
 
+    private static final int VIEW_EXPIRATION_TIMEIN_HOURS = 24;
+
     private Optional<String> credentialsKey = Optional.empty();
     private Optional<String> credentialsFile = Optional.empty();
     private Optional<String> projectId = Optional.empty();
@@ -38,14 +40,14 @@ public class BigQueryConfig
     private Optional<String> viewMaterializationDataset = Optional.empty();
     private int maxReadRowsRetries = DEFAULT_MAX_READ_ROWS_RETRIES;
 
-    @AssertTrue(message = "Exactly one of 'bigquery.credentials-key' or 'bigquery.credentials-file' must be specified, or the default GoogleCredentials could be created")
+    @AssertTrue(message = "Either one of 'bigquery.credentials-key' or 'bigquery.credentials-file' must be specified, or the default GoogleCredentials could be created")
     public boolean isCredentialsConfigurationValid()
     {
-        // only one of them (at most) should be present
+        // at most one of them should present
         if (credentialsKey.isPresent() && credentialsFile.isPresent()) {
             return false;
         }
-        // if no credentials were supplied, let's check if we can create the default ones
+        // if no credentials, try create default ones
         if (!credentialsKey.isPresent() && !credentialsFile.isPresent()) {
             try {
                 GoogleCredentials.getApplicationDefault();
@@ -63,7 +65,7 @@ public class BigQueryConfig
     }
 
     @Config("bigquery.credentials-key")
-    @ConfigDescription("The base64 encoded credentials key")
+    @ConfigDescription("credentials key (base64 encoded)")
     public BigQueryConfig setCredentialsKey(String credentialsKey)
     {
         this.credentialsKey = Optional.of(credentialsKey);
@@ -76,7 +78,7 @@ public class BigQueryConfig
     }
 
     @Config("bigquery.credentials-file")
-    @ConfigDescription("The path to the JSON credentials file")
+    @ConfigDescription("JSON credentials file path")
     public BigQueryConfig setCredentialsFile(String credentialsFile)
     {
         this.credentialsFile = Optional.of(credentialsFile);
@@ -89,7 +91,7 @@ public class BigQueryConfig
     }
 
     @Config("bigquery.project-id")
-    @ConfigDescription("The Google Cloud Project ID where the data resides")
+    @ConfigDescription("Google Cloud project ID")
     public BigQueryConfig setProjectId(String projectId)
     {
         this.projectId = Optional.of(projectId);
@@ -102,7 +104,7 @@ public class BigQueryConfig
     }
 
     @Config("bigquery.parent-project-id")
-    @ConfigDescription("The Google Cloud Parent Project ID")
+    @ConfigDescription("Google Cloud parent project ID")
     public BigQueryConfig setParentProjectId(String parentProjectId)
     {
         this.parentProjectId = Optional.of(parentProjectId);
@@ -137,7 +139,7 @@ public class BigQueryConfig
 
     public int getViewExpirationTimeInHours()
     {
-        return 24;
+        return VIEW_EXPIRATION_TIMEIN_HOURS;
     }
 
     public Optional<String> getViewMaterializationProject()

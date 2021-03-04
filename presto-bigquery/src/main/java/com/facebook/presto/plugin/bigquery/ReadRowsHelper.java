@@ -36,6 +36,7 @@ public class ReadRowsHelper
         this.maxReadRowsRetries = maxReadRowsRetries;
     }
 
+    // TODO: iterator based implementation, instead of fetching all result at once
     public Iterator<ReadRowsResponse> readRows()
     {
         List<ReadRowsResponse> readRowResponses = new ArrayList<>();
@@ -66,7 +67,7 @@ public class ReadRowsHelper
         return readRowResponses.iterator();
     }
 
-    // In order to enable testing
+    // for testing
     protected Iterator<ReadRowsResponse> fetchResponses(ReadRowsRequest.Builder readRowsRequest)
     {
         return client.readRowsCallable()

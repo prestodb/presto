@@ -21,14 +21,15 @@ import com.google.common.collect.ImmutableList;
 
 import java.io.IOException;
 
-public class BigQueryEmptyProjectionPageSource
+public class BigQueryEmptySplitPageSource
         implements ConnectorPageSource
 {
-    private static final Logger log = Logger.get(BigQueryEmptyProjectionPageSource.class);
+    private static final Logger log = Logger.get(BigQueryEmptySplitPageSource.class);
     private final long numberOfRows;
     private boolean finished;
 
-    public BigQueryEmptyProjectionPageSource(long numberOfRows)
+    //TODO: will merge BigQueryEmptySplitPageSource into BigQueryResultPageSource to simplify the logic
+    public BigQueryEmptySplitPageSource(long numberOfRows)
     {
         this.numberOfRows = numberOfRows;
         this.finished = false;

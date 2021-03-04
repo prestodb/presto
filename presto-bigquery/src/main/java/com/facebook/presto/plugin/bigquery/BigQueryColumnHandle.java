@@ -17,7 +17,6 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.cloud.bigquery.Field;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -25,17 +24,20 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import static com.facebook.presto.plugin.bigquery.BigQueryType.Adaptor;
+import static com.google.cloud.bigquery.Field.Mode;
+import static com.google.cloud.bigquery.Field.Mode.NULLABLE;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class BigQueryColumnHandle
-        implements ColumnHandle, BigQueryType.Adaptor
+        implements ColumnHandle, Adaptor
 {
     private final String name;
     private final BigQueryType bigQueryType;
-    private final Field.Mode mode;
+    private final Mode mode;
     private final List<BigQueryColumnHandle> subColumns;
     private final String description;
 
@@ -43,7 +45,7 @@ public class BigQueryColumnHandle
     public BigQueryColumnHandle(
             @JsonProperty("name") String name,
             @JsonProperty("bigQueryType") BigQueryType bigQueryType,
-            @JsonProperty("mode") Field.Mode mode,
+            @JsonProperty("mode") Mode mode,
             @JsonProperty("subColumns") List<BigQueryColumnHandle> subColumns,
             @JsonProperty("description") String description)
     {
@@ -68,14 +70,14 @@ public class BigQueryColumnHandle
     }
 
     @Override
-    public Map<String, BigQueryType.Adaptor> getBigQuerySubTypes()
+    public Map<String, Adaptor> getBigQuerySubTypes()
     {
         return subColumns.stream().collect(toImmutableMap(BigQueryColumnHandle::getName, column -> column));
     }
 
     @Override
     @JsonProperty
-    public Field.Mode getMode()
+    public Mode getMode()
     {
         return mode;
     }
@@ -97,7 +99,7 @@ public class BigQueryColumnHandle
         return new ColumnMetadata(
                 name,
                 getPrestoType(),
-                mode == Field.Mode.NULLABLE,
+                mode == NULLABLE,
                 description,
                 null,
                 false,

@@ -128,17 +128,15 @@ All configuration properties are optional.
 ========================================= ============================================================== ==============================================
 Property                                  Description                                                    Default
 ========================================= ============================================================== ==============================================
-``bigquery.project-id``                   The Google Cloud Project ID where the data reside              Taken from the service account
-``bigquery.parent-project``               The project ID Google Cloud Project to bill for the export     Taken from the service account
-``bigquery.parallelism``                  The number of partitions to split the data into                The number of executors
-``bigquery.views-enabled``                Enables the connector to read from views and not only tables.  ``false``
-                                          Please read `this section <#reading-from-views>`_ before
-                                          enabling this feature.
+``bigquery.project-id``                   Google Cloud project ID                                        Taken from the service account
+``bigquery.parent-project``               Google Cloud parent project ID                                 Taken from the service account
+``bigquery.parallelism``                  The number of partitions to split the data                     The number of executors
+``bigquery.views-enabled``                Enable BigQuery connector to read views.                       ``false``
 ``bigquery.view-materialization-project`` The project where the materialized view is going to be created The view's project
 ``bigquery.view-materialization-dataset`` The dataset where the materialized view is going to be created The view's dataset
 ``bigquery.max-read-rows-retries``        The number of retries in case of retryable server issues       ``3``
-``bigquery.credentials-key``              The base64 encoded credentials key                             None. See `authentication <#authentication>`_
-``bigquery.credentials-file``             The path to the JSON credentials file                          None. See `authentication <#authentication>`_
+``bigquery.credentials-key``              credentials key (base64 encoded)                               None. See `authentication <#authentication>`_
+``bigquery.credentials-file``             JSON credentials file path                                     None. See `authentication <#authentication>`_
 ========================================= ============================================================== ==============================================
 
 Data Types
