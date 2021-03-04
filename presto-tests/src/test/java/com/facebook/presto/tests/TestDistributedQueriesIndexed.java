@@ -15,6 +15,9 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.tests.tpch.IndexedTpchPlugin;
+import com.google.common.collect.ImmutableMap;
+
+import java.nio.file.Paths;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -35,7 +38,14 @@ public class TestDistributedQueriesIndexed
                 .setSchema(TINY_SCHEMA_NAME)
                 .build();
 
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(session, 3);
+        // set spill path so we can enable spill by session property
+        ImmutableMap<String, String> extraProperties = ImmutableMap.of(
+                "experimental.spiller-spill-path",
+                Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills").toString());
+        DistributedQueryRunner queryRunner = new DistributedQueryRunner.Builder(session)
+                .setNodeCount(3)
+                .setExtraProperties(extraProperties)
+                .build();
 
         queryRunner.installPlugin(new IndexedTpchPlugin(INDEX_SPEC));
         queryRunner.createCatalog("tpch_indexed", "tpch_indexed");
