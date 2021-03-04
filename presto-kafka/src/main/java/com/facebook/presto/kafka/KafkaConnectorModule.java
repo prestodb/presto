@@ -20,6 +20,8 @@ import com.facebook.presto.decoder.DecoderModule;
 import com.facebook.presto.kafka.encoder.EncoderModule;
 import com.facebook.presto.kafka.schema.file.FileTableDescriptionSupplier;
 import com.facebook.presto.kafka.schema.file.FileTableDescriptionSupplierModule;
+import com.facebook.presto.kafka.server.file.FileKafkaClusterMetadataSupplier;
+import com.facebook.presto.kafka.server.file.FileKafkaClusterMetadataSupplierModule;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Binder;
@@ -27,6 +29,8 @@ import com.google.inject.Module;
 import com.google.inject.Scopes;
 
 import javax.inject.Inject;
+
+import java.util.function.Function;
 
 import static com.facebook.airlift.configuration.ConditionalModule.installModuleIf;
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
@@ -46,7 +50,6 @@ public class KafkaConnectorModule
     {
         binder.bind(KafkaConnector.class).in(Scopes.SINGLETON);
 
-        binder.bind(KafkaStaticServerset.class).in(Scopes.SINGLETON);
         binder.bind(KafkaMetadata.class).in(Scopes.SINGLETON);
         binder.bind(KafkaSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(KafkaRecordSetProvider.class).in(Scopes.SINGLETON);
@@ -54,7 +57,8 @@ public class KafkaConnectorModule
 
         binder.bind(KafkaConsumerManager.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(KafkaConnectorConfig.class);
-        bindTopicSchemaProviderModule(FileTableDescriptionSupplier.NAME, new FileTableDescriptionSupplierModule());
+        bindTopicSchemaProviderModule(FileTableDescriptionSupplier.NAME, new FileTableDescriptionSupplierModule(), KafkaConnectorConfig::getTableDescriptionSupplier);
+        bindTopicSchemaProviderModule(FileKafkaClusterMetadataSupplier.NAME, new FileKafkaClusterMetadataSupplierModule(), KafkaConnectorConfig::getClusterMetadataSupplier);
 
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
         jsonCodecBinder(binder).bindJsonCodec(KafkaTopicDescription.class);
@@ -85,11 +89,11 @@ public class KafkaConnectorModule
         }
     }
 
-    public void bindTopicSchemaProviderModule(String name, Module module)
+    public void bindTopicSchemaProviderModule(String name, Module module, Function<KafkaConnectorConfig, String> configSupplier)
     {
         install(installModuleIf(
                 KafkaConnectorConfig.class,
-                kafkaConfig -> name.equalsIgnoreCase(kafkaConfig.getTableDescriptionSupplier()),
+                kafkaConfig -> name.equalsIgnoreCase(configSupplier.apply(kafkaConfig)),
                 module));
     }
 }
