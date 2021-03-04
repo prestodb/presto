@@ -49,6 +49,7 @@ public class AlluxioCachingConfigurationProvider
             configuration.set("alluxio.user.client.cache.async.write.enabled", String.valueOf(alluxioCacheConfig.isAsyncWriteEnabled()));
             configuration.set("alluxio.user.metrics.collection.enabled", String.valueOf(alluxioCacheConfig.isMetricsCollectionEnabled()));
             configuration.set("alluxio.user.client.cache.eviction.retries", String.valueOf(alluxioCacheConfig.getEvictionRetries()));
+            configuration.set("alluxio.user.client.cache.evictor.class", alluxioCacheConfig.getEvictionPolicy().getClassName());
             configuration.set("sink.jmx.class", alluxioCacheConfig.getJmxClass());
             configuration.set("sink.jmx.domain", alluxioCacheConfig.getMetricsDomain());
             configuration.set("alluxio.conf.validation.enabled", String.valueOf(alluxioCacheConfig.isConfigValidationEnabled()));
