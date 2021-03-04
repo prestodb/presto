@@ -15,16 +15,14 @@ package com.facebook.presto.kafka;
 
 import com.facebook.presto.spi.HostAddress;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 
 import javax.inject.Inject;
 
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
-import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static org.apache.kafka.clients.producer.ProducerConfig.ACKS_CONFIG;
 import static org.apache.kafka.clients.producer.ProducerConfig.BOOTSTRAP_SERVERS_CONFIG;
@@ -35,24 +33,25 @@ public class PlainTextKafkaProducerFactory
     private final Map<String, Object> properties;
 
     @Inject
-    public PlainTextKafkaProducerFactory(KafkaConnectorConfig kafkaConfig)
+    public PlainTextKafkaProducerFactory()
     {
-        requireNonNull(kafkaConfig, "kafkaConfig is null");
-        Set<HostAddress> nodes = ImmutableSet.copyOf(kafkaConfig.getNodes());
-        properties = ImmutableMap.<String, Object>builder()
-                .put(BOOTSTRAP_SERVERS_CONFIG, nodes.stream()
-                        .map(HostAddress::toString)
-                        .collect(joining(",")))
+        this.properties = ImmutableMap.<String, Object>builder()
                 .put(ACKS_CONFIG, "all")
                 .put(LINGER_MS_CONFIG, 5)
                 .build();
     }
 
     /**
-     * Creates a KafkaProducer with the properties set in the constructor.
+     * Creates a KafkaProducer with the properties set in the constructor and kafka bootstrap servers
      */
-    public KafkaProducer<byte[], byte[]> create()
+    public KafkaProducer<byte[], byte[]> create(List<HostAddress> bootstrapServers)
     {
-        return new KafkaProducer<>(properties, new ByteArraySerializer(), new ByteArraySerializer());
+        Map<String, Object> propertiesWithBootstrapServers = ImmutableMap.<String, Object>builder()
+                .putAll(properties)
+                .put(BOOTSTRAP_SERVERS_CONFIG, bootstrapServers.stream()
+                        .map(HostAddress::toString)
+                        .collect(joining(",")))
+                .build();
+        return new KafkaProducer<>(propertiesWithBootstrapServers, new ByteArraySerializer(), new ByteArraySerializer());
     }
 }
