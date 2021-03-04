@@ -26,6 +26,7 @@ import java.util.Objects;
 
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class BigQuerySplit
@@ -53,11 +54,13 @@ public class BigQuerySplit
 
     static BigQuerySplit forStream(String streamName, String avroSchema, List<ColumnHandle> columns)
     {
+        // this is an non-empty projection, read stream returns rows from bigquery storage without intermediary
         return new BigQuerySplit(streamName, avroSchema, columns, NO_ROWS_TO_GENERATE);
     }
 
     static BigQuerySplit emptyProjection(long numberOfRows)
     {
+        checkArgument(numberOfRows > 0, "checkArgument must be greater than 0");
         return new BigQuerySplit("", "", ImmutableList.of(), numberOfRows);
     }
 

@@ -22,6 +22,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static com.google.cloud.bigquery.Field.Mode;
+import static com.google.cloud.bigquery.Field.Mode.NULLABLE;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
@@ -50,7 +52,7 @@ public class Conversions
         return new ColumnMetadata(
                 field.getName(), // name
                 adapt(field).getPrestoType(),
-                getMode(field) == Field.Mode.NULLABLE, //nullable
+                getMode(field) == NULLABLE, //nullable
                 field.getDescription(), // comment
                 null, // extraInfo
                 false, // hidden
@@ -85,8 +87,8 @@ public class Conversions
         };
     }
 
-    private static Field.Mode getMode(Field field)
+    private static Mode getMode(Field field)
     {
-        return firstNonNull(field.getMode(), Field.Mode.NULLABLE);
+        return firstNonNull(field.getMode(), NULLABLE);
     }
 }

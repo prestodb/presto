@@ -28,7 +28,6 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
-import com.google.api.gax.paging.Page;
 import com.google.cloud.bigquery.DatasetId;
 import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.Schema;
@@ -48,6 +47,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.plugin.bigquery.BigQueryErrorCode.BIGQUERY_TABLE_DISAPPEAR_DURING_LIST;
 import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
 import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -61,8 +61,8 @@ public class BigQueryMetadata
     static final int NUMERIC_DATA_TYPE_SCALE = 9;
     private static final String INFORMATION_SCHEMA = "information_schema";
     private static final Logger log = Logger.get(BigQueryMetadata.class);
-    private BigQueryClient bigQueryClient;
-    private String projectId;
+    private final BigQueryClient bigQueryClient;
+    private final String projectId;
 
     @Inject
     public BigQueryMetadata(BigQueryClient bigQueryClient, BigQueryConfig config)
@@ -111,21 +111,16 @@ public class BigQueryMetadata
         return tableNames.build();
     }
 
-    <T> ImmutableList<T> collectAll(Page<T> page)
-    {
-        return ImmutableList.copyOf(page.iterateAll());
-    }
-
     @Override
     public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
         log.debug("getTableHandle(session=%s, tableName=%s)", session, tableName);
-        TableInfo tableInfo = getBigQueryTable(tableName);
-        if (tableInfo == null) {
+        Optional<TableInfo> tableInfo = getBigQueryTable(tableName);
+        if (tableInfo.isPresent()) {
             log.debug("Table [%s.%s] was not found", tableName.getSchemaName(), tableName.getTableName());
             return null;
         }
-        return BigQueryTableHandle.from(tableInfo);
+        return BigQueryTableHandle.from(tableInfo.get());
     }
 
     @Override
@@ -159,10 +154,10 @@ public class BigQueryMetadata
                 ImmutableList.of()); // localProperties
     }
 
-    // May return null
-    private TableInfo getBigQueryTable(SchemaTableName tableName)
+    private Optional<TableInfo> getBigQueryTable(SchemaTableName tableName)
     {
-        return bigQueryClient.getTable(TableId.of(projectId, tableName.getSchemaName(), tableName.getTableName()));
+        TableInfo tableInfo = bigQueryClient.getTable(TableId.of(projectId, tableName.getSchemaName(), tableName.getTableName()));
+        return tableInfo == null ? Optional.of(tableInfo) : Optional.empty();
     }
 
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName schemaTableName)
@@ -220,8 +215,8 @@ public class BigQueryMetadata
             try {
                 columns.put(tableName, getTableMetadata(session, tableName).getColumns());
             }
-            catch (NotFoundException e) {
-                // table disappeared during listing operation
+            catch (NotFoundException ex) {
+                throw new BigQueryException(BIGQUERY_TABLE_DISAPPEAR_DURING_LIST, "Table disappeared during listing operation", ex);
             }
         }
         return columns.build();
@@ -233,8 +228,8 @@ public class BigQueryMetadata
             return listTables(session, Optional.ofNullable(prefix.getSchemaName()));
         }
         SchemaTableName tableName = prefix.toSchemaTableName();
-        TableInfo tableInfo = getBigQueryTable(tableName);
-        return tableInfo == null ?
+        Optional<TableInfo> tableInfo = getBigQueryTable(tableName);
+        return tableInfo.isPresent() ?
                 ImmutableList.of() : // table does not exist
                 ImmutableList.of(tableName);
     }

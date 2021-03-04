@@ -27,10 +27,8 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
 import com.google.cloud.bigquery.Field;
-import com.google.common.collect.ImmutableMap;
 
 import java.time.LocalDateTime;
-import java.time.Month;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
@@ -38,18 +36,6 @@ import java.util.Map;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Integer.parseInt;
-import static java.time.Month.APRIL;
-import static java.time.Month.AUGUST;
-import static java.time.Month.DECEMBER;
-import static java.time.Month.FEBRUARY;
-import static java.time.Month.JANUARY;
-import static java.time.Month.JULY;
-import static java.time.Month.JUNE;
-import static java.time.Month.MARCH;
-import static java.time.Month.MAY;
-import static java.time.Month.NOVEMBER;
-import static java.time.Month.OCTOBER;
-import static java.time.Month.SEPTEMBER;
 import static java.time.ZoneId.systemDefault;
 import static java.util.stream.Collectors.toList;
 
@@ -80,20 +66,7 @@ public enum BigQueryType
             10, // 8 digits after the dot
             1, // 9 digits after the dot
     };
-    private static final ImmutableMap<String, Month> MONTH = ImmutableMap.<String, Month>builder()
-            .put("01", JANUARY)
-            .put("02", FEBRUARY)
-            .put("03", MARCH)
-            .put("04", APRIL)
-            .put("05", MAY)
-            .put("06", JUNE)
-            .put("07", JULY)
-            .put("08", AUGUST)
-            .put("09", SEPTEMBER)
-            .put("10", OCTOBER)
-            .put("11", NOVEMBER)
-            .put("12", DECEMBER)
-            .build();
+
     private final Type nativeType;
 
     BigQueryType(Type nativeType)
@@ -133,15 +106,15 @@ public enum BigQueryType
 
     public Type getNativeType(BigQueryType.Adaptor typeAdaptor)
     {
-        switch (this) {
-            case RECORD:
-                // create the row
-                Map<String, BigQueryType.Adaptor> subTypes = typeAdaptor.getBigQuerySubTypes();
-                checkArgument(!subTypes.isEmpty(), "a record or struct must have sub-fields");
-                List<RowType.Field> fields = subTypes.entrySet().stream().map(BigQueryType::toRawTypeField).collect(toList());
-                return RowType.from(fields);
-            default:
-                return nativeType;
+        if (this == RECORD) {
+            // create the row
+            Map<String, BigQueryType.Adaptor> subTypes = typeAdaptor.getBigQuerySubTypes();
+            checkArgument(!subTypes.isEmpty(), "a record or struct must have sub-fields");
+            List<RowType.Field> fields = subTypes.entrySet().stream().map(BigQueryType::toRawTypeField).collect(toList());
+            return RowType.from(fields);
+        }
+        else {
+            return nativeType;
         }
     }
 

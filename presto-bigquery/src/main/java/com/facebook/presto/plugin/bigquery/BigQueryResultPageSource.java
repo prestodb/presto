@@ -29,7 +29,6 @@ import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.PrestoException;
 import com.google.cloud.bigquery.storage.v1beta1.BigQueryStorageClient;
 import com.google.cloud.bigquery.storage.v1beta1.Storage;
 import com.google.common.collect.ImmutableList;
@@ -44,7 +43,6 @@ import org.apache.avro.io.DecoderFactory;
 import org.apache.avro.util.Utf8;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -60,9 +58,15 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.plugin.bigquery.BigQueryErrorCode.BIGQUERY_ERROR_END_OF_AVRO_BUFFER;
+import static com.facebook.presto.plugin.bigquery.BigQueryErrorCode.BIGQUERY_ERROR_READING_NEXT_AVRO_RECORD;
+import static com.facebook.presto.plugin.bigquery.BigQueryErrorCode.BIGQUERY_UNSUPPORTED_COLUMN_TYPE;
+import static com.facebook.presto.plugin.bigquery.BigQueryErrorCode.BIGQUERY_UNSUPPORTED_TYPE_FOR_BLOCK;
+import static com.facebook.presto.plugin.bigquery.BigQueryErrorCode.BIGQUERY_UNSUPPORTED_TYPE_FOR_LONG;
+import static com.facebook.presto.plugin.bigquery.BigQueryErrorCode.BIGQUERY_UNSUPPORTED_TYPE_FOR_SLICE;
+import static com.facebook.presto.plugin.bigquery.BigQueryErrorCode.BIGQUERY_UNSUPPORTED_TYPE_FOR_VARBINARY;
 import static com.facebook.presto.plugin.bigquery.BigQueryMetadata.NUMERIC_DATA_TYPE_PRECISION;
 import static com.facebook.presto.plugin.bigquery.BigQueryMetadata.NUMERIC_DATA_TYPE_SCALE;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -74,7 +78,6 @@ public class BigQueryResultPageSource
     static final AvroDecimalConverter DECIMAL_CONVERTER = new AvroDecimalConverter();
     private static final Logger log = Logger.get(BigQueryResultPageSource.class);
     private final BigQueryStorageClient bigQueryStorageClient;
-    private final int maxReadRowsRetries;
     private final BigQuerySplit split;
     private final BigQueryTableHandle table;
     private final ImmutableList<BigQueryColumnHandle> columns;
@@ -83,6 +86,7 @@ public class BigQueryResultPageSource
     private final PageBuilder pageBuilder;
     private Iterator<Storage.ReadRowsResponse> responses;
     private boolean closed;
+    private long completedPositions;
 
     public BigQueryResultPageSource(
             BigQueryStorageClientFactory bigQueryStorageClientFactory,
@@ -92,7 +96,6 @@ public class BigQueryResultPageSource
             ImmutableList<BigQueryColumnHandle> columns)
     {
         this.bigQueryStorageClient = bigQueryStorageClientFactory.createBigQueryStorageClient();
-        this.maxReadRowsRetries = maxReadRowsRetries;
         this.split = split;
         this.table = table;
         this.columns = columns;
@@ -118,7 +121,7 @@ public class BigQueryResultPageSource
     @Override
     public long getCompletedPositions()
     {
-        return 0;
+        return completedPositions;
     }
 
     @Override
@@ -148,6 +151,7 @@ public class BigQueryResultPageSource
         }
 
         Page page = pageBuilder.build();
+        completedPositions += page.getPositionCount();
         pageBuilder.reset();
         return page;
     }
@@ -177,13 +181,11 @@ public class BigQueryResultPageSource
                 writeBlock(output, type, value);
             }
             else {
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Unhandled type for %s: %s", javaType.getSimpleName(), type));
+                throw new BigQueryException(BIGQUERY_UNSUPPORTED_COLUMN_TYPE, format("Unhandled type for %s: %s", javaType.getSimpleName(), type));
             }
         }
-        catch (ClassCastException ignore) {
-            // returns null instead of raising exception
-            log.warn("Cast Exception encountered, return null instead");
-            output.appendNull();
+        catch (ClassCastException exception) {
+            throw new BigQueryException(BIGQUERY_UNSUPPORTED_COLUMN_TYPE, "Not support type conversion for BigQuery data type: " + type, exception);
         }
     }
 
@@ -205,7 +207,7 @@ public class BigQueryResultPageSource
             type.writeLong(output, DateTimeEncoding.packDateTimeWithZone(((Long) value).longValue() / 1000, TimeZoneKey.UTC_KEY));
         }
         else {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Unhandled type for %s: %s", javaType.getSimpleName(), type));
+            throw new BigQueryException(BIGQUERY_UNSUPPORTED_TYPE_FOR_LONG, format("Unhandled type for %s: %s", javaType.getSimpleName(), type));
         }
     }
 
@@ -223,11 +225,11 @@ public class BigQueryResultPageSource
                 type.writeSlice(output, Slices.wrappedBuffer((ByteBuffer) value));
             }
             else {
-                output.appendNull();
+                throw new BigQueryException(BIGQUERY_UNSUPPORTED_TYPE_FOR_VARBINARY, "Unhandled type for VarBinaryType: " + value.getClass());
             }
         }
         else {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Slice: " + type.getTypeSignature());
+            throw new BigQueryException(BIGQUERY_UNSUPPORTED_TYPE_FOR_SLICE, "Unhandled type for Slice: " + type.getTypeSignature());
         }
     }
 
@@ -259,7 +261,7 @@ public class BigQueryResultPageSource
             output.closeEntry();
             return;
         }
-        throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Block: " + type.getTypeSignature());
+        throw new BigQueryException(BIGQUERY_UNSUPPORTED_TYPE_FOR_BLOCK, "Unhandled type for Block: " + type.getTypeSignature());
     }
 
     @Override
@@ -299,22 +301,22 @@ public class BigQueryResultPageSource
             implements Iterator<GenericRecord>
     {
         GenericDatumReader<GenericRecord> reader;
-        BinaryDecoder in;
+        BinaryDecoder decode;
 
         AvroBinaryIterator(Schema avroSchema, byte[] buffer)
         {
             this.reader = new GenericDatumReader<>(avroSchema);
-            this.in = new DecoderFactory().binaryDecoder(buffer, null);
+            this.decode = new DecoderFactory().binaryDecoder(buffer, null);
         }
 
         @Override
         public boolean hasNext()
         {
             try {
-                return !in.isEnd();
+                return !decode.isEnd();
             }
             catch (IOException e) {
-                throw new UncheckedIOException("Error determining the end of Avro buffer", e);
+                throw new BigQueryException(BIGQUERY_ERROR_END_OF_AVRO_BUFFER, "Error determining the end of Avro buffer", e);
             }
         }
 
@@ -322,10 +324,10 @@ public class BigQueryResultPageSource
         public GenericRecord next()
         {
             try {
-                return reader.read(null, in);
+                return reader.read(null, decode);
             }
             catch (IOException e) {
-                throw new UncheckedIOException("Error reading next Avro Record", e);
+                throw new BigQueryException(BIGQUERY_ERROR_READING_NEXT_AVRO_RECORD, "Error reading next Avro Record", e);
             }
         }
     }
