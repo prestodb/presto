@@ -174,6 +174,7 @@ public final class SystemSessionProperties
     public static final String SKIP_REDUNDANT_SORT = "skip_redundant_sort";
     public static final String ALLOW_WINDOW_ORDER_BY_LITERALS = "allow_window_order_by_literals";
     public static final String ENFORCE_FIXED_DISTRIBUTION_FOR_OUTPUT_OPERATOR = "enforce_fixed_distribution_for_output_operator";
+    public static final String EMPTY_JOIN_SOURCES_OPTIMIZATION = "empty_join_sources_optimization";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -908,7 +909,17 @@ public final class SystemSessionProperties
                         ENFORCE_FIXED_DISTRIBUTION_FOR_OUTPUT_OPERATOR,
                         "Enforce fixed distribution for output operator",
                         featuresConfig.isEnforceFixedDistributionForOutputOperator(),
-                        true));
+                        true),
+                booleanProperty(
+                        EMPTY_JOIN_SOURCES_OPTIMIZATION,
+                        "Simplify joins with one or more empty sources",
+                        featuresConfig.isEmptyJoinOptimization(),
+                        false));
+    }
+
+    public static boolean isEmptyJoinOptimization(Session session)
+    {
+        return session.getSystemProperty(EMPTY_JOIN_SOURCES_OPTIMIZATION, Boolean.class);
     }
 
     public static boolean isSkipRedundantSort(Session session)

@@ -110,6 +110,7 @@ public class FeaturesConfig
     private boolean forceSingleNodeOutput = true;
     private boolean pagesIndexEagerCompactionEnabled;
     private boolean distributedSort = true;
+    private boolean isEmptyJoinOptimization;
 
     private boolean dictionaryAggregation;
 
@@ -1528,6 +1529,18 @@ public class FeaturesConfig
     public FeaturesConfig setEnforceFixedDistributionForOutputOperator(boolean enforceFixedDistributionForOutputOperator)
     {
         this.enforceFixedDistributionForOutputOperator = enforceFixedDistributionForOutputOperator;
+        return this;
+    }
+
+    public boolean isEmptyJoinOptimization()
+    {
+        return isEmptyJoinOptimization;
+    }
+
+    @Config("optimizer.is-empty-join-optimization")
+    public FeaturesConfig setEmptyJoinOptimization(boolean value)
+    {
+        this.isEmptyJoinOptimization = value;
         return this;
     }
 }

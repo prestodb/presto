@@ -155,7 +155,8 @@ public class TestFeaturesConfig
                 .setInlineSqlFunctions(true)
                 .setCheckAccessControlOnUtilizedColumnsOnly(false)
                 .setAllowWindowOrderByLiterals(true)
-                .setEnforceFixedDistributionForOutputOperator(false));
+                .setEnforceFixedDistributionForOutputOperator(false)
+                .setEmptyJoinOptimization(false));
     }
 
     @Test
@@ -264,6 +265,7 @@ public class TestFeaturesConfig
                 .put("optimizer.skip-redundant-sort", "false")
                 .put("is-allow-window-order-by-literals", "false")
                 .put("enforce-fixed-distribution-for-output-operator", "true")
+                .put("optimizer.is-empty-join-optimization", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -369,7 +371,8 @@ public class TestFeaturesConfig
                 .setCheckAccessControlOnUtilizedColumnsOnly(true)
                 .setSkipRedundantSort(false)
                 .setAllowWindowOrderByLiterals(false)
-                .setEnforceFixedDistributionForOutputOperator(true);
+                .setEnforceFixedDistributionForOutputOperator(true)
+                .setEmptyJoinOptimization(false);
         assertFullMapping(properties, expected);
     }
 
