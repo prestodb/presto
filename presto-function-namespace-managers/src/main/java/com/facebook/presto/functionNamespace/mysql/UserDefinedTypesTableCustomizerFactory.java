@@ -22,15 +22,15 @@ import java.lang.reflect.Method;
 
 import static java.util.Objects.requireNonNull;
 
-public class EnumTypesTableCustomizerFactory
+public class UserDefinedTypesTableCustomizerFactory
         implements SqlStatementCustomizerFactory
 {
-    private static final String ENUM_TYPES_TABLE_KEY = "enum_types_table";
+    private static final String USER_DEFINED_TYPES_TABLE_KEY = "user_defined_types_table";
 
     @Override
     public SqlStatementCustomizer createForType(Annotation annotation, Class<?> sqlObjectType)
     {
-        return statement -> statement.define(ENUM_TYPES_TABLE_KEY, statement.getConfig(EnumTypesTableCustomizerFactory.Config.class).getTableName());
+        return statement -> statement.define(USER_DEFINED_TYPES_TABLE_KEY, statement.getConfig(UserDefinedTypesTableCustomizerFactory.Config.class).getTableName());
     }
 
     @Override

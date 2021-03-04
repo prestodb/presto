@@ -21,6 +21,7 @@ import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.RowType.Field;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.UnknownType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
@@ -599,7 +600,11 @@ public final class SqlToRowExpressionTranslator
                 return constant(maybeEnumLiteral.get(), returnType);
             }
 
-            RowType rowType = (RowType) getType(node.getBase());
+            Type baseType = getType(node.getBase());
+            if (baseType instanceof TypeWithName) {
+                baseType = ((TypeWithName) baseType).getType();
+            }
+            RowType rowType = (RowType) baseType;
             String fieldName = node.getField().getValue();
             List<Field> fields = rowType.getFields();
             int index = -1;

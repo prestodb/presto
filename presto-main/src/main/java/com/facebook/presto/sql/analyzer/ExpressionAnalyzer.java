@@ -456,6 +456,9 @@ public class ExpressionAnalyzer
             }
 
             Type baseType = process(node.getBase(), context);
+            if (((baseType instanceof TypeWithName) && ((TypeWithName) baseType).getType() instanceof RowType)) {
+                baseType = ((TypeWithName) baseType).getType();
+            }
             if (!(baseType instanceof RowType)) {
                 throw new SemanticException(TYPE_MISMATCH, node.getBase(), "Expression %s is not of type ROW", node.getBase());
             }
