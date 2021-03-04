@@ -165,6 +165,27 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void emptyJoins()
+    {
+        // Empty predicate
+        assertQuery("select 1 from (select * from orders where 1 = 0) DT join customer on DT.custkey=customer.custkey",
+                "select 1 from orders where 1 =0");
+
+        // Zero limit
+        assertQuery("select 1 from (select * from orders LIMIT 0) DT join customer on DT.custkey=customer.custkey",
+                "select 1 from orders where 1 =0");
+
+        // Negative test.
+        assertQuery("select 1 from (select * from orders) DT join customer on DT.custkey=customer.custkey",
+                "select 1 from orders");
+
+        // Empty null producing side for outer join. Optimization TODO.
+        assertQuery("select 1 from (select * from orders) ORD left outer join (select custkey from customer where 1=0) " +
+                        "CUST on ORD.custkey=CUST.custkey",
+                "select 1 from orders");
+    }
+
+    @Test
     public void selectNull()
     {
         assertQuery("SELECT NULL");
