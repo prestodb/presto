@@ -55,7 +55,7 @@ public class BigQueryPageSourceProvider
     {
         BigQuerySplit bigQuerySplit = (BigQuerySplit) split;
         if (bigQuerySplit.representsEmptyProjection()) {
-            return new BigQueryEmptyProjectionPageSource(bigQuerySplit.getEmptyRowsToGenerate());
+            return new BigQueryEmptySplitPageSource(bigQuerySplit.getEmptyRowsToGenerate());
         }
 
         // not empty projection

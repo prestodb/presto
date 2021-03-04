@@ -29,14 +29,10 @@ import java.util.stream.Stream;
 
 public class BigQueryCredentialsSupplier
 {
-    private final Optional<String> credentialsKey;
-    private final Optional<String> credentialsFile;
     private final Supplier<Optional<Credentials>> credentialsCreator;
 
     public BigQueryCredentialsSupplier(Optional<String> credentialsKey, Optional<String> credentialsFile)
     {
-        this.credentialsKey = credentialsKey;
-        this.credentialsFile = credentialsFile;
         // lazy creation, cache once it's created
         this.credentialsCreator = Suppliers.memoize(() -> {
             Optional<Credentials> credentialsFromKey = credentialsKey.map(BigQueryCredentialsSupplier::createCredentialsFromKey);

@@ -39,6 +39,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
+import static java.util.concurrent.TimeUnit.HOURS;
 
 // A helper class, also handles view materialization
 public class ReadSessionCreator
@@ -175,7 +176,7 @@ public class ReadSessionCreator
             // add expiration time to the table
             TableInfo createdTable = bigQueryClient.getTable(destinationTable);
             long expirationTime = createdTable.getCreationTime() +
-                    TimeUnit.HOURS.toMillis(config.viewExpirationTimeInHours);
+                    HOURS.toMillis(config.viewExpirationTimeInHours);
             Table updatedTable = bigQueryClient.update(createdTable.toBuilder()
                     .setExpirationTime(expirationTime)
                     .build());

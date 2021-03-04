@@ -26,7 +26,6 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.cloud.bigquery.BigQueryException;
 import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableResult;
-import com.google.cloud.bigquery.storage.v1beta1.Storage;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 
@@ -35,6 +34,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.facebook.presto.plugin.bigquery.BigQueryErrorCode.BIGQUERY_FAILED_TO_EXECUTE_QUERY;
+import static com.google.cloud.bigquery.storage.v1beta1.Storage.ReadSession;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -81,13 +81,13 @@ public class BigQuerySplitManager
         TableId tableId = bigQueryTableHandle.getTableId();
         int actualParallelism = parallelism.orElse(nodeManager.getRequiredWorkerNodes().size());
         Optional<String> filter = Optional.empty();
-        List<BigQuerySplit> splits = emptyProjectionIsRequired(bigQueryTableHandle.getProjectedColumns()) ?
+        List<BigQuerySplit> splits = isEmptyProjectionIsRequired(bigQueryTableHandle.getProjectedColumns()) ?
                 createEmptyProjection(tableId, actualParallelism, filter) :
                 readFromBigQuery(tableId, bigQueryTableHandle.getProjectedColumns(), actualParallelism, filter);
         return new FixedSplitSource(splits);
     }
 
-    private boolean emptyProjectionIsRequired(Optional<List<ColumnHandle>> projectedColumns)
+    private boolean isEmptyProjectionIsRequired(Optional<List<ColumnHandle>> projectedColumns)
     {
         return projectedColumns.isPresent() && projectedColumns.get().isEmpty();
     }
@@ -99,7 +99,7 @@ public class BigQuerySplitManager
                 .map(column -> ((BigQueryColumnHandle) column).getName())
                 .collect(toImmutableList());
 
-        Storage.ReadSession readSession = new ReadSessionCreator(readSessionCreatorConfig, bigQueryClient, bigQueryStorageClientFactory)
+        ReadSession readSession = new ReadSessionCreator(readSessionCreatorConfig, bigQueryClient, bigQueryStorageClientFactory)
                 .create(tableId, projectedColumnsNames, filter, actualParallelism);
 
         return readSession.getStreamsList().stream()
@@ -113,7 +113,7 @@ public class BigQuerySplitManager
             long numberOfRows;
             if (filter.isPresent()) {
                 // count the rows based on the filter
-                String sql = bigQueryClient.createSql(tableId, "COUNT(*)", new String[] {filter.get()});
+                String sql = bigQueryClient.createFormatSql(tableId, "COUNT(*)", new String[] {filter.get()});
                 TableResult result = bigQueryClient.query(sql);
                 numberOfRows = result.iterateAll().iterator().next().get(0).getLongValue();
             }
@@ -123,7 +123,7 @@ public class BigQuerySplitManager
             }
 
             long rowsPerSplit = numberOfRows / actualParallelism;
-            long remainingRows = numberOfRows - (rowsPerSplit * actualParallelism); // need to be added to one fo the split due to integer division
+            long remainingRows = numberOfRows - (rowsPerSplit * actualParallelism); // need to be added to one of the split due to integer division
             List<BigQuerySplit> splits = range(0, actualParallelism)
                     .mapToObj(ignored -> BigQuerySplit.emptyProjection(rowsPerSplit))
                     .collect(toList());

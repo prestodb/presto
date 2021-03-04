@@ -161,9 +161,4 @@ public class BigQueryTableHandle
     {
         return new BigQueryTableHandle(projectId, schemaName, tableName, type, constraint, Optional.of(newProjectedColumns), limit);
     }
-
-    BigQueryTableHandle withLimit(long newLimit)
-    {
-        return new BigQueryTableHandle(projectId, schemaName, tableName, type, constraint, projectedColumns, OptionalLong.of(newLimit));
-    }
 }
