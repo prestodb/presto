@@ -173,6 +173,7 @@ public final class SystemSessionProperties
     public static final String CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY = "check_access_control_on_utilized_columns_only";
     public static final String SKIP_REDUNDANT_SORT = "skip_redundant_sort";
     public static final String ALLOW_WINDOW_ORDER_BY_LITERALS = "allow_window_order_by_literals";
+    public static final String EMPTY_JOIN_SOURCES_OPTIMIZATION = "empty_join_sources_optimization";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -902,7 +903,17 @@ public final class SystemSessionProperties
                         ALLOW_WINDOW_ORDER_BY_LITERALS,
                         "Allow ORDER BY literals in window functions",
                         featuresConfig.isAllowWindowOrderByLiterals(),
+                        false),
+                booleanProperty(
+                        EMPTY_JOIN_SOURCES_OPTIMIZATION,
+                        "Simplify joins with one or more empty sources",
+                        featuresConfig.isEmptyJoinOptimization(),
                         false));
+    }
+
+    public static boolean isEmptyJoinOptimization(Session session)
+    {
+        return session.getSystemProperty(EMPTY_JOIN_SOURCES_OPTIMIZATION, Boolean.class);
     }
 
     public static boolean isSkipRedundantSort(Session session)
