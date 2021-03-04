@@ -20,9 +20,13 @@ import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.LimitNode;
+import com.facebook.presto.spi.plan.Ordering;
+import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -31,6 +35,9 @@ import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
+import com.facebook.presto.sql.planner.plan.RowNumberNode;
+import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
+import com.facebook.presto.sql.planner.plan.WindowNode.Specification;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
@@ -45,6 +52,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.and;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
@@ -52,6 +60,7 @@ import static com.facebook.presto.sql.relational.Expressions.isComparison;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class PlanNodeDecorrelator
@@ -163,10 +172,28 @@ public class PlanNodeDecorrelator
                 return childDecorrelationResultOptional;
             }
 
-            if (node.getCount() != 1) {
-                return Optional.empty();
+            if (node.getCount() == 1) {
+                return rewriteLimitWithRowCountOne(childDecorrelationResult, node.getId());
             }
+            return rewriteLimitWithRowCountGreaterThanOne(childDecorrelationResult, node);
+        }
 
+        // TODO Limit (1) could be decorrelated by the method rewriteLimitWithRowCountGreaterThanOne() as well.
+        // The current decorrelation method for Limit (1) cannot deal with subqueries outputting other symbols
+        // than constants.
+        //
+        // An example query that is currently not supported:
+        // SELECT (
+        //      SELECT a+b
+        //      FROM (VALUES (1, 2), (1, 2)) inner_relation(a, b)
+        //      WHERE a=x
+        //      LIMIT 1)
+        // FROM (VALUES (1)) outer_relation(x)
+        //
+        // Switching the decorrelation method would change the way that queries with EXISTS are executed,
+        // and thus it needs benchmarking.
+        private Optional<DecorrelationResult> rewriteLimitWithRowCountOne(DecorrelationResult childDecorrelationResult, PlanNodeId nodeId)
+        {
             Set<VariableReferenceExpression> constantVariables = childDecorrelationResult.getConstantVariables();
             PlanNode decorrelatedChildNode = childDecorrelationResult.node;
 
@@ -194,6 +221,144 @@ public class PlanNodeDecorrelator
                     childDecorrelationResult.correlatedPredicates,
                     childDecorrelationResult.correlatedVariablesMapping,
                     true));
+        }
+
+        private Optional<DecorrelationResult> rewriteLimitWithRowCountGreaterThanOne(DecorrelationResult childDecorrelationResult, LimitNode node)
+        {
+            PlanNode decorrelatedChildNode = childDecorrelationResult.node;
+
+            // no rewrite needed (no symbols to partition by)
+            if (childDecorrelationResult.variablesToPropagate.isEmpty()) {
+                return Optional.of(new DecorrelationResult(
+                        node.replaceChildren(ImmutableList.of(decorrelatedChildNode)),
+                        childDecorrelationResult.variablesToPropagate,
+                        childDecorrelationResult.correlatedPredicates,
+                        childDecorrelationResult.correlatedVariablesMapping,
+                        false));
+            }
+
+            Set<VariableReferenceExpression> constantVariables = childDecorrelationResult.getConstantVariables();
+            if (!constantVariables.containsAll(childDecorrelationResult.variablesToPropagate)) {
+                return Optional.empty();
+            }
+
+            // rewrite Limit to RowNumberNode partitioned by constant symbols
+            RowNumberNode rowNumberNode = new RowNumberNode(
+                    decorrelatedChildNode.getSourceLocation(),
+                    node.getId(),
+                    decorrelatedChildNode,
+                    ImmutableList.copyOf(childDecorrelationResult.variablesToPropagate),
+                    variableAllocator.newVariable("row_number", BIGINT),
+                    Optional.of(toIntExact(node.getCount())),
+                    false,
+                    Optional.empty());
+
+            return Optional.of(new DecorrelationResult(
+                    rowNumberNode,
+                    childDecorrelationResult.variablesToPropagate,
+                    childDecorrelationResult.correlatedPredicates,
+                    childDecorrelationResult.correlatedVariablesMapping,
+                    false));
+        }
+
+        @Override
+        public Optional<DecorrelationResult> visitTopN(TopNNode node, Void context)
+        {
+            Optional<DecorrelationResult> childDecorrelationResultOptional = lookup.resolve(node.getSource()).accept(this, null);
+            if (!childDecorrelationResultOptional.isPresent()) {
+                return Optional.empty();
+            }
+
+            DecorrelationResult childDecorrelationResult = childDecorrelationResultOptional.get();
+            if (childDecorrelationResult.atMostSingleRow) {
+                return childDecorrelationResultOptional;
+            }
+
+            PlanNode decorrelatedChildNode = childDecorrelationResult.node;
+            Set<VariableReferenceExpression> constantVariables = childDecorrelationResult.getConstantVariables();
+            Optional<OrderingScheme> decorrelatedOrderingScheme = decorrelateOrderingScheme(node.getOrderingScheme(), constantVariables);
+
+            // no partitioning needed (no symbols to partition by)
+            if (childDecorrelationResult.variablesToPropagate.isEmpty()) {
+                return decorrelatedOrderingScheme
+                        .map(orderingScheme -> Optional.of(new DecorrelationResult(
+                                // ordering symbols are present - return decorrelated TopNNode
+                                new TopNNode(decorrelatedChildNode.getSourceLocation(), node.getId(), decorrelatedChildNode, node.getCount(), orderingScheme, node.getStep()),
+                                childDecorrelationResult.variablesToPropagate,
+                                childDecorrelationResult.correlatedPredicates,
+                                childDecorrelationResult.correlatedVariablesMapping,
+                                node.getCount() == 1)))
+                        .orElseGet(() -> Optional.of(new DecorrelationResult(
+                                // no ordering symbols are left - convert to LimitNode
+                                new LimitNode(decorrelatedChildNode.getSourceLocation(), node.getId(), decorrelatedChildNode, node.getCount(), LimitNode.Step.FINAL),
+                                childDecorrelationResult.variablesToPropagate,
+                                childDecorrelationResult.correlatedPredicates,
+                                childDecorrelationResult.correlatedVariablesMapping,
+                                node.getCount() == 1)));
+            }
+
+            if (!constantVariables.containsAll(childDecorrelationResult.variablesToPropagate)) {
+                return Optional.empty();
+            }
+
+            return decorrelatedOrderingScheme
+                    .map(orderingScheme -> {
+                        // ordering symbols are present - rewrite TopN to TopNRowNumberNode partitioned by constant symbols
+                        TopNRowNumberNode topNRowNumberNode = new TopNRowNumberNode(
+                                decorrelatedChildNode.getSourceLocation(),
+                                node.getId(),
+                                decorrelatedChildNode,
+                                new Specification(
+                                        ImmutableList.copyOf(childDecorrelationResult.variablesToPropagate),
+                                        Optional.of(orderingScheme)),
+                                variableAllocator.newVariable("row_number", BIGINT),
+                                toIntExact(node.getCount()),
+                                false,
+                                Optional.empty());
+
+                        return Optional.of(new DecorrelationResult(
+                                topNRowNumberNode,
+                                childDecorrelationResult.variablesToPropagate,
+                                childDecorrelationResult.correlatedPredicates,
+                                childDecorrelationResult.correlatedVariablesMapping,
+                                node.getCount() == 1));
+                    })
+                    .orElseGet(() -> {
+                        // no ordering symbols are left - rewrite TopN to RowNumberNode partitioned by constant symbols
+                        RowNumberNode rowNumberNode = new RowNumberNode(
+                                decorrelatedChildNode.getSourceLocation(),
+                                node.getId(),
+                                decorrelatedChildNode,
+                                ImmutableList.copyOf(childDecorrelationResult.variablesToPropagate),
+                                variableAllocator.newVariable("row_number", BIGINT),
+                                Optional.of(toIntExact(node.getCount())),
+                                false,
+                                Optional.empty());
+
+                        return Optional.of(new DecorrelationResult(
+                                rowNumberNode,
+                                childDecorrelationResult.variablesToPropagate,
+                                childDecorrelationResult.correlatedPredicates,
+                                childDecorrelationResult.correlatedVariablesMapping,
+                                node.getCount() == 1));
+                    });
+        }
+
+        private Optional<OrderingScheme> decorrelateOrderingScheme(OrderingScheme orderingScheme, Set<VariableReferenceExpression> constantVariables)
+        {
+            // remove local and remote constant sort symbols from the OrderingScheme
+            ImmutableList.Builder<Ordering> nonConstantOrderings = ImmutableList.builder();
+
+            for (Ordering ordering : orderingScheme.getOrderBy()) {
+                if (!constantVariables.contains(ordering.getVariable()) && !correlation.contains(ordering.getVariable())) {
+                    nonConstantOrderings.add(ordering);
+                }
+            }
+
+            if (nonConstantOrderings.build().isEmpty()) {
+                return Optional.empty();
+            }
+            return Optional.of(new OrderingScheme(nonConstantOrderings.build()));
         }
 
         @Override

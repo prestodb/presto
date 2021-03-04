@@ -3716,7 +3716,14 @@ public abstract class AbstractTestQueries
         // explicit LIMIT in subquery
         assertQueryFails(
                 "SELECT (SELECT count(*) FROM (VALUES (7,1)) t(orderkey, value) WHERE orderkey = corr_key LIMIT 1) FROM (values 7) t(corr_key)",
-                "line 1:9: Given correlated subquery is not supported");
+                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+
+        assertQuery(
+                "SELECT (SELECT count(*) FROM (VALUES (7,1)) t(orderkey, value) WHERE orderkey = corr_key GROUP BY value LIMIT 2) FROM (values 7) t(corr_key)");
+
+        // Limit(1) and non-constant output symbol of the subquery (count)
+        assertQueryFails("SELECT (SELECT count(*) FROM (VALUES (7,1), (7,2)) t(orderkey, value) WHERE orderkey = corr_key GROUP BY value LIMIT 1) FROM (values 7) t(corr_key)",
+                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
     }
 
     @Test
@@ -4141,6 +4148,25 @@ public abstract class AbstractTestQueries
                 "SELECT count(*) FROM orders o " +
                         "WHERE (SELECT * FROM (SELECT EXISTS(SELECT 1 WHERE o.orderkey > 10 OR o.orderkey != 3)))",
                 "VALUES 14999");
+    }
+
+    @Test
+    public void testCorrelatedJoin()
+    {
+        // TopN in correlated subquery
+        assertQuery(
+                "SELECT regionkey, n.name FROM region CROSS JOIN LATERAL (SELECT name FROM nation WHERE region.regionkey = regionkey ORDER BY nationkey LIMIT 2) n",
+                "VALUES " +
+                        "(0, 'ETHIOPIA'), " +
+                        "(0, 'ALGERIA'), " +
+                        "(1, 'BRAZIL'), " +
+                        "(1, 'ARGENTINA'), " +
+                        "(2, 'INDONESIA'), " +
+                        "(2, 'INDIA'), " +
+                        "(3, 'GERMANY'), " +
+                        "(3, 'FRANCE'), " +
+                        "(4, 'IRAN'), " +
+                        "(4, 'EGYPT')");
     }
 
     @Test
