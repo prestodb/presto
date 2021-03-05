@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.array.IntBigArray;
 import com.facebook.presto.array.ObjectBigArray;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.ArrayBlock;
@@ -612,6 +613,7 @@ public class GenericAccumulatorFactory
         private final List<Type> spillingTypes;
 
         private ObjectBigArray<GroupIdPage> rawInputs = new ObjectBigArray<>();
+        private IntBigArray groupIdCount = new IntBigArray();
         private ObjectBigArray<RowBlockBuilder> blockBuilders;
         private long rawInputsSizeInBytes;
         private long blockBuildersSizeInBytes;
@@ -629,6 +631,7 @@ public class GenericAccumulatorFactory
             return INSTANCE_SIZE +
                     delegate.getEstimatedSize() +
                     (rawInputs == null ? 0 : rawInputsSizeInBytes + rawInputs.sizeOf()) +
+                    (groupIdCount == null ? 0 : groupIdCount.sizeOf()) +
                     (blockBuilders == null ? 0 : blockBuildersSizeInBytes + blockBuilders.sizeOf());
         }
 
@@ -654,6 +657,17 @@ public class GenericAccumulatorFactory
             rawInputs.set(rawInputsLength, groupIdPage);
             // TODO(sakshams) deduplicate inputs for DISTINCT accumulator case by doing page compaction
             rawInputsLength++;
+
+            // Keep track of number of elements for each groupId. This will later help us know the size of each
+            // RowBlock we spill to disk. E.g. Let's say groupIdsBlock = [0, 1, 0]. In a subsequent addInput call,
+            // groupIdsBlock = [2, 1, 0]. The resultant groupIdCount would be [3, 2, 1]. This is because there are
+            // 3 values for groupId 0, 2 values for groupId 1, and 1 value for groupId 2. The index into groupIdCount
+            // represents the groupId while the value is the total number of values for that groupId.
+            for (int i = 0; i < groupIdsBlock.getPositionCount(); i++) {
+                long currentGroupId = groupIdsBlock.getGroupId(i);
+                groupIdCount.ensureCapacity(currentGroupId);
+                groupIdCount.set(currentGroupId, groupIdCount.get(currentGroupId) + 1);
+            }
         }
 
         @Override
@@ -712,7 +726,7 @@ public class GenericAccumulatorFactory
                         RowBlockBuilder rowBlockBuilder = blockBuilders.get(currentGroupId);
                         long currentRowBlockSizeInBytes = 0;
                         if (rowBlockBuilder == null) {
-                            rowBlockBuilder = new RowBlockBuilder(spillingTypes, null, (int) groupIdsBlock.getGroupCount());
+                            rowBlockBuilder = new RowBlockBuilder(spillingTypes, null, groupIdCount.get(currentGroupId));
                         }
                         else {
                             currentRowBlockSizeInBytes = rowBlockBuilder.getRetainedSizeInBytes();
@@ -729,6 +743,7 @@ public class GenericAccumulatorFactory
                     }
                     rawInputs.set(i, null);
                 }
+                groupIdCount = null;
                 rawInputs = null;
                 rawInputsSizeInBytes = 0;
                 rawInputsLength = 0;
