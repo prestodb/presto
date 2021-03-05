@@ -89,6 +89,7 @@ public class PrestoSparkSettingsRequirements
         config.setPreferDistributedUnion(true);
         config.setForceSingleNodeOutput(false);
         config.setInlineSqlFunctions(true);
+        config.setEnforceFixedDistributionForOutputOperator(true);
     }
 
     public static void setDefaults(QueryManagerConfig config)
