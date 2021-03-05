@@ -253,6 +253,23 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- used only by tests but also needed transitively -->
+        <dependency>
+            <groupId>org.apache.parquet</groupId>
+            <artifactId>parquet-common</artifactId>
+            <version>${dep.parquet.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>javax.annotation</groupId>
+                    <artifactId>javax.annotation-api</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.yetus</groupId>
+                    <artifactId>audience-annotations</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
         <!-- Presto SPI -->
         <dependency>
             <groupId>com.facebook.presto</groupId>
@@ -398,6 +415,10 @@
                         <ignoredResourcePattern>parquet.thrift</ignoredResourcePattern>
                         <ignoredResourcePattern>about.html</ignoredResourcePattern>
                     </ignoredResourcePatterns>
+                    <ignoredClassPatterns>
+                        <ignoredClassPattern>shaded.parquet.it.unimi.dsi.fastutil.*</ignoredClassPattern>
+                        <ignoredClassPattern>module-info</ignoredClassPattern>
+                    </ignoredClassPatterns>
                 </configuration>
             </plugin>
 
