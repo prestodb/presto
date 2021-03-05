@@ -251,7 +251,10 @@ public class HiveWriterFactory
         requireNonNull(hiveSessionProperties, "hiveSessionProperties is null");
         this.sessionProperties = hiveSessionProperties.getSessionProperties().stream()
                 .collect(toImmutableMap(PropertyMetadata::getName,
-                        entry -> session.getProperty(entry.getName(), entry.getJavaType()).toString()));
+                        entry -> {
+                            Object value = session.getProperty(entry.getName(), entry.getJavaType());
+                            return value == null ? "null" : value.toString();
+                        }));
 
         this.conf = configureCompression(hdfsEnvironment.getConfiguration(
                 new HdfsContext(session, schemaName, tableName, locationHandle.getTargetPath().toString(), isCreateTable),
