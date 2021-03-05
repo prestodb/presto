@@ -173,6 +173,7 @@ public final class SystemSessionProperties
     public static final String CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY = "check_access_control_on_utilized_columns_only";
     public static final String SKIP_REDUNDANT_SORT = "skip_redundant_sort";
     public static final String ALLOW_WINDOW_ORDER_BY_LITERALS = "allow_window_order_by_literals";
+    public static final String ENFORCE_FIXED_DISTRIBUTION_FOR_OUTPUT_OPERATOR = "enforce_fixed_distribution_for_output_operator";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -902,7 +903,12 @@ public final class SystemSessionProperties
                         ALLOW_WINDOW_ORDER_BY_LITERALS,
                         "Allow ORDER BY literals in window functions",
                         featuresConfig.isAllowWindowOrderByLiterals(),
-                        false));
+                        false),
+                booleanProperty(
+                        ENFORCE_FIXED_DISTRIBUTION_FOR_OUTPUT_OPERATOR,
+                        "Enforce fixed distribution for output operator",
+                        featuresConfig.isEnforceFixedDistributionForOutputOperator(),
+                        true));
     }
 
     public static boolean isSkipRedundantSort(Session session)
@@ -1527,5 +1533,10 @@ public final class SystemSessionProperties
     public static boolean isCheckAccessControlOnUtilizedColumnsOnly(Session session)
     {
         return session.getSystemProperty(CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY, Boolean.class);
+    }
+
+    public static boolean isEnforceFixedDistributionForOutputOperator(Session session)
+    {
+        return session.getSystemProperty(ENFORCE_FIXED_DISTRIBUTION_FOR_OUTPUT_OPERATOR, Boolean.class);
     }
 }
