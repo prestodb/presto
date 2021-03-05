@@ -46,6 +46,7 @@ import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.CreateFunction;
+import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.DoubleLiteral;
@@ -140,6 +141,7 @@ import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.Determinism;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.Language;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause;
+import static com.facebook.presto.sql.tree.ShowCreate.Type.MATERIALIZED_VIEW;
 import static com.facebook.presto.sql.tree.ShowCreate.Type.TABLE;
 import static com.facebook.presto.sql.tree.ShowCreate.Type.VIEW;
 import static com.google.common.base.Strings.nullToEmpty;
@@ -458,6 +460,36 @@ final class ShowQueriesRewrite
                 Query query = parseView(viewDefinition.get().getOriginalSql(), objectName, node);
                 String sql = formatSql(new CreateView(createQualifiedName(objectName), query, false, Optional.empty()), Optional.of(parameters)).trim();
                 return singleValueQuery("Create View", sql);
+            }
+
+            if (node.getType() == MATERIALIZED_VIEW) {
+                Optional<TableHandle> tableHandle = metadata.getTableHandle(session, objectName);
+
+                if (!materializedViewDefinition.isPresent()) {
+                    if (viewDefinition.isPresent()) {
+                        throw new SemanticException(NOT_SUPPORTED, node, "Relation '%s' is a view, not a materialized view", objectName);
+                    }
+                    if (tableHandle.isPresent()) {
+                        throw new SemanticException(NOT_SUPPORTED, node, "Relation '%s' is a table, not a materialized view", objectName);
+                    }
+                    throw new SemanticException(MISSING_TABLE, node, "Materialized view '%s' does not exist", objectName);
+                }
+
+                Query query = parseView(materializedViewDefinition.get().getOriginalSql(), objectName, node);
+
+                ConnectorTableMetadata connectorTableMetadata = metadata.getTableMetadata(session, tableHandle.get()).getMetadata();
+                Map<String, Object> properties = connectorTableMetadata.getProperties();
+                Map<String, PropertyMetadata<?>> allTableProperties = metadata.getTablePropertyManager().getAllProperties().get(tableHandle.get().getConnectorId());
+                List<Property> propertyNodes = buildProperties(objectName, Optional.empty(), INVALID_TABLE_PROPERTY, properties, allTableProperties);
+
+                CreateMaterializedView createMaterializedView = new CreateMaterializedView(
+                        Optional.empty(),
+                        createQualifiedName(objectName),
+                        query,
+                        false,
+                        propertyNodes,
+                        connectorTableMetadata.getComment());
+                return singleValueQuery("Create Materialized View", formatSql(createMaterializedView, Optional.of(parameters)).trim());
             }
 
             if (node.getType() == TABLE) {

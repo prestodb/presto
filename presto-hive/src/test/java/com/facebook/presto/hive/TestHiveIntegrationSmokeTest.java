@@ -5350,9 +5350,28 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testShowCreateOnMaterializedView()
     {
-        computeActual("CREATE TABLE test_customer_base_1 WITH (partitioned_by = ARRAY['nationkey']) AS SELECT custkey, name, address, nationkey FROM customer LIMIT 10");
-        computeActual("CREATE MATERIALIZED VIEW test_customer_mv_1 WITH (partitioned_by = ARRAY['nationkey']" + retentionDays(30) + ") AS SELECT name, nationkey FROM test_customer_base_1");
+        String createMaterializedViewSql = formatSqlText(format("CREATE MATERIALIZED VIEW %s.%s.test_customer_mv_1\n" +
+                "WITH (\n" +
+                "   format = 'ORC'," +
+                "   partitioned_by = ARRAY['nationkey']\n" +
+                retentionDays(15) +
+                ") AS SELECT\n" +
+                "  name\n" +
+                ", nationkey\n" +
+                "FROM\n" +
+                "  test_customer_base_1",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get()));
 
+        computeActual("CREATE TABLE test_customer_base_1 WITH (partitioned_by = ARRAY['nationkey']) AS SELECT custkey, name, address, nationkey FROM customer LIMIT 10");
+        computeActual(createMaterializedViewSql);
+
+        MaterializedResult actualResult = computeActual("SHOW CREATE MATERIALIZED VIEW test_customer_mv_1");
+        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createMaterializedViewSql.trim());
+
+        assertQueryFails(
+                "SHOW CREATE MATERIALIZED VIEW test_customer_base_1",
+                format(".*Relation '%s.%s.test_customer_base_1' is a table, not a materialized view", getSession().getCatalog().get(), getSession().getSchema().get()));
         assertQueryFails(
                 "SHOW CREATE VIEW test_customer_mv_1",
                 format(".*Relation '%s.%s.test_customer_mv_1' is a materialized view, not a view", getSession().getCatalog().get(), getSession().getSchema().get()));
