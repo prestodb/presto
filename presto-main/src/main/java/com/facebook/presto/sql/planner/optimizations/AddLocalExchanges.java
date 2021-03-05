@@ -68,6 +68,7 @@ import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
 import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
 import static com.facebook.presto.SystemSessionProperties.isDistributedSortEnabled;
+import static com.facebook.presto.SystemSessionProperties.isEnforceFixedDistributionForOutputOperator;
 import static com.facebook.presto.SystemSessionProperties.isJoinSpillingEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
 import static com.facebook.presto.SystemSessionProperties.isTableWriterMergeOperatorEnabled;
@@ -611,6 +612,9 @@ public class AddLocalExchanges
                         node,
                         any().withOrderSensitivity(),
                         any().withOrderSensitivity());
+            }
+            if (isEnforceFixedDistributionForOutputOperator(session)) {
+                return planAndEnforceChildren(node, fixedParallelism(), fixedParallelism());
             }
             return planAndEnforceChildren(node, any(), defaultParallelism(session));
         }
