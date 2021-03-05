@@ -263,7 +263,7 @@ public class PrestoResultSet
         }
 
         try {
-            return new Date(DATE_FORMATTER.withZone(localTimeZone).parseMillis(String.valueOf(value)));
+            return new Date(DATE_FORMATTER.parseDateTime(String.valueOf(value)).withZone(localTimeZone).getMillis());
         }
         catch (IllegalArgumentException e) {
             throw new SQLException("Invalid date from server: " + value, e);
@@ -288,7 +288,7 @@ public class PrestoResultSet
         ColumnInfo columnInfo = columnInfo(columnIndex);
         if (columnInfo.getColumnTypeName().equalsIgnoreCase("time")) {
             try {
-                return new Time(TIME_FORMATTER.withZone(localTimeZone).parseMillis(String.valueOf(value)));
+                return new Time(TIME_FORMATTER.parseDateTime(String.valueOf(value)).withZone(localTimeZone).getMillis());
             }
             catch (IllegalArgumentException e) {
                 throw new SQLException("Invalid time from server: " + value, e);
@@ -297,7 +297,7 @@ public class PrestoResultSet
 
         if (columnInfo.getColumnTypeName().equalsIgnoreCase("time with time zone")) {
             try {
-                return new Time(TIME_WITH_TIME_ZONE_FORMATTER.parseMillis(String.valueOf(value)));
+                return new Time(TIME_WITH_TIME_ZONE_FORMATTER.parseDateTime(String.valueOf(value)).getMillis());
             }
             catch (IllegalArgumentException e) {
                 throw new SQLException("Invalid time from server: " + value, e);
@@ -325,7 +325,7 @@ public class PrestoResultSet
         ColumnInfo columnInfo = columnInfo(columnIndex);
         if (columnInfo.getColumnTypeName().equalsIgnoreCase("timestamp")) {
             try {
-                return new Timestamp(TIMESTAMP_FORMATTER.withZone(localTimeZone).parseMillis(String.valueOf(value)));
+                return new Timestamp(TIMESTAMP_FORMATTER.parseDateTime(String.valueOf(value)).withZone(localTimeZone).getMillis());
             }
             catch (IllegalArgumentException e) {
                 throw new SQLException("Invalid timestamp from server: " + value, e);
@@ -334,7 +334,7 @@ public class PrestoResultSet
 
         if (columnInfo.getColumnTypeName().equalsIgnoreCase("timestamp with time zone")) {
             try {
-                return new Timestamp(TIMESTAMP_WITH_TIME_ZONE_FORMATTER.parseMillis(String.valueOf(value)));
+                return new Timestamp(TIMESTAMP_WITH_TIME_ZONE_FORMATTER.parseDateTime(String.valueOf(value)).getMillis());
             }
             catch (IllegalArgumentException e) {
                 throw new SQLException("Invalid timestamp from server: " + value, e);

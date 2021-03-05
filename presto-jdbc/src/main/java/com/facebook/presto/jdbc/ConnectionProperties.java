@@ -54,6 +54,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<File> KERBEROS_KEYTAB_PATH = new KerberosKeytabPath();
     public static final ConnectionProperty<File> KERBEROS_CREDENTIAL_CACHE_PATH = new KerberosCredentialCachePath();
     public static final ConnectionProperty<String> ACCESS_TOKEN = new AccessToken();
+    public static final ConnectionProperty<String> TIMEZONE_ID = new TimeZoneID();
     public static final ConnectionProperty<Map<String, String>> EXTRA_CREDENTIALS = new ExtraCredentials();
 
     private static final Set<ConnectionProperty<?>> ALL_PROPERTIES = ImmutableSet.<ConnectionProperty<?>>builder()
@@ -75,6 +76,7 @@ final class ConnectionProperties
             .add(KERBEROS_KEYTAB_PATH)
             .add(KERBEROS_CREDENTIAL_CACHE_PATH)
             .add(ACCESS_TOKEN)
+            .add(TIMEZONE_ID)
             .add(EXTRA_CREDENTIALS)
             .build();
 
@@ -290,6 +292,15 @@ final class ConnectionProperties
         public AccessToken()
         {
             super("accessToken", NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
+        }
+    }
+
+    private static class TimeZoneID
+            extends AbstractConnectionProperty<String>
+    {
+        public TimeZoneID()
+        {
+            super("TimeZoneID", NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
         }
     }
 
