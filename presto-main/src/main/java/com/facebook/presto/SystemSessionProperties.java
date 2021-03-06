@@ -168,6 +168,7 @@ public final class SystemSessionProperties
     public static final String DYNAMIC_FILTERING_MAX_PER_DRIVER_SIZE = "dynamic_filtering_max_per_driver_size";
     public static final String LEGACY_TYPE_COERCION_WARNING_ENABLED = "legacy_type_coercion_warning_enabled";
     public static final String INLINE_SQL_FUNCTIONS = "inline_sql_functions";
+    public static final String EMPTY_JOIN_SOURCES_OPTIMIZATION = "empty_join_sources_optimization";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -875,7 +876,17 @@ public final class SystemSessionProperties
                         INLINE_SQL_FUNCTIONS,
                         "Inline SQL function definition at plan time",
                         featuresConfig.isInlineSqlFunctions(),
+                        false),
+                booleanProperty(
+                        EMPTY_JOIN_SOURCES_OPTIMIZATION,
+                        "Simplify joins with one or more empty sources",
+                        featuresConfig.isEmptyJoinOptimization(),
                         false));
+    }
+
+    public static boolean isEmptyJoinOptimization(Session session)
+    {
+        return session.getSystemProperty(EMPTY_JOIN_SOURCES_OPTIMIZATION, Boolean.class);
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()

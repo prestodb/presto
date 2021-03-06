@@ -144,7 +144,8 @@ public class TestFeaturesConfig
                 .setPreferDistributedUnion(true)
                 .setOptimizeNullsInJoin(false)
                 .setWarnOnNoTableLayoutFilter("")
-                .setInlineSqlFunctions(true));
+                .setInlineSqlFunctions(true)
+                .setEmptyJoinOptimization(false));
     }
 
     @Test
@@ -341,7 +342,8 @@ public class TestFeaturesConfig
                 .setPreferDistributedUnion(false)
                 .setOptimizeNullsInJoin(true)
                 .setWarnOnNoTableLayoutFilter("ry@nlikestheyankees,ds")
-                .setInlineSqlFunctions(false);
+                .setInlineSqlFunctions(false)
+                .setEmptyJoinOptimization(true);
         assertFullMapping(properties, expected);
     }
 
