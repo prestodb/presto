@@ -13,13 +13,9 @@
  */
 package com.facebook.presto.common.type;
 
-import com.facebook.presto.common.function.OperatorType;
 import com.google.common.collect.ImmutableList;
 
-import java.lang.invoke.MethodHandle;
-import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -52,44 +48,13 @@ public class TestingTypeManager
     }
 
     @Override
-    public List<Type> getTypes()
-    {
-        return ImmutableList.of(BOOLEAN, BIGINT, DOUBLE, VARCHAR, VARBINARY, TIMESTAMP, DATE, ID, HYPER_LOG_LOG);
-    }
-
-    @Override
-    public Collection<ParametricType> getParametricTypes()
-    {
-        return ImmutableList.of();
-    }
-
-    @Override
-    public Optional<Type> getCommonSuperType(Type firstType, Type secondType)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public boolean canCoerce(Type actualType, Type expectedType)
     {
         throw new UnsupportedOperationException();
     }
 
-    @Override
-    public boolean isTypeOnlyCoercion(Type actualType, Type expectedType)
+    private List<Type> getTypes()
     {
-        return false;
-    }
-
-    @Override
-    public Optional<Type> coerceTypeBase(Type sourceType, String resultTypeBase)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public MethodHandle resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
-    {
-        throw new UnsupportedOperationException();
+        return ImmutableList.of(BOOLEAN, BIGINT, DOUBLE, VARCHAR, VARBINARY, TIMESTAMP, DATE, ID, HYPER_LOG_LOG);
     }
 }

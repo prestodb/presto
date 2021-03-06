@@ -18,6 +18,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
+import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorResolvedIndex;
@@ -30,6 +31,7 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.SystemTable;
@@ -698,6 +700,19 @@ public interface ConnectorMetadata
     default CompletableFuture<Void> commitPageSinkAsync(ConnectorSession session, ConnectorInsertTableHandle tableHandle, Collection<Slice> fragments)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support page sink commit");
+    }
+
+    /**
+     * Handles metadata update requests and sends the results back to worker
+     */
+    default List<ConnectorMetadataUpdateHandle> getMetadataUpdateResults(List<ConnectorMetadataUpdateHandle> metadataUpdateRequests, QueryId queryId)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support metadata update requests");
+    }
+
+    default void doMetadataUpdateCleanup(QueryId queryId)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support metadata update cleanup");
     }
 
     default TableLayoutFilterCoverage getTableLayoutFilterCoverage(ConnectorTableLayoutHandle tableHandle, Set<String> relevantPartitionColumns)

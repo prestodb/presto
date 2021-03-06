@@ -65,6 +65,10 @@ public interface StatementClient
 
     boolean isClearTransactionId();
 
+    Map<String, String> getAddedSessionFunctions();
+
+    Set<String> getRemovedSessionFunctions();
+
     boolean advance();
 
     void cancelLeafStage();

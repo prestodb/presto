@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.cassandra;
 
+import com.datastax.driver.core.ProtocolVersion;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.cassandra.util.CassandraCqlUtils;
 import com.facebook.presto.common.predicate.TupleDomain;
@@ -70,6 +71,7 @@ public class CassandraMetadata
     private final CassandraSession cassandraSession;
     private final CassandraPartitionManager partitionManager;
     private final boolean allowDropTable;
+    private final ProtocolVersion protocolVersion;
 
     private final JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec;
 
@@ -86,6 +88,7 @@ public class CassandraMetadata
         this.cassandraSession = requireNonNull(cassandraSession, "cassandraSession is null");
         this.allowDropTable = requireNonNull(config, "config is null").getAllowDropTable();
         this.extraColumnMetadataCodec = requireNonNull(extraColumnMetadataCodec, "extraColumnMetadataCodec is null");
+        this.protocolVersion = requireNonNull(config, "config is null").getProtocolVersion();
     }
 
     @Override
@@ -242,7 +245,7 @@ public class CassandraMetadata
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
-        throw new PrestoException(NOT_SUPPORTED, "CREATE TABLE not yet supported for Cassandra");
+        createTable(tableMetadata);
     }
 
     @Override
@@ -271,6 +274,11 @@ public class CassandraMetadata
     @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
+        return createTable(tableMetadata);
+    }
+
+    private CassandraOutputTableHandle createTable(ConnectorTableMetadata tableMetadata)
+    {
         ImmutableList.Builder<String> columnNames = ImmutableList.builder();
         ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
         ImmutableList.Builder<ExtraColumnMetadata> columnExtra = ImmutableList.builder();
@@ -294,7 +302,7 @@ public class CassandraMetadata
             queryBuilder.append(", ")
                     .append(name)
                     .append(" ")
-                    .append(toCassandraType(type).name().toLowerCase(ENGLISH));
+                    .append(toCassandraType(type, protocolVersion).name().toLowerCase(ENGLISH));
         }
         queryBuilder.append(") ");
 

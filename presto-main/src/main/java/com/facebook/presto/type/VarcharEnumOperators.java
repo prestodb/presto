@@ -15,13 +15,18 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.VarcharEnumType;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.IsNull;
+import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import io.airlift.slice.Slice;
 import io.airlift.slice.XxHash64;
+
+import java.util.Optional;
 
 import static com.facebook.presto.common.function.OperatorType.BETWEEN;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
@@ -36,6 +41,9 @@ import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.common.function.OperatorType.XX_HASH_64;
 import static com.facebook.presto.common.type.StandardTypes.BIGINT;
 import static com.facebook.presto.common.type.StandardTypes.BOOLEAN;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.String.format;
 
 public final class VarcharEnumOperators
 {
@@ -139,5 +147,18 @@ public final class VarcharEnumOperators
     public static boolean between(@SqlType("T") Slice value, @SqlType("T") Slice min, @SqlType("T") Slice max)
     {
         return min.compareTo(value) <= 0 && value.compareTo(max) <= 0;
+    }
+
+    @Description("Get the key corresponding to an enum value")
+    @ScalarFunction("enum_key")
+    @TypeParameter(value = "T", boundedBy = VarcharEnumType.class)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice enumKey(@TypeParameter("T") VarcharEnumType enumType, @SqlType("T") Slice value)
+    {
+        Optional<String> key = enumType.getEnumKeyForValue(value.toStringUtf8());
+        if (!key.isPresent()) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("No value '%s' in enum type %s", value.toStringUtf8(), enumType.getTypeSignature().getBase()));
+        }
+        return utf8Slice(key.get());
     }
 }

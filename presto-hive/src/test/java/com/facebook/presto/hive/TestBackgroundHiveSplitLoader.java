@@ -67,7 +67,6 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.facebook.presto.hive.BackgroundHiveSplitLoader.BucketSplitInfo.createBucketSplitInfo;
 import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
 import static com.facebook.presto.hive.CacheQuotaScope.GLOBAL;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxInitialSplitSize;
@@ -75,6 +74,7 @@ import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveUtil.getRegularColumnHandles;
+import static com.facebook.presto.hive.StoragePartitionLoader.BucketSplitInfo.createBucketSplitInfo;
 import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -109,7 +109,7 @@ public class TestBackgroundHiveSplitLoader
     private static final List<Column> PARTITION_COLUMNS = ImmutableList.of(
             new Column("partitionColumn", HIVE_INT, Optional.empty()));
     private static final List<HiveColumnHandle> BUCKET_COLUMN_HANDLES = ImmutableList.of(
-            new HiveColumnHandle("col1", HIVE_INT, INTEGER.getTypeSignature(), 0, ColumnType.REGULAR, Optional.empty()));
+            new HiveColumnHandle("col1", HIVE_INT, INTEGER.getTypeSignature(), 0, ColumnType.REGULAR, Optional.empty(), Optional.empty()));
 
     private static final Optional<HiveBucketProperty> BUCKET_PROPERTY = Optional.of(
             new HiveBucketProperty(ImmutableList.of("col1"), BUCKET_COUNT, ImmutableList.of(), HIVE_COMPATIBLE, Optional.empty()));
@@ -443,9 +443,9 @@ public class TestBackgroundHiveSplitLoader
     {
         ConnectorSession connectorSession = new TestingConnectorSession(
                 new HiveSessionProperties(
-                    new HiveClientConfig().setMaxSplitSize(new DataSize(1.0, GIGABYTE)),
-                    new OrcFileWriterConfig(),
-                    new ParquetFileWriterConfig()).getSessionProperties());
+                        new HiveClientConfig().setMaxSplitSize(new DataSize(1.0, GIGABYTE)),
+                        new OrcFileWriterConfig(),
+                        new ParquetFileWriterConfig()).getSessionProperties());
         return backgroundHiveSplitLoader(connectorSession, files, pathDomain, hiveBucketFilter, table, bucketHandle);
     }
 
@@ -463,7 +463,8 @@ public class TestBackgroundHiveSplitLoader
                                 new HivePartition(new SchemaTableName("testSchema", "table_name")),
                                 Optional.empty(),
                                 ImmutableMap.of(),
-                                Optional.empty()));
+                                Optional.empty(),
+                                ImmutableSet.of()));
 
         return new BackgroundHiveSplitLoader(
                 table,
@@ -477,6 +478,7 @@ public class TestBackgroundHiveSplitLoader
                 EXECUTOR,
                 2,
                 false,
+                false,
                 false);
     }
 
@@ -487,7 +489,8 @@ public class TestBackgroundHiveSplitLoader
                         new HivePartition(new SchemaTableName("testSchema", "table_name")),
                         Optional.empty(),
                         ImmutableMap.of(),
-                        Optional.empty()));
+                        Optional.empty(),
+                        ImmutableSet.of()));
 
         ConnectorSession connectorSession = new TestingConnectorSession(
                 new HiveSessionProperties(
@@ -509,6 +512,7 @@ public class TestBackgroundHiveSplitLoader
                 EXECUTOR,
                 2,
                 false,
+                false,
                 false);
     }
 
@@ -528,6 +532,7 @@ public class TestBackgroundHiveSplitLoader
                 new CachingDirectoryLister(new HadoopDirectoryLister(), new HiveClientConfig()),
                 directExecutor(),
                 2,
+                false,
                 false,
                 false);
     }
@@ -551,7 +556,8 @@ public class TestBackgroundHiveSplitLoader
                                 new HivePartition(new SchemaTableName("testSchema", "table_name")),
                                 Optional.empty(),
                                 ImmutableMap.of(),
-                                Optional.empty());
+                                Optional.empty(),
+                                ImmutableSet.of());
                     case 1:
                         throw new RuntimeException("OFFLINE");
                     default:

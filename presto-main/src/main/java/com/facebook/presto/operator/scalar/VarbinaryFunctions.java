@@ -476,4 +476,20 @@ public final class VarbinaryFunctions
     {
         return pad(inputSlice, targetLength, padBytes, inputSlice.length());
     }
+
+    @Description("Reverse a given varbinary")
+    @ScalarFunction("reverse")
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice reverse(@SqlType("varbinary") Slice inputSlice)
+    {
+        if (inputSlice.length() == 0) {
+            return EMPTY_SLICE;
+        }
+        int length = inputSlice.length();
+        Slice reverse = Slices.allocate(length);
+        for (int i = 0; i < length; i++) {
+            reverse.setByte(i, inputSlice.getByte((length - 1) - i));
+        }
+        return reverse;
+    }
 }

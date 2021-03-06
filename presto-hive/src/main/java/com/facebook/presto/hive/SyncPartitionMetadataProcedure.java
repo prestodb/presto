@@ -108,7 +108,6 @@ public class SyncPartitionMetadataProcedure
     private void doSyncPartitionMetadata(ConnectorSession session, String schemaName, String tableName, String mode, boolean caseSensitive)
     {
         SyncMode syncMode = toSyncMode(mode);
-        HdfsContext context = new HdfsContext(session, schemaName, tableName);
         SemiTransactionalHiveMetastore metastore = hiveMetadataFactory.get().getMetastore();
         SchemaTableName schemaTableName = new SchemaTableName(schemaName, tableName);
 
@@ -118,6 +117,7 @@ public class SyncPartitionMetadataProcedure
             throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, "Table is not partitioned: " + schemaTableName);
         }
         Path tableLocation = new Path(table.getStorage().getLocation());
+        HdfsContext context = new HdfsContext(session, schemaName, tableName, table.getStorage().getLocation(), false);
 
         Set<String> partitionsToAdd;
         Set<String> partitionsToDrop;
@@ -204,6 +204,8 @@ public class SyncPartitionMetadataProcedure
                     session,
                     table.getDatabaseName(),
                     table.getTableName(),
+                    table.getStorage().getLocation(),
+                    false,
                     buildPartitionObject(session, table, name),
                     new Path(table.getStorage().getLocation(), name),
                     PartitionStatistics.empty());
@@ -221,6 +223,7 @@ public class SyncPartitionMetadataProcedure
                     session,
                     table.getDatabaseName(),
                     table.getTableName(),
+                    table.getStorage().getLocation(),
                     extractPartitionValues(name));
         }
     }

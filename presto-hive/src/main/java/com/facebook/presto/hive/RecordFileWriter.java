@@ -64,7 +64,6 @@ public class RecordFileWriter
     private final Path path;
     private final JobConf conf;
     private final int fieldCount;
-    @SuppressWarnings("deprecation")
     private final Serializer serializer;
     private final RecordWriter recordWriter;
     private final SettableStructObjectInspector tableInspector;
@@ -210,6 +209,12 @@ public class RecordFileWriter
     {
         // RecordFileWriter delegates to Hive RecordWriter and there is no validation
         return 0;
+    }
+
+    @Override
+    public long getFileSizeInBytes()
+    {
+        return getWrittenBytes();
     }
 
     @Override

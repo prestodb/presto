@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spi.function;
 
-import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.TypeSignature;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -31,7 +31,7 @@ import static java.util.stream.Stream.concat;
 
 public final class Signature
 {
-    private final QualifiedFunctionName name;
+    private final QualifiedObjectName name;
     private final FunctionKind kind;
     private final List<TypeVariableConstraint> typeVariableConstraints;
     private final List<LongVariableConstraint> longVariableConstraints;
@@ -41,7 +41,7 @@ public final class Signature
 
     @JsonCreator
     public Signature(
-            @JsonProperty("name") QualifiedFunctionName name,
+            @JsonProperty("name") QualifiedObjectName name,
             @JsonProperty("kind") FunctionKind kind,
             @JsonProperty("typeVariableConstraints") List<TypeVariableConstraint> typeVariableConstraints,
             @JsonProperty("longVariableConstraints") List<LongVariableConstraint> longVariableConstraints,
@@ -62,25 +62,25 @@ public final class Signature
         this.variableArity = variableArity;
     }
 
-    public Signature(QualifiedFunctionName name, FunctionKind kind, TypeSignature returnType, TypeSignature... argumentTypes)
+    public Signature(QualifiedObjectName name, FunctionKind kind, TypeSignature returnType, TypeSignature... argumentTypes)
     {
         this(name, kind, returnType, unmodifiableList(Arrays.asList(argumentTypes)));
     }
 
-    public Signature(QualifiedFunctionName name, FunctionKind kind, TypeSignature returnType, List<TypeSignature> argumentTypes)
+    public Signature(QualifiedObjectName name, FunctionKind kind, TypeSignature returnType, List<TypeSignature> argumentTypes)
     {
         this(name, kind, emptyList(), emptyList(), returnType, argumentTypes, false);
     }
 
     @JsonProperty
-    public QualifiedFunctionName getName()
+    public QualifiedObjectName getName()
     {
         return name;
     }
 
     public String getNameSuffix()
     {
-        return name.getFunctionName();
+        return name.getObjectName();
     }
 
     @JsonProperty
@@ -161,32 +161,37 @@ public final class Signature
      */
     public static TypeVariableConstraint withVariadicBound(String name, String variadicBound)
     {
-        return new TypeVariableConstraint(name, false, false, variadicBound);
+        return new TypeVariableConstraint(name, false, false, variadicBound, false);
     }
 
     public static TypeVariableConstraint comparableWithVariadicBound(String name, String variadicBound)
     {
-        return new TypeVariableConstraint(name, true, false, variadicBound);
+        return new TypeVariableConstraint(name, true, false, variadicBound, false);
     }
 
     public static TypeVariableConstraint typeVariable(String name)
     {
-        return new TypeVariableConstraint(name, false, false, null);
+        return new TypeVariableConstraint(name, false, false, null, false);
     }
 
     public static TypeVariableConstraint comparableTypeParameter(String name)
     {
-        return new TypeVariableConstraint(name, true, false, null);
+        return new TypeVariableConstraint(name, true, false, null, false);
     }
 
     public static TypeVariableConstraint orderableWithVariadicBound(String name, String variadicBound)
     {
-        return new TypeVariableConstraint(name, false, true, variadicBound);
+        return new TypeVariableConstraint(name, false, true, variadicBound, false);
     }
 
     public static TypeVariableConstraint orderableTypeParameter(String name)
     {
-        return new TypeVariableConstraint(name, false, true, null);
+        return new TypeVariableConstraint(name, false, true, null, false);
+    }
+
+    public static TypeVariableConstraint nonDecimalNumericTypeParameter(String name)
+    {
+        return new TypeVariableConstraint(name, false, false, null, true);
     }
 
     public static LongVariableConstraint longVariableExpression(String variable, String expression)

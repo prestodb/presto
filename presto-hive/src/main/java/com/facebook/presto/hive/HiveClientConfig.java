@@ -150,6 +150,7 @@ public class HiveClientConfig
     private int partitionStatisticsSampleSize = 100;
     private boolean ignoreCorruptedStatistics;
     private boolean collectColumnStatisticsOnWrite;
+    private boolean partitionStatisticsBasedOptimizationEnabled;
 
     private boolean s3SelectPushdownEnabled;
     private int s3SelectPushdownMaxConnections = 500;
@@ -160,6 +161,8 @@ public class HiveClientConfig
     private String temporaryTableSchema = "default";
     private HiveStorageFormat temporaryTableStorageFormat = ORC;
     private HiveCompressionCodec temporaryTableCompressionCodec = HiveCompressionCodec.SNAPPY;
+    private boolean shouldCreateEmptyBucketFilesForTemporaryTable = true;
+    private boolean usePageFileForHiveUnsupportedType = true;
 
     private boolean pushdownFilterEnabled;
     private boolean rangeFiltersOnSubscriptsEnabled;
@@ -174,6 +177,15 @@ public class HiveClientConfig
     private boolean parquetBatchReadOptimizationEnabled;
     private boolean parquetEnableBatchReaderVerification;
     private boolean parquetDereferencePushdownEnabled;
+
+    private int maxMetadataUpdaterThreads = 100;
+
+    private boolean isPartialAggregationPushdownEnabled;
+    private boolean isPartialAggregationPushdownForVariableLengthDatatypesEnabled;
+
+    private boolean fileRenamingEnabled;
+    private boolean preferManifestToListFiles;
+    private boolean manifestVerificationEnabled;
 
     public int getMaxInitialSplits()
     {
@@ -295,7 +307,7 @@ public class HiveClientConfig
 
     public DateTimeZone getDateTimeZone()
     {
-        return DateTimeZone.forTimeZone(TimeZone.getTimeZone(timeZone));
+        return DateTimeZone.forID(timeZone);
     }
 
     @NotNull
@@ -1271,6 +1283,19 @@ public class HiveClientConfig
         return this;
     }
 
+    public boolean isPartitionStatisticsBasedOptimizationEnabled()
+    {
+        return partitionStatisticsBasedOptimizationEnabled;
+    }
+
+    @Config("hive.partition-statistics-based-optimization-enabled")
+    @ConfigDescription("Enables partition statistics based optimization, including partition pruning and predicate stripping")
+    public HiveClientConfig setPartitionStatisticsBasedOptimizationEnabled(boolean partitionStatisticsBasedOptimizationEnabled)
+    {
+        this.partitionStatisticsBasedOptimizationEnabled = partitionStatisticsBasedOptimizationEnabled;
+        return this;
+    }
+
     public boolean isS3SelectPushdownEnabled()
     {
         return s3SelectPushdownEnabled;
@@ -1363,6 +1388,31 @@ public class HiveClientConfig
         return this;
     }
 
+    public boolean isCreateEmptyBucketFilesForTemporaryTable()
+    {
+        return shouldCreateEmptyBucketFilesForTemporaryTable;
+    }
+
+    @Config("hive.create-empty-bucket-files-for-temporary-table")
+    @ConfigDescription("Create empty files when there is no data for temporary table buckets")
+    public HiveClientConfig setCreateEmptyBucketFilesForTemporaryTable(boolean shouldCreateEmptyBucketFilesForTemporaryTable)
+    {
+        this.shouldCreateEmptyBucketFilesForTemporaryTable = shouldCreateEmptyBucketFilesForTemporaryTable;
+        return this;
+    }
+
+    public boolean getUsePageFileForHiveUnsupportedType()
+    {
+        return usePageFileForHiveUnsupportedType;
+    }
+
+    @Config("hive.use-pagefile-for-hive-unsupported-type")
+    public HiveClientConfig setUsePageFileForHiveUnsupportedType(boolean usePageFileForHiveUnsupportedType)
+    {
+        this.usePageFileForHiveUnsupportedType = usePageFileForHiveUnsupportedType;
+        return this;
+    }
+
     public boolean isPushdownFilterEnabled()
     {
         return pushdownFilterEnabled;
@@ -1451,5 +1501,83 @@ public class HiveClientConfig
     public boolean isParquetDereferencePushdownEnabled()
     {
         return this.parquetDereferencePushdownEnabled;
+    }
+
+    @Min(1)
+    public int getMaxMetadataUpdaterThreads()
+    {
+        return maxMetadataUpdaterThreads;
+    }
+
+    @Config("hive.max-metadata-updater-threads")
+    public HiveClientConfig setMaxMetadataUpdaterThreads(int maxMetadataUpdaterThreads)
+    {
+        this.maxMetadataUpdaterThreads = maxMetadataUpdaterThreads;
+        return this;
+    }
+
+    @Config("hive.partial_aggregation_pushdown_enabled")
+    @ConfigDescription("enable partial aggregation pushdown")
+    public HiveClientConfig setPartialAggregationPushdownEnabled(boolean partialAggregationPushdownEnabled)
+    {
+        this.isPartialAggregationPushdownEnabled = partialAggregationPushdownEnabled;
+        return this;
+    }
+
+    public boolean isPartialAggregationPushdownEnabled()
+    {
+        return this.isPartialAggregationPushdownEnabled;
+    }
+
+    @Config("hive.partial_aggregation_pushdown_for_variable_length_datatypes_enabled")
+    @ConfigDescription("enable partial aggregation pushdown for variable length datatypes")
+    public HiveClientConfig setPartialAggregationPushdownForVariableLengthDatatypesEnabled(boolean partialAggregationPushdownForVariableLengthDatatypesEnabled)
+    {
+        this.isPartialAggregationPushdownForVariableLengthDatatypesEnabled = partialAggregationPushdownForVariableLengthDatatypesEnabled;
+        return this;
+    }
+
+    public boolean isPartialAggregationPushdownForVariableLengthDatatypesEnabled()
+    {
+        return this.isPartialAggregationPushdownForVariableLengthDatatypesEnabled;
+    }
+
+    @Config("hive.file_renaming_enabled")
+    @ConfigDescription("enable file renaming")
+    public HiveClientConfig setFileRenamingEnabled(boolean fileRenamingEnabled)
+    {
+        this.fileRenamingEnabled = fileRenamingEnabled;
+        return this;
+    }
+
+    public boolean isFileRenamingEnabled()
+    {
+        return this.fileRenamingEnabled;
+    }
+
+    @Config("hive.prefer-manifests-to-list-files")
+    @ConfigDescription("Prefer to fetch the list of file names and sizes from manifests rather than storage")
+    public HiveClientConfig setPreferManifestsToListFiles(boolean preferManifestToListFiles)
+    {
+        this.preferManifestToListFiles = preferManifestToListFiles;
+        return this;
+    }
+
+    public boolean isPreferManifestsToListFiles()
+    {
+        return this.preferManifestToListFiles;
+    }
+
+    @Config("hive.manifest-verification-enabled")
+    @ConfigDescription("Enable verification of file names and sizes in manifest / partition parameters")
+    public HiveClientConfig setManifestVerificationEnabled(boolean manifestVerificationEnabled)
+    {
+        this.manifestVerificationEnabled = manifestVerificationEnabled;
+        return this;
+    }
+
+    public boolean isManifestVerificationEnabled()
+    {
+        return this.manifestVerificationEnabled;
     }
 }

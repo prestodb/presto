@@ -14,9 +14,12 @@
 package com.facebook.presto.spi;
 
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 
 public interface ConnectorSession
@@ -42,5 +45,9 @@ public interface ConnectorSession
 
     SqlFunctionProperties getSqlFunctionProperties();
 
+    Map<SqlFunctionId, SqlInvokedFunction> getSessionFunctions();
+
     <T> T getProperty(String name, Class<T> type);
+
+    Optional<String> getSchema();
 }

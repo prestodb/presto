@@ -15,6 +15,7 @@ package org.apache.hadoop.fs;
 
 import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
+import com.google.common.util.concurrent.ListenableFuture;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.permission.AclEntry;
 import org.apache.hadoop.fs.permission.AclStatus;
@@ -28,6 +29,8 @@ import java.net.URISyntaxException;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 public class HadoopExtendedFileSystem
         extends ExtendedFileSystem
@@ -187,6 +190,14 @@ public class HadoopExtendedFileSystem
             throws IOException
     {
         return fs.rename(src, dst);
+    }
+
+    @Override
+    public ListenableFuture<Void> renameFileAsync(Path src, Path dst)
+            throws IOException
+    {
+        fs.rename(src, dst);
+        return immediateFuture(null);
     }
 
     @Override

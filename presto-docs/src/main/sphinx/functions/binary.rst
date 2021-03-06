@@ -157,3 +157,8 @@ Binary Functions
 .. function:: hmac_sha512(binary, key) -> varbinary
 
     Computes HMAC with sha512 of ``binary`` with the given ``key``.
+
+.. function:: reverse(binary) -> varbinary
+    :noindex:
+
+    Returns ``binary`` with the bytes in reverse order.

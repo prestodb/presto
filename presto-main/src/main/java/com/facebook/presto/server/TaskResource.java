@@ -25,8 +25,9 @@ import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
+import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.metadata.SessionPropertyManager;
-import com.facebook.presto.server.smile.Codec;
+import com.facebook.presto.server.codec.Codec;
 import com.facebook.presto.server.smile.SmileCodec;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -65,6 +66,9 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.airlift.concurrent.MoreFutures.addTimeout;
+import static com.facebook.airlift.http.client.thrift.ThriftRequestUtils.APPLICATION_THRIFT_BINARY;
+import static com.facebook.airlift.http.client.thrift.ThriftRequestUtils.APPLICATION_THRIFT_COMPACT;
+import static com.facebook.airlift.http.client.thrift.ThriftRequestUtils.APPLICATION_THRIFT_FB_COMPACT;
 import static com.facebook.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
 import static com.facebook.presto.PrestoMediaTypes.APPLICATION_JACKSON_SMILE;
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
@@ -196,8 +200,8 @@ public class TaskResource
 
     @GET
     @Path("{taskId}/status")
-    @Consumes({APPLICATION_JSON, APPLICATION_JACKSON_SMILE})
-    @Produces({APPLICATION_JSON, APPLICATION_JACKSON_SMILE})
+    @Consumes({APPLICATION_JSON, APPLICATION_JACKSON_SMILE, APPLICATION_THRIFT_BINARY, APPLICATION_THRIFT_COMPACT, APPLICATION_THRIFT_FB_COMPACT})
+    @Produces({APPLICATION_JSON, APPLICATION_JACKSON_SMILE, APPLICATION_THRIFT_BINARY, APPLICATION_THRIFT_COMPACT, APPLICATION_THRIFT_FB_COMPACT})
     public void getTaskStatus(
             @PathParam("taskId") TaskId taskId,
             @HeaderParam(PRESTO_CURRENT_STATE) TaskState currentState,
@@ -227,6 +231,16 @@ public class TaskResource
         Duration timeout = new Duration(waitTime.toMillis() + ADDITIONAL_WAIT_TIME.toMillis(), MILLISECONDS);
         bindAsyncResponse(asyncResponse, futureTaskStatus, responseExecutor)
                 .withTimeout(timeout);
+    }
+
+    @POST
+    @Path("{taskId}/metadataresults")
+    @Consumes({APPLICATION_JSON, APPLICATION_JACKSON_SMILE})
+    public Response updateMetadataResults(@PathParam("taskId") TaskId taskId, MetadataUpdates metadataUpdates, @Context UriInfo uriInfo)
+    {
+        requireNonNull(metadataUpdates, "metadataUpdates is null");
+        taskManager.updateMetadataResults(taskId, metadataUpdates);
+        return Response.ok().build();
     }
 
     @DELETE

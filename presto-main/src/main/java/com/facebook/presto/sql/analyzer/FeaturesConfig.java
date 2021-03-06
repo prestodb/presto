@@ -39,9 +39,11 @@ import java.util.List;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMergingStrategy.LEGACY;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.TaskSpillingStrategy.ORDER_BY_CREATE_TIME;
 import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -61,6 +63,9 @@ public class FeaturesConfig
     @VisibleForTesting
     static final String SPILLER_SPILL_PATH = "experimental.spiller-spill-path";
 
+    private static final String JOIN_SPILL_ENABLED = "experimental.join-spill-enabled";
+    private static final String SINGLE_STREAM_SPILLER_CHOICE = "experimental.spiller.single-stream-spiller-choice";
+
     private double cpuCostWeight = 75;
     private double memoryCostWeight = 10;
     private double networkCostWeight = 15;
@@ -68,16 +73,17 @@ public class FeaturesConfig
     private JoinDistributionType joinDistributionType = PARTITIONED;
     private DataSize joinMaxBroadcastTableSize;
     private boolean colocatedJoinsEnabled = true;
-    private boolean groupedExecutionForAggregationEnabled = true;
-    private boolean groupedExecutionForJoinEnabled = true;
     private boolean groupedExecutionEnabled = true;
-    private boolean dynamicScheduleForGroupedExecution = true;
     private boolean recoverableGroupedExecutionEnabled;
     private double maxFailedTaskPercentage = 0.3;
     private int maxStageRetries;
     private int concurrentLifespansPerTask;
     private boolean spatialJoinsEnabled = true;
     private boolean fastInequalityJoins = true;
+    private TaskSpillingStrategy taskSpillingStrategy = ORDER_BY_CREATE_TIME;
+    private SingleStreamSpillerChoice singleStreamSpillerChoice = SingleStreamSpillerChoice.LOCAL_FILE;
+    private String spillerTempStorage = "local";
+    private DataSize maxRevocableMemoryPerTask = new DataSize(500, MEGABYTE);
     private JoinReorderingStrategy joinReorderingStrategy = ELIMINATE_CROSS_JOINS;
     private PartialMergePushdownStrategy partialMergePushdownStrategy = PartialMergePushdownStrategy.NONE;
     private int maxReorderedJoins = 9;
@@ -90,7 +96,9 @@ public class FeaturesConfig
     private boolean enableIntermediateAggregations;
     private boolean pushTableWriteThroughUnion = true;
     private boolean exchangeCompressionEnabled;
+    private boolean exchangeChecksumEnabled;
     private boolean legacyArrayAgg;
+    private boolean reduceAggForComplexTypesEnabled = true;
     private boolean legacyLogFunction;
     private boolean groupByUsesEqualTo;
     private boolean legacyTimestamp = true;
@@ -113,6 +121,7 @@ public class FeaturesConfig
     private ArrayAggGroupImplementation arrayAggGroupImplementation = ArrayAggGroupImplementation.NEW;
     private MultimapAggGroupImplementation multimapAggGroupImplementation = MultimapAggGroupImplementation.NEW;
     private boolean spillEnabled;
+    private boolean joinSpillingEnabled;
     private DataSize aggregationOperatorUnspillMemoryLimit = new DataSize(4, DataSize.Unit.MEGABYTE);
     private List<Path> spillerSpillPaths = ImmutableList.of();
     private int spillerThreads = 4;
@@ -132,12 +141,13 @@ public class FeaturesConfig
     private boolean preferPartialAggregation = true;
     private boolean optimizeTopNRowNumber = true;
     private boolean pushLimitThroughOuterJoin = true;
-    private boolean optimizeFullOuterJoinWithCoalesce = true;
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
     private boolean enableDynamicFiltering;
     private int dynamicFilteringMaxPerDriverRowCount = 100;
     private DataSize dynamicFilteringMaxPerDriverSize = new DataSize(10, KILOBYTE);
+
+    private boolean fragmentResultCachingEnabled;
 
     private DataSize filterAndProjectMinOutputPageSize = new DataSize(500, KILOBYTE);
     private int filterAndProjectMinOutputPageRowCount = 256;
@@ -163,10 +173,15 @@ public class FeaturesConfig
     private boolean optimizeNullsInJoin;
     private boolean pushdownDereferenceEnabled;
     private boolean inlineSqlFunctions = true;
+    private boolean checkAccessControlOnUtilizedColumnsOnly;
+    private boolean skipRedundantSort = true;
+    private boolean isAllowWindowOrderByLiterals = true;
 
     private String warnOnNoTableLayoutFilter = "";
 
     private PartitioningPrecisionStrategy partitioningPrecisionStrategy = PartitioningPrecisionStrategy.AUTOMATIC;
+
+    private boolean enforceFixedDistributionForOutputOperator;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -221,6 +236,19 @@ public class FeaturesConfig
         {
             return this == TOP_DOWN;
         }
+    }
+
+    public enum TaskSpillingStrategy
+    {
+        ORDER_BY_CREATE_TIME, // When spilling is triggered, revoke tasks in order of oldest to newest
+        ORDER_BY_REVOCABLE_BYTES, // When spilling is triggered, revoke tasks by most allocated revocable memory to least allocated revocable memory
+        PER_TASK_MEMORY_THRESHOLD // Spill any task after it reaches the per task memory threshold defined by experimental.spiller.max-revocable-task-memory
+    }
+
+    public enum SingleStreamSpillerChoice
+    {
+        LOCAL_FILE,
+        TEMP_STORAGE
     }
 
     public double getCpuCostWeight()
@@ -367,6 +395,18 @@ public class FeaturesConfig
         return legacyMapSubscript;
     }
 
+    @Config("reduce-agg-for-complex-types-enabled")
+    public FeaturesConfig setReduceAggForComplexTypesEnabled(boolean reduceAggForComplexTypesEnabled)
+    {
+        this.reduceAggForComplexTypesEnabled = reduceAggForComplexTypesEnabled;
+        return this;
+    }
+
+    public boolean isReduceAggForComplexTypesEnabled()
+    {
+        return reduceAggForComplexTypesEnabled;
+    }
+
     public JoinDistributionType getJoinDistributionType()
     {
         return joinDistributionType;
@@ -391,32 +431,6 @@ public class FeaturesConfig
         return this;
     }
 
-    public boolean isGroupedExecutionForAggregationEnabled()
-    {
-        return groupedExecutionForAggregationEnabled;
-    }
-
-    @Config("grouped-execution-for-aggregation-enabled")
-    @ConfigDescription("Use grouped execution for aggregation when possible")
-    public FeaturesConfig setGroupedExecutionForAggregationEnabled(boolean groupedExecutionForAggregationEnabled)
-    {
-        this.groupedExecutionForAggregationEnabled = groupedExecutionForAggregationEnabled;
-        return this;
-    }
-
-    public boolean isGroupedExecutionForJoinEnabled()
-    {
-        return groupedExecutionForJoinEnabled;
-    }
-
-    @Config("grouped-execution-for-join-enabled")
-    @ConfigDescription("Use grouped execution for join when possible")
-    public FeaturesConfig setGroupedExecutionForJoinEnabled(boolean groupedExecutionForJoinEnabled)
-    {
-        this.groupedExecutionForJoinEnabled = groupedExecutionForJoinEnabled;
-        return this;
-    }
-
     public boolean isGroupedExecutionEnabled()
     {
         return groupedExecutionEnabled;
@@ -427,19 +441,6 @@ public class FeaturesConfig
     public FeaturesConfig setGroupedExecutionEnabled(boolean groupedExecutionEnabled)
     {
         this.groupedExecutionEnabled = groupedExecutionEnabled;
-        return this;
-    }
-
-    public boolean isDynamicScheduleForGroupedExecutionEnabled()
-    {
-        return dynamicScheduleForGroupedExecution;
-    }
-
-    @Config("dynamic-schedule-for-grouped-execution")
-    @ConfigDescription("Experimental: Use dynamic schedule for grouped execution when possible")
-    public FeaturesConfig setDynamicScheduleForGroupedExecutionEnabled(boolean dynamicScheduleForGroupedExecution)
-    {
-        this.dynamicScheduleForGroupedExecution = dynamicScheduleForGroupedExecution;
         return this;
     }
 
@@ -546,6 +547,58 @@ public class FeaturesConfig
     public FeaturesConfig setJoinReorderingStrategy(JoinReorderingStrategy joinReorderingStrategy)
     {
         this.joinReorderingStrategy = joinReorderingStrategy;
+        return this;
+    }
+
+    public TaskSpillingStrategy getTaskSpillingStrategy()
+    {
+        return taskSpillingStrategy;
+    }
+
+    @Config("experimental.spiller.task-spilling-strategy")
+    @ConfigDescription("The strategy used to pick which task to spill when spilling is enabled. See TaskSpillingStrategy.")
+    public FeaturesConfig setTaskSpillingStrategy(TaskSpillingStrategy taskSpillingStrategy)
+    {
+        this.taskSpillingStrategy = taskSpillingStrategy;
+        return this;
+    }
+
+    public SingleStreamSpillerChoice getSingleStreamSpillerChoice()
+    {
+        return singleStreamSpillerChoice;
+    }
+
+    @Config(SINGLE_STREAM_SPILLER_CHOICE)
+    @ConfigDescription("The SingleStreamSpiller to be used when spilling is enabled.")
+    public FeaturesConfig setSingleStreamSpillerChoice(SingleStreamSpillerChoice singleStreamSpillerChoice)
+    {
+        this.singleStreamSpillerChoice = singleStreamSpillerChoice;
+        return this;
+    }
+
+    @Config("experimental.spiller.spiller-temp-storage")
+    @ConfigDescription("Temp storage used by spiller when single stream spiller is set to TEMP_STORAGE")
+    public FeaturesConfig setSpillerTempStorage(String spillerTempStorage)
+    {
+        this.spillerTempStorage = spillerTempStorage;
+        return this;
+    }
+
+    public String getSpillerTempStorage()
+    {
+        return spillerTempStorage;
+    }
+
+    public DataSize getMaxRevocableMemoryPerTask()
+    {
+        return maxRevocableMemoryPerTask;
+    }
+
+    @Config("experimental.spiller.max-revocable-task-memory")
+    @ConfigDescription("Only used when task-spilling-strategy is PER_TASK_MEMORY_THRESHOLD")
+    public FeaturesConfig setMaxRevocableMemoryPerTask(DataSize maxRevocableMemoryPerTask)
+    {
+        this.maxRevocableMemoryPerTask = maxRevocableMemoryPerTask;
         return this;
     }
 
@@ -772,6 +825,24 @@ public class FeaturesConfig
         return this;
     }
 
+    public boolean isJoinSpillingEnabled()
+    {
+        return joinSpillingEnabled;
+    }
+
+    @Config(JOIN_SPILL_ENABLED)
+    public FeaturesConfig setJoinSpillingEnabled(boolean joinSpillingEnabled)
+    {
+        this.joinSpillingEnabled = joinSpillingEnabled;
+        return this;
+    }
+
+    @AssertTrue(message = "If " + JOIN_SPILL_ENABLED + " is set to true, spilling must be enabled " + SPILL_ENABLED)
+    public boolean isSpillEnabledIfJoinSpillingIsEnabled()
+    {
+        return !isJoinSpillingEnabled() || isSpillEnabled();
+    }
+
     public boolean isIterativeOptimizerEnabled()
     {
         return iterativeOptimizerEnabled;
@@ -894,10 +965,10 @@ public class FeaturesConfig
         return this;
     }
 
-    @AssertTrue(message = SPILLER_SPILL_PATH + " must be configured when " + SPILL_ENABLED + " is set to true")
+    @AssertTrue(message = SPILLER_SPILL_PATH + " must be configured when " + SPILL_ENABLED + " is set to true and " + SINGLE_STREAM_SPILLER_CHOICE + " is set to file")
     public boolean isSpillerSpillPathsConfiguredIfSpillEnabled()
     {
-        return !isSpillEnabled() || !spillerSpillPaths.isEmpty();
+        return !isSpillEnabled() || !spillerSpillPaths.isEmpty() || singleStreamSpillerChoice != SingleStreamSpillerChoice.LOCAL_FILE;
     }
 
     @Min(1)
@@ -992,6 +1063,19 @@ public class FeaturesConfig
         return this;
     }
 
+    public boolean isFragmentResultCachingEnabled()
+    {
+        return fragmentResultCachingEnabled;
+    }
+
+    @Config("experimental.fragment-result-caching-enabled")
+    @ConfigDescription("Enable fragment result caching and read/write leaf fragment result pages from/to cache when applicable")
+    public FeaturesConfig setFragmentResultCachingEnabled(boolean fragmentResultCachingEnabled)
+    {
+        this.fragmentResultCachingEnabled = fragmentResultCachingEnabled;
+        return this;
+    }
+
     public boolean isOptimizeMixedDistinctAggregations()
     {
         return optimizeMixedDistinctAggregations;
@@ -1009,10 +1093,22 @@ public class FeaturesConfig
         return exchangeCompressionEnabled;
     }
 
+    public boolean isExchangeChecksumEnabled()
+    {
+        return exchangeChecksumEnabled;
+    }
+
     @Config("exchange.compression-enabled")
     public FeaturesConfig setExchangeCompressionEnabled(boolean exchangeCompressionEnabled)
     {
         this.exchangeCompressionEnabled = exchangeCompressionEnabled;
+        return this;
+    }
+
+    @Config("exchange.checksum-enabled")
+    public FeaturesConfig setExchangeChecksumEnabled(boolean exchangeChecksumEnabled)
+    {
+        this.exchangeChecksumEnabled = exchangeChecksumEnabled;
         return this;
     }
 
@@ -1251,18 +1347,6 @@ public class FeaturesConfig
         return this;
     }
 
-    @Config("optimizer.optimize-full-outer-join-with-coalesce")
-    public FeaturesConfig setOptimizeFullOuterJoinWithCoalesce(boolean optimizeFullOuterJoinWithCoalesce)
-    {
-        this.optimizeFullOuterJoinWithCoalesce = optimizeFullOuterJoinWithCoalesce;
-        return this;
-    }
-
-    public Boolean isOptimizeFullOuterJoinWithCoalesce()
-    {
-        return this.optimizeFullOuterJoinWithCoalesce;
-    }
-
     @Config("index-loader-timeout")
     @ConfigDescription("Time limit for loading indexes for index joins")
     public FeaturesConfig setIndexLoaderTimeout(Duration indexLoaderTimeout)
@@ -1409,6 +1493,52 @@ public class FeaturesConfig
     public FeaturesConfig setEmptyJoinOptimization(boolean value)
     {
         this.isEmptyJoinOptimization = value;
+    }
+    public boolean isCheckAccessControlOnUtilizedColumnsOnly()
+    {
+        return checkAccessControlOnUtilizedColumnsOnly;
+    }
+
+    @Config("check-access-control-on-utilized-columns-only")
+    public FeaturesConfig setCheckAccessControlOnUtilizedColumnsOnly(boolean checkAccessControlOnUtilizedColumnsOnly)
+    {
+        this.checkAccessControlOnUtilizedColumnsOnly = checkAccessControlOnUtilizedColumnsOnly;
+        return this;
+    }
+
+    public boolean isSkipRedundantSort()
+    {
+        return skipRedundantSort;
+    }
+
+    @Config("optimizer.skip-redundant-sort")
+    public FeaturesConfig setSkipRedundantSort(boolean value)
+    {
+        this.skipRedundantSort = value;
+        return this;
+    }
+
+    public boolean isAllowWindowOrderByLiterals()
+    {
+        return isAllowWindowOrderByLiterals;
+    }
+
+    @Config("is-allow-window-order-by-literals")
+    public FeaturesConfig setAllowWindowOrderByLiterals(boolean value)
+    {
+        this.isAllowWindowOrderByLiterals = value;
+        return this;
+    }
+
+    public boolean isEnforceFixedDistributionForOutputOperator()
+    {
+        return enforceFixedDistributionForOutputOperator;
+    }
+
+    @Config("enforce-fixed-distribution-for-output-operator")
+    public FeaturesConfig setEnforceFixedDistributionForOutputOperator(boolean enforceFixedDistributionForOutputOperator)
+    {
+        this.enforceFixedDistributionForOutputOperator = enforceFixedDistributionForOutputOperator;
         return this;
     }
 }

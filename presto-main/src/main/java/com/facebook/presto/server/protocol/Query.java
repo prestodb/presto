@@ -33,6 +33,8 @@ import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.spi.security.SelectedRole;
@@ -67,6 +69,7 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.airlift.concurrent.MoreFutures.addTimeout;
 import static com.facebook.presto.SystemSessionProperties.getTargetResultSize;
+import static com.facebook.presto.SystemSessionProperties.isExchangeChecksumEnabled;
 import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionEnabled;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.server.protocol.QueryResourceUtil.toStatementStats;
@@ -143,6 +146,12 @@ class Query
     @GuardedBy("this")
     private Long updateCount;
 
+    @GuardedBy("this")
+    private Map<SqlFunctionId, SqlInvokedFunction> addedSessionFunctions = ImmutableMap.of();
+
+    @GuardedBy("this")
+    private Set<SqlFunctionId> removedSessionFunctions = ImmutableSet.of();
+
     public static Query create(
             Session session,
             String slug,
@@ -192,7 +201,7 @@ class Query
         this.resultsProcessorExecutor = resultsProcessorExecutor;
         this.timeoutExecutor = timeoutExecutor;
 
-        serde = new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session)).createPagesSerde();
+        serde = new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session), isExchangeChecksumEnabled(session)).createPagesSerde();
     }
 
     public void cancel()
@@ -259,6 +268,16 @@ class Query
     public synchronized boolean isClearTransactionId()
     {
         return clearTransactionId;
+    }
+
+    public synchronized Map<SqlFunctionId, SqlInvokedFunction> getAddedSessionFunctions()
+    {
+        return addedSessionFunctions;
+    }
+
+    public synchronized Set<SqlFunctionId> getRemovedSessionFunctions()
+    {
+        return removedSessionFunctions;
     }
 
     public synchronized ListenableFuture<QueryResults> waitForResults(long token, UriInfo uriInfo, String scheme, Duration wait, DataSize targetResultSize)
@@ -438,6 +457,10 @@ class Query
         // update startedTransactionId
         startedTransactionId = queryInfo.getStartedTransactionId();
         clearTransactionId = queryInfo.isClearTransactionId();
+
+        // update sessionFunctions
+        addedSessionFunctions = queryInfo.getAddedSessionFunctions();
+        removedSessionFunctions = queryInfo.getRemovedSessionFunctions();
 
         // first time through, self is null
         QueryResults queryResults = new QueryResults(

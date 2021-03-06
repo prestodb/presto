@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -41,7 +40,7 @@ import static java.util.Objects.requireNonNull;
 public class DruidQueryGeneratorContext
 {
     private final Map<VariableReferenceExpression, Selection> selections;
-    private final Set<VariableReferenceExpression> groupByColumns;
+    private final Map<VariableReferenceExpression, Selection> groupByColumns;
     private final Set<VariableReferenceExpression> hiddenColumnSet;
     private final Set<VariableReferenceExpression> variablesInAggregation;
     private final Optional<String> from;
@@ -82,7 +81,7 @@ public class DruidQueryGeneratorContext
                 Optional.empty(),
                 OptionalLong.empty(),
                 0,
-                new HashSet<>(),
+                new LinkedHashMap<>(),
                 new HashSet<>(),
                 new HashSet<>(),
                 Optional.ofNullable(planNodeId));
@@ -94,7 +93,7 @@ public class DruidQueryGeneratorContext
             Optional<String> filter,
             OptionalLong limit,
             int aggregations,
-            Set<VariableReferenceExpression> groupByColumns,
+            Map<VariableReferenceExpression, Selection> groupByColumns,
             Set<VariableReferenceExpression> variablesInAggregation,
             Set<VariableReferenceExpression> hiddenColumnSet,
             Optional<PlanNodeId> tableScanNodeId)
@@ -104,7 +103,7 @@ public class DruidQueryGeneratorContext
         this.filter = requireNonNull(filter, "filter is null");
         this.limit = requireNonNull(limit, "limit is null");
         this.aggregations = aggregations;
-        this.groupByColumns = new LinkedHashSet<>(requireNonNull(groupByColumns, "groupByColumns can't be null. It could be empty if not available"));
+        this.groupByColumns = new LinkedHashMap<>(requireNonNull(groupByColumns, "groupByColumns can't be null. It could be empty if not available"));
         this.hiddenColumnSet = requireNonNull(hiddenColumnSet, "hidden column set is null");
         this.variablesInAggregation = requireNonNull(variablesInAggregation, "variables in aggregation is null");
         this.tableScanNodeId = requireNonNull(tableScanNodeId, "tableScanNodeId can't be null");
@@ -162,7 +161,7 @@ public class DruidQueryGeneratorContext
 
     public DruidQueryGeneratorContext withAggregation(
             Map<VariableReferenceExpression, Selection> newSelections,
-            Set<VariableReferenceExpression> newGroupByColumns,
+            Map<VariableReferenceExpression, Selection> newGroupByColumns,
             int newAggregations,
             Set<VariableReferenceExpression> newHiddenColumnSet)
     {
@@ -287,9 +286,7 @@ public class DruidQueryGeneratorContext
         }
 
         if (!groupByColumns.isEmpty()) {
-            String groupByExpression = groupByColumns.stream()
-                    .map(expression -> selections.containsKey(expression) ? selections.get(expression).getEscapedDefinition() : expression.getName())
-                    .collect(Collectors.joining(", "));
+            String groupByExpression = groupByColumns.entrySet().stream().map(v -> v.getValue().getEscapedDefinition()).collect(Collectors.joining(", "));
             query = query + " GROUP BY " + groupByExpression;
             pushdown = true;
         }

@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.airlift.stats.Distribution;
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.FragmentResultCacheContext;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.memory.QueryContextVisitor;
@@ -35,6 +36,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
@@ -139,17 +141,18 @@ public class PipelineContext
 
     public DriverContext addDriverContext()
     {
-        return addDriverContext(Lifespan.taskWide());
+        return addDriverContext(Lifespan.taskWide(), Optional.empty());
     }
 
-    public DriverContext addDriverContext(Lifespan lifespan)
+    public DriverContext addDriverContext(Lifespan lifespan, Optional<FragmentResultCacheContext> fragmentResultCacheContext)
     {
         DriverContext driverContext = new DriverContext(
                 this,
                 notificationExecutor,
                 yieldExecutor,
                 pipelineMemoryContext.newMemoryTrackingContext(),
-                lifespan);
+                lifespan,
+                fragmentResultCacheContext);
         drivers.add(driverContext);
         return driverContext;
     }

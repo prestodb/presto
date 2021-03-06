@@ -14,14 +14,12 @@
 package com.facebook.presto.orc;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.type.NamedTypeSignature;
 import com.facebook.presto.common.type.RowFieldName;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignatureParameter;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.orc.TupleDomainFilter.BigintMultiRange;
 import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
@@ -35,7 +33,6 @@ import com.facebook.presto.orc.TupleDomainFilter.DoubleRange;
 import com.facebook.presto.orc.TupleDomainFilter.FloatRange;
 import com.facebook.presto.orc.TupleDomainFilter.LongDecimalRange;
 import com.facebook.presto.orc.TupleDomainFilter.MultiRange;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.ExpressionDomainTranslator;
 import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.Symbol;
@@ -56,7 +53,6 @@ import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.StringLiteral;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -91,6 +87,7 @@ import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.orc.TupleDomainFilter.ALWAYS_FALSE;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NOT_NULL;
@@ -115,12 +112,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestTupleDomainFilterUtils
 {
-    private static final TypeManager TYPE_MANAGER = new TypeRegistry();
-
-    static {
-        // associate TYPE_MANAGER with a function manager
-        new FunctionManager(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
-    }
+    private static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = createTestFunctionAndTypeManager();
 
     private static final Session TEST_SESSION = testSessionBuilder()
             .setCatalog("tpch")
@@ -180,9 +172,9 @@ public class TestTupleDomainFilterUtils
             .put(C_SMALLINT.getName(), SMALLINT)
             .put(C_TINYINT.getName(), TINYINT)
             .put(C_REAL.getName(), REAL)
-            .put(C_ARRAY.getName(), TYPE_MANAGER.getParameterizedType(ARRAY, ImmutableList.of(TypeSignatureParameter.of(INTEGER.getTypeSignature()))))
-            .put(C_MAP.getName(), TYPE_MANAGER.getParameterizedType(MAP, ImmutableList.of(TypeSignatureParameter.of(INTEGER.getTypeSignature()), TypeSignatureParameter.of(BOOLEAN.getTypeSignature()))))
-            .put(C_STRUCT.getName(), TYPE_MANAGER.getParameterizedType(ROW, ImmutableList.of(
+            .put(C_ARRAY.getName(), FUNCTION_AND_TYPE_MANAGER.getParameterizedType(ARRAY, ImmutableList.of(TypeSignatureParameter.of(INTEGER.getTypeSignature()))))
+            .put(C_MAP.getName(), FUNCTION_AND_TYPE_MANAGER.getParameterizedType(MAP, ImmutableList.of(TypeSignatureParameter.of(INTEGER.getTypeSignature()), TypeSignatureParameter.of(BOOLEAN.getTypeSignature()))))
+            .put(C_STRUCT.getName(), FUNCTION_AND_TYPE_MANAGER.getParameterizedType(ROW, ImmutableList.of(
                     TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName("field_0", false)), INTEGER.getTypeSignature())),
                     TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName("field_1", false)), BOOLEAN.getTypeSignature())))))
             .build());
@@ -605,7 +597,7 @@ public class TestTupleDomainFilterUtils
 
     private static FunctionCall colorLiteral(long value)
     {
-        return new FunctionCall(QualifiedName.of(getMagicLiteralFunctionSignature(COLOR).getName().getFunctionName()), ImmutableList.of(bigintLiteral(value)));
+        return new FunctionCall(QualifiedName.of(getMagicLiteralFunctionSignature(COLOR).getName().getObjectName()), ImmutableList.of(bigintLiteral(value)));
     }
 
     private Expression varbinaryLiteral(Slice value)

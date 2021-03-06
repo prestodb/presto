@@ -51,14 +51,28 @@ public class PinotAggregationProjectConverter
             "/", "DIV");
     private static final String FROM_UNIXTIME = "from_unixtime";
 
+    private static final Map<String, String> PRESTO_TO_PINOT_ARRAY_AGGREGATIONS = ImmutableMap.<String, String>builder()
+            .put("array_min", "arrayMin")
+            .put("array_max", "arrayMax")
+            .put("array_average", "arrayAverage")
+            .put("array_sum", "arraySum")
+            .build();
+
     private final FunctionMetadataManager functionMetadataManager;
     private final ConnectorSession session;
+    private final VariableReferenceExpression arrayVariableHint;
 
     public PinotAggregationProjectConverter(TypeManager typeManager, FunctionMetadataManager functionMetadataManager, StandardFunctionResolution standardFunctionResolution, ConnectorSession session)
+    {
+        this(typeManager, functionMetadataManager, standardFunctionResolution, session, null);
+    }
+
+    public PinotAggregationProjectConverter(TypeManager typeManager, FunctionMetadataManager functionMetadataManager, StandardFunctionResolution standardFunctionResolution, ConnectorSession session, VariableReferenceExpression arrayVariableHint)
     {
         super(typeManager, standardFunctionResolution);
         this.functionMetadataManager = requireNonNull(functionMetadataManager, "functionMetadataManager is null");
         this.session = requireNonNull(session, "session is null");
+        this.arrayVariableHint = arrayVariableHint;
     }
 
     @Override
@@ -217,15 +231,46 @@ public class PinotAggregationProjectConverter
             CallExpression function,
             Map<VariableReferenceExpression, PinotQueryGeneratorContext.Selection> context)
     {
-        switch (function.getDisplayName().toLowerCase(ENGLISH)) {
+        String functionName = function.getDisplayName().toLowerCase(ENGLISH);
+        switch (functionName) {
             case "date_trunc":
                 boolean useDateTruncation = PinotSessionProperties.isUseDateTruncation(session);
                 return useDateTruncation ?
                         handleDateTruncationViaDateTruncation(function, context) :
                         handleDateTruncationViaDateTimeConvert(function, context);
+            case "array_max":
+            case "array_min":
+                String pinotArrayFunctionName = PRESTO_TO_PINOT_ARRAY_AGGREGATIONS.get(functionName);
+                requireNonNull(pinotArrayFunctionName, "Converted Pinot array function is null for - " + functionName);
+                return derived(String.format(
+                        "%s(%s)",
+                        pinotArrayFunctionName,
+                        function.getArguments().get(0).accept(this, context).getDefinition()));
+            // array_sum and array_reduce are translated to a reduce function with lambda functions, so we pass in
+            // this arrayVariableHint to help determine which array function it is.
+            case "reduce":
+                if (arrayVariableHint != null) {
+                    String arrayFunctionName = getArrayFunctionName(arrayVariableHint);
+                    if (arrayFunctionName != null) {
+                        String inputColumn = function.getArguments().get(0).accept(this, context).getDefinition();
+                        return derived(String.format("%s(%s)", arrayFunctionName, inputColumn));
+                    }
+                }
             default:
                 throw new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), format("function %s not supported yet", function.getDisplayName()));
         }
+    }
+
+    // The array function variable names are in the format of `array_sum`, `array_average_0`, `array_sum_1`.
+    // So we can parse the array function name based on variable name.
+    private String getArrayFunctionName(VariableReferenceExpression variable)
+    {
+        String[] variableNameSplits = variable.getName().split("_");
+        if (variableNameSplits.length < 2 || variableNameSplits.length > 3) {
+            return null;
+        }
+        String arrayFunctionName = String.format("%s_%s", variableNameSplits[0], variableNameSplits[1]);
+        return PRESTO_TO_PINOT_ARRAY_AGGREGATIONS.get(arrayFunctionName);
     }
 
     private static String getStringFromConstant(RowExpression expression)

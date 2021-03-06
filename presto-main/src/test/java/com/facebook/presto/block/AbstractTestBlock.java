@@ -17,12 +17,10 @@ import com.facebook.presto.common.block.AbstractMapBlock.HashTables;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.BlockBuilderStatus;
+import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.common.block.DictionaryBlock;
 import com.facebook.presto.common.block.DictionaryId;
-import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -41,6 +39,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.function.Supplier;
 
+import static com.facebook.airlift.testing.Assertions.assertBetweenInclusive;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -49,6 +48,8 @@ import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static java.lang.Math.max;
+import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Arrays.fill;
@@ -62,13 +63,7 @@ import static org.testng.Assert.fail;
 @Test
 public abstract class AbstractTestBlock
 {
-    private static final TypeManager TYPE_MANAGER = new TypeRegistry();
-    private static final BlockEncodingSerde BLOCK_ENCODING_SERDE = new BlockEncodingManager(TYPE_MANAGER);
-
-    static {
-        // associate TYPE_MANAGER with a function manager
-        new FunctionManager(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
-    }
+    private static final BlockEncodingSerde BLOCK_ENCODING_SERDE = new BlockEncodingManager();
 
     protected <T> void assertBlock(Block block, Supplier<BlockBuilder> newBlockBuilder, T[] expectedValues)
     {
@@ -225,41 +220,107 @@ public abstract class AbstractTestBlock
     {
         // Asserting on `block` is not very effective because most blocks passed to this method is compact.
         // Therefore, we split the `block` into two and assert again.
+        //------------------Test Whole Block Sizes---------------------------------------------------
+        // Assert sizeInBytes for the whole block.
         long expectedBlockSize = copyBlockViaBlockSerde(block).getSizeInBytes();
         assertEquals(block.getSizeInBytes(), expectedBlockSize);
         assertEquals(block.getRegionSizeInBytes(0, block.getPositionCount()), expectedBlockSize);
 
+        // Assert logicalSize for the whole block. Note that copyBlockViaBlockSerde would flatten DictionaryBlock or RleBlock
+        long logicalSizeInBytes = block.getLogicalSizeInBytes();
+
         long expectedLogicalBlockSize = copyBlockViaBlockSerde(block).getLogicalSizeInBytes();
-        assertEquals(block.getLogicalSizeInBytes(), expectedLogicalBlockSize);
+        assertEquals(logicalSizeInBytes, expectedLogicalBlockSize);
         assertEquals(block.getRegionLogicalSizeInBytes(0, block.getPositionCount()), expectedLogicalBlockSize);
 
+        // Assert approximateLogicalSize for the whole block
+        long approximateLogicalSizeInBytes = block.getApproximateRegionLogicalSizeInBytes(0, block.getPositionCount());
+
+        long expectedApproximateLogicalBlockSize = expectedLogicalBlockSize;
+        if (block instanceof DictionaryBlock) {
+            int dictionaryPositionCount = ((DictionaryBlock) block).getDictionary().getPositionCount();
+            expectedApproximateLogicalBlockSize = ((DictionaryBlock) block).getDictionary().getApproximateRegionLogicalSizeInBytes(0, dictionaryPositionCount) * block.getPositionCount() / dictionaryPositionCount;
+        }
+        assertEquals(approximateLogicalSizeInBytes, expectedApproximateLogicalBlockSize);
+
+        //------------------Test First Half Sizes---------------------------------------------------
         List<Block> splitBlock = splitBlock(block, 2);
         Block firstHalf = splitBlock.get(0);
+        int firstHalfPositionCount = firstHalf.getPositionCount();
 
+        // Assert sizeInBytes for the firstHalf block.
         long expectedFirstHalfSize = copyBlockViaBlockSerde(firstHalf).getSizeInBytes();
         assertEquals(firstHalf.getSizeInBytes(), expectedFirstHalfSize);
-        assertEquals(block.getRegionSizeInBytes(0, firstHalf.getPositionCount()), expectedFirstHalfSize);
+        assertEquals(block.getRegionSizeInBytes(0, firstHalfPositionCount), expectedFirstHalfSize);
 
+        // Assert logicalSize for the firstHalf block
+        long firstHalfLogicalSizeInBytes = firstHalf.getLogicalSizeInBytes();
         long expectedFirstHalfLogicalSize = copyBlockViaBlockSerde(firstHalf).getLogicalSizeInBytes();
-        assertEquals(firstHalf.getLogicalSizeInBytes(), expectedFirstHalfLogicalSize);
-        assertEquals(firstHalf.getRegionLogicalSizeInBytes(0, firstHalf.getPositionCount()), expectedFirstHalfLogicalSize);
+        assertEquals(firstHalfLogicalSizeInBytes, expectedFirstHalfLogicalSize);
+        assertEquals(firstHalf.getRegionLogicalSizeInBytes(0, firstHalfPositionCount), expectedFirstHalfLogicalSize);
 
+        // Assert approximateLogicalSize for the firstHalf block using logicalSize
+        long approximateFirstHalfLogicalSize = firstHalf.getApproximateRegionLogicalSizeInBytes(0, firstHalfPositionCount);
+
+        long expectedApproximateFirstHalfLogicalSize = expectedFirstHalfLogicalSize;
+        if (firstHalf instanceof DictionaryBlock) {
+            int dictionaryPositionCount = ((DictionaryBlock) firstHalf).getDictionary().getPositionCount();
+            expectedApproximateFirstHalfLogicalSize = ((DictionaryBlock) firstHalf).getDictionary().getApproximateRegionLogicalSizeInBytes(0, dictionaryPositionCount) * firstHalfPositionCount / dictionaryPositionCount;
+        }
+        assertEquals(approximateFirstHalfLogicalSize, expectedApproximateFirstHalfLogicalSize);
+
+        // Assert approximateLogicalSize for the firstHalf block using the ratio of firstHalf logicalSize vs whole block logicalSize
+        long expectedApproximateFirstHalfLogicalSizeFromUnsplittedBlock = logicalSizeInBytes == 0 ?
+                approximateLogicalSizeInBytes :
+                approximateLogicalSizeInBytes * firstHalfLogicalSizeInBytes / logicalSizeInBytes;
+        assertBetweenInclusive(
+                approximateFirstHalfLogicalSize,
+                // Allow for some error margins due to skew in blocks
+                min(expectedApproximateFirstHalfLogicalSizeFromUnsplittedBlock - 3, (long) (expectedApproximateFirstHalfLogicalSizeFromUnsplittedBlock * 0.7)),
+                max(expectedApproximateFirstHalfLogicalSizeFromUnsplittedBlock + 3, (long) (expectedApproximateFirstHalfLogicalSizeFromUnsplittedBlock * 1.3)));
+
+        //------------------Test Second Half Sizes---------------------------------------------------
         Block secondHalf = splitBlock.get(1);
+        int secondHalfPositionCount = secondHalf.getPositionCount();
 
+        // Assert sizeInBytes for the secondHalf block.
         long expectedSecondHalfSize = copyBlockViaBlockSerde(secondHalf).getSizeInBytes();
         assertEquals(secondHalf.getSizeInBytes(), expectedSecondHalfSize);
-        assertEquals(block.getRegionSizeInBytes(firstHalf.getPositionCount(), secondHalf.getPositionCount()), expectedSecondHalfSize);
+        assertEquals(block.getRegionSizeInBytes(firstHalfPositionCount, secondHalfPositionCount), expectedSecondHalfSize);
 
+        // Assert logicalSize for the secondHalf block.
+        long secondHalfLogicalSizeInBytes = secondHalf.getLogicalSizeInBytes();
         long expectedSecondHalfLogicalSize = copyBlockViaBlockSerde(secondHalf).getLogicalSizeInBytes();
-        assertEquals(secondHalf.getLogicalSizeInBytes(), expectedSecondHalfLogicalSize);
-        assertEquals(secondHalf.getRegionLogicalSizeInBytes(0, secondHalf.getPositionCount()), expectedSecondHalfLogicalSize);
+        assertEquals(secondHalfLogicalSizeInBytes, expectedSecondHalfLogicalSize);
+        assertEquals(secondHalf.getRegionLogicalSizeInBytes(0, secondHalfPositionCount), expectedSecondHalfLogicalSize);
 
+        // Assert approximateLogicalSize for the secondHalf block using logicalSize
+        long approximateSecondHalfLogicalSize = secondHalf.getApproximateRegionLogicalSizeInBytes(0, secondHalfPositionCount);
+
+        long expectedApproximateSecondHalfLogicalSize = copyBlockViaBlockSerde(secondHalf).getApproximateRegionLogicalSizeInBytes(0, secondHalfPositionCount);
+        if (secondHalf instanceof DictionaryBlock) {
+            int dictionaryPositionCount = ((DictionaryBlock) secondHalf).getDictionary().getPositionCount();
+            expectedApproximateSecondHalfLogicalSize = ((DictionaryBlock) secondHalf).getDictionary().getApproximateRegionLogicalSizeInBytes(0, dictionaryPositionCount) * secondHalfPositionCount / dictionaryPositionCount;
+        }
+        assertEquals(approximateSecondHalfLogicalSize, expectedApproximateSecondHalfLogicalSize);
+
+        // Assert approximateLogicalSize for the secondHalf block using the ratio of firstHalf logicalSize vs whole block logicalSize
+        long expectedApproximateSecondHalfLogicalSizeFromUnsplittedBlock = logicalSizeInBytes == 0 ?
+                approximateLogicalSizeInBytes :
+                approximateLogicalSizeInBytes * secondHalfLogicalSizeInBytes / logicalSizeInBytes;
+        assertBetweenInclusive(
+                approximateSecondHalfLogicalSize,
+                // Allow for some error margins due to skew in blocks
+                min(expectedApproximateSecondHalfLogicalSizeFromUnsplittedBlock - 3, (long) (expectedApproximateSecondHalfLogicalSizeFromUnsplittedBlock * 0.7)),
+                max(expectedApproximateSecondHalfLogicalSizeFromUnsplittedBlock + 3, (long) (expectedApproximateSecondHalfLogicalSizeFromUnsplittedBlock * 1.3)));
+
+        //----------------Test getPositionsSizeInBytes----------------------------------------
         boolean[] positions = new boolean[block.getPositionCount()];
-        fill(positions, 0, firstHalf.getPositionCount(), true);
+        fill(positions, 0, firstHalfPositionCount, true);
         assertEquals(block.getPositionsSizeInBytes(positions), expectedFirstHalfSize);
         fill(positions, true);
         assertEquals(block.getPositionsSizeInBytes(positions), expectedBlockSize);
-        fill(positions, 0, firstHalf.getPositionCount(), false);
+        fill(positions, 0, firstHalfPositionCount, false);
         assertEquals(block.getPositionsSizeInBytes(positions), expectedSecondHalfSize);
     }
 

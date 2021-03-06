@@ -13,19 +13,21 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.operator.UpdateMemory;
+
 import java.util.List;
 
 public interface AccumulatorFactory
 {
     List<Integer> getInputChannels();
 
-    Accumulator createAccumulator();
+    Accumulator createAccumulator(UpdateMemory updateMemory);
 
     Accumulator createIntermediateAccumulator();
 
-    GroupedAccumulator createGroupedAccumulator();
+    GroupedAccumulator createGroupedAccumulator(UpdateMemory updateMemory);
 
-    GroupedAccumulator createGroupedIntermediateAccumulator();
+    GroupedAccumulator createGroupedIntermediateAccumulator(UpdateMemory updateMemory);
 
     boolean hasOrderBy();
 

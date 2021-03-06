@@ -14,7 +14,6 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.airlift.json.JsonCodec;
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
@@ -36,7 +35,6 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.testing.TestingConnectorContext;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -48,6 +46,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.ConnectorId.createInformationSchemaConnectorId;
 import static com.facebook.presto.spi.ConnectorId.createSystemTablesConnectorId;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -88,16 +87,7 @@ public class TestInformationSchemaMetadata
                 createSystemTablesConnectorId(connectorId),
                 testConnector));
         transactionManager = createTestTransactionManager(catalogManager);
-        metadata = new MetadataManager(
-                new FeaturesConfig(),
-                new TypeRegistry(),
-                new BlockEncodingManager(new TypeRegistry()),
-                new SessionPropertyManager(),
-                new SchemaPropertyManager(),
-                new TablePropertyManager(),
-                new ColumnPropertyManager(),
-                new AnalyzePropertyManager(),
-                transactionManager);
+        metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
     }
 
     /**

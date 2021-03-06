@@ -14,11 +14,13 @@
 package com.facebook.presto.operator.project;
 
 import com.facebook.airlift.testing.TestingTicker;
+import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.LazyBlock;
 import com.facebook.presto.common.block.VariableWidthBlock;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.memory.context.LocalMemoryContext;
@@ -48,18 +50,24 @@ import java.util.stream.IntStream;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.block.BlockAssertions.createLongSequenceBlock;
+import static com.facebook.presto.block.BlockAssertions.createMapType;
 import static com.facebook.presto.block.BlockAssertions.createSlicesBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.common.function.OperatorType.ADD;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.common.type.RowType.withDefaultFieldNames;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.execution.executor.PrioritizedSplitRunner.SPLIT_RUN_QUANTA;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
+import static com.facebook.presto.operator.PageAssertions.createPageWithRandomData;
 import static com.facebook.presto.operator.project.PageProcessor.MAX_BATCH_SIZE;
 import static com.facebook.presto.operator.project.PageProcessor.MAX_PAGE_SIZE_IN_BYTES;
 import static com.facebook.presto.operator.project.PageProcessor.MIN_PAGE_SIZE_IN_BYTES;
+import static com.facebook.presto.operator.project.SelectedPositions.positionsList;
 import static com.facebook.presto.operator.project.SelectedPositions.positionsRange;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.Expressions.call;
@@ -135,6 +143,34 @@ public class TestPageProcessor
     }
 
     @Test
+    public void testPartialFilterAsList()
+    {
+        // Primitive types
+
+        testPartialFilterAsList(BOOLEAN, 100, 0.5f, 0.5f, false, ImmutableList.of());
+        testPartialFilterAsList(REAL, 100, 0.5f, 0.5f, false, ImmutableList.of());
+        testPartialFilterAsList(BIGINT, 100, 0.5f, 0.5f, false, ImmutableList.of());
+        testPartialFilterAsList(VARCHAR, 100, 0.5f, 0.5f, false, ImmutableList.of());
+
+        testPartialFilterAsList(BOOLEAN, 100, 0.5f, 0.5f, true, ImmutableList.of());
+        testPartialFilterAsList(REAL, 100, 0.5f, 0.5f, true, ImmutableList.of());
+        testPartialFilterAsList(BIGINT, 100, 0.5f, 0.5f, true, ImmutableList.of());
+        testPartialFilterAsList(VARCHAR, 100, 0.5f, 0.5f, true, ImmutableList.of());
+
+        // Complext types
+
+        testPartialFilterAsList(new ArrayType(BIGINT), 100, 0.5f, 0.5f, false, ImmutableList.of());
+        testPartialFilterAsList(new ArrayType(VARCHAR), 100, 0.5f, 0.5f, false, ImmutableList.of());
+        testPartialFilterAsList(createMapType(BIGINT, VARCHAR), 100, 0.5f, 0.5f, false, ImmutableList.of());
+        testPartialFilterAsList(withDefaultFieldNames(ImmutableList.of(BIGINT, withDefaultFieldNames(ImmutableList.of(BOOLEAN, VARCHAR)))), 100, 0.5f, 0.5f, false, ImmutableList.of());
+
+        testPartialFilterAsList(new ArrayType(BIGINT), 100, 0.5f, 0.5f, true, ImmutableList.of());
+        testPartialFilterAsList(new ArrayType(VARCHAR), 100, 0.5f, 0.5f, true, ImmutableList.of());
+        testPartialFilterAsList(createMapType(BIGINT, VARCHAR), 100, 0.5f, 0.5f, true, ImmutableList.of());
+        testPartialFilterAsList(withDefaultFieldNames(ImmutableList.of(BIGINT, withDefaultFieldNames(ImmutableList.of(BOOLEAN, VARCHAR)))), 100, 0.5f, 0.5f, true, ImmutableList.of());
+    }
+
+    @Test
     public void testSelectAllFilter()
     {
         PageProcessor pageProcessor = new PageProcessor(Optional.of(new SelectAllFilter()), ImmutableList.of(createInputPageProjectionWithOutputs(0, BIGINT, 0)), OptionalInt.of(MAX_BATCH_SIZE));
@@ -199,7 +235,8 @@ public class TestPageProcessor
     @Test
     public void testProjectLazyLoad()
     {
-        PageProcessor pageProcessor = new PageProcessor(Optional.of(new SelectAllFilter()), ImmutableList.of(new PageProjectionWithOutputs(new LazyPagePageProjection(), new int[] {0})), OptionalInt.of(MAX_BATCH_SIZE));
+        PageProcessor pageProcessor = new PageProcessor(Optional.of(new SelectAllFilter()), ImmutableList.of(new PageProjectionWithOutputs(new LazyPagePageProjection(), new int[] {
+                0})), OptionalInt.of(MAX_BATCH_SIZE));
 
         // if channel 1 is loaded, test will fail
         Page inputPage = new Page(createLongSequenceBlock(0, 100), new LazyBlock(100, lazyBlock -> {
@@ -278,7 +315,8 @@ public class TestPageProcessor
     {
         InvocationCountPageProjection firstProjection = new InvocationCountPageProjection(new InputPageProjection(0));
         InvocationCountPageProjection secondProjection = new InvocationCountPageProjection(new InputPageProjection(0));
-        PageProcessor pageProcessor = new PageProcessor(Optional.empty(), ImmutableList.of(new PageProjectionWithOutputs(firstProjection, new int[] {0}), new PageProjectionWithOutputs(secondProjection, new int[] {1})), OptionalInt.of(MAX_BATCH_SIZE));
+        PageProcessor pageProcessor = new PageProcessor(Optional.empty(), ImmutableList.of(new PageProjectionWithOutputs(firstProjection, new int[] {
+                0}), new PageProjectionWithOutputs(secondProjection, new int[] {1})), OptionalInt.of(MAX_BATCH_SIZE));
 
         // process large page which will reduce batch size
         Slice[] slices = new Slice[(int) (MAX_BATCH_SIZE * 2.5)];
@@ -389,7 +427,7 @@ public class TestPageProcessor
         MetadataManager metadata = createTestMetadataManager();
         CallExpression add10Expression = call(
                 ADD.name(),
-                metadata.getFunctionManager().resolveOperator(ADD, fromTypes(BIGINT, BIGINT)),
+                metadata.getFunctionAndTypeManager().resolveOperator(ADD, fromTypes(BIGINT, BIGINT)),
                 BIGINT,
                 field(0, BIGINT),
                 constant(10L, BIGINT));
@@ -512,6 +550,23 @@ public class TestPageProcessor
         return output;
     }
 
+    private void testPartialFilterAsList(Type type, int positionCount, float primitiveNullRate, float nestedNullRate, boolean useBlockView, List<BlockAssertions.Encoding> wrappings)
+    {
+        int[] positions = IntStream.range(0, positionCount / 2).map(x -> x * 2).toArray();
+        PageProcessor pageProcessor = new PageProcessor(
+                Optional.of(new TestingPageFilter(positionsList(positions, 0, positionCount / 2))),
+                ImmutableList.of(createInputPageProjectionWithOutputs(0, BIGINT, 0)),
+                OptionalInt.of(MAX_BATCH_SIZE));
+
+        Page inputPage = createPageWithRandomData(ImmutableList.of(type), positionCount, false, false, primitiveNullRate, nestedNullRate, useBlockView, wrappings);
+
+        Iterator<Optional<Page>> output = processAndAssertRetainedPageSize(pageProcessor, inputPage);
+
+        List<Optional<Page>> outputPages = ImmutableList.copyOf(output);
+        assertEquals(outputPages.size(), 1);
+        assertPageEquals(ImmutableList.of(type), outputPages.get(0).orElse(null), new Page(inputPage.getBlock(0).copyPositions(positions, 0, positionCount / 2)));
+    }
+
     private static class InvocationCountPageProjection
             implements PageProjection
     {
@@ -618,7 +673,7 @@ public class TestPageProcessor
         }
     }
 
-    private static class TestingPageFilter
+    public static class TestingPageFilter
             implements PageFilter
     {
         private final SelectedPositions selectedPositions;

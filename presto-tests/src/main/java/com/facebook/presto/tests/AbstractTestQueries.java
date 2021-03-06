@@ -54,10 +54,12 @@ import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DecimalType.createDecimalType;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
 import static com.facebook.presto.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static com.facebook.presto.operator.scalar.InvokeFunction.INVOKE_FUNCTION;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATE_OR_GROUP_BY;
 import static com.facebook.presto.sql.tree.ExplainType.Type.DISTRIBUTED;
@@ -78,7 +80,6 @@ import static com.facebook.presto.tests.QueryTemplate.parameter;
 import static com.facebook.presto.tests.QueryTemplate.queryTemplate;
 import static com.facebook.presto.tests.StatefulSleepingSum.STATEFUL_SLEEPING_SUM;
 import static com.facebook.presto.tests.StructuralTestUtil.mapType;
-import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
 import static java.lang.String.format;
@@ -385,6 +386,9 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT a.col1[2].col0, a.col1[2].col1 FROM (VALUES ROW(cast(row(1.0, ARRAY[row(31, 4.1E0), row(32, 4.2E0)], row(3, 4.0E0)) AS ROW(col0 double, col1 array(row(col0 integer, col1 double)), col2 row(col0 integer, col1 double))))) t(a)", "SELECT 32, 4.2");
 
         assertQuery("SELECT CAST(row(11, 12) AS row(col0 bigint, col1 bigint)).col0", "SELECT 11");
+
+        // Dereference in VALUES node
+        assertQuery("SELECT v FROM ( VALUES (ARRAY[ CAST( ROW(2, 'a') AS ROW( int_field BIGINT, str_field VARCHAR ) )][1].str_field)) AS t (v)", "SELECT 'a'");
     }
 
     @Test
@@ -463,6 +467,17 @@ public abstract class AbstractTestQueries
                         "GROUP BY 1 " +
                         "ORDER BY 2 DESC",
                 "SELECT * FROM VALUES (31, 3), (41, 1)");
+    }
+
+    @Test
+    public void testMapTransformKeys()
+    {
+        assertQuery(
+                "SELECT\n" +
+                        "   MAP_KEYS(TRANSFORM_KEYS(features, (k, v) -> MAP(ARRAY[1, 2], ARRAY[10, 20])[k])) as k1, \n" +
+                        "   MAP_KEYS(TRANSFORM_KEYS(features, (k, v) -> MAP(ARRAY[1, 2], ARRAY[30, 40])[k])) as k2 \n" +
+                        "FROM (SELECT MAP(ARRAY[1], ARRAY[1]) as features) ",
+                "VALUES ((10), (30))");
     }
 
     @Test
@@ -707,6 +722,32 @@ public abstract class AbstractTestQueries
                         "FROM (VALUES (1, CAST(5 AS DOUBLE)), (1, 6), (1, 7), (2, 8), (2, 9), (3, 10)) AS t(x, y) " +
                         "GROUP BY x",
                 "VALUES (1, CAST(5 AS DOUBLE) + 6 + 7), (2, 8 + 9), (3, 10)");
+
+        assertQuery(
+                "SELECT " +
+                        "x, " +
+                        "array_join(" +
+                        "   array_sort(" +
+                        "       split(reduce_agg(y, '', (a, b) -> a || b, (a, b) -> a || b), '')" +
+                        "   ), " +
+                        "   ''" +
+                        ") " +
+                        "FROM (VALUES (1, 'a'), (1, 'b'), (1, 'c'), (2, 'd'), (2, 'e'), (3, 'f')) AS t(x, y) " +
+                        "GROUP BY x",
+                "VALUES (1, 'abc'), (2, 'de'), (3, 'f')");
+
+        assertQuery(
+                "SELECT " +
+                        "x, " +
+                        "array_join(" +
+                        "   array_sort(" +
+                        "       reduce_agg(y, ARRAY['x'], (a, b) -> a || b, (a, b) -> a || b)" +
+                        "   ), " +
+                        "   ''" +
+                        ") " +
+                        "FROM (VALUES (1, ARRAY['a']), (1, ARRAY['b']), (1, ARRAY['c']), (2, ARRAY['d']), (2, ARRAY['e']), (3, ARRAY['f'])) AS t(x, y) " +
+                        "GROUP BY x",
+                "VALUES (1, 'abcx'), (2, 'dex'), (3, 'fx')");
     }
 
     @Test
@@ -2565,7 +2606,7 @@ public abstract class AbstractTestQueries
     {
         MaterializedResult result = computeActual("SHOW FUNCTIONS");
         ImmutableMultimap<String, MaterializedRow> functions = Multimaps.index(result.getMaterializedRows(), input -> {
-            assertEquals(input.getFieldCount(), 9);
+            assertEquals(input.getFieldCount(), 10);
             return (String) input.getField(0);
         });
 
@@ -2595,28 +2636,32 @@ public abstract class AbstractTestQueries
         assertEquals(functions.get("abs").asList().get(0).getField(4), true);
         assertEquals(functions.get("abs").asList().get(0).getField(6), false);
         assertEquals(functions.get("abs").asList().get(0).getField(7), true);
-        assertEquals(functions.get("abs").asList().get(0).getField(8), "");
+        assertEquals(functions.get("abs").asList().get(0).getField(8), false);
+        assertEquals(functions.get("abs").asList().get(0).getField(9), "");
 
         assertTrue(functions.containsKey("rand"), "Expected function names " + functions + " to contain 'rand'");
         assertEquals(functions.get("rand").asList().get(0).getField(3), "scalar");
         assertEquals(functions.get("rand").asList().get(0).getField(4), false);
         assertEquals(functions.get("rand").asList().get(0).getField(6), false);
         assertEquals(functions.get("rand").asList().get(0).getField(7), true);
-        assertEquals(functions.get("rand").asList().get(0).getField(8), "");
+        assertEquals(functions.get("rand").asList().get(0).getField(8), false);
+        assertEquals(functions.get("rand").asList().get(0).getField(9), "");
 
         assertTrue(functions.containsKey("rank"), "Expected function names " + functions + " to contain 'rank'");
         assertEquals(functions.get("rank").asList().get(0).getField(3), "window");
         assertEquals(functions.get("rank").asList().get(0).getField(4), true);
         assertEquals(functions.get("rank").asList().get(0).getField(6), false);
         assertEquals(functions.get("rank").asList().get(0).getField(7), true);
-        assertEquals(functions.get("rank").asList().get(0).getField(8), "");
+        assertEquals(functions.get("rank").asList().get(0).getField(8), false);
+        assertEquals(functions.get("rank").asList().get(0).getField(9), "");
 
         assertTrue(functions.containsKey("greatest"), "Expected function names " + functions + " to contain 'greatest'");
         assertEquals(functions.get("greatest").asList().get(0).getField(3), "scalar");
         assertEquals(functions.get("greatest").asList().get(0).getField(4), true);
         assertEquals(functions.get("greatest").asList().get(0).getField(6), true);
         assertEquals(functions.get("greatest").asList().get(0).getField(7), true);
-        assertEquals(functions.get("greatest").asList().get(0).getField(8), "");
+        assertEquals(functions.get("greatest").asList().get(0).getField(8), false);
+        assertEquals(functions.get("greatest").asList().get(0).getField(9), "");
 
         assertTrue(functions.containsKey("split_part"), "Expected function names " + functions + " to contain 'split_part'");
         assertEquals(functions.get("split_part").asList().get(0).getField(1), "varchar(x)");
@@ -2625,7 +2670,8 @@ public abstract class AbstractTestQueries
         assertEquals(functions.get("split_part").asList().get(0).getField(4), true);
         assertEquals(functions.get("split_part").asList().get(0).getField(6), false);
         assertEquals(functions.get("split_part").asList().get(0).getField(7), true);
-        assertEquals(functions.get("split_part").asList().get(0).getField(8), "");
+        assertEquals(functions.get("split_part").asList().get(0).getField(8), false);
+        assertEquals(functions.get("split_part").asList().get(0).getField(9), "");
 
         assertFalse(functions.containsKey("like"), "Expected function names " + functions + " not to contain 'like'");
     }
@@ -2699,7 +2745,8 @@ public abstract class AbstractTestQueries
                         .put("connector_long", "11")
                         .build()),
                 getQueryRunner().getMetadata().getSessionPropertyManager(),
-                getSession().getPreparedStatements());
+                getSession().getPreparedStatements(),
+                ImmutableMap.of());
         MaterializedResult result = computeActual(session, "SHOW SESSION");
 
         ImmutableMap<String, MaterializedRow> properties = Maps.uniqueIndex(result.getMaterializedRows(), input -> {
@@ -3394,9 +3441,12 @@ public abstract class AbstractTestQueries
         // two level of nesting
         assertQuery("SELECT * FROM nation n WHERE 2 = (SELECT (SELECT 2 * n.nationkey))");
 
+        // redundant LIMIT in subquery
+        assertQuery("SELECT (SELECT count(*) FROM (VALUES (7,1)) t(orderkey, value) WHERE orderkey = corr_key LIMIT 1) FROM (values 7) t(corr_key)");
+
         // explicit LIMIT in subquery
         assertQueryFails(
-                "SELECT (SELECT count(*) FROM (VALUES (7,1)) t(orderkey, value) WHERE orderkey = corr_key LIMIT 1) FROM (values 7) t(corr_key)",
+                "SELECT (SELECT count(*) FROM (VALUES (7,1)) t(orderkey, value) WHERE orderkey = corr_key GROUP BY value LIMIT 2) FROM (values 7) t(corr_key)",
                 "line 1:9: Given correlated subquery is not supported");
     }
 
@@ -4617,6 +4667,8 @@ public abstract class AbstractTestQueries
         assertAccessAllowed("SELECT name AS my_alias FROM nation", privilege("my_alias", SELECT_COLUMN));
         assertAccessAllowed("SELECT my_alias from (SELECT name AS my_alias FROM nation)", privilege("my_alias", SELECT_COLUMN));
         assertAccessDenied("SELECT name AS my_alias FROM nation", "Cannot select from columns \\[name\\] in table .*.nation.*", privilege("name", SELECT_COLUMN));
+        assertAccessDenied("SELECT nation.name FROM nation JOIN region USING (regionkey)", "Cannot select from columns \\[regionkey, name\\] in table .*", privilege("regionkey", SELECT_COLUMN));
+        assertAccessDenied("SELECT array_agg(regionkey ORDER BY regionkey) FROM nation JOIN region USING (regionkey)", "Cannot select from columns \\[regionkey\\] in table .*", privilege("regionkey", SELECT_COLUMN));
     }
 
     @Test
@@ -4746,6 +4798,18 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testExecuteUsingWithDifferentDatatypes()
+    {
+        String query = "SELECT c1, c2, c3, c4, c5, c6, c7['alice'], c8[1], c9 FROM (SELECT ? as c1, ? as c2, ? as c3, ? as c4, ? as c5, ? as c6, ? as c7, ? as c8, ? as c9)";
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query", query)
+                .build();
+        assertQuery(session,
+                "EXECUTE my_query USING -100, 'hello', (DATE '2020-10-15'), (TIMESTAMP '2020-03-14 10:12:12'), true, ARRAY [1, 2], MAP(ARRAY['alice', 'bob'], ARRAY [100, 300]), ROW('hi!'), null",
+                "VALUES (-100, 'hello', DATE '2020-10-15', TIMESTAMP '2020-03-14 10:12:12', true, ARRAY [1, 2], 100, 'hi!', null)");
+    }
+
+    @Test
     public void testExecuteUsingWithSubquery()
     {
         String query = "SELECT ? in (SELECT orderkey FROM orders)";
@@ -4774,6 +4838,75 @@ public abstract class AbstractTestQueries
         }
         catch (RuntimeException e) {
             assertEquals(e.getMessage(), "line 1:10: '(a + ?)' must be an aggregate expression or appear in GROUP BY clause");
+        }
+    }
+
+    @Test
+    public void testExecuteUsingFunction()
+    {
+        String query = "SELECT ?";
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query", query)
+                .build();
+        assertQuery(session,
+                "EXECUTE my_query USING length('Presto!')",
+                "VALUES (7)");
+    }
+
+    @Test
+    public void testExecuteUsingSubqueryFails()
+    {
+        try {
+            String query = "SELECT ?";
+            Session session = Session.builder(getSession())
+                    .addPreparedStatement("my_query", query)
+                    .build();
+            computeActual(session, "EXECUTE my_query USING (SELECT 1 from nation)");
+            fail("nonLiteral parameters should fail");
+        }
+        catch (SemanticException e) {
+            assertEquals(e.getCode(), EXPRESSION_NOT_CONSTANT);
+        }
+        catch (RuntimeException e) {
+            assertEquals(e.getMessage(), "line 1:24: Constant expression cannot contain table references");
+        }
+    }
+
+    @Test
+    public void testExecuteUsingSelectStarFails()
+    {
+        try {
+            String query = "SELECT ?";
+            Session session = Session.builder(getSession())
+                    .addPreparedStatement("my_query", query)
+                    .build();
+            computeActual(session, "EXECUTE my_query USING (SELECT * from nation)");
+            fail("nonLiteral parameters should fail");
+        }
+        catch (SemanticException e) {
+            assertEquals(e.getCode(), EXPRESSION_NOT_CONSTANT);
+        }
+        catch (RuntimeException e) {
+            assertEquals(e.getMessage(), "line 1:24: Constant expression cannot contain column references");
+        }
+    }
+
+    @Test
+    public void testExecuteUsingColumnReferenceFails()
+    {
+        try {
+            String query = "SELECT ? from nation";
+            Session session = Session.builder(getSession())
+                    .addPreparedStatement("my_query", query)
+                    .build();
+            computeActual(session, "EXECUTE my_query USING \"nationkey\"");
+            fail("nonLiteral parameters should fail");
+        }
+        catch (SemanticException e) {
+            assertEquals(e.getCode(), EXPRESSION_NOT_CONSTANT);
+        }
+        catch (RuntimeException e) {
+            assertEquals(e.getMessage(), "line 1:24: Constant expression cannot contain column references");
         }
     }
 
@@ -5360,5 +5493,193 @@ public abstract class AbstractTestQueries
         assertQuery(
                 "SELECT array_sum(zip_with(a, b, (x, y) -> x * y)), array_sum(zip_with(a, b, (x, y) -> x * y)) + array_sum(zip_with(a, a, (x, y) -> x * y)) FROM (VALUES (ARRAY[1, 2, 3], ARRAY[1, 0, 0])) t(a, b)",
                 "SELECT 1, 15");
+    }
+
+    @Test
+    public void testDistinctFrom()
+    {
+        assertQuery(
+                "SELECT x IS DISTINCT FROM NULL FROM (SELECT CAST(NULL AS VARCHAR)) T(x)",
+                "SELECT FALSE");
+        assertQuery(
+                "SELECT NULL IS DISTINCT FROM x FROM (SELECT CAST(NULL AS VARCHAR)) T(x)",
+                "SELECT FALSE");
+        assertQuery(
+                "SELECT x IS DISTINCT FROM NULL FROM (SELECT CAST('something' AS VARCHAR)) T(x)",
+                "SELECT TRUE");
+        assertQuery(
+                "SELECT NULL IS DISTINCT FROM x FROM (SELECT CAST('something' AS VARCHAR)) T(x)",
+                "SELECT TRUE");
+        assertQuery(
+                "SELECT R.name IS DISTINCT FROM NULL FROM nation N LEFT OUTER JOIN region R ON N.regionkey = R.regionkey AND R.regionkey = 2 WHERE N.name='GERMANY'",
+                "SELECT FALSE");
+        assertQuery(
+                "SELECT NULL IS DISTINCT FROM R.name FROM nation N LEFT OUTER JOIN region R ON N.regionkey = R.regionkey AND R.regionkey = 2 WHERE N.name='KENYA'",
+                "SELECT FALSE");
+        assertQuery(
+                "SELECT NULL IS DISTINCT FROM R.name FROM nation N LEFT OUTER JOIN region R ON N.regionkey = R.regionkey AND R.regionkey = 2 WHERE N.name='KENYA'",
+                "SELECT FALSE");
+        assertQuery(
+                "SELECT NULL IS DISTINCT FROM R.name FROM nation N LEFT OUTER JOIN region R ON N.regionkey = R.regionkey AND R.regionkey = 2 WHERE N.name='KENYA'",
+                "SELECT FALSE");
+        assertQuery(
+                "SELECT NULL IS DISTINCT FROM R.name FROM nation N LEFT OUTER JOIN region R ON N.regionkey = R.regionkey AND R.regionkey = 2 WHERE N.name='INDIA'",
+                "SELECT TRUE");
+        assertQuery(
+                "SELECT NULL IS DISTINCT FROM R.name FROM nation N LEFT OUTER JOIN region R ON N.regionkey = R.regionkey AND R.regionkey = 2 WHERE N.name='JAPAN'",
+                "SELECT TRUE");
+    }
+
+    @Test
+    public void testDereference()
+    {
+        assertQuery(
+                "select cast(row(row(row(random(10), if(random(10) >= 0, 2)), random(10)), random(100)) AS row(x row(y row(a int, b int), c int), d int)).x.y.b",
+                "select 2");
+        assertQuery(
+                "select cast(row(row(row(random(10), if(random(10) < 0, 2)), random(10)), random(100)) AS row(x row(y row(a int, b int), c int), d int)).x.y.b",
+                "select null");
+        assertQuery(
+                "select cast(row(row(null, random(10)), random(100)) AS row(x row(y row(a int, b int), c int), d int)).x.y.b",
+                "select null");
+        assertQuery(
+                "select cast(row(row(null, if(random(100) >= 0, 4)), random(10)) AS row(x row(y row(a int, b int), c int), d int)).x.c",
+                "select 4");
+    }
+
+    @Test
+    public void testApproxMostFrequentWithLong()
+    {
+        MaterializedResult actual1 = computeActual("SELECT approx_most_frequent(3, cast(x as bigint), 15) FROM (values 1, 2, 1, 3, 1, 2, 3, 4, 5) t(x)");
+        assertEquals(actual1.getRowCount(), 1);
+        assertEquals(actual1.getMaterializedRows().get(0).getFields().get(0), ImmutableMap.of(1L, 3L, 2L, 2L, 3L, 2L));
+
+        MaterializedResult actual2 = computeActual("SELECT approx_most_frequent(2, cast(x as bigint), 15) FROM (values 1, 2, 1, 3, 1, 2, 3, 4, 5) t(x)");
+        assertEquals(actual2.getRowCount(), 1);
+        assertEquals(actual2.getMaterializedRows().get(0).getFields().get(0), ImmutableMap.of(1L, 3L, 2L, 2L));
+    }
+
+    @Test
+    public void testApproxMostFrequentWithVarchar()
+    {
+        MaterializedResult actual1 = computeActual("SELECT approx_most_frequent(3, x, 15) FROM (values 'A', 'B', 'A', 'C', 'A', 'B', 'C', 'D', 'E') t(x)");
+        assertEquals(actual1.getRowCount(), 1);
+        assertEquals(actual1.getMaterializedRows().get(0).getFields().get(0), ImmutableMap.of("A", 3L, "B", 2L, "C", 2L));
+
+        MaterializedResult actual2 = computeActual("SELECT approx_most_frequent(2, x, 15) FROM (values 'A', 'B', 'A', 'C', 'A', 'B', 'C', 'D', 'E') t(x)");
+        assertEquals(actual2.getRowCount(), 1);
+        assertEquals(actual2.getMaterializedRows().get(0).getFields().get(0), ImmutableMap.of("A", 3L, "B", 2L));
+    }
+
+    @Test
+    public void testApproxMostFrequentWithLongGroupBy()
+    {
+        MaterializedResult actual1 = computeActual("SELECT k, approx_most_frequent(3, cast(v as bigint), 15) FROM (values ('a', 1), ('b', 2), ('a', 1), ('c', 3), ('a', 1), ('b', 2), ('c', 3), ('a', 4), ('b', 5)) t(k, v) GROUP BY 1 ORDER BY 1");
+
+        assertEquals(actual1.getRowCount(), 3);
+        assertEquals(actual1.getMaterializedRows().get(0).getFields().get(0), "a");
+        assertEquals(actual1.getMaterializedRows().get(0).getFields().get(1), ImmutableMap.of(1L, 3L, 4L, 1L));
+        assertEquals(actual1.getMaterializedRows().get(1).getFields().get(0), "b");
+        assertEquals(actual1.getMaterializedRows().get(1).getFields().get(1), ImmutableMap.of(2L, 2L, 5L, 1L));
+        assertEquals(actual1.getMaterializedRows().get(2).getFields().get(0), "c");
+        assertEquals(actual1.getMaterializedRows().get(2).getFields().get(1), ImmutableMap.of(3L, 2L));
+    }
+
+    @Test
+    public void testApproxMostFrequentWithStringGroupBy()
+    {
+        MaterializedResult actual1 = computeActual("SELECT k, approx_most_frequent(3, v, 15) FROM (values ('a', 'A'), ('b', 'B'), ('a', 'A'), ('c', 'C'), ('a', 'A'), ('b', 'B'), ('c', 'C'), ('a', 'D'), ('b', 'E')) t(k, v) GROUP BY 1 ORDER BY 1");
+
+        assertEquals(actual1.getRowCount(), 3);
+        assertEquals(actual1.getMaterializedRows().get(0).getFields().get(0), "a");
+        assertEquals(actual1.getMaterializedRows().get(0).getFields().get(1), ImmutableMap.of("A", 3L, "D", 1L));
+        assertEquals(actual1.getMaterializedRows().get(1).getFields().get(0), "b");
+        assertEquals(actual1.getMaterializedRows().get(1).getFields().get(1), ImmutableMap.of("B", 2L, "E", 1L));
+        assertEquals(actual1.getMaterializedRows().get(2).getFields().get(0), "c");
+        assertEquals(actual1.getMaterializedRows().get(2).getFields().get(1), ImmutableMap.of("C", 2L));
+    }
+
+    @Test
+    public void testUnknownMaxBy()
+    {
+        assertQuery("select max_by(x, y) from (select 1 x, null y)", "select null");
+        assertQuery("select max_by(x, y) from (select null x, 1 y)", "select null");
+        assertQuery("select max_by(x, y) from (select null x, null y)", "select null");
+    }
+
+    @Test
+    public void testMapUnionSum()
+    {
+        MaterializedResult actual = computeActual("select map_union_sum(x) from (select map(array['x', 'y'], cast(array[1.1,2] as array<real>) ) x union all select map(array['x', 'y'], cast(array[10,20] as array<real>)))");
+        assertEquals(actual.getRowCount(), 1);
+        assertEquals(actual.getMaterializedRows().get(0).getField(0), ImmutableMap.of("x", 11.1f, "y", 22.0f));
+
+        actual = computeActual("select map_union_sum(x) from (select map(array['x', 'y'], cast(array[1.1,2.58] as array<double>)) x union all select map(array['x', 'y'], cast(array[10.1,20.1] as array<double>)))");
+        assertEquals(actual.getRowCount(), 1);
+        assertEquals(actual.getMaterializedRows().get(0).getField(0), ImmutableMap.of("x", 11.2, "y", 22.68));
+
+        actual = computeActual("select map_union_sum(x) from (select map(array['x', 'y'], cast(array[1,2] as array<bigint>)) x union all select map(array['x', 'y'], cast(array[10,20] as array<bigint>)))");
+        assertEquals(actual.getRowCount(), 1);
+        assertEquals(actual.getMaterializedRows().get(0).getField(0), ImmutableMap.of("x", 11L, "y", 22L));
+
+        actual = computeActual("select y, map_union_sum(x) from (select 1 y, map(array['x', 'y'], cast(array[1,2] as array<bigint>)) x union all select 1 y, map(array['x', 'z', 'y'], cast(array[10,30,20] as array<bigint>))) group by y");
+        assertEquals(actual.getRowCount(), 1);
+        assertEquals(actual.getMaterializedRows().get(0).getField(1), ImmutableMap.of("x", 11L, "y", 22L, "z", 30L));
+
+        actual = computeActual("select y, map_union_sum(x) from (select 1 y, map(array['x', 'y'], cast(array[1, null] as array<bigint>))x ) group by y");
+        assertEquals(actual.getRowCount(), 1);
+        assertEquals(actual.getMaterializedRows().get(0).getField(1), ImmutableMap.of("x", 1L, "y", 0L));
+
+        actual = computeActual("select y, map_union_sum(x) from (select 1 y, map(array['x', 'z', 'y'], cast(array[null,30,20] as array<integer>)) x " +
+                "union all select 1 y, map(array['x', 'y'], cast(array[1,null] as array<integer>))x) group by y");
+        assertEquals(actual.getRowCount(), 1);
+        assertEquals(actual.getMaterializedRows().get(0).getField(1), ImmutableMap.of("x", 1, "y", 20, "z", 30));
+
+        actual = computeActual("select y, map_union_sum(x) from (select 1 y, map(array['x', 'z', 'y'], cast(array[null,30,20] as array<smallint>)) x " +
+                "union all select 1 y, map(array['x', 'y'], cast(array[1,null] as array<smallint>))x) group by y");
+        assertEquals(actual.getRowCount(), 1);
+        assertEquals(actual.getMaterializedRows().get(0).getField(1), ImmutableMap.of("x", (short) 1, "y", (short) 20, "z", (short) 30));
+
+        actual = computeActual("select y, map_union_sum(x) from (select 1 y, map(array['x', 'z', 'y'], cast(array[null,30,20] as array<tinyint>)) x " +
+                "union all select 1 y, map(array['x', 'y'], cast(array[1,null] as array<tinyint>))x) group by y");
+        assertEquals(actual.getRowCount(), 1);
+        assertEquals(actual.getMaterializedRows().get(0).getField(1), ImmutableMap.of("x", (byte) 1, "y", (byte) 20, "z", (byte) 30));
+
+        actual = computeActual("select y, map_union_sum(x) from (select 1 y, map(array['x', 'z', 'y'], cast(array[null,30,20] as array<bigint>)) x union all select 1 y, map(array['x', 'y'], cast(array[1,null] as array<bigint>))x) group by y");
+        assertEquals(actual.getRowCount(), 1);
+        assertEquals(actual.getMaterializedRows().get(0).getField(1), ImmutableMap.of("x", 1L, "y", 20L, "z", 30L));
+
+        actual = computeActual("select y, map_union_sum(x) from (select 1 y, map(array['x', 'y'], cast(array[1,null] as array<bigint>)) x " +
+                "union all select 1 y, map(array['x', 'z', 'y'], cast(array[null,30,20] as array<bigint>)) " +
+                "union all select 1 y, map(array['a', 'y', 'x'], cast(array[100, 400, 200] as array<bigint>)) " +
+                "union all select 3 y, map(array['a', 'm', 'x'], cast(array[-1, 2, -3] as array<bigint>)) " +
+                ") group by y order by y");
+        assertEquals(actual.getRowCount(), 2);
+        assertEquals(actual.getMaterializedRows().get(0).getField(0), 1);
+        assertEquals(actual.getMaterializedRows().get(0).getField(1), ImmutableMap.of("a", 100L, "x", 201L, "y", 420L, "z", 30L));
+        assertEquals(actual.getMaterializedRows().get(1).getField(0), 3);
+        assertEquals(actual.getMaterializedRows().get(1).getField(1), ImmutableMap.of("a", -1L, "m", 2L, "x", -3L));
+    }
+
+    @Test
+    public void testInvalidMapUnionSum()
+    {
+        assertQueryFails(
+                "SELECT map_union_sum(x) from (select cast(MAP() as map<varchar, varchar>) x)",
+                ".*line 1:8: Unexpected parameters \\(map\\(varchar,varchar\\)\\) for function map_union_sum. Expected: map_union_sum\\(map\\(K,V\\)\\) K:comparable, V:nonDecimalNumeric.*");
+        assertQueryFails(
+                "SELECT map_union_sum(x) from (select cast(MAP() as map<varchar, decimal(10,2)>) x)",
+                ".*line 1:8: Unexpected parameters \\(map\\(varchar,decimal\\(10,2\\)\\)\\) for function map_union_sum. Expected: map_union_sum\\(map\\(K,V\\)\\) K:comparable, V:nonDecimalNumeric.*");
+    }
+
+    @Test
+    public void testMapUnionSumOverflow()
+    {
+        assertQueryFails(
+                "select y, map_union_sum(x) from (select 1 y, map(array['x', 'z', 'y'], cast(array[null,30,100] as array<tinyint>)) x " +
+                "union all select 1 y, map(array['x', 'y'], cast(array[1,100] as array<tinyint>))x) group by y", ".*Value 200 exceeds MAX_BYTE.*");
+        assertQueryFails(
+                "select y, map_union_sum(x) from (select 1 y, map(array['x', 'z', 'y'], cast(array[null,30, 32760] as array<smallint>)) x " +
+                "union all select 1 y, map(array['x', 'y'], cast(array[1,100] as array<smallint>))x) group by y", ".*Value 32860 exceeds MAX_SHORT.*");
     }
 }

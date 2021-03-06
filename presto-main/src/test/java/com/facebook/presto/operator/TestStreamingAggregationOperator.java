@@ -15,7 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.common.Page;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.StreamingAggregationOperator.StreamingAggregationOperatorFactory;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
@@ -50,12 +50,12 @@ import static java.util.concurrent.Executors.newScheduledThreadPool;
 @Test(singleThreaded = true)
 public class TestStreamingAggregationOperator
 {
-    private static final FunctionManager functionManager = MetadataManager.createTestMetadataManager().getFunctionManager();
+    private static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = MetadataManager.createTestMetadataManager().getFunctionAndTypeManager();
 
-    private static final InternalAggregationFunction LONG_SUM = functionManager.getAggregateFunctionImplementation(
-            functionManager.lookupFunction("sum", fromTypes(BIGINT)));
-    private static final InternalAggregationFunction COUNT = functionManager.getAggregateFunctionImplementation(
-            functionManager.lookupFunction("count", ImmutableList.of()));
+    private static final InternalAggregationFunction LONG_SUM = FUNCTION_AND_TYPE_MANAGER.getAggregateFunctionImplementation(
+            FUNCTION_AND_TYPE_MANAGER.lookupFunction("sum", fromTypes(BIGINT)));
+    private static final InternalAggregationFunction COUNT = FUNCTION_AND_TYPE_MANAGER.getAggregateFunctionImplementation(
+            FUNCTION_AND_TYPE_MANAGER.lookupFunction("count", ImmutableList.of()));
 
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;

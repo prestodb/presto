@@ -42,6 +42,7 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalBroadcastMemoryLimit;
+import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalRevocableMemoryLimit;
 import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalTotalMemoryLimit;
 import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalUserMemoryLimit;
 import static com.facebook.presto.ExceededSpillLimitException.exceededPerQueryLocalLimit;
@@ -69,13 +70,23 @@ public class QueryContext
     private final ScheduledExecutorService yieldExecutor;
     private final long maxSpill;
     private final SpillSpaceTracker spillSpaceTracker;
-    private final Map<TaskId, TaskContext> taskContexts = new ConcurrentHashMap();
+    private final Map<TaskId, TaskContext> taskContexts = new ConcurrentHashMap<>();
+
+    @GuardedBy("this")
+    private boolean resourceOverCommit;
+    private volatile boolean memoryLimitsInitialized;
 
     // TODO: This field should be final. However, due to the way QueryContext is constructed the memory limit is not known in advance
     @GuardedBy("this")
     private long maxUserMemory;
     @GuardedBy("this")
     private long maxTotalMemory;
+    @GuardedBy("this")
+    private long peakNodeTotalMemory;
+
+    // TODO: Make max revocable memory be configurable by session property.
+    @GuardedBy("this")
+    private final long maxRevocableMemory;
 
     @GuardedBy("this")
     private long broadcastUsed;
@@ -95,6 +106,7 @@ public class QueryContext
             DataSize maxUserMemory,
             DataSize maxTotalMemory,
             DataSize maxBroadcastUsedMemory,
+            DataSize maxRevocableMemory,
             MemoryPool memoryPool,
             GcMonitor gcMonitor,
             Executor notificationExecutor,
@@ -106,6 +118,7 @@ public class QueryContext
         this.maxUserMemory = requireNonNull(maxUserMemory, "maxUserMemory is null").toBytes();
         this.maxTotalMemory = requireNonNull(maxTotalMemory, "maxTotalMemory is null").toBytes();
         this.maxBroadcastUsedMemory = requireNonNull(maxBroadcastUsedMemory, "maxBroadcastUsedMemory is null").toBytes();
+        this.maxRevocableMemory = requireNonNull(maxRevocableMemory, "maxRevocableMemory is null").toBytes();
         this.memoryPool = requireNonNull(memoryPool, "memoryPool is null");
         this.gcMonitor = requireNonNull(gcMonitor, "gcMonitor is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
@@ -118,13 +131,21 @@ public class QueryContext
                 newRootAggregatedMemoryContext(new QueryMemoryReservationHandler(this::updateSystemMemory, this::tryReserveMemoryNotSupported, this::updateBroadcastMemory, this::tryUpdateBroadcastMemory), 0L));
     }
 
+    public boolean isMemoryLimitsInitialized()
+    {
+        return memoryLimitsInitialized;
+    }
+
     // TODO: This method should be removed, and the correct limit set in the constructor. However, due to the way QueryContext is constructed the memory limit is not known in advance
     public synchronized void setResourceOvercommit()
     {
-        // Allow the query to use the entire pool. This way the worker will kill the query, if it uses the entire local general pool.
+        resourceOverCommit = true;
+        // Allow the query to use the entire pool. This way the worker will kill the query, if it uses the entire local memory pool.
         // The coordinator will kill the query if the cluster runs out of memory.
         maxUserMemory = memoryPool.getMaxBytes();
         maxTotalMemory = memoryPool.getMaxBytes();
+        //  Mark future memory limit updates as unnecessary
+        memoryLimitsInitialized = true;
     }
 
     @VisibleForTesting
@@ -145,12 +166,14 @@ public class QueryContext
      * Deadlock is possible for concurrent user and system allocations when updateSystemMemory()/updateUserMemory
      * calls queryMemoryContext.getUserMemory()/queryMemoryContext.getSystemMemory(), respectively.
      *
-     * @see this##updateSystemMemory(long) for details.
+     * @see this#updateSystemMemory(String, long) for details.
      */
     private synchronized ListenableFuture<?> updateUserMemory(String allocationTag, long delta)
     {
         if (delta >= 0) {
             enforceUserMemoryLimit(queryMemoryContext.getUserMemory(), delta, maxUserMemory);
+            long totalMemory = memoryPool.getQueryMemoryReservation(queryId);
+            enforceTotalMemoryLimit(totalMemory, delta, maxTotalMemory);
             return memoryPool.reserve(queryId, allocationTag, delta);
         }
         memoryPool.free(queryId, allocationTag, -delta);
@@ -160,7 +183,9 @@ public class QueryContext
     //TODO Add tagging support for revocable memory reservations if needed
     private synchronized ListenableFuture<?> updateRevocableMemory(String allocationTag, long delta)
     {
+        long totalRevocableMemory = memoryPool.getQueryRevocableMemoryReservation(queryId);
         if (delta >= 0) {
+            enforceRevocableMemoryLimit(totalRevocableMemory, delta, maxRevocableMemory);
             return memoryPool.reserveRevocable(queryId, delta);
         }
         memoryPool.freeRevocable(queryId, -delta);
@@ -186,8 +211,8 @@ public class QueryContext
         // the same RootAggregatedMemoryContext instance, and one of the threads will be blocked on the monitor of that
         // RootAggregatedMemoryContext instance even before calling the QueryContext methods (the monitors of
         // RootAggregatedMemoryContext instance and this will be acquired in the same order).
-        long totalMemory = memoryPool.getQueryMemoryReservation(queryId);
         if (delta >= 0) {
+            long totalMemory = memoryPool.getQueryMemoryReservation(queryId);
             enforceTotalMemoryLimit(totalMemory, delta, maxTotalMemory);
             return memoryPool.reserve(queryId, allocationTag, delta);
         }
@@ -234,6 +259,11 @@ public class QueryContext
         if (queryMemoryContext.getUserMemory() + delta > maxUserMemory) {
             return false;
         }
+
+        long totalMemory = memoryPool.getQueryMemoryReservation(queryId);
+        if (totalMemory + delta > maxTotalMemory) {
+            return false;
+        }
         return memoryPool.tryReserve(queryId, allocationTag, delta);
     }
 
@@ -265,6 +295,10 @@ public class QueryContext
         }
         ListenableFuture<?> future = memoryPool.moveQuery(queryId, newMemoryPool);
         memoryPool = newMemoryPool;
+        if (resourceOverCommit) {
+            // Reset the memory limits based on the new pool assignment
+            setResourceOvercommit();
+        }
         future.addListener(() -> {
             // Unblock all the tasks, if they were waiting for memory, since we're in a new pool.
             taskContexts.values().forEach(TaskContext::moreMemoryAvailable);
@@ -343,6 +377,13 @@ public class QueryContext
         maxUserMemory = Math.min(maxUserMemory, queryMaxTaskMemory.toBytes());
         maxTotalMemory = Math.min(maxTotalMemory, queryMaxTotalTaskMemory.toBytes());
         maxBroadcastUsedMemory = Math.min(maxBroadcastUsedMemory, queryMaxBroadcastMemory.toBytes());
+        //  Mark future memory limit updates as unnecessary
+        memoryLimitsInitialized = true;
+    }
+
+    public synchronized long getPeakNodeTotalMemory()
+    {
+        return peakNodeTotalMemory;
     }
 
     private static class QueryMemoryReservationHandler
@@ -409,8 +450,18 @@ public class QueryContext
     @GuardedBy("this")
     private void enforceTotalMemoryLimit(long allocated, long delta, long maxMemory)
     {
-        if (allocated + delta > maxMemory) {
+        long totalMemory = allocated + delta;
+        peakNodeTotalMemory = Math.max(totalMemory, peakNodeTotalMemory);
+        if (totalMemory > maxMemory) {
             throw exceededLocalTotalMemoryLimit(succinctBytes(maxMemory), getAdditionalFailureInfo(allocated, delta));
+        }
+    }
+
+    @GuardedBy("this")
+    private void enforceRevocableMemoryLimit(long allocated, long delta, long maxMemory)
+    {
+        if (allocated + delta > maxMemory) {
+            throw exceededLocalRevocableMemoryLimit(succinctBytes(maxMemory), getAdditionalFailureInfo(allocated, delta));
         }
     }
 

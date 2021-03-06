@@ -21,7 +21,7 @@ import com.facebook.presto.common.type.NamedTypeSignature;
 import com.facebook.presto.common.type.RowFieldName;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.TestingSession;
 import com.facebook.presto.spi.function.FunctionHandle;
@@ -86,15 +86,15 @@ public class TestSubfieldExtractor
         }
     };
 
-    private FunctionManager functionManager;
+    private FunctionAndTypeManager functionAndTypeManager;
     private SubfieldExtractor subfieldExtractor;
 
     @BeforeClass
     public void setup()
     {
-        functionManager = createTestMetadataManager().getFunctionManager();
+        functionAndTypeManager = createTestMetadataManager().getFunctionAndTypeManager();
         subfieldExtractor = new SubfieldExtractor(
-                new FunctionResolution(functionManager),
+                new FunctionResolution(functionAndTypeManager),
                 TEST_EXPRESSION_OPTIMIZER,
                 TestingSession.SESSION);
     }
@@ -174,6 +174,6 @@ public class TestSubfieldExtractor
 
     private FunctionHandle operator(OperatorType operatorType, Type... types)
     {
-        return functionManager.resolveOperator(operatorType, fromTypes(types));
+        return functionAndTypeManager.resolveOperator(operatorType, fromTypes(types));
     }
 }

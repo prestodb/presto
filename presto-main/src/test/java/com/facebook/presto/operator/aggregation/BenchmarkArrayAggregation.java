@@ -17,8 +17,9 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.operator.UpdateMemory;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -83,7 +84,7 @@ public class BenchmarkArrayAggregation
         @Setup(Invocation)
         public void setup()
         {
-            FunctionManager functionManager = MetadataManager.createTestMetadataManager().getFunctionManager();
+            FunctionAndTypeManager functionAndTypeManager = MetadataManager.createTestMetadataManager().getFunctionAndTypeManager();
             Block block;
             Type elementType;
             switch (type) {
@@ -103,9 +104,9 @@ public class BenchmarkArrayAggregation
                     throw new UnsupportedOperationException();
             }
 
-            InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(
-                    functionManager.lookupFunction(name, fromTypes(elementType)));
-            accumulator = function.bind(ImmutableList.of(0), Optional.empty()).createAccumulator();
+            InternalAggregationFunction function = functionAndTypeManager.getAggregateFunctionImplementation(
+                    functionAndTypeManager.lookupFunction(name, fromTypes(elementType)));
+            accumulator = function.bind(ImmutableList.of(0), Optional.empty()).createAccumulator(UpdateMemory.NOOP);
 
             block = createChannel(ARRAY_SIZE, elementType);
             page = new Page(block);

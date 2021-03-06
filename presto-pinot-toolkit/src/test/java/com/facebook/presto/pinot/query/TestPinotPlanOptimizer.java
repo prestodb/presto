@@ -65,9 +65,9 @@ public class TestPinotPlanOptimizer
         extends TestPinotQueryBase
 {
     private final LogicalRowExpressions logicalRowExpressions = new LogicalRowExpressions(
-            new RowExpressionDeterminismEvaluator(functionMetadataManager),
-            new FunctionResolution(functionMetadataManager),
-            functionMetadataManager);
+            new RowExpressionDeterminismEvaluator(functionAndTypeManager),
+            new FunctionResolution(functionAndTypeManager),
+            functionAndTypeManager);
     protected final PinotTableHandle pinotTable = TestPinotSplitManager.hybridTable;
     protected final SessionHolder defaultSessionHolder = getDefaultSessionHolder();
 
@@ -305,8 +305,8 @@ public class TestPinotPlanOptimizer
     protected PlanNode getOptimizedPlan(PlanBuilder planBuilder, PlanNode originalPlan)
     {
         PinotConfig pinotConfig = new PinotConfig();
-        PinotQueryGenerator pinotQueryGenerator = new PinotQueryGenerator(pinotConfig, typeManager, functionMetadataManager, standardFunctionResolution);
-        PinotPlanOptimizer optimizer = new PinotPlanOptimizer(pinotQueryGenerator, typeManager, functionMetadataManager, logicalRowExpressions, standardFunctionResolution);
+        PinotQueryGenerator pinotQueryGenerator = new PinotQueryGenerator(pinotConfig, functionAndTypeManager, functionAndTypeManager, standardFunctionResolution);
+        PinotPlanOptimizer optimizer = new PinotPlanOptimizer(pinotQueryGenerator, functionAndTypeManager, functionAndTypeManager, logicalRowExpressions, standardFunctionResolution);
         return optimizer.optimize(originalPlan, defaultSessionHolder.getConnectorSession(), new PlanVariableAllocator(), planBuilder.getIdAllocator());
     }
 }

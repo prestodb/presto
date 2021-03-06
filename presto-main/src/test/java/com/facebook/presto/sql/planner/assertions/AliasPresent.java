@@ -20,7 +20,7 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 
 import java.util.Optional;
 
-import static com.facebook.presto.type.UnknownType.UNKNOWN;
+import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static java.util.Objects.requireNonNull;
 
 /**

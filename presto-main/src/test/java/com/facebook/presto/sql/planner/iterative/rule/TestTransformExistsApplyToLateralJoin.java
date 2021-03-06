@@ -38,11 +38,11 @@ public class TestTransformExistsApplyToLateralJoin
     @Test
     public void testDoesNotFire()
     {
-        tester().assertThat(new TransformExistsApplyToLateralNode(tester().getMetadata().getFunctionManager()))
+        tester().assertThat(new TransformExistsApplyToLateralNode(tester().getMetadata().getFunctionAndTypeManager()))
                 .on(p -> p.values(p.variable("a")))
                 .doesNotFire();
 
-        tester().assertThat(new TransformExistsApplyToLateralNode(tester().getMetadata().getFunctionManager()))
+        tester().assertThat(new TransformExistsApplyToLateralNode(tester().getMetadata().getFunctionAndTypeManager()))
                 .on(p ->
                         p.lateral(
                                 ImmutableList.of(p.variable("a")),
@@ -54,7 +54,7 @@ public class TestTransformExistsApplyToLateralJoin
     @Test
     public void testRewrite()
     {
-        tester().assertThat(new TransformExistsApplyToLateralNode(tester().getMetadata().getFunctionManager()))
+        tester().assertThat(new TransformExistsApplyToLateralNode(tester().getMetadata().getFunctionAndTypeManager()))
                 .on(p ->
                         p.apply(
                                 assignment(p.variable("b", BOOLEAN), expression("EXISTS(SELECT TRUE)")),
@@ -73,7 +73,7 @@ public class TestTransformExistsApplyToLateralJoin
     @Test
     public void testRewritesToLimit()
     {
-        tester().assertThat(new TransformExistsApplyToLateralNode(tester().getMetadata().getFunctionManager()))
+        tester().assertThat(new TransformExistsApplyToLateralNode(tester().getMetadata().getFunctionAndTypeManager()))
                 .on(p ->
                         p.apply(
                                 assignment(p.variable("b", BOOLEAN), expression("EXISTS(SELECT TRUE)")),

@@ -24,7 +24,7 @@ import java.util.Map;
 
 import static com.facebook.airlift.testing.Assertions.assertContains;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
+import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_MANAGER;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
@@ -79,13 +79,13 @@ public class TestHiveTypeTranslator
 
     private void assertTypeTranslation(String typeName, HiveType hiveType)
     {
-        Type type = TYPE_MANAGER.getType(parseTypeSignature(typeName));
+        Type type = FUNCTION_AND_TYPE_MANAGER.getType(parseTypeSignature(typeName));
         assertEquals(HiveType.toHiveType(typeTranslator, type), hiveType);
     }
 
     private void assertInvalidTypeTranslation(String typeName, ErrorCode errorCode, String message)
     {
-        Type type = TYPE_MANAGER.getType(parseTypeSignature(typeName));
+        Type type = FUNCTION_AND_TYPE_MANAGER.getType(parseTypeSignature(typeName));
         try {
             HiveType.toHiveType(typeTranslator, type);
             fail("expected exception");

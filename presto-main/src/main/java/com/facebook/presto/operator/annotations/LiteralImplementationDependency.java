@@ -13,9 +13,8 @@
  */
 package com.facebook.presto.operator.annotations;
 
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 
 import static java.util.Objects.requireNonNull;
 
@@ -30,7 +29,7 @@ public final class LiteralImplementationDependency
     }
 
     @Override
-    public Long resolve(BoundVariables boundVariables, TypeManager typeManager, FunctionManager functionManager)
+    public Long resolve(BoundVariables boundVariables, FunctionAndTypeManager functionAndTypeManager)
     {
         return boundVariables.getLongVariable(literalName);
     }

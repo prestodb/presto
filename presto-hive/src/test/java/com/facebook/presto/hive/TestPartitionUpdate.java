@@ -40,7 +40,8 @@ public class TestPartitionUpdate
                 ImmutableList.of(new PartitionUpdate.FileWriteInfo(".file1", "file1", Optional.empty()), new FileWriteInfo(".file3", "file3", Optional.empty())),
                 123,
                 456,
-                789);
+                789,
+                false);
 
         PartitionUpdate actual = CODEC.fromJson(CODEC.toJson(expected));
 

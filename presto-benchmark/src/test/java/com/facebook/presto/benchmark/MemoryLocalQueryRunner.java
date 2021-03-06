@@ -16,12 +16,12 @@ package com.facebook.presto.benchmark;
 import com.facebook.airlift.stats.TestingGcMonitor;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskStateMachine;
 import com.facebook.presto.memory.MemoryPool;
 import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.plugin.memory.MemoryConnectorFactory;
@@ -80,6 +80,7 @@ public class MemoryLocalQueryRunner
                 new DataSize(1, GIGABYTE),
                 new DataSize(2, GIGABYTE),
                 new DataSize(1, GIGABYTE),
+                new DataSize(2, GIGABYTE),
                 memoryPool,
                 new TestingGcMonitor(),
                 localQueryRunner.getExecutor(),

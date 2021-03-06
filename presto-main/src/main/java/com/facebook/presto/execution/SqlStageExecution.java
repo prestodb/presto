@@ -518,7 +518,7 @@ public final class SqlStageExecution
                 planFragment,
                 initialSplits.build(),
                 outputBuffers,
-                nodeTaskMap.createPartitionedSplitCountTracker(node, taskId),
+                nodeTaskMap.createTaskStatsTracker(node, taskId),
                 summarizeTaskInfo,
                 tableWriteInfo);
 
@@ -711,7 +711,7 @@ public final class SqlStageExecution
             long deltaTotalMemoryInBytes = (currentUserMemory + currentSystemMemory) - (previousUserMemory + previousSystemMemory);
             previousUserMemory = currentUserMemory;
             previousSystemMemory = currentSystemMemory;
-            stateMachine.updateMemoryUsage(deltaUserMemoryInBytes, deltaTotalMemoryInBytes);
+            stateMachine.updateMemoryUsage(deltaUserMemoryInBytes, deltaTotalMemoryInBytes, taskStatus.getPeakNodeTotalMemoryReservationInBytes());
         }
 
         private synchronized void updateCompletedDriverGroups(TaskStatus taskStatus)

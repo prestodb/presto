@@ -13,15 +13,13 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.MapType;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.operator.UpdateMemory;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import org.testng.annotations.Test;
@@ -32,6 +30,7 @@ import java.util.Optional;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.getFinalBlock;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.getIntermediateBlock;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -46,10 +45,9 @@ public class TestRealHistogramAggregation
 
     public TestRealHistogramAggregation()
     {
-        TypeRegistry typeRegistry = new TypeRegistry();
-        FunctionManager functionManager = new FunctionManager(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
-        InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(
-                functionManager.lookupFunction("numeric_histogram", fromTypes(BIGINT, REAL, DOUBLE)));
+        FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
+        InternalAggregationFunction function = functionAndTypeManager.getAggregateFunctionImplementation(
+                functionAndTypeManager.lookupFunction("numeric_histogram", fromTypes(BIGINT, REAL, DOUBLE)));
         factory = function.bind(ImmutableList.of(0, 1, 2), Optional.empty());
         input = makeInput(10);
     }
@@ -57,15 +55,15 @@ public class TestRealHistogramAggregation
     @Test
     public void test()
     {
-        Accumulator singleStep = factory.createAccumulator();
+        Accumulator singleStep = factory.createAccumulator(UpdateMemory.NOOP);
         singleStep.addInput(input);
         Block expected = getFinalBlock(singleStep);
 
-        Accumulator partialStep = factory.createAccumulator();
+        Accumulator partialStep = factory.createAccumulator(UpdateMemory.NOOP);
         partialStep.addInput(input);
         Block partialBlock = getIntermediateBlock(partialStep);
 
-        Accumulator finalStep = factory.createAccumulator();
+        Accumulator finalStep = factory.createAccumulator(UpdateMemory.NOOP);
         finalStep.addIntermediate(partialBlock);
         Block actual = getFinalBlock(finalStep);
 
@@ -75,15 +73,15 @@ public class TestRealHistogramAggregation
     @Test
     public void testMerge()
     {
-        Accumulator singleStep = factory.createAccumulator();
+        Accumulator singleStep = factory.createAccumulator(UpdateMemory.NOOP);
         singleStep.addInput(input);
         Block singleStepResult = getFinalBlock(singleStep);
 
-        Accumulator partialStep = factory.createAccumulator();
+        Accumulator partialStep = factory.createAccumulator(UpdateMemory.NOOP);
         partialStep.addInput(input);
         Block intermediate = getIntermediateBlock(partialStep);
 
-        Accumulator finalStep = factory.createAccumulator();
+        Accumulator finalStep = factory.createAccumulator(UpdateMemory.NOOP);
 
         finalStep.addIntermediate(intermediate);
         finalStep.addIntermediate(intermediate);
@@ -97,7 +95,7 @@ public class TestRealHistogramAggregation
     @Test
     public void testNull()
     {
-        Accumulator accumulator = factory.createAccumulator();
+        Accumulator accumulator = factory.createAccumulator(UpdateMemory.NOOP);
         Block result = getFinalBlock(accumulator);
 
         assertTrue(result.getPositionCount() == 1);
@@ -107,7 +105,7 @@ public class TestRealHistogramAggregation
     @Test(expectedExceptions = PrestoException.class)
     public void testBadNumberOfBuckets()
     {
-        Accumulator singleStep = factory.createAccumulator();
+        Accumulator singleStep = factory.createAccumulator(UpdateMemory.NOOP);
         singleStep.addInput(makeInput(0));
         getFinalBlock(singleStep);
     }

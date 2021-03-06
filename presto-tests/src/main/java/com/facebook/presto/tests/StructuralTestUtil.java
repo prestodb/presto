@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.tests;
 
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.DecimalType;
@@ -22,28 +21,21 @@ import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignatureParameter;
-import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.type.TypeRegistry;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 import java.math.BigDecimal;
 import java.util.List;
 
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.util.StructuralTestUtil.appendToBlockBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public final class StructuralTestUtil
 {
-    private static final TypeManager TYPE_MANAGER = new TypeRegistry();
-
-    static {
-        // associate TYPE_MANAGER with a function manager
-        new FunctionManager(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
-    }
+    private static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = createTestFunctionAndTypeManager();
 
     private StructuralTestUtil() {}
 
@@ -156,7 +148,7 @@ public final class StructuralTestUtil
 
     public static MapType mapType(Type keyType, Type valueType)
     {
-        return (MapType) TYPE_MANAGER.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+        return (MapType) FUNCTION_AND_TYPE_MANAGER.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
                 TypeSignatureParameter.of(keyType.getTypeSignature()),
                 TypeSignatureParameter.of(valueType.getTypeSignature())));
     }

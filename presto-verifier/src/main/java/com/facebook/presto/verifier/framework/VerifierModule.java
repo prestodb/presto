@@ -14,13 +14,13 @@
 package com.facebook.presto.verifier.framework;
 
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncoding;
+import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.CatalogManager;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -29,7 +29,6 @@ import com.facebook.presto.transaction.ForTransactionManager;
 import com.facebook.presto.transaction.InMemoryTransactionManager;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.transaction.TransactionManagerConfig;
-import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.verifier.annotation.ForControl;
 import com.facebook.presto.verifier.annotation.ForTest;
 import com.facebook.presto.verifier.checksum.ArrayColumnValidator;
@@ -108,7 +107,7 @@ public class VerifierModule
         binder.bind(CatalogManager.class).in(Scopes.SINGLETON);
 
         // function
-        binder.bind(FunctionManager.class).in(SINGLETON);
+        binder.bind(FunctionAndTypeManager.class).in(SINGLETON);
 
         // handle resolver
         binder.install(new HandleJsonModule());
@@ -122,7 +121,7 @@ public class VerifierModule
 
         // type
         configBinder(binder).bindConfig(FeaturesConfig.class);
-        binder.bind(TypeManager.class).to(TypeRegistry.class).in(SINGLETON);
+        binder.bind(TypeManager.class).to(FunctionAndTypeManager.class).in(SINGLETON);
         newSetBinder(binder, Type.class);
 
         // verifier

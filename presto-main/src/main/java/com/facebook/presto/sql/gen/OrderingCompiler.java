@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.array.AdaptiveLongBigArray;
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.ClassDefinition;
 import com.facebook.presto.bytecode.MethodDefinition;
@@ -38,7 +39,6 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
-import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -143,17 +143,17 @@ public class OrderingCompiler
         MethodDefinition compareToMethod = classDefinition.declareMethod(a(PUBLIC), "compareTo", type(int.class), pagesIndex, leftPosition, rightPosition);
         Scope scope = compareToMethod.getScope();
 
-        Variable valueAddresses = scope.declareVariable(LongArrayList.class, "valueAddresses");
+        Variable valueAddresses = scope.declareVariable(AdaptiveLongBigArray.class, "valueAddresses");
         compareToMethod
                 .getBody()
-                .comment("LongArrayList valueAddresses = pagesIndex.valueAddresses")
-                .append(valueAddresses.set(pagesIndex.invoke("getValueAddresses", LongArrayList.class)));
+                .comment("AdaptiveLongBigArray valueAddresses = pagesIndex.valueAddresses")
+                .append(valueAddresses.set(pagesIndex.invoke("getValueAddresses", AdaptiveLongBigArray.class)));
 
         Variable leftPageAddress = scope.declareVariable(long.class, "leftPageAddress");
         compareToMethod
                 .getBody()
-                .comment("long leftPageAddress = valueAddresses.getLong(leftPosition)")
-                .append(leftPageAddress.set(valueAddresses.invoke("getLong", long.class, leftPosition)));
+                .comment("long leftPageAddress = valueAddresses.get(leftPosition)")
+                .append(leftPageAddress.set(valueAddresses.invoke("get", long.class, leftPosition)));
 
         Variable leftBlockIndex = scope.declareVariable(int.class, "leftBlockIndex");
         compareToMethod
@@ -170,8 +170,8 @@ public class OrderingCompiler
         Variable rightPageAddress = scope.declareVariable(long.class, "rightPageAddress");
         compareToMethod
                 .getBody()
-                .comment("long rightPageAddress = valueAddresses.getLong(rightPosition);")
-                .append(rightPageAddress.set(valueAddresses.invoke("getLong", long.class, rightPosition)));
+                .comment("long rightPageAddress = valueAddresses.get(rightPosition);")
+                .append(rightPageAddress.set(valueAddresses.invoke("get", long.class, rightPosition)));
 
         Variable rightBlockIndex = scope.declareVariable(int.class, "rightBlockIndex");
         compareToMethod

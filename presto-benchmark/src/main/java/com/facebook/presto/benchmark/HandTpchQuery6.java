@@ -16,7 +16,7 @@ package com.facebook.presto.benchmark;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.function.SqlFunctionProperties;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
 import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.OperatorFactory;
@@ -55,9 +55,9 @@ public class HandTpchQuery6
     public HandTpchQuery6(LocalQueryRunner localQueryRunner)
     {
         super(localQueryRunner, "hand_tpch_query_6", 10, 100);
-        FunctionManager functionManager = localQueryRunner.getMetadata().getFunctionManager();
-        doubleSum = functionManager.getAggregateFunctionImplementation(
-                functionManager.lookupFunction("sum", fromTypes(DOUBLE)));
+        FunctionAndTypeManager functionAndTypeManager = localQueryRunner.getMetadata().getFunctionAndTypeManager();
+        doubleSum = functionAndTypeManager.getAggregateFunctionImplementation(
+                functionAndTypeManager.lookupFunction("sum", fromTypes(DOUBLE)));
     }
 
     @Override
@@ -75,6 +75,7 @@ public class HandTpchQuery6
         List<Supplier<PageProjectionWithOutputs>> projection = new PageFunctionCompiler(localQueryRunner.getMetadata(), 0)
                 .compileProjections(
                         session.getSqlFunctionProperties(),
+                        session.getSessionFunctions(),
                         ImmutableList.of(field(0, BIGINT)),
                         false,
                         Optional.empty());

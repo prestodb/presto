@@ -46,7 +46,7 @@ import static com.facebook.presto.block.BlockAssertions.createSlicesBlock;
 import static com.facebook.presto.common.block.MethodHandleUtil.compose;
 import static com.facebook.presto.common.block.MethodHandleUtil.nativeValueGetter;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.facebook.presto.testing.TestingEnvironment.TYPE_MANAGER;
+import static com.facebook.presto.testing.TestingEnvironment.getOperatorMethodHandle;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 
@@ -84,17 +84,14 @@ public class BenchmarkDictionaryBlockGetSizeInBytes
         {
             Type keyType = VARCHAR;
             Type valueType = VARCHAR;
-            MethodHandle keyNativeEquals = TYPE_MANAGER.resolveOperator(OperatorType.EQUAL, ImmutableList.of(keyType, keyType));
-            MethodHandle keyBlockNativeEquals = compose(keyNativeEquals, nativeValueGetter(keyType));
+            MethodHandle keyNativeEquals = getOperatorMethodHandle(OperatorType.EQUAL, keyType, keyType);
             MethodHandle keyBlockEquals = compose(keyNativeEquals, nativeValueGetter(keyType), nativeValueGetter(keyType));
-            MethodHandle keyNativeHashCode = TYPE_MANAGER.resolveOperator(OperatorType.HASH_CODE, ImmutableList.of(keyType));
+            MethodHandle keyNativeHashCode = getOperatorMethodHandle(OperatorType.HASH_CODE, keyType);
             MethodHandle keyBlockHashCode = compose(keyNativeHashCode, nativeValueGetter(keyType));
             MapType mapType = new MapType(
                     keyType,
                     valueType,
-                    keyBlockNativeEquals,
                     keyBlockEquals,
-                    keyNativeHashCode,
                     keyBlockHashCode);
             Block keyBlock = createDictionaryBlock(generateList("key", positionCount));
             Block valueBlock = createDictionaryBlock(generateList("value", positionCount));

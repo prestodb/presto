@@ -18,26 +18,33 @@ import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.TestingSessionContext;
+import com.facebook.presto.resourceGroups.FileResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.server.BasicQueryInfo;
+import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.execution.QueryState.DISPATCHING;
 import static com.facebook.presto.execution.QueryState.FAILED;
+import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.createQuery;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.waitForQueryState;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_CPU_LIMIT;
+import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_OUTPUT_SIZE_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_SCAN_RAW_BYTES_READ_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder.builder;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.fail;
 
@@ -51,6 +58,10 @@ public class TestQueryManager
             throws Exception
     {
         queryRunner = TpchQueryRunnerBuilder.builder().build();
+        TestingPrestoServer server = queryRunner.getCoordinator();
+        server.getResourceGroupManager().get().addConfigurationManagerFactory(new FileResourceGroupConfigurationManagerFactory());
+        server.getResourceGroupManager().get()
+                .setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_simple.json")));
     }
 
     @AfterClass(alwaysRun = true)
@@ -58,6 +69,13 @@ public class TestQueryManager
     {
         queryRunner.close();
         queryRunner = null;
+    }
+
+    @AfterMethod
+    public void cancelAllQueriesAfterTest()
+    {
+        DispatchManager dispatchManager = queryRunner.getCoordinator().getDispatchManager();
+        ImmutableList.copyOf(dispatchManager.getQueries()).forEach(queryInfo -> dispatchManager.cancelQuery(queryInfo.getQueryId()));
     }
 
     @Test(timeOut = 60_000L)
@@ -102,6 +120,8 @@ public class TestQueryManager
     {
         DispatchManager dispatchManager = queryRunner.getCoordinator().getDispatchManager();
         QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
+        // Create 3 running queries to guarantee queueing
+        createQueries(dispatchManager, 3);
         QueryId queryId = dispatchManager.createQueryId();
         dispatchManager.createQuery(
                 queryId,
@@ -110,24 +130,39 @@ public class TestQueryManager
                 "SELECT * FROM lineitem")
                 .get();
 
+        assertNotEquals(dispatchManager.getStats().getQueuedQueries(), 0L, "Expected 0 queued queries, found: " + dispatchManager.getStats().getQueuedQueries());
+
         // wait until it's admitted but fail it before it starts
         while (true) {
             QueryState state = dispatchManager.getQueryInfo(queryId).getState();
             if (state.ordinal() >= RUNNING.ordinal()) {
                 fail("unexpected query state: " + state);
             }
-            if (state.ordinal() > DISPATCHING.ordinal()) {
+            if (state.ordinal() >= QUEUED.ordinal()) {
                 // cancel query
                 dispatchManager.failQuery(queryId, new PrestoException(GENERIC_USER_ERROR, "mock exception"));
                 break;
             }
         }
 
-        QueryState state = queryManager.getQueryInfo(queryId).getState();
+        QueryState state = dispatchManager.getQueryInfo(queryId).getState();
         assertEquals(state, FAILED);
         //Give the stats a time to update
         Thread.sleep(1000);
         assertEquals(queryManager.getStats().getQueuedQueries(), 0);
+    }
+
+    void createQueries(DispatchManager dispatchManager, int queryCount)
+            throws InterruptedException, java.util.concurrent.ExecutionException
+    {
+        for (int i = 0; i < queryCount; i++) {
+            dispatchManager.createQuery(
+                    dispatchManager.createQueryId(),
+                    "slug",
+                    new TestingSessionContext(TEST_SESSION),
+                    "SELECT * FROM lineitem")
+                    .get();
+        }
     }
 
     @Test(timeOut = 60_000L)
@@ -156,5 +191,24 @@ public class TestQueryManager
             assertEquals(queryInfo.getState(), FAILED);
             assertEquals(queryInfo.getErrorCode(), EXCEEDED_SCAN_RAW_BYTES_READ_LIMIT.toErrorCode());
         }
+    }
+
+    @Test(timeOut = 60_000L)
+    public void testQueryOutputSizeExceeded()
+            throws Exception
+    {
+        try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder().setSingleExtraProperty("query.max-output-size", "1B").build()) {
+            QueryId queryId = createQuery(queryRunner, TEST_SESSION, "SELECT COUNT(*) FROM lineitem");
+            waitForQueryState(queryRunner, queryId, FAILED);
+            QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
+            BasicQueryInfo queryInfo = queryManager.getQueryInfo(queryId);
+            assertEquals(queryInfo.getState(), FAILED);
+            assertEquals(queryInfo.getErrorCode(), EXCEEDED_OUTPUT_SIZE_LIMIT.toErrorCode());
+        }
+    }
+
+    private String getResourceFilePath(String fileName)
+    {
+        return this.getClass().getClassLoader().getResource(fileName).getPath();
     }
 }

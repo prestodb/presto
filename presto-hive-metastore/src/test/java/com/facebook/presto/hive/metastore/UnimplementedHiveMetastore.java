@@ -26,7 +26,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
-class UnimplementedHiveMetastore
+public class UnimplementedHiveMetastore
         implements ExtendedHiveMetastore
 {
     @Override
@@ -163,6 +163,15 @@ class UnimplementedHiveMetastore
 
     @Override
     public List<String> getPartitionNamesByFilter(
+            String databaseName,
+            String tableName,
+            Map<Column, Domain> partitionPredicates)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public List<PartitionNameWithVersion> getPartitionNamesWithVersionByFilter(
             String databaseName,
             String tableName,
             Map<Column, Domain> partitionPredicates)

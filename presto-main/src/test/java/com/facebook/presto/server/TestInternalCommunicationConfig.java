@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.drift.transport.netty.codec.Protocol;
 import com.facebook.presto.server.InternalCommunicationConfig.CommunicationProtocol;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
@@ -35,6 +36,7 @@ public class TestInternalCommunicationConfig
                 .setKeyStorePath(null)
                 .setKeyStorePassword(null)
                 .setTrustStorePath(null)
+                .setTrustStorePassword(null)
                 .setKerberosEnabled(false)
                 .setIncludedCipherSuites(null)
                 .setExcludeCipherSuites(null)
@@ -42,7 +44,9 @@ public class TestInternalCommunicationConfig
                 .setBinaryTransportEnabled(false)
                 .setMaxTaskUpdateSize(new DataSize(16, MEGABYTE))
                 .setTaskCommunicationProtocol(CommunicationProtocol.HTTP)
-                .setServerInfoCommunicationProtocol(CommunicationProtocol.HTTP));
+                .setServerInfoCommunicationProtocol(CommunicationProtocol.HTTP)
+                .setThriftTransportEnabled(false)
+                .setThriftProtocol(Protocol.BINARY));
     }
 
     @Test
@@ -52,6 +56,7 @@ public class TestInternalCommunicationConfig
                 .put("internal-communication.https.required", "true")
                 .put("internal-communication.https.keystore.path", "/a")
                 .put("internal-communication.https.trust-store-path", "/a")
+                .put("internal-communication.https.trust-store-password", "key")
                 .put("internal-communication.https.keystore.key", "key")
                 .put("internal-communication.https.included-cipher", "cipher")
                 .put("internal-communication.https.excluded-cipher", "")
@@ -61,6 +66,8 @@ public class TestInternalCommunicationConfig
                 .put("experimental.internal-communication.max-task-update-size", "512MB")
                 .put("internal-communication.task-communication-protocol", "THRIFT")
                 .put("internal-communication.server-info-communication-protocol", "THRIFT")
+                .put("experimental.internal-communication.thrift-transport-enabled", "true")
+                .put("experimental.internal-communication.thrift-transport-protocol", "COMPACT")
                 .build();
 
         InternalCommunicationConfig expected = new InternalCommunicationConfig()
@@ -68,6 +75,7 @@ public class TestInternalCommunicationConfig
                 .setKeyStorePath("/a")
                 .setKeyStorePassword("key")
                 .setTrustStorePath("/a")
+                .setTrustStorePassword("key")
                 .setIncludedCipherSuites("cipher")
                 .setExcludeCipherSuites("")
                 .setKerberosEnabled(true)
@@ -75,7 +83,9 @@ public class TestInternalCommunicationConfig
                 .setBinaryTransportEnabled(true)
                 .setMaxTaskUpdateSize(new DataSize(512, MEGABYTE))
                 .setTaskCommunicationProtocol(CommunicationProtocol.THRIFT)
-                .setServerInfoCommunicationProtocol(CommunicationProtocol.THRIFT);
+                .setServerInfoCommunicationProtocol(CommunicationProtocol.THRIFT)
+                .setThriftTransportEnabled(true)
+                .setThriftProtocol(Protocol.COMPACT);
 
         assertFullMapping(properties, expected);
     }

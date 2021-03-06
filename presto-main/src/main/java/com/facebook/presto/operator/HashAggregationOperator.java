@@ -366,7 +366,6 @@ public class HashAggregationOperator
         inputProcessed = true;
 
         if (aggregationBuilder == null) {
-            // TODO: We ignore spillEnabled here if any aggregate has ORDER BY clause or DISTINCT because they are not yet implemented for spilling.
             if (step.isOutputPartial() || !spillEnabled) {
                 aggregationBuilder = new InMemoryHashAggregationBuilder(
                         accumulatorFactories,
@@ -508,7 +507,8 @@ public class HashAggregationOperator
     private Page getGlobalAggregationOutput()
     {
         List<Accumulator> accumulators = accumulatorFactories.stream()
-                .map(AccumulatorFactory::createAccumulator)
+                // No input will be added to the accumulators, it is ok not to specify the memory callback
+                .map(accumulatorFactory -> accumulatorFactory.createAccumulator(UpdateMemory.NOOP))
                 .collect(Collectors.toList());
 
         // global aggregation output page will only be constructed once,

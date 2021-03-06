@@ -14,7 +14,6 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.common.Page;
-import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.ChannelSet.ChannelSetBuilder;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -122,8 +121,7 @@ public class SetBuilderOperator
 
     private final OperatorContext operatorContext;
     private final SetSupplier setSupplier;
-    private final int setChannel;
-    private final Optional<Integer> hashChannel;
+    private final int[] sourceChannels;
 
     private final ChannelSetBuilder channelSetBuilder;
 
@@ -142,9 +140,14 @@ public class SetBuilderOperator
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.setSupplier = requireNonNull(setSupplier, "setProvider is null");
-        this.setChannel = setChannel;
 
-        this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
+        if (requireNonNull(hashChannel, "hashChannel is null").isPresent()) {
+            this.sourceChannels = new int[]{setChannel, hashChannel.get()};
+        }
+        else {
+            this.sourceChannels = new int[]{setChannel};
+        }
+
         // Set builder is has a single channel which goes in channel 0, if hash is present, add a hachBlock to channel 1
         Optional<Integer> channelSetHashChannel = hashChannel.isPresent() ? Optional.of(1) : Optional.empty();
         this.channelSetBuilder = new ChannelSetBuilder(
@@ -195,10 +198,7 @@ public class SetBuilderOperator
         requireNonNull(page, "page is null");
         checkState(!isFinished(), "Operator is already finished");
 
-        Block sourceBlock = page.getBlock(setChannel);
-        Page sourcePage = hashChannel.isPresent() ? new Page(sourceBlock, page.getBlock(hashChannel.get())) : new Page(sourceBlock);
-
-        unfinishedWork = channelSetBuilder.addPage(sourcePage);
+        unfinishedWork = channelSetBuilder.addPage(page.extractChannels(sourceChannels));
         processUnfinishedWork();
     }
 

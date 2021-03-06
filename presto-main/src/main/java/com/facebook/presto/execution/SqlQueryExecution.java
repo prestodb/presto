@@ -300,6 +300,20 @@ public class SqlQueryExecution
     }
 
     @Override
+    public DataSize getOutputDataSize()
+    {
+        SqlQuerySchedulerInterface scheduler = queryScheduler.get();
+        Optional<QueryInfo> finalQueryInfo = stateMachine.getFinalQueryInfo();
+        if (finalQueryInfo.isPresent()) {
+            return finalQueryInfo.get().getQueryStats().getOutputDataSize();
+        }
+        if (scheduler == null) {
+            return new DataSize(0, BYTE);
+        }
+        return scheduler.getOutputDataSize();
+    }
+
+    @Override
     public BasicQueryInfo getBasicQueryInfo()
     {
         return stateMachine.getFinalQueryInfo()
@@ -466,7 +480,7 @@ public class SqlQueryExecution
                         remoteTaskFactory,
                         splitSourceFactory,
                         stateMachine.getSession(),
-                        metadata.getFunctionManager(),
+                        metadata.getFunctionAndTypeManager(),
                         stateMachine,
                         outputStagePlan,
                         rootOutputBuffers,
@@ -491,7 +505,7 @@ public class SqlQueryExecution
                         stateMachine,
                         outputStagePlan,
                         plan.isSummarizeTaskInfos(),
-                        metadata.getFunctionManager(),
+                        metadata.getFunctionAndTypeManager(),
                         runtimePlanOptimizers,
                         stateMachine.getWarningCollector(),
                         idAllocator,

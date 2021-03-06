@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.statistics;
 
+import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.HiveBasicStatistics;
@@ -87,6 +88,7 @@ import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestMetastoreHiveStatisticsProvider
 {
@@ -95,8 +97,8 @@ public class TestMetastoreHiveStatisticsProvider
     private static final String COLUMN = "column";
     private static final DecimalType DECIMAL = createDecimalType(5, 3);
 
-    private static final HiveColumnHandle PARTITION_COLUMN_1 = new HiveColumnHandle("p1", HIVE_STRING, VARCHAR.getTypeSignature(), 0, PARTITION_KEY, Optional.empty());
-    private static final HiveColumnHandle PARTITION_COLUMN_2 = new HiveColumnHandle("p2", HIVE_LONG, BIGINT.getTypeSignature(), 1, PARTITION_KEY, Optional.empty());
+    private static final HiveColumnHandle PARTITION_COLUMN_1 = new HiveColumnHandle("p1", HIVE_STRING, VARCHAR.getTypeSignature(), 0, PARTITION_KEY, Optional.empty(), Optional.empty());
+    private static final HiveColumnHandle PARTITION_COLUMN_2 = new HiveColumnHandle("p2", HIVE_LONG, BIGINT.getTypeSignature(), 1, PARTITION_KEY, Optional.empty(), Optional.empty());
 
     @Test
     public void testGetPartitionsSample()
@@ -114,6 +116,14 @@ public class TestMetastoreHiveStatisticsProvider
         assertEquals(getPartitionsSample(ImmutableList.of(p1, p2, p3, p4), 1), getPartitionsSample(ImmutableList.of(p1, p2, p3, p4), 1));
         assertEquals(getPartitionsSample(ImmutableList.of(p1, p2, p3, p4), 3), getPartitionsSample(ImmutableList.of(p1, p2, p3, p4), 3));
         assertEquals(getPartitionsSample(ImmutableList.of(p1, p2, p3, p4, p5), 3), ImmutableList.of(p1, p5, p4));
+    }
+
+    @Test
+    public void testNullablePartitionValue()
+    {
+        HivePartition part = partition("p1=name/p2=\\N");
+        NullableValue verify = new NullableValue(BIGINT, null);
+        assertTrue(part.getKeys().containsValue(verify));
     }
 
     @Test
@@ -624,7 +634,7 @@ public class TestMetastoreHiveStatisticsProvider
                 .build();
         MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider((table, hivePartitions) -> ImmutableMap.of(partitionName, statistics));
         TestingConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(new HiveClientConfig(), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
-        HiveColumnHandle columnHandle = new HiveColumnHandle(COLUMN, HIVE_LONG, BIGINT.getTypeSignature(), 2, REGULAR, Optional.empty());
+        HiveColumnHandle columnHandle = new HiveColumnHandle(COLUMN, HIVE_LONG, BIGINT.getTypeSignature(), 2, REGULAR, Optional.empty(), Optional.empty());
         TableStatistics expected = TableStatistics.builder()
                 .setRowCount(Estimate.of(1000))
                 .setTotalSize(Estimate.of(5000))
@@ -675,7 +685,7 @@ public class TestMetastoreHiveStatisticsProvider
                 .build();
         MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider((table, hivePartitions) -> ImmutableMap.of(UNPARTITIONED_ID, statistics));
         TestingConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(new HiveClientConfig(), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
-        HiveColumnHandle columnHandle = new HiveColumnHandle(COLUMN, HIVE_LONG, BIGINT.getTypeSignature(), 2, REGULAR, Optional.empty());
+        HiveColumnHandle columnHandle = new HiveColumnHandle(COLUMN, HIVE_LONG, BIGINT.getTypeSignature(), 2, REGULAR, Optional.empty(), Optional.empty());
         TableStatistics expected = TableStatistics.builder()
                 .setRowCount(Estimate.of(1000))
                 .setTotalSize(Estimate.of(5000))

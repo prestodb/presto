@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.241-SNAPSHOT</version>
+        <version>0.249-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-docs</artifactId>
@@ -16,17 +16,6 @@
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
     </properties>
 
-    <!--
-    Generate HTML docs quickly while developing:
-
-    brew install python
-    pip2 install sphinx
-
-    make -C presto-docs clean html
-
-    open presto-docs/target/html/index.html
-    -->
-
     <build>
         <pluginManagement>
             <plugins>
@@ -36,7 +25,7 @@
                     <configuration>
                         <excludes combine.children="append">
                             <exclude>**/*.conf</exclude>
-                            <exclude>**/*.css_t</exclude>
+                            <exclude>**/*.css</exclude>
                         </excludes>
                     </configuration>
                 </plugin>
@@ -105,6 +94,16 @@
                             </arguments>
                         </configuration>
                     </execution>
+                    <execution>
+                        <id>run-sphinx</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <executable>${project.basedir}/build</executable>
+                        </configuration>
+                    </execution>
                 </executions>
                 <configuration>
                     <includeProjectDependencies>false</includeProjectDependencies>
@@ -117,26 +116,6 @@
                         <version>${project.version}</version>
                     </dependency>
                 </dependencies>
-            </plugin>
-
-            <plugin>
-                <groupId>io.airlift.maven.plugins</groupId>
-                <artifactId>sphinx-maven-plugin</artifactId>
-                <configuration>
-                    <fork>true</fork>
-                    <force>true</force>
-                    <warningsAsErrors>true</warningsAsErrors>
-                    <sourceDirectory>${project.basedir}/src/main/sphinx</sourceDirectory>
-                    <outputDirectory>${project.build.directory}/html</outputDirectory>
-                </configuration>
-                <executions>
-                    <execution>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>generate</goal>
-                        </goals>
-                    </execution>
-                </executions>
             </plugin>
 
             <plugin>

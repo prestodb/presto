@@ -46,6 +46,8 @@ import com.facebook.presto.server.security.ServerSecurityModule;
 import com.facebook.presto.server.smile.SmileModule;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParserOptions;
+import com.facebook.presto.storage.TempStorageManager;
+import com.facebook.presto.storage.TempStorageModule;
 import com.fasterxml.jackson.module.afterburner.AfterburnerModule;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
@@ -121,14 +123,15 @@ public class PrestoServer
                 new EventListenerModule(),
                 new ServerMainModule(sqlParserOptions),
                 new GracefulShutdownModule(),
-                new WarningCollectorModule());
+                new WarningCollectorModule(),
+                new TempStorageModule());
 
         modules.addAll(getAdditionalModules());
 
         Bootstrap app = new Bootstrap(modules.build());
 
         try {
-            Injector injector = app.strictConfig().initialize();
+            Injector injector = app.initialize();
 
             injector.getInstance(PluginManager.class).loadPlugins();
 
@@ -152,6 +155,7 @@ public class PrestoServer
             injector.getInstance(AccessControlManager.class).loadSystemAccessControl();
             injector.getInstance(PasswordAuthenticatorManager.class).loadPasswordAuthenticator();
             injector.getInstance(EventListenerManager.class).loadConfiguredEventListener();
+            injector.getInstance(TempStorageManager.class).loadTempStorages();
 
             injector.getInstance(Announcer.class).start();
 

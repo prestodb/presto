@@ -14,15 +14,16 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.common.type.LongEnumType.LongEnumMap;
-import com.facebook.presto.common.type.ParametricType;
+import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.type.BigintEnumType.LongEnumMap;
+import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.TypeSignatureParameter;
+import com.facebook.presto.common.type.UserDefinedType;
 import com.facebook.presto.common.type.VarcharEnumType.VarcharEnumMap;
-import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
-import com.facebook.presto.type.LongEnumParametricType;
-import com.facebook.presto.type.VarcharEnumParametricType;
+import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -32,6 +33,8 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.common.type.StandardTypes.BIGINT_ENUM;
+import static com.facebook.presto.common.type.StandardTypes.VARCHAR_ENUM;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.util.Collections.singletonList;
 import static org.testng.Assert.assertEquals;
@@ -42,32 +45,38 @@ public class TestEnums
 {
     private static final Long BIG_VALUE = Integer.MAX_VALUE + 10L; // 2147483657
 
-    private static final LongEnumParametricType MOOD_ENUM = new LongEnumParametricType("Mood", new LongEnumMap(ImmutableMap.of(
-            "HAPPY", 0L,
-            "SAD", 1L,
-            "MELLOW", BIG_VALUE,
-            "curious", -2L)));
-    private static final VarcharEnumParametricType COUNTRY_ENUM = new VarcharEnumParametricType("Country", new VarcharEnumMap(ImmutableMap.of(
+    private static final UserDefinedType MOOD_ENUM = new UserDefinedType(QualifiedObjectName.valueOf("test.enum.mood"), new TypeSignature(
+            BIGINT_ENUM,
+            TypeSignatureParameter.of(new LongEnumMap("test.enum.mood", ImmutableMap.of(
+                    "HAPPY", 0L,
+                "SAD", 1L,
+                "MELLOW", BIG_VALUE,
+                "curious", -2L)))));
+    private static final UserDefinedType COUNTRY_ENUM = new UserDefinedType(QualifiedObjectName.valueOf("test.enum.country"), new TypeSignature(
+            VARCHAR_ENUM,
+            TypeSignatureParameter.of(new VarcharEnumMap("test.enum.country", ImmutableMap.of(
             "US", "United States",
             "BAHAMAS", "The Bahamas",
             "FRANCE", "France",
             "CHINA", "中国",
-            "भारत", "India")));
-    private static final VarcharEnumParametricType TEST_ENUM = new VarcharEnumParametricType("TestEnum", new VarcharEnumMap(ImmutableMap.of(
+            "भारत", "India")))));
+    private static final UserDefinedType TEST_ENUM = new UserDefinedType(QualifiedObjectName.valueOf("test.enum.testenum"), new TypeSignature(
+            VARCHAR_ENUM,
+            TypeSignatureParameter.of(new VarcharEnumMap("test.enum.testenum", ImmutableMap.of(
             "TEST", "\"}\"",
             "TEST2", "",
             "TEST3", " ",
-            "TEST4", ")))\"\"")));
-
-    static class TestEnumPlugin
-            implements Plugin
-    {
-        @Override
-        public Iterable<ParametricType> getParametricTypes()
-        {
-            return ImmutableList.of(MOOD_ENUM, COUNTRY_ENUM, TEST_ENUM);
-        }
-    }
+            "TEST4", ")))\"\"")))));
+    private static final UserDefinedType TEST_BIGINT_ENUM = new UserDefinedType(QualifiedObjectName.valueOf("test.enum.testbigintenum"), new TypeSignature(
+            BIGINT_ENUM,
+            TypeSignatureParameter.of(new LongEnumMap("test.enum.testbigintenum", ImmutableMap.of(
+            "TEST", 6L,
+            "TEST2", 8L)))));
+    private static final UserDefinedType MARKET_SEGMENT_ENUM = new UserDefinedType(QualifiedObjectName.valueOf("test.enum.market_segment"), new TypeSignature(
+            VARCHAR_ENUM,
+            TypeSignatureParameter.of(new VarcharEnumMap("test.enum.market_segment", ImmutableMap.of(
+                    "MKT_BUILDING", "BUILDING",
+                    "MKT_FURNITURE", "FURNITURE")))));
 
     protected TestEnums()
     {
@@ -78,8 +87,16 @@ public class TestEnums
     {
         try {
             Session session = testSessionBuilder().build();
-            QueryRunner queryRunner = DistributedQueryRunner.builder(session).setNodeCount(1).build();
-            queryRunner.installPlugin(new TestEnumPlugin());
+            DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).setNodeCount(1).build();
+            queryRunner.enableTestFunctionNamespaces(ImmutableList.of("test"), ImmutableMap.of());
+            queryRunner.getMetadata().getFunctionAndTypeManager().addUserDefinedType(MOOD_ENUM);
+            queryRunner.getMetadata().getFunctionAndTypeManager().addUserDefinedType(COUNTRY_ENUM);
+            queryRunner.getMetadata().getFunctionAndTypeManager().addUserDefinedType(TEST_ENUM);
+            queryRunner.getMetadata().getFunctionAndTypeManager().addUserDefinedType(TEST_BIGINT_ENUM);
+            queryRunner.getMetadata().getFunctionAndTypeManager().addUserDefinedType(MARKET_SEGMENT_ENUM);
+
+            queryRunner.installPlugin(new TpchPlugin());
+            queryRunner.createCatalog("tpch", "tpch");
             return queryRunner;
         }
         catch (Exception e) {
@@ -104,100 +121,105 @@ public class TestEnums
     public void testEnumLiterals()
     {
         assertQueryResultUnordered(
-                "SELECT Mood.HAPPY, mood.happY, \"mood\".SAD, \"mood\".\"mellow\"",
+                "SELECT test.enum.mood.HAPPY, test.enum.mood.happY, \"test.enum.mood\".SAD, \"test.enum.mood\".\"mellow\"",
                 singletonList(ImmutableList.of(0L, 0L, 1L, BIG_VALUE)));
 
         assertQueryResultUnordered(
-                "SELECT Country.us, country.\"CHINA\", Country.\"भारत\"",
+                "SELECT test.enum.country.us, test.enum.country.\"CHINA\", test.enum.country.\"भारत\"",
                 singletonList(ImmutableList.of("United States", "中国", "India")));
 
         assertQueryResultUnordered(
-                "SELECT testEnum.TEST, testEnum.TEST2, testEnum.TEST3, array[testEnum.TEST4]",
+                "SELECT test.enum.testEnum.TEST, test.enum.testEnum.TEST2, test.enum.testEnum.TEST3, array[test.enum.testEnum.TEST4]",
                 singletonList(ImmutableList.of("\"}\"", "", " ", ImmutableList.of(")))\"\""))));
 
-        assertQueryFails("SELECT mood.hello", ".*No key 'HELLO' in enum 'Mood'");
+        assertQueryResultUnordered(
+                "SELECT MAP(ARRAY[test.enum.mood.HAPPY], ARRAY[1])",
+                singletonList(ImmutableList.of(ImmutableMap.of(0L, 1))));
+
+        assertQueryFails("SELECT test.enum.mood.hello", ".*'test.enum.mood.hello' cannot be resolved");
     }
 
     @Test
     public void testEnumCasts()
     {
-        assertSingleValue("CAST(CAST(1 AS TINYINT) AS Mood)", 1L);
-        assertSingleValue("CAST('The Bahamas' AS COUNTRY)", "The Bahamas");
-        assertSingleValue("CAST(row(1, 1) as row(x BIGINT, y Mood))", ImmutableList.of(1L, 1L));
-        assertSingleValue("CAST(mood.MELLOW AS BIGINT)", BIG_VALUE);
+        assertSingleValue("CAST(CAST(1 AS TINYINT) AS test.enum.mood)", 1L);
+        assertSingleValue("CAST('The Bahamas' AS test.enum.country)", "The Bahamas");
+        assertSingleValue("CAST(row(1, 1) as row(x BIGINT, y test.enum.mood))", ImmutableList.of(1L, 1L));
+        assertSingleValue("CAST(test.enum.mood.MELLOW AS BIGINT)", BIG_VALUE);
         assertSingleValue(
-                "cast(map(array[country.FRANCE], array[array[mood.HAPPY]]) as JSON)",
+                "cast(map(array[test.enum.country.FRANCE], array[array[test.enum.mood.HAPPY]]) as JSON)",
                 "{\"France\":[0]}");
         assertSingleValue(
-                "map_filter(MAP(ARRAY[country.FRANCE, country.US], ARRAY[mood.HAPPY, mood.SAD]), (k,v) -> CAST(v AS BIGINT) > 0)",
+                "map_filter(MAP(ARRAY[test.enum.country.FRANCE, test.enum.country.US], ARRAY[test.enum.mood.HAPPY, test.enum.mood.SAD]), (k,v) -> CAST(v AS BIGINT) > 0)",
                 ImmutableMap.of("United States", 1L));
         assertSingleValue(
-                "cast(JSON '{\"France\": [0]}' as MAP<Country,ARRAY<Mood>>)",
+                "cast(JSON '{\"France\": [0]}' as MAP<test.enum.country,ARRAY<test.enum.mood>>)",
                 ImmutableMap.of("France", singletonList(0L)));
-        assertQueryFails("select cast(7 as mood)", ".*No value '7' in enum 'Mood'");
+        assertQueryFails("select cast(7 as test.enum.mood)", ".*No value '7' in enum 'BigintEnum'");
     }
 
     @Test
     public void testVarcharEnumComparisonOperators()
     {
-        assertSingleValue("country.US = CAST('United States' AS country)", true);
-        assertSingleValue("country.FRANCE = country.BAHAMAS", false);
+        assertSingleValue("test.enum.country.US = CAST('United States' AS test.enum.country)", true);
+        assertSingleValue("test.enum.country.FRANCE = test.enum.country.BAHAMAS", false);
 
-        assertSingleValue("country.FRANCE != country.US", true);
-        assertSingleValue("array[country.FRANCE, country.BAHAMAS] != array[country.US, country.BAHAMAS]", true);
+        assertSingleValue("test.enum.country.FRANCE != test.enum.country.US", true);
+        assertSingleValue("array[test.enum.country.FRANCE, test.enum.country.BAHAMAS] != array[test.enum.country.US, test.enum.country.BAHAMAS]", true);
 
-        assertSingleValue("country.CHINA IN (country.US, null, country.BAHAMAS, country.China)", true);
-        assertSingleValue("country.BAHAMAS IN (country.US, country.FRANCE)", false);
+        assertSingleValue("test.enum.country.CHINA IN (test.enum.country.US, null, test.enum.country.BAHAMAS, test.enum.country.China)", true);
+        assertSingleValue("test.enum.country.BAHAMAS IN (test.enum.country.US, test.enum.country.FRANCE)", false);
 
-        assertSingleValue("country.BAHAMAS < country.US", true);
-        assertSingleValue("country.BAHAMAS < country.BAHAMAS", false);
+        assertSingleValue("test.enum.country.BAHAMAS < test.enum.country.US", true);
+        assertSingleValue("test.enum.country.BAHAMAS < test.enum.country.BAHAMAS", false);
 
-        assertSingleValue("country.\"भारत\" <= country.\"भारत\"", true);
-        assertSingleValue("country.\"भारत\" <= country.FRANCE", false);
+        assertSingleValue("test.enum.country.\"भारत\" <= test.enum.country.\"भारत\"", true);
+        assertSingleValue("test.enum.country.\"भारत\" <= test.enum.country.FRANCE", false);
 
-        assertSingleValue("country.\"भारत\" >= country.FRANCE", true);
-        assertSingleValue("country.BAHAMAS >= country.US", false);
+        assertSingleValue("test.enum.country.\"भारत\" >= test.enum.country.FRANCE", true);
+        assertSingleValue("test.enum.country.BAHAMAS >= test.enum.country.US", false);
 
-        assertSingleValue("country.\"भारत\" > country.FRANCE", true);
-        assertSingleValue("country.CHINA > country.CHINA", false);
+        assertSingleValue("test.enum.country.\"भारत\" > test.enum.country.FRANCE", true);
+        assertSingleValue("test.enum.country.CHINA > test.enum.country.CHINA", false);
 
-        assertSingleValue("country.\"भारत\" between country.FRANCE and country.BAHAMAS", true);
-        assertSingleValue("country.US between country.FRANCE and country.\"भारत\"", false);
+        assertSingleValue("test.enum.country.\"भारत\" between test.enum.country.FRANCE and test.enum.country.BAHAMAS", true);
+        assertSingleValue("test.enum.country.US between test.enum.country.FRANCE and test.enum.country.\"भारत\"", false);
 
-        assertQueryFails("select country.US = mood.HAPPY", ".* '=' cannot be applied to Country.*, Mood.*");
-        assertQueryFails("select country.US IN (country.CHINA, mood.SAD)", ".* All IN list values must be the same type.*");
-        assertQueryFails("select country.US IN (mood.HAPPY, mood.SAD)", ".* IN value and list items must be the same type: Country");
-        assertQueryFails("select country.US > 2", ".* '>' cannot be applied to Country.*, integer");
+        assertQueryFails("select test.enum.country.US = test.enum.mood.HAPPY", ".* '=' cannot be applied to test.enum.country:VarcharEnum\\(test.enum.country.*\\), test.enum.mood:BigintEnum\\(test.enum.mood.*\\)");
+        assertQueryFails("select test.enum.country.US IN (test.enum.country.CHINA, test.enum.mood.SAD)", ".* All IN list values must be the same type.*");
+        assertQueryFails("select test.enum.country.US IN (test.enum.mood.HAPPY, test.enum.mood.SAD)", ".* IN value and list items must be the same type: test.enum.country");
+        assertQueryFails("select test.enum.country.US > 2", ".* '>' cannot be applied to test.enum.country:VarcharEnum\\(test.enum.country.*\\), integer");
     }
 
     @Test
     public void testLongEnumComparisonOperators()
     {
-        assertSingleValue("mood.HAPPY = CAST(0 AS mood)", true);
-        assertSingleValue("mood.HAPPY = mood.SAD", false);
+        assertSingleValue("test.enum.mood.HAPPY = CAST(0 AS test.enum.mood)", true);
+        assertSingleValue("test.enum.mood.HAPPY = test.enum.mood.SAD", false);
+        assertSingleValue("array[test.enum.mood.HAPPY, test.enum.mood.SAD] = array[test.enum.mood.HAPPY, test.enum.mood.SAD]", true);
 
-        assertSingleValue("mood.SAD != mood.MELLOW", true);
-        assertSingleValue("array[mood.HAPPY, mood.SAD] != array[mood.SAD, mood.HAPPY]", true);
+        assertSingleValue("test.enum.mood.SAD != test.enum.mood.MELLOW", true);
+        assertSingleValue("array[test.enum.mood.HAPPY, test.enum.mood.SAD] != array[test.enum.mood.SAD, test.enum.mood.HAPPY]", true);
 
-        assertSingleValue("mood.SAD IN (mood.HAPPY, null, mood.SAD)", true);
-        assertSingleValue("mood.HAPPY IN (mood.SAD, mood.MELLOW)", false);
+        assertSingleValue("test.enum.mood.SAD IN (test.enum.mood.HAPPY, null, test.enum.mood.SAD)", true);
+        assertSingleValue("test.enum.mood.HAPPY IN (test.enum.mood.SAD, test.enum.mood.MELLOW)", false);
 
-        assertSingleValue("mood.CURIOUS < mood.MELLOW", true);
-        assertSingleValue("mood.SAD < mood.HAPPY", false);
+        assertSingleValue("test.enum.mood.CURIOUS < test.enum.mood.MELLOW", true);
+        assertSingleValue("test.enum.mood.SAD < test.enum.mood.HAPPY", false);
 
-        assertSingleValue("mood.HAPPY <= mood.HAPPY", true);
-        assertSingleValue("mood.HAPPY <= mood.CURIOUS", false);
+        assertSingleValue("test.enum.mood.HAPPY <= test.enum.mood.HAPPY", true);
+        assertSingleValue("test.enum.mood.HAPPY <= test.enum.mood.CURIOUS", false);
 
-        assertSingleValue("mood.MELLOW >= mood.SAD", true);
-        assertSingleValue("mood.HAPPY >= mood.SAD", false);
+        assertSingleValue("test.enum.mood.MELLOW >= test.enum.mood.SAD", true);
+        assertSingleValue("test.enum.mood.HAPPY >= test.enum.mood.SAD", false);
 
-        assertSingleValue("mood.SAD > mood.HAPPY", true);
-        assertSingleValue("mood.HAPPY > mood.HAPPY", false);
+        assertSingleValue("test.enum.mood.SAD > test.enum.mood.HAPPY", true);
+        assertSingleValue("test.enum.mood.HAPPY > test.enum.mood.HAPPY", false);
 
-        assertSingleValue("mood.HAPPY between mood.CURIOUS and mood.SAD ", true);
-        assertSingleValue("mood.MELLOW between mood.SAD and mood.HAPPY", false);
+        assertSingleValue("test.enum.mood.HAPPY between test.enum.mood.CURIOUS and test.enum.mood.SAD ", true);
+        assertSingleValue("test.enum.mood.MELLOW between test.enum.mood.SAD and test.enum.mood.HAPPY", false);
 
-        assertQueryFails("select mood.HAPPY = 3", ".* '=' cannot be applied to Mood.*, integer");
+        assertQueryFails("select test.enum.mood.HAPPY = 3", ".* '=' cannot be applied to test.enum.mood:BigintEnum\\(test.enum.mood.*, integer");
     }
 
     @Test
@@ -205,23 +227,23 @@ public class TestEnums
     {
         assertQueryResultUnordered(
                 "SELECT DISTINCT x " +
-                        "FROM (VALUES mood.happy, mood.sad, mood.sad, mood.happy) t(x)",
+                        "FROM (VALUES test.enum.mood.happy, test.enum.mood.sad, test.enum.mood.sad, test.enum.mood.happy) t(x)",
                 ImmutableList.of(
                         ImmutableList.of(0L),
                         ImmutableList.of(1L)));
 
         assertQueryResultUnordered(
                 "SELECT DISTINCT x " +
-                        "FROM (VALUES country.FRANCE, country.FRANCE, country.\"भारत\") t(x)",
+                        "FROM (VALUES test.enum.country.FRANCE, test.enum.country.FRANCE, test.enum.country.\"भारत\") t(x)",
                 ImmutableList.of(
                         ImmutableList.of("France"),
                         ImmutableList.of("India")));
 
         assertQueryResultUnordered(
                 "SELECT APPROX_DISTINCT(x), APPROX_DISTINCT(y)" +
-                        "FROM (VALUES (country.FRANCE, mood.HAPPY), " +
-                        "             (country.FRANCE, mood.SAD)," +
-                        "             (country.US, mood.HAPPY)) t(x, y)",
+                        "FROM (VALUES (test.enum.country.FRANCE, test.enum.mood.HAPPY), " +
+                        "             (test.enum.country.FRANCE, test.enum.mood.SAD)," +
+                        "             (test.enum.country.US, test.enum.mood.HAPPY)) t(x, y)",
                 ImmutableList.of(
                         ImmutableList.of(2L, 2L)));
     }
@@ -231,10 +253,10 @@ public class TestEnums
     {
         assertQueryResultUnordered(
                 "  SELECT a, ARRAY_AGG(DISTINCT b) " +
-                        "FROM (VALUES (mood.happy, country.us), " +
-                        "             (mood.happy, country.china)," +
-                        "             (mood.happy, country.CHINA)," +
-                        "             (mood.sad, country.us)) t(a, b)" +
+                        "FROM (VALUES (test.enum.mood.happy, test.enum.country.us), " +
+                        "             (test.enum.mood.happy, test.enum.country.china)," +
+                        "             (test.enum.mood.happy, test.enum.country.CHINA)," +
+                        "             (test.enum.mood.sad, test.enum.country.us)) t(a, b)" +
                         "GROUP BY a",
                 ImmutableList.of(
                         ImmutableList.of(0L, ImmutableList.of("United States", "中国")),
@@ -246,8 +268,8 @@ public class TestEnums
     {
         assertQueryResultUnordered(
                 "  SELECT t1.a, t2.b " +
-                        "FROM (VALUES mood.happy, mood.sad, mood.mellow) t1(a) " +
-                        "JOIN (VALUES (mood.sad, 'hello'), (mood.happy, 'world')) t2(a, b) " +
+                        "FROM (VALUES test.enum.mood.happy, test.enum.mood.sad, test.enum.mood.mellow) t1(a) " +
+                        "JOIN (VALUES (test.enum.mood.sad, 'hello'), (test.enum.mood.happy, 'world')) t2(a, b) " +
                         "ON t1.a = t2.a",
                 ImmutableList.of(
                         ImmutableList.of(1L, "hello"),
@@ -259,7 +281,39 @@ public class TestEnums
     {
         assertQueryResultUnordered(
                 "  SELECT first_value(b) OVER (PARTITION BY a ORDER BY a) AS rnk " +
-                        "FROM (VALUES (mood.happy, 1), (mood.happy, 3), (mood.sad, 5)) t(a, b)",
+                        "FROM (VALUES (test.enum.mood.happy, 1), (test.enum.mood.happy, 3), (test.enum.mood.sad, 5)) t(a, b)",
                 ImmutableList.of(singletonList(1), singletonList(1), singletonList(5)));
+    }
+
+    @Test
+    public void testCastFunctionCaching()
+    {
+        assertSingleValue("CAST(' ' as test.enum.TestEnum)", " ");
+        assertSingleValue("CAST(8 as test.enum.TestBigintEnum)", 8L);
+    }
+
+    @Test
+    public void testEnumKey()
+    {
+        assertSingleValue("enum_key(test.enum.mood.curious)", "CURIOUS");
+        assertSingleValue("enum_key(test.enum.country.CHINA)", "CHINA");
+
+        assertSingleValue("enum_key(cast(1 as test.enum.mood))", "SAD");
+        assertSingleValue("enum_key(cast('中国' as test.enum.country))", "CHINA");
+
+        assertSingleValue("enum_key(try_cast(7 as test.enum.mood))", null);
+        assertSingleValue("enum_key(try_cast('invalid_value' as test.enum.country))", null);
+    }
+
+    @Test
+    public void testEnumKeyDistributed()
+    {
+        assertQueryResultUnordered(
+                "SELECT DISTINCT enum_key(try_cast(nationkey as test.enum.mood)) from tpch.sf100.customer where nationkey = cast(test.enum.mood.SAD as bigint)",
+                ImmutableList.of(singletonList("SAD")));
+
+        assertQueryResultUnordered(
+                "SELECT DISTINCT enum_key(try_cast(mktsegment as test.enum.market_segment)) from tpch.sf100.customer where mktsegment IN ('BUILDING', 'FURNITURE')",
+                ImmutableList.of(singletonList("MKT_BUILDING"), singletonList("MKT_FURNITURE")));
     }
 }

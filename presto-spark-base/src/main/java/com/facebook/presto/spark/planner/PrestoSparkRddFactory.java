@@ -24,7 +24,6 @@ import com.facebook.presto.spark.PrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.classloader_interface.MutablePartitionId;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkMutableRow;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkPartitioner;
-import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleSerializer;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleStats;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
@@ -140,7 +139,7 @@ public class PrestoSparkRddFactory
             Session session,
             PlanFragment fragment,
             Map<PlanFragmentId, JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow>> rddInputs,
-            Map<PlanFragmentId, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs,
+            Map<PlanFragmentId, Broadcast<List<T>>> broadcastInputs,
             PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider,
             CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
             CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector,
@@ -154,16 +153,6 @@ public class PrestoSparkRddFactory
         if (partitioning.equals(SCALED_WRITER_DISTRIBUTION)) {
             throw new PrestoException(NOT_SUPPORTED, "Automatic writers scaling is not supported by Presto on Spark");
         }
-
-        // Currently remote round robin exchange is only used in two cases
-        // - Redistribute writes:
-        //   Originally introduced to avoid skewed table writes. Makes sense with streaming exchanges
-        //   as those are very cheap. Since spark has to write the data to disk anyway the optimization
-        //   doesn't make much sense in Presto on Spark context, thus it is always disabled.
-        // - Some corner cases of UNION (e.g.: broadcasted UNION ALL)
-        //   Since round robin exchange is very costly on Spark (and potentially a correctness hazard)
-        //   such unions are always planned with Gather (SINGLE_DISTRIBUTION)
-        checkArgument(!partitioning.equals(FIXED_ARBITRARY_DISTRIBUTION), "FIXED_ARBITRARY_DISTRIBUTION is not supported");
 
         checkArgument(!partitioning.equals(COORDINATOR_DISTRIBUTION), "COORDINATOR_DISTRIBUTION fragment must be run on the driver");
         checkArgument(!partitioning.equals(FIXED_BROADCAST_DISTRIBUTION), "FIXED_BROADCAST_DISTRIBUTION can only be set as an output partitioning scheme, and not as a fragment distribution");
@@ -179,6 +168,7 @@ public class PrestoSparkRddFactory
 
         if (partitioning.equals(SINGLE_DISTRIBUTION) ||
                 partitioning.equals(FIXED_HASH_DISTRIBUTION) ||
+                partitioning.equals(FIXED_ARBITRARY_DISTRIBUTION) ||
                 partitioning.equals(SOURCE_DISTRIBUTION) ||
                 partitioning.getConnectorId().isPresent()) {
             for (RemoteSourceNode remoteSource : fragment.getRemoteSourceNodes()) {
@@ -217,6 +207,15 @@ public class PrestoSparkRddFactory
             int hashPartitionCount = getHashPartitionCount(session);
             return fragment.withBucketToPartition(Optional.of(IntStream.range(0, hashPartitionCount).toArray()));
         }
+        //  FIXED_ARBITRARY_DISTRIBUTION is used for UNION ALL
+        //  UNION ALL inputs could be source inputs or shuffle inputs
+        if (outputPartitioningHandle.equals(FIXED_ARBITRARY_DISTRIBUTION)) {
+            // given modular hash function, partition count could be arbitrary size
+            // simply reuse hash_partition_count for convenience
+            // it can also be set by a separate session property if needed
+            int partitionCount = getHashPartitionCount(session);
+            return fragment.withBucketToPartition(Optional.of(IntStream.range(0, partitionCount).toArray()));
+        }
         if (outputPartitioningHandle.getConnectorId().isPresent()) {
             int connectorPartitionCount = getPartitionCount(session, outputPartitioningHandle);
             return fragment.withBucketToPartition(Optional.of(IntStream.range(0, connectorPartitionCount).toArray()));
@@ -240,7 +239,7 @@ public class PrestoSparkRddFactory
         if (partitioning.equals(SINGLE_DISTRIBUTION)) {
             return new PrestoSparkPartitioner(1);
         }
-        if (partitioning.equals(FIXED_HASH_DISTRIBUTION)) {
+        if (partitioning.equals(FIXED_HASH_DISTRIBUTION) || partitioning.equals(FIXED_ARBITRARY_DISTRIBUTION)) {
             int hashPartitionCount = getHashPartitionCount(session);
             return new PrestoSparkPartitioner(hashPartitionCount);
         }
@@ -260,7 +259,7 @@ public class PrestoSparkRddFactory
             CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector,
             TableWriteInfo tableWriteInfo,
             Map<PlanFragmentId, JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow>> rddInputs,
-            Map<PlanFragmentId, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs,
+            Map<PlanFragmentId, Broadcast<List<T>>> broadcastInputs,
             Class<T> outputType)
     {
         checkInputs(fragment.getRemoteSourceNodes(), rddInputs, broadcastInputs);
@@ -545,16 +544,16 @@ public class PrestoSparkRddFactory
                 .findAll();
     }
 
-    private static Map<String, Broadcast<List<PrestoSparkSerializedPage>>> toTaskProcessorBroadcastInputs(Map<PlanFragmentId, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs)
+    private static <T extends PrestoSparkTaskOutput> Map<String, Broadcast<List<T>>> toTaskProcessorBroadcastInputs(Map<PlanFragmentId, Broadcast<List<T>>> broadcastInputs)
     {
         return broadcastInputs.entrySet().stream()
                 .collect(toImmutableMap(entry -> entry.getKey().toString(), Map.Entry::getValue));
     }
 
-    private static void checkInputs(
+    private static <T extends PrestoSparkTaskOutput> void checkInputs(
             List<RemoteSourceNode> remoteSources,
             Map<PlanFragmentId, JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow>> rddInputs,
-            Map<PlanFragmentId, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs)
+            Map<PlanFragmentId, Broadcast<List<T>>> broadcastInputs)
     {
         Set<PlanFragmentId> expectedInputs = remoteSources.stream()
                 .map(RemoteSourceNode::getSourceFragmentIds)

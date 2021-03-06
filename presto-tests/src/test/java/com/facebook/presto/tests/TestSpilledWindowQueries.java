@@ -18,6 +18,11 @@ public class TestSpilledWindowQueries
 {
     public TestSpilledWindowQueries()
     {
-        super(TestDistributedSpilledQueries::createQueryRunner);
+        this(TestDistributedSpilledQueries::createQueryRunner);
+    }
+
+    protected TestSpilledWindowQueries(QueryRunnerSupplier supplier)
+    {
+        super(supplier);
     }
 }

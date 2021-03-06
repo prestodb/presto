@@ -17,9 +17,8 @@ import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlOperator;
 import com.google.common.collect.ImmutableList;
 
@@ -50,13 +49,13 @@ public class MapHashCodeOperator
     }
 
     @Override
-    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
+    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
         Type keyType = boundVariables.getTypeVariable("K");
         Type valueType = boundVariables.getTypeVariable("V");
 
-        MethodHandle keyHashCodeFunction = functionManager.getBuiltInScalarFunctionImplementation(functionManager.resolveOperator(HASH_CODE, fromTypes(keyType))).getMethodHandle();
-        MethodHandle valueHashCodeFunction = functionManager.getBuiltInScalarFunctionImplementation(functionManager.resolveOperator(HASH_CODE, fromTypes(valueType))).getMethodHandle();
+        MethodHandle keyHashCodeFunction = functionAndTypeManager.getBuiltInScalarFunctionImplementation(functionAndTypeManager.resolveOperator(HASH_CODE, fromTypes(keyType))).getMethodHandle();
+        MethodHandle valueHashCodeFunction = functionAndTypeManager.getBuiltInScalarFunctionImplementation(functionAndTypeManager.resolveOperator(HASH_CODE, fromTypes(valueType))).getMethodHandle();
 
         MethodHandle method = METHOD_HANDLE.bindTo(keyHashCodeFunction).bindTo(valueHashCodeFunction).bindTo(keyType).bindTo(valueType);
         return new BuiltInScalarFunctionImplementation(

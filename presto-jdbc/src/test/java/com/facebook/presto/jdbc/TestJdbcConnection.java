@@ -40,6 +40,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -226,6 +227,27 @@ public class TestJdbcConnection
         PrestoConnection prestoConnection = connection.unwrap(PrestoConnection.class);
         assertEquals(prestoConnection.getExtraCredentials(), credentials);
         assertEquals(listExtraCredentials(connection), credentials);
+    }
+
+    @Test
+    public void testQueryInterceptors()
+            throws SQLException
+    {
+        String extra = "queryInterceptors=" + TestNoopQueryInterceptor.class.getName();
+        try (PrestoConnection connection = createConnection(extra).unwrap(PrestoConnection.class)) {
+            List<QueryInterceptor> queryInterceptorInstances = connection.getQueryInterceptorInstances();
+            assertEquals(queryInterceptorInstances.size(), 1);
+            assertEquals(queryInterceptorInstances.get(0).getClass().getName(), TestNoopQueryInterceptor.class.getName());
+        }
+    }
+
+    public static class TestNoopQueryInterceptor
+            implements QueryInterceptor
+    {
+        @Override
+        public void init(Map<String, String> properties)
+        {
+        }
     }
 
     private Connection createConnection()

@@ -20,8 +20,8 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
-import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static java.util.Arrays.asList;
 public class TestArrayNgramsFunction
 

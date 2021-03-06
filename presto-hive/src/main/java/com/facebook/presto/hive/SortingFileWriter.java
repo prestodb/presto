@@ -16,13 +16,13 @@ package com.facebook.presto.hive;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.common.io.DataSink;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.orc.HdfsOrcDataSource;
 import com.facebook.presto.hive.util.MergingPageIterator;
 import com.facebook.presto.hive.util.SortBuffer;
 import com.facebook.presto.hive.util.TempFileReader;
 import com.facebook.presto.hive.util.TempFileWriter;
-import com.facebook.presto.orc.DataSink;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.spi.PageSorter;
@@ -176,6 +176,12 @@ public class SortingFileWriter
     public Optional<Runnable> getVerificationTask()
     {
         return outputWriter.getVerificationTask();
+    }
+
+    @Override
+    public long getFileSizeInBytes()
+    {
+        return getWrittenBytes();
     }
 
     private void flushToTempFile()

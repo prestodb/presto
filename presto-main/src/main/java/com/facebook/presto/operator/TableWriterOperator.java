@@ -21,13 +21,17 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.execution.TaskMetadataContext;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.CreateHandle;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.InsertHandle;
 import com.facebook.presto.memory.context.LocalMemoryContext;
+import com.facebook.presto.metadata.ConnectorMetadataUpdaterManager;
 import com.facebook.presto.operator.OperationTimer.OperationTiming;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPageSink;
-import com.facebook.presto.spi.PageSinkProperties;
+import com.facebook.presto.spi.PageSinkContext;
+import com.facebook.presto.spi.connector.ConnectorMetadataUpdater;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.util.AutoCloseableCloser;
@@ -42,6 +46,7 @@ import io.airlift.units.Duration;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -70,6 +75,8 @@ public class TableWriterOperator
         private final int operatorId;
         private final PlanNodeId planNodeId;
         private final PageSinkManager pageSinkManager;
+        private final ConnectorMetadataUpdaterManager metadataUpdaterManager;
+        private final TaskMetadataContext taskMetadataContext;
         private final ExecutionWriterTarget target;
         private final List<Integer> columnChannels;
         private final Session session;
@@ -83,6 +90,8 @@ public class TableWriterOperator
                 int operatorId,
                 PlanNodeId planNodeId,
                 PageSinkManager pageSinkManager,
+                ConnectorMetadataUpdaterManager metadataUpdaterManager,
+                TaskMetadataContext taskMetadataContext,
                 ExecutionWriterTarget writerTarget,
                 List<Integer> columnChannels,
                 Session session,
@@ -95,6 +104,8 @@ public class TableWriterOperator
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.columnChannels = requireNonNull(columnChannels, "columnChannels is null");
             this.pageSinkManager = requireNonNull(pageSinkManager, "pageSinkManager is null");
+            this.metadataUpdaterManager = requireNonNull(metadataUpdaterManager, "metadataUpdaterManager is null");
+            this.taskMetadataContext = requireNonNull(taskMetadataContext, "taskMetadataContext is null");
             checkArgument(writerTarget instanceof CreateHandle || writerTarget instanceof InsertHandle, "writerTarget must be CreateHandle or InsertHandle");
             this.target = requireNonNull(writerTarget, "writerTarget is null");
             this.session = session;
@@ -124,16 +135,37 @@ public class TableWriterOperator
 
         private ConnectorPageSink createPageSink()
         {
-            PageSinkProperties pageSinkProperties = PageSinkProperties.builder()
-                    .setCommitRequired(pageSinkCommitStrategy.isCommitRequired())
-                    .build();
+            ConnectorId connectorId = getConnectorId(target);
+            Optional<ConnectorMetadataUpdater> metadataUpdater = metadataUpdaterManager.getMetadataUpdater(connectorId);
+            if (metadataUpdater.isPresent()) {
+                taskMetadataContext.setConnectorId(connectorId);
+                taskMetadataContext.addMetadataUpdater(metadataUpdater.get());
+            }
+
+            PageSinkContext.Builder pageSinkContextBuilder = PageSinkContext.builder()
+                    .setCommitRequired(pageSinkCommitStrategy.isCommitRequired());
+            metadataUpdater.ifPresent(pageSinkContextBuilder::setConnectorMetadataUpdater);
+
             if (target instanceof CreateHandle) {
-                return pageSinkManager.createPageSink(session, ((CreateHandle) target).getHandle(), pageSinkProperties);
+                return pageSinkManager.createPageSink(session, ((CreateHandle) target).getHandle(), pageSinkContextBuilder.build());
             }
             if (target instanceof InsertHandle) {
-                return pageSinkManager.createPageSink(session, ((InsertHandle) target).getHandle(), pageSinkProperties);
+                return pageSinkManager.createPageSink(session, ((InsertHandle) target).getHandle(), pageSinkContextBuilder.build());
             }
             throw new UnsupportedOperationException("Unhandled target type: " + target.getClass().getName());
+        }
+
+        private static ConnectorId getConnectorId(ExecutionWriterTarget handle)
+        {
+            if (handle instanceof CreateHandle) {
+                return ((CreateHandle) handle).getHandle().getConnectorId();
+            }
+
+            if (handle instanceof InsertHandle) {
+                return ((InsertHandle) handle).getHandle().getConnectorId();
+            }
+
+            throw new UnsupportedOperationException("Unhandled target type: " + handle.getClass().getName());
         }
 
         @Override
@@ -145,7 +177,7 @@ public class TableWriterOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new TableWriterOperatorFactory(operatorId, planNodeId, pageSinkManager, target, columnChannels, session, statisticsAggregationOperatorFactory, types, tableCommitContextCodec, pageSinkCommitStrategy);
+            return new TableWriterOperatorFactory(operatorId, planNodeId, pageSinkManager, metadataUpdaterManager, taskMetadataContext, target, columnChannels, session, statisticsAggregationOperatorFactory, types, tableCommitContextCodec, pageSinkCommitStrategy);
         }
     }
 

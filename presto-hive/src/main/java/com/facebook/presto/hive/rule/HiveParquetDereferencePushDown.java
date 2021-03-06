@@ -338,9 +338,8 @@ public class HiveParquetDereferencePushDown
                 return visitPlan(project, context);
             }
 
-            Map<String, HiveColumnHandle> regularHiveColumnHandles = tableScan.getAssignments().values().stream()
-                    .map(columnHandle -> (HiveColumnHandle) columnHandle)
-                    .collect(toMap(HiveColumnHandle::getName, identity()));
+            Map<String, HiveColumnHandle> regularHiveColumnHandles = tableScan.getAssignments().entrySet().stream()
+                    .collect(toMap(e -> e.getKey().getName(), e -> (HiveColumnHandle) e.getValue()));
 
             List<VariableReferenceExpression> newOutputVariables = new ArrayList<>(tableScan.getOutputVariables());
             Map<VariableReferenceExpression, ColumnHandle> newAssignments = new HashMap<>(tableScan.getAssignments());
@@ -377,7 +376,8 @@ public class HiveParquetDereferencePushDown
                         -1,
                         SYNTHESIZED,
                         Optional.of("nested column pushdown"),
-                        ImmutableList.of(nestedColumn));
+                        ImmutableList.of(nestedColumn),
+                        Optional.empty());
 
                 VariableReferenceExpression newOutputVariable = variableAllocator.newVariable(pushdownColumnName, dereferenceExpression.getType());
                 newOutputVariables.add(newOutputVariable);

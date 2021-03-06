@@ -103,7 +103,7 @@ final class RowExpressionVerifier
         this.symbolAliases = requireNonNull(symbolAliases, "symbolLayout is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.session = requireNonNull(session, "session is null");
-        this.functionResolution = new FunctionResolution(metadata.getFunctionManager());
+        this.functionResolution = new FunctionResolution(metadata.getFunctionAndTypeManager());
     }
 
     @Override
@@ -208,7 +208,7 @@ final class RowExpressionVerifier
     protected Boolean visitComparisonExpression(ComparisonExpression expected, RowExpression actual)
     {
         if (actual instanceof CallExpression) {
-            FunctionMetadata functionMetadata = metadata.getFunctionManager().getFunctionMetadata(((CallExpression) actual).getFunctionHandle());
+            FunctionMetadata functionMetadata = metadata.getFunctionAndTypeManager().getFunctionMetadata(((CallExpression) actual).getFunctionHandle());
             if (!functionMetadata.getOperatorType().isPresent() || !functionMetadata.getOperatorType().get().isComparisonOperator()) {
                 return false;
             }
@@ -261,7 +261,7 @@ final class RowExpressionVerifier
     protected Boolean visitArithmeticBinary(ArithmeticBinaryExpression expected, RowExpression actual)
     {
         if (actual instanceof CallExpression) {
-            FunctionMetadata functionMetadata = metadata.getFunctionManager().getFunctionMetadata(((CallExpression) actual).getFunctionHandle());
+            FunctionMetadata functionMetadata = metadata.getFunctionAndTypeManager().getFunctionMetadata(((CallExpression) actual).getFunctionHandle());
             if (!functionMetadata.getOperatorType().isPresent() || !functionMetadata.getOperatorType().get().isArithmeticOperator()) {
                 return false;
             }
@@ -512,7 +512,7 @@ final class RowExpressionVerifier
         }
         CallExpression actualFunction = (CallExpression) actual;
 
-        if (!expected.getName().getSuffix().equals(metadata.getFunctionManager().getFunctionMetadata(actualFunction.getFunctionHandle()).getName().getFunctionName())) {
+        if (!expected.getName().getSuffix().equals(metadata.getFunctionAndTypeManager().getFunctionMetadata(actualFunction.getFunctionHandle()).getName().getObjectName())) {
             return false;
         }
 

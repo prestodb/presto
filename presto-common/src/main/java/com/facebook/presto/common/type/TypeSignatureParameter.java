@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.common.type;
 
-import com.facebook.presto.common.type.LongEnumType.LongEnumMap;
+import com.facebook.presto.common.type.BigintEnumType.LongEnumMap;
 import com.facebook.presto.common.type.VarcharEnumType.VarcharEnumMap;
 
 import java.util.Objects;

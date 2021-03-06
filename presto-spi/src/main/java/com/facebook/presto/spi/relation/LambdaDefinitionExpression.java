@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.relation;
 
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.FunctionType;
 import com.facebook.presto.common.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -133,7 +134,7 @@ public final class LambdaDefinitionExpression
         @Override
         public String visitCall(CallExpression call, Void context)
         {
-            return format("%s.%s(%s):%s", call.getFunctionHandle().getFunctionNamespace(), call.getDisplayName(), String.join(", ", call.getArguments().stream().map(e -> e.accept(this, null)).collect(Collectors.toList())), call.getType());
+            return format("%s.%s(%s):%s", call.getFunctionHandle().getCatalogSchemaName(), call.getDisplayName(), String.join(", ", call.getArguments().stream().map(e -> e.accept(this, null)).collect(Collectors.toList())), call.getType());
         }
 
         @Override
@@ -152,6 +153,9 @@ public final class LambdaDefinitionExpression
                     return Slices.wrappedBuffer(Base64.getEncoder().encode(slice.toByteBuffer())).toStringUtf8();
                 }
                 return Slices.wrappedBuffer(Base64.getEncoder().encode(slice.getBytes())).toStringUtf8();
+            }
+            if (literal.getValue() instanceof Block) {
+                return format("%d", literal.hashCode());
             }
             // This would convert number constant to string but for other Object constant (e.g. MAP, ARRAY, ROW) it will not convert to the actual value.
             return literal.toString();

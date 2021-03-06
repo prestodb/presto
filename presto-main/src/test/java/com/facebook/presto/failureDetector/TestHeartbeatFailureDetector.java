@@ -80,7 +80,6 @@ public class TestHeartbeatFailureDetector
                 });
 
         Injector injector = app
-                .strictConfig()
                 .doNotInitializeLogging()
                 .quiet()
                 .initialize();

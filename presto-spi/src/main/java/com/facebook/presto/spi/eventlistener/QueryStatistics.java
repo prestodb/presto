@@ -32,6 +32,7 @@ public class QueryStatistics
     private final long peakTotalNonRevocableMemoryBytes;
     private final long peakTaskUserMemory;
     private final long peakTaskTotalMemory;
+    private final long peakNodeTotalMemory;
     private final long totalBytes;
     private final long totalRows;
     private final long outputBytes;
@@ -57,6 +58,7 @@ public class QueryStatistics
             long peakTotalNonRevocableMemoryBytes,
             long peakTaskUserMemory,
             long peakTaskTotalMemory,
+            long peakNodeTotalMemory,
             long totalBytes,
             long totalRows,
             long outputBytes,
@@ -79,6 +81,7 @@ public class QueryStatistics
         this.peakTotalNonRevocableMemoryBytes = peakTotalNonRevocableMemoryBytes;
         this.peakTaskUserMemory = peakTaskUserMemory;
         this.peakTaskTotalMemory = peakTaskTotalMemory;
+        this.peakNodeTotalMemory = peakNodeTotalMemory;
         this.totalBytes = totalBytes;
         this.totalRows = totalRows;
         this.outputBytes = outputBytes;
@@ -140,6 +143,11 @@ public class QueryStatistics
     public long getPeakTaskUserMemory()
     {
         return peakTaskUserMemory;
+    }
+
+    public long getPeakNodeTotalMemory()
+    {
+        return peakNodeTotalMemory;
     }
 
     public long getTotalBytes()

@@ -15,12 +15,10 @@ package com.facebook.presto.druid;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
@@ -43,7 +41,6 @@ import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.ExpressionUtils;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.TypeProvider;
@@ -54,7 +51,6 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.testing.TestingSession;
 import com.facebook.presto.testing.TestingTransactionHandle;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -72,6 +68,7 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.druid.DruidColumnHandle.DruidColumnType.REGULAR;
 import static com.facebook.presto.druid.DruidQueryGeneratorContext.Origin.DERIVED;
 import static com.facebook.presto.druid.DruidQueryGeneratorContext.Origin.TABLE_COLUMN;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.spi.plan.LimitNode.Step.FINAL;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
@@ -83,9 +80,8 @@ import static java.util.stream.Collectors.toMap;
 
 public class TestDruidQueryBase
 {
-    protected static final TypeManager typeManager = new TypeRegistry();
-    protected static final FunctionManager functionMetadataManager = new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
-    protected static final StandardFunctionResolution standardFunctionResolution = new FunctionResolution(functionMetadataManager);
+    protected static final FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
+    protected static final StandardFunctionResolution standardFunctionResolution = new FunctionResolution(functionAndTypeManager);
 
     protected static ConnectorId druidConnectorId = new ConnectorId("id");
     protected static DruidTableHandle realtimeOnlyTable = new DruidTableHandle("schema", "realtimeOnly", Optional.empty());
@@ -202,7 +198,7 @@ public class TestDruidQueryBase
                 expression,
                 ImmutableList.of(),
                 WarningCollector.NOOP);
-        return SqlToRowExpressionTranslator.translate(expression, expressionTypes, ImmutableMap.of(), functionMetadataManager, typeManager, session);
+        return SqlToRowExpressionTranslator.translate(expression, expressionTypes, ImmutableMap.of(), functionAndTypeManager, session);
     }
 
     protected LimitNode limit(PlanBuilder pb, long count, PlanNode source)

@@ -5,12 +5,12 @@
     <parent>
         <groupId>com.facebook.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>99</version>
+        <version>101</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.241-SNAPSHOT</version>
+    <version>0.249-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -45,27 +45,27 @@
         <air.maven.version>3.3.9</air.maven.version>
 
         <dep.antlr.version>4.7.1</dep.antlr.version>
-        <dep.airlift.version>0.194</dep.airlift.version>
+        <dep.airlift.version>0.198</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.38</dep.slice.version>
         <dep.testing-mysql-server-5.version>0.6</dep.testing-mysql-server-5.version>
-        <dep.aws-sdk.version>1.11.445</dep.aws-sdk.version>
+        <dep.aws-sdk.version>1.11.697</dep.aws-sdk.version>
         <dep.okhttp.version>3.9.0</dep.okhttp.version>
         <dep.jdbi3.version>3.4.0</dep.jdbi3.version>
         <dep.oracle.version>19.3.0.0</dep.oracle.version>
-        <dep.drift.version>1.25</dep.drift.version>
-        <dep.joda.version>2.10.5</dep.joda.version>
-        <dep.tempto.version>1.50</dep.tempto.version>
+        <dep.drift.version>1.32</dep.drift.version>
+        <dep.joda.version>2.10.6</dep.joda.version>
+        <dep.tempto.version>1.51</dep.tempto.version>
         <dep.testng.version>6.10</dep.testng.version>
         <dep.assertj-core.version>3.8.0</dep.assertj-core.version>
         <dep.logback.version>1.2.3</dep.logback.version>
         <dep.parquet.version>1.10.0</dep.parquet.version>
         <dep.nexus-staging-plugin.version>1.6.8</dep.nexus-staging-plugin.version>
-        <dep.asm.version>6.2.1</dep.asm.version>
+        <dep.asm.version>9.0</dep.asm.version>
         <dep.gcs.version>1.9.17</dep.gcs.version>
-        <dep.alluxio.version>2.2.2-2</dep.alluxio.version>
+        <dep.alluxio.version>2.4.1-1</dep.alluxio.version>
         <dep.kafka.version>2.3.1</dep.kafka.version>
-        <dep.druid.version>0.17.0</dep.druid.version>
+        <dep.druid.version>0.19.0</dep.druid.version>
         <dep.jaxb.version>2.3.1</dep.jaxb.version>
         <dep.hudi.version>0.5.3</dep.hudi.version>
         <!--
@@ -164,6 +164,7 @@
         <module>presto-druid</module>
         <module>presto-common</module>
         <module>presto-thrift-testing-udf-server</module>
+        <module>presto-thrift-spec</module>
     </modules>
 
     <dependencyManagement>
@@ -578,7 +579,7 @@
             <dependency>
                 <groupId>com.facebook.presto.hive</groupId>
                 <artifactId>hive-apache</artifactId>
-                <version>1.2.2-2</version>
+                <version>3.0.0-2</version>
             </dependency>
 
             <dependency>
@@ -634,7 +635,7 @@
             <dependency>
                 <groupId>com.facebook.hive</groupId>
                 <artifactId>hive-dwrf</artifactId>
-                <version>0.8.3</version>
+                <version>0.8.5</version>
             </dependency>
 
             <dependency>
@@ -818,6 +819,12 @@
             </dependency>
 
             <dependency>
+                <groupId>com.facebook.drift</groupId>
+                <artifactId>drift-codec-utils</artifactId>
+                <version>${dep.drift.version}</version>
+            </dependency>
+
+            <dependency>
                 <groupId>io.airlift.tpch</groupId>
                 <artifactId>tpch</artifactId>
                 <version>0.10</version>
@@ -916,7 +923,7 @@
             <dependency>
                 <groupId>it.unimi.dsi</groupId>
                 <artifactId>fastutil</artifactId>
-                <version>6.5.9</version>
+                <version>8.5.2</version>
             </dependency>
 
             <dependency>
@@ -1012,12 +1019,8 @@
             <dependency>
                 <groupId>org.apache.thrift</groupId>
                 <artifactId>libthrift</artifactId>
-                <version>0.9.1</version>
+                <version>0.9.3</version>
                 <exclusions>
-                    <exclusion>
-                        <groupId>org.apache.commons</groupId>
-                        <artifactId>commons-lang3</artifactId>
-                    </exclusion>
                     <exclusion>
                         <groupId>org.apache.httpcomponents</groupId>
                         <artifactId>httpcore</artifactId>
@@ -1088,7 +1091,7 @@
             <dependency>
                 <groupId>com.facebook.airlift.discovery</groupId>
                 <artifactId>discovery-server</artifactId>
-                <version>1.32</version>
+                <version>1.33</version>
             </dependency>
 
             <dependency>
@@ -1127,6 +1130,10 @@
                     <exclusion>
                         <groupId>joda-time</groupId>
                         <artifactId>joda-time</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.httpcomponents</groupId>
+                        <artifactId>httpclient</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
@@ -1304,6 +1311,10 @@
                         <groupId>org.slf4j</groupId>
                         <artifactId>slf4j-api</artifactId>
                     </exclusion>
+                    <exclusion>
+                        <groupId>org.roaringbitmap</groupId>
+                        <artifactId>RoaringBitmap</artifactId>
+                    </exclusion>
                 </exclusions>
             </dependency>
 
@@ -1380,6 +1391,10 @@
                         <groupId>org.slf4j</groupId>
                         <artifactId>slf4j-api</artifactId>
                     </exclusion>
+                    <exclusion>
+                        <groupId>org.roaringbitmap</groupId>
+                        <artifactId>RoaringBitmap</artifactId>
+                    </exclusion>
                 </exclusions>
             </dependency>
 
@@ -1421,6 +1436,22 @@
                     <exclusion>
                         <groupId>com.google.guava</groupId>
                         <artifactId>guava</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>com.amazonaws</groupId>
+                <artifactId>aws-java-sdk-sts</artifactId>
+                <version>${dep.aws-sdk.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>commons-logging</groupId>
+                        <artifactId>commons-logging</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>joda-time</groupId>
+                        <artifactId>joda-time</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
@@ -1532,6 +1563,12 @@
             </dependency>
 
             <dependency>
+                <groupId>org.roaringbitmap</groupId>
+                <artifactId>RoaringBitmap</artifactId>
+                <version>0.9.3</version>
+            </dependency>
+
+            <dependency>
                 <groupId>org.apache.zookeeper</groupId>
                 <artifactId>zookeeper</artifactId>
                 <version>3.4.14</version>
@@ -1634,7 +1671,7 @@
             <dependency>
                 <groupId>com.esri.geometry</groupId>
                 <artifactId>esri-geometry-api</artifactId>
-                <version>2.2.3</version>
+                <version>2.2.4</version>
                 <exclusions>
                     <exclusion>
                         <groupId>com.fasterxml.jackson.core</groupId>
@@ -1658,13 +1695,13 @@
             <dependency>
                 <groupId>org.locationtech.jts</groupId>
                 <artifactId>jts-core</artifactId>
-                <version>1.17.0</version>
+                <version>1.18.0</version>
             </dependency>
 
             <dependency>
                 <groupId>org.locationtech.jts.io</groupId>
                 <artifactId>jts-io-common</artifactId>
-                <version>1.17.0</version>
+                <version>1.18.0</version>
                 <exclusions>
                     <exclusion>
                         <groupId>junit</groupId>
@@ -1730,7 +1767,53 @@
             <dependency>
                 <groupId>com.facebook.presto.pinot</groupId>
                 <artifactId>pinot-driver</artifactId>
-                <version>0.1.1</version>
+                <version>0.1.2</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId> org.slf4j</groupId>
+                        <artifactId>slf4j-api</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>log4j-over-slf4j</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.logging.log4j</groupId>
+                        <artifactId>log4j-slf4j-api</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.logging.log4j</groupId>
+                        <artifactId>log4j-slf4j-impl</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.logging.log4j</groupId>
+                        <artifactId>log4j-api</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.logging.log4j</groupId>
+                        <artifactId>log4j-core</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.logging.log4j</groupId>
+                        <artifactId>log4j-1.2-api</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.httpcomponents</groupId>
+                        <artifactId>httpclient</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.httpcomponents</groupId>
+                        <artifactId>httpcore</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.lucene</groupId>
+                        <artifactId>lucene-analyzers-common</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.roaringbitmap</groupId>
+                        <artifactId>RoaringBitmap</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <!-- force newer version to be used for dependencies -->
@@ -1757,6 +1840,12 @@
                 <artifactId>spark-core</artifactId>
                 <version>2.0.2-6</version>
                 <scope>provided</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>com.clearspring.analytics</groupId>
+                <artifactId>stream</artifactId>
+                <version>2.9.5</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -1919,6 +2008,35 @@
                             <Implementation-Version>${project.version}-${git.commit.id.abbrev}</Implementation-Version>
                         </manifestEntries>
                     </archive>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>de.qaware.maven</groupId>
+                <artifactId>go-offline-maven-plugin</artifactId>
+                <version>1.2.8</version>
+                <configuration>
+                    <dynamicDependencies>
+                        <DynamicDependency>
+                            <groupId>org.apache.maven.surefire</groupId>
+                            <artifactId>surefire-junit4</artifactId>
+                            <version>2.22.0</version>
+                            <repositoryType>PLUGIN</repositoryType>
+                        </DynamicDependency>
+                        <DynamicDependency>
+                            <groupId>com.querydsl</groupId>
+                            <artifactId>querydsl-apt</artifactId>
+                            <version>4.2.1</version>
+                            <classifier>jpa</classifier>
+                            <repositoryType>MAIN</repositoryType>
+                        </DynamicDependency>
+                        <DynamicDependency>
+                            <groupId>org.flywaydb</groupId>
+                            <artifactId>flyway-commandline</artifactId>
+                            <version>4.0.3</version>
+                            <type>zip</type>
+                            <repositoryType>MAIN</repositoryType>
+                        </DynamicDependency>
+                    </dynamicDependencies>
                 </configuration>
             </plugin>
         </plugins>

@@ -16,10 +16,10 @@ package com.facebook.presto.type;
 import com.facebook.presto.common.type.NamedTypeSignature;
 import com.facebook.presto.common.type.RowFieldName;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeParameter;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -29,6 +29,7 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.common.type.StandardTypes.BIGINT;
 import static com.facebook.presto.common.type.StandardTypes.DOUBLE;
 import static com.facebook.presto.common.type.StandardTypes.ROW;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 
 public class TestRowParametricType
@@ -36,15 +37,15 @@ public class TestRowParametricType
     @Test
     public void testTypeSignatureRoundTrip()
     {
-        TypeManager typeManager = new TypeRegistry();
+        FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
         TypeSignature typeSignature = new TypeSignature(
                 ROW,
                 TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName("col1", false)), new TypeSignature(BIGINT))),
                 TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName("col2", true)), new TypeSignature(DOUBLE))));
         List<TypeParameter> parameters = typeSignature.getParameters().stream()
-                .map(parameter -> TypeParameter.of(parameter, typeManager))
+                .map(parameter -> TypeParameter.of(parameter, functionAndTypeManager))
                 .collect(Collectors.toList());
-        Type rowType = RowParametricType.ROW.createType(typeManager, parameters);
+        Type rowType = RowParametricType.ROW.createType(parameters);
 
         assertEquals(rowType.getTypeSignature(), typeSignature);
     }

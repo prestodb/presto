@@ -214,7 +214,7 @@ public class RowBlock
     @Override
     public String toString()
     {
-        return format("RowBlock{numFields=%d, positionCount=%d}", numFields, getPositionCount());
+        return format("RowBlock(%d){numFields=%d, positionCount=%d}", hashCode(), numFields, getPositionCount());
     }
 
     @Override

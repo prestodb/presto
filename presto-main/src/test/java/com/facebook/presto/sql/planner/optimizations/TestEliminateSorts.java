@@ -95,7 +95,7 @@ public class TestEliminateSorts
                         getQueryRunner().getCostCalculator(),
                         new TranslateExpressions(getMetadata(), new SqlParser()).rules()),
                 new AddExchanges(getQueryRunner().getMetadata(), new SqlParser()),
-                new UnaliasSymbolReferences(getMetadata().getFunctionManager()),
+                new UnaliasSymbolReferences(getMetadata().getFunctionAndTypeManager()),
                 new PruneUnreferencedOutputs(),
                 new IterativeOptimizer(
                         new RuleStatsRecorder(),

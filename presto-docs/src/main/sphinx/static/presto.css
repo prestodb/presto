@@ -1,0 +1,107 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@100;300;400;500;700;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat&display=swap');
+
+html{
+    scroll-behavior: smooth;
+}
+
+body{
+    -webkit-font-smoothing:antialiased;
+    -moz-osx-font-smoothing:grayscale;
+}
+
+body,input,h1,h2,h3,h4,h5{
+    -webkit-font-feature-settings:"kern","liga";
+    font-feature-settings:"kern","liga";
+    font-family:'Montserrat','Roboto', "Helvetica Neue", Helvetica, Arial, sans-serif;
+    color: #000;
+}
+
+.md-typeset a {
+    color: #206688!important;
+    font-weight: 500;
+}
+
+.md-sidebar--primary{
+    background-color: rgb(170, 205, 224);
+}
+
+.md-sidebar--secondary{
+    background-color: rgba(170, 205, 224,.2);
+    padding: 0;
+}
+
+.md-nav__link--active{
+    background-color: white;
+    color: #000;
+    font-weight: bold;
+}
+
+.md-search__inner{
+    width:20rem;
+    background-color: black;
+}
+
+.md-header,
+.md-hero,
+.md-footer-nav,
+.md-tabs{
+    color:#45cbe6;
+	background-color: #222!important;
+}
+
+.md-search__input {
+	background-color: rgba(255,255,255,.26)!important;
+}
+
+.md-typeset h1{
+	font-size: 1.5em;
+	font-weight: 700;
+	color: #000000;
+}
+
+.md-typeset h2{
+	font-size: 1.4em;
+	font-weight: 400;
+}
+
+.md-typeset h3{
+	font-size: 1.3em;
+	font-weight: 200;
+}
+
+.md-typeset{
+	font-weight: 300;
+}
+
+.md-typeset .admonition, .md-typeset .admonition-title {
+    font-size: 0.7rem
+}
+
+.o-tooltip--left:after {
+    font-size: 0.6rem;
+}
+
+/* hide children of Release Notes */
+div.toctree-wrapper > ul > li:last-child > ul {
+    display: none;
+}
+
+.copybtn:hover {
+    cursor: copy;
+}

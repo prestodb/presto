@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+set -ex
+cd "${BASH_SOURCE%/*}"
+
+rm -rf presto-docs-venv
+python3 -m venv presto-docs-venv
+source presto-docs-venv/bin/activate
+pip install -r requirements.txt
+
+make clean html
+
+deactivate

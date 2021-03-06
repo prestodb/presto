@@ -13,15 +13,12 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.LongArrayBlock;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.spi.function.Signature;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -38,6 +35,7 @@ import static com.facebook.presto.common.type.Decimals.MAX_SHORT_PRECISION;
 import static com.facebook.presto.common.type.StandardTypes.BOOLEAN;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.metadata.TestPolymorphicScalarFunction.TestMethods.VARCHAR_TO_BIGINT_RETURN_VALUE;
 import static com.facebook.presto.metadata.TestPolymorphicScalarFunction.TestMethods.VARCHAR_TO_VARCHAR_RETURN_VALUE;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
@@ -53,8 +51,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestPolymorphicScalarFunction
 {
-    private static final TypeRegistry TYPE_REGISTRY = new TypeRegistry();
-    private static final FunctionManager FUNCTION_MANAGER = new FunctionManager(TYPE_REGISTRY, new BlockEncodingManager(TYPE_REGISTRY), new FeaturesConfig());
+    private static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = createTestFunctionAndTypeManager();
     private static final Signature SIGNATURE = SignatureBuilder.builder()
             .name("foo")
             .kind(SCALAR)
@@ -66,7 +63,7 @@ public class TestPolymorphicScalarFunction
     private static final TypeSignature INPUT_VARCHAR_TYPE = parseTypeSignature(INPUT_VARCHAR_SIGNATURE);
     private static final Slice INPUT_SLICE = Slices.allocate(toIntExact(INPUT_VARCHAR_LENGTH));
     private static final BoundVariables BOUND_VARIABLES = new BoundVariables(
-            ImmutableMap.of("V", TYPE_REGISTRY.getType(INPUT_VARCHAR_TYPE)),
+            ImmutableMap.of("V", FUNCTION_AND_TYPE_MANAGER.getType(INPUT_VARCHAR_TYPE)),
             ImmutableMap.of("x", INPUT_VARCHAR_LENGTH));
 
     private static final TypeSignature DECIMAL_SIGNATURE = parseTypeSignature("decimal(a_precision, a_scale)", ImmutableSet.of("a_precision", "a_scale"));
@@ -108,7 +105,7 @@ public class TestPolymorphicScalarFunction
                                         asList(Optional.of(long.class), Optional.of(long.class)))))
                 .build();
 
-        BuiltInScalarFunctionImplementation functionImplementation = function.specialize(SHORT_DECIMAL_BOUND_VARIABLES, 2, TYPE_REGISTRY, FUNCTION_MANAGER);
+        BuiltInScalarFunctionImplementation functionImplementation = function.specialize(SHORT_DECIMAL_BOUND_VARIABLES, 2, FUNCTION_AND_TYPE_MANAGER);
 
         assertEquals(functionImplementation.getAllChoices().size(), 2);
         assertEquals(functionImplementation.getAllChoices().get(0).getArgumentProperties(), Collections.nCopies(2, valueTypeArgumentProperty(USE_NULL_FLAG)));
@@ -116,7 +113,7 @@ public class TestPolymorphicScalarFunction
         Block block1 = new LongArrayBlock(0, Optional.empty(), new long[0]);
         Block block2 = new LongArrayBlock(0, Optional.empty(), new long[0]);
         assertFalse((boolean) functionImplementation.getAllChoices().get(1).getMethodHandle().invoke(block1, 0, block2, 0));
-        functionImplementation = function.specialize(LONG_DECIMAL_BOUND_VARIABLES, 2, TYPE_REGISTRY, FUNCTION_MANAGER);
+        functionImplementation = function.specialize(LONG_DECIMAL_BOUND_VARIABLES, 2, FUNCTION_AND_TYPE_MANAGER);
         assertTrue((boolean) functionImplementation.getAllChoices().get(1).getMethodHandle().invoke(block1, 0, block2, 0));
     }
 
@@ -135,7 +132,7 @@ public class TestPolymorphicScalarFunction
                                 .withExtraParameters(context -> ImmutableList.of(context.getLiteral("x")))))
                 .build();
 
-        BuiltInScalarFunctionImplementation functionImplementation = function.specialize(BOUND_VARIABLES, 1, TYPE_REGISTRY, FUNCTION_MANAGER);
+        BuiltInScalarFunctionImplementation functionImplementation = function.specialize(BOUND_VARIABLES, 1, FUNCTION_AND_TYPE_MANAGER);
         assertEquals(functionImplementation.getMethodHandle().invoke(INPUT_SLICE), INPUT_VARCHAR_LENGTH);
     }
 
@@ -154,7 +151,7 @@ public class TestPolymorphicScalarFunction
                                 .withExtraParameters(context -> ImmutableList.of(42))))
                 .build();
 
-        BuiltInScalarFunctionImplementation functionImplementation = function.specialize(BOUND_VARIABLES, 1, TYPE_REGISTRY, FUNCTION_MANAGER);
+        BuiltInScalarFunctionImplementation functionImplementation = function.specialize(BOUND_VARIABLES, 1, FUNCTION_AND_TYPE_MANAGER);
 
         assertEquals(functionImplementation.getMethodHandle().invoke(INPUT_SLICE), VARCHAR_TO_BIGINT_RETURN_VALUE);
     }
@@ -178,7 +175,7 @@ public class TestPolymorphicScalarFunction
                         .implementation(methodsGroup -> methodsGroup.methods("varcharToVarchar")))
                 .build();
 
-        BuiltInScalarFunctionImplementation functionImplementation = function.specialize(BOUND_VARIABLES, 1, TYPE_REGISTRY, FUNCTION_MANAGER);
+        BuiltInScalarFunctionImplementation functionImplementation = function.specialize(BOUND_VARIABLES, 1, FUNCTION_AND_TYPE_MANAGER);
         Slice slice = (Slice) functionImplementation.getMethodHandle().invoke(INPUT_SLICE);
         assertEquals(slice, VARCHAR_TO_VARCHAR_RETURN_VALUE);
     }
@@ -203,7 +200,7 @@ public class TestPolymorphicScalarFunction
                         .implementation(methodsGroup -> methodsGroup.methods("varcharToVarchar")))
                 .build();
 
-        BuiltInScalarFunctionImplementation functionImplementation = function.specialize(BOUND_VARIABLES, 1, TYPE_REGISTRY, FUNCTION_MANAGER);
+        BuiltInScalarFunctionImplementation functionImplementation = function.specialize(BOUND_VARIABLES, 1, FUNCTION_AND_TYPE_MANAGER);
         Slice slice = (Slice) functionImplementation.getMethodHandle().invoke(INPUT_SLICE);
         assertEquals(slice, VARCHAR_TO_VARCHAR_RETURN_VALUE);
     }
@@ -225,7 +222,7 @@ public class TestPolymorphicScalarFunction
                         .implementation(methodsGroup -> methodsGroup.methods("varcharToVarchar")))
                 .build();
 
-        BuiltInScalarFunctionImplementation functionImplementation = function.specialize(BOUND_VARIABLES, 1, TYPE_REGISTRY, FUNCTION_MANAGER);
+        BuiltInScalarFunctionImplementation functionImplementation = function.specialize(BOUND_VARIABLES, 1, FUNCTION_AND_TYPE_MANAGER);
     }
 
     @Test(expectedExceptions = {IllegalStateException.class},
@@ -269,7 +266,7 @@ public class TestPolymorphicScalarFunction
                         .implementation(methodsGroup -> methodsGroup.methods("varcharToBigintReturnExtraParameter")))
                 .build();
 
-        function.specialize(BOUND_VARIABLES, 1, TYPE_REGISTRY, FUNCTION_MANAGER);
+        function.specialize(BOUND_VARIABLES, 1, FUNCTION_AND_TYPE_MANAGER);
     }
 
     public static class TestMethods

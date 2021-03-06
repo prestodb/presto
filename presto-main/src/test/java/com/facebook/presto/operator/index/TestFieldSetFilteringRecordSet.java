@@ -13,14 +13,10 @@
  */
 package com.facebook.presto.operator.index;
 
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.type.ArrayType;
-import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
@@ -29,6 +25,7 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.common.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.util.StructuralTestUtil.arrayBlockOf;
 import static org.testng.Assert.assertTrue;
 
@@ -37,12 +34,11 @@ public class TestFieldSetFilteringRecordSet
     @Test
     public void test()
     {
-        TypeManager typeManager = new TypeRegistry();
-        FunctionManager functionManager = new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
 
         ArrayType arrayOfBigintType = new ArrayType(BIGINT);
         FieldSetFilteringRecordSet fieldSetFilteringRecordSet = new FieldSetFilteringRecordSet(
-                functionManager,
+                functionAndTypeManager,
                 new InMemoryRecordSet(
                         ImmutableList.of(BIGINT, BIGINT, TIMESTAMP_WITH_TIME_ZONE, TIMESTAMP_WITH_TIME_ZONE, arrayOfBigintType, arrayOfBigintType),
                         ImmutableList.of(

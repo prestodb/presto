@@ -117,12 +117,12 @@ class TaskList extends React.Component {
             return (
                 <Tr key={task.taskId}>
                     <Td column="id" value={task.taskId}>
-                        <a href={task.taskStatus.self + "?pretty"}>
+                        <a href={"/v1/taskInfo/" + task.taskId + "?pretty"}>
                             {getTaskIdSuffix(task.taskId)}
                         </a>
                     </Td>
                     <Td column="host" value={getHostname(task.taskStatus.self)}>
-                        <a href={"worker.html?" + task.taskStatus.nodeId} className="font-light" target="_blank">
+                        <a href={"worker.html?" + task.nodeId} className="font-light" target="_blank">
                             {showPortNumbers ? getHostAndPort(task.taskStatus.self) : getHostname(task.taskStatus.self)}
                         </a>
                     </Td>

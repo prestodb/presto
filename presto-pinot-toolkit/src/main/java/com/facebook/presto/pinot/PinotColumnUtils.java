@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.pinot;
 
+import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.DateType;
@@ -22,12 +23,12 @@ import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
-import org.apache.pinot.common.data.DateTimeFieldSpec;
-import org.apache.pinot.common.data.FieldSpec;
-import org.apache.pinot.common.data.FieldSpec.DataType;
-import org.apache.pinot.common.data.Schema;
-import org.apache.pinot.common.data.TimeFieldSpec;
-import org.apache.pinot.common.data.TimeGranularitySpec;
+import org.apache.pinot.spi.data.DateTimeFieldSpec;
+import org.apache.pinot.spi.data.FieldSpec;
+import org.apache.pinot.spi.data.FieldSpec.DataType;
+import org.apache.pinot.spi.data.Schema;
+import org.apache.pinot.spi.data.TimeFieldSpec;
+import org.apache.pinot.spi.data.TimeGranularitySpec;
 
 import java.util.List;
 import java.util.Optional;
@@ -36,7 +37,7 @@ import static com.facebook.presto.pinot.PinotErrorCode.PINOT_UNSUPPORTED_COLUMN_
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.apache.pinot.common.data.TimeGranularitySpec.TimeFormat.EPOCH;
+import static org.apache.pinot.spi.data.DateTimeFieldSpec.TimeFormat.EPOCH;
 
 public class PinotColumnUtils
 {
@@ -107,10 +108,11 @@ public class PinotColumnUtils
             }
             return getPrestoTypeFromPinotType(field.getDataType());
         }
-        return VarcharType.VARCHAR;
+
+        return new ArrayType(getPrestoTypeFromPinotType(field.getDataType()));
     }
 
-    public static Type getPrestoTypeFromPinotType(DataType dataType)
+    private static Type getPrestoTypeFromPinotType(DataType dataType)
     {
         switch (dataType) {
             case BOOLEAN:

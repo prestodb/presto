@@ -16,9 +16,8 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
@@ -41,7 +40,7 @@ public final class RowGreaterThanOperator
     }
 
     @Override
-    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
+    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
         Type type = boundVariables.getTypeVariable("T");
         return new BuiltInScalarFunctionImplementation(
@@ -49,7 +48,7 @@ public final class RowGreaterThanOperator
                 ImmutableList.of(
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
-                METHOD_HANDLE.bindTo(type).bindTo(getMethodHandles((RowType) type, functionManager, GREATER_THAN)));
+                METHOD_HANDLE.bindTo(type).bindTo(getMethodHandles((RowType) type, functionAndTypeManager, GREATER_THAN)));
     }
 
     public static boolean greater(

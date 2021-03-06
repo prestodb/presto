@@ -82,6 +82,11 @@ public interface ExtendedHiveMetastore
             String tableName,
             Map<Column, Domain> partitionPredicates);
 
+    List<PartitionNameWithVersion> getPartitionNamesWithVersionByFilter(
+            String databaseName,
+            String tableName,
+            Map<Column, Domain> partitionPredicates);
+
     Map<String, Optional<Partition>> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames);
 
     void addPartitions(String databaseName, String tableName, List<PartitionWithStatistics> partitions);

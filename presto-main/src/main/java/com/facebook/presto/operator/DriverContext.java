@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.FragmentResultCacheContext;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.memory.QueryContextVisitor;
@@ -30,6 +31,7 @@ import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
@@ -81,19 +83,22 @@ public class DriverContext
 
     private final List<OperatorContext> operatorContexts = new CopyOnWriteArrayList<>();
     private final Lifespan lifespan;
+    private final Optional<FragmentResultCacheContext> fragmentResultCacheContext;
 
     public DriverContext(
             PipelineContext pipelineContext,
             Executor notificationExecutor,
             ScheduledExecutorService yieldExecutor,
             MemoryTrackingContext driverMemoryContext,
-            Lifespan lifespan)
+            Lifespan lifespan,
+            Optional<FragmentResultCacheContext> fragmentResultCacheContext)
     {
         this.pipelineContext = requireNonNull(pipelineContext, "pipelineContext is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
         this.yieldExecutor = requireNonNull(yieldExecutor, "scheduler is null");
         this.driverMemoryContext = requireNonNull(driverMemoryContext, "driverMemoryContext is null");
         this.lifespan = requireNonNull(lifespan, "lifespan is null");
+        this.fragmentResultCacheContext = requireNonNull(fragmentResultCacheContext, "fragmentResultCacheContext is null");
         this.yieldSignal = new DriverYieldSignal();
     }
 
@@ -423,6 +428,11 @@ public class DriverContext
         return lifespan;
     }
 
+    public Optional<FragmentResultCacheContext> getFragmentResultCacheContext()
+    {
+        return fragmentResultCacheContext;
+    }
+
     public ScheduledExecutorService getYieldExecutor()
     {
         return yieldExecutor;
@@ -462,5 +472,11 @@ public class DriverContext
     public MemoryTrackingContext getDriverMemoryContext()
     {
         return driverMemoryContext;
+    }
+
+    @VisibleForTesting
+    public void addOperatorContext(OperatorContext operatorContext)
+    {
+        operatorContexts.add(operatorContext);
     }
 }

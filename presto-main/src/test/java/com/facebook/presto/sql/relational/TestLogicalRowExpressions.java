@@ -13,17 +13,13 @@
  */
 package com.facebook.presto.sql.relational;
 
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.function.OperatorType;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.expressions.LogicalRowExpressions;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -44,6 +40,7 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.expressions.LogicalRowExpressions.FALSE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.extractPredicates;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -53,7 +50,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestLogicalRowExpressions
 {
-    private FunctionManager functionManager;
+    private FunctionAndTypeManager functionAndTypeManager;
     private LogicalRowExpressions logicalRowExpressions;
     private static final RowExpression a = name("a");
     private static final RowExpression b = name("b");
@@ -67,9 +64,8 @@ public class TestLogicalRowExpressions
     @BeforeClass
     public void setup()
     {
-        TypeManager typeManager = new TypeRegistry();
-        functionManager = new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
-        logicalRowExpressions = new LogicalRowExpressions(new RowExpressionDeterminismEvaluator(functionManager), new FunctionResolution(functionManager), functionManager);
+        functionAndTypeManager = createTestFunctionAndTypeManager();
+        logicalRowExpressions = new LogicalRowExpressions(new RowExpressionDeterminismEvaluator(functionAndTypeManager), new FunctionResolution(functionAndTypeManager), functionAndTypeManager);
     }
 
     @Test
@@ -119,8 +115,8 @@ public class TestLogicalRowExpressions
     @Test
     public void testDeterminism()
     {
-        RowExpression nondeterministic = call("random", functionManager.lookupFunction("random", fromTypes()), DOUBLE);
-        RowExpression deterministic = call("length", functionManager.lookupFunction("length", fromTypes(VARCHAR)), INTEGER);
+        RowExpression nondeterministic = call("random", functionAndTypeManager.lookupFunction("random", fromTypes()), DOUBLE);
+        RowExpression deterministic = call("length", functionAndTypeManager.lookupFunction("length", fromTypes(VARCHAR)), INTEGER);
 
         RowExpression expression = and(and(a, or(b, nondeterministic)), deterministic);
 
@@ -175,7 +171,7 @@ public class TestLogicalRowExpressions
     @Test
     public void testEliminateDuplicate()
     {
-        RowExpression nd = call("random", functionManager.lookupFunction("random", fromTypes()), DOUBLE);
+        RowExpression nd = call("random", functionAndTypeManager.lookupFunction("random", fromTypes()), DOUBLE);
 
         assertEquals(
                 logicalRowExpressions.convertToConjunctiveNormalForm(or(and(TRUE_CONSTANT, a), and(b, b))),
@@ -498,7 +494,7 @@ public class TestLogicalRowExpressions
     {
         return call(
                 operator.getOperator(),
-                new FunctionResolution(functionManager).comparisonFunction(operator, left.getType(), right.getType()),
+                new FunctionResolution(functionAndTypeManager).comparisonFunction(operator, left.getType(), right.getType()),
                 BOOLEAN,
                 left,
                 right);
@@ -521,6 +517,6 @@ public class TestLogicalRowExpressions
 
     private RowExpression not(RowExpression expression)
     {
-        return new CallExpression("not", new FunctionResolution(functionManager).notFunction(), BOOLEAN, ImmutableList.of(expression));
+        return new CallExpression("not", new FunctionResolution(functionAndTypeManager).notFunction(), BOOLEAN, ImmutableList.of(expression));
     }
 }

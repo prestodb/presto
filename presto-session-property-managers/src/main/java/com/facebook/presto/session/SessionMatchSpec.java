@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.session;
 
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.session.SessionConfigurationContext;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -34,7 +35,9 @@ public class SessionMatchSpec
     private final Optional<Pattern> sourceRegex;
     private final Set<String> clientTags;
     private final Optional<String> queryType;
+    private final Optional<Pattern> clientInfoRegex;
     private final Optional<Pattern> resourceGroupRegex;
+    private final Optional<Boolean> overrideSessionProperties;
     private final Map<String, String> sessionProperties;
 
     @JsonCreator
@@ -44,6 +47,8 @@ public class SessionMatchSpec
             @JsonProperty("clientTags") Optional<List<String>> clientTags,
             @JsonProperty("queryType") Optional<String> queryType,
             @JsonProperty("group") Optional<Pattern> resourceGroupRegex,
+            @JsonProperty("clientInfo") Optional<Pattern> clientInfoRegex,
+            @JsonProperty("overrideSessionProperties") Optional<Boolean> overrideSessionProperties,
             @JsonProperty("sessionProperties") Map<String, String> sessionProperties)
     {
         this.userRegex = requireNonNull(userRegex, "userRegex is null");
@@ -52,6 +57,8 @@ public class SessionMatchSpec
         this.clientTags = ImmutableSet.copyOf(clientTags.orElse(ImmutableList.of()));
         this.queryType = requireNonNull(queryType, "queryType is null");
         this.resourceGroupRegex = requireNonNull(resourceGroupRegex, "resourceGroupRegex is null");
+        this.clientInfoRegex = requireNonNull(clientInfoRegex, "clientInfoRegex is null");
+        this.overrideSessionProperties = requireNonNull(overrideSessionProperties, "overrideSessionProperties is null");
         requireNonNull(sessionProperties, "sessionProperties is null");
         this.sessionProperties = ImmutableMap.copyOf(sessionProperties);
     }
@@ -78,8 +85,18 @@ public class SessionMatchSpec
             }
         }
 
-        if (resourceGroupRegex.isPresent() && !resourceGroupRegex.get().matcher(context.getResourceGroupId().toString()).matches()) {
-            return ImmutableMap.of();
+        if (clientInfoRegex.isPresent()) {
+            String clientInfo = context.getClientInfo().orElse("");
+            if (!clientInfoRegex.get().matcher(clientInfo).matches()) {
+                return ImmutableMap.of();
+            }
+        }
+
+        if (resourceGroupRegex.isPresent()) {
+            String resourceGroupId = context.getResourceGroupId().map(ResourceGroupId::toString).orElse("");
+            if (!resourceGroupRegex.get().matcher(resourceGroupId).matches()) {
+                return ImmutableMap.of();
+            }
         }
 
         return sessionProperties;
@@ -113,6 +130,18 @@ public class SessionMatchSpec
     public Optional<Pattern> getResourceGroupRegex()
     {
         return resourceGroupRegex;
+    }
+
+    @JsonProperty
+    public Optional<Pattern> getClientInfoRegex()
+    {
+        return clientInfoRegex;
+    }
+
+    @JsonProperty
+    public Optional<Boolean> getOverrideSessionProperties()
+    {
+        return overrideSessionProperties;
     }
 
     @JsonProperty

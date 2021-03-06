@@ -14,27 +14,24 @@
 package com.facebook.presto.functionNamespace;
 
 import com.facebook.airlift.configuration.Config;
-import com.facebook.airlift.json.JsonCodec;
-import com.facebook.presto.spi.function.FunctionImplementationType;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
-import java.util.Map;
+import java.util.Set;
 
-import static com.facebook.airlift.json.JsonCodec.mapJsonCodec;
-import static com.facebook.presto.spi.function.RoutineCharacteristics.Language;
-import static com.facebook.presto.spi.function.RoutineCharacteristics.Language.SQL;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class SqlInvokedFunctionNamespaceManagerConfig
 {
-    private static final JsonCodec<Map<Language, FunctionImplementationType>> FUNCTION_LANGUAGES_CODEC = mapJsonCodec(Language.class, FunctionImplementationType.class);
+    private static final Splitter SPLITTER = Splitter.on(',').omitEmptyStrings().trimResults();
 
     private Duration functionCacheExpiration = new Duration(5, MINUTES);
     private Duration functionInstanceCacheExpiration = new Duration(8, HOURS);
-    private Map<Language, FunctionImplementationType> supportedFunctionLanguages = ImmutableMap.of(SQL, FunctionImplementationType.SQL);
+    private Duration typeCacheExpiration = new Duration(1, HOURS);
+    private Set<String> supportedFunctionLanguages = ImmutableSet.of("sql");
 
     @MinDuration("0ns")
     public Duration getFunctionCacheExpiration()
@@ -62,15 +59,28 @@ public class SqlInvokedFunctionNamespaceManagerConfig
         return this;
     }
 
-    public Map<Language, FunctionImplementationType> getSupportedFunctionLanguages()
+    @MinDuration("0ns")
+    public Duration getTypeCacheExpiration()
     {
-        return supportedFunctionLanguages;
+        return typeCacheExpiration;
+    }
+
+    @Config("type-cache-expiration")
+    public SqlInvokedFunctionNamespaceManagerConfig setTypeCacheExpiration(Duration typeCacheExpiration)
+    {
+        this.typeCacheExpiration = typeCacheExpiration;
+        return this;
     }
 
     @Config("supported-function-languages")
     public SqlInvokedFunctionNamespaceManagerConfig setSupportedFunctionLanguages(String languages)
     {
-        this.supportedFunctionLanguages = FUNCTION_LANGUAGES_CODEC.fromJson(languages);
+        this.supportedFunctionLanguages = ImmutableSet.copyOf(SPLITTER.split(languages));
         return this;
+    }
+
+    public Set<String> getSupportedFunctionLanguages()
+    {
+        return supportedFunctionLanguages;
     }
 }

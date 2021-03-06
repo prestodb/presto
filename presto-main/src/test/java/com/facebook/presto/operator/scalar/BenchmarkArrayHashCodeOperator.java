@@ -19,8 +19,8 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.FunctionListBuilder;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.project.PageProcessor;
@@ -104,7 +104,7 @@ public class BenchmarkArrayHashCodeOperator
     public static class BenchmarkData
     {
         @Param({"$operator$hash_code", "old_hash", "another_hash"})
-        private String name = HASH_CODE.getFunctionName().getFunctionName();
+        private String name = HASH_CODE.getFunctionName().getObjectName();
 
         @Param({"BIGINT", "VARCHAR", "DOUBLE", "BOOLEAN"})
         private String type = "BIGINT";
@@ -116,7 +116,7 @@ public class BenchmarkArrayHashCodeOperator
         public void setup()
         {
             MetadataManager metadata = MetadataManager.createTestMetadataManager();
-            FunctionManager functionManager = metadata.getFunctionManager();
+            FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
             metadata.registerBuiltInFunctions(new FunctionListBuilder().scalar(BenchmarkOldArrayHash.class).getFunctions());
             metadata.registerBuiltInFunctions(new FunctionListBuilder().scalar(BenchmarkAnotherArrayHash.class).getFunctions());
             ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
@@ -140,7 +140,7 @@ public class BenchmarkArrayHashCodeOperator
                     throw new UnsupportedOperationException();
             }
             ArrayType arrayType = new ArrayType(elementType);
-            FunctionHandle functionHandle = functionManager.lookupFunction(name, fromTypes(arrayType));
+            FunctionHandle functionHandle = functionAndTypeManager.lookupFunction(name, fromTypes(arrayType));
             projectionsBuilder.add(new CallExpression(name, functionHandle, BIGINT, ImmutableList.of(field(0, arrayType))));
             blocks[0] = createChannel(POSITIONS, ARRAY_SIZE, arrayType);
 

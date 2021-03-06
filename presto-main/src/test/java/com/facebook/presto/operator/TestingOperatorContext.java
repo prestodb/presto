@@ -20,6 +20,7 @@ import com.facebook.presto.testing.TestingSession;
 import com.facebook.presto.testing.TestingTaskContext;
 import com.google.common.util.concurrent.MoreExecutors;
 
+import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -53,7 +54,8 @@ public class TestingOperatorContext
                 executor,
                 scheduledExecutor,
                 pipelineMemoryContext,
-                Lifespan.taskWide());
+                Lifespan.taskWide(),
+                Optional.empty());
 
         OperatorContext operatorContext = driverContext.addOperatorContext(
                 1,

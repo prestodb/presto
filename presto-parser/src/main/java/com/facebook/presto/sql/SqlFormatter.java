@@ -25,6 +25,7 @@ import com.facebook.presto.sql.tree.CallArgument;
 import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.CreateFunction;
+import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.CreateRole;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
@@ -107,6 +108,7 @@ import com.facebook.presto.sql.tree.TransactionAccessMode;
 import com.facebook.presto.sql.tree.TransactionMode;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Unnest;
+import com.facebook.presto.sql.tree.Use;
 import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
@@ -559,9 +561,34 @@ public final class SqlFormatter
         }
 
         @Override
+        protected Void visitCreateMaterializedView(CreateMaterializedView node, Integer indent)
+        {
+            builder.append("CREATE MATERIALIZED VIEW ");
+            if (node.isNotExists()) {
+                builder.append("IF NOT EXISTS ");
+            }
+            builder.append(formatName(node.getName()));
+
+            if (node.getComment().isPresent()) {
+                builder.append("\nCOMMENT " + formatStringLiteral(node.getComment().get()));
+            }
+
+            builder.append(formatPropertiesMultiLine(node.getProperties()));
+
+            builder.append(" AS ");
+            process(node.getQuery(), indent);
+
+            return null;
+        }
+
+        @Override
         protected Void visitCreateFunction(CreateFunction node, Integer indent)
         {
-            builder.append("CREATE FUNCTION ")
+            builder.append("CREATE ");
+            if (node.isTemporary()) {
+                builder.append("TEMPORARY ");
+            }
+            builder.append("FUNCTION ")
                     .append(formatName(node.getFunctionName()))
                     .append(" ")
                     .append(formatSqlParameterDeclarations(node.getParameters()))
@@ -595,7 +622,11 @@ public final class SqlFormatter
         @Override
         protected Void visitDropFunction(DropFunction node, Integer indent)
         {
-            builder.append("DROP FUNCTION ");
+            builder.append("DROP ");
+            if (node.isTemporary()) {
+                builder.append("TEMPORARY ");
+            }
+            builder.append("FUNCTION ");
             if (node.isExists()) {
                 builder.append("IF EXISTS ");
             }
@@ -781,6 +812,19 @@ public final class SqlFormatter
             node.getEscape().ifPresent(value ->
                     builder.append(" ESCAPE ")
                             .append(formatStringLiteral(value)));
+
+            return null;
+        }
+
+        @Override
+        protected Void visitUse(Use node, Integer context)
+        {
+            builder.append("USE ");
+            if (node.getCatalog().isPresent()) {
+                builder.append(formatExpression(node.getCatalog().get(), Optional.empty()))
+                        .append(".");
+            }
+            builder.append(formatExpression(node.getSchema(), Optional.empty()));
 
             return null;
         }

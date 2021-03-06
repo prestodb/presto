@@ -29,7 +29,12 @@ public class TestDistributedSpilledQueries
 {
     public TestDistributedSpilledQueries()
     {
-        super(TestDistributedSpilledQueries::createQueryRunner);
+        this(TestDistributedSpilledQueries::createQueryRunner);
+    }
+
+    protected TestDistributedSpilledQueries(QueryRunnerSupplier queryRunnerSupplier)
+    {
+        super(queryRunnerSupplier);
     }
 
     public static DistributedQueryRunner createQueryRunner()
@@ -40,11 +45,13 @@ public class TestDistributedSpilledQueries
                 .setSchema(TINY_SCHEMA_NAME)
                 .setSystemProperty(SystemSessionProperties.TASK_CONCURRENCY, "2")
                 .setSystemProperty(SystemSessionProperties.SPILL_ENABLED, "true")
+                .setSystemProperty(SystemSessionProperties.JOIN_SPILL_ENABLED, "true")
                 .setSystemProperty(SystemSessionProperties.AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT, "128kB")
                 .setSystemProperty(SystemSessionProperties.USE_MARK_DISTINCT, "false")
                 .build();
 
         ImmutableMap<String, String> extraProperties = ImmutableMap.<String, String>builder()
+                .put("experimental.spill-enabled", "true")
                 .put("experimental.spiller-spill-path", Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills").toString())
                 .put("experimental.spiller-max-used-space-threshold", "1.0")
                 .put("experimental.memory-revoking-threshold", "0.0") // revoke always
@@ -65,12 +72,6 @@ public class TestDistributedSpilledQueries
     }
 
     @Test(enabled = false)
-    public void testJoinPredicatePushdown()
-    {
-        // TODO: disabled until join spilling is reworked
-    }
-
-    @Test(enabled = false)
     @Override
     public void testAssignUniqueId()
     {
@@ -79,14 +80,9 @@ public class TestDistributedSpilledQueries
     }
 
     @Test(enabled = false)
-    public void testLimitWithJoin()
+    @Override
+    public void testCorrelatedNonAggregationScalarSubqueries()
     {
-        // TODO: disable until https://github.com/prestodb/presto/issues/13859 is resolved.
-    }
-
-    @Test(enabled = false)
-    public void testJoinDoubleClauseWithRightOverlap()
-    {
-        // TODO: disable until https://github.com/prestodb/presto/issues/13859 is resolved.
+        // TODO: disable until https://github.com/prestodb/presto/issues/15542 is resolved
     }
 }

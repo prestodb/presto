@@ -28,7 +28,7 @@ public class TestIntegerArrayType
 {
     public TestIntegerArrayType()
     {
-        super(new TypeRegistry().getType(parseTypeSignature("array(integer)")), List.class, createTestBlock(new TypeRegistry().getType(parseTypeSignature("array(integer)"))));
+        super(functionAndTypeManager.getType(parseTypeSignature("array(integer)")), List.class, createTestBlock(functionAndTypeManager.getType(parseTypeSignature("array(integer)"))));
     }
 
     public static Block createTestBlock(Type arrayType)

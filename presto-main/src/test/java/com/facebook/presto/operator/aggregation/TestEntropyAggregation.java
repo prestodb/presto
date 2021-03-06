@@ -16,7 +16,7 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.StandardTypes;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
@@ -45,9 +45,9 @@ public class TestEntropyAggregation
     @BeforeClass
     public void setUp()
     {
-        FunctionManager functionManager = MetadataManager.createTestMetadataManager().getFunctionManager();
-        entropyFunction = functionManager.getAggregateFunctionImplementation(
-                functionManager.lookupFunction(TestEntropyAggregation.FUNCTION_NAME, fromTypes(BIGINT)));
+        FunctionAndTypeManager functionAndTypeManager = MetadataManager.createTestMetadataManager().getFunctionAndTypeManager();
+        entropyFunction = functionAndTypeManager.getAggregateFunctionImplementation(
+                functionAndTypeManager.lookupFunction(TestEntropyAggregation.FUNCTION_NAME, fromTypes(BIGINT)));
     }
 
     @Test

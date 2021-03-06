@@ -36,6 +36,7 @@ import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.airlift.units.DataSize;
@@ -57,9 +58,12 @@ import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static com.facebook.presto.hive.HiveCompressionCodec.NONE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_READ_ONLY;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
@@ -67,9 +71,11 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HiveSessionProperties.getSortedWriteTempPathSubdirectoryCount;
 import static com.facebook.presto.hive.HiveSessionProperties.isFailFastOnInsertIntoImmutablePartitionsEnabled;
+import static com.facebook.presto.hive.HiveSessionProperties.isFileRenamingEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isSortedWriteToTempPathEnabled;
 import static com.facebook.presto.hive.HiveType.toHiveTypes;
 import static com.facebook.presto.hive.HiveWriteUtils.checkPartitionIsWritable;
+import static com.facebook.presto.hive.LocationHandle.TableType.TEMPORARY;
 import static com.facebook.presto.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
 import static com.facebook.presto.hive.PartitionUpdate.FileWriteInfo;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.createPartitionValues;
@@ -83,6 +89,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.lang.Integer.parseInt;
 import static java.lang.Math.abs;
 import static java.lang.Math.min;
 import static java.lang.String.format;
@@ -99,10 +106,12 @@ public class HiveWriterFactory
 {
     private static final int MAX_BUCKET_COUNT = 100_000;
     private static final int BUCKET_NUMBER_PADDING = Integer.toString(MAX_BUCKET_COUNT - 1).length();
+    private static final Pattern BUCKET_FILE_NAME_PATTERN = Pattern.compile(".*_bucket-(\\d+)(\\..*)?");
 
     private final Set<HiveFileWriterFactory> fileWriterFactories;
     private final String schemaName;
     private final String tableName;
+    private final boolean isCreateTable;
 
     private final List<DataColumn> dataColumns;
 
@@ -112,6 +121,7 @@ public class HiveWriterFactory
     private final HiveStorageFormat tableStorageFormat;
     private final HiveStorageFormat partitionStorageFormat;
     private final HiveCompressionCodec compressionCodec;
+    private final Map<String, String> additionalTableParameters;
     private final LocationHandle locationHandle;
     private final LocationService locationService;
     private final String filePrefix;
@@ -148,6 +158,7 @@ public class HiveWriterFactory
             HiveStorageFormat tableStorageFormat,
             HiveStorageFormat partitionStorageFormat,
             HiveCompressionCodec compressionCodec,
+            Map<String, String> additionalTableParameters,
             OptionalInt bucketCount,
             List<SortingColumn> sortedBy,
             LocationHandle locationHandle,
@@ -172,10 +183,12 @@ public class HiveWriterFactory
         this.fileWriterFactories = ImmutableSet.copyOf(requireNonNull(fileWriterFactories, "fileWriterFactories is null"));
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
+        this.isCreateTable = isCreateTable;
 
         this.tableStorageFormat = requireNonNull(tableStorageFormat, "tableStorageFormat is null");
         this.partitionStorageFormat = requireNonNull(partitionStorageFormat, "partitionStorageFormat is null");
         this.compressionCodec = requireNonNull(compressionCodec, "compressionCodec is null");
+        this.additionalTableParameters = ImmutableMap.copyOf(requireNonNull(additionalTableParameters, "additionalTableParameters is null"));
         this.locationHandle = requireNonNull(locationHandle, "locationHandle is null");
         this.locationService = requireNonNull(locationService, "locationService is null");
         this.filePrefix = requireNonNull(filePrefix, "filePrefix is null");
@@ -240,7 +253,10 @@ public class HiveWriterFactory
                 .collect(toImmutableMap(PropertyMetadata::getName,
                         entry -> session.getProperty(entry.getName(), entry.getJavaType()).toString()));
 
-        this.conf = configureCompression(hdfsEnvironment.getConfiguration(new HdfsContext(session, schemaName, tableName), writePath), compressionCodec);
+        this.conf = configureCompression(hdfsEnvironment.getConfiguration(
+                new HdfsContext(session, schemaName, tableName, locationHandle.getTargetPath().toString(), isCreateTable),
+                writePath),
+                compressionCodec);
 
         if (!sortedBy.isEmpty()) {
             List<Type> types = this.dataColumns.stream()
@@ -319,13 +335,16 @@ public class HiveWriterFactory
         }
 
         WriterParameters writerParameters = getWriterParameters(partitionName, bucketNumber);
+        Properties schema = writerParameters.getSchema();
+        schema.putAll(additionalTableParameters);
 
         validateSchema(partitionName, writerParameters.getSchema());
 
         String extension = getFileExtension(writerParameters.getOutputStorageFormat(), compressionCodec);
         String targetFileName;
         if (bucketNumber.isPresent()) {
-            targetFileName = computeBucketedFileName(filePrefix, bucketNumber.getAsInt()) + extension;
+            // Use the bucket number for file name when fileRenaming is enabled
+            targetFileName = isFileRenamingEnabled(session) ? String.valueOf(bucketNumber.getAsInt()) : computeBucketedFileName(filePrefix, bucketNumber.getAsInt()) + extension;
         }
         else {
             targetFileName = filePrefix + "_" + randomUUID() + extension;
@@ -349,7 +368,7 @@ public class HiveWriterFactory
                             .map(DataColumn::getName)
                             .collect(toList()),
                     writerParameters.getOutputStorageFormat(),
-                    writerParameters.getSchema(),
+                    schema,
                     conf,
                     session,
                     encryptionInformation);
@@ -366,7 +385,7 @@ public class HiveWriterFactory
                             .map(DataColumn::getName)
                             .collect(toList()),
                     writerParameters.getOutputStorageFormat(),
-                    writerParameters.getSchema(),
+                    schema,
                     partitionStorageFormat.getEstimatedWriterSystemMemoryUsage(),
                     conf,
                     typeManager,
@@ -383,6 +402,8 @@ public class HiveWriterFactory
                     writerParameters.getWriteInfo().getTempPath());
         }
 
+        boolean writeTempData = locationHandle.getTableType() == TEMPORARY || locationHandle.getTempPath().isPresent() || writeToTempFile;
+
         return new HiveWriter(
                 hiveFileWriter,
                 partitionName,
@@ -391,7 +412,8 @@ public class HiveWriterFactory
                 writerParameters.getWriteInfo().getWritePath().toString(),
                 writerParameters.getWriteInfo().getTargetPath().toString(),
                 createCommitEventListener(path, partitionName, hiveFileWriter, writerParameters),
-                hiveWriterStats);
+                hiveWriterStats,
+                writeTempData);
     }
 
     private WriterParameters getWriterParameters(Optional<String> partitionName, OptionalInt bucketNumber)
@@ -430,7 +452,8 @@ public class HiveWriterFactory
         if (!writeInfo.getWriteMode().isWritePathSameAsTargetPath()) {
             // When target path is different from write path,
             // verify that the target directory for the partition does not already exist
-            if (MetastoreUtil.pathExists(new HdfsContext(session, schemaName, tableName), hdfsEnvironment, writeInfo.getTargetPath())) {
+            HdfsContext context = new HdfsContext(session, schemaName, tableName, locationHandle.getTargetPath().toString(), true);
+            if (MetastoreUtil.pathExists(context, hdfsEnvironment, writeInfo.getTargetPath())) {
                 throw new PrestoException(HIVE_PATH_ALREADY_EXISTS, format(
                         "Target directory for new partition '%s' of table '%s.%s' already exists: %s",
                         partitionName,
@@ -621,9 +644,34 @@ public class HiveWriterFactory
         };
     }
 
+    public boolean isCreateTable()
+    {
+        return isCreateTable;
+    }
+
+    public LocationHandle getLocationHandle()
+    {
+        return locationHandle;
+    }
+
     public static String computeBucketedFileName(String filePrefix, int bucket)
     {
         return filePrefix + "_bucket-" + Strings.padStart(Integer.toString(bucket), BUCKET_NUMBER_PADDING, '0');
+    }
+
+    public static int getBucketNumber(String fileName)
+    {
+        Matcher matcher = BUCKET_FILE_NAME_PATTERN.matcher(fileName);
+        if (matcher.matches()) {
+            return parseInt(matcher.group(1));
+        }
+        // Numerical file name when "file_renaming_enabled" is true
+        else if (fileName.matches("\\d+")) {
+            return parseInt(fileName);
+        }
+        else {
+            throw new PrestoException(HIVE_INVALID_BUCKET_FILES, format("invalid hive bucket file name: %s", fileName));
+        }
     }
 
     public static String getFileExtension(StorageFormat storageFormat, HiveCompressionCodec compressionCodec)

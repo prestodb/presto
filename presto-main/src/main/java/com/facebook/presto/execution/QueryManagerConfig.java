@@ -18,8 +18,10 @@ import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.configuration.DefunctConfig;
 import com.facebook.airlift.configuration.LegacyConfig;
 import com.facebook.presto.connector.system.GlobalSystemConnector;
+import com.facebook.presto.spi.api.Experimental;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.airlift.units.MinDataSize;
 import io.airlift.units.MinDuration;
 
 import javax.validation.constraints.Max;
@@ -70,9 +72,12 @@ public class QueryManagerConfig
     private Duration queryMaxCpuTime = new Duration(1_000_000_000, TimeUnit.DAYS);
 
     private DataSize queryMaxScanRawInputBytes = DataSize.succinctDataSize(1000, PETABYTE);
+    private DataSize queryMaxOutputSize = DataSize.succinctDataSize(1000, PETABYTE);
 
     private int requiredWorkers = 1;
     private Duration requiredWorkersMaxWait = new Duration(5, TimeUnit.MINUTES);
+    private int requiredCoordinators = 1;
+    private Duration requiredCoordinatorsMaxWait = new Duration(5, TimeUnit.MINUTES);
 
     private int querySubmissionMaxThreads = Runtime.getRuntime().availableProcessors() * 2;
 
@@ -196,6 +201,7 @@ public class QueryManagerConfig
 
     @LegacyConfig("query.max-age")
     @Config("query.min-expire-age")
+    @MinDuration("30s")
     public QueryManagerConfig setMinQueryExpireAge(Duration minQueryExpireAge)
     {
         this.minQueryExpireAge = minQueryExpireAge;
@@ -403,6 +409,19 @@ public class QueryManagerConfig
         return this;
     }
 
+    public DataSize getQueryMaxOutputSize()
+    {
+        return queryMaxOutputSize;
+    }
+
+    @Config("query.max-output-size")
+    @MinDataSize("1B")
+    public QueryManagerConfig setQueryMaxOutputSize(DataSize queryMaxOutputSize)
+    {
+        this.queryMaxOutputSize = queryMaxOutputSize;
+        return this;
+    }
+
     @Min(1)
     public int getRemoteTaskMaxCallbackThreads()
     {
@@ -458,12 +477,43 @@ public class QueryManagerConfig
     }
 
     @Min(1)
+    public int getRequiredCoordinators()
+    {
+        return requiredCoordinators;
+    }
+
+    @Experimental
+    @Config("query-manager.experimental.required-coordinators")
+    @ConfigDescription("Minimum number of active coordinators that must be available before a query will start")
+    public QueryManagerConfig setRequiredCoordinators(int requiredCoordinators)
+    {
+        this.requiredCoordinators = requiredCoordinators;
+        return this;
+    }
+
+    @NotNull
+    public Duration getRequiredCoordinatorsMaxWait()
+    {
+        return requiredCoordinatorsMaxWait;
+    }
+
+    @Experimental
+    @Config("query-manager.experimental.required-coordinators-max-wait")
+    @ConfigDescription("Maximum time to wait for minimum number of coordinators before the query is failed")
+    public QueryManagerConfig setRequiredCoordinatorsMaxWait(Duration requiredCoordinatorsMaxWait)
+    {
+        this.requiredCoordinatorsMaxWait = requiredCoordinatorsMaxWait;
+        return this;
+    }
+
+    @Min(1)
     public int getQuerySubmissionMaxThreads()
     {
         return querySubmissionMaxThreads;
     }
 
-    @Config("query-manager.query-submission-max-threads")
+    @Experimental
+    @Config("query-manager.experimental.query-submission-max-threads")
     public QueryManagerConfig setQuerySubmissionMaxThreads(int querySubmissionMaxThreads)
     {
         this.querySubmissionMaxThreads = querySubmissionMaxThreads;

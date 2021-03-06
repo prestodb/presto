@@ -74,6 +74,7 @@ public class HiveAddRequestedColumnsToLayout
             HiveTableLayoutHandle hiveLayout = (HiveTableLayoutHandle) layout.get();
             HiveTableLayoutHandle hiveLayoutWithDesiredColumns = new HiveTableLayoutHandle(
                     hiveLayout.getSchemaTableName(),
+                    hiveLayout.getTablePath(),
                     hiveLayout.getPartitionColumns(),
                     hiveLayout.getDataColumns(),
                     hiveLayout.getTableParameters(),
@@ -88,7 +89,8 @@ public class HiveAddRequestedColumnsToLayout
                     hiveLayout.getLayoutString(),
                     Optional.of(tableScan.getOutputVariables().stream()
                             .map(output -> (HiveColumnHandle) tableScan.getAssignments().get(output))
-                            .collect(toImmutableSet())));
+                            .collect(toImmutableSet())),
+                    hiveLayout.isPartialAggregationsPushedDown());
 
             return new TableScanNode(
                     tableScan.getId(),

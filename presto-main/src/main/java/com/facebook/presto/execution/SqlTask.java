@@ -25,12 +25,16 @@ import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.memory.QueryContext;
+import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.operator.PipelineContext;
 import com.facebook.presto.operator.PipelineStatus;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskExchangeClientManager;
 import com.facebook.presto.operator.TaskStats;
+import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
+import com.facebook.presto.spi.connector.ConnectorMetadataUpdater;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.base.Function;
@@ -82,6 +86,7 @@ public class SqlTask
 
     private final AtomicReference<TaskHolder> taskHolderReference = new AtomicReference<>(new TaskHolder());
     private final AtomicBoolean needsPlan = new AtomicBoolean(true);
+    private final long creationTimeInMillis = System.currentTimeMillis();
 
     public static SqlTask createSqlTask(
             TaskId taskId,
@@ -217,6 +222,16 @@ public class SqlTask
         lastHeartbeat.set(DateTime.now());
     }
 
+    public TaskState getTaskState()
+    {
+        return taskStateMachine.getState();
+    }
+
+    public DateTime getTaskCreatedTime()
+    {
+        return taskStateMachine.getCreatedTime();
+    }
+
     public TaskInfo getTaskInfo()
     {
         try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
@@ -233,6 +248,7 @@ public class SqlTask
 
     private TaskStatus createTaskStatus(TaskHolder taskHolder)
     {
+        long taskStatusAgeInMilis = System.currentTimeMillis() - creationTimeInMillis;
         // Always return a new TaskInfo with a larger version number;
         // otherwise a client will not accept the update
         long versionNumber = nextTaskInfoVersion.getAndIncrement();
@@ -252,6 +268,7 @@ public class SqlTask
         Set<Lifespan> completedDriverGroups = ImmutableSet.of();
         long fullGcCount = 0;
         long fullGcTimeInMillis = 0L;
+        long totalCpuTimeInNanos = 0L;
         if (taskHolder.getFinalTaskInfo() != null) {
             TaskStats taskStats = taskHolder.getFinalTaskInfo().getStats();
             queuedPartitionedDrivers = taskStats.getQueuedPartitionedDrivers();
@@ -261,6 +278,7 @@ public class SqlTask
             systemMemoryReservationInBytes = taskStats.getSystemMemoryReservationInBytes();
             fullGcCount = taskStats.getFullGcCount();
             fullGcTimeInMillis = taskStats.getFullGcTimeInMillis();
+            totalCpuTimeInNanos = taskStats.getTotalCpuTimeInNanos();
         }
         else if (taskHolder.getTaskExecution() != null) {
             long physicalWrittenBytes = 0;
@@ -270,6 +288,7 @@ public class SqlTask
                 queuedPartitionedDrivers += pipelineStatus.getQueuedPartitionedDrivers();
                 runningPartitionedDrivers += pipelineStatus.getRunningPartitionedDrivers();
                 physicalWrittenBytes += pipelineContext.getPhysicalWrittenDataSize();
+                totalCpuTimeInNanos += pipelineContext.getPipelineStats().getTotalCpuTimeInNanos();
             }
             physicalWrittenDataSizeInBytes = physicalWrittenBytes;
             userMemoryReservationInBytes = taskContext.getMemoryReservation().toBytes();
@@ -294,8 +313,11 @@ public class SqlTask
                 physicalWrittenDataSizeInBytes,
                 userMemoryReservationInBytes,
                 systemMemoryReservationInBytes,
+                queryContext.getPeakNodeTotalMemory(),
                 fullGcCount,
-                fullGcTimeInMillis);
+                fullGcTimeInMillis,
+                totalCpuTimeInNanos,
+                taskStatusAgeInMilis);
     }
 
     private TaskStats getTaskStats(TaskHolder taskHolder)
@@ -311,6 +333,24 @@ public class SqlTask
         // if the task completed without creation, set end time
         DateTime endTime = taskStateMachine.getState().isDone() ? DateTime.now() : null;
         return new TaskStats(taskStateMachine.getCreatedTime(), endTime);
+    }
+
+    private MetadataUpdates getMetadataUpdateRequests(TaskHolder taskHolder)
+    {
+        ConnectorId connectorId = null;
+        ImmutableList.Builder<ConnectorMetadataUpdateHandle> connectorMetadataUpdatesBuilder = ImmutableList.builder();
+
+        if (taskHolder.getTaskExecution() != null) {
+            TaskMetadataContext taskMetadataContext = taskHolder.getTaskExecution().getTaskContext().getTaskMetadataContext();
+            if (!taskMetadataContext.getMetadataUpdaters().isEmpty()) {
+                connectorId = taskMetadataContext.getConnectorId();
+                for (ConnectorMetadataUpdater metadataUpdater : taskMetadataContext.getMetadataUpdaters()) {
+                    connectorMetadataUpdatesBuilder.addAll(metadataUpdater.getPendingMetadataUpdateRequests());
+                }
+            }
+        }
+
+        return new MetadataUpdates(connectorId, connectorMetadataUpdatesBuilder.build());
     }
 
     private static Set<PlanNodeId> getNoMoreSplits(TaskHolder taskHolder)
@@ -330,6 +370,7 @@ public class SqlTask
     {
         TaskStats taskStats = getTaskStats(taskHolder);
         Set<PlanNodeId> noMoreSplits = getNoMoreSplits(taskHolder);
+        MetadataUpdates metadataRequests = getMetadataUpdateRequests(taskHolder);
 
         TaskStatus taskStatus = createTaskStatus(taskHolder);
         return new TaskInfo(
@@ -339,7 +380,9 @@ public class SqlTask
                 outputBuffer.getInfo(),
                 noMoreSplits,
                 taskStats,
-                needsPlan.get());
+                needsPlan.get(),
+                metadataRequests,
+                nodeId);
     }
 
     public ListenableFuture<TaskStatus> getTaskStatus(TaskState callersCurrentState)
@@ -422,6 +465,11 @@ public class SqlTask
         }
 
         return getTaskInfo();
+    }
+
+    public TaskMetadataContext getTaskMetadataContext()
+    {
+        return taskHolderReference.get().taskExecution.getTaskContext().getTaskMetadataContext();
     }
 
     public ListenableFuture<BufferResult> getTaskResults(OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
@@ -557,6 +605,15 @@ public class SqlTask
     public QueryContext getQueryContext()
     {
         return queryContext;
+    }
+
+    public Optional<TaskContext> getTaskContext()
+    {
+        SqlTaskExecution taskExecution = taskHolderReference.get().getTaskExecution();
+        if (taskExecution == null) {
+            return Optional.empty();
+        }
+        return Optional.of(taskExecution.getTaskContext());
     }
 
     private static class TaskInstanceId

@@ -13,10 +13,9 @@
  */
 package com.facebook.presto.tests;
 
-import com.facebook.presto.common.function.QualifiedFunctionName;
-import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.spi.function.FunctionKind;
@@ -29,7 +28,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
@@ -47,7 +46,7 @@ public class StatefulSleepingSum
     private StatefulSleepingSum()
     {
         super(new Signature(
-                QualifiedFunctionName.of(DEFAULT_NAMESPACE, "stateful_sleeping_sum"),
+                QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "stateful_sleeping_sum"),
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("bigint")),
                 ImmutableList.of(),
@@ -75,7 +74,7 @@ public class StatefulSleepingSum
     }
 
     @Override
-    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
+    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
         int args = 4;
         return new BuiltInScalarFunctionImplementation(

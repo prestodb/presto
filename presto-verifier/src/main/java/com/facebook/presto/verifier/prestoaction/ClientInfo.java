@@ -13,17 +13,18 @@
  */
 package com.facebook.presto.verifier.prestoaction;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.Optional;
 
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static java.util.Objects.requireNonNull;
 
 public class ClientInfo
 {
     private static final String CLIENT_INFO_TYPE = "VERIFIER";
+    private static final JsonCodec<ClientInfo> CLIENT_INFO_JSON_CODEC = jsonCodec(ClientInfo.class);
 
     private final String testId;
     private final Optional<String> testName;
@@ -70,11 +71,6 @@ public class ClientInfo
 
     public String serialize()
     {
-        try {
-            return new ObjectMapper().writeValueAsString(this);
-        }
-        catch (JsonProcessingException e) {
-            throw new RuntimeException(e);
-        }
+        return CLIENT_INFO_JSON_CODEC.toJson(this).replaceAll("\\n", "");
     }
 }

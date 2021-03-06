@@ -29,7 +29,6 @@ import java.util.Arrays;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.common.block.BlockUtil.MAX_ARRAY_SIZE;
-import static com.facebook.presto.common.block.BlockUtil.calculateBlockResetBytes;
 import static com.facebook.presto.common.block.BlockUtil.calculateBlockResetSize;
 import static com.facebook.presto.common.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.common.block.BlockUtil.checkValidPosition;
@@ -44,7 +43,9 @@ import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.lang.String.format;
 
 public class VariableWidthBlockBuilder
         extends AbstractVariableWidthBlock
@@ -378,7 +379,15 @@ public class VariableWidthBlockBuilder
     public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus)
     {
         int currentSizeInBytes = positions == 0 ? positions : (getOffset(positions) - getOffset(0));
-        return new VariableWidthBlockBuilder(blockBuilderStatus, calculateBlockResetSize(positions), calculateBlockResetBytes(currentSizeInBytes));
+        return new VariableWidthBlockBuilder(blockBuilderStatus, calculateBlockResetSize(positions), calculateBlockResetSize(currentSizeInBytes));
+    }
+
+    @Override
+    public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    {
+        int newSize = max(calculateBlockResetSize(positions), expectedEntries);
+        int currentSizeInBytes = offsets[positions];
+        return new VariableWidthBlockBuilder(blockBuilderStatus, newSize, BlockUtil.calculateNestedStructureResetSize(currentSizeInBytes, positions, newSize));
     }
 
     private int getOffset(int position)
@@ -389,11 +398,7 @@ public class VariableWidthBlockBuilder
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder("VariableWidthBlockBuilder{");
-        sb.append("positionCount=").append(positions);
-        sb.append(", size=").append(sliceOutput.size());
-        sb.append('}');
-        return sb.toString();
+        return format("VariableWidthBlockBuilder(%d){positionCount=%d,size=%d}", hashCode(), getPositionCount(), sliceOutput.size());
     }
 
     @Override

@@ -31,6 +31,7 @@ import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Math.abs;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
+import static org.testng.Assert.assertEquals;
 
 public class TestMergeTDigestFunction
         extends TestMergeStatisticalDigestFunction
@@ -53,6 +54,8 @@ public class TestMergeTDigestFunction
             }
         }
 
+        assertEquals(actual.getSum(), expected.getSum(), 0.0001);
+
         return actual.getSize() == expected.getSize() &&
                 actual.getMin() == expected.getMin() &&
                 actual.getMax() == expected.getMax() &&
@@ -68,7 +71,7 @@ public class TestMergeTDigestFunction
     @Override
     public Block[] getSequenceBlocks(int start, int length)
     {
-        Type type = TDIGEST.createType(typeRegistry, ImmutableList.of(TypeParameter.of(DoubleType.DOUBLE)));
+        Type type = TDIGEST.createType(ImmutableList.of(TypeParameter.of(DoubleType.DOUBLE)));
         BlockBuilder blockBuilder = type.createBlockBuilder(null, length);
         for (int i = start; i < start + length; i++) {
             TDigest tdigest = createTDigest(100);

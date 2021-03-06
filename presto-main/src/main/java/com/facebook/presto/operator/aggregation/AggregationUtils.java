@@ -16,7 +16,7 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.TypeSignature;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.operator.aggregation.state.CentralMomentsState;
 import com.facebook.presto.operator.aggregation.state.CorrelationState;
 import com.facebook.presto.operator.aggregation.state.CovarianceState;
@@ -38,7 +38,7 @@ public final class AggregationUtils
     {
     }
 
-    public static boolean isDecomposable(AggregationNode aggregationNode, FunctionManager functionManager)
+    public static boolean isDecomposable(AggregationNode aggregationNode, FunctionAndTypeManager functionAndTypeManager)
     {
         boolean hasOrderBy = aggregationNode.getAggregations().values().stream()
                 .map(AggregationNode.Aggregation::getOrderBy)
@@ -49,13 +49,13 @@ public final class AggregationUtils
 
         boolean decomposableFunctions = aggregationNode.getAggregations().values().stream()
                 .map(AggregationNode.Aggregation::getFunctionHandle)
-                .map(functionManager::getAggregateFunctionImplementation)
+                .map(functionAndTypeManager::getAggregateFunctionImplementation)
                 .allMatch(InternalAggregationFunction::isDecomposable);
 
         return !hasOrderBy && !hasDistinct && decomposableFunctions;
     }
 
-    public static boolean hasSingleNodeExecutionPreference(AggregationNode aggregationNode, FunctionManager functionManager)
+    public static boolean hasSingleNodeExecutionPreference(AggregationNode aggregationNode, FunctionAndTypeManager functionAndTypeManager)
     {
         // There are two kinds of aggregations the have single node execution preference:
         //
@@ -67,7 +67,7 @@ public final class AggregationUtils
         // since all input have to be aggregated into one line output.
         //
         // 2. aggregations that must produce default output and are not decomposable, we can not distribute them.
-        return (aggregationNode.hasEmptyGroupingSet() && !aggregationNode.hasNonEmptyGroupingSet()) || (aggregationNode.hasDefaultOutput() && !isDecomposable(aggregationNode, functionManager));
+        return (aggregationNode.hasEmptyGroupingSet() && !aggregationNode.hasNonEmptyGroupingSet()) || (aggregationNode.hasDefaultOutput() && !isDecomposable(aggregationNode, functionAndTypeManager));
     }
 
     public static void updateVarianceState(VarianceState state, double value)
@@ -268,13 +268,22 @@ public final class AggregationUtils
     public static String generateAggregationName(String baseName, TypeSignature outputType, List<TypeSignature> inputTypes)
     {
         StringBuilder sb = new StringBuilder();
-        sb.append(CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_CAMEL, outputType.toString()));
+        sb.append(CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_CAMEL, getAbbreviatedTypeName(outputType)));
         for (TypeSignature inputType : inputTypes) {
-            sb.append(CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_CAMEL, inputType.toString()));
+            sb.append(CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_CAMEL, getAbbreviatedTypeName(inputType)));
         }
         sb.append(CaseFormat.LOWER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, baseName.toLowerCase(ENGLISH)));
 
         return sb.toString();
+    }
+
+    private static String getAbbreviatedTypeName(TypeSignature type)
+    {
+        String typeName = type.toString();
+        if (typeName.length() > 10) {
+            return typeName.substring(0, 10);
+        }
+        return typeName;
     }
 
     // used by aggregation compiler

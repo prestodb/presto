@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.aggregation.MaxDataSizeForStats;
 import com.facebook.presto.operator.aggregation.SumDataSizeForStats;
@@ -76,7 +76,7 @@ public class StatisticsAggregationPlanner
         }
 
         ImmutableMap.Builder<VariableReferenceExpression, AggregationNode.Aggregation> aggregations = ImmutableMap.builder();
-        StandardFunctionResolution functionResolution = new FunctionResolution(metadata.getFunctionManager());
+        StandardFunctionResolution functionResolution = new FunctionResolution(metadata.getFunctionAndTypeManager());
         for (TableStatisticType type : statisticsMetadata.getTableStatistics()) {
             if (type != ROW_COUNT) {
                 throw new PrestoException(NOT_SUPPORTED, "Table-wide statistic type not supported: " + type);
@@ -137,9 +137,9 @@ public class StatisticsAggregationPlanner
 
     private ColumnStatisticsAggregation createAggregation(String functionName, RowExpression input, Type inputType, Type outputType)
     {
-        FunctionManager functionManager = metadata.getFunctionManager();
-        FunctionHandle functionHandle = functionManager.lookupFunction(functionName, TypeSignatureProvider.fromTypes(ImmutableList.of(inputType)));
-        Type resolvedType = metadata.getType(getOnlyElement(functionManager.getFunctionMetadata(functionHandle).getArgumentTypes()));
+        FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
+        FunctionHandle functionHandle = functionAndTypeManager.lookupFunction(functionName, TypeSignatureProvider.fromTypes(ImmutableList.of(inputType)));
+        Type resolvedType = metadata.getType(getOnlyElement(functionAndTypeManager.getFunctionMetadata(functionHandle).getArgumentTypes()));
         verify(resolvedType.equals(inputType), "resolved function input type does not match the input type: %s != %s", resolvedType, inputType);
         return new ColumnStatisticsAggregation(
                 new AggregationNode.Aggregation(

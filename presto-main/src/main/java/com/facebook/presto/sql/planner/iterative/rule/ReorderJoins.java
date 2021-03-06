@@ -108,8 +108,8 @@ public class ReorderJoins
     {
         this.costComparator = requireNonNull(costComparator, "costComparator is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.functionResolution = new FunctionResolution(metadata.getFunctionManager());
-        this.determinismEvaluator = new RowExpressionDeterminismEvaluator(metadata.getFunctionManager());
+        this.functionResolution = new FunctionResolution(metadata.getFunctionAndTypeManager());
+        this.determinismEvaluator = new RowExpressionDeterminismEvaluator(metadata.getFunctionAndTypeManager());
 
         this.joinNodePattern = join().matching(
                 joinNode -> !joinNode.getDistributionType().isPresent()
@@ -177,7 +177,7 @@ public class ReorderJoins
 
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.allFilterInference = createEqualityInference(metadata, filter);
-            this.logicalRowExpressions = new LogicalRowExpressions(determinismEvaluator, functionResolution, metadata.getFunctionManager());
+            this.logicalRowExpressions = new LogicalRowExpressions(determinismEvaluator, functionResolution, metadata.getFunctionAndTypeManager());
         }
 
         private JoinEnumerationResult chooseJoinOrder(LinkedHashSet<PlanNode> sources, List<VariableReferenceExpression> outputVariables)
@@ -373,7 +373,7 @@ public class ReorderJoins
         private static boolean isJoinEqualityCondition(RowExpression expression)
         {
             return expression instanceof CallExpression
-                    && ((CallExpression) expression).getDisplayName().equals(EQUAL.getFunctionName().getFunctionName())
+                    && ((CallExpression) expression).getDisplayName().equals(EQUAL.getFunctionName().getObjectName())
                     && ((CallExpression) expression).getArguments().size() == 2
                     && ((CallExpression) expression).getArguments().get(0) instanceof VariableReferenceExpression
                     && ((CallExpression) expression).getArguments().get(1) instanceof VariableReferenceExpression;

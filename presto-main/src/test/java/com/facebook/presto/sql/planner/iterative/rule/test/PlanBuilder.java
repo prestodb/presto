@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner.iterative.rule.test;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
@@ -30,6 +29,7 @@ import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.AggregationNode.Step;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IntersectNode;
 import com.facebook.presto.spi.plan.LimitNode;
@@ -70,6 +70,7 @@ import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
+import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
@@ -97,9 +98,11 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_FIRST;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.metadata.FunctionManager.qualifyFunctionName;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
 import static com.facebook.presto.spi.plan.LimitNode.Step.FINAL;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.PlannerUtils.toOrderingScheme;
@@ -111,7 +114,6 @@ import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.constantNull;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.MoreLists.nElements;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -238,6 +240,16 @@ public class PlanBuilder
         return new EnforceSingleRowNode(idAllocator.getNextId(), source);
     }
 
+    public SortNode sort(List<VariableReferenceExpression> orderBy, PlanNode source)
+    {
+        ImmutableList<Ordering> ordering = orderBy.stream().map(variable -> new Ordering(variable, ASC_NULLS_FIRST)).collect(toImmutableList());
+        return new SortNode(
+                idAllocator.getNextId(),
+                source,
+                new OrderingScheme(ordering),
+                false);
+    }
+
     public LimitNode limit(long limit, PlanNode source)
     {
         return new LimitNode(idAllocator.getNextId(), source, limit, FINAL);
@@ -249,7 +261,7 @@ public class PlanBuilder
                 idAllocator.getNextId(),
                 source,
                 count,
-                new OrderingScheme(orderBy.stream().map(variable -> new Ordering(variable, SortOrder.ASC_NULLS_FIRST)).collect(toImmutableList())),
+                new OrderingScheme(orderBy.stream().map(variable -> new Ordering(variable, ASC_NULLS_FIRST)).collect(toImmutableList())),
                 TopNNode.Step.SINGLE);
     }
 
@@ -292,14 +304,25 @@ public class PlanBuilder
 
     public CallExpression binaryOperation(OperatorType operatorType, RowExpression left, RowExpression right)
     {
-        FunctionHandle functionHandle = new FunctionResolution(metadata.getFunctionManager()).arithmeticFunction(operatorType, left.getType(), right.getType());
+        FunctionHandle functionHandle = new FunctionResolution(metadata.getFunctionAndTypeManager()).arithmeticFunction(operatorType, left.getType(), right.getType());
         return call(operatorType.getOperator(), functionHandle, left.getType(), left, right);
     }
 
     public CallExpression comparison(OperatorType operatorType, RowExpression left, RowExpression right)
     {
-        FunctionHandle functionHandle = new FunctionResolution(metadata.getFunctionManager()).comparisonFunction(operatorType, left.getType(), right.getType());
+        FunctionHandle functionHandle = new FunctionResolution(metadata.getFunctionAndTypeManager()).comparisonFunction(operatorType, left.getType(), right.getType());
         return call(operatorType.getOperator(), functionHandle, left.getType(), left, right);
+    }
+
+    public DistinctLimitNode distinctLimit(long count, List<VariableReferenceExpression> distinctSymbols, PlanNode source)
+    {
+        return new DistinctLimitNode(
+                idAllocator.getNextId(),
+                source,
+                count,
+                false,
+                distinctSymbols,
+                Optional.empty());
     }
 
     public class AggregationBuilder
@@ -339,15 +362,16 @@ public class PlanBuilder
         {
             checkArgument(expression instanceof FunctionCall);
             FunctionCall call = (FunctionCall) expression;
-            FunctionHandle functionHandle = metadata.getFunctionManager().resolveFunction(
+            FunctionHandle functionHandle = metadata.getFunctionAndTypeManager().resolveFunction(
+                    Optional.of(session.getSessionFunctions()),
                     session.getTransactionId(),
-                    qualifyFunctionName(call.getName()),
+                    qualifyObjectName(call.getName()),
                     TypeSignatureProvider.fromTypes(inputTypes));
             return addAggregation(output, new Aggregation(
                     new CallExpression(
                             call.getName().getSuffix(),
                             functionHandle,
-                            metadata.getType(metadata.getFunctionManager().getFunctionMetadata(functionHandle).getReturnType()),
+                            metadata.getType(metadata.getFunctionAndTypeManager().getFunctionMetadata(functionHandle).getReturnType()),
                             call.getArguments().stream().map(OriginalExpressionUtils::castToRowExpression).collect(toImmutableList())),
                     call.getFilter().map(OriginalExpressionUtils::castToRowExpression),
                     call.getOrderBy().map(orderBy -> toOrderingScheme(orderBy, types)),
@@ -890,8 +914,7 @@ public class PlanBuilder
                 expression,
                 expressionTypes,
                 ImmutableMap.of(),
-                metadata.getFunctionManager(),
-                metadata.getTypeManager(),
+                metadata.getFunctionAndTypeManager(),
                 session);
     }
 

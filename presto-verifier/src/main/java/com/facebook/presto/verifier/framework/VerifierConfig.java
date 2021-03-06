@@ -52,6 +52,8 @@ public class VerifierConfig
     private boolean teardownOnMainClusters = true;
     private boolean skipControl;
 
+    private boolean explain;
+
     @NotNull
     public Optional<Set<String>> getWhitelist()
     {
@@ -300,6 +302,19 @@ public class VerifierConfig
     public VerifierConfig setSkipControl(boolean skipControl)
     {
         this.skipControl = skipControl;
+        return this;
+    }
+
+    public boolean isExplain()
+    {
+        return explain;
+    }
+
+    @ConfigDescription("If true, run explain verification on the given queries.")
+    @Config("explain")
+    public VerifierConfig setExplain(boolean explain)
+    {
+        this.explain = explain;
         return this;
     }
 }

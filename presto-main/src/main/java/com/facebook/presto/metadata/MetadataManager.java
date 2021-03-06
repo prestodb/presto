@@ -18,18 +18,20 @@ import com.facebook.airlift.json.JsonCodecFactory;
 import com.facebook.airlift.json.ObjectMapperProvider;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.CatalogSchemaName;
+import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
+import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorResolvedIndex;
 import com.facebook.presto.spi.ConnectorSession;
@@ -65,8 +67,8 @@ import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.type.TypeDeserializer;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
@@ -103,7 +105,7 @@ import static com.facebook.presto.common.function.OperatorType.HASH_CODE;
 import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.common.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
-import static com.facebook.presto.metadata.QualifiedObjectName.convertFromSchemaTableName;
+import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
 import static com.facebook.presto.metadata.TableLayout.fromConnectorLayout;
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
 import static com.facebook.presto.spi.Constraint.alwaysTrue;
@@ -125,9 +127,8 @@ public class MetadataManager
 {
     private static final Logger log = Logger.get(MetadataManager.class);
 
-    private final FunctionManager functions;
+    private final FunctionAndTypeManager functionAndTypeManager;
     private final ProcedureRegistry procedures;
-    private final TypeManager typeManager;
     private final JsonCodec<ViewDefinition> viewCodec;
     private final BlockEncodingSerde blockEncodingSerde;
     private final SessionPropertyManager sessionPropertyManager;
@@ -138,11 +139,11 @@ public class MetadataManager
     private final TransactionManager transactionManager;
 
     private final ConcurrentMap<String, Collection<ConnectorMetadata>> catalogsByQueryId = new ConcurrentHashMap<>();
+    private final Set<QueryId> queriesWithRegisteredCallbacks = ConcurrentHashMap.newKeySet();
 
     @VisibleForTesting
     public MetadataManager(
-            FeaturesConfig featuresConfig,
-            TypeManager typeManager,
+            FunctionAndTypeManager functionAndTypeManager,
             BlockEncodingSerde blockEncodingSerde,
             SessionPropertyManager sessionPropertyManager,
             SchemaPropertyManager schemaPropertyManager,
@@ -151,8 +152,8 @@ public class MetadataManager
             AnalyzePropertyManager analyzePropertyManager,
             TransactionManager transactionManager)
     {
-        this(typeManager,
-                createTestingViewCodec(),
+        this(
+                createTestingViewCodec(functionAndTypeManager),
                 blockEncodingSerde,
                 sessionPropertyManager,
                 schemaPropertyManager,
@@ -160,12 +161,11 @@ public class MetadataManager
                 columnPropertyManager,
                 analyzePropertyManager,
                 transactionManager,
-                new FunctionManager(typeManager, transactionManager, blockEncodingSerde, featuresConfig, new HandleResolver()));
+                functionAndTypeManager);
     }
 
     @Inject
     public MetadataManager(
-            TypeManager typeManager,
             JsonCodec<ViewDefinition> viewCodec,
             BlockEncodingSerde blockEncodingSerde,
             SessionPropertyManager sessionPropertyManager,
@@ -174,10 +174,8 @@ public class MetadataManager
             ColumnPropertyManager columnPropertyManager,
             AnalyzePropertyManager analyzePropertyManager,
             TransactionManager transactionManager,
-            FunctionManager functionManager)
+            FunctionAndTypeManager functionAndTypeManager)
     {
-        procedures = new ProcedureRegistry(typeManager);
-        this.typeManager = requireNonNull(typeManager, "types is null");
         this.viewCodec = requireNonNull(viewCodec, "viewCodec is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
@@ -186,7 +184,8 @@ public class MetadataManager
         this.columnPropertyManager = requireNonNull(columnPropertyManager, "columnPropertyManager is null");
         this.analyzePropertyManager = requireNonNull(analyzePropertyManager, "analyzePropertyManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
-        this.functions = requireNonNull(functionManager, "functionManager is null");
+        this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
+        this.procedures = new ProcedureRegistry(functionAndTypeManager);
 
         verifyComparableOrderableContract();
     }
@@ -213,11 +212,10 @@ public class MetadataManager
 
     public static MetadataManager createTestMetadataManager(TransactionManager transactionManager, FeaturesConfig featuresConfig)
     {
-        TypeManager typeManager = new TypeRegistry(ImmutableSet.of(), featuresConfig);
+        BlockEncodingManager blockEncodingManager = new BlockEncodingManager();
         return new MetadataManager(
-                featuresConfig,
-                typeManager,
-                new BlockEncodingManager(typeManager),
+                new FunctionAndTypeManager(transactionManager, blockEncodingManager, featuresConfig, new HandleResolver(), ImmutableSet.of()),
+                blockEncodingManager,
                 new SessionPropertyManager(),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
@@ -230,7 +228,7 @@ public class MetadataManager
     public final void verifyComparableOrderableContract()
     {
         Multimap<Type, OperatorType> missingOperators = HashMultimap.create();
-        for (Type type : typeManager.getTypes()) {
+        for (Type type : functionAndTypeManager.getTypes()) {
             if (type.isComparable()) {
                 if (!canResolveOperator(HASH_CODE, fromTypes(type))) {
                     missingOperators.put(type, HASH_CODE);
@@ -266,19 +264,19 @@ public class MetadataManager
     @Override
     public Type getType(TypeSignature signature)
     {
-        return typeManager.getType(signature);
+        return functionAndTypeManager.getType(signature);
     }
 
     public List<SqlFunction> listFunctions(Session session)
     {
         // TODO: transactional when FunctionManager is made transactional
-        return functions.listFunctions(session);
+        return functionAndTypeManager.listFunctions(session);
     }
 
     @Override
     public void registerBuiltInFunctions(List<? extends SqlFunction> functionInfos)
     {
-        functions.registerBuiltInFunctions(functionInfos);
+        functionAndTypeManager.registerBuiltInFunctions(functionInfos);
     }
 
     @Override
@@ -331,7 +329,7 @@ public class MetadataManager
             ConnectorId connectorId = catalogMetadata.getConnectorId(session, table);
             ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
 
-            ConnectorTableHandle tableHandle = metadata.getTableHandle(session.toConnectorSession(connectorId), table.asSchemaTableName());
+            ConnectorTableHandle tableHandle = metadata.getTableHandle(session.toConnectorSession(connectorId), toSchemaTableName(table));
             if (tableHandle != null) {
                 return Optional.of(new TableHandle(
                         connectorId,
@@ -354,7 +352,7 @@ public class MetadataManager
             ConnectorId connectorId = catalogMetadata.getConnectorId(session, table);
             ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
 
-            ConnectorTableHandle tableHandle = metadata.getTableHandleForStatisticsCollection(session.toConnectorSession(connectorId), table.asSchemaTableName(), analyzeProperties);
+            ConnectorTableHandle tableHandle = metadata.getTableHandleForStatisticsCollection(session.toConnectorSession(connectorId), toSchemaTableName(table), analyzeProperties);
             if (tableHandle != null) {
                 return Optional.of(new TableHandle(
                         connectorId,
@@ -380,7 +378,7 @@ public class MetadataManager
             ConnectorId connectorId = catalogMetadata.getConnectorId();
             ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
 
-            return metadata.getSystemTable(session.toConnectorSession(connectorId), tableName.asSchemaTableName());
+            return metadata.getSystemTable(session.toConnectorSession(connectorId), toSchemaTableName(tableName));
         }
         return Optional.empty();
     }
@@ -692,7 +690,7 @@ public class MetadataManager
         }
 
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
-        metadata.renameTable(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), newTableName.asSchemaTableName());
+        metadata.renameTable(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), toSchemaTableName(newTableName));
     }
 
     @Override
@@ -1009,8 +1007,8 @@ public class MetadataManager
 
             Map<SchemaTableName, ConnectorViewDefinition> views = metadata.getViews(
                     session.toConnectorSession(connectorId),
-                    viewName.asSchemaTableName().toSchemaTablePrefix());
-            ConnectorViewDefinition view = views.get(viewName.asSchemaTableName());
+                    toSchemaTableName(viewName).toSchemaTablePrefix());
+            ConnectorViewDefinition view = views.get(toSchemaTableName(viewName));
             if (view != null) {
                 ViewDefinition definition = deserializeView(view.getViewData());
                 if (view.getOwner().isPresent() && !definition.isRunAsInvoker()) {
@@ -1039,7 +1037,7 @@ public class MetadataManager
         ConnectorId connectorId = catalogMetadata.getConnectorId();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
-        metadata.dropView(session.toConnectorSession(connectorId), viewName.asSchemaTableName());
+        metadata.dropView(session.toConnectorSession(connectorId), toSchemaTableName(viewName));
     }
 
     @Override
@@ -1155,7 +1153,7 @@ public class MetadataManager
         ConnectorId connectorId = catalogMetadata.getConnectorId();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
-        metadata.grantTablePrivileges(session.toConnectorSession(connectorId), tableName.asSchemaTableName(), privileges, grantee, grantOption);
+        metadata.grantTablePrivileges(session.toConnectorSession(connectorId), toSchemaTableName(tableName), privileges, grantee, grantOption);
     }
 
     @Override
@@ -1165,7 +1163,7 @@ public class MetadataManager
         ConnectorId connectorId = catalogMetadata.getConnectorId();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
-        metadata.revokeTablePrivileges(session.toConnectorSession(connectorId), tableName.asSchemaTableName(), privileges, grantee, grantOption);
+        metadata.revokeTablePrivileges(session.toConnectorSession(connectorId), toSchemaTableName(tableName), privileges, grantee, grantOption);
     }
 
     @Override
@@ -1211,23 +1209,38 @@ public class MetadataManager
     }
 
     @Override
-    public FunctionManager getFunctionManager()
+    public MetadataUpdates getMetadataUpdateResults(Session session, QueryManager queryManager, MetadataUpdates metadataUpdateRequests, QueryId queryId)
+    {
+        ConnectorId connectorId = metadataUpdateRequests.getConnectorId();
+        ConnectorMetadata metadata = getCatalogMetadata(session, connectorId).getMetadata();
+
+        if (queryManager != null && !queriesWithRegisteredCallbacks.contains(queryId)) {
+            // This is the first time we are getting requests for queryId.
+            // Register a callback, so the we do the cleanup when query fails/finishes.
+            queryManager.addStateChangeListener(queryId, state -> {
+                if (state.isDone()) {
+                    metadata.doMetadataUpdateCleanup(queryId);
+                    queriesWithRegisteredCallbacks.remove(queryId);
+                }
+            });
+            queriesWithRegisteredCallbacks.add(queryId);
+        }
+
+        List<ConnectorMetadataUpdateHandle> metadataResults = metadata.getMetadataUpdateResults(metadataUpdateRequests.getMetadataUpdates(), queryId);
+        return new MetadataUpdates(connectorId, metadataResults);
+    }
+
+    @Override
+    public FunctionAndTypeManager getFunctionAndTypeManager()
     {
         // TODO: transactional when FunctionManager is made transactional
-        return functions;
+        return functionAndTypeManager;
     }
 
     @Override
     public ProcedureRegistry getProcedureRegistry()
     {
         return procedures;
-    }
-
-    @Override
-    public TypeManager getTypeManager()
-    {
-        // TODO: make this transactional when we allow user defined types
-        return typeManager;
     }
 
     @Override
@@ -1327,17 +1340,17 @@ public class MetadataManager
         return getCatalogMetadataForWrite(session, connectorId).getMetadata();
     }
 
-    private static JsonCodec<ViewDefinition> createTestingViewCodec()
+    private static JsonCodec<ViewDefinition> createTestingViewCodec(FunctionAndTypeManager functionAndTypeManager)
     {
         ObjectMapperProvider provider = new ObjectMapperProvider();
-        provider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(new TypeRegistry())));
+        provider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(functionAndTypeManager)));
         return new JsonCodecFactory(provider).jsonCodec(ViewDefinition.class);
     }
 
     private boolean canResolveOperator(OperatorType operatorType, List<TypeSignatureProvider> argumentTypes)
     {
         try {
-            getFunctionManager().resolveOperator(operatorType, argumentTypes);
+            getFunctionAndTypeManager().resolveOperator(operatorType, argumentTypes);
             return true;
         }
         catch (OperatorNotFoundException e) {
@@ -1358,5 +1371,10 @@ public class MetadataManager
     public Map<String, Collection<ConnectorMetadata>> getCatalogsByQueryId()
     {
         return ImmutableMap.copyOf(catalogsByQueryId);
+    }
+
+    public static Function<SchemaTableName, QualifiedObjectName> convertFromSchemaTableName(String catalogName)
+    {
+        return input -> new QualifiedObjectName(catalogName, input.getSchemaName(), input.getTableName());
     }
 }

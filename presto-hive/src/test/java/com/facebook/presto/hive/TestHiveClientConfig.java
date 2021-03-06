@@ -26,6 +26,7 @@ import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
+import java.time.ZoneId;
 import java.util.Map;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
@@ -120,7 +121,7 @@ public class TestHiveClientConfig
                 .setPartitionStatisticsSampleSize(100)
                 .setIgnoreCorruptedStatistics(false)
                 .setCollectColumnStatisticsOnWrite(false)
-                .setCollectColumnStatisticsOnWrite(false)
+                .setPartitionStatisticsBasedOptimizationEnabled(false)
                 .setS3SelectPushdownEnabled(false)
                 .setS3SelectPushdownMaxConnections(500)
                 .setTemporaryStagingDirectoryEnabled(true)
@@ -128,6 +129,8 @@ public class TestHiveClientConfig
                 .setTemporaryTableSchema("default")
                 .setTemporaryTableStorageFormat(ORC)
                 .setTemporaryTableCompressionCodec(SNAPPY)
+                .setCreateEmptyBucketFilesForTemporaryTable(true)
+                .setUsePageFileForHiveUnsupportedType(true)
                 .setPushdownFilterEnabled(false)
                 .setZstdJniDecompressionEnabled(false)
                 .setRangeFiltersOnSubscriptsEnabled(false)
@@ -140,7 +143,13 @@ public class TestHiveClientConfig
                 .setParquetBatchReadOptimizationEnabled(false)
                 .setBucketFunctionTypeForExchange(HIVE_COMPATIBLE)
                 .setParquetDereferencePushdownEnabled(false)
-                .setIgnoreUnreadablePartition(false));
+                .setIgnoreUnreadablePartition(false)
+                .setMaxMetadataUpdaterThreads(100)
+                .setPartialAggregationPushdownEnabled(false)
+                .setPartialAggregationPushdownForVariableLengthDatatypesEnabled(false)
+                .setFileRenamingEnabled(false)
+                .setPreferManifestsToListFiles(false)
+                .setManifestVerificationEnabled(false));
     }
 
     @Test
@@ -222,6 +231,7 @@ public class TestHiveClientConfig
                 .put("hive.partition-statistics-sample-size", "1234")
                 .put("hive.ignore-corrupted-statistics", "true")
                 .put("hive.collect-column-statistics-on-write", "true")
+                .put("hive.partition-statistics-based-optimization-enabled", "true")
                 .put("hive.s3select-pushdown.enabled", "true")
                 .put("hive.s3select-pushdown.max-connections", "1234")
                 .put("hive.temporary-staging-directory-enabled", "false")
@@ -229,6 +239,8 @@ public class TestHiveClientConfig
                 .put("hive.temporary-table-schema", "other")
                 .put("hive.temporary-table-storage-format", "DWRF")
                 .put("hive.temporary-table-compression-codec", "NONE")
+                .put("hive.create-empty-bucket-files-for-temporary-table", "false")
+                .put("hive.use-pagefile-for-hive-unsupported-type", "false")
                 .put("hive.pushdown-filter-enabled", "true")
                 .put("hive.range-filters-on-subscripts-enabled", "true")
                 .put("hive.adaptive-filter-reordering-enabled", "false")
@@ -242,10 +254,16 @@ public class TestHiveClientConfig
                 .put("hive.bucket-function-type-for-exchange", "PRESTO_NATIVE")
                 .put("hive.enable-parquet-dereference-pushdown", "true")
                 .put("hive.ignore-unreadable-partition", "true")
+                .put("hive.max-metadata-updater-threads", "1000")
+                .put("hive.partial_aggregation_pushdown_enabled", "true")
+                .put("hive.partial_aggregation_pushdown_for_variable_length_datatypes_enabled", "true")
+                .put("hive.file_renaming_enabled", "true")
+                .put("hive.prefer-manifests-to-list-files", "true")
+                .put("hive.manifest-verification-enabled", "true")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
-                .setTimeZone(nonDefaultTimeZone().toTimeZone().getID())
+                .setTimeZone(TimeZone.getTimeZone(ZoneId.of(nonDefaultTimeZone().getID())).getID())
                 .setMaxSplitSize(new DataSize(256, Unit.MEGABYTE))
                 .setMaxPartitionsPerScan(123)
                 .setMaxOutstandingSplits(10)
@@ -320,7 +338,7 @@ public class TestHiveClientConfig
                 .setIgnoreCorruptedStatistics(true)
                 .setMinBucketCountToNotIgnoreTableBucketing(1024)
                 .setCollectColumnStatisticsOnWrite(true)
-                .setCollectColumnStatisticsOnWrite(true)
+                .setPartitionStatisticsBasedOptimizationEnabled(true)
                 .setS3SelectPushdownEnabled(true)
                 .setS3SelectPushdownMaxConnections(1234)
                 .setTemporaryStagingDirectoryEnabled(false)
@@ -328,6 +346,8 @@ public class TestHiveClientConfig
                 .setTemporaryTableSchema("other")
                 .setTemporaryTableStorageFormat(DWRF)
                 .setTemporaryTableCompressionCodec(NONE)
+                .setCreateEmptyBucketFilesForTemporaryTable(false)
+                .setUsePageFileForHiveUnsupportedType(false)
                 .setPushdownFilterEnabled(true)
                 .setZstdJniDecompressionEnabled(true)
                 .setRangeFiltersOnSubscriptsEnabled(true)
@@ -340,7 +360,13 @@ public class TestHiveClientConfig
                 .setParquetBatchReadOptimizationEnabled(true)
                 .setBucketFunctionTypeForExchange(PRESTO_NATIVE)
                 .setParquetDereferencePushdownEnabled(true)
-                .setIgnoreUnreadablePartition(true);
+                .setIgnoreUnreadablePartition(true)
+                .setMaxMetadataUpdaterThreads(1000)
+                .setPartialAggregationPushdownEnabled(true)
+                .setPartialAggregationPushdownForVariableLengthDatatypesEnabled(true)
+                .setFileRenamingEnabled(true)
+                .setPreferManifestsToListFiles(true)
+                .setManifestVerificationEnabled(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

@@ -13,18 +13,12 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.orc.metadata.CompressionKind;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
 import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
 import org.apache.hadoop.hive.serde2.SerDeException;
@@ -50,18 +44,11 @@ import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
 import static com.facebook.presto.orc.OrcTester.createCustomOrcRecordReader;
 import static com.facebook.presto.orc.OrcTester.createOrcRecordWriter;
 import static com.facebook.presto.orc.OrcTester.createSettableStructObjectInspector;
+import static com.facebook.presto.testing.TestingEnvironment.getOperatorMethodHandle;
 import static org.testng.Assert.assertEquals;
 
 public class TestOrcReaderMemoryUsage
 {
-    private static final TypeManager TYPE_MANAGER = new TypeRegistry();
-
-    public TestOrcReaderMemoryUsage()
-    {
-        // Associate TYPE_MANAGER with a function manager.
-        new FunctionManager(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
-    }
-
     @Test
     public void testVarcharTypeWithoutNulls()
             throws Exception
@@ -163,18 +150,15 @@ public class TestOrcReaderMemoryUsage
         Type keyType = BIGINT;
         Type valueType = BIGINT;
 
-        MethodHandle keyNativeEquals = TYPE_MANAGER.resolveOperator(OperatorType.EQUAL, ImmutableList.of(keyType, keyType));
-        MethodHandle keyBlockNativeEquals = compose(keyNativeEquals, nativeValueGetter(keyType));
+        MethodHandle keyNativeEquals = getOperatorMethodHandle(OperatorType.EQUAL, keyType, keyType);
         MethodHandle keyBlockEquals = compose(keyNativeEquals, nativeValueGetter(keyType), nativeValueGetter(keyType));
-        MethodHandle keyNativeHashCode = TYPE_MANAGER.resolveOperator(OperatorType.HASH_CODE, ImmutableList.of(keyType));
+        MethodHandle keyNativeHashCode = getOperatorMethodHandle(OperatorType.HASH_CODE, keyType);
         MethodHandle keyBlockHashCode = compose(keyNativeHashCode, nativeValueGetter(keyType));
 
         MapType mapType = new MapType(
                 keyType,
                 valueType,
-                keyBlockNativeEquals,
                 keyBlockEquals,
-                keyNativeHashCode,
                 keyBlockHashCode);
 
         int rows = 10000;

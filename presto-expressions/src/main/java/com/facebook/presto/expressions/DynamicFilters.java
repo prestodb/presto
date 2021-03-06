@@ -14,6 +14,7 @@
 package com.facebook.presto.expressions;
 
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
@@ -21,19 +22,26 @@ import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.common.type.StandardTypes.BOOLEAN;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
+import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.extractConjuncts;
+import static com.facebook.presto.expressions.RowExpressionTreeRewriter.rewriteWith;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public final class DynamicFilters
@@ -58,6 +66,32 @@ public final class DynamicFilters
         }
 
         return new DynamicFilterExtractResult(staticConjuncts.build(), dynamicConjuncts.build());
+    }
+
+    public static RowExpression extractDynamicConjuncts(List<RowExpression> conjuncts, LogicalRowExpressions logicalRowExpressions)
+    {
+        ImmutableList.Builder<RowExpression> dynamicConjuncts = ImmutableList.builder();
+        for (RowExpression conjunct : conjuncts) {
+            Optional<DynamicFilterPlaceholder> placeholder = getPlaceholder(conjunct);
+            if (placeholder.isPresent()) {
+                dynamicConjuncts.add(conjunct);
+            }
+        }
+
+        return logicalRowExpressions.combineConjuncts(dynamicConjuncts.build());
+    }
+
+    public static RowExpression extractStaticConjuncts(List<RowExpression> conjuncts, LogicalRowExpressions logicalRowExpressions)
+    {
+        ImmutableList.Builder<RowExpression> staticConjuncts = ImmutableList.builder();
+        for (RowExpression conjunct : conjuncts) {
+            Optional<DynamicFilterPlaceholder> placeholder = getPlaceholder(conjunct);
+            if (!placeholder.isPresent()) {
+                staticConjuncts.add(conjunct);
+            }
+        }
+
+        return logicalRowExpressions.combineConjuncts(staticConjuncts.build());
     }
 
     public static boolean isDynamicFilter(RowExpression expression)
@@ -86,6 +120,81 @@ public final class DynamicFilters
 
         String id = ((Slice) ((ConstantExpression) firstArgument).getValue()).toStringUtf8();
         return Optional.of(new DynamicFilterPlaceholder(id, arguments.get(1)));
+    }
+
+    public static RowExpression removeNestedDynamicFilters(RowExpression expression)
+    {
+        return rewriteWith(new RowExpressionRewriter<AtomicBoolean>()
+        {
+            @Override
+            public RowExpression rewriteRowExpression(RowExpression node, AtomicBoolean context, RowExpressionTreeRewriter<AtomicBoolean> treeRewriter)
+            {
+                return node;
+            }
+
+            @Override
+            public RowExpression rewriteSpecialForm(SpecialFormExpression node, AtomicBoolean modified, RowExpressionTreeRewriter<AtomicBoolean> treeRewriter)
+            {
+                if (!isConjunctiveDisjunctive(node.getForm())) {
+                    return node;
+                }
+
+                checkState(BooleanType.BOOLEAN.equals(node.getType()), "AND/OR must be boolean function");
+
+                ImmutableList.Builder<RowExpression> expressionBuilder = ImmutableList.builder();
+                for (RowExpression argument : node.getArguments()) {
+                    expressionBuilder.add(rewriteWith(this, argument, modified));
+                }
+                List<RowExpression> arguments = expressionBuilder.build();
+
+                expressionBuilder = ImmutableList.builder();
+                if (isDynamicFilter(arguments.get(0))) {
+                    expressionBuilder.add(TRUE_CONSTANT);
+                    modified.set(true);
+                }
+                else {
+                    expressionBuilder.add(arguments.get(0));
+                }
+
+                if (isDynamicFilter(arguments.get(1))) {
+                    expressionBuilder.add(TRUE_CONSTANT);
+                    modified.set(true);
+                }
+                else {
+                    expressionBuilder.add(arguments.get(1));
+                }
+
+                if (!modified.get()) {
+                    return node;
+                }
+
+                arguments = expressionBuilder.build();
+                if (node.getForm().equals(AND)) {
+                    if (arguments.get(0).equals(TRUE_CONSTANT) && arguments.get(1).equals(TRUE_CONSTANT)) {
+                        return TRUE_CONSTANT;
+                    }
+
+                    if (arguments.get(0).equals(TRUE_CONSTANT)) {
+                        return arguments.get(1);
+                    }
+
+                    if (arguments.get(1).equals(TRUE_CONSTANT)) {
+                        return arguments.get(0);
+                    }
+                }
+
+                if (node.getForm().equals(OR) && (arguments.get(0).equals(TRUE_CONSTANT) || arguments.get(1).equals(TRUE_CONSTANT))) {
+                    return TRUE_CONSTANT;
+                }
+
+                return new SpecialFormExpression(node.getForm(), node.getType(), arguments);
+            }
+
+            private boolean isConjunctiveDisjunctive(SpecialFormExpression.Form form)
+            {
+                return form == AND || form == OR;
+            }
+        }, expression, new AtomicBoolean(false));
     }
 
     public static class DynamicFilterExtractResult

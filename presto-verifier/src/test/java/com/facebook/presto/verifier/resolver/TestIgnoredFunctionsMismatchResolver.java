@@ -18,7 +18,7 @@ import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.verifier.checksum.ColumnMatchResult;
 import com.facebook.presto.verifier.checksum.SimpleColumnChecksum;
-import com.facebook.presto.verifier.framework.QueryBundle;
+import com.facebook.presto.verifier.framework.QueryObjectBundle;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -58,9 +58,9 @@ public class TestIgnoredFunctionsMismatchResolver
         assertNotResolved(createBundle("SELECT count() FROM source"), mismatchedColumn);
     }
 
-    private static QueryBundle createBundle(String query)
+    private static QueryObjectBundle createBundle(String query)
     {
-        return new QueryBundle(
+        return new QueryObjectBundle(
                 QualifiedName.of("test"),
                 ImmutableList.of(),
                 sqlParser.createStatement(query, PARSING_OPTIONS),

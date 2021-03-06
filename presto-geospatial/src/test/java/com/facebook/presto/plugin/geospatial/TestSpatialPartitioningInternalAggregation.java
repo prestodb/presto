@@ -23,7 +23,8 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.geospatial.KdbTreeUtils;
 import com.facebook.presto.geospatial.Rectangle;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.operator.UpdateMemory;
 import com.facebook.presto.operator.aggregation.Accumulator;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.operator.aggregation.GroupedAccumulator;
@@ -79,18 +80,17 @@ public class TestSpatialPartitioningInternalAggregation
 
         Block partitionCountBlock = BlockAssertions.createRLEBlock(partitionCount, geometries.size());
 
-        Rectangle expectedExtent = new Rectangle(-10, -10, Math.nextUp(10.0), Math.nextUp(10.0));
-        String expectedValue = getSpatialPartitioning(expectedExtent, geometries, partitionCount);
+        String expectedValue = getSpatialPartitioning(geometries, partitionCount);
 
         AccumulatorFactory accumulatorFactory = function.bind(Ints.asList(0, 1, 2), Optional.empty());
         Page page = new Page(geometryBlock, partitionCountBlock);
 
-        Accumulator accumulator = accumulatorFactory.createAccumulator();
+        Accumulator accumulator = accumulatorFactory.createAccumulator(UpdateMemory.NOOP);
         accumulator.addInput(page);
         String aggregation = (String) BlockAssertions.getOnlyValue(accumulator.getFinalType(), getFinalBlock(accumulator));
         assertEquals(aggregation, expectedValue);
 
-        GroupedAccumulator groupedAggregation = accumulatorFactory.createGroupedAccumulator();
+        GroupedAccumulator groupedAggregation = accumulatorFactory.createGroupedAccumulator(UpdateMemory.NOOP);
         groupedAggregation.addInput(createGroupByIdBlock(0, page.getPositionCount()), page);
         String groupValue = (String) getGroupValue(groupedAggregation, 0);
         assertEquals(groupValue, expectedValue);
@@ -106,7 +106,7 @@ public class TestSpatialPartitioningInternalAggregation
         Page page = new Page(geometryBlock, partitionCountBlock);
 
         AccumulatorFactory accumulatorFactory = function.bind(Ints.asList(0, 1, 2), Optional.empty());
-        Accumulator accumulator = accumulatorFactory.createAccumulator();
+        Accumulator accumulator = accumulatorFactory.createAccumulator(UpdateMemory.NOOP);
         accumulator.addInput(page);
         try {
             getFinalBlock(accumulator);
@@ -120,9 +120,9 @@ public class TestSpatialPartitioningInternalAggregation
 
     private InternalAggregationFunction getFunction()
     {
-        FunctionManager functionManager = functionAssertions.getMetadata().getFunctionManager();
-        return functionManager.getAggregateFunctionImplementation(
-                functionManager.lookupFunction("spatial_partitioning", fromTypes(GEOMETRY, INTEGER)));
+        FunctionAndTypeManager functionAndTypeManager = functionAssertions.getMetadata().getFunctionAndTypeManager();
+        return functionAndTypeManager.getAggregateFunctionImplementation(
+                functionAndTypeManager.lookupFunction("spatial_partitioning", fromTypes(GEOMETRY, INTEGER)));
     }
 
     private List<OGCGeometry> makeGeometries()
@@ -164,7 +164,7 @@ public class TestSpatialPartitioningInternalAggregation
         return builder.build();
     }
 
-    private String getSpatialPartitioning(Rectangle extent, List<OGCGeometry> geometries, int partitionCount)
+    private String getSpatialPartitioning(List<OGCGeometry> geometries, int partitionCount)
     {
         ImmutableList.Builder<Rectangle> rectangles = ImmutableList.builder();
         for (OGCGeometry geometry : geometries) {
@@ -173,6 +173,6 @@ public class TestSpatialPartitioningInternalAggregation
             rectangles.add(new Rectangle(envelope.getXMin(), envelope.getYMin(), envelope.getXMax(), envelope.getYMax()));
         }
 
-        return KdbTreeUtils.toJson(buildKdbTree(roundToInt(geometries.size() * 1.0 / partitionCount, CEILING), extent, rectangles.build()));
+        return KdbTreeUtils.toJson(buildKdbTree(roundToInt(geometries.size() * 1.0 / partitionCount, CEILING), rectangles.build()));
     }
 }

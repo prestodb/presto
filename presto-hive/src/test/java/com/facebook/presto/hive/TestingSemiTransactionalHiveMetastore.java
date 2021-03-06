@@ -21,6 +21,7 @@ import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HivePageSinkMetadata;
+import com.facebook.presto.hive.metastore.HivePartitionMutator;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.hive.metastore.HiveTableName;
 import com.facebook.presto.hive.metastore.Partition;
@@ -74,7 +75,7 @@ public class TestingSemiTransactionalHiveMetastore
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(config, metastoreClientConfig), ImmutableSet.of());
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
         HiveCluster hiveCluster = new TestingHiveCluster(metastoreClientConfig, HOST, PORT);
-        ExtendedHiveMetastore delegate = new BridgingHiveMetastore(new ThriftHiveMetastore(hiveCluster));
+        ExtendedHiveMetastore delegate = new BridgingHiveMetastore(new ThriftHiveMetastore(hiveCluster), new HivePartitionMutator());
         ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("hive-%s"));
         ListeningExecutorService renameExecutor = listeningDecorator(executor);
 
@@ -179,7 +180,7 @@ public class TestingSemiTransactionalHiveMetastore
     }
 
     @Override
-    public synchronized void dropTable(ConnectorSession session, String databaseName, String tableName)
+    public synchronized void dropTable(HdfsContext context, String databaseName, String tableName)
     {
         throw new UnsupportedOperationException("method not implemented");
     }
@@ -251,19 +252,19 @@ public class TestingSemiTransactionalHiveMetastore
     }
 
     @Override
-    public synchronized void addPartition(ConnectorSession session, String databaseName, String tableName, Partition partition, Path currentLocation, PartitionStatistics statistics)
+    public synchronized void addPartition(ConnectorSession session, String databaseName, String tableName, String tablePath, boolean isNewTable, Partition partition, Path currentLocation, PartitionStatistics statistics)
     {
         throw new UnsupportedOperationException("method not implemented");
     }
 
     @Override
-    public synchronized void dropPartition(ConnectorSession session, String databaseName, String tableName, List<String> partitionValues)
+    public synchronized void dropPartition(ConnectorSession session, String databaseName, String tableName, String tablePath, List<String> partitionValues)
     {
         throw new UnsupportedOperationException("method not implemented");
     }
 
     @Override
-    public synchronized void finishInsertIntoExistingPartition(ConnectorSession session, String databaseName, String tableName, List<String> partitionValues, Path currentLocation, List<String> fileNames, PartitionStatistics statisticsUpdate)
+    public synchronized void finishInsertIntoExistingPartition(ConnectorSession session, String databaseName, String tableName, String tablePath, List<String> partitionValues, Path currentLocation, List<String> fileNames, PartitionStatistics statisticsUpdate)
     {
         throw new UnsupportedOperationException("method not implemented");
     }
@@ -323,7 +324,7 @@ public class TestingSemiTransactionalHiveMetastore
     }
 
     @Override
-    public synchronized void declareIntentionToWrite(ConnectorSession session, LocationHandle.WriteMode writeMode, Path stagingPathRoot, Optional<Path> tempPathRoot, String filePrefix, SchemaTableName schemaTableName, boolean temporaryTable)
+    public synchronized void declareIntentionToWrite(HdfsContext context, LocationHandle.WriteMode writeMode, Path stagingPathRoot, Optional<Path> tempPathRoot, String filePrefix, SchemaTableName schemaTableName, boolean temporaryTable)
     {
         throw new UnsupportedOperationException("method not implemented");
     }

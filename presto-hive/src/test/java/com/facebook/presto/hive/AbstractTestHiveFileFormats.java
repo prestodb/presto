@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.block.BlockSerdeUtil;
 import com.facebook.presto.common.type.ArrayType;
@@ -39,7 +39,6 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.tests.StructuralTestUtil;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -54,7 +53,7 @@ import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.HiveOutputFormat;
-import org.apache.hadoop.hive.serde2.SerDe;
+import org.apache.hadoop.hive.serde2.Serializer;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
 import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspector;
@@ -104,8 +103,8 @@ import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveManifestUtils.getFileSize;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
+import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
-import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.mapType;
 import static com.facebook.presto.hive.HiveUtil.isStructuralType;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.HIVE_DEFAULT_DYNAMIC_PARTITION;
@@ -467,7 +466,7 @@ public abstract class AbstractTestHiveFileFormats
             .add(new TestColumn("t_array_string_all_nulls", getStandardListObjectInspector(javaStringObjectInspector), Arrays.asList(null, null, null), arrayBlockOf(createUnboundedVarcharType(), null, null, null)))
             .build();
 
-    private final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(new TypeRegistry());
+    private final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager();
 
     private static <K, V> Map<K, V> asMap(K[] keys, V[] values)
     {
@@ -489,7 +488,7 @@ public abstract class AbstractTestHiveFileFormats
             int columnIndex = testColumn.isPartitionKey() ? -1 : nextHiveColumnIndex++;
 
             HiveType hiveType = HiveType.valueOf(testColumn.getObjectInspector().getTypeName());
-            columns.add(new HiveColumnHandle(testColumn.getName(), hiveType, hiveType.getTypeSignature(), columnIndex, testColumn.isPartitionKey() ? PARTITION_KEY : REGULAR, Optional.empty()));
+            columns.add(new HiveColumnHandle(testColumn.getName(), hiveType, hiveType.getTypeSignature(), columnIndex, testColumn.isPartitionKey() ? PARTITION_KEY : REGULAR, Optional.empty(), Optional.empty()));
         }
         return columns;
     }
@@ -509,7 +508,7 @@ public abstract class AbstractTestHiveFileFormats
         List<Type> types = testColumns.stream()
                 .map(TestColumn::getType)
                 .map(HiveType::valueOf)
-                .map(type -> type.getType(TYPE_MANAGER))
+                .map(type -> type.getType(FUNCTION_AND_TYPE_MANAGER))
                 .collect(toList());
 
         PageBuilder pageBuilder = new PageBuilder(types);
@@ -548,7 +547,7 @@ public abstract class AbstractTestHiveFileFormats
         hiveFileWriter.appendRows(page);
         Optional<Page> fileStatistics = hiveFileWriter.commit();
 
-        assertFileStatistics(fileStatistics, hiveFileWriter.getWrittenBytes(), storageFormat);
+        assertFileStatistics(fileStatistics, hiveFileWriter.getFileSizeInBytes(), storageFormat);
 
         return new FileSplit(new Path(filePath), 0, new File(filePath).length(), new String[0]);
     }
@@ -572,7 +571,7 @@ public abstract class AbstractTestHiveFileFormats
             throws Exception
     {
         HiveOutputFormat<?, ?> outputFormat = newInstance(storageFormat.getOutputFormat(), HiveOutputFormat.class);
-        @SuppressWarnings("deprecation") SerDe serDe = newInstance(storageFormat.getSerDe(), SerDe.class);
+        Serializer serializer = newInstance(storageFormat.getSerDe(), Serializer.class);
 
         // filter out partition keys, which are not written to the file
         testColumns = ImmutableList.copyOf(filter(testColumns, not(TestColumn::isPartitionKey)));
@@ -580,7 +579,7 @@ public abstract class AbstractTestHiveFileFormats
         Properties tableProperties = new Properties();
         tableProperties.setProperty("columns", Joiner.on(',').join(transform(testColumns, TestColumn::getName)));
         tableProperties.setProperty("columns.types", Joiner.on(',').join(transform(testColumns, TestColumn::getType)));
-        serDe.initialize(new Configuration(), tableProperties);
+        serializer.initialize(new Configuration(), tableProperties);
 
         JobConf jobConf = configureCompression(new JobConf(), compressionCodec);
 
@@ -593,7 +592,7 @@ public abstract class AbstractTestHiveFileFormats
                 () -> {});
 
         try {
-            serDe.initialize(new Configuration(), tableProperties);
+            serializer.initialize(new Configuration(), tableProperties);
 
             SettableStructObjectInspector objectInspector = getStandardStructObjectInspector(
                     ImmutableList.copyOf(transform(testColumns, TestColumn::getName)),
@@ -612,7 +611,7 @@ public abstract class AbstractTestHiveFileFormats
                     objectInspector.setStructFieldData(row, fields.get(i), writeValue);
                 }
 
-                Writable record = serDe.serialize(row, objectInspector);
+                Writable record = serializer.serialize(row, objectInspector);
                 recordWriter.write(record);
             }
         }
@@ -690,7 +689,7 @@ public abstract class AbstractTestHiveFileFormats
             for (int i = 0, testColumnsSize = testColumns.size(); i < testColumnsSize; i++) {
                 TestColumn testColumn = testColumns.get(i);
 
-                Type type = HiveType.valueOf(testColumn.getObjectInspector().getTypeName()).getType(TYPE_MANAGER);
+                Type type = HiveType.valueOf(testColumn.getObjectInspector().getTypeName()).getType(FUNCTION_AND_TYPE_MANAGER);
                 Object fieldFromCursor = getFieldFromCursor(cursor, type, i);
                 if (fieldFromCursor == null) {
                     assertEquals(null, testColumn.getExpectedValue(), String.format("Expected null for column %s", testColumn.getName()));

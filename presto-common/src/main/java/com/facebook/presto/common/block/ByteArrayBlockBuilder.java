@@ -29,6 +29,7 @@ import static com.facebook.presto.common.block.BlockUtil.countUsedPositions;
 import static com.facebook.presto.common.block.BlockUtil.internalPositionInRange;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.max;
+import static java.lang.String.format;
 
 public class ByteArrayBlockBuilder
         implements BlockBuilder
@@ -112,6 +113,12 @@ public class ByteArrayBlockBuilder
     public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus)
     {
         return new ByteArrayBlockBuilder(blockBuilderStatus, calculateBlockResetSize(positionCount));
+    }
+
+    @Override
+    public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    {
+        return new ByteArrayBlockBuilder(blockBuilderStatus, max(calculateBlockResetSize(positionCount), expectedEntries));
     }
 
     private void growCapacity()
@@ -307,10 +314,7 @@ public class ByteArrayBlockBuilder
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder("ByteArrayBlockBuilder{");
-        sb.append("positionCount=").append(getPositionCount());
-        sb.append('}');
-        return sb.toString();
+        return format("ByteArrayBlockBuilder(%d){positionCount=%d}", hashCode(), getPositionCount());
     }
 
     private void checkReadablePosition(int position)

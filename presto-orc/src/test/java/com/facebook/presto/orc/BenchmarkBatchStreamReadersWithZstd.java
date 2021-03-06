@@ -20,7 +20,6 @@ import com.facebook.presto.common.type.SqlTimestamp;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -53,6 +52,7 @@ import java.util.stream.IntStream;
 
 import static com.facebook.presto.common.type.DecimalType.createDecimalType;
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
@@ -149,10 +149,10 @@ public class BenchmarkBatchStreamReadersWithZstd
                 throws Exception
         {
             if (typeSignature.startsWith("varchar")) {
-                type = new TypeRegistry().getType(TypeSignature.parseTypeSignature("varchar"));
+                type = createTestFunctionAndTypeManager().getType(TypeSignature.parseTypeSignature("varchar"));
             }
             else {
-                type = new TypeRegistry().getType(TypeSignature.parseTypeSignature(typeSignature));
+                type = createTestFunctionAndTypeManager().getType(TypeSignature.parseTypeSignature(typeSignature));
             }
 
             temporaryDirectory = createTempDir();
@@ -223,14 +223,14 @@ public class BenchmarkBatchStreamReadersWithZstd
                     NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
                     OrcReaderTestingUtils.createTestingReaderOptions(zstdJniDecompressionEnabled),
                     false,
-                    NO_ENCRYPTION);
+                    NO_ENCRYPTION,
+                    DwrfKeyProvider.EMPTY);
             return orcReader.createBatchRecordReader(
                     ImmutableMap.of(0, type),
                     OrcPredicate.TRUE,
                     UTC, // arbitrary
                     new TestingHiveOrcAggregatedMemoryContext(),
-                    INITIAL_BATCH_SIZE,
-                    ImmutableMap.of());
+                    INITIAL_BATCH_SIZE);
         }
 
         private static String randomAsciiString(Random random)

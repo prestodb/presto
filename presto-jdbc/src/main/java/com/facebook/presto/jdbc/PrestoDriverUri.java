@@ -16,6 +16,7 @@ package com.facebook.presto.jdbc;
 import com.facebook.presto.client.ClientException;
 import com.facebook.presto.client.OkHttpUtil;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.net.HostAndPort;
@@ -44,6 +45,7 @@ import static com.facebook.presto.client.OkHttpUtil.setupSsl;
 import static com.facebook.presto.client.OkHttpUtil.tokenAuth;
 import static com.facebook.presto.jdbc.ConnectionProperties.ACCESS_TOKEN;
 import static com.facebook.presto.jdbc.ConnectionProperties.APPLICATION_NAME_PREFIX;
+import static com.facebook.presto.jdbc.ConnectionProperties.DISABLE_COMPRESSION;
 import static com.facebook.presto.jdbc.ConnectionProperties.EXTRA_CREDENTIALS;
 import static com.facebook.presto.jdbc.ConnectionProperties.HTTP_PROXY;
 import static com.facebook.presto.jdbc.ConnectionProperties.KERBEROS_CONFIG_PATH;
@@ -53,6 +55,7 @@ import static com.facebook.presto.jdbc.ConnectionProperties.KERBEROS_PRINCIPAL;
 import static com.facebook.presto.jdbc.ConnectionProperties.KERBEROS_REMOTE_SERVICE_NAME;
 import static com.facebook.presto.jdbc.ConnectionProperties.KERBEROS_USE_CANONICAL_HOSTNAME;
 import static com.facebook.presto.jdbc.ConnectionProperties.PASSWORD;
+import static com.facebook.presto.jdbc.ConnectionProperties.QUERY_INTERCEPTORS;
 import static com.facebook.presto.jdbc.ConnectionProperties.SESSION_PROPERTIES;
 import static com.facebook.presto.jdbc.ConnectionProperties.SOCKS_PROXY;
 import static com.facebook.presto.jdbc.ConnectionProperties.SSL;
@@ -153,6 +156,18 @@ final class PrestoDriverUri
             throws SQLException
     {
         return SESSION_PROPERTIES.getValue(properties).orElse(ImmutableMap.of());
+    }
+
+    public List<QueryInterceptor> getQueryInterceptors()
+            throws SQLException
+    {
+        return QUERY_INTERCEPTORS.getValue(properties).orElse(ImmutableList.of());
+    }
+
+    public boolean isCompressionDisabled()
+            throws SQLException
+    {
+        return DISABLE_COMPRESSION.getValue(properties).orElse(false);
     }
 
     public void setupClient(OkHttpClient.Builder builder)

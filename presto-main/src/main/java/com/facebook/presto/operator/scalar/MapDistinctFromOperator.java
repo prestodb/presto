@@ -28,6 +28,10 @@ import com.facebook.presto.spi.function.TypeParameter;
 
 import java.lang.invoke.MethodHandle;
 
+import static com.facebook.presto.common.block.MethodHandleUtil.compose;
+import static com.facebook.presto.common.block.MethodHandleUtil.nativeValueGetter;
+import static com.facebook.presto.common.function.OperatorType.EQUAL;
+import static com.facebook.presto.common.function.OperatorType.HASH_CODE;
 import static com.facebook.presto.common.function.OperatorType.IS_DISTINCT_FROM;
 import static com.facebook.presto.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static com.facebook.presto.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -41,6 +45,8 @@ public final class MapDistinctFromOperator
     @TypeParameter("V")
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean isDistinctFrom(
+            @OperatorDependency(operator = EQUAL, argumentTypes = {"K", "K"}) MethodHandle keyEqualsFunction,
+            @OperatorDependency(operator = HASH_CODE, argumentTypes = {"K"}) MethodHandle keyHashcodeFunction,
             @OperatorDependency(operator = IS_DISTINCT_FROM, argumentTypes = {"V", "V"}, convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL))
                     MethodHandle valueDistinctFromFunction,
             @TypeParameter("map(K, V)") Type mapType,
@@ -55,9 +61,16 @@ public final class MapDistinctFromOperator
         if (leftMapNull) {
             return false;
         }
+        Type keyType = ((MapType) mapType).getKeyType();
+        MethodHandle keyBlockEqualsFunction = compose(keyEqualsFunction, nativeValueGetter(keyType));
+        MethodHandle keyBlockHashCodeFunction = compose(keyHashcodeFunction, nativeValueGetter(keyType));
+
         // Note that we compare to NOT distinct here and so negate the result.
         return !MapGenericEquality.genericEqual(
-                ((MapType) mapType).getKeyType(),
+                keyType,
+                keyHashcodeFunction,
+                keyBlockEqualsFunction,
+                keyBlockHashCodeFunction,
                 leftMapBlock,
                 rightMapBlock,
                 (leftMapIndex, rightMapIndex) -> !(boolean) valueDistinctFromFunction.invokeExact(leftMapBlock, leftMapIndex, rightMapBlock, rightMapIndex));
@@ -67,6 +80,8 @@ public final class MapDistinctFromOperator
     @TypeParameter("V")
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean isDistinctFrom(
+            @OperatorDependency(operator = EQUAL, argumentTypes = {"K", "K"}) MethodHandle keyEqualsFunction,
+            @OperatorDependency(operator = HASH_CODE, argumentTypes = {"K"}) MethodHandle keyHashcodeFunction,
             @OperatorDependency(operator = IS_DISTINCT_FROM, argumentTypes = {"V", "V"}, convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL))
                     MethodHandle valueDistinctFromFunction,
             @TypeParameter("map(K, V)") Type mapType,
@@ -76,6 +91,8 @@ public final class MapDistinctFromOperator
             @BlockIndex int rightPosition)
     {
         return isDistinctFrom(
+                keyEqualsFunction,
+                keyHashcodeFunction,
                 valueDistinctFromFunction,
                 mapType,
                 (Block) mapType.getObject(left, leftPosition),

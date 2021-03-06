@@ -133,6 +133,7 @@ public class TestHivePartitionManager
                                         parseTypeSignature(StandardTypes.VARCHAR),
                                         MAX_PARTITION_KEY_COLUMN_INDEX,
                                         PARTITION_KEY,
+                                        Optional.empty(),
                                         Optional.empty()),
                                 Domain.singleValue(VARCHAR, utf8Slice("2019-07-23"))))),
                 session);
@@ -156,6 +157,7 @@ public class TestHivePartitionManager
                                         parseTypeSignature(StandardTypes.VARCHAR),
                                         0,
                                         REGULAR,
+                                        Optional.empty(),
                                         Optional.empty()),
                                 Domain.singleValue(INTEGER, 1L)))),
                 session);

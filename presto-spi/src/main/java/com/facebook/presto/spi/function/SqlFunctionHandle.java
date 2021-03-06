@@ -51,9 +51,9 @@ public class SqlFunctionHandle
     }
 
     @Override
-    public CatalogSchemaName getFunctionNamespace()
+    public CatalogSchemaName getCatalogSchemaName()
     {
-        return functionId.getFunctionName().getFunctionNamespace();
+        return functionId.getFunctionName().getCatalogSchemaName();
     }
 
     @Override

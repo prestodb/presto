@@ -13,10 +13,9 @@
  */
 package com.facebook.presto.operator.window;
 
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.BuiltInFunction;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
 
@@ -57,7 +56,7 @@ public class SqlWindowFunction
         return supplier.getDescription();
     }
 
-    public WindowFunctionSupplier specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
+    public WindowFunctionSupplier specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
         return supplier;
     }

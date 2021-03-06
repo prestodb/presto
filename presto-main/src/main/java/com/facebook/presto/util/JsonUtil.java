@@ -20,18 +20,17 @@ import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Decimals;
-import com.facebook.presto.common.type.EnumType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.RowType.Field;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.UnknownType;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.type.BigintOperators;
 import com.facebook.presto.type.BooleanOperators;
 import com.facebook.presto.type.DoubleOperators;
-import com.facebook.presto.type.UnknownType;
 import com.facebook.presto.type.VarcharOperators;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
@@ -134,7 +133,7 @@ public final class JsonUtil
 
     public static boolean canCastToJson(Type type)
     {
-        String baseType = type.getTypeSignature().getBase();
+        String baseType = type.getTypeSignature().getStandardTypeSignature().getBase();
         if (baseType.equals(UnknownType.NAME) ||
                 baseType.equals(StandardTypes.BOOLEAN) ||
                 baseType.equals(StandardTypes.TINYINT) ||
@@ -147,10 +146,9 @@ public final class JsonUtil
                 baseType.equals(StandardTypes.VARCHAR) ||
                 baseType.equals(StandardTypes.JSON) ||
                 baseType.equals(StandardTypes.TIMESTAMP) ||
-                baseType.equals(StandardTypes.DATE)) {
-            return true;
-        }
-        if (type instanceof EnumType) {
+                baseType.equals(StandardTypes.DATE) ||
+                baseType.equals(StandardTypes.VARCHAR_ENUM) ||
+                baseType.equals(StandardTypes.BIGINT_ENUM)) {
             return true;
         }
         if (type instanceof ArrayType) {
@@ -223,7 +221,7 @@ public final class JsonUtil
         {
             TypeSignature signature = type.getTypeSignature();
             String baseType = signature.getBase();
-            if (signature.isLongEnum()) {
+            if (signature.isBigintEnum()) {
                 return (block, position) -> String.valueOf(type.getLong(block, position));
             }
             if (signature.isVarcharEnum()) {
@@ -272,7 +270,7 @@ public final class JsonUtil
         {
             TypeSignature signature = type.getTypeSignature();
             String baseType = signature.getBase();
-            if (signature.isLongEnum()) {
+            if (signature.isBigintEnum()) {
                 return new LongJsonGeneratorWriter(type);
             }
             if (signature.isVarcharEnum()) {
@@ -890,7 +888,7 @@ public final class JsonUtil
         {
             TypeSignature signature = type.getTypeSignature();
             String baseType = signature.getBase();
-            if (signature.isLongEnum()) {
+            if (signature.isBigintEnum()) {
                 return new BigintBlockBuilderAppender();
             }
             if (signature.isVarcharEnum()) {

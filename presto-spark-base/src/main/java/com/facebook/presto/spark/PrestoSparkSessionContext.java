@@ -15,6 +15,8 @@ package com.facebook.presto.spark;
 
 import com.facebook.presto.server.SessionContext;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.TokenAuthenticator;
 import com.facebook.presto.spi.session.ResourceEstimates;
@@ -218,5 +220,12 @@ public class PrestoSparkSessionContext
     public boolean supportClientTransaction()
     {
         return false;
+    }
+
+    @Override
+    public Map<SqlFunctionId, SqlInvokedFunction> getSessionFunctions()
+    {
+        // presto on spark does not support session functions
+        return ImmutableMap.of();
     }
 }

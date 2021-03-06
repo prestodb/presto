@@ -155,6 +155,12 @@ public class DataDefinitionExecution<T extends Statement>
     }
 
     @Override
+    public DataSize getOutputDataSize()
+    {
+        return DataSize.succinctBytes(0);
+    }
+
+    @Override
     public BasicQueryInfo getBasicQueryInfo()
     {
         return stateMachine.getFinalQueryInfo()

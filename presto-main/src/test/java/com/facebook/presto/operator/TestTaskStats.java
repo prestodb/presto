@@ -47,6 +47,8 @@ public class TestTaskStats
             13,
             14,
             26,
+            27,
+            42,
             15,
             16,
             18,
@@ -105,6 +107,7 @@ public class TestTaskStats
         assertEquals(actual.getRevocableMemoryReservationInBytes(), 13);
         assertEquals(actual.getSystemMemoryReservationInBytes(), 14);
         assertEquals(actual.getPeakTotalMemoryInBytes(), 26);
+        assertEquals(actual.getPeakNodeTotalMemoryInBytes(), 42);
 
         assertEquals(actual.getTotalScheduledTimeInNanos(), 15);
         assertEquals(actual.getTotalCpuTimeInNanos(), 16);

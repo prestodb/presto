@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.241-SNAPSHOT</version>
+        <version>0.249-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-verifier</artifactId>
@@ -226,6 +226,12 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-tests</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-tpch</artifactId>
             <scope>test</scope>
         </dependency>
 

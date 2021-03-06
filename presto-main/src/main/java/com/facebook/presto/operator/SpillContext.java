@@ -13,15 +13,17 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.spiller.LocalSpillContext;
 
 import java.io.Closeable;
 
-@FunctionalInterface
 public interface SpillContext
         extends Closeable
 {
     void updateBytes(long bytes);
+
+    Session getSession();
 
     default SpillContext newLocalSpillContext()
     {

@@ -14,6 +14,7 @@
 package com.facebook.presto.functionNamespace.mysql;
 
 import com.facebook.airlift.bootstrap.Bootstrap;
+import com.facebook.presto.functionNamespace.execution.SimpleAddressSqlFunctionExecutorsModule;
 import com.facebook.presto.spi.function.FunctionHandleResolver;
 import com.facebook.presto.spi.function.FunctionNamespaceManager;
 import com.facebook.presto.spi.function.FunctionNamespaceManagerFactory;
@@ -49,10 +50,10 @@ public class MySqlFunctionNamespaceManagerFactory
         try {
             Bootstrap app = new Bootstrap(
                     new MySqlFunctionNamespaceManagerModule(catalogName),
-                    new MySqlConnectionModule());
+                    new MySqlConnectionModule(),
+                    new SimpleAddressSqlFunctionExecutorsModule());
 
             Injector injector = app
-                    .strictConfig()
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
                     .initialize();

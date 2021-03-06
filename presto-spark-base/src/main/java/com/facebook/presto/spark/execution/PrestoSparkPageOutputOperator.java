@@ -14,6 +14,7 @@
 package com.facebook.presto.spark.execution;
 
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.operator.DriverContext;
@@ -32,6 +33,7 @@ import java.util.function.Function;
 
 import static com.facebook.presto.common.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static com.facebook.presto.execution.buffer.PageSplitterUtil.splitPage;
+import static com.facebook.presto.spark.util.PrestoSparkUtils.createPagesSerde;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -43,14 +45,14 @@ public class PrestoSparkPageOutputOperator
             implements OutputFactory
     {
         private final PrestoSparkOutputBuffer<PrestoSparkBufferedSerializedPage> outputBuffer;
-        private final PagesSerde pagesSerde;
+        private final BlockEncodingManager blockEncodingManager;
 
         public PrestoSparkPageOutputFactory(
                 PrestoSparkOutputBuffer<PrestoSparkBufferedSerializedPage> outputBuffer,
-                PagesSerde pagesSerde)
+                BlockEncodingManager blockEncodingManager)
         {
             this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
-            this.pagesSerde = requireNonNull(pagesSerde, "pagesSerde is null");
+            this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
         }
 
         @Override
@@ -67,7 +69,8 @@ public class PrestoSparkPageOutputOperator
                     operatorId,
                     planNodeId,
                     outputBuffer,
-                    pagePreprocessor, pagesSerde);
+                    pagePreprocessor,
+                    blockEncodingManager);
         }
     }
 
@@ -78,20 +81,20 @@ public class PrestoSparkPageOutputOperator
         private final PlanNodeId planNodeId;
         private final PrestoSparkOutputBuffer<PrestoSparkBufferedSerializedPage> outputBuffer;
         private final Function<Page, Page> pagePreprocessor;
-        private final PagesSerde pagesSerde;
+        private final BlockEncodingManager blockEncodingManager;
 
         public PrestoSparkOutputOperatorFactory(
                 int operatorId,
                 PlanNodeId planNodeId,
                 PrestoSparkOutputBuffer<PrestoSparkBufferedSerializedPage> outputBuffer,
                 Function<Page, Page> pagePreprocessor,
-                PagesSerde pagesSerde)
+                BlockEncodingManager blockEncodingManager)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
             this.pagePreprocessor = requireNonNull(pagePreprocessor, "pagePreprocessor is null");
-            this.pagesSerde = requireNonNull(pagesSerde, "pagesSerde is null");
+            this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
         }
 
         @Override
@@ -102,7 +105,7 @@ public class PrestoSparkPageOutputOperator
                     operatorContext,
                     outputBuffer,
                     pagePreprocessor,
-                    pagesSerde);
+                    createPagesSerde(blockEncodingManager));
         }
 
         @Override
@@ -117,7 +120,8 @@ public class PrestoSparkPageOutputOperator
                     operatorId,
                     planNodeId,
                     outputBuffer,
-                    pagePreprocessor, pagesSerde);
+                    pagePreprocessor,
+                    blockEncodingManager);
         }
     }
 
@@ -126,12 +130,15 @@ public class PrestoSparkPageOutputOperator
     private final Function<Page, Page> pagePreprocessor;
     private final PagesSerde pagesSerde;
 
+    private ListenableFuture<?> isBlocked = NOT_BLOCKED;
+
     private boolean finished;
 
     public PrestoSparkPageOutputOperator(
             OperatorContext operatorContext,
             PrestoSparkOutputBuffer<PrestoSparkBufferedSerializedPage> outputBuffer,
-            Function<Page, Page> pagePreprocessor, PagesSerde pagesSerde)
+            Function<Page, Page> pagePreprocessor,
+            PagesSerde pagesSerde)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
@@ -148,7 +155,13 @@ public class PrestoSparkPageOutputOperator
     @Override
     public ListenableFuture<?> isBlocked()
     {
-        return outputBuffer.isFull();
+        if (isBlocked.isDone()) {
+            isBlocked = outputBuffer.isFull();
+            if (isBlocked.isDone()) {
+                isBlocked = NOT_BLOCKED;
+            }
+        }
+        return isBlocked;
     }
 
     @Override

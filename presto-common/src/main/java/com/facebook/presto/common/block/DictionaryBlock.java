@@ -32,6 +32,7 @@ import static com.facebook.presto.common.block.BlockUtil.internalPositionInRange
 import static com.facebook.presto.common.block.DictionaryId.randomDictionaryId;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.min;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class DictionaryBlock
@@ -281,6 +282,13 @@ public class DictionaryBlock
     }
 
     @Override
+    public long getApproximateRegionLogicalSizeInBytes(int position, int length)
+    {
+        int dictionaryPositionCount = dictionary.getPositionCount();
+        return dictionaryPositionCount == 0 ? 0 : dictionary.getApproximateRegionLogicalSizeInBytes(0, dictionaryPositionCount) * length / dictionaryPositionCount;
+    }
+
+    @Override
     public long getPositionsSizeInBytes(boolean[] positions)
     {
         checkValidPositions(positions, positionCount);
@@ -389,11 +397,7 @@ public class DictionaryBlock
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder("DictionaryBlock{");
-        sb.append("positionCount=").append(getPositionCount()).append(",");
-        sb.append("dictionary=").append(dictionary.toString());
-        sb.append('}');
-        return sb.toString();
+        return format("DictionaryBlock(%d){positionCount=%d,dictionary=%s}", hashCode(), getPositionCount(), dictionary.toString());
     }
 
     @Override

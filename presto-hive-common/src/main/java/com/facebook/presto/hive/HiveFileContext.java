@@ -20,17 +20,19 @@ import static java.util.Objects.requireNonNull;
 
 public class HiveFileContext
 {
-    public static final HiveFileContext DEFAULT_HIVE_FILE_CONTEXT = new HiveFileContext(true, NO_CACHE_CONSTRAINTS, Optional.empty());
+    public static final HiveFileContext DEFAULT_HIVE_FILE_CONTEXT = new HiveFileContext(true, NO_CACHE_CONSTRAINTS, Optional.empty(), Optional.empty());
 
     private final boolean cacheable;
     private final CacheQuota cacheQuota;
     private final Optional<ExtraHiveFileInfo<?>> extraFileInfo;
+    private final Optional<Long> fileSize;
 
-    public HiveFileContext(boolean cacheable, CacheQuota cacheQuota, Optional<ExtraHiveFileInfo<?>> extraFileInfo)
+    public HiveFileContext(boolean cacheable, CacheQuota cacheQuota, Optional<ExtraHiveFileInfo<?>> extraFileInfo, Optional<Long> fileSize)
     {
         this.cacheable = cacheable;
         this.cacheQuota = requireNonNull(cacheQuota, "cacheQuota is null");
         this.extraFileInfo = requireNonNull(extraFileInfo, "extraFileInfo is null");
+        this.fileSize = requireNonNull(fileSize, "fileSize is null");
     }
 
     /**
@@ -52,6 +54,11 @@ public class HiveFileContext
     public Optional<ExtraHiveFileInfo<?>> getExtraFileInfo()
     {
         return extraFileInfo;
+    }
+
+    public Optional<Long> getFileSize()
+    {
+        return fileSize;
     }
 
     public interface ExtraHiveFileInfo<T>

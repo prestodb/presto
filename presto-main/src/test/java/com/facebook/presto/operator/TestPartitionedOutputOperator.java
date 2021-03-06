@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.StateMachine;
@@ -28,7 +28,6 @@ import com.facebook.presto.operator.repartition.PartitionedOutputOperator;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.OutputPartitioning;
 import com.facebook.presto.testing.TestingTaskContext;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
@@ -183,7 +182,7 @@ public class TestPartitionedOutputOperator
                     false,
                     OptionalInt.empty());
         }
-        PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new BlockEncodingManager(new TypeRegistry()), false);
+        PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new BlockEncodingManager(), false);
 
         DriverContext driverContext = TestingTaskContext.builder(EXECUTOR, SCHEDULER, TEST_SESSION)
                 .setMemoryPoolSize(MAX_MEMORY)

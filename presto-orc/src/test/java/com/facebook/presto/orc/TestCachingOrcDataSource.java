@@ -24,10 +24,12 @@ import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
+import org.apache.hadoop.hive.ql.io.IOConstants;
 import org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.JobConf;
+import org.apache.orc.OrcConf;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -240,7 +242,8 @@ public class TestCachingOrcDataSource
                 NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
                 new OrcReaderOptions(maxMergeDistance, tinyStripeThreshold, new DataSize(1, Unit.MEGABYTE), false),
                 false,
-                NO_ENCRYPTION);
+                NO_ENCRYPTION,
+                DwrfKeyProvider.EMPTY);
         // 1 for reading file footer
         assertEquals(orcDataSource.getReadCount(), 1);
         List<StripeInformation> stripes = orcReader.getFooter().getStripes();
@@ -254,8 +257,7 @@ public class TestCachingOrcDataSource
                 (numberOfRows, statisticsByColumnIndex) -> true,
                 HIVE_STORAGE_TIME_ZONE,
                 new TestingHiveOrcAggregatedMemoryContext(),
-                INITIAL_BATCH_SIZE,
-                ImmutableMap.of());
+                INITIAL_BATCH_SIZE);
         int positionCount = 0;
         while (true) {
             int batchSize = orcRecordReader.nextBatch();
@@ -281,13 +283,13 @@ public class TestCachingOrcDataSource
             throws IOException
     {
         JobConf jobConf = new JobConf();
-        jobConf.set("hive.exec.orc.write.format", format == ORC_12 ? "0.12" : "0.11");
-        jobConf.set("hive.exec.orc.default.compress", compression.name());
+        OrcConf.WRITE_FORMAT.setString(jobConf, format == ORC_12 ? "0.12" : "0.11");
+        OrcConf.COMPRESS.setString(jobConf, compression.name());
 
         Properties tableProperties = new Properties();
-        tableProperties.setProperty("columns", "test");
-        tableProperties.setProperty("columns.types", columnObjectInspector.getTypeName());
-        tableProperties.setProperty("orc.stripe.size", "1200000");
+        tableProperties.setProperty(IOConstants.COLUMNS, "test");
+        tableProperties.setProperty(IOConstants.COLUMNS_TYPES, columnObjectInspector.getTypeName());
+        tableProperties.setProperty(OrcConf.STRIPE_SIZE.getAttribute(), "120000");
 
         return new OrcOutputFormat().getHiveRecordWriter(
                 jobConf,

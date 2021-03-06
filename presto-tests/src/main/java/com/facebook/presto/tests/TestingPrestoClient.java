@@ -19,14 +19,15 @@ import com.facebook.presto.client.IntervalYearMonth;
 import com.facebook.presto.client.QueryData;
 import com.facebook.presto.client.QueryStatusInfo;
 import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.BigintEnumType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.JsonType;
-import com.facebook.presto.common.type.LongEnumType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.SqlTimestamp;
 import com.facebook.presto.common.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.VarcharEnumType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.server.testing.TestingPrestoServer;
@@ -263,8 +264,11 @@ public class TestingPrestoClient
         else if (type instanceof VarcharEnumType) {
             return value;
         }
-        else if (type instanceof LongEnumType) {
+        else if (type instanceof BigintEnumType) {
             return ((Number) value).longValue();
+        }
+        else if (type instanceof TypeWithName) {
+            return convertToRowValue(((TypeWithName) type).getType(), value);
         }
         else if (type.getTypeSignature().getBase().equals("ObjectId")) {
             return value;

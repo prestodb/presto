@@ -15,12 +15,8 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.WarningCollector;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.transaction.TransactionManager;
@@ -28,13 +24,12 @@ import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import java.net.URI;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.execution.TaskTestUtils.createQueryStateMachine;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -81,19 +76,7 @@ public class TestDeallocateTask
     private Set<String> executeDeallocate(String statementName, String sqlString, Session session)
     {
         TransactionManager transactionManager = createTestTransactionManager();
-        AccessControl accessControl = new AccessControlManager(transactionManager);
-        QueryStateMachine stateMachine = QueryStateMachine.begin(
-                sqlString,
-                session,
-                URI.create("fake://uri"),
-                new ResourceGroupId("test"),
-                Optional.empty(),
-                false,
-                transactionManager,
-                accessControl,
-                executor,
-                metadata,
-                WarningCollector.NOOP);
+        QueryStateMachine stateMachine = createQueryStateMachine(sqlString, session, false, transactionManager, executor, metadata);
         Deallocate deallocate = new Deallocate(new Identifier(statementName));
         new DeallocateTask().execute(deallocate, transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList());
         return stateMachine.getDeallocatedPreparedStatements();

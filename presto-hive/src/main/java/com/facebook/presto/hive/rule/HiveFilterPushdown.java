@@ -33,6 +33,7 @@ import com.facebook.presto.hive.HiveTransactionManager;
 import com.facebook.presto.hive.SubfieldExtractor;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
+import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
 import com.facebook.presto.spi.ConnectorSession;
@@ -43,6 +44,7 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
@@ -73,9 +75,13 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static com.facebook.presto.common.predicate.TupleDomain.withColumnDomains;
+import static com.facebook.presto.expressions.DynamicFilters.extractDynamicConjuncts;
+import static com.facebook.presto.expressions.DynamicFilters.extractStaticConjuncts;
+import static com.facebook.presto.expressions.DynamicFilters.removeNestedDynamicFilters;
 import static com.facebook.presto.expressions.LogicalRowExpressions.FALSE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.and;
+import static com.facebook.presto.expressions.LogicalRowExpressions.extractConjuncts;
 import static com.facebook.presto.expressions.RowExpressionNodeInliner.replaceExpression;
 import static com.facebook.presto.hive.HiveTableProperties.getHiveStorageFormat;
 import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
@@ -248,18 +254,28 @@ public class HiveFilterPushdown
                 .collect(toImmutableMap(HiveColumnHandle::getName, Functions.identity()));
 
         SchemaTableName tableName = ((HiveTableHandle) tableHandle).getSchemaTableName();
+
+        LogicalRowExpressions logicalRowExpressions = new LogicalRowExpressions(rowExpressionService.getDeterminismEvaluator(), functionResolution, functionMetadataManager);
+        List<RowExpression> conjuncts = extractConjuncts(decomposedFilter.getRemainingExpression());
+        RowExpression dynamicFilterExpression = extractDynamicConjuncts(conjuncts, logicalRowExpressions);
+        RowExpression remainingExpression = extractStaticConjuncts(conjuncts, logicalRowExpressions);
+        remainingExpression = removeNestedDynamicFilters(remainingExpression);
+
+        Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName())
+                .orElseThrow(() -> new TableNotFoundException(tableName));
         return new ConnectorPushdownFilterResult(
                 metadata.getTableLayout(
                         session,
                         new HiveTableLayoutHandle(
                                 tableName,
+                                table.getStorage().getLocation(),
                                 hivePartitionResult.getPartitionColumns(),
                                 // remove comments to optimize serialization costs
                                 pruneColumnComments(hivePartitionResult.getDataColumns()),
                                 hivePartitionResult.getTableParameters(),
                                 hivePartitionResult.getPartitions(),
                                 domainPredicate,
-                                decomposedFilter.getRemainingExpression(),
+                                remainingExpression,
                                 predicateColumns,
                                 hivePartitionResult.getEnforcedConstraint(),
                                 hivePartitionResult.getBucketHandle(),
@@ -271,10 +287,11 @@ public class HiveFilterPushdown
                                         tableName,
                                         hivePartitionResult.getBucketHandle(),
                                         hivePartitionResult.getBucketFilter(),
-                                        decomposedFilter.getRemainingExpression(),
+                                        remainingExpression,
                                         domainPredicate),
-                                currentLayoutHandle.map(layout -> ((HiveTableLayoutHandle) layout).getRequestedColumns()).orElse(Optional.empty()))),
-                TRUE_CONSTANT);
+                                currentLayoutHandle.map(layout -> ((HiveTableLayoutHandle) layout).getRequestedColumns()).orElse(Optional.empty()),
+                                false)),
+                dynamicFilterExpression);
     }
 
     public static class ConnectorPushdownFilterResult

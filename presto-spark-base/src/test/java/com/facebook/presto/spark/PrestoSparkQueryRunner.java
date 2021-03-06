@@ -17,6 +17,7 @@ import com.facebook.airlift.bootstrap.LifeCycleManager;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.log.Logging;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.hive.HdfsConfiguration;
@@ -33,10 +34,7 @@ import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.SessionPropertyManager;
-import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.spark.PrestoSparkQueryExecutionFactory.PrestoSparkQueryExecution;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecutionFactory;
@@ -62,10 +60,7 @@ import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.inject.Binder;
 import com.google.inject.Injector;
-import com.google.inject.Module;
-import com.google.inject.Scopes;
 import io.airlift.tpch.TpchTable;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
@@ -203,13 +198,15 @@ public class PrestoSparkQueryRunner
                 DRIVER,
                 ImmutableMap.of(
                         "presto.version", "testversion",
-                        "query.hash-partition-count", Integer.toString(NODE_COUNT * 2),
-                        "prefer-distributed-union", "false"),
+                        "query.hash-partition-count", Integer.toString(NODE_COUNT * 2)),
                 ImmutableMap.of(),
                 Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
                 new SqlParserOptions(),
-                ImmutableList.of(),
-                Optional.of(new TestingAccessControlModule()));
+                ImmutableList.of(new PrestoSparkLocalMetadataStorageModule()),
+                true);
 
         Injector injector = injectorFactory.create();
 
@@ -368,7 +365,8 @@ public class PrestoSparkQueryRunner
         PrestoSparkQueryExecution execution = (PrestoSparkQueryExecution) executionFactory.create(
                 sparkContext,
                 createSessionInfo(session),
-                sql,
+                Optional.of(sql),
+                Optional.empty(),
                 Optional.empty(),
                 new TestingPrestoSparkTaskExecutorFactoryProvider(instanceId),
                 Optional.empty(),
@@ -443,7 +441,7 @@ public class PrestoSparkQueryRunner
     @Override
     public void loadFunctionNamespaceManager(String functionNamespaceManagerName, String catalogName, Map<String, String> properties)
     {
-        metadata.getFunctionManager().loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties);
+        metadata.getFunctionAndTypeManager().loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties);
     }
 
     @Override
@@ -506,18 +504,6 @@ public class PrestoSparkQueryRunner
                 .setOwnerName("public")
                 .setOwnerType(PrincipalType.ROLE)
                 .build();
-    }
-
-    private static class TestingAccessControlModule
-            implements Module
-    {
-        @Override
-        public void configure(Binder binder)
-        {
-            binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);
-            binder.bind(AccessControlManager.class).to(TestingAccessControlManager.class).in(Scopes.SINGLETON);
-            binder.bind(AccessControl.class).to(AccessControlManager.class).in(Scopes.SINGLETON);
-        }
     }
 
     private static class SparkContextHolder

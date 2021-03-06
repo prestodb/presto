@@ -21,6 +21,7 @@ import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorMetadataUpdaterProvider;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
@@ -66,6 +67,7 @@ public class HiveConnector
     private final ConnectorAccessControl accessControl;
     private final ClassLoader classLoader;
     private final ConnectorPlanOptimizerProvider planOptimizerProvider;
+    private final ConnectorMetadataUpdaterProvider metadataUpdaterProvider;
 
     private final HiveTransactionManager transactionManager;
 
@@ -85,6 +87,7 @@ public class HiveConnector
             List<PropertyMetadata<?>> analyzeProperties,
             ConnectorAccessControl accessControl,
             ConnectorPlanOptimizerProvider planOptimizerProvider,
+            ConnectorMetadataUpdaterProvider metadataUpdaterProvider,
             ClassLoader classLoader)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
@@ -103,6 +106,7 @@ public class HiveConnector
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.classLoader = requireNonNull(classLoader, "classLoader is null");
         this.planOptimizerProvider = requireNonNull(planOptimizerProvider, "planOptimizerProvider is null");
+        this.metadataUpdaterProvider = requireNonNull(metadataUpdaterProvider, "metadataUpdaterProvider is null");
     }
 
     @Override
@@ -141,6 +145,12 @@ public class HiveConnector
     public ConnectorPlanOptimizerProvider getConnectorPlanOptimizerProvider()
     {
         return planOptimizerProvider;
+    }
+
+    @Override
+    public ConnectorMetadataUpdaterProvider getConnectorMetadataUpdaterProvider()
+    {
+        return metadataUpdaterProvider;
     }
 
     @Override

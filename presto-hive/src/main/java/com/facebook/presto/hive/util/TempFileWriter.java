@@ -15,8 +15,8 @@ package com.facebook.presto.hive.util;
 
 import com.facebook.presto.common.NotSupportedException;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.io.DataSink;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.orc.DataSink;
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
 import com.facebook.presto.orc.OrcWriter;
 import com.facebook.presto.orc.OrcWriterOptions;

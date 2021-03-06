@@ -157,6 +157,11 @@ public class TypedSet
         return blockPositionByHash.get(getHashPositionOfElement(block, position));
     }
 
+    public BlockBuilder getBlockBuilder()
+    {
+        return elementBlock;
+    }
+
     /**
      * Get slot position of element at {@code position} of {@code block}
      */

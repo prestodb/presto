@@ -21,13 +21,14 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.orc.DwrfKeyProvider;
 import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcReaderOptions;
 import com.facebook.presto.orc.OrcWriter;
-import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.StripeMetadataSource;
+import com.facebook.presto.orc.WriterStats;
 import com.facebook.presto.orc.cache.OrcFileTailSource;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.raptor.RaptorOrcAggregatedMemoryContext;
@@ -73,7 +74,7 @@ public final class OrcFileRewriter
 
     private final ReaderAttributes readerAttributes;
     private final boolean validate;
-    private final OrcWriterStats stats;
+    private final WriterStats stats;
     private final TypeManager typeManager;
     private final CompressionKind compression;
     private final OrcDataEnvironment orcDataEnvironment;
@@ -83,7 +84,7 @@ public final class OrcFileRewriter
     OrcFileRewriter(
             ReaderAttributes readerAttributes,
             boolean validate,
-            OrcWriterStats stats,
+            WriterStats stats,
             TypeManager typeManager,
             OrcDataEnvironment orcDataEnvironment,
             CompressionKind compression,
@@ -113,7 +114,8 @@ public final class OrcFileRewriter
                     new RaptorOrcAggregatedMemoryContext(),
                     new OrcReaderOptions(readerAttributes.getMaxMergeDistance(), readerAttributes.getTinyStripeThreshold(), HUGE_MAX_READ_BLOCK_SIZE, readerAttributes.isZstdJniDecompressionEnabled()),
                     false,
-                    NO_ENCRYPTION);
+                    NO_ENCRYPTION,
+                    DwrfKeyProvider.EMPTY);
 
             if (reader.getFooter().getNumberOfRows() < rowsToDelete.length()) {
                 throw new IOException("File has fewer rows than deletion vector");
@@ -181,8 +183,7 @@ public final class OrcFileRewriter
                             TRUE,
                             DEFAULT_STORAGE_TIMEZONE,
                             new RaptorOrcAggregatedMemoryContext(),
-                            INITIAL_BATCH_SIZE,
-                            ImmutableMap.of()),
+                            INITIAL_BATCH_SIZE),
                     OrcBatchRecordReader::close);
                     Closer<OrcWriter, IOException> writer = closer(new OrcWriter(
                                     orcDataEnvironment.createOrcDataSink(fileSystem, output),

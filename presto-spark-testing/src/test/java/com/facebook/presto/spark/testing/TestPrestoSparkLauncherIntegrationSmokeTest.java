@@ -15,9 +15,9 @@ package com.facebook.presto.spark.testing;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.hive.HiveHadoop2Plugin;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.testing.LocalQueryRunner;
@@ -147,8 +147,7 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
 
         configProperties = new File(tempDir, "config.properties");
         storeProperties(configProperties, ImmutableMap.of(
-                "query.hash-partition-count", "10",
-                "prefer-distributed-union", "false"));
+                "query.hash-partition-count", "10"));
         catalogDirectory = new File(tempDir, "catalogs");
         createDirectories(catalogDirectory.toPath());
         storeProperties(new File(catalogDirectory, "hive.properties"), ImmutableMap.of(

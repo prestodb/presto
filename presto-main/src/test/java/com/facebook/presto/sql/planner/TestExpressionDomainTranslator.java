@@ -1069,7 +1069,7 @@ public class TestExpressionDomainTranslator
     {
         Type columnType = columnValues.getType();
         Type literalType = literalValues.getType();
-        Type superType = metadata.getTypeManager().getCommonSuperType(columnType, literalType).orElseThrow(() -> new IllegalArgumentException("incompatible types in test (" + columnType + ", " + literalType + ")"));
+        Type superType = metadata.getFunctionAndTypeManager().getCommonSuperType(columnType, literalType).orElseThrow(() -> new IllegalArgumentException("incompatible types in test (" + columnType + ", " + literalType + ")"));
 
         Expression max = toExpression(literalValues.getMax(), literalType);
         Expression min = toExpression(literalValues.getMin(), literalType);

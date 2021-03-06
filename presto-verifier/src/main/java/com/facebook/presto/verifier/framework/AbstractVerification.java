@@ -20,14 +20,12 @@ import com.facebook.presto.verifier.event.DeterminismAnalysisDetails;
 import com.facebook.presto.verifier.event.QueryInfo;
 import com.facebook.presto.verifier.event.VerifierQueryEvent;
 import com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus;
-import com.facebook.presto.verifier.framework.MatchResult.MatchType;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
+import com.facebook.presto.verifier.prestoaction.PrestoAction.ResultSetConverter;
 import com.facebook.presto.verifier.prestoaction.QueryAction;
 import com.facebook.presto.verifier.prestoaction.QueryActionStats;
 import com.facebook.presto.verifier.prestoaction.QueryActions;
 import com.facebook.presto.verifier.prestoaction.SqlExceptionClassifier;
-import com.facebook.presto.verifier.resolver.FailureResolverManager;
-import com.facebook.presto.verifier.rewrite.QueryRewriter;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -54,6 +52,7 @@ import static com.facebook.presto.verifier.framework.SkippedReason.CONTROL_SETUP
 import static com.facebook.presto.verifier.framework.SkippedReason.FAILED_BEFORE_CONTROL_QUERY;
 import static com.facebook.presto.verifier.framework.SkippedReason.NON_DETERMINISTIC;
 import static com.facebook.presto.verifier.framework.SkippedReason.VERIFIER_INTERNAL_ERROR;
+import static com.facebook.presto.verifier.framework.VerifierUtil.callAndConsume;
 import static com.facebook.presto.verifier.framework.VerifierUtil.runAndConsume;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -63,18 +62,16 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public abstract class AbstractVerification
+public abstract class AbstractVerification<B extends QueryBundle, R extends MatchResult, V>
         implements Verification
 {
     private static final String INTERNAL_ERROR = "VERIFIER_INTERNAL_ERROR";
 
     private final QueryActions queryActions;
     private final SourceQuery sourceQuery;
-    private final QueryRewriter queryRewriter;
-    private final DeterminismAnalyzer determinismAnalyzer;
-    private final FailureResolverManager failureResolverManager;
     private final SqlExceptionClassifier exceptionClassifier;
     private final VerificationContext verificationContext;
+    private final Optional<ResultSetConverter<V>> mainQueryResultSetConverter;
 
     private final String testId;
     private final boolean smartTeardown;
@@ -87,20 +84,16 @@ public abstract class AbstractVerification
     public AbstractVerification(
             QueryActions queryActions,
             SourceQuery sourceQuery,
-            QueryRewriter queryRewriter,
-            DeterminismAnalyzer determinismAnalyzer,
-            FailureResolverManager failureResolverManager,
             SqlExceptionClassifier exceptionClassifier,
             VerificationContext verificationContext,
+            Optional<ResultSetConverter<V>> mainQueryResultSetConverter,
             VerifierConfig verifierConfig)
     {
         this.queryActions = requireNonNull(queryActions, "queryActions is null");
         this.sourceQuery = requireNonNull(sourceQuery, "sourceQuery is null");
-        this.queryRewriter = requireNonNull(queryRewriter, "queryRewriter is null");
-        this.determinismAnalyzer = requireNonNull(determinismAnalyzer, "determinismAnalyzer is null");
-        this.failureResolverManager = requireNonNull(failureResolverManager, "failureResolverManager is null");
         this.exceptionClassifier = requireNonNull(exceptionClassifier, "exceptionClassifier is null");
         this.verificationContext = requireNonNull(verificationContext, "verificationContext is null");
+        this.mainQueryResultSetConverter = requireNonNull(mainQueryResultSetConverter, "mainQueryResultSetConverter is null");
 
         this.testId = requireNonNull(verifierConfig.getTestId(), "testId is null");
         this.smartTeardown = verifierConfig.isSmartTeardown();
@@ -110,7 +103,33 @@ public abstract class AbstractVerification
         this.skipControl = verifierConfig.isSkipControl();
     }
 
-    protected abstract MatchResult verify(QueryBundle control, QueryBundle test, ChecksumQueryContext controlContext, ChecksumQueryContext testContext);
+    protected abstract B getQueryRewrite(ClusterType clusterType);
+
+    protected abstract R verify(
+            B control,
+            B test,
+            Optional<QueryResult<V>> controlQueryResult,
+            Optional<QueryResult<V>> testQueryResult,
+            ChecksumQueryContext controlContext,
+            ChecksumQueryContext testContext);
+
+    protected abstract DeterminismAnalysisDetails analyzeDeterminism(B control, R matchResult);
+
+    protected abstract Optional<String> resolveFailure(
+            Optional<B> control,
+            Optional<B> test,
+            QueryContext controlQueryContext,
+            Optional<R> matchResult,
+            Optional<Throwable> throwable);
+
+    protected void updateQueryInfo(QueryInfo.Builder queryInfo, Optional<QueryResult<V>> queryResult) {}
+
+    protected void updateQueryInfoWithQueryBundle(QueryInfo.Builder queryInfo, Optional<B> queryBundle)
+    {
+        queryInfo.setQuery(queryBundle.map(B::getQuery).map(AbstractVerification::formatSql))
+                .setSetupQueries(queryBundle.map(B::getSetupQueries).map(AbstractVerification::formatSqls))
+                .setTeardownQueries(queryBundle.map(B::getTeardownQueries).map(AbstractVerification::formatSqls));
+    }
 
     protected PrestoAction getHelperAction()
     {
@@ -132,15 +151,16 @@ public abstract class AbstractVerification
     @Override
     public VerificationResult run()
     {
-        Optional<QueryBundle> control = Optional.empty();
-        Optional<QueryBundle> test = Optional.empty();
+        Optional<B> control = Optional.empty();
+        Optional<B> test = Optional.empty();
+        Optional<QueryResult<V>> controlQueryResult = Optional.empty();
+        Optional<QueryResult<V>> testQueryResult = Optional.empty();
         QueryContext controlQueryContext = new QueryContext();
         QueryContext testQueryContext = new QueryContext();
         ChecksumQueryContext controlChecksumQueryContext = new ChecksumQueryContext();
         ChecksumQueryContext testChecksumQueryContext = new ChecksumQueryContext();
-        Optional<MatchResult> matchResult = Optional.empty();
-        Optional<DeterminismAnalysis> determinismAnalysis = Optional.empty();
-        DeterminismAnalysisDetails.Builder determinismAnalysisDetails = DeterminismAnalysisDetails.builder();
+        Optional<R> matchResult = Optional.empty();
+        Optional<DeterminismAnalysisDetails> determinismAnalysisDetails = Optional.empty();
 
         Optional<PartialVerificationResult> partialResult = Optional.empty();
         Optional<Throwable> throwable = Optional.empty();
@@ -148,9 +168,9 @@ public abstract class AbstractVerification
         try {
             // Rewrite queries
             if (!skipControl) {
-                control = Optional.of(queryRewriter.rewriteQuery(sourceQuery.getControlQuery(), CONTROL));
+                control = Optional.of(getQueryRewrite(CONTROL));
             }
-            test = Optional.of(queryRewriter.rewriteQuery(sourceQuery.getTestQuery(), TEST));
+            test = Optional.of(getQueryRewrite(TEST));
 
             // Run control queries
             if (skipControl) {
@@ -163,10 +183,7 @@ public abstract class AbstractVerification
                         () -> controlSetupAction.execute(query, CONTROL_SETUP),
                         controlQueryContext::addSetupQuery,
                         controlQueryContext::setException));
-                runAndConsume(
-                        () -> queryActions.getControlAction().execute(controlQueryBundle.getQuery(), CONTROL_MAIN),
-                        controlQueryContext::setMainQueryStats,
-                        controlQueryContext::setException);
+                controlQueryResult = runMainQuery(controlQueryBundle.getQuery(), CONTROL, controlQueryContext);
                 controlQueryContext.setState(QueryState.SUCCEEDED);
             }
 
@@ -177,23 +194,20 @@ public abstract class AbstractVerification
                     () -> testSetupAction.execute(query, TEST_SETUP),
                     testQueryContext::addSetupQuery,
                     testQueryContext::setException));
-            runAndConsume(
-                    () -> queryActions.getTestAction().execute(testQueryBundle.getQuery(), TEST_MAIN),
-                    testQueryContext::setMainQueryStats,
-                    testQueryContext::setException);
+            testQueryResult = runMainQuery(testQueryBundle.getQuery(), TEST, testQueryContext);
             testQueryContext.setState(QueryState.SUCCEEDED);
 
             // Verify results
             if (!skipControl) {
-                matchResult = Optional.of(verify(control.get(), test.get(), controlChecksumQueryContext, testChecksumQueryContext));
+                matchResult = Optional.of(verify(control.get(), test.get(), controlQueryResult, testQueryResult, controlChecksumQueryContext, testChecksumQueryContext));
 
                 // Determinism analysis
                 if (matchResult.get().isMismatchPossiblyCausedByNonDeterminism()) {
-                    determinismAnalysis = Optional.of(determinismAnalyzer.analyze(control.get(), matchResult.get().getControlChecksum(), determinismAnalysisDetails));
+                    determinismAnalysisDetails = Optional.of(analyzeDeterminism(control.get(), matchResult.get()));
                 }
             }
 
-            partialResult = Optional.of(concludeVerificationPartial(control, test, controlQueryContext, testQueryContext, matchResult, determinismAnalysis, Optional.empty()));
+            partialResult = Optional.of(concludeVerificationPartial(control, test, controlQueryContext, testQueryContext, matchResult, determinismAnalysisDetails, Optional.empty()));
         }
         catch (Throwable t) {
             if (exceptionClassifier.shouldResubmit(t)
@@ -201,7 +215,7 @@ public abstract class AbstractVerification
                 return new VerificationResult(this, true, Optional.empty());
             }
             throwable = Optional.of(t);
-            partialResult = Optional.of(concludeVerificationPartial(control, test, controlQueryContext, testQueryContext, matchResult, determinismAnalysis, Optional.of(t)));
+            partialResult = Optional.of(concludeVerificationPartial(control, test, controlQueryContext, testQueryContext, matchResult, determinismAnalysisDetails, Optional.of(t)));
         }
         finally {
             if (!smartTeardown
@@ -214,44 +228,46 @@ public abstract class AbstractVerification
             }
         }
 
-        return
-
-                concludeVerification(
-                        partialResult.get(),
-                        control,
-                        test,
-                        controlQueryContext,
-                        testQueryContext,
-                        matchResult,
-                        determinismAnalysis,
-                        controlChecksumQueryContext,
-                        testChecksumQueryContext,
-                        determinismAnalysisDetails.build(),
-                        throwable);
+        return concludeVerification(
+                partialResult.get(),
+                control,
+                test,
+                controlQueryResult,
+                testQueryResult,
+                controlQueryContext,
+                testQueryContext,
+                matchResult,
+                controlChecksumQueryContext,
+                testChecksumQueryContext,
+                determinismAnalysisDetails,
+                throwable);
     }
 
-    private Optional<String> resolveFailure(
-            Optional<QueryBundle> control,
-            Optional<QueryBundle> test,
-            QueryContext controlQueryContext,
-            Optional<MatchResult> matchResult,
-            Optional<Throwable> throwable)
+    private Optional<QueryResult<V>> runMainQuery(Statement statement, ClusterType clusterType, QueryContext queryContext)
     {
-        if (matchResult.isPresent() && !matchResult.get().isMatched()) {
-            checkState(control.isPresent(), "control is missing");
-            return failureResolverManager.resolveResultMismatch(matchResult.get(), control.get());
+        checkArgument(clusterType == CONTROL || clusterType == TEST, "Invalid ClusterType: %s", clusterType);
+
+        if (mainQueryResultSetConverter.isPresent()) {
+            return Optional.of(callAndConsume(
+                    () -> ((PrestoAction) queryActions.getQueryAction(clusterType)).execute(
+                            statement,
+                            clusterType == CONTROL ? CONTROL_MAIN : TEST_MAIN,
+                            mainQueryResultSetConverter.get()),
+                    queryContext::setMainQueryStats,
+                    queryContext::setException));
         }
-        if (throwable.isPresent() && controlQueryContext.getState() == QueryState.SUCCEEDED) {
-            checkState(controlQueryContext.getMainQueryStats().isPresent(), "controlQueryStats is missing");
-            return failureResolverManager.resolveException(controlQueryContext.getMainQueryStats().get(), throwable.get(), test);
-        }
+
+        runAndConsume(
+                () -> queryActions.getQueryAction(clusterType).execute(statement, clusterType == CONTROL ? CONTROL_MAIN : TEST_MAIN),
+                queryContext::setMainQueryStats,
+                queryContext::setException);
         return Optional.empty();
     }
 
     private EventStatus getEventStatus(
             Optional<SkippedReason> skippedReason,
             Optional<String> resolveMessage,
-            Optional<MatchResult> matchResult,
+            Optional<R> matchResult,
             QueryContext testQueryContext)
     {
         if (skippedReason.isPresent()) {
@@ -268,15 +284,15 @@ public abstract class AbstractVerification
     }
 
     private PartialVerificationResult concludeVerificationPartial(
-            Optional<QueryBundle> control,
-            Optional<QueryBundle> test,
+            Optional<B> control,
+            Optional<B> test,
             QueryContext controlQueryContext,
             QueryContext testQueryContext,
-            Optional<MatchResult> matchResult,
-            Optional<DeterminismAnalysis> determinismAnalysis,
+            Optional<R> matchResult,
+            Optional<DeterminismAnalysisDetails> determinismAnalysisDetails,
             Optional<Throwable> throwable)
     {
-        Optional<SkippedReason> skippedReason = getSkippedReason(throwable, controlQueryContext.getState(), determinismAnalysis);
+        Optional<SkippedReason> skippedReason = getSkippedReason(throwable, controlQueryContext.getState(), determinismAnalysisDetails.map(DeterminismAnalysisDetails::getDeterminismAnalysis));
         Optional<String> resolveMessage = resolveFailure(control, test, controlQueryContext, matchResult, throwable);
         EventStatus status = getEventStatus(skippedReason, resolveMessage, matchResult, testQueryContext);
         return new PartialVerificationResult(skippedReason, resolveMessage, status);
@@ -284,24 +300,23 @@ public abstract class AbstractVerification
 
     private VerificationResult concludeVerification(
             PartialVerificationResult partialResult,
-            Optional<QueryBundle> control,
-            Optional<QueryBundle> test,
+            Optional<B> control,
+            Optional<B> test,
+            Optional<QueryResult<V>> controlQueryResult,
+            Optional<QueryResult<V>> testQueryResult,
             QueryContext controlQueryContext,
             QueryContext testQueryContext,
-            Optional<MatchResult> matchResult,
-            Optional<DeterminismAnalysis> determinismAnalysis,
+            Optional<R> matchResult,
             ChecksumQueryContext controlChecksumQueryContext,
             ChecksumQueryContext testChecksumQueryContext,
-            DeterminismAnalysisDetails determinismAnalysisDetails,
+            Optional<DeterminismAnalysisDetails> determinismAnalysisDetails,
             Optional<Throwable> throwable)
     {
         Optional<String> errorCode = Optional.empty();
         Optional<String> errorMessage = Optional.empty();
         if (partialResult.getStatus() != SUCCEEDED) {
             errorCode = Optional.ofNullable(throwable.map(t -> t instanceof QueryException ? ((QueryException) t).getErrorCodeName() : INTERNAL_ERROR)
-                    .orElse(matchResult.map(MatchResult::getMatchType)
-                            .map(MatchType::name)
-                            .orElse(null)));
+                    .orElse(matchResult.map(MatchResult::getMatchTypeName).orElse(null)));
             errorMessage = Optional.of(constructErrorMessage(throwable, matchResult, controlQueryContext.getState(), testQueryContext.getState()));
         }
 
@@ -310,26 +325,26 @@ public abstract class AbstractVerification
                 testId,
                 sourceQuery.getName(),
                 partialResult.getStatus(),
+                matchResult.map(MatchResult::getMatchTypeName),
                 partialResult.getSkippedReason(),
-                determinismAnalysis,
-                determinismAnalysis.isPresent() ?
-                        Optional.of(determinismAnalysisDetails) :
-                        Optional.empty(),
+                determinismAnalysisDetails,
                 partialResult.getResolveMessage(),
                 skipControl ?
                         Optional.empty() :
                         Optional.of(buildQueryInfo(
                                 sourceQuery.getControlConfiguration(),
-                                sourceQuery.getControlQuery(),
+                                sourceQuery.getQuery(CONTROL),
                                 controlChecksumQueryContext,
                                 control,
-                                controlQueryContext)),
+                                controlQueryContext,
+                                controlQueryResult)),
                 buildQueryInfo(
                         sourceQuery.getTestConfiguration(),
-                        sourceQuery.getTestQuery(),
+                        sourceQuery.getQuery(TEST),
                         testChecksumQueryContext,
                         test,
-                        testQueryContext),
+                        testQueryContext,
+                        testQueryResult),
                 errorCode,
                 errorMessage,
                 throwable.filter(QueryException.class::isInstance)
@@ -340,25 +355,23 @@ public abstract class AbstractVerification
         return new VerificationResult(this, false, Optional.of(event));
     }
 
-    private static QueryInfo buildQueryInfo(
+    private QueryInfo buildQueryInfo(
             QueryConfiguration configuration,
             String originalQuery,
             ChecksumQueryContext checksumQueryContext,
-            Optional<QueryBundle> queryBundle,
-            QueryContext queryContext)
+            Optional<B> queryBundle,
+            QueryContext queryContext,
+            Optional<QueryResult<V>> queryResult)
     {
-        return new QueryInfo(
-                configuration.getCatalog(),
-                configuration.getSchema(),
-                originalQuery,
-                queryContext.getSetupQueryIds(),
-                queryContext.getTeardownQueryIds(),
-                checksumQueryContext.getChecksumQueryId(),
-                queryBundle.map(QueryBundle::getQuery).map(AbstractVerification::formatSql),
-                queryBundle.map(QueryBundle::getSetupQueries).map(AbstractVerification::formatSqls),
-                queryBundle.map(QueryBundle::getTeardownQueries).map(AbstractVerification::formatSqls),
-                checksumQueryContext.getChecksumQuery(),
-                queryContext.getMainQueryStats());
+        QueryInfo.Builder queryInfo = QueryInfo.builder(configuration.getCatalog(), configuration.getSchema(), originalQuery, configuration.getSessionProperties())
+                .setSetupQueryIds(queryContext.getSetupQueryIds())
+                .setTeardownQueryIds(queryContext.getTeardownQueryIds())
+                .setChecksumQueryId(checksumQueryContext.getChecksumQueryId())
+                .setChecksumQuery(checksumQueryContext.getChecksumQuery())
+                .setQueryActionStats(queryContext.getMainQueryStats());
+        updateQueryInfoWithQueryBundle(queryInfo, queryBundle);
+        updateQueryInfo(queryInfo, queryResult);
+        return queryInfo.build();
     }
 
     protected static String formatSql(Statement statement)
@@ -416,7 +429,7 @@ public abstract class AbstractVerification
 
     private String constructErrorMessage(
             Optional<Throwable> throwable,
-            Optional<MatchResult> matchResult,
+            Optional<R> matchResult,
             QueryState controlState,
             QueryState testState)
     {
@@ -434,11 +447,11 @@ public abstract class AbstractVerification
                 message.append(getStackTraceAsString(throwable.get()));
             }
         }
-        matchResult.ifPresent(result -> message.append(result.getResultsComparison()));
+        matchResult.ifPresent(result -> message.append(result.getReport()));
         return message.toString();
     }
 
-    private static class QueryContext
+    protected static class QueryContext
     {
         private Optional<QueryActionStats> mainQueryStats = Optional.empty();
         private Optional<QueryState> state = Optional.empty();

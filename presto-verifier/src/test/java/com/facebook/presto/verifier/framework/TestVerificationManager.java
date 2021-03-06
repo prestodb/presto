@@ -19,7 +19,6 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Statement;
-import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.verifier.event.VerifierQueryEvent;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
 import com.facebook.presto.verifier.prestoaction.PrestoExceptionClassifier;
@@ -39,6 +38,7 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.AT_SIGN;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
@@ -155,7 +155,7 @@ public class TestVerificationManager
         List<SourceQuery> queries = ImmutableList.of(
                 createSourceQuery("q1", "CREATE TABLE t1 (x int)", "CREATE TABLE t1 (x int)"),
                 createSourceQuery("q2", "CREATE TABLE t1 (x int)", "CREATE TABLE t1 (x int)"),
-                createSourceQuery("q3", "CREATE TABLE t1 (x int)", "CREATE TABLE t1 (x int)"),
+                createSourceQuery("q3", "SHOW TABLES", "SHOW TABLES"),
                 createSourceQuery("q4", "SHOW FUNCTIONS", "SHOW FUNCTIONS"),
                 createSourceQuery("q5", "SELECT * FROM t1", "INSERT INTO t2 SELECT * FROM t1"),
                 createSourceQuery("q6", "SELECT * FROM t1", "SELECT FROM t1"));
@@ -214,7 +214,7 @@ public class TestVerificationManager
                         createChecksumValidator(verifierConfig),
                         PrestoExceptionClassifier.defaultBuilder().build(),
                         verifierConfig,
-                        new TypeRegistry(),
+                        createTestFunctionAndTypeManager(),
                         new DeterminismAnalyzerConfig()),
                 SQL_PARSER,
                 ImmutableSet.of(eventClient),

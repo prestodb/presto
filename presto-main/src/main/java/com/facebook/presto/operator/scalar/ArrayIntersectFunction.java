@@ -14,20 +14,21 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.common.block.Block;
-import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.operator.aggregation.TypedSet;
+import com.facebook.presto.operator.aggregation.OptimizedTypedSet;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlInvokedScalarFunction;
+import com.facebook.presto.spi.function.SqlParameter;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 
-@ScalarFunction("array_intersect")
-@Description("Intersects elements of the two given arrays")
 public final class ArrayIntersectFunction
 {
     private ArrayIntersectFunction() {}
 
+    @ScalarFunction("array_intersect")
+    @Description("Intersects elements of the two given arrays")
     @TypeParameter("E")
     @SqlType("array(E)")
     public static Block intersect(
@@ -41,28 +42,34 @@ public final class ArrayIntersectFunction
             rightArray = tempArray;
         }
 
-        int leftPositionCount = leftArray.getPositionCount();
         int rightPositionCount = rightArray.getPositionCount();
 
         if (rightPositionCount == 0) {
             return rightArray;
         }
 
-        TypedSet rightTypedSet = new TypedSet(type, rightPositionCount, "array_intersect");
-        for (int i = 0; i < rightPositionCount; i++) {
-            rightTypedSet.add(rightArray, i);
-        }
+        OptimizedTypedSet typedSet = new OptimizedTypedSet(type, rightPositionCount);
+        typedSet.union(rightArray);
+        typedSet.intersect(leftArray);
 
-        BlockBuilder blockBuilder = type.createBlockBuilder(null, Math.min(leftPositionCount, rightPositionCount));
+        return typedSet.getBlock();
+    }
 
-        // The intersected set can have at most rightPositionCount elements
-        TypedSet intersectTypedSet = new TypedSet(type, blockBuilder, rightPositionCount, "array_intersect");
-        for (int i = 0; i < leftPositionCount; i++) {
-            if (rightTypedSet.contains(leftArray, i)) {
-                intersectTypedSet.add(leftArray, i);
-            }
-        }
+    @SqlInvokedScalarFunction(value = "array_intersect", deterministic = true, calledOnNullInput = false)
+    @Description("Intersects elements of all arrays in the given array")
+    @SqlParameter(name = "input", type = "array<array<bigint>>")
+    @SqlType("array<bigint>")
+    public static String arrayIntersectBigint()
+    {
+        return "RETURN reduce(input, null, (s, x) -> IF((s IS NULL), x, array_intersect(s, x)), (s) -> s)";
+    }
 
-        return blockBuilder.build();
+    @SqlInvokedScalarFunction(value = "array_intersect", deterministic = true, calledOnNullInput = false)
+    @Description("Intersects elements of all arrays in the given array")
+    @SqlParameter(name = "input", type = "array<array<double>>")
+    @SqlType("array<double>")
+    public static String arrayIntersectDouble()
+    {
+        return "RETURN reduce(input, null, (s, x) -> IF((s IS NULL), x, array_intersect(s, x)), (s) -> s)";
     }
 }

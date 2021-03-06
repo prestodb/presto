@@ -79,7 +79,7 @@ public class TestJsonHiveHandles
     public void testColumnHandleSerialize()
             throws Exception
     {
-        HiveColumnHandle columnHandle = new HiveColumnHandle("column", HiveType.HIVE_FLOAT, parseTypeSignature(StandardTypes.DOUBLE), -1, PARTITION_KEY, Optional.of("comment"));
+        HiveColumnHandle columnHandle = new HiveColumnHandle("column", HiveType.HIVE_FLOAT, parseTypeSignature(StandardTypes.DOUBLE), -1, PARTITION_KEY, Optional.of("comment"), Optional.empty());
 
         assertTrue(objectMapper.canSerialize(HiveColumnHandle.class));
         String json = objectMapper.writeValueAsString(columnHandle);

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.relational;
 
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
@@ -36,18 +36,18 @@ public class TestDeterminismEvaluator
     @Test
     public void testDeterminismEvaluator()
     {
-        FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
-        RowExpressionDeterminismEvaluator determinismEvaluator = new RowExpressionDeterminismEvaluator(functionManager);
+        FunctionAndTypeManager functionAndTypeManager = createTestMetadataManager().getFunctionAndTypeManager();
+        RowExpressionDeterminismEvaluator determinismEvaluator = new RowExpressionDeterminismEvaluator(functionAndTypeManager);
 
         CallExpression random = new CallExpression(
                 "random",
-                functionManager.lookupFunction("random", fromTypes(BIGINT)),
+                functionAndTypeManager.lookupFunction("random", fromTypes(BIGINT)),
                 BIGINT,
                 singletonList(constant(10L, BIGINT)));
         assertFalse(determinismEvaluator.isDeterministic(random));
 
         InputReferenceExpression col0 = field(0, BIGINT);
-        FunctionHandle lessThan = functionManager.resolveOperator(LESS_THAN, fromTypes(BIGINT, BIGINT));
+        FunctionHandle lessThan = functionAndTypeManager.resolveOperator(LESS_THAN, fromTypes(BIGINT, BIGINT));
 
         CallExpression lessThanExpression = new CallExpression(LESS_THAN.name(), lessThan, BOOLEAN, ImmutableList.of(col0, constant(10L, BIGINT)));
         assertTrue(determinismEvaluator.isDeterministic(lessThanExpression));

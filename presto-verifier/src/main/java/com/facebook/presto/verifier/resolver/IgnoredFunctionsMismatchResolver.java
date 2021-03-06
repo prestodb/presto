@@ -18,7 +18,7 @@ import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.verifier.framework.MatchResult;
+import com.facebook.presto.verifier.framework.DataMatchResult;
 import com.facebook.presto.verifier.framework.QueryBundle;
 import com.google.common.base.Splitter;
 
@@ -29,9 +29,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
-import static com.facebook.presto.verifier.framework.MatchResult.MatchType.COLUMN_MISMATCH;
-import static com.facebook.presto.verifier.framework.MatchResult.MatchType.ROW_COUNT_MISMATCH;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.verifier.framework.DataMatchResult.MatchType.COLUMN_MISMATCH;
+import static com.facebook.presto.verifier.framework.DataMatchResult.MatchType.ROW_COUNT_MISMATCH;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
@@ -51,7 +51,7 @@ public class IgnoredFunctionsMismatchResolver
     }
 
     @Override
-    public Optional<String> resolveResultMismatch(MatchResult matchResult, QueryBundle control)
+    public Optional<String> resolveResultMismatch(DataMatchResult matchResult, QueryBundle control)
     {
         checkArgument(!matchResult.isMatched(), "Expect not matched");
         if (matchResult.getMatchType() != COLUMN_MISMATCH && matchResult.getMatchType() != ROW_COUNT_MISMATCH) {

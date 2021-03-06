@@ -24,7 +24,7 @@ import com.facebook.presto.orc.checkpoint.BooleanStreamCheckpoint;
 import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.CompressedMetadataWriter;
-import com.facebook.presto.orc.metadata.CompressionKind;
+import com.facebook.presto.orc.metadata.CompressionParameters;
 import com.facebook.presto.orc.metadata.MetadataWriter;
 import com.facebook.presto.orc.metadata.RowGroupIndex;
 import com.facebook.presto.orc.metadata.Stream;
@@ -74,9 +74,8 @@ public class SliceDictionaryColumnWriter
 
     private final int column;
     private final Type type;
-    private final CompressionKind compression;
+    private final CompressionParameters compressionParameters;
     private final Optional<DwrfDataEncryptor> dwrfEncryptor;
-    private final int bufferSize;
     private final OrcEncoding orcEncoding;
     private final int stringStatisticsLimitInBytes;
 
@@ -110,9 +109,8 @@ public class SliceDictionaryColumnWriter
     public SliceDictionaryColumnWriter(
             int column,
             Type type,
-            CompressionKind compression,
+            CompressionParameters compressionParameters,
             Optional<DwrfDataEncryptor> dwrfEncryptor,
-            int bufferSize,
             OrcEncoding orcEncoding,
             DataSize stringStatisticsLimit,
             MetadataWriter metadataWriter)
@@ -120,24 +118,23 @@ public class SliceDictionaryColumnWriter
         checkArgument(column >= 0, "column is negative");
         this.column = column;
         this.type = requireNonNull(type, "type is null");
-        this.compression = requireNonNull(compression, "compression is null");
+        this.compressionParameters = requireNonNull(compressionParameters, "compressionParameters is null");
         this.dwrfEncryptor = requireNonNull(dwrfEncryptor, "dwrfEncryptor is null");
-        this.bufferSize = bufferSize;
         this.orcEncoding = requireNonNull(orcEncoding, "orcEncoding is null");
         this.stringStatisticsLimitInBytes = toIntExact(requireNonNull(stringStatisticsLimit, "stringStatisticsLimit is null").toBytes());
         LongOutputStream result;
         if (orcEncoding == DWRF) {
-            result = new LongOutputStreamV1(compression, dwrfEncryptor, bufferSize, false, DATA);
+            result = new LongOutputStreamV1(compressionParameters, dwrfEncryptor, false, DATA);
         }
         else {
-            result = new LongOutputStreamV2(compression, bufferSize, false, DATA);
+            result = new LongOutputStreamV2(compressionParameters, false, DATA);
         }
         this.dataStream = result;
-        this.presentStream = new PresentOutputStream(compression, dwrfEncryptor, bufferSize);
-        this.dictionaryDataStream = new ByteArrayOutputStream(compression, dwrfEncryptor, bufferSize, StreamKind.DICTIONARY_DATA);
-        this.dictionaryLengthStream = createLengthOutputStream(compression, dwrfEncryptor, bufferSize, orcEncoding);
+        this.presentStream = new PresentOutputStream(compressionParameters, dwrfEncryptor);
+        this.dictionaryDataStream = new ByteArrayOutputStream(compressionParameters, dwrfEncryptor, StreamKind.DICTIONARY_DATA);
+        this.dictionaryLengthStream = createLengthOutputStream(compressionParameters, dwrfEncryptor, orcEncoding);
         this.metadataWriter = requireNonNull(metadataWriter, "metadataWriter is null");
-        this.compressedMetadataWriter = new CompressedMetadataWriter(metadataWriter, compression, dwrfEncryptor, bufferSize);
+        this.compressedMetadataWriter = new CompressedMetadataWriter(metadataWriter, compressionParameters, dwrfEncryptor);
         values = new IntBigArray();
         this.statisticsBuilder = newStringStatisticsBuilder();
     }
@@ -190,7 +187,7 @@ public class SliceDictionaryColumnWriter
         checkState(!closed);
         checkState(!directEncoded);
         if (directColumnWriter == null) {
-            directColumnWriter = new SliceDirectColumnWriter(column, type, compression, dwrfEncryptor, bufferSize, orcEncoding, this::newStringStatisticsBuilder, metadataWriter);
+            directColumnWriter = new SliceDirectColumnWriter(column, type, compressionParameters, dwrfEncryptor, orcEncoding, this::newStringStatisticsBuilder, metadataWriter);
         }
         checkState(directColumnWriter.getBufferedBytes() == 0);
 
@@ -490,7 +487,7 @@ public class SliceDictionaryColumnWriter
             ColumnStatistics columnStatistics = rowGroups.get(groupId).getColumnStatistics();
             LongStreamCheckpoint dataCheckpoint = dataCheckpoints.get(groupId);
             Optional<BooleanStreamCheckpoint> presentCheckpoint = presentCheckpoints.map(checkpoints -> checkpoints.get(groupId));
-            List<Integer> positions = createSliceColumnPositionList(compression != NONE, dataCheckpoint, presentCheckpoint);
+            List<Integer> positions = createSliceColumnPositionList(compressionParameters.getKind() != NONE, dataCheckpoint, presentCheckpoint);
             rowGroupIndexes.add(new RowGroupIndex(positions, columnStatistics));
         }
 

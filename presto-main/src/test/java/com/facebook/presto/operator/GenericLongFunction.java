@@ -13,10 +13,9 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.common.function.QualifiedFunctionName;
-import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.spi.function.Signature;
@@ -28,7 +27,7 @@ import java.util.function.LongUnaryOperator;
 
 import static com.facebook.presto.common.type.StandardTypes.BIGINT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
@@ -47,7 +46,7 @@ public final class GenericLongFunction
 
     GenericLongFunction(String suffix, LongUnaryOperator longUnaryOperator)
     {
-        super(new Signature(QualifiedFunctionName.of(DEFAULT_NAMESPACE, "generic_long_" + requireNonNull(suffix, "suffix is null")), SCALAR,
+        super(new Signature(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "generic_long_" + requireNonNull(suffix, "suffix is null")), SCALAR,
                 emptyList(), emptyList(), parseTypeSignature(BIGINT), singletonList(parseTypeSignature(BIGINT)), false));
         this.longUnaryOperator = longUnaryOperator;
     }
@@ -71,7 +70,7 @@ public final class GenericLongFunction
     }
 
     @Override
-    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
+    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(longUnaryOperator);
         return new BuiltInScalarFunctionImplementation(false, ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)), methodHandle);

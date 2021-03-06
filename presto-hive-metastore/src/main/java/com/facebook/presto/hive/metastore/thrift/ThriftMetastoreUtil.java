@@ -15,6 +15,7 @@ package com.facebook.presto.hive.metastore.thrift;
 
 import com.facebook.presto.hive.HiveBucketProperty;
 import com.facebook.presto.hive.HiveType;
+import com.facebook.presto.hive.PartitionMutator;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.HiveColumnStatistics;
@@ -38,6 +39,7 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
+import com.google.common.primitives.Shorts;
 import org.apache.hadoop.hive.metastore.api.BinaryColumnStatsData;
 import org.apache.hadoop.hive.metastore.api.BooleanColumnStatsData;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
@@ -83,6 +85,7 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveStorageFormat.AVRO;
+import static com.facebook.presto.hive.HiveStorageFormat.CSV;
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createBinaryColumnStatistics;
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createBooleanColumnStatistics;
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createDateColumnStatistics;
@@ -422,6 +425,21 @@ public final class ThriftMetastoreUtil
         if (table.getParameters() == null) {
             return false;
         }
+        SerDeInfo serdeInfo = getSerdeInfo(table);
+
+        return serdeInfo.getSerializationLib() != null &&
+                (table.getParameters().get(AVRO_SCHEMA_URL_KEY) != null ||
+                        (serdeInfo.getParameters() != null && serdeInfo.getParameters().get(AVRO_SCHEMA_URL_KEY) != null)) &&
+                serdeInfo.getSerializationLib().equals(AVRO.getSerDe());
+    }
+
+    public static boolean isCsvTable(org.apache.hadoop.hive.metastore.api.Table table)
+    {
+        return CSV.getSerDe().equals(getSerdeInfo(table).getSerializationLib());
+    }
+
+    private static SerDeInfo getSerdeInfo(org.apache.hadoop.hive.metastore.api.Table table)
+    {
         StorageDescriptor storageDescriptor = table.getSd();
         if (storageDescriptor == null) {
             throw new PrestoException(HIVE_INVALID_METADATA, "Table does not contain a storage descriptor: " + table);
@@ -431,12 +449,9 @@ public final class ThriftMetastoreUtil
             throw new PrestoException(HIVE_INVALID_METADATA, "Table storage descriptor is missing SerDe info");
         }
 
-        return serdeInfo.getSerializationLib() != null &&
-                table.getParameters().get(AVRO_SCHEMA_URL_KEY) != null &&
-                serdeInfo.getSerializationLib().equals(AVRO.getSerDe());
+        return serdeInfo;
     }
-
-    public static Partition fromMetastoreApiPartition(org.apache.hadoop.hive.metastore.api.Partition partition)
+    public static Partition fromMetastoreApiPartition(org.apache.hadoop.hive.metastore.api.Partition partition, PartitionMutator partitionMutator)
     {
         StorageDescriptor storageDescriptor = partition.getSd();
         if (storageDescriptor == null) {
@@ -451,6 +466,9 @@ public final class ThriftMetastoreUtil
                         .map(ThriftMetastoreUtil::fromMetastoreApiFieldSchema)
                         .collect(toList()))
                 .setParameters(partition.getParameters());
+
+        // mutate apache partition to Presto partition
+        partitionMutator.mutate(partitionBuilder, partition);
 
         fromMetastoreApiStorageDescriptor(storageDescriptor, partitionBuilder.getStorageBuilder(), format("%s.%s", partition.getTableName(), partition.getValues()));
 
@@ -805,7 +823,7 @@ public final class ThriftMetastoreUtil
 
     public static Decimal toMetastoreDecimal(BigDecimal decimal)
     {
-        return new Decimal(ByteBuffer.wrap(decimal.unscaledValue().toByteArray()), (short) decimal.scale());
+        return new Decimal(Shorts.checkedCast(decimal.scale()), ByteBuffer.wrap(decimal.unscaledValue().toByteArray()));
     }
 
     private static OptionalLong toMetastoreDistinctValuesCount(OptionalLong distinctValuesCount, OptionalLong nullsCount)

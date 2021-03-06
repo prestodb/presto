@@ -24,7 +24,6 @@ import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
-import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
@@ -62,7 +61,7 @@ import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAM
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
-import static com.facebook.presto.testing.TestingEnvironment.TYPE_MANAGER;
+import static com.facebook.presto.testing.TestingEnvironment.getOperatorMethodHandle;
 import static com.facebook.presto.util.StructuralTestUtil.appendToBlockBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -116,6 +115,11 @@ public final class BlockAssertions
         for (int position = 0; position < actual.getPositionCount(); position++) {
             assertEquals(type.getObjectValue(SESSION.getSqlFunctionProperties(), actual, position), type.getObjectValue(SESSION.getSqlFunctionProperties(), expected, position));
         }
+    }
+
+    public static Block createEmptyBlock(Type type)
+    {
+        return createAllNullsBlock(type, 0);
     }
 
     public static Block createAllNullsBlock(Type type, int positionCount)
@@ -849,17 +853,14 @@ public final class BlockAssertions
 
     public static MapType createMapType(Type keyType, Type valueType)
     {
-        MethodHandle keyNativeEquals = TYPE_MANAGER.resolveOperator(OperatorType.EQUAL, ImmutableList.of(keyType, keyType));
-        MethodHandle keyBlockNativeEquals = compose(keyNativeEquals, nativeValueGetter(keyType));
+        MethodHandle keyNativeEquals = getOperatorMethodHandle(OperatorType.EQUAL, keyType, keyType);
         MethodHandle keyBlockEquals = compose(keyNativeEquals, nativeValueGetter(keyType), nativeValueGetter(keyType));
-        MethodHandle keyNativeHashCode = TYPE_MANAGER.resolveOperator(OperatorType.HASH_CODE, ImmutableList.of(keyType));
+        MethodHandle keyNativeHashCode = getOperatorMethodHandle(OperatorType.HASH_CODE, keyType);
         MethodHandle keyBlockHashCode = compose(keyNativeHashCode, nativeValueGetter(keyType));
         return new MapType(
                 keyType,
                 valueType,
-                keyBlockNativeEquals,
                 keyBlockEquals,
-                keyNativeHashCode,
                 keyBlockHashCode);
     }
 

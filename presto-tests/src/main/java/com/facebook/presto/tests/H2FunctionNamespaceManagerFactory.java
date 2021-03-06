@@ -14,6 +14,8 @@
 package com.facebook.presto.tests;
 
 import com.facebook.airlift.bootstrap.Bootstrap;
+import com.facebook.drift.transport.netty.client.DriftNettyClientModule;
+import com.facebook.presto.functionNamespace.execution.SimpleAddressSqlFunctionExecutorsModule;
 import com.facebook.presto.functionNamespace.mysql.MySqlFunctionNamespaceManager;
 import com.facebook.presto.functionNamespace.mysql.MySqlFunctionNamespaceManagerModule;
 import com.facebook.presto.spi.function.FunctionHandleResolver;
@@ -50,11 +52,12 @@ public class H2FunctionNamespaceManagerFactory
     {
         try {
             Bootstrap app = new Bootstrap(
+                    new DriftNettyClientModule(),
                     new MySqlFunctionNamespaceManagerModule(catalogName),
-                    new H2ConnectionModule());
+                    new H2ConnectionModule(),
+                    new SimpleAddressSqlFunctionExecutorsModule());
 
             Injector injector = app
-                    .strictConfig()
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
                     .initialize();

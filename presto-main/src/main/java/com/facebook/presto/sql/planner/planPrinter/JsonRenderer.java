@@ -72,6 +72,7 @@ public class JsonRenderer
         private final List<JsonRenderedNode> children;
         private final List<String> remoteSources;
 
+        @JsonCreator
         public JsonRenderedNode(String id, String name, String identifier, String details, List<JsonRenderedNode> children, List<String> remoteSources)
         {
             this.id = requireNonNull(id, "id is null");

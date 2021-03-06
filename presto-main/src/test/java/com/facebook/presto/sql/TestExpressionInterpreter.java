@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql;
 
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.block.BlockSerdeUtil;
 import com.facebook.presto.common.type.ArrayType;
@@ -140,12 +140,12 @@ public class TestExpressionInterpreter
     private static final SqlParser SQL_PARSER = new SqlParser();
     private static final Metadata METADATA = MetadataManager.createTestMetadataManager();
     private static final TestingRowExpressionTranslator TRANSLATOR = new TestingRowExpressionTranslator(METADATA);
-    private static final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(METADATA.getTypeManager());
+    private static final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager();
 
     @BeforeClass
     public void setup()
     {
-        METADATA.getFunctionManager().registerBuiltInFunctions(ImmutableList.of(APPLY_FUNCTION));
+        METADATA.getFunctionAndTypeManager().registerBuiltInFunctions(ImmutableList.of(APPLY_FUNCTION));
     }
 
     @Test
@@ -1719,10 +1719,10 @@ public class TestExpressionInterpreter
     private static boolean isRemovableCast(Object value)
     {
         if (value instanceof CallExpression &&
-                new FunctionResolution(METADATA.getFunctionManager()).isCastFunction(((CallExpression) value).getFunctionHandle())) {
+                new FunctionResolution(METADATA.getFunctionAndTypeManager()).isCastFunction(((CallExpression) value).getFunctionHandle())) {
             Type targetType = ((CallExpression) value).getType();
             Type sourceType = ((CallExpression) value).getArguments().get(0).getType();
-            return METADATA.getTypeManager().canCoerce(sourceType, targetType);
+            return METADATA.getFunctionAndTypeManager().canCoerce(sourceType, targetType);
         }
         return false;
     }

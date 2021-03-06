@@ -56,7 +56,7 @@ public class TestParquetPredicateUtils
     @Test
     public void testParquetTupleDomainPrimitiveArray()
     {
-        HiveColumnHandle columnHandle = new HiveColumnHandle("my_array", HiveType.valueOf("array<int>"), parseTypeSignature(StandardTypes.ARRAY), 0, REGULAR, Optional.empty());
+        HiveColumnHandle columnHandle = new HiveColumnHandle("my_array", HiveType.valueOf("array<int>"), parseTypeSignature(StandardTypes.ARRAY), 0, REGULAR, Optional.empty(), Optional.empty());
         TupleDomain<HiveColumnHandle> domain = withColumnDomains(ImmutableMap.of(columnHandle, Domain.notNull(new ArrayType(INTEGER))));
 
         MessageType fileSchema = new MessageType("hive_schema",
@@ -71,7 +71,7 @@ public class TestParquetPredicateUtils
     @Test
     public void testParquetTupleDomainStructArray()
     {
-        HiveColumnHandle columnHandle = new HiveColumnHandle("my_array_struct", HiveType.valueOf("array<struct<a:int>>"), parseTypeSignature(StandardTypes.ARRAY), 0, REGULAR, Optional.empty());
+        HiveColumnHandle columnHandle = new HiveColumnHandle("my_array_struct", HiveType.valueOf("array<struct<a:int>>"), parseTypeSignature(StandardTypes.ARRAY), 0, REGULAR, Optional.empty(), Optional.empty());
         RowType.Field rowField = new RowType.Field(Optional.of("a"), INTEGER);
         RowType rowType = RowType.from(ImmutableList.of(rowField));
         TupleDomain<HiveColumnHandle> domain = withColumnDomains(ImmutableMap.of(columnHandle, Domain.notNull(new ArrayType(rowType))));
@@ -89,7 +89,7 @@ public class TestParquetPredicateUtils
     @Test
     public void testParquetTupleDomainPrimitive()
     {
-        HiveColumnHandle columnHandle = new HiveColumnHandle("my_primitive", HiveType.valueOf("bigint"), parseTypeSignature(StandardTypes.BIGINT), 0, REGULAR, Optional.empty());
+        HiveColumnHandle columnHandle = new HiveColumnHandle("my_primitive", HiveType.valueOf("bigint"), parseTypeSignature(StandardTypes.BIGINT), 0, REGULAR, Optional.empty(), Optional.empty());
         Domain singleValueDomain = Domain.singleValue(BIGINT, 123L);
         TupleDomain<HiveColumnHandle> domain = withColumnDomains(ImmutableMap.of(columnHandle, singleValueDomain));
 
@@ -110,7 +110,7 @@ public class TestParquetPredicateUtils
     @Test
     public void testParquetTupleDomainStruct()
     {
-        HiveColumnHandle columnHandle = new HiveColumnHandle("my_struct", HiveType.valueOf("struct<a:int,b:int>"), parseTypeSignature(StandardTypes.ROW), 0, REGULAR, Optional.empty());
+        HiveColumnHandle columnHandle = new HiveColumnHandle("my_struct", HiveType.valueOf("struct<a:int,b:int>"), parseTypeSignature(StandardTypes.ROW), 0, REGULAR, Optional.empty(), Optional.empty());
         RowType.Field rowField = new RowType.Field(Optional.of("my_struct"), INTEGER);
         RowType rowType = RowType.from(ImmutableList.of(rowField));
         TupleDomain<HiveColumnHandle> domain = withColumnDomains(ImmutableMap.of(columnHandle, Domain.notNull(rowType)));
@@ -127,13 +127,11 @@ public class TestParquetPredicateUtils
     @Test
     public void testParquetTupleDomainMap()
     {
-        HiveColumnHandle columnHandle = new HiveColumnHandle("my_map", HiveType.valueOf("map<int,int>"), parseTypeSignature(StandardTypes.MAP), 0, REGULAR, Optional.empty());
+        HiveColumnHandle columnHandle = new HiveColumnHandle("my_map", HiveType.valueOf("map<int,int>"), parseTypeSignature(StandardTypes.MAP), 0, REGULAR, Optional.empty(), Optional.empty());
 
         MapType mapType = new MapType(
                 INTEGER,
                 INTEGER,
-                methodHandle(TestParquetPredicateUtils.class, "throwUnsupportedOperationException"),
-                methodHandle(TestParquetPredicateUtils.class, "throwUnsupportedOperationException"),
                 methodHandle(TestParquetPredicateUtils.class, "throwUnsupportedOperationException"),
                 methodHandle(TestParquetPredicateUtils.class, "throwUnsupportedOperationException"));
 

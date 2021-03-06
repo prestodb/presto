@@ -26,6 +26,7 @@ import javax.annotation.concurrent.NotThreadSafe;
 import java.nio.ByteBuffer;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.page.PageCodecMarker.CHECKSUMMED;
 import static com.facebook.presto.spi.page.PageCodecMarker.COMPRESSED;
 import static com.facebook.presto.spi.page.PageCodecMarker.ENCRYPTED;
 import static com.facebook.presto.spi.page.PagesSerdeUtil.readRawPage;
@@ -44,10 +45,16 @@ public class PagesSerde
     private final Optional<PageCompressor> compressor;
     private final Optional<PageDecompressor> decompressor;
     private final Optional<SpillCipher> spillCipher;
+    private final boolean checksumEnabled;
 
     private byte[] compressionBuffer;
 
     public PagesSerde(BlockEncodingSerde blockEncodingSerde, Optional<PageCompressor> compressor, Optional<PageDecompressor> decompressor, Optional<SpillCipher> spillCipher)
+    {
+        this(blockEncodingSerde, compressor, decompressor, spillCipher, false);
+    }
+
+    public PagesSerde(BlockEncodingSerde blockEncodingSerde, Optional<PageCompressor> compressor, Optional<PageDecompressor> decompressor, Optional<SpillCipher> spillCipher, boolean checksumEnabled)
     {
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         checkArgument(compressor.isPresent() == decompressor.isPresent(), "compressor and decompressor must both be present or both be absent");
@@ -55,6 +62,7 @@ public class PagesSerde
         this.decompressor = requireNonNull(decompressor, "decompressor is null");
         this.spillCipher = requireNonNull(spillCipher, "spillCipher is null");
         checkState(!spillCipher.isPresent() || !spillCipher.get().isDestroyed(), "spillCipher is already destroyed");
+        this.checksumEnabled = checksumEnabled;
     }
 
     public SerializedPage serialize(Page page)
@@ -136,6 +144,9 @@ public class PagesSerde
         }
         else if (!slice.isCompact()) {
             slice = Slices.copyOf(slice);
+        }
+        if (checksumEnabled) {
+            markers = CHECKSUMMED.set(markers);
         }
 
         return new SerializedPage(slice, markers, positionCount, uncompressedSize);

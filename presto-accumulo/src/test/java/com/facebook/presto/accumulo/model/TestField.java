@@ -14,16 +14,12 @@
 package com.facebook.presto.accumulo.model;
 
 import com.facebook.presto.accumulo.serializers.AccumuloRowSerializer;
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignatureParameter;
-import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.type.TypeRegistry;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -45,6 +41,7 @@ import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 
@@ -169,11 +166,9 @@ public class TestField
     @Test
     public void testMap()
     {
-        TypeManager typeManager = new TypeRegistry();
-        // associate typeManager with a function manager
-        new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
 
-        Type type = typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+        Type type = functionAndTypeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
                 TypeSignatureParameter.of(VARCHAR.getTypeSignature()),
                 TypeSignatureParameter.of(BIGINT.getTypeSignature())));
         Block expected = AccumuloRowSerializer.getBlockFromMap(type, ImmutableMap.of("a", 1L, "b", 2L, "c", 3L));

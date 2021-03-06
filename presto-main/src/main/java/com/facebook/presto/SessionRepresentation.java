@@ -14,10 +14,15 @@
 package com.facebook.presto;
 
 import com.facebook.airlift.http.server.BasicPrincipal;
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.spi.security.TokenAuthenticator;
@@ -36,6 +41,7 @@ import java.util.Set;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public final class SessionRepresentation
 {
     private final String queryId;
@@ -60,7 +66,9 @@ public final class SessionRepresentation
     private final Map<String, Map<String, String>> unprocessedCatalogProperties;
     private final Map<String, SelectedRole> roles;
     private final Map<String, String> preparedStatements;
+    private final Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions;
 
+    @ThriftConstructor
     @JsonCreator
     public SessionRepresentation(
             @JsonProperty("queryId") String queryId,
@@ -84,7 +92,8 @@ public final class SessionRepresentation
             @JsonProperty("catalogProperties") Map<ConnectorId, Map<String, String>> catalogProperties,
             @JsonProperty("unprocessedCatalogProperties") Map<String, Map<String, String>> unprocessedCatalogProperties,
             @JsonProperty("roles") Map<String, SelectedRole> roles,
-            @JsonProperty("preparedStatements") Map<String, String> preparedStatements)
+            @JsonProperty("preparedStatements") Map<String, String> preparedStatements,
+            @JsonProperty("sessionFunctions") Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
@@ -106,6 +115,7 @@ public final class SessionRepresentation
         this.systemProperties = ImmutableMap.copyOf(systemProperties);
         this.roles = ImmutableMap.copyOf(roles);
         this.preparedStatements = ImmutableMap.copyOf(preparedStatements);
+        this.sessionFunctions = ImmutableMap.copyOf(sessionFunctions);
 
         ImmutableMap.Builder<ConnectorId, Map<String, String>> catalogPropertiesBuilder = ImmutableMap.builder();
         for (Entry<ConnectorId, Map<String, String>> entry : catalogProperties.entrySet()) {
@@ -120,136 +130,164 @@ public final class SessionRepresentation
         this.unprocessedCatalogProperties = unprocessedCatalogPropertiesBuilder.build();
     }
 
+    @ThriftField(1)
     @JsonProperty
     public String getQueryId()
     {
         return queryId;
     }
 
+    @ThriftField(2)
     @JsonProperty
     public Optional<TransactionId> getTransactionId()
     {
         return transactionId;
     }
 
+    @ThriftField(3)
     @JsonProperty
     public boolean isClientTransactionSupport()
     {
         return clientTransactionSupport;
     }
 
+    @ThriftField(4)
     @JsonProperty
     public String getUser()
     {
         return user;
     }
 
+    @ThriftField(5)
     @JsonProperty
     public Optional<String> getPrincipal()
     {
         return principal;
     }
 
+    @ThriftField(6)
     @JsonProperty
     public Optional<String> getSource()
     {
         return source;
     }
 
-    @JsonProperty
-    public Optional<String> getTraceToken()
-    {
-        return traceToken;
-    }
-
+    @ThriftField(7)
     @JsonProperty
     public Optional<String> getCatalog()
     {
         return catalog;
     }
 
+    @ThriftField(8)
     @JsonProperty
     public Optional<String> getSchema()
     {
         return schema;
     }
 
+    @ThriftField(9)
+    @JsonProperty
+    public Optional<String> getTraceToken()
+    {
+        return traceToken;
+    }
+
+    @ThriftField(10)
     @JsonProperty
     public TimeZoneKey getTimeZoneKey()
     {
         return timeZoneKey;
     }
 
+    @ThriftField(11)
     @JsonProperty
     public Locale getLocale()
     {
         return locale;
     }
 
+    @ThriftField(12)
     @JsonProperty
     public Optional<String> getRemoteUserAddress()
     {
         return remoteUserAddress;
     }
 
+    @ThriftField(13)
     @JsonProperty
     public Optional<String> getUserAgent()
     {
         return userAgent;
     }
 
+    @ThriftField(14)
     @JsonProperty
     public Optional<String> getClientInfo()
     {
         return clientInfo;
     }
 
+    @ThriftField(15)
     @JsonProperty
     public Set<String> getClientTags()
     {
         return clientTags;
     }
 
-    @JsonProperty
-    public long getStartTime()
-    {
-        return startTime;
-    }
-
+    @ThriftField(16)
     @JsonProperty
     public ResourceEstimates getResourceEstimates()
     {
         return resourceEstimates;
     }
 
+    @ThriftField(17)
+    @JsonProperty
+    public long getStartTime()
+    {
+        return startTime;
+    }
+
+    @ThriftField(18)
     @JsonProperty
     public Map<String, String> getSystemProperties()
     {
         return systemProperties;
     }
 
+    @ThriftField(19)
     @JsonProperty
     public Map<ConnectorId, Map<String, String>> getCatalogProperties()
     {
         return catalogProperties;
     }
 
+    @ThriftField(20)
     @JsonProperty
     public Map<String, Map<String, String>> getUnprocessedCatalogProperties()
     {
         return unprocessedCatalogProperties;
     }
 
+    @ThriftField(21)
     @JsonProperty
     public Map<String, SelectedRole> getRoles()
     {
         return roles;
     }
 
+    @ThriftField(22)
     @JsonProperty
     public Map<String, String> getPreparedStatements()
     {
         return preparedStatements;
+    }
+
+    @JsonProperty
+    public Map<SqlFunctionId, SqlInvokedFunction> getSessionFunctions()
+    {
+        return sessionFunctions;
     }
 
     public Session toSession(SessionPropertyManager sessionPropertyManager)
@@ -290,6 +328,7 @@ public final class SessionRepresentation
                 catalogProperties,
                 unprocessedCatalogProperties,
                 sessionPropertyManager,
-                preparedStatements);
+                preparedStatements,
+                sessionFunctions);
     }
 }

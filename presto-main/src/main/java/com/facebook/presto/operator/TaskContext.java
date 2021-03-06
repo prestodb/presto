@@ -18,6 +18,7 @@ import com.facebook.airlift.stats.GcMonitor;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.execution.TaskMetadataContext;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStateMachine;
 import com.facebook.presto.execution.buffer.LazyOutputBuffer;
@@ -94,7 +95,9 @@ public class TaskContext
 
     private final Object cumulativeMemoryLock = new Object();
     private final AtomicDouble cumulativeUserMemory = new AtomicDouble(0.0);
+
     private final AtomicLong peakTotalMemoryInBytes = new AtomicLong(0);
+    private final AtomicLong peakUserMemoryInBytes = new AtomicLong(0);
 
     @GuardedBy("cumulativeMemoryLock")
     private long lastUserMemoryReservation;
@@ -103,6 +106,8 @@ public class TaskContext
     private long lastTaskStatCallNanos;
 
     private final MemoryTrackingContext taskMemoryContext;
+
+    private final TaskMetadataContext taskMetadataContext;
 
     public static TaskContext createTaskContext(
             QueryContext queryContext,
@@ -162,6 +167,7 @@ public class TaskContext
         this.perOperatorAllocationTrackingEnabled = perOperatorAllocationTrackingEnabled;
         this.allocationTrackingEnabled = allocationTrackingEnabled;
         this.legacyLifespanCompletionCondition = legacyLifespanCompletionCondition;
+        this.taskMetadataContext = new TaskMetadataContext();
     }
 
     // the state change listener is added here in a separate initialize() method
@@ -247,6 +253,11 @@ public class TaskContext
     public TaskState getState()
     {
         return taskStateMachine.getState();
+    }
+
+    public TaskMetadataContext getTaskMetadataContext()
+    {
+        return taskMetadataContext;
     }
 
     public DataSize getMemoryReservation()
@@ -489,7 +500,7 @@ public class TaskContext
         long userMemory = taskMemoryContext.getUserMemory();
         long systemMemory = taskMemoryContext.getSystemMemory();
 
-        peakTotalMemoryInBytes.accumulateAndGet(userMemory + systemMemory, Math::max);
+        updatePeakMemory();
 
         synchronized (cumulativeMemoryLock) {
             double sinceLastPeriodMillis = (System.nanoTime() - lastTaskStatCallNanos) / 1_000_000.0;
@@ -529,6 +540,8 @@ public class TaskContext
                 taskMemoryContext.getRevocableMemory(),
                 systemMemory,
                 peakTotalMemoryInBytes.get(),
+                peakUserMemoryInBytes.get(),
+                queryContext.getPeakNodeTotalMemory(),
                 totalScheduledTime,
                 totalCpuTime,
                 totalBlockedTime,
@@ -545,6 +558,15 @@ public class TaskContext
                 fullGcCount,
                 fullGcTime.toMillis(),
                 pipelineStats);
+    }
+
+    public void updatePeakMemory()
+    {
+        long userMemory = taskMemoryContext.getUserMemory();
+        long systemMemory = taskMemoryContext.getSystemMemory();
+
+        peakTotalMemoryInBytes.accumulateAndGet(userMemory + systemMemory, Math::max);
+        peakUserMemoryInBytes.accumulateAndGet(userMemory, Math::max);
     }
 
     public <C, R> R accept(QueryContextVisitor<C, R> visitor, C context)

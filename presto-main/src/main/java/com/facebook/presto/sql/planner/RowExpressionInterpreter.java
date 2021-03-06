@@ -23,9 +23,8 @@ import com.facebook.presto.common.type.FunctionType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
@@ -68,6 +67,7 @@ import static com.facebook.presto.common.type.StandardTypes.MAP;
 import static com.facebook.presto.common.type.StandardTypes.ROW;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.TypeUtils.writeNativeValue;
+import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.expressions.DynamicFilters.isDynamicFilter;
@@ -104,7 +104,6 @@ import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.SqlFunctionUtils.getSqlFunctionRowExpression;
 import static com.facebook.presto.type.LikeFunctions.isLikePattern;
 import static com.facebook.presto.type.LikeFunctions.unescapeLiteralLikePattern;
-import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.instanceOf;
@@ -127,7 +126,7 @@ public class RowExpressionInterpreter
     private final Level optimizationLevel;
     private final InterpretedFunctionInvoker functionInvoker;
     private final RowExpressionDeterminismEvaluator determinismEvaluator;
-    private final FunctionManager functionManager;
+    private final FunctionAndTypeManager functionAndTypeManager;
     private final FunctionResolution resolution;
 
     private final Visitor visitor;
@@ -151,10 +150,10 @@ public class RowExpressionInterpreter
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.session = requireNonNull(session, "session is null");
         this.optimizationLevel = optimizationLevel;
-        this.functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionManager());
-        this.determinismEvaluator = new RowExpressionDeterminismEvaluator(metadata.getFunctionManager());
-        this.resolution = new FunctionResolution(metadata.getFunctionManager());
-        this.functionManager = metadata.getFunctionManager();
+        this.functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionAndTypeManager());
+        this.determinismEvaluator = new RowExpressionDeterminismEvaluator(metadata.getFunctionAndTypeManager());
+        this.resolution = new FunctionResolution(metadata.getFunctionAndTypeManager());
+        this.functionAndTypeManager = metadata.getFunctionAndTypeManager();
 
         this.visitor = new Visitor();
     }
@@ -221,7 +220,7 @@ public class RowExpressionInterpreter
             }
 
             FunctionHandle functionHandle = node.getFunctionHandle();
-            FunctionMetadata functionMetadata = metadata.getFunctionManager().getFunctionMetadata(node.getFunctionHandle());
+            FunctionMetadata functionMetadata = metadata.getFunctionAndTypeManager().getFunctionMetadata(node.getFunctionHandle());
             if (!functionMetadata.isCalledOnNullInput()) {
                 for (Object value : argumentValues) {
                     if (value == null) {
@@ -273,8 +272,14 @@ public class RowExpressionInterpreter
                     value = functionInvoker.invoke(functionHandle, session.getSqlFunctionProperties(), argumentValues);
                     break;
                 case SQL:
-                    SqlInvokedScalarFunctionImplementation functionImplementation = (SqlInvokedScalarFunctionImplementation) functionManager.getScalarFunctionImplementation(functionHandle);
-                    RowExpression function = getSqlFunctionRowExpression(functionMetadata, functionImplementation, metadata, session.getSqlFunctionProperties(), node.getArguments());
+                    SqlInvokedScalarFunctionImplementation functionImplementation = (SqlInvokedScalarFunctionImplementation) functionAndTypeManager.getScalarFunctionImplementation(functionHandle);
+                    RowExpression function = getSqlFunctionRowExpression(
+                            functionMetadata,
+                            functionImplementation,
+                            metadata,
+                            session.getSqlFunctionProperties(),
+                            session.getSessionFunctions(),
+                            node.getArguments());
                     RowExpressionInterpreter rowExpressionInterpreter = new RowExpressionInterpreter(function, metadata, session, optimizationLevel);
                     if (optimizationLevel.ordinal() >= EVALUATED.ordinal()) {
                         value = rowExpressionInterpreter.evaluate();
@@ -283,6 +288,9 @@ public class RowExpressionInterpreter
                         value = rowExpressionInterpreter.optimize();
                     }
                     break;
+                case THRIFT:
+                    // do not interpret remote functions on coordinator
+                    return call(node.getDisplayName(), functionHandle, node.getType(), toRowExpressions(argumentValues, node.getArguments()));
                 default:
                     throw new IllegalArgumentException(format("Unsupported function implementation type: %s", functionMetadata.getImplementationType()));
             }
@@ -364,9 +372,9 @@ public class RowExpressionInterpreter
 
                     Type leftType = node.getArguments().get(0).getType();
                     Type rightType = node.getArguments().get(1).getType();
-                    Type commonType = metadata.getTypeManager().getCommonSuperType(leftType, rightType).get();
-                    FunctionHandle firstCast = metadata.getFunctionManager().lookupCast(CAST, leftType.getTypeSignature(), commonType.getTypeSignature());
-                    FunctionHandle secondCast = metadata.getFunctionManager().lookupCast(CAST, rightType.getTypeSignature(), commonType.getTypeSignature());
+                    Type commonType = metadata.getFunctionAndTypeManager().getCommonSuperType(leftType, rightType).get();
+                    FunctionHandle firstCast = metadata.getFunctionAndTypeManager().lookupCast(CAST, leftType.getTypeSignature(), commonType.getTypeSignature());
+                    FunctionHandle secondCast = metadata.getFunctionAndTypeManager().lookupCast(CAST, rightType.getTypeSignature(), commonType.getTypeSignature());
 
                     // cast(first as <common type>) == cast(second as <common type>)
                     boolean equal = Boolean.TRUE.equals(invokeOperator(
@@ -692,16 +700,16 @@ public class RowExpressionInterpreter
             requireNonNull(exception, "Exception is null");
 
             String failureInfo = JsonCodec.jsonCodec(FailureInfo.class).toJson(Failures.toFailure(exception).toFailureInfo());
-            FunctionHandle jsonParse = metadata.getFunctionManager().lookupFunction("json_parse", fromTypes(VARCHAR));
+            FunctionHandle jsonParse = metadata.getFunctionAndTypeManager().lookupFunction("json_parse", fromTypes(VARCHAR));
             Object json = functionInvoker.invoke(jsonParse, session.getSqlFunctionProperties(), utf8Slice(failureInfo));
-            FunctionHandle cast = metadata.getFunctionManager().lookupCast(CAST, UNKNOWN.getTypeSignature(), type.getTypeSignature());
+            FunctionHandle cast = metadata.getFunctionAndTypeManager().lookupCast(CAST, UNKNOWN.getTypeSignature(), type.getTypeSignature());
             if (exception instanceof PrestoException) {
                 long errorCode = ((PrestoException) exception).getErrorCode().getCode();
-                FunctionHandle failureFunction = metadata.getFunctionManager().lookupFunction("fail", fromTypes(INTEGER, JSON));
+                FunctionHandle failureFunction = metadata.getFunctionAndTypeManager().lookupFunction("fail", fromTypes(INTEGER, JSON));
                 return call(CAST.name(), cast, type, call("fail", failureFunction, UNKNOWN, constant(errorCode, INTEGER), LiteralEncoder.toRowExpression(json, JSON)));
             }
 
-            FunctionHandle failureFunction = metadata.getFunctionManager().lookupFunction("fail", fromTypes(JSON));
+            FunctionHandle failureFunction = metadata.getFunctionAndTypeManager().lookupFunction("fail", fromTypes(JSON));
             return call(CAST.name(), cast, type, call("fail", failureFunction, UNKNOWN, LiteralEncoder.toRowExpression(json, JSON)));
         }
 
@@ -717,7 +725,7 @@ public class RowExpressionInterpreter
 
         private Object invokeOperator(OperatorType operatorType, List<? extends Type> argumentTypes, List<Object> argumentValues)
         {
-            FunctionHandle operatorHandle = metadata.getFunctionManager().resolveOperator(operatorType, fromTypes(argumentTypes));
+            FunctionHandle operatorHandle = metadata.getFunctionAndTypeManager().resolveOperator(operatorType, fromTypes(argumentTypes));
             return functionInvoker.invoke(operatorHandle, session.getSqlFunctionProperties(), argumentValues);
         }
 
@@ -793,14 +801,14 @@ public class RowExpressionInterpreter
                 if (callExpression.getArguments().get(0) instanceof CallExpression) {
                     // Optimization for CAST(JSON_PARSE(...) AS ARRAY/MAP/ROW), solves https://github.com/prestodb/presto/issues/12829
                     CallExpression innerCall = (CallExpression) callExpression.getArguments().get(0);
-                    if (functionManager.getFunctionMetadata(innerCall.getFunctionHandle()).getName().getFunctionName().equals("json_parse")) {
+                    if (functionAndTypeManager.getFunctionMetadata(innerCall.getFunctionHandle()).getName().getObjectName().equals("json_parse")) {
                         checkArgument(innerCall.getType().equals(JSON));
                         checkArgument(innerCall.getArguments().size() == 1);
-                        TypeSignature returnType = functionManager.getFunctionMetadata(callExpression.getFunctionHandle()).getReturnType();
+                        TypeSignature returnType = functionAndTypeManager.getFunctionMetadata(callExpression.getFunctionHandle()).getReturnType();
                         if (returnType.getBase().equals(ARRAY)) {
                             return changed(call(
                                     JSON_TO_ARRAY_CAST.name(),
-                                    functionManager.lookupCast(
+                                    functionAndTypeManager.lookupCast(
                                             JSON_TO_ARRAY_CAST,
                                             parseTypeSignature(StandardTypes.VARCHAR),
                                             returnType),
@@ -810,7 +818,7 @@ public class RowExpressionInterpreter
                         if (returnType.getBase().equals(MAP)) {
                             return changed(call(
                                     JSON_TO_MAP_CAST.name(),
-                                    functionManager.lookupCast(
+                                    functionAndTypeManager.lookupCast(
                                             JSON_TO_MAP_CAST,
                                             parseTypeSignature(StandardTypes.VARCHAR),
                                             returnType),
@@ -820,7 +828,7 @@ public class RowExpressionInterpreter
                         if (returnType.getBase().equals(ROW)) {
                             return changed(call(
                                     JSON_TO_ROW_CAST.name(),
-                                    functionManager.lookupCast(
+                                    functionAndTypeManager.lookupCast(
                                             JSON_TO_ROW_CAST,
                                             parseTypeSignature(StandardTypes.VARCHAR),
                                             returnType),
@@ -838,7 +846,7 @@ public class RowExpressionInterpreter
                 return changed(call(callExpression.getDisplayName(), callExpression.getFunctionHandle(), callExpression.getType(), toRowExpression(value, source)));
             }
 
-            if (metadata.getTypeManager().isTypeOnlyCoercion(sourceType, targetType)) {
+            if (metadata.getFunctionAndTypeManager().isTypeOnlyCoercion(sourceType, targetType)) {
                 return changed(value);
             }
             return notChanged();
@@ -846,7 +854,7 @@ public class RowExpressionInterpreter
 
         private SpecialCallResult tryHandleLike(CallExpression callExpression, List<Object> argumentValues, List<Type> argumentTypes, Object context)
         {
-            FunctionResolution resolution = new FunctionResolution(metadata.getFunctionManager());
+            FunctionResolution resolution = new FunctionResolution(metadata.getFunctionAndTypeManager());
             checkArgument(resolution.isLikeFunction(callExpression.getFunctionHandle()));
             checkArgument(callExpression.getArguments().size() == 2);
             RowExpression likePatternExpression = callExpression.getArguments().get(1);
@@ -910,21 +918,20 @@ public class RowExpressionInterpreter
                 Slice unescapedPattern = unescapeLiteralLikePattern((Slice) nonCompiledPattern, (Slice) escape);
                 Type valueType = argumentTypes.get(0);
                 Type patternType = createVarcharType(unescapedPattern.length());
-                TypeManager typeManager = metadata.getTypeManager();
-                Optional<Type> commonSuperType = typeManager.getCommonSuperType(valueType, patternType);
+                Optional<Type> commonSuperType = metadata.getFunctionAndTypeManager().getCommonSuperType(valueType, patternType);
                 checkArgument(commonSuperType.isPresent(), "Missing super type when optimizing %s", callExpression);
                 RowExpression valueExpression = LiteralEncoder.toRowExpression(value, valueType);
                 RowExpression patternExpression = LiteralEncoder.toRowExpression(unescapedPattern, patternType);
                 Type superType = commonSuperType.get();
                 if (!valueType.equals(superType)) {
-                    FunctionHandle cast = metadata.getFunctionManager().lookupCast(CAST, valueType.getTypeSignature(), superType.getTypeSignature());
+                    FunctionHandle cast = metadata.getFunctionAndTypeManager().lookupCast(CAST, valueType.getTypeSignature(), superType.getTypeSignature());
                     valueExpression = call(CAST.name(), cast, superType, valueExpression);
                 }
                 if (!patternType.equals(superType)) {
-                    FunctionHandle cast = metadata.getFunctionManager().lookupCast(CAST, patternType.getTypeSignature(), superType.getTypeSignature());
+                    FunctionHandle cast = metadata.getFunctionAndTypeManager().lookupCast(CAST, patternType.getTypeSignature(), superType.getTypeSignature());
                     patternExpression = call(CAST.name(), cast, superType, patternExpression);
                 }
-                FunctionHandle equal = metadata.getFunctionManager().resolveOperator(EQUAL, fromTypes(superType, superType));
+                FunctionHandle equal = metadata.getFunctionAndTypeManager().resolveOperator(EQUAL, fromTypes(superType, superType));
                 return changed(call(EQUAL.name(), equal, BOOLEAN, valueExpression, patternExpression).accept(this, context));
             }
             return notChanged();

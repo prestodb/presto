@@ -24,8 +24,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.isDictionaryAggregationEnabled;
+import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
-import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static java.util.Objects.requireNonNull;
 
 public class ChannelSet

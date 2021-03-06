@@ -31,10 +31,11 @@ import com.google.common.collect.ImmutableSet;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.isInlineSqlFunctions;
-import static com.facebook.presto.metadata.FunctionManager.qualifyFunctionName;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.SqlFunctionUtils.getSqlFunctionExpression;
@@ -115,18 +116,19 @@ public class InlineSqlFunctions
                     rewrittenArguments.add(treeRewriter.rewrite(argument, context));
                 }
 
-                FunctionHandle functionHandle = metadata.getFunctionManager().resolveFunction(
+                FunctionHandle functionHandle = metadata.getFunctionAndTypeManager().resolveFunction(
+                        Optional.of(session.getSessionFunctions()),
                         session.getTransactionId(),
-                        qualifyFunctionName(node.getName()),
+                        qualifyObjectName(node.getName()),
                         fromTypes(argumentTypes));
-                FunctionMetadata functionMetadata = metadata.getFunctionManager().getFunctionMetadata(functionHandle);
+                FunctionMetadata functionMetadata = metadata.getFunctionAndTypeManager().getFunctionMetadata(functionHandle);
 
                 if (functionMetadata.getImplementationType() != FunctionImplementationType.SQL) {
                     return new FunctionCall(node.getName(), rewrittenArguments);
                 }
                 return getSqlFunctionExpression(
                         functionMetadata,
-                        (SqlInvokedScalarFunctionImplementation) metadata.getFunctionManager().getScalarFunctionImplementation(functionHandle),
+                        (SqlInvokedScalarFunctionImplementation) metadata.getFunctionAndTypeManager().getScalarFunctionImplementation(functionHandle),
                         metadata,
                         session.getSqlFunctionProperties(),
                         rewrittenArguments);

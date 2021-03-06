@@ -50,7 +50,9 @@ import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.FAILED_RESOLVED;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.SKIPPED;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.SUCCEEDED;
-import static com.facebook.presto.verifier.framework.QueryType.Category.DATA_PRODUCING;
+import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
+import static com.facebook.presto.verifier.framework.ClusterType.TEST;
+import static com.facebook.presto.verifier.framework.QueryType.UNSUPPORTED;
 import static com.facebook.presto.verifier.framework.SkippedReason.CUSTOM_FILTER;
 import static com.facebook.presto.verifier.framework.SkippedReason.MISMATCHED_QUERY_TYPE;
 import static com.facebook.presto.verifier.framework.SkippedReason.SYNTAX_ERROR;
@@ -81,12 +83,13 @@ public class VerificationManager
     private final int maxConcurrency;
     private final int suiteRepetitions;
     private final int queryRepetitions;
-    private int verificationResubmissionLimit;
-    private boolean skipControl;
+    private final int verificationResubmissionLimit;
+    private final boolean explain;
+    private final boolean skipControl;
 
-    private ExecutorService executor;
-    private CompletionService<VerificationResult> completionService;
-    private AtomicInteger queriesSubmitted = new AtomicInteger();
+    private final ExecutorService executor;
+    private final CompletionService<VerificationResult> completionService;
+    private final AtomicInteger queriesSubmitted = new AtomicInteger();
 
     @Inject
     public VerificationManager(
@@ -117,14 +120,15 @@ public class VerificationManager
         this.queryRepetitions = config.getQueryRepetitions();
         this.verificationResubmissionLimit = config.getVerificationResubmissionLimit();
         this.skipControl = config.isSkipControl();
+        this.explain = config.isExplain();
+
+        this.executor = newFixedThreadPool(maxConcurrency);
+        this.completionService = new ExecutorCompletionService<>(executor);
     }
 
     @PostConstruct
     public void start()
     {
-        this.executor = newFixedThreadPool(maxConcurrency);
-        this.completionService = new ExecutorCompletionService<>(executor);
-
         List<SourceQuery> sourceQueries = sourceQuerySupplier.get();
         log.info("Total Queries: %s", sourceQueries.size());
         sourceQueries = applyOverrides(sourceQueries);
@@ -175,8 +179,8 @@ public class VerificationManager
                 .map(sourceQuery -> new SourceQuery(
                         sourceQuery.getSuite(),
                         sourceQuery.getName(),
-                        sourceQuery.getControlQuery(),
-                        sourceQuery.getTestQuery(),
+                        sourceQuery.getQuery(CONTROL),
+                        sourceQuery.getQuery(TEST),
                         sourceQuery.getControlConfiguration().applyOverrides(controlOverrides),
                         sourceQuery.getTestConfiguration().applyOverrides(testOverrides)))
                 .collect(toImmutableList());
@@ -208,17 +212,21 @@ public class VerificationManager
 
     private List<SourceQuery> filterQueryType(List<SourceQuery> sourceQueries)
     {
+        if (explain) {
+            return sourceQueries;
+        }
+
         ImmutableList.Builder<SourceQuery> selected = ImmutableList.builder();
         for (SourceQuery sourceQuery : sourceQueries) {
             try {
-                QueryType controlQueryType = QueryType.of(sqlParser.createStatement(sourceQuery.getControlQuery(), PARSING_OPTIONS));
-                QueryType testQueryType = QueryType.of(sqlParser.createStatement(sourceQuery.getTestQuery(), PARSING_OPTIONS));
+                QueryType controlQueryType = QueryType.of(sqlParser.createStatement(sourceQuery.getQuery(CONTROL), PARSING_OPTIONS));
+                QueryType testQueryType = QueryType.of(sqlParser.createStatement(sourceQuery.getQuery(TEST), PARSING_OPTIONS));
 
-                if (controlQueryType != testQueryType) {
-                    postEvent(VerifierQueryEvent.skipped(sourceQuery.getSuite(), testId, sourceQuery, MISMATCHED_QUERY_TYPE, skipControl));
-                }
-                else if (controlQueryType.getCategory() != DATA_PRODUCING) {
+                if (controlQueryType == UNSUPPORTED || testQueryType == UNSUPPORTED) {
                     postEvent(VerifierQueryEvent.skipped(sourceQuery.getSuite(), testId, sourceQuery, UNSUPPORTED_QUERY_TYPE, skipControl));
+                }
+                else if (controlQueryType != testQueryType) {
+                    postEvent(VerifierQueryEvent.skipped(sourceQuery.getSuite(), testId, sourceQuery, MISMATCHED_QUERY_TYPE, skipControl));
                 }
                 else {
                     selected.add(sourceQuery);
@@ -227,9 +235,6 @@ public class VerificationManager
             catch (ParsingException e) {
                 log.warn("Failed to parse query: %s", sourceQuery.getName());
                 postEvent(VerifierQueryEvent.skipped(sourceQuery.getSuite(), testId, sourceQuery, SYNTAX_ERROR, skipControl));
-            }
-            catch (UnsupportedQueryTypeException ignored) {
-                postEvent(VerifierQueryEvent.skipped(sourceQuery.getSuite(), testId, sourceQuery, UNSUPPORTED_QUERY_TYPE, skipControl));
             }
         }
         List<SourceQuery> selectQueries = selected.build();

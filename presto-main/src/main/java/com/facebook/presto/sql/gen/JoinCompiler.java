@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.array.AdaptiveLongBigArray;
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.ClassDefinition;
@@ -36,7 +37,7 @@ import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.JoinHash;
 import com.facebook.presto.operator.JoinHashSupplier;
@@ -51,7 +52,6 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.openjdk.jol.info.ClassLayout;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -91,7 +91,7 @@ import static java.util.Objects.requireNonNull;
 
 public class JoinCompiler
 {
-    private final FunctionManager functionManager;
+    private final FunctionAndTypeManager functionAndTypeManager;
     private final boolean groupByUsesEqualTo;
 
     private final LoadingCache<CacheKey, LookupSourceSupplierFactory> lookupSourceFactories = CacheBuilder.newBuilder()
@@ -114,7 +114,7 @@ public class JoinCompiler
     @Inject
     public JoinCompiler(Metadata metadata, FeaturesConfig config)
     {
-        this.functionManager = requireNonNull(metadata, "metadata is null").getFunctionManager();
+        this.functionAndTypeManager = requireNonNull(metadata, "metadata is null").getFunctionAndTypeManager();
         this.groupByUsesEqualTo = requireNonNull(config, "config is null").isGroupByUsesEqualTo();
     }
 
@@ -707,7 +707,7 @@ public class JoinCompiler
                         continue;
                 }
             }
-            BuiltInScalarFunctionImplementation operator = functionManager.getBuiltInScalarFunctionImplementation(functionManager.resolveOperator(OperatorType.IS_DISTINCT_FROM, fromTypes(type, type)));
+            BuiltInScalarFunctionImplementation operator = functionAndTypeManager.getBuiltInScalarFunctionImplementation(functionAndTypeManager.resolveOperator(OperatorType.IS_DISTINCT_FROM, fromTypes(type, type)));
             callSiteBinder.bind(operator.getMethodHandle());
             List<BytecodeNode> argumentsBytecode = new ArrayList<>();
             argumentsBytecode.add(generateInputReference(callSiteBinder, scope, type, leftBlock, leftBlockPosition));
@@ -906,7 +906,7 @@ public class JoinCompiler
         {
             this.pagesHashStrategyFactory = pagesHashStrategyFactory;
             try {
-                constructor = joinHashSupplierClass.getConstructor(Session.class, PagesHashStrategy.class, LongArrayList.class, List.class, Optional.class, Optional.class, List.class);
+                constructor = joinHashSupplierClass.getConstructor(Session.class, PagesHashStrategy.class, AdaptiveLongBigArray.class, int.class, List.class, Optional.class, Optional.class, List.class);
             }
             catch (NoSuchMethodException e) {
                 throw new RuntimeException(e);
@@ -915,7 +915,8 @@ public class JoinCompiler
 
         public LookupSourceSupplier createLookupSourceSupplier(
                 Session session,
-                LongArrayList addresses,
+                AdaptiveLongBigArray addresses,
+                int positionCount,
                 List<List<Block>> channels,
                 OptionalInt hashChannel,
                 Optional<JoinFilterFunctionFactory> filterFunctionFactory,
@@ -924,7 +925,7 @@ public class JoinCompiler
         {
             PagesHashStrategy pagesHashStrategy = pagesHashStrategyFactory.createPagesHashStrategy(channels, hashChannel);
             try {
-                return constructor.newInstance(session, pagesHashStrategy, addresses, channels, filterFunctionFactory, sortChannel, searchFunctionFactories);
+                return constructor.newInstance(session, pagesHashStrategy, addresses, positionCount, channels, filterFunctionFactory, sortChannel, searchFunctionFactories);
             }
             catch (ReflectiveOperationException e) {
                 throw new RuntimeException(e);

@@ -13,35 +13,12 @@
  */
 package com.facebook.presto.verifier.framework;
 
-import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.sql.parser.ParsingOptions;
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.parser.SqlParserOptions;
-import com.facebook.presto.tests.StandaloneQueryRunner;
-import com.facebook.presto.verifier.checksum.ChecksumValidator;
 import com.facebook.presto.verifier.event.DeterminismAnalysisRun;
 import com.facebook.presto.verifier.event.QueryInfo;
 import com.facebook.presto.verifier.event.VerifierQueryEvent;
 import com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus;
-import com.facebook.presto.verifier.prestoaction.JdbcPrestoAction;
-import com.facebook.presto.verifier.prestoaction.PrestoAction;
-import com.facebook.presto.verifier.prestoaction.PrestoActionConfig;
-import com.facebook.presto.verifier.prestoaction.PrestoExceptionClassifier;
-import com.facebook.presto.verifier.prestoaction.QueryActions;
-import com.facebook.presto.verifier.prestoaction.QueryActionsConfig;
-import com.facebook.presto.verifier.resolver.ChecksumExceededTimeLimitFailureResolver;
-import com.facebook.presto.verifier.resolver.ExceededGlobalMemoryLimitFailureResolver;
-import com.facebook.presto.verifier.resolver.ExceededTimeLimitFailureResolver;
-import com.facebook.presto.verifier.resolver.FailureResolverManager;
-import com.facebook.presto.verifier.resolver.VerifierLimitationFailureResolver;
-import com.facebook.presto.verifier.retry.RetryConfig;
-import com.facebook.presto.verifier.rewrite.QueryRewriteConfig;
-import com.facebook.presto.verifier.rewrite.QueryRewriter;
-import com.facebook.presto.verifier.rewrite.VerificationQueryRewriterFactory;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -50,14 +27,8 @@ import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_EXECUTION_TIME;
-import static com.facebook.presto.sql.parser.IdentifierSymbol.AT_SIGN;
-import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
-import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static com.facebook.presto.verifier.VerifierTestUtil.CATALOG;
 import static com.facebook.presto.verifier.VerifierTestUtil.SCHEMA;
-import static com.facebook.presto.verifier.VerifierTestUtil.createChecksumValidator;
-import static com.facebook.presto.verifier.VerifierTestUtil.createTypeManager;
-import static com.facebook.presto.verifier.VerifierTestUtil.setupPresto;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.FAILED;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.FAILED_RESOLVED;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.SKIPPED;
@@ -78,83 +49,11 @@ import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestDataVerification
+        extends AbstractVerificationTest
 {
-    private static final String SUITE = "test-suite";
-    private static final String NAME = "test-query";
-    private static final String TEST_ID = "test-id";
-    private static final QueryConfiguration QUERY_CONFIGURATION = new QueryConfiguration(CATALOG, SCHEMA, Optional.of("user"), Optional.empty(), Optional.empty());
-    private static final ParsingOptions PARSING_OPTIONS = ParsingOptions.builder().setDecimalLiteralTreatment(AS_DOUBLE).build();
-    private static final SqlParser sqlParser = new SqlParser();
-
-    private static StandaloneQueryRunner queryRunner;
-
-    @BeforeClass
-    public void setupClass()
+    public TestDataVerification()
             throws Exception
     {
-        queryRunner = setupPresto();
-    }
-
-    private Optional<VerifierQueryEvent> runVerification(String controlQuery, String testQuery)
-    {
-        return runVerification(controlQuery, testQuery, new DeterminismAnalyzerConfig().setRunTeardown(true));
-    }
-
-    private Optional<VerifierQueryEvent> runVerification(String controlQuery, String testQuery, DeterminismAnalyzerConfig determinismAnalyzerConfig)
-    {
-        SourceQuery sourceQuery = new SourceQuery(SUITE, NAME, controlQuery, testQuery, QUERY_CONFIGURATION, QUERY_CONFIGURATION);
-        return runVerification(sourceQuery, Optional.empty(), determinismAnalyzerConfig);
-    }
-
-    private Optional<VerifierQueryEvent> runVerification(SourceQuery sourceQuery, Optional<PrestoAction> mockPrestoAction, DeterminismAnalyzerConfig determinismAnalyzerConfig)
-    {
-        PrestoExceptionClassifier exceptionClassifier = PrestoExceptionClassifier.defaultBuilder().build();
-        VerificationContext verificationContext = VerificationContext.create(NAME, SUITE);
-        VerifierConfig verifierConfig = new VerifierConfig().setTestId(TEST_ID);
-        RetryConfig retryConfig = new RetryConfig();
-        QueryActionsConfig queryActionsConfig = new QueryActionsConfig();
-        TypeManager typeManager = createTypeManager();
-        PrestoAction prestoAction = mockPrestoAction.orElseGet(() -> {
-            return new JdbcPrestoAction(
-                    exceptionClassifier,
-                    sourceQuery.getControlConfiguration(),
-                    verificationContext,
-                    new PrestoActionConfig()
-                            .setHost(queryRunner.getServer().getAddress().getHost())
-                            .setJdbcPort(queryRunner.getServer().getAddress().getPort()),
-                    queryActionsConfig.getMetadataTimeout(),
-                    queryActionsConfig.getChecksumTimeout(),
-                    retryConfig,
-                    retryConfig,
-                    verifierConfig);
-        });
-        QueryRewriter queryRewriter = new VerificationQueryRewriterFactory(
-                new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN)),
-                typeManager,
-                new QueryRewriteConfig().setTablePrefix("tmp_verifier_c"),
-                new QueryRewriteConfig().setTablePrefix("tmp_verifier_t")).create(prestoAction);
-        ChecksumValidator checksumValidator = createChecksumValidator(verifierConfig);
-        return new DataVerification(
-                new QueryActions(prestoAction, prestoAction, prestoAction),
-                sourceQuery,
-                queryRewriter,
-                new DeterminismAnalyzer(
-                        sourceQuery,
-                        prestoAction,
-                        queryRewriter,
-                        checksumValidator,
-                        typeManager,
-                        determinismAnalyzerConfig),
-                new FailureResolverManager(ImmutableSet.of(
-                        new ExceededGlobalMemoryLimitFailureResolver(),
-                        new ExceededTimeLimitFailureResolver(),
-                        new ChecksumExceededTimeLimitFailureResolver(),
-                        new VerifierLimitationFailureResolver())),
-                exceptionClassifier,
-                verificationContext,
-                verifierConfig,
-                typeManager,
-                checksumValidator).run().getEvent();
     }
 
     @Test
@@ -164,7 +63,7 @@ public class TestDataVerification
         assertTrue(event.isPresent());
         assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
 
-        queryRunner.execute("CREATE TABLE success_test (x double)");
+        getQueryRunner().execute("CREATE TABLE success_test (x double)");
         event = runVerification("INSERT INTO success_test SELECT 1.0", "INSERT INTO success_test SELECT 1.00001");
         assertTrue(event.isPresent());
         assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
@@ -218,19 +117,6 @@ public class TestDataVerification
                         "  _col0 \\(double\\) relative error: 9\\.995002498749525E-4\n" +
                         "    control\t\\(sum: 1\\.0, NaN: 0, \\+infinity: 0, -infinity: 0, mean: 1\\.0\\)\n" +
                         "    test\t\\(sum: 1\\.001, NaN: 0, \\+infinity: 0, -infinity: 0, mean: 1\\.001\\)\n"));
-    }
-
-    @Test
-    public void testParsingFailed()
-    {
-        Optional<VerifierQueryEvent> event = runVerification("SELECT", "SELECT 1");
-        assertTrue(event.isPresent());
-        assertEvent(
-                event.get(),
-                SKIPPED,
-                Optional.empty(),
-                Optional.of("VERIFIER_INTERNAL_ERROR"),
-                Optional.of("Test state NOT_RUN, Control state NOT_RUN\\..*"));
     }
 
     @Test
@@ -288,7 +174,7 @@ public class TestDataVerification
         assertDeterminismAnalysisRun(runs.get(0), false);
 
         // Insert
-        queryRunner.execute("CREATE TABLE non_deterministic_test (x double)");
+        getQueryRunner().execute("CREATE TABLE non_deterministic_test (x double)");
         event = runVerification("INSERT INTO non_deterministic_test SELECT rand()", "INSERT INTO non_deterministic_test SELECT 2.0");
         assertTrue(event.isPresent());
         assertEquals(event.get().getSkippedReason(), NON_DETERMINISTIC.name());
@@ -301,9 +187,7 @@ public class TestDataVerification
     @Test
     public void testArrayOfRow()
     {
-        Optional<VerifierQueryEvent> event = runVerification(
-                "SELECT ARRAY[ROW(1, 'a'), ROW(2, null)]", "SELECT ARRAY[ROW(1, 'a'), ROW(2, null)]",
-                new DeterminismAnalyzerConfig().setMaxAnalysisRuns(3));
+        Optional<VerifierQueryEvent> event = runVerification("SELECT ARRAY[ROW(1, 'a'), ROW(2, null)]", "SELECT ARRAY[ROW(1, 'a'), ROW(2, null)]");
         assertTrue(event.isPresent());
         assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
 
@@ -323,9 +207,10 @@ public class TestDataVerification
                         "    test\t\\(checksum: b4 3c 7d 02 2b 14 77 12, cardinality_checksum: ad 20 38 f3 85 7c ba 56, cardinality_sum: 2\\)\n"));
 
         List<DeterminismAnalysisRun> runs = event.get().getDeterminismAnalysisDetails().getRuns();
-        assertEquals(runs.size(), 2);
+        assertEquals(runs.size(), 3);
         assertDeterminismAnalysisRun(runs.get(0), false);
         assertDeterminismAnalysisRun(runs.get(1), false);
+        assertDeterminismAnalysisRun(runs.get(2), false);
     }
 
     @Test
@@ -392,7 +277,7 @@ public class TestDataVerification
     public void testChecksumQueryCompilerError()
     {
         List<String> columns = IntStream.range(0, 1000).mapToObj(i -> "c" + i).collect(toImmutableList());
-        queryRunner.execute(format("CREATE TABLE checksum_test (%s)", columns.stream().map(column -> column + " double").collect(joining(","))));
+        getQueryRunner().execute(format("CREATE TABLE checksum_test (%s)", columns.stream().map(column -> column + " double").collect(joining(","))));
 
         String query = format("SELECT %s FROM checksum_test", Joiner.on(",").join(columns));
         Optional<VerifierQueryEvent> event = runVerification(query, query);
@@ -410,7 +295,7 @@ public class TestDataVerification
     {
         QueryConfiguration configuration = new QueryConfiguration(CATALOG, SCHEMA, Optional.of("user"), Optional.empty(), Optional.of(ImmutableMap.of(QUERY_MAX_EXECUTION_TIME, "20m")));
         SourceQuery sourceQuery = new SourceQuery(SUITE, NAME, "SELECT 1.0", "SELECT 1.00001", configuration, configuration);
-        Optional<VerifierQueryEvent> event = runVerification(sourceQuery, Optional.empty(), new DeterminismAnalyzerConfig());
+        Optional<VerifierQueryEvent> event = verify(sourceQuery, false);
         assertTrue(event.isPresent());
         assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
     }
@@ -437,7 +322,7 @@ public class TestDataVerification
         }
 
         if (event.getStatus().equals(SUCCEEDED.name())) {
-            QueryType queryType = QueryType.of(sqlParser.createStatement(event.getControlQueryInfo().getOriginalQuery(), PARSING_OPTIONS));
+            QueryType queryType = QueryType.of(getSqlParser().createStatement(event.getControlQueryInfo().getOriginalQuery(), PARSING_OPTIONS));
             assertSuccessQueryInfo(queryType, event.getControlQueryInfo());
             assertSuccessQueryInfo(queryType, event.getTestQueryInfo());
         }
@@ -460,6 +345,7 @@ public class TestDataVerification
     private static void assertSuccessQueryInfo(QueryType queryType, QueryInfo queryInfo)
     {
         assertNotNull(queryInfo.getQuery());
+        assertNotNull(queryInfo.getSessionProperties());
         assertNotNull(queryInfo.getSetupQueries());
         assertNotNull(queryInfo.getTeardownQueries());
         assertEquals(queryInfo.getTeardownQueries().size(), 1);
@@ -473,6 +359,8 @@ public class TestDataVerification
             assertEquals(queryInfo.getSetupQueries().size(), 1);
             assertEquals(queryInfo.getSetupQueryIds().size(), 1);
         }
+
+        assertNotNull(queryInfo.getOutputTableName());
 
         assertNotNull(queryInfo.getCpuTimeSecs());
         assertNotNull(queryInfo.getWallTimeSecs());

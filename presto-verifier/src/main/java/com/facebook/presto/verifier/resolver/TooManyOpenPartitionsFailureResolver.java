@@ -22,8 +22,8 @@ import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Property;
 import com.facebook.presto.sql.tree.ShowCreate;
 import com.facebook.presto.verifier.annotation.ForTest;
-import com.facebook.presto.verifier.framework.QueryBundle;
 import com.facebook.presto.verifier.framework.QueryException;
+import com.facebook.presto.verifier.framework.QueryObjectBundle;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
@@ -73,7 +73,7 @@ public class TooManyOpenPartitionsFailureResolver
     }
 
     @Override
-    public Optional<String> resolveQueryFailure(QueryStats controlQueryStats, QueryException queryException, Optional<QueryBundle> test)
+    public Optional<String> resolveQueryFailure(QueryStats controlQueryStats, QueryException queryException, Optional<QueryObjectBundle> test)
     {
         if (!test.isPresent()) {
             return Optional.empty();
@@ -82,7 +82,7 @@ public class TooManyOpenPartitionsFailureResolver
         return mapMatchingPrestoException(queryException, TEST_MAIN, ImmutableSet.of(HIVE_TOO_MANY_OPEN_PARTITIONS),
                 e -> {
                     try {
-                        ShowCreate showCreate = new ShowCreate(TABLE, test.get().getTableName());
+                        ShowCreate showCreate = new ShowCreate(TABLE, test.get().getObjectName());
                         String showCreateResult = getOnlyElement(prestoAction.execute(showCreate, DESCRIBE, resultSet -> Optional.of(resultSet.getString(1))).getResults());
                         CreateTable createTable = (CreateTable) sqlParser.createStatement(showCreateResult, ParsingOptions.builder().setDecimalLiteralTreatment(AS_DOUBLE).build());
                         List<Property> bucketCountProperty = createTable.getProperties().stream()

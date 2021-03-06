@@ -19,11 +19,9 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.BasicSliceInput;
@@ -68,22 +66,19 @@ import static org.testng.Assert.assertTrue;
 
 public class TestRowBasedSerialization
 {
-    private TypeManager typeManager;
+    private FunctionAndTypeManager functionAndTypeManager;
 
     @BeforeClass
     public void setUp()
     {
         Metadata metadata = MetadataManager.createTestMetadataManager();
-        FunctionManager functionManager = metadata.getFunctionManager();
-        TypeRegistry typeRegistry = new TypeRegistry();
-        typeRegistry.setFunctionManager(functionManager);
-        this.typeManager = typeRegistry;
+        this.functionAndTypeManager = metadata.getFunctionAndTypeManager();
     }
 
     @AfterClass
     public void tearDown()
     {
-        typeManager = null;
+        functionAndTypeManager = null;
     }
 
     @Test
@@ -136,7 +131,7 @@ public class TestRowBasedSerialization
     @Test
     public void testRow()
     {
-        Type rowType = typeManager.getType(parseTypeSignature("row(x BIGINT, y VARCHAR)"));
+        Type rowType = functionAndTypeManager.getType(parseTypeSignature("row(x BIGINT, y VARCHAR)"));
         assertRoundTrip(ImmutableList.of(rowType), ImmutableList.of(createRowBlock(rowType.getTypeParameters())));
         assertRoundTrip(ImmutableList.of(rowType), ImmutableList.of(createRowBlock(rowType.getTypeParameters(), (Object[]) null)));
         assertRoundTrip(ImmutableList.of(rowType), ImmutableList.of(createRowBlock(rowType.getTypeParameters(), new Object[] {null, null})));
@@ -199,7 +194,7 @@ public class TestRowBasedSerialization
     @Test(dataProvider = "getTypeSignatures")
     public void testAllNulls(String typeSignature)
     {
-        Type type = typeManager.getType(parseTypeSignature(typeSignature));
+        Type type = functionAndTypeManager.getType(parseTypeSignature(typeSignature));
         List<Type> types = ImmutableList.of(type);
         assertRoundTrip(types, ImmutableList.of(createAllNullsBlock(type, 0)));
         assertRoundTrip(types, ImmutableList.of(createAllNullsBlock(type, 1)));
@@ -210,14 +205,14 @@ public class TestRowBasedSerialization
     @Test(dataProvider = "getTypeSignatures")
     public void testRandom(String typeSignature)
     {
-        Type type = typeManager.getType(parseTypeSignature(typeSignature));
+        Type type = functionAndTypeManager.getType(parseTypeSignature(typeSignature));
         testRandomBlocks(type, ImmutableList.of());
     }
 
     @Test(dataProvider = "getTypeSignatures")
     public void testRle(String typeSignature)
     {
-        Type type = typeManager.getType(parseTypeSignature(typeSignature));
+        Type type = functionAndTypeManager.getType(parseTypeSignature(typeSignature));
         testRandomBlocks(type, ImmutableList.of(RUN_LENGTH));
         testRandomBlocks(type, ImmutableList.of(RUN_LENGTH, RUN_LENGTH));
         testRandomBlocks(type, ImmutableList.of(RUN_LENGTH, RUN_LENGTH, RUN_LENGTH));
@@ -226,7 +221,7 @@ public class TestRowBasedSerialization
     @Test(dataProvider = "getTypeSignatures")
     public void testDictionary(String typeSignature)
     {
-        Type type = typeManager.getType(parseTypeSignature(typeSignature));
+        Type type = functionAndTypeManager.getType(parseTypeSignature(typeSignature));
         testRandomBlocks(type, ImmutableList.of(DICTIONARY));
         testRandomBlocks(type, ImmutableList.of(DICTIONARY, DICTIONARY));
         testRandomBlocks(type, ImmutableList.of(DICTIONARY, DICTIONARY, DICTIONARY));
@@ -235,7 +230,7 @@ public class TestRowBasedSerialization
     @Test(dataProvider = "getTypeSignatures")
     public void testMixedDictionaryAndRle(String typeSignature)
     {
-        Type type = typeManager.getType(parseTypeSignature(typeSignature));
+        Type type = functionAndTypeManager.getType(parseTypeSignature(typeSignature));
         testRandomBlocks(type, ImmutableList.of(DICTIONARY, RUN_LENGTH));
         testRandomBlocks(type, ImmutableList.of(RUN_LENGTH, DICTIONARY));
         testRandomBlocks(type, ImmutableList.of(DICTIONARY, RUN_LENGTH, DICTIONARY));

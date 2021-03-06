@@ -95,11 +95,17 @@ public class CassandraRecordCursor
         switch (getCassandraType(i)) {
             case INT:
                 return currentRow.getInt(i);
+            case SMALLINT:
+                return currentRow.getShort(i);
+            case TINYINT:
+                return currentRow.getByte(i);
             case BIGINT:
             case COUNTER:
                 return currentRow.getLong(i);
             case TIMESTAMP:
                 return currentRow.getTimestamp(i).getTime();
+            case DATE:
+                return currentRow.getDate(i).getDaysSinceEpoch();
             case FLOAT:
                 return floatToRawIntBits(currentRow.getFloat(i));
             default:

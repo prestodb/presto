@@ -14,7 +14,6 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.common.function.OperatorType;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.spi.function.Signature;
 
@@ -39,7 +38,7 @@ public abstract class SqlScalarFunction
         return signature;
     }
 
-    public abstract BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager);
+    public abstract BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager);
 
     public static PolymorphicScalarFunctionBuilder builder(Class<?> clazz, OperatorType operatorType)
     {

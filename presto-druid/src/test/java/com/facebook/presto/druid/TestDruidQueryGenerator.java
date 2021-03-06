@@ -49,7 +49,7 @@ public class TestDruidQueryGenerator
             SessionHolder sessionHolder,
             Map<String, String> outputVariables)
     {
-        DruidQueryGenerator.DruidQueryGeneratorResult druidQueryGeneratorResult = new DruidQueryGenerator(typeManager, functionMetadataManager, standardFunctionResolution).generate(planNode, sessionHolder.getConnectorSession()).get();
+        DruidQueryGenerator.DruidQueryGeneratorResult druidQueryGeneratorResult = new DruidQueryGenerator(functionAndTypeManager, functionAndTypeManager, standardFunctionResolution).generate(planNode, sessionHolder.getConnectorSession()).get();
         if (expectedDQL.contains("__expressions__")) {
             String expressions = planNode.getOutputVariables().stream().map(v -> outputVariables.get(v.getName())).filter(v -> v != null).collect(Collectors.joining(", "));
             expectedDQL = expectedDQL.replace("__expressions__", expressions);
@@ -157,6 +157,17 @@ public class TestDruidQueryGenerator
                         aggBuilder -> aggBuilder.source(distinctAggregation).globalGrouping().addAggregation(variable("region.id"),
                                 getRowExpression("count(\"region.id\")", defaultSessionHolder))),
                 "SELECT count ( distinct \"region.Id\") FROM \"realtimeOnly\"");
+    }
+
+    @Test
+    public void testGroupByPushdown()
+    {
+        PlanNode justScan = buildPlan(planBuilder -> tableScan(planBuilder, druidTable, regionId, secondsSinceEpoch, city, fare));
+        testDQL(
+                planBuilder -> planBuilder.aggregation(
+                        aggBuilder -> aggBuilder.source(justScan).singleGroupingSet(variable("city"), variable("region.id"), variable("secondssinceepoch"))
+                                .addAggregation(variable("totalfare"), getRowExpression("sum(\"fare\")", defaultSessionHolder))),
+                "SELECT \"city\", \"region.Id\", \"secondsSinceEpoch\", sum(fare) FROM \"realtimeOnly\" GROUP BY \"city\", \"region.Id\", \"secondsSinceEpoch\"");
     }
 
     @Test

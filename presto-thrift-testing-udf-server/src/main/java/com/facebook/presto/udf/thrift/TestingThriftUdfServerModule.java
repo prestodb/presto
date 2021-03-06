@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.udf.thrift;
 
+import com.facebook.presto.common.block.BlockEncodingManager;
+import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
@@ -26,6 +28,7 @@ public class TestingThriftUdfServerModule
     public void configure(Binder binder)
     {
         binder.bind(EchoFirstInputThriftUdfService.class).in(Scopes.SINGLETON);
+        binder.bind(BlockEncodingSerde.class).toInstance(new BlockEncodingManager());
         driftServerBinder(binder).bindService(EchoFirstInputThriftUdfService.class);
     }
 }

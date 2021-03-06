@@ -23,7 +23,7 @@ import com.facebook.presto.common.block.PageBuilderStatus;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
@@ -97,12 +97,12 @@ import static org.testng.Assert.fail;
 @Test(singleThreaded = true)
 public class TestHashAggregationOperator
 {
-    private static final FunctionManager functionManager = MetadataManager.createTestMetadataManager().getFunctionManager();
+    private static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = MetadataManager.createTestMetadataManager().getFunctionAndTypeManager();
 
     private static final InternalAggregationFunction LONG_AVERAGE = getAggregation("avg", BIGINT);
     private static final InternalAggregationFunction LONG_SUM = getAggregation("sum", BIGINT);
-    private static final InternalAggregationFunction COUNT = functionManager.getAggregateFunctionImplementation(
-            functionManager.lookupFunction("count", ImmutableList.of()));
+    private static final InternalAggregationFunction COUNT = FUNCTION_AND_TYPE_MANAGER.getAggregateFunctionImplementation(
+            FUNCTION_AND_TYPE_MANAGER.lookupFunction("count", ImmutableList.of()));
 
     private static final int MAX_BLOCK_SIZE_IN_BYTES = 64 * 1024;
 
@@ -781,7 +781,7 @@ public class TestHashAggregationOperator
 
     private static InternalAggregationFunction getAggregation(String name, Type... arguments)
     {
-        return functionManager.getAggregateFunctionImplementation(functionManager.lookupFunction(name, fromTypes(arguments)));
+        return FUNCTION_AND_TYPE_MANAGER.getAggregateFunctionImplementation(FUNCTION_AND_TYPE_MANAGER.lookupFunction(name, fromTypes(arguments)));
     }
 
     private static class FailingSpillerFactory

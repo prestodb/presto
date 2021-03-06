@@ -16,7 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.StandardTypes;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.aggregation.AbstractTestAggregationFunction;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
@@ -41,9 +41,9 @@ public class TestRealAverageAggregation
     @BeforeClass
     public void setUp()
     {
-        FunctionManager functionManager = MetadataManager.createTestMetadataManager().getFunctionManager();
-        avgFunction = functionManager.getAggregateFunctionImplementation(
-                functionManager.lookupFunction("avg", fromTypes(REAL)));
+        FunctionAndTypeManager functionAndTypeManager = MetadataManager.createTestMetadataManager().getFunctionAndTypeManager();
+        avgFunction = functionAndTypeManager.getAggregateFunctionImplementation(
+                functionAndTypeManager.lookupFunction("avg", fromTypes(REAL)));
     }
 
     @Test

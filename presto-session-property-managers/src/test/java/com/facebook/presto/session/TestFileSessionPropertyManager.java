@@ -19,6 +19,7 @@ import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.session.SessionConfigurationContext;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManager;
+import com.facebook.presto.spi.session.SessionPropertyConfigurationManager.SystemSessionPropertyConfiguration;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -42,7 +43,8 @@ public class TestFileSessionPropertyManager
             Optional.of("source"),
             ImmutableSet.of("tag1", "tag2"),
             Optional.of(QueryType.DATA_DEFINITION.toString()),
-            new ResourceGroupId(ImmutableList.of("global", "pipeline", "user_foo", "bar")));
+            Optional.of(new ResourceGroupId(ImmutableList.of("global", "pipeline", "user_foo", "bar"))),
+            Optional.of("bar"));
 
     @Test
     public void testResourceGroupMatch()
@@ -55,6 +57,8 @@ public class TestFileSessionPropertyManager
                 Optional.empty(),
                 Optional.empty(),
                 Optional.of(Pattern.compile("global.pipeline.user_.*")),
+                Optional.empty(),
+                Optional.empty(),
                 properties);
 
         assertProperties(properties, spec);
@@ -69,6 +73,8 @@ public class TestFileSessionPropertyManager
                 Optional.empty(),
                 Optional.empty(),
                 Optional.of(ImmutableList.of("tag2")),
+                Optional.empty(),
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 properties);
@@ -86,11 +92,15 @@ public class TestFileSessionPropertyManager
                 Optional.of(ImmutableList.of("tag2")),
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
                 ImmutableMap.of("PROPERTY1", "VALUE1"));
         SessionMatchSpec spec2 = new SessionMatchSpec(
                 Optional.empty(),
                 Optional.empty(),
                 Optional.of(ImmutableList.of("tag1", "tag2")),
+                Optional.empty(),
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 ImmutableMap.of("PROPERTY1", "VALUE1", "PROPERTY2", "VALUE2"));
@@ -108,19 +118,80 @@ public class TestFileSessionPropertyManager
                 Optional.empty(),
                 Optional.empty(),
                 Optional.of(Pattern.compile("global.interactive.user_.*")),
+                Optional.empty(),
+                Optional.empty(),
                 ImmutableMap.of("PROPERTY", "VALUE"));
 
         assertProperties(ImmutableMap.of(), spec);
     }
 
-    private static void assertProperties(Map<String, String> properties, SessionMatchSpec... spec)
+    @Test
+    public void testClientInfoMatch()
+            throws IOException
+    {
+        ImmutableMap<String, String> properties = ImmutableMap.of("PROPERTY", "VALUE");
+        SessionMatchSpec spec = new SessionMatchSpec(
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(Pattern.compile("bar")),
+                Optional.empty(),
+                properties);
+
+        assertProperties(properties, spec);
+    }
+
+    @Test
+    public void testOverride()
+             throws IOException
+    {
+        ImmutableMap<String, String> overrideProperties = ImmutableMap.of("PROPERTY1", "VALUE1");
+        ImmutableMap<String, String> defaultProperties = ImmutableMap.of("PROPERTY1", "VALUE2", "PROPERTY2", "VALUE");
+
+        SessionMatchSpec specOverride = new SessionMatchSpec(
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(Pattern.compile("bar")),
+                Optional.of(true),
+                overrideProperties);
+
+        SessionMatchSpec specDefault = new SessionMatchSpec(
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(Pattern.compile("bar")),
+                Optional.empty(),
+                defaultProperties);
+
+        // PROPERTY1 should be an override property with the value from the default (non-override, higher precendence)
+        // spec.
+        // PROPERTY2 should be a default property
+        assertProperties(defaultProperties, ImmutableMap.of("PROPERTY1", "VALUE2"), specOverride, specDefault);
+    }
+
+    private static void assertProperties(Map<String, String> defaultProperties, SessionMatchSpec... spec)
+            throws IOException
+    {
+        assertProperties(defaultProperties, ImmutableMap.of(), spec);
+    }
+
+    private static void assertProperties(Map<String, String> defaultProperties, Map<String, String> overrideProperties, SessionMatchSpec... spec)
             throws IOException
     {
         try (TempFile tempFile = new TempFile()) {
             Path configurationFile = tempFile.path();
             Files.write(configurationFile, CODEC.toJsonBytes(Arrays.asList(spec)));
             SessionPropertyConfigurationManager manager = new FileSessionPropertyManager(new FileSessionPropertyManagerConfig().setConfigFile(configurationFile.toFile()));
-            assertEquals(manager.getSystemSessionProperties(CONTEXT), properties);
+            SystemSessionPropertyConfiguration propertyConfiguration = manager.getSystemSessionProperties(CONTEXT);
+            assertEquals(propertyConfiguration.systemPropertyDefaults, defaultProperties);
+            assertEquals(propertyConfiguration.systemPropertyOverrides, overrideProperties);
         }
     }
 }

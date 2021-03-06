@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
@@ -28,6 +31,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * A node is a server in a cluster than can process queries.
  */
+@ThriftStruct
 public class InternalNode
         implements Node
 {
@@ -36,13 +40,25 @@ public class InternalNode
     private final OptionalInt thriftPort;
     private final NodeVersion nodeVersion;
     private final boolean coordinator;
+    private final boolean resourceManager;
 
     public InternalNode(String nodeIdentifier, URI internalUri, NodeVersion nodeVersion, boolean coordinator)
     {
-        this(nodeIdentifier, internalUri, OptionalInt.empty(), nodeVersion, coordinator);
+        this(nodeIdentifier, internalUri, nodeVersion, coordinator, false);
     }
 
-    public InternalNode(String nodeIdentifier, URI internalUri, OptionalInt thriftPort, NodeVersion nodeVersion, boolean coordinator)
+    public InternalNode(String nodeIdentifier, URI internalUri, NodeVersion nodeVersion, boolean coordinator, boolean resourceManager)
+    {
+        this(nodeIdentifier, internalUri, OptionalInt.empty(), nodeVersion, coordinator, resourceManager);
+    }
+
+    @ThriftConstructor
+    public InternalNode(String nodeIdentifier, URI internalUri, OptionalInt thriftPort, String nodeVersion, boolean coordinator, boolean resourceManager)
+    {
+        this(nodeIdentifier, internalUri, thriftPort, new NodeVersion(nodeVersion), coordinator, resourceManager);
+    }
+
+    public InternalNode(String nodeIdentifier, URI internalUri, OptionalInt thriftPort, NodeVersion nodeVersion, boolean coordinator, boolean resourceManager)
     {
         nodeIdentifier = emptyToNull(nullToEmpty(nodeIdentifier).trim());
         this.nodeIdentifier = requireNonNull(nodeIdentifier, "nodeIdentifier is null or empty");
@@ -50,8 +66,10 @@ public class InternalNode
         this.thriftPort = requireNonNull(thriftPort, "thriftPort is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.coordinator = coordinator;
+        this.resourceManager = resourceManager;
     }
 
+    @ThriftField(1)
     @Override
     public String getNodeIdentifier()
     {
@@ -71,11 +89,13 @@ public class InternalNode
         return getInternalUri();
     }
 
+    @ThriftField(3)
     public OptionalInt getThriftPort()
     {
         return thriftPort;
     }
 
+    @ThriftField(value = 2, name = "internalUri")
     public URI getInternalUri()
     {
         return internalUri;
@@ -87,16 +107,25 @@ public class InternalNode
         return HostAddress.fromUri(internalUri);
     }
 
+    @ThriftField(value = 4, name = "nodeVersion")
     @Override
     public String getVersion()
     {
         return nodeVersion.getVersion();
     }
 
+    @ThriftField(5)
     @Override
     public boolean isCoordinator()
     {
         return coordinator;
+    }
+
+    @ThriftField(6)
+    @Override
+    public boolean isResourceManager()
+    {
+        return resourceManager;
     }
 
     public NodeVersion getNodeVersion()
@@ -131,6 +160,8 @@ public class InternalNode
                 .add("internalUri", internalUri)
                 .add("thriftPort", thriftPort)
                 .add("nodeVersion", nodeVersion)
+                .add("coordinator", coordinator)
+                .add("resourceManager", resourceManager)
                 .toString();
     }
 }

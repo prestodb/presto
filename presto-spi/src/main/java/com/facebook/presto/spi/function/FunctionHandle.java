@@ -21,5 +21,5 @@ import com.facebook.presto.common.CatalogSchemaName;
  */
 public interface FunctionHandle
 {
-    CatalogSchemaName getFunctionNamespace();
+    CatalogSchemaName getCatalogSchemaName();
 }

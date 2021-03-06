@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.benchmark;
 
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
 import com.facebook.presto.operator.OperatorFactory;
@@ -42,9 +42,9 @@ public class DoubleSumAggregationBenchmark
     protected List<? extends OperatorFactory> createOperatorFactories()
     {
         OperatorFactory tableScanOperator = createTableScanOperator(0, new PlanNodeId("test"), "orders", "totalprice");
-        FunctionManager functionManager = MetadataManager.createTestMetadataManager().getFunctionManager();
-        InternalAggregationFunction doubleSum = functionManager.getAggregateFunctionImplementation(
-                functionManager.lookupFunction("sum", fromTypes(DOUBLE)));
+        FunctionAndTypeManager functionAndTypeManager = MetadataManager.createTestMetadataManager().getFunctionAndTypeManager();
+        InternalAggregationFunction doubleSum = functionAndTypeManager.getAggregateFunctionImplementation(
+                functionAndTypeManager.lookupFunction("sum", fromTypes(DOUBLE)));
         AggregationOperatorFactory aggregationOperator = new AggregationOperatorFactory(1, new PlanNodeId("test"), Step.SINGLE, ImmutableList.of(doubleSum.bind(ImmutableList.of(0), Optional.empty())), false);
         return ImmutableList.of(tableScanOperator, aggregationOperator);
     }

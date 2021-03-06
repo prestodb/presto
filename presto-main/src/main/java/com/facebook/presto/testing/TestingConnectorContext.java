@@ -15,7 +15,7 @@ package com.facebook.presto.testing;
 
 import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.PagesIndexPageSorter;
-import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.connector.ConnectorAwareNodeManager;
@@ -23,7 +23,7 @@ import com.facebook.presto.cost.ConnectorFilterStatsCalculatorService;
 import com.facebook.presto.cost.FilterStatsCalculator;
 import com.facebook.presto.cost.ScalarStatsCalculator;
 import com.facebook.presto.cost.StatsNormalizer;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
@@ -51,23 +51,23 @@ import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.relational.RowExpressionOptimizer;
-import com.facebook.presto.type.TypeRegistry;
+
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 
 public class TestingConnectorContext
         implements ConnectorContext
 {
     private final NodeManager nodeManager = new ConnectorAwareNodeManager(new InMemoryNodeManager(), "testenv", new ConnectorId("test"));
-    private final TypeManager typeManager = new TypeRegistry();
-    private final FunctionManager functionManager = new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
-    private final StandardFunctionResolution functionResolution = new FunctionResolution(functionManager);
+    private final FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
+    private final StandardFunctionResolution functionResolution = new FunctionResolution(functionAndTypeManager);
     private final PageSorter pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
     private final PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig()));
     private final Metadata metadata = MetadataManager.createTestMetadataManager();
     private final DomainTranslator domainTranslator = new RowExpressionDomainTranslator(metadata);
     private final PredicateCompiler predicateCompiler = new RowExpressionPredicateCompiler(metadata);
-    private final DeterminismEvaluator determinismEvaluator = new RowExpressionDeterminismEvaluator(functionManager);
+    private final DeterminismEvaluator determinismEvaluator = new RowExpressionDeterminismEvaluator(functionAndTypeManager);
     private final FilterStatsCalculatorService filterStatsCalculatorService = new ConnectorFilterStatsCalculatorService(new FilterStatsCalculator(metadata, new ScalarStatsCalculator(metadata), new StatsNormalizer()));
-    private final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(typeManager);
+    private final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager();
 
     @Override
     public NodeManager getNodeManager()
@@ -78,13 +78,13 @@ public class TestingConnectorContext
     @Override
     public TypeManager getTypeManager()
     {
-        return typeManager;
+        return functionAndTypeManager;
     }
 
     @Override
     public FunctionMetadataManager getFunctionMetadataManager()
     {
-        return functionManager;
+        return functionAndTypeManager;
     }
 
     @Override
@@ -137,7 +137,7 @@ public class TestingConnectorContext
             @Override
             public String formatRowExpression(ConnectorSession session, RowExpression expression)
             {
-                return new RowExpressionFormatter(functionManager).formatRowExpression(session, expression);
+                return new RowExpressionFormatter(functionAndTypeManager).formatRowExpression(session, expression);
             }
         };
     }

@@ -34,6 +34,9 @@ public class PrestoSparkSessionProperties
     public static final String SPARK_INITIAL_PARTITION_COUNT = "spark_initial_partition_count";
     public static final String MAX_SPLITS_DATA_SIZE_PER_SPARK_PARTITION = "max_splits_data_size_per_spark_partition";
     public static final String SHUFFLE_OUTPUT_TARGET_AVERAGE_ROW_SIZE = "shuffle_output_target_average_row_size";
+    public static final String STORAGE_BASED_BROADCAST_JOIN_ENABLED = "storage_based_broadcast_join_enabled";
+    public static final String STORAGE_BASED_BROADCAST_JOIN_WRITE_BUFFER_SIZE = "storage_based_broadcast_join_write_buffer_size";
+    public static final String SPARK_BROADCAST_JOIN_MAX_MEMORY_OVERRIDE = "spark_broadcast_join_max_memory_override";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -70,6 +73,21 @@ public class PrestoSparkSessionProperties
                         SHUFFLE_OUTPUT_TARGET_AVERAGE_ROW_SIZE,
                         "Target average size for row entries produced by Presto on Spark for shuffle",
                         prestoSparkConfig.getShuffleOutputTargetAverageRowSize(),
+                        false),
+                booleanProperty(
+                        STORAGE_BASED_BROADCAST_JOIN_ENABLED,
+                        "Use storage for distributing broadcast table",
+                        prestoSparkConfig.isStorageBasedBroadcastJoinEnabled(),
+                        false),
+                dataSizeProperty(
+                        STORAGE_BASED_BROADCAST_JOIN_WRITE_BUFFER_SIZE,
+                        "Maximum size in bytes to buffer before flushing pages to disk",
+                        prestoSparkConfig.getStorageBasedBroadcastJoinWriteBufferSize(),
+                        false),
+                dataSizeProperty(
+                        SPARK_BROADCAST_JOIN_MAX_MEMORY_OVERRIDE,
+                        "Maximum size of broadcast table in Presto on Spark",
+                        prestoSparkConfig.getSparkBroadcastJoinMaxMemoryOverride(),
                         false));
     }
 
@@ -106,5 +124,20 @@ public class PrestoSparkSessionProperties
     public static DataSize getShuffleOutputTargetAverageRowSize(Session session)
     {
         return session.getSystemProperty(SHUFFLE_OUTPUT_TARGET_AVERAGE_ROW_SIZE, DataSize.class);
+    }
+
+    public static boolean isStorageBasedBroadcastJoinEnabled(Session session)
+    {
+        return session.getSystemProperty(STORAGE_BASED_BROADCAST_JOIN_ENABLED, Boolean.class);
+    }
+
+    public static DataSize getStorageBasedBroadcastJoinWriteBufferSize(Session session)
+    {
+        return session.getSystemProperty(STORAGE_BASED_BROADCAST_JOIN_WRITE_BUFFER_SIZE, DataSize.class);
+    }
+
+    public static DataSize getSparkBroadcastJoinMaxMemoryOverride(Session session)
+    {
+        return session.getSystemProperty(SPARK_BROADCAST_JOIN_MAX_MEMORY_OVERRIDE, DataSize.class);
     }
 }

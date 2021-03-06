@@ -17,9 +17,8 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.google.common.collect.ImmutableList;
@@ -54,7 +53,7 @@ public class RowEqualOperator
     }
 
     @Override
-    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
+    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
         RowType type = (RowType) boundVariables.getTypeVariable("T");
         return new BuiltInScalarFunctionImplementation(
@@ -64,20 +63,20 @@ public class RowEqualOperator
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
                 METHOD_HANDLE
                         .bindTo(type)
-                        .bindTo(resolveFieldEqualOperators(type, functionManager)));
+                        .bindTo(resolveFieldEqualOperators(type, functionAndTypeManager)));
     }
 
-    public static List<MethodHandle> resolveFieldEqualOperators(RowType rowType, FunctionManager functionManager)
+    public static List<MethodHandle> resolveFieldEqualOperators(RowType rowType, FunctionAndTypeManager functionAndTypeManager)
     {
         return rowType.getTypeParameters().stream()
-                .map(type -> resolveEqualOperator(type, functionManager))
+                .map(type -> resolveEqualOperator(type, functionAndTypeManager))
                 .collect(toImmutableList());
     }
 
-    private static MethodHandle resolveEqualOperator(Type type, FunctionManager functionManager)
+    private static MethodHandle resolveEqualOperator(Type type, FunctionAndTypeManager functionAndTypeManager)
     {
-        FunctionHandle operator = functionManager.resolveOperator(EQUAL, fromTypes(type, type));
-        BuiltInScalarFunctionImplementation implementation = functionManager.getBuiltInScalarFunctionImplementation(operator);
+        FunctionHandle operator = functionAndTypeManager.resolveOperator(EQUAL, fromTypes(type, type));
+        BuiltInScalarFunctionImplementation implementation = functionAndTypeManager.getBuiltInScalarFunctionImplementation(operator);
         return implementation.getMethodHandle();
     }
 

@@ -96,13 +96,13 @@ public class HashJoinBenchmark
                     false);
 
             DriverContext driverContext = taskContext.addPipelineContext(0, false, false, false).addDriverContext();
-            DriverFactory buildDriverFactory = new DriverFactory(0, false, false, ImmutableList.of(ordersTableScan, hashBuilder), OptionalInt.empty(), UNGROUPED_EXECUTION);
+            DriverFactory buildDriverFactory = new DriverFactory(0, false, false, ImmutableList.of(ordersTableScan, hashBuilder), OptionalInt.empty(), UNGROUPED_EXECUTION, Optional.empty());
 
             List<Type> lineItemTypes = getColumnTypes("lineitem", "orderkey", "quantity");
             OperatorFactory lineItemTableScan = createTableScanOperator(0, new PlanNodeId("test"), "lineitem", "orderkey", "quantity");
             OperatorFactory joinOperator = LOOKUP_JOIN_OPERATORS.innerJoin(1, new PlanNodeId("test"), lookupSourceFactoryManager, lineItemTypes, Ints.asList(0), OptionalInt.empty(), Optional.empty(), OptionalInt.empty(), unsupportedPartitioningSpillerFactory());
             NullOutputOperatorFactory output = new NullOutputOperatorFactory(2, new PlanNodeId("test"));
-            this.probeDriverFactory = new DriverFactory(1, true, true, ImmutableList.of(lineItemTableScan, joinOperator, output), OptionalInt.empty(), UNGROUPED_EXECUTION);
+            this.probeDriverFactory = new DriverFactory(1, true, true, ImmutableList.of(lineItemTableScan, joinOperator, output), OptionalInt.empty(), UNGROUPED_EXECUTION, Optional.empty());
 
             Driver driver = buildDriverFactory.createDriver(driverContext);
             Future<LookupSourceProvider> lookupSourceProvider = lookupSourceFactoryManager.getJoinBridge(Lifespan.taskWide()).createLookupSourceProvider();

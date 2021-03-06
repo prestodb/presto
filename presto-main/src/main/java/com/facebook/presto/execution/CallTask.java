@@ -14,10 +14,10 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
@@ -45,6 +45,7 @@ import java.util.function.Predicate;
 
 import static com.facebook.presto.common.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
+import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_PROCEDURE_DEFINITION;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -79,7 +80,7 @@ public class CallTask
         QualifiedObjectName procedureName = createQualifiedObjectName(session, call, call.getName());
         ConnectorId connectorId = metadata.getCatalogHandle(stateMachine.getSession(), procedureName.getCatalogName())
                 .orElseThrow(() -> new SemanticException(MISSING_CATALOG, call, "Catalog %s does not exist", procedureName.getCatalogName()));
-        Procedure procedure = metadata.getProcedureRegistry().resolve(connectorId, procedureName.asSchemaTableName());
+        Procedure procedure = metadata.getProcedureRegistry().resolve(connectorId, toSchemaTableName(procedureName));
 
         // map declared argument names to positions
         Map<String, Integer> positions = new HashMap<>();

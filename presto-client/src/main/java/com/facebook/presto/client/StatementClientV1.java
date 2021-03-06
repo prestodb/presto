@@ -21,7 +21,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import io.airlift.units.Duration;
 import okhttp3.Headers;
 import okhttp3.HttpUrl;
@@ -48,6 +47,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_ADDED_PREPARE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_ADDED_SESSION_FUNCTION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_TRANSACTION_ID;
@@ -57,9 +57,11 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_DEALLOCATED_PREPAR
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_EXTRA_CREDENTIAL;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_REMOVED_SESSION_FUNCTION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_RESOURCE_ESTIMATE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SESSION;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_SESSION_FUNCTION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_CATALOG;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_ROLE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SCHEMA;
@@ -72,6 +74,8 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_TRANSACTION_ID;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Sets.newConcurrentHashSet;
+import static com.google.common.net.HttpHeaders.ACCEPT_ENCODING;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static java.lang.String.format;
 import static java.net.HttpURLConnection.HTTP_OK;
@@ -98,15 +102,18 @@ class StatementClientV1
     private final AtomicReference<String> setCatalog = new AtomicReference<>();
     private final AtomicReference<String> setSchema = new AtomicReference<>();
     private final Map<String, String> setSessionProperties = new ConcurrentHashMap<>();
-    private final Set<String> resetSessionProperties = Sets.newConcurrentHashSet();
+    private final Set<String> resetSessionProperties = newConcurrentHashSet();
     private final Map<String, SelectedRole> setRoles = new ConcurrentHashMap<>();
     private final Map<String, String> addedPreparedStatements = new ConcurrentHashMap<>();
-    private final Set<String> deallocatedPreparedStatements = Sets.newConcurrentHashSet();
+    private final Set<String> deallocatedPreparedStatements = newConcurrentHashSet();
     private final AtomicReference<String> startedTransactionId = new AtomicReference<>();
     private final AtomicBoolean clearTransactionId = new AtomicBoolean();
     private final TimeZoneKey timeZone;
     private final Duration requestTimeoutNanos;
     private final String user;
+    private final boolean compressionDisabled;
+    private final Map<String, String> addedSessionFunctions = new ConcurrentHashMap<>();
+    private final Set<String> removedSessionFunctions = newConcurrentHashSet();
 
     private final AtomicReference<State> state = new AtomicReference<>(State.RUNNING);
 
@@ -121,6 +128,7 @@ class StatementClientV1
         this.query = query;
         this.requestTimeoutNanos = session.getClientRequestTimeout();
         this.user = session.getUser();
+        this.compressionDisabled = session.isCompressionDisabled();
 
         Request request = buildQueryRequest(session, query);
 
@@ -193,6 +201,11 @@ class StatementClientV1
         }
 
         builder.addHeader(PRESTO_TRANSACTION_ID, session.getTransactionId() == null ? "NONE" : session.getTransactionId());
+
+        Map<String, String> sessionFunctions = session.getSessionFunctions();
+        for (Entry<String, String> entry : sessionFunctions.entrySet()) {
+            builder.addHeader(PRESTO_SESSION_FUNCTION, urlEncode(entry.getKey()) + "=" + urlEncode(entry.getValue()));
+        }
 
         return builder.build();
     }
@@ -311,12 +324,28 @@ class StatementClientV1
         return clearTransactionId.get();
     }
 
+    @Override
+    public Map<String, String> getAddedSessionFunctions()
+    {
+        return ImmutableMap.copyOf(addedSessionFunctions);
+    }
+
+    @Override
+    public Set<String> getRemovedSessionFunctions()
+    {
+        return ImmutableSet.copyOf(removedSessionFunctions);
+    }
+
     private Request.Builder prepareRequest(HttpUrl url)
     {
-        return new Request.Builder()
+        Request.Builder builder = new Request.Builder()
                 .addHeader(PRESTO_USER, user)
                 .addHeader(USER_AGENT, USER_AGENT_VALUE)
                 .url(url);
+        if (compressionDisabled) {
+            builder.header(ACCEPT_ENCODING, "identity");
+        }
+        return builder;
     }
 
     @Override
@@ -429,6 +458,17 @@ class StatementClientV1
             clearTransactionId.set(true);
         }
 
+        for (String sessionFunction : headers.values(PRESTO_ADDED_SESSION_FUNCTION)) {
+            List<String> keyValue = SESSION_HEADER_SPLITTER.splitToList(sessionFunction);
+            if (keyValue.size() != 2) {
+                continue;
+            }
+            addedSessionFunctions.put(urlDecode(keyValue.get(0)), urlDecode(keyValue.get(1)));
+        }
+        for (String signature : headers.values(PRESTO_REMOVED_SESSION_FUNCTION)) {
+            removedSessionFunctions.add(urlDecode(signature));
+        }
+
         currentResults.set(results);
     }
 
@@ -440,6 +480,12 @@ class StatementClientV1
                         Optional.ofNullable(response.getStatusMessage())
                                 .map(message -> ": " + message)
                                 .orElse(""));
+            }
+            if (response.getStatusCode() == 429) {
+                return new ClientException("Request throttled " +
+                        Optional.ofNullable(response.getStatusMessage())
+                                .map(message -> ": " + message)
+                                .orElse(""), true);
             }
             return new RuntimeException(
                     format("Error %s at %s returned an invalid response: %s [Error: %s]", task, request.url(), response, response.getResponseBody()),

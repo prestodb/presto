@@ -35,13 +35,12 @@ import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.AT_SIGN;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
+import static com.facebook.presto.verifier.framework.DeterminismAnalysis.NON_DETERMINISTIC_LIMIT_CLAUSE;
 import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.DETERMINISTIC;
 import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.FAILED_DATA_CHANGED;
 import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.NON_DETERMINISTIC;
 import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.NOT_RUN;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
 
 @Test(singleThreaded = true)
 public class TestLimitQueryDeterminismAnalyzer
@@ -149,14 +148,16 @@ public class TestLimitQueryDeterminismAnalyzer
     @Test
     public void testDeterministicLimitNoOrderBy()
     {
-        assertAnalysis(createPrestoAction(1000), "INSERT INTO test SELECT * FROM source LIMIT 1000", DETERMINISTIC);
+        MockPrestoAction prestoAction = createPrestoAction(1000);
+        assertAnalysis(prestoAction, "INSERT INTO test SELECT * FROM source LIMIT 1000", 500, DETERMINISTIC, false);
+        assertAnalysis(prestoAction, "INSERT INTO test SELECT * FROM source UNION ALL SELECT * FROM source LIMIT 1000", 500, DETERMINISTIC, false);
+        assertAnalysis(prestoAction, "INSERT INTO test SELECT * FROM source LIMIT 1000", DETERMINISTIC);
     }
 
     @Test
     public void testFailedDataChangedLimitNoOrderBy()
     {
         assertAnalysis(createPrestoAction(999), "INSERT INTO test SELECT * FROM source LIMIT 1000", FAILED_DATA_CHANGED);
-        assertAnalysis(createPrestoAction(1001), "INSERT INTO test SELECT * FROM source LIMIT 2000", FAILED_DATA_CHANGED);
     }
 
     @Test
@@ -186,7 +187,10 @@ public class TestLimitQueryDeterminismAnalyzer
     @Test
     public void testLimitOrderByDeterministic()
     {
-        MockPrestoAction prestoAction = createPrestoAction(ImmutableList.of(ImmutableList.of(1, 2, 3, 4, 5, 1, 6)), TIE_INSPECTOR_COLUMNS);
+        MockPrestoAction prestoAction = createPrestoAction(1000);
+        assertAnalysis(prestoAction, "INSERT INTO test SELECT * FROM source ORDER BY 1 LIMIT 1000", 500, DETERMINISTIC, false);
+
+        prestoAction = createPrestoAction(ImmutableList.of(ImmutableList.of(1, 2, 3, 4, 5, 1, 6)), TIE_INSPECTOR_COLUMNS);
         assertAnalysis(prestoAction, ORDER_BY_LIMIT_QUERY, DETERMINISTIC);
 
         prestoAction = createPrestoAction(
@@ -216,22 +220,22 @@ public class TestLimitQueryDeterminismAnalyzer
 
     private static void assertAnalysis(PrestoAction prestoAction, String query, LimitQueryDeterminismAnalysis expectedAnalysis)
     {
+        assertAnalysis(prestoAction, query, ROW_COUNT_WITH_LIMIT, expectedAnalysis, expectedAnalysis != NOT_RUN);
+    }
+
+    private static void assertAnalysis(PrestoAction prestoAction, String query, long controlRowCount, LimitQueryDeterminismAnalysis expectedAnalysis, boolean queryRan)
+    {
         DeterminismAnalysisDetails.Builder determinismAnalysisDetailsBuilder = DeterminismAnalysisDetails.builder();
         LimitQueryDeterminismAnalysis analysis = new LimitQueryDeterminismAnalyzer(
                 prestoAction,
                 true,
                 sqlParser.createStatement(query, PARSING_OPTIONS),
-                ROW_COUNT_WITH_LIMIT,
+                controlRowCount,
                 determinismAnalysisDetailsBuilder).analyze();
-        DeterminismAnalysisDetails determinismAnalysisDetails = determinismAnalysisDetailsBuilder.build();
+        DeterminismAnalysisDetails determinismAnalysisDetails = determinismAnalysisDetailsBuilder.build(NON_DETERMINISTIC_LIMIT_CLAUSE);
 
         assertEquals(analysis, expectedAnalysis);
-        if (expectedAnalysis == NOT_RUN) {
-            assertNull(determinismAnalysisDetails.getLimitQueryAnalysisQueryId());
-        }
-        else {
-            assertNotNull(determinismAnalysisDetails.getLimitQueryAnalysisQueryId());
-        }
+        assertEquals(determinismAnalysisDetails.getLimitQueryAnalysisQueryId() != null, queryRan);
     }
 
     private static void assertAnalyzerQuery(MockPrestoAction prestoAction, String expectedQuery)

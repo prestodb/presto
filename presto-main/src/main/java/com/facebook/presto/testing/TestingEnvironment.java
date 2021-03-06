@@ -13,20 +13,23 @@
  */
 package com.facebook.presto.testing;
 
-import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.type.TypeRegistry;
+import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
+
+import java.lang.invoke.MethodHandle;
+
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 
 public class TestingEnvironment
 {
     private TestingEnvironment() {}
 
-    public static final TypeManager TYPE_MANAGER = new TypeRegistry();
+    public static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = createTestFunctionAndTypeManager();
 
-    static {
-        // wire TYPE_MANAGER with function manager
-        new FunctionManager(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
+    public static MethodHandle getOperatorMethodHandle(OperatorType operatorType, Type... parameterTypes)
+    {
+        return FUNCTION_AND_TYPE_MANAGER.getBuiltInScalarFunctionImplementation(FUNCTION_AND_TYPE_MANAGER.resolveOperator(operatorType, fromTypes(parameterTypes))).getMethodHandle();
     }
 }

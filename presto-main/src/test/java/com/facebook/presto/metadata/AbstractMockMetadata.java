@@ -15,16 +15,18 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.CatalogSchemaName;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
@@ -495,19 +497,19 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public FunctionManager getFunctionManager()
+    public MetadataUpdates getMetadataUpdateResults(Session session, QueryManager queryManager, MetadataUpdates metadataUpdateRequests, QueryId queryId)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public FunctionAndTypeManager getFunctionAndTypeManager()
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
     public ProcedureRegistry getProcedureRegistry()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public TypeManager getTypeManager()
     {
         throw new UnsupportedOperationException();
     }

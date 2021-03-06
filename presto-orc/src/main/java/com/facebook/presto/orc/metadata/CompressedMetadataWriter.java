@@ -30,10 +30,10 @@ public class CompressedMetadataWriter
     private final MetadataWriter metadataWriter;
     private final OrcOutputBuffer buffer;
 
-    public CompressedMetadataWriter(MetadataWriter metadataWriter, CompressionKind compression, Optional<DwrfDataEncryptor> dwrfEncryptor, int bufferSize)
+    public CompressedMetadataWriter(MetadataWriter metadataWriter, CompressionParameters compressionParameters, Optional<DwrfDataEncryptor> dwrfEncryptor)
     {
         this.metadataWriter = requireNonNull(metadataWriter, "metadataWriter is null");
-        this.buffer = new OrcOutputBuffer(compression, dwrfEncryptor, bufferSize);
+        this.buffer = new OrcOutputBuffer(compressionParameters, dwrfEncryptor);
     }
 
     public List<Integer> getOrcMetadataVersion()

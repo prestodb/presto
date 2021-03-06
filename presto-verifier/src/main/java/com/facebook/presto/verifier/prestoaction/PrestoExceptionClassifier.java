@@ -23,6 +23,7 @@ import com.facebook.presto.verifier.framework.ClusterConnectionException;
 import com.facebook.presto.verifier.framework.PrestoQueryException;
 import com.facebook.presto.verifier.framework.QueryException;
 import com.facebook.presto.verifier.framework.QueryStage;
+import com.facebook.presto.verifier.framework.ThrottlingException;
 import com.google.common.collect.ImmutableSet;
 
 import java.io.EOFException;
@@ -154,6 +155,11 @@ public class PrestoExceptionClassifier
             return new ClusterConnectionException(clusterConnectionExceptionCause.get(), queryStage);
         }
 
+        Optional<Throwable> requestThrottledExceptionCause = getRequestThrottleExceptionCause(cause);
+        if (requestThrottledExceptionCause.isPresent()) {
+            return new ThrottlingException(cause, queryStage);
+        }
+
         Optional<ErrorCodeSupplier> errorCode = getErrorCode(cause.getErrorCode());
         boolean retryable = errorCode.isPresent() && isRetryable(errorCode.get(), queryStage, cause.getMessage());
         return new PrestoQueryException(cause, retryable, queryStage, errorCode, queryActionStats);
@@ -198,6 +204,17 @@ public class PrestoExceptionClassifier
                     t instanceof UncheckedIOException ||
                     t instanceof TimeoutException ||
                     (t.getClass().equals(RuntimeException.class) && t.getMessage() != null && t.getMessage().contains("Error fetching next at"))) {
+                return Optional.of(t);
+            }
+            t = t.getCause();
+        }
+        return Optional.empty();
+    }
+
+    private static Optional<Throwable> getRequestThrottleExceptionCause(Throwable t)
+    {
+        while (t != null) {
+            if (t instanceof RuntimeException && t.getMessage() != null && t.getMessage().contains("Request throttled")) {
                 return Optional.of(t);
             }
             t = t.getCause();

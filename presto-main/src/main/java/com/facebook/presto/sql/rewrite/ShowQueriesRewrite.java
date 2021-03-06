@@ -15,10 +15,9 @@ package com.facebook.presto.sql.rewrite;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.CatalogSchemaName;
-import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.SessionPropertyManager.SessionPropertyValue;
 import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.security.AccessControl;
@@ -98,13 +97,14 @@ import static com.facebook.presto.connector.informationSchema.InformationSchemaM
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_SCHEMATA;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLE_PRIVILEGES;
-import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
-import static com.facebook.presto.metadata.FunctionManager.qualifyFunctionName;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
 import static com.facebook.presto.metadata.MetadataListing.listCatalogs;
 import static com.facebook.presto.metadata.MetadataListing.listSchemas;
 import static com.facebook.presto.metadata.MetadataUtil.createCatalogSchemaName;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedName;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
+import static com.facebook.presto.metadata.SessionFunctionHandle.SESSION_NAMESPACE;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
@@ -496,8 +496,8 @@ final class ShowQueriesRewrite
         @Override
         protected Node visitShowCreateFunction(ShowCreateFunction node, Void context)
         {
-            QualifiedFunctionName functionName = qualifyFunctionName(node.getName());
-            Collection<? extends SqlFunction> functions = metadata.getFunctionManager().getFunctions(session.getTransactionId(), functionName);
+            QualifiedObjectName functionName = qualifyObjectName(node.getName());
+            Collection<? extends SqlFunction> functions = metadata.getFunctionAndTypeManager().getFunctions(session, functionName);
             if (node.getParameterTypes().isPresent()) {
                 List<TypeSignature> parameterTypes = node.getParameterTypes().get().stream()
                         .map(TypeSignature::parseTypeSignature)
@@ -518,9 +518,11 @@ final class ShowQueriesRewrite
                 }
 
                 SqlInvokedFunction sqlFunction = (SqlInvokedFunction) function;
+                boolean temporary = sqlFunction.getFunctionId().getFunctionName().getCatalogSchemaName().equals(SESSION_NAMESPACE);
                 CreateFunction createFunction = new CreateFunction(
                         node.getName(),
                         false,
+                        temporary,
                         sqlFunction.getParameters().stream()
                                 .map(parameter -> new SqlParameterDeclaration(new Identifier(parameter.getName()), parameter.getType().toString()))
                                 .collect(toImmutableList()),
@@ -602,9 +604,11 @@ final class ShowQueriesRewrite
             ImmutableList.Builder<Expression> rows = ImmutableList.builder();
             for (SqlFunction function : metadata.listFunctions(session)) {
                 Signature signature = function.getSignature();
-                boolean builtIn = signature.getName().getFunctionNamespace().equals(DEFAULT_NAMESPACE);
+
+                boolean builtIn = signature.getName().getCatalogSchemaName().equals(DEFAULT_NAMESPACE);
+                boolean temporary = signature.getName().getCatalogSchemaName().equals(SESSION_NAMESPACE);
                 rows.add(row(
-                        builtIn ? new StringLiteral(signature.getNameSuffix()) : new StringLiteral(signature.getName().toString()),
+                        builtIn || temporary ? new StringLiteral(signature.getNameSuffix()) : new StringLiteral(signature.getName().toString()),
                         new StringLiteral(signature.getReturnType().toString()),
                         new StringLiteral(Joiner.on(", ").join(signature.getArgumentTypes())),
                         new StringLiteral(getFunctionType(function)),
@@ -612,6 +616,7 @@ final class ShowQueriesRewrite
                         new StringLiteral(nullToEmpty(function.getDescription())),
                         signature.isVariableArity() ? TRUE_LITERAL : FALSE_LITERAL,
                         builtIn ? TRUE_LITERAL : FALSE_LITERAL,
+                        temporary ? TRUE_LITERAL : FALSE_LITERAL,
                         function instanceof SqlInvokedFunction
                                 ? new StringLiteral(((SqlInvokedFunction) function).getRoutineCharacteristics().getLanguage().getLanguage().toLowerCase(ENGLISH))
                                 : new StringLiteral("")));
@@ -626,6 +631,7 @@ final class ShowQueriesRewrite
                     .put("description", "Description")
                     .put("variable_arity", "Variable Arity")
                     .put("built_in", "Built In")
+                    .put("temporary", "Temporary")
                     .put("language", "Language")
                     .build();
 

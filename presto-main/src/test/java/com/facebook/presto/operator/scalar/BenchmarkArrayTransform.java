@@ -19,7 +19,7 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.project.PageProcessor;
@@ -107,7 +107,7 @@ public class BenchmarkArrayTransform
         public void setup()
         {
             MetadataManager metadata = MetadataManager.createTestMetadataManager();
-            FunctionManager functionManager = metadata.getFunctionManager();
+            FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
             ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
             Block[] blocks = new Block[TYPES.size()];
@@ -115,8 +115,8 @@ public class BenchmarkArrayTransform
             for (int i = 0; i < TYPES.size(); i++) {
                 Type elementType = TYPES.get(i);
                 ArrayType arrayType = new ArrayType(elementType);
-                FunctionHandle functionHandle = functionManager.lookupFunction("transform", fromTypeSignatures(arrayType.getTypeSignature(), parseTypeSignature("function(bigint,boolean)")));
-                FunctionHandle greaterThan = functionManager.resolveOperator(GREATER_THAN, fromTypes(BIGINT, BIGINT));
+                FunctionHandle functionHandle = functionAndTypeManager.lookupFunction("transform", fromTypeSignatures(arrayType.getTypeSignature(), parseTypeSignature("function(bigint,boolean)")));
+                FunctionHandle greaterThan = functionAndTypeManager.resolveOperator(GREATER_THAN, fromTypes(BIGINT, BIGINT));
                 projectionsBuilder.add(new CallExpression("transform", functionHandle, returnType, ImmutableList.of(
                         new InputReferenceExpression(0, arrayType),
                         new LambdaDefinitionExpression(

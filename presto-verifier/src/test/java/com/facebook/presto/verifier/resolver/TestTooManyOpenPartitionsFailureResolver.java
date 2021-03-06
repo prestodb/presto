@@ -22,8 +22,8 @@ import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.verifier.TestingResultSetMetaData;
 import com.facebook.presto.verifier.TestingResultSetMetaData.ColumnInfo;
 import com.facebook.presto.verifier.framework.PrestoQueryException;
-import com.facebook.presto.verifier.framework.QueryBundle;
 import com.facebook.presto.verifier.framework.QueryException;
+import com.facebook.presto.verifier.framework.QueryObjectBundle;
 import com.facebook.presto.verifier.framework.QueryResult;
 import com.facebook.presto.verifier.framework.QueryStage;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
@@ -80,7 +80,7 @@ public class TestTooManyOpenPartitionsFailureResolver
 
     private static final String TABLE_NAME = "test";
     private static final int MAX_BUCKETS_PER_WRITER = 100;
-    private static final QueryBundle TEST_BUNDLE = new QueryBundle(
+    private static final QueryObjectBundle TEST_BUNDLE = new QueryObjectBundle(
             QualifiedName.of(TABLE_NAME),
             ImmutableList.of(),
             new SqlParser(new SqlParserOptions().allowIdentifierSymbol(AT_SIGN, COLON)).createStatement(

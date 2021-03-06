@@ -34,6 +34,8 @@ import static com.facebook.presto.common.type.StandardTypes.ROW;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getArrayElementColumn;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getMapKeyValueColumn;
 import static com.facebook.presto.parquet.ParquetTypeUtils.lookupColumnByName;
+import static org.apache.parquet.io.ColumnIOUtil.columnDefinitionLevel;
+import static org.apache.parquet.io.ColumnIOUtil.columnRepetitionLevel;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 
 /**
@@ -51,8 +53,8 @@ public class ColumnIOConverter
             return Optional.empty();
         }
         boolean required = columnIO.getType().getRepetition() != OPTIONAL;
-        int repetitionLevel = columnIO.getRepetitionLevel();
-        int definitionLevel = columnIO.getDefinitionLevel();
+        int repetitionLevel = columnRepetitionLevel(columnIO);
+        int definitionLevel = columnDefinitionLevel(columnIO);
         if (ROW.equals(type.getTypeSignature().getBase())) {
             GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
             List<Type> parameters = type.getTypeParameters();

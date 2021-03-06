@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.verifier.framework;
 
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableList;
 
@@ -23,29 +22,21 @@ import static java.util.Objects.requireNonNull;
 
 public class QueryBundle
 {
-    private final QualifiedName tableName;
     private final List<Statement> setupQueries;
     private final Statement query;
     private final List<Statement> teardownQueries;
     private final ClusterType cluster;
 
     public QueryBundle(
-            QualifiedName tableName,
             List<Statement> setupQueries,
             Statement query,
             List<Statement> teardownQueries,
             ClusterType cluster)
     {
-        this.tableName = requireNonNull(tableName, "tableName is null");
         this.setupQueries = ImmutableList.copyOf(setupQueries);
         this.query = requireNonNull(query, "query is null");
         this.teardownQueries = ImmutableList.copyOf(teardownQueries);
         this.cluster = requireNonNull(cluster, "cluster is null");
-    }
-
-    public QualifiedName getTableName()
-    {
-        return tableName;
     }
 
     public List<Statement> getSetupQueries()

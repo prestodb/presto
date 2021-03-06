@@ -77,13 +77,15 @@ public final class GroupByHashYieldAssertion
         List<Page> result = new LinkedList<>();
 
         // mock an adjustable memory pool
-        QueryId queryId = new QueryId("test_query");
+        QueryId queryId1 = new QueryId("test_query1");
+        QueryId queryId2 = new QueryId("test_query2");
         MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE));
         QueryContext queryContext = new QueryContext(
-                queryId,
+                queryId2,
                 new DataSize(512, MEGABYTE),
                 new DataSize(1024, MEGABYTE),
                 new DataSize(512, MEGABYTE),
+                new DataSize(1, GIGABYTE),
                 memoryPool,
                 new TestingGcMonitor(),
                 EXECUTOR,
@@ -105,7 +107,7 @@ public final class GroupByHashYieldAssertion
 
             // saturate the pool with a tiny memory left
             long reservedMemoryInBytes = memoryPool.getFreeBytes() - additionalMemoryInBytes;
-            memoryPool.reserve(queryId, "test", reservedMemoryInBytes);
+            memoryPool.reserve(queryId1, "test", reservedMemoryInBytes);
 
             long oldMemoryUsage = operator.getOperatorContext().getDriverContext().getMemoryUsage();
             int oldCapacity = getHashCapacity.apply(operator);
@@ -125,7 +127,7 @@ public final class GroupByHashYieldAssertion
             // between rehash and memory used by aggregator
             if (newMemoryUsage < new DataSize(4, MEGABYTE).toBytes()) {
                 // free the pool for the next iteration
-                memoryPool.free(queryId, "test", reservedMemoryInBytes);
+                memoryPool.free(queryId1, "test", reservedMemoryInBytes);
                 // this required in case input is blocked
                 operator.getOutput();
                 continue;
@@ -146,7 +148,7 @@ public final class GroupByHashYieldAssertion
                 assertLessThan(actualIncreasedMemory, additionalMemoryInBytes);
 
                 // free the pool for the next iteration
-                memoryPool.free(queryId, "test", reservedMemoryInBytes);
+                memoryPool.free(queryId1, "test", reservedMemoryInBytes);
             }
             else {
                 // We failed to finish the page processing i.e. we yielded
@@ -173,7 +175,7 @@ public final class GroupByHashYieldAssertion
                 assertNull(operator.getOutput());
 
                 // Free the pool to unblock
-                memoryPool.free(queryId, "test", reservedMemoryInBytes);
+                memoryPool.free(queryId1, "test", reservedMemoryInBytes);
 
                 // Trigger a process through getOutput() or needsInput()
                 output = operator.getOutput();

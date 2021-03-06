@@ -16,7 +16,7 @@ package com.facebook.presto.connector.system.jdbc;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.ParametricType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.InMemoryRecordSet;
@@ -66,12 +66,12 @@ public class TypesJdbcTable
             .column("num_prec_radix", BIGINT)
             .build();
 
-    private final TypeManager typeManager;
+    private final FunctionAndTypeManager functionAndTypeManager;
 
     @Inject
-    public TypesJdbcTable(TypeManager typeManager)
+    public TypesJdbcTable(FunctionAndTypeManager typeManager)
     {
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.functionAndTypeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     @Override
@@ -84,10 +84,10 @@ public class TypesJdbcTable
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession connectorSession, TupleDomain<Integer> constraint)
     {
         Builder table = InMemoryRecordSet.builder(METADATA);
-        for (Type type : typeManager.getTypes()) {
+        for (Type type : functionAndTypeManager.getTypes()) {
             addTypeRow(table, type);
         }
-        addParametricTypeRows(table, typeManager.getParametricTypes());
+        addParametricTypeRows(table, functionAndTypeManager.getParametricTypes());
         return table.build().cursor();
     }
 

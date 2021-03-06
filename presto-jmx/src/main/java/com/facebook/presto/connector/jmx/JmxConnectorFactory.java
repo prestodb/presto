@@ -70,7 +70,7 @@ public class JmxConnectorFactory
                         binder.bind(JmxRecordSetProvider.class).in(Scopes.SINGLETON);
                     });
 
-            Injector injector = app.strictConfig()
+            Injector injector = app
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
                     .initialize();

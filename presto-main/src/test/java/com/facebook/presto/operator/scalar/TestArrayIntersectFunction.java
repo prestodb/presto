@@ -21,8 +21,8 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static java.util.Arrays.asList;
 
 public class TestArrayIntersectFunction
@@ -64,5 +64,14 @@ public class TestArrayIntersectFunction
         assertFunction("array_intersect(ARRAY[CAST(1 as BIGINT), 5, 5, 3, 3, 3, 1], ARRAY[3, 5])", new ArrayType(BIGINT), ImmutableList.of(5L, 3L));
         assertFunction("array_intersect(ARRAY[CAST('x' as VARCHAR), 'x', 'y', 'z'], ARRAY['x', 'y', 'x'])", new ArrayType(VARCHAR), ImmutableList.of("x", "y"));
         assertFunction("array_intersect(ARRAY[true, false, null, true, false, null], ARRAY[true, true, true])", new ArrayType(BOOLEAN), asList(true));
+    }
+
+    @Test
+    public void testSQLFunctions()
+    {
+        assertFunction("array_intersect(ARRAY[ARRAY[1, 3, 5], ARRAY[2, 3, 5], ARRAY[3, 3, 3, 6]])", new ArrayType(BIGINT), ImmutableList.of(3L));
+        assertFunction("array_intersect(ARRAY[ARRAY[], ARRAY[1, 2, 3]])", new ArrayType(BIGINT), ImmutableList.of());
+        assertFunction("array_intersect(ARRAY[ARRAY[1, 2, 3], null])", new ArrayType(BIGINT), null);
+        assertFunction("array_intersect(ARRAY[ARRAY[1.1, 2.2, 3.3], ARRAY[1.1, 3.4], ARRAY[1.0, 1.1, 1.2]])", new ArrayType(DOUBLE), ImmutableList.of(1.1));
     }
 }

@@ -35,7 +35,10 @@ public class TestServerConfig
                 .setDataSources(null)
                 .setIncludeExceptionInResponse(true)
                 .setGracePeriod(new Duration(2, MINUTES))
-                .setEnhancedErrorReporting(true));
+                .setEnhancedErrorReporting(true)
+                .setQueryResultsCompressionEnabled(true)
+                .setResourceManagerEnabled(false)
+                .setResourceManager(false));
     }
 
     @Test
@@ -48,6 +51,9 @@ public class TestServerConfig
                 .put("http.include-exception-in-response", "false")
                 .put("shutdown.grace-period", "5m")
                 .put("sql.parser.enhanced-error-reporting", "false")
+                .put("query-results.compression-enabled", "false")
+                .put("resource-manager-enabled", "true")
+                .put("resource-manager", "true")
                 .build();
 
         ServerConfig expected = new ServerConfig()
@@ -56,7 +62,10 @@ public class TestServerConfig
                 .setDataSources("jmx")
                 .setIncludeExceptionInResponse(false)
                 .setGracePeriod(new Duration(5, MINUTES))
-                .setEnhancedErrorReporting(false);
+                .setEnhancedErrorReporting(false)
+                .setQueryResultsCompressionEnabled(false)
+                .setResourceManagerEnabled(true)
+                .setResourceManager(true);
 
         assertFullMapping(properties, expected);
     }

@@ -18,6 +18,7 @@ import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.hive.datasink.OutputStreamDataSinkFactory;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.HivePartitionMutator;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.thrift.BridgingHiveMetastore;
 import com.facebook.presto.hive.metastore.thrift.InMemoryHiveMetastore;
@@ -39,6 +40,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -63,13 +65,13 @@ import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPER
 import static com.facebook.presto.hive.HiveTableProperties.SORTED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.HiveTestUtils.FILTER_STATS_CALCULATOR_SERVICE;
+import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_RESOLUTION;
 import static com.facebook.presto.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static com.facebook.presto.hive.HiveTestUtils.HIVE_CLIENT_CONFIG;
 import static com.facebook.presto.hive.HiveTestUtils.PARTITION_UPDATE_CODEC;
 import static com.facebook.presto.hive.HiveTestUtils.ROW_EXPRESSION_SERVICE;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
-import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.PartitionUpdate.UpdateMode.APPEND;
 import static com.facebook.presto.hive.PartitionUpdate.UpdateMode.NEW;
 import static com.facebook.presto.hive.PartitionUpdate.UpdateMode.OVERWRITE;
@@ -97,14 +99,14 @@ public class TestHiveMetadataFileFormatEncryptionSettings
     public void setup()
     {
         baseDirectory = new File(Files.createTempDir(), "metastore");
-        metastore = new BridgingHiveMetastore(new InMemoryHiveMetastore(baseDirectory));
+        metastore = new BridgingHiveMetastore(new InMemoryHiveMetastore(baseDirectory), new HivePartitionMutator());
         executor = newCachedThreadPool(daemonThreadsNamed("hive-encryption-test-%s"));
         transactionManager = new HiveTransactionManager();
         metadataFactory = new HiveMetadataFactory(
                 metastore,
                 HDFS_ENVIRONMENT,
-                new HivePartitionManager(TYPE_MANAGER, HIVE_CLIENT_CONFIG),
-                DateTimeZone.forTimeZone(TimeZone.getTimeZone(HIVE_CLIENT_CONFIG.getTimeZone())),
+                new HivePartitionManager(FUNCTION_AND_TYPE_MANAGER, HIVE_CLIENT_CONFIG),
+                DateTimeZone.forTimeZone(TimeZone.getTimeZone(ZoneId.of(HIVE_CLIENT_CONFIG.getTimeZone()))),
                 true,
                 false,
                 false,
@@ -112,7 +114,7 @@ public class TestHiveMetadataFileFormatEncryptionSettings
                 true,
                 HIVE_CLIENT_CONFIG.getMaxPartitionBatchSize(),
                 HIVE_CLIENT_CONFIG.getMaxPartitionsPerScan(),
-                TYPE_MANAGER,
+                FUNCTION_AND_TYPE_MANAGER,
                 new HiveLocationService(HDFS_ENVIRONMENT),
                 FUNCTION_RESOLUTION,
                 ROW_EXPRESSION_SERVICE,
@@ -126,7 +128,8 @@ public class TestHiveMetadataFileFormatEncryptionSettings
                 TEST_SERVER_VERSION,
                 new HivePartitionObjectBuilder(),
                 new HiveEncryptionInformationProvider(ImmutableList.of(new TestDwrfEncryptionInformationSource())),
-                new HivePartitionStats());
+                new HivePartitionStats(),
+                new HiveFileRenamer());
 
         metastore.createDatabase(Database.builder()
                 .setDatabaseName(TEST_DB_NAME)
@@ -263,8 +266,8 @@ public class TestHiveMetadataFileFormatEncryptionSettings
                             "test_provider")));
 
             List<PartitionUpdate> partitionUpdates = ImmutableList.of(
-                    new PartitionUpdate("ds=2020-06-26", NEW, "path1", "path1", ImmutableList.of(), 0, 0, 0),
-                    new PartitionUpdate("ds=2020-06-27", NEW, "path2", "path2", ImmutableList.of(), 0, 0, 0));
+                    new PartitionUpdate("ds=2020-06-26", NEW, "path1", "path1", ImmutableList.of(), 0, 0, 0, false),
+                    new PartitionUpdate("ds=2020-06-27", NEW, "path2", "path2", ImmutableList.of(), 0, 0, 0, false));
 
             metadata.finishCreateTable(
                     SESSION,
@@ -438,8 +441,8 @@ public class TestHiveMetadataFileFormatEncryptionSettings
                                     "test_provider")));
 
             List<PartitionUpdate> partitionUpdates = ImmutableList.of(
-                    new PartitionUpdate("ds=2020-06-26", NEW, "path1", "path1", ImmutableList.of(), 0, 0, 0),
-                    new PartitionUpdate("ds=2020-06-27", NEW, "path2", "path2", ImmutableList.of(), 0, 0, 0));
+                    new PartitionUpdate("ds=2020-06-26", NEW, "path1", "path1", ImmutableList.of(), 0, 0, 0, false),
+                    new PartitionUpdate("ds=2020-06-27", NEW, "path2", "path2", ImmutableList.of(), 0, 0, 0, false));
 
             createHiveMetadata.finishInsert(
                     SESSION,
@@ -456,7 +459,7 @@ public class TestHiveMetadataFileFormatEncryptionSettings
             HiveMetadata overrideHiveMetadata = metadataFactory.get();
             insertTableHandle = overrideHiveMetadata.beginInsert(SESSION, new HiveTableHandle(TEST_DB_NAME, tableName));
             partitionUpdates = ImmutableList.of(
-                    new PartitionUpdate("ds=2020-06-26", OVERWRITE, "path3", "path3", ImmutableList.of(), 0, 0, 0));
+                    new PartitionUpdate("ds=2020-06-26", OVERWRITE, "path3", "path3", ImmutableList.of(), 0, 0, 0, false));
 
             overrideHiveMetadata.finishInsert(
                     SESSION,
@@ -552,7 +555,7 @@ public class TestHiveMetadataFileFormatEncryptionSettings
             HiveInsertTableHandle insertTableHandle = createHiveMetadata.beginInsert(SESSION, new HiveTableHandle(TEST_DB_NAME, tableName));
 
             List<PartitionUpdate> partitionUpdates = ImmutableList.of(
-                    new PartitionUpdate("ds=2020-06-26", NEW, "path1", "path1", ImmutableList.of(), 0, 0, 0));
+                    new PartitionUpdate("ds=2020-06-26", NEW, "path1", "path1", ImmutableList.of(), 0, 0, 0, false));
 
             createHiveMetadata.finishInsert(
                     SESSION,
@@ -564,7 +567,7 @@ public class TestHiveMetadataFileFormatEncryptionSettings
             HiveMetadata appendHiveMetadata = metadataFactory.get();
             insertTableHandle = appendHiveMetadata.beginInsert(SESSION, new HiveTableHandle(TEST_DB_NAME, tableName));
             partitionUpdates = ImmutableList.of(
-                    new PartitionUpdate("ds=2020-06-26", APPEND, "path3", "path3", ImmutableList.of(), 0, 0, 0));
+                    new PartitionUpdate("ds=2020-06-26", APPEND, "path3", "path3", ImmutableList.of(), 0, 0, 0, false));
 
             appendHiveMetadata.finishInsert(
                     SESSION,

@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.241-SNAPSHOT</version>
+        <version>0.249-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-main</artifactId>
@@ -208,12 +208,22 @@
 
         <dependency>
             <groupId>com.facebook.drift</groupId>
+            <artifactId>drift-protocol</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.drift</groupId>
             <artifactId>drift-codec</artifactId>
         </dependency>
 
         <dependency>
             <groupId>com.facebook.drift</groupId>
             <artifactId>drift-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.drift</groupId>
+            <artifactId>drift-codec-utils</artifactId>
         </dependency>
 
         <dependency>
@@ -337,6 +347,17 @@
             <artifactId>lucene-analyzers-common</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>com.clearspring.analytics</groupId>
+            <artifactId>stream</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>it.unimi.dsi</groupId>
+                    <artifactId>fastutil</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
         <!-- for testing -->
         <dependency>
             <groupId>org.testng</groupId>
@@ -386,6 +407,12 @@
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-common</artifactId>
             <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-thrift-api</artifactId>
             <scope>test</scope>
         </dependency>
 

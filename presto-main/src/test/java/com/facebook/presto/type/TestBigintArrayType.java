@@ -28,7 +28,7 @@ public class TestBigintArrayType
 {
     public TestBigintArrayType()
     {
-        super(new TypeRegistry().getType(parseTypeSignature("array(bigint)")), List.class, createTestBlock(new TypeRegistry().getType(parseTypeSignature("array(bigint)"))));
+        super(functionAndTypeManager.getType(parseTypeSignature("array(bigint)")), List.class, createTestBlock(functionAndTypeManager.getType(parseTypeSignature("array(bigint)"))));
     }
 
     public static Block createTestBlock(Type arrayType)

@@ -19,6 +19,8 @@ import com.facebook.presto.expressions.RowExpressionRewriter;
 import com.facebook.presto.expressions.RowExpressionTreeRewriter;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.function.FunctionMetadata;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.function.SqlInvokedScalarFunctionImplementation;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -61,7 +63,12 @@ public final class SqlFunctionUtils
 {
     private SqlFunctionUtils() {}
 
-    public static Expression getSqlFunctionExpression(FunctionMetadata functionMetadata, SqlInvokedScalarFunctionImplementation implementation, Metadata metadata, SqlFunctionProperties sqlFunctionProperties, List<Expression> arguments)
+    public static Expression getSqlFunctionExpression(
+            FunctionMetadata functionMetadata,
+            SqlInvokedScalarFunctionImplementation implementation,
+            Metadata metadata,
+            SqlFunctionProperties sqlFunctionProperties,
+            List<Expression> arguments)
     {
         checkArgument(functionMetadata.getImplementationType().equals(SQL), format("Expect SQL function, get %s", functionMetadata.getImplementationType()));
         checkArgument(functionMetadata.getArgumentNames().isPresent(), "ArgumentNames is missing");
@@ -70,7 +77,13 @@ public final class SqlFunctionUtils
         return SqlFunctionArgumentBinder.bindFunctionArguments(expression, functionMetadata.getArgumentNames().get(), arguments);
     }
 
-    public static RowExpression getSqlFunctionRowExpression(FunctionMetadata functionMetadata, SqlInvokedScalarFunctionImplementation functionImplementation, Metadata metadata, SqlFunctionProperties sqlFunctionProperties, List<RowExpression> arguments)
+    public static RowExpression getSqlFunctionRowExpression(
+            FunctionMetadata functionMetadata,
+            SqlInvokedScalarFunctionImplementation functionImplementation,
+            Metadata metadata,
+            SqlFunctionProperties sqlFunctionProperties,
+            Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
+            List<RowExpression> arguments)
     {
         checkArgument(functionMetadata.getImplementationType().equals(SQL), format("Expect SQL function, get %s", functionMetadata.getImplementationType()));
         checkArgument(functionMetadata.getArgumentNames().isPresent(), "ArgumentNames is missing");
@@ -93,11 +106,11 @@ public final class SqlFunctionUtils
                         lambdaCaptureDesugaredExpression,
                         analyzeSqlFunctionExpression(metadata, sqlFunctionProperties, lambdaCaptureDesugaredExpression, variableAllocator.getTypes().allTypes()).getExpressionTypes(),
                         ImmutableMap.of(),
-                        metadata.getFunctionManager(),
-                        metadata.getTypeManager(),
+                        metadata.getFunctionAndTypeManager(),
                         Optional.empty(),
                         Optional.empty(),
-                        sqlFunctionProperties),
+                        sqlFunctionProperties,
+                        sessionFunctions),
                 functionMetadata.getArgumentNames().get().stream()
                         .map(Identifier::new)
                         .map(variables::get)
@@ -186,7 +199,10 @@ public final class SqlFunctionUtils
             @Override
             public Expression rewriteIdentifier(Identifier node, Map<Identifier, VariableReferenceExpression> context, ExpressionTreeRewriter<Map<Identifier, VariableReferenceExpression>> treeRewriter)
             {
-                return new SymbolReference(context.get(node).getName());
+                if (context.containsKey(node)) {
+                    return new SymbolReference(context.get(node).getName());
+                }
+                return node;
             }
         }, sqlFunction, variableMap);
     }

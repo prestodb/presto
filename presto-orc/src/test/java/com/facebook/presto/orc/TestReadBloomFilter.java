@@ -122,12 +122,13 @@ public class TestReadBloomFilter
                 NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
                 OrcReaderTestingUtils.createDefaultTestConfig(),
                 false,
-                NO_ENCRYPTION);
+                NO_ENCRYPTION,
+                DwrfKeyProvider.EMPTY);
 
         assertEquals(orcReader.getColumnNames(), ImmutableList.of("test"));
         assertEquals(orcReader.getFooter().getRowsInRowGroup(), 10_000);
 
-        return orcReader.createBatchRecordReader(ImmutableMap.of(0, type), predicate, HIVE_STORAGE_TIME_ZONE, new TestingHiveOrcAggregatedMemoryContext(), MAX_BATCH_SIZE, ImmutableMap.of());
+        return orcReader.createBatchRecordReader(ImmutableMap.of(0, type), predicate, HIVE_STORAGE_TIME_ZONE, new TestingHiveOrcAggregatedMemoryContext(), MAX_BATCH_SIZE);
     }
 
     private static <T> TupleDomainOrcPredicate<String> makeOrcPredicate(Type type, T value, boolean bloomFilterEnabled)

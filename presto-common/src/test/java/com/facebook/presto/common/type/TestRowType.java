@@ -37,8 +37,6 @@ public class TestRowType
                         BOOLEAN,
                         DOUBLE,
                         methodHandle(TestRowType.class, "throwUnsupportedOperation"),
-                        methodHandle(TestRowType.class, "throwUnsupportedOperation"),
-                        methodHandle(TestRowType.class, "throwUnsupportedOperation"),
                         methodHandle(TestRowType.class, "throwUnsupportedOperation"))));
 
         RowType row = RowType.from(fields);
@@ -58,8 +56,6 @@ public class TestRowType
                         BOOLEAN,
                         DOUBLE,
                         methodHandle(TestRowType.class, "throwUnsupportedOperation"),
-                        methodHandle(TestRowType.class, "throwUnsupportedOperation"),
-                        methodHandle(TestRowType.class, "throwUnsupportedOperation"),
                         methodHandle(TestRowType.class, "throwUnsupportedOperation")));
         RowType row = RowType.anonymous(types);
         assertEquals(
@@ -77,8 +73,6 @@ public class TestRowType
                 RowType.field("map_col", new MapType(
                         BOOLEAN,
                         DOUBLE,
-                        methodHandle(TestRowType.class, "throwUnsupportedOperation"),
-                        methodHandle(TestRowType.class, "throwUnsupportedOperation"),
                         methodHandle(TestRowType.class, "throwUnsupportedOperation"),
                         methodHandle(TestRowType.class, "throwUnsupportedOperation"))));
 

@@ -33,7 +33,7 @@ import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.pagefile.PageInputFormat;
 import com.facebook.presto.hive.util.FooterAwareRecordReader;
 import com.facebook.presto.hive.util.HudiRealtimeSplitConverter;
-import com.facebook.presto.orc.OrcReader;
+import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.PrestoException;
@@ -404,7 +404,7 @@ public final class HiveUtil
         }
     }
 
-    public static StructObjectInspector getTableObjectInspector(@SuppressWarnings("deprecation") Deserializer deserializer)
+    public static StructObjectInspector getTableObjectInspector(Deserializer deserializer)
     {
         try {
             ObjectInspector inspector = deserializer.getObjectInspector();
@@ -428,7 +428,6 @@ public final class HiveUtil
         return name;
     }
 
-    @SuppressWarnings("deprecation")
     public static Deserializer getDeserializer(Configuration configuration, Properties schema)
     {
         String name = getDeserializerClassName(schema);
@@ -438,7 +437,6 @@ public final class HiveUtil
         return deserializer;
     }
 
-    @SuppressWarnings("deprecation")
     private static Class<? extends Deserializer> getDeserializerClass(String name)
     {
         // CDH uses different names for Parquet
@@ -461,7 +459,6 @@ public final class HiveUtil
         }
     }
 
-    @SuppressWarnings("deprecation")
     private static Deserializer createDeserializer(Class<? extends Deserializer> clazz)
     {
         try {
@@ -472,7 +469,6 @@ public final class HiveUtil
         }
     }
 
-    @SuppressWarnings("deprecation")
     private static void initializeDeserializer(Configuration configuration, Deserializer deserializer, Properties schema)
     {
         try {
@@ -485,7 +481,6 @@ public final class HiveUtil
         }
     }
 
-    @SuppressWarnings("deprecation")
     private static void validate(Deserializer deserializer)
     {
         if (deserializer instanceof AbstractSerDe && !((AbstractSerDe) deserializer).getConfigurationErrors().isEmpty()) {
@@ -524,8 +519,7 @@ public final class HiveUtil
     public static NullableValue parsePartitionValue(String partitionName, String value, Type type, DateTimeZone timeZone)
     {
         verifyPartitionTypeSupported(partitionName, type);
-
-        boolean isNull = HIVE_DEFAULT_DYNAMIC_PARTITION.equals(value);
+        boolean isNull = HIVE_DEFAULT_DYNAMIC_PARTITION.equals(value) || isHiveNull(value.getBytes(UTF_8));
 
         if (type instanceof DecimalType) {
             DecimalType decimalType = (DecimalType) type;
@@ -863,7 +857,7 @@ public final class HiveUtil
             // ignore unsupported types rather than failing
             HiveType hiveType = field.getType();
             if (hiveType.isSupportedType()) {
-                columns.add(new HiveColumnHandle(field.getName(), hiveType, hiveType.getTypeSignature(), hiveColumnIndex, REGULAR, field.getComment()));
+                columns.add(new HiveColumnHandle(field.getName(), hiveType, hiveType.getTypeSignature(), hiveColumnIndex, REGULAR, field.getComment(), Optional.empty()));
             }
             hiveColumnIndex++;
         }
@@ -882,7 +876,7 @@ public final class HiveUtil
             if (!hiveType.isSupportedType()) {
                 throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type %s found in partition keys of table %s.%s", hiveType, table.getDatabaseName(), table.getTableName()));
             }
-            columns.add(new HiveColumnHandle(field.getName(), hiveType, hiveType.getTypeSignature(), partitionColumnIndex--, PARTITION_KEY, field.getComment()));
+            columns.add(new HiveColumnHandle(field.getName(), hiveType, hiveType.getTypeSignature(), partitionColumnIndex--, PARTITION_KEY, field.getComment(), Optional.empty()));
         }
 
         return columns.build();
@@ -1014,15 +1008,16 @@ public final class HiveUtil
         }
     }
 
-    public static List<HiveColumnHandle> getPhysicalHiveColumnHandles(List<HiveColumnHandle> columns, boolean useOrcColumnNames, OrcReader reader, Path path)
+    public static List<HiveColumnHandle> getPhysicalHiveColumnHandles(List<HiveColumnHandle> columns, boolean useOrcColumnNames, List<OrcType> types, Path path)
     {
         if (!useOrcColumnNames) {
             return columns;
         }
 
-        verifyFileHasColumnNames(reader.getColumnNames(), path);
+        List<String> columnNames = getColumnNames(types);
+        verifyFileHasColumnNames(columnNames, path);
 
-        Map<String, Integer> physicalNameOrdinalMap = buildPhysicalNameOrdinalMap(reader);
+        Map<String, Integer> physicalNameOrdinalMap = buildPhysicalNameOrdinalMap(columnNames);
         int nextMissingColumnIndex = physicalNameOrdinalMap.size();
 
         ImmutableList.Builder<HiveColumnHandle> physicalColumns = ImmutableList.builder();
@@ -1040,9 +1035,14 @@ public final class HiveUtil
                     nextMissingColumnIndex++;
                 }
             }
-            physicalColumns.add(new HiveColumnHandle(column.getName(), column.getHiveType(), column.getTypeSignature(), physicalOrdinal, column.getColumnType(), column.getComment(), column.getRequiredSubfields()));
+            physicalColumns.add(new HiveColumnHandle(column.getName(), column.getHiveType(), column.getTypeSignature(), physicalOrdinal, column.getColumnType(), column.getComment(), column.getRequiredSubfields(), column.getPartialAggregation()));
         }
         return physicalColumns.build();
+    }
+
+    private static List<String> getColumnNames(List<OrcType> types)
+    {
+        return types.get(0).getFieldNames();
     }
 
     private static void verifyFileHasColumnNames(List<String> physicalColumnNames, Path path)
@@ -1054,12 +1054,12 @@ public final class HiveUtil
         }
     }
 
-    private static Map<String, Integer> buildPhysicalNameOrdinalMap(OrcReader reader)
+    private static Map<String, Integer> buildPhysicalNameOrdinalMap(List<String> columnNames)
     {
         ImmutableMap.Builder<String, Integer> physicalNameOrdinalMap = ImmutableMap.builder();
 
         int ordinal = 0;
-        for (String physicalColumnName : reader.getColumnNames()) {
+        for (String physicalColumnName : columnNames) {
             physicalNameOrdinalMap.put(physicalColumnName, ordinal);
             ordinal++;
         }

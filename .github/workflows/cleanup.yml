@@ -1,0 +1,14 @@
+name: cleanup
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+
+jobs:
+  cancel:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: n1hility/cancel-previous-runs@2e3c1893986568a2197c41957b9c809cbcf1a61e
+        with:
+          token: ${{ github.token }}
+          workflow: ci.yml
