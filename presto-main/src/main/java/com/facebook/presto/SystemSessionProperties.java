@@ -175,7 +175,6 @@ public final class SystemSessionProperties
     public static final String SKIP_REDUNDANT_SORT = "skip_redundant_sort";
     public static final String ALLOW_WINDOW_ORDER_BY_LITERALS = "allow_window_order_by_literals";
     public static final String ENFORCE_FIXED_DISTRIBUTION_FOR_OUTPUT_OPERATOR = "enforce_fixed_distribution_for_output_operator";
-    public static final String EMPTY_JOIN_SOURCES_OPTIMIZATION = "empty_join_sources_optimization";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -892,13 +891,9 @@ public final class SystemSessionProperties
                         featuresConfig.isInlineSqlFunctions(),
                         false),
                 booleanProperty(
-                        EMPTY_JOIN_SOURCES_OPTIMIZATION,
-                        "Simplify joins with one or more empty sources",
-                        featuresConfig.isEmptyJoinOptimization(),
-                        false));
                         REMOTE_FUNCTIONS_ENABLED,
                         "Allow remote functions",
-                        false,
+                        featuresConfig.isRemoteFunctionsEnabled(),
                         false),
                 booleanProperty(
                         CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY,
