@@ -561,6 +561,7 @@ public class PlanOptimizers
                         costCalculator,
                         // Run RemoveEmptyDelete and EliminateEmptyJoins after table scan is removed by PickTableLayout/AddExchanges
                         ImmutableSet.of(new RemoveEmptyDelete(), new EliminateEmptyJoins())));
+
         builder.add(predicatePushDown); // Run predicate push down one more time in case we can leverage new information from layouts' effective predicate
         builder.add(new RemoveUnsupportedDynamicFilters(metadata.getFunctionAndTypeManager()));
         builder.add(simplifyRowExpressionOptimizer); // Should be always run after PredicatePushDown

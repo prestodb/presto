@@ -153,6 +153,7 @@ public class TestFeaturesConfig
                 .setSkipRedundantSort(true)
                 .setWarnOnNoTableLayoutFilter("")
                 .setInlineSqlFunctions(true)
+                .setEmptyJoinOptimization(false));
                 .setCheckAccessControlOnUtilizedColumnsOnly(false)
                 .setAllowWindowOrderByLiterals(true)
                 .setEnforceFixedDistributionForOutputOperator(false)
@@ -368,6 +369,7 @@ public class TestFeaturesConfig
                 .setSkipRedundantSort(false)
                 .setWarnOnNoTableLayoutFilter("ry@nlikestheyankees,ds")
                 .setInlineSqlFunctions(false)
+                .setEmptyJoinOptimization(true);
                 .setCheckAccessControlOnUtilizedColumnsOnly(true)
                 .setSkipRedundantSort(false)
                 .setAllowWindowOrderByLiterals(false)

@@ -169,6 +169,7 @@ public final class SystemSessionProperties
     public static final String FRAGMENT_RESULT_CACHING_ENABLED = "fragment_result_caching_enabled";
     public static final String LEGACY_TYPE_COERCION_WARNING_ENABLED = "legacy_type_coercion_warning_enabled";
     public static final String INLINE_SQL_FUNCTIONS = "inline_sql_functions";
+    public static final String EMPTY_JOIN_SOURCES_OPTIMIZATION = "empty_join_sources_optimization";
     public static final String REMOTE_FUNCTIONS_ENABLED = "remote_functions_enabled";
     public static final String CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY = "check_access_control_on_utilized_columns_only";
     public static final String SKIP_REDUNDANT_SORT = "skip_redundant_sort";
@@ -891,6 +892,10 @@ public final class SystemSessionProperties
                         featuresConfig.isInlineSqlFunctions(),
                         false),
                 booleanProperty(
+                        EMPTY_JOIN_SOURCES_OPTIMIZATION,
+                        "Simplify joins with one or more empty sources",
+                        featuresConfig.isEmptyJoinOptimization(),
+                        false));
                         REMOTE_FUNCTIONS_ENABLED,
                         "Allow remote functions",
                         false,
@@ -930,6 +935,11 @@ public final class SystemSessionProperties
     public static boolean isAllowWindowOrderByLiterals(Session session)
     {
         return session.getSystemProperty(ALLOW_WINDOW_ORDER_BY_LITERALS, Boolean.class);
+    }
+
+    public static boolean isEmptyJoinOptimization(Session session)
+    {
+        return session.getSystemProperty(EMPTY_JOIN_SOURCES_OPTIMIZATION, Boolean.class);
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()

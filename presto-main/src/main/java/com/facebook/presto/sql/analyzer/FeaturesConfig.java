@@ -1484,6 +1484,16 @@ public class FeaturesConfig
         return this;
     }
 
+    public boolean isEmptyJoinOptimization()
+    {
+        return isEmptyJoinOptimization;
+    }
+
+    @Config("optimizer.is-empty-join-optimization")
+    public FeaturesConfig setEmptyJoinOptimization(boolean value)
+    {
+        this.isEmptyJoinOptimization = value;
+    }
     public boolean isCheckAccessControlOnUtilizedColumnsOnly()
     {
         return checkAccessControlOnUtilizedColumnsOnly;
