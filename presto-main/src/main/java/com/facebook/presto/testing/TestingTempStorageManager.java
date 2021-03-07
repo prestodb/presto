@@ -42,6 +42,6 @@ public class TestingTempStorageManager
         super(new TestingNodeManager());
         loadTempStorage(
                 LocalTempStorage.NAME,
-                ImmutableMap.of(TEMP_STORAGE_PATH, tempStoragePath));
+                ImmutableMap.of(TEMP_STORAGE_PATH, tempStoragePath, TempStorageManager.TEMP_STORAGE_FACTORY_NAME, "local"));
     }
 }

@@ -48,6 +48,7 @@ public class PrestoSparkServiceFactory
                 configuration.getAccessControlProperties(),
                 configuration.getSessionPropertyConfigurationProperties(),
                 configuration.getFunctionNamespaceProperties(),
+                configuration.getTempStorageProperties(),
                 getSqlParserOptions(),
                 getAdditionalModules(configuration));
 
