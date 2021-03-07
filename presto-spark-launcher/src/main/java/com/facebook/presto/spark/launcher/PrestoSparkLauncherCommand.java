@@ -61,6 +61,7 @@ public class PrestoSparkLauncherCommand
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
 
         try (PrestoSparkRunner runner = new PrestoSparkRunner(distribution)) {
