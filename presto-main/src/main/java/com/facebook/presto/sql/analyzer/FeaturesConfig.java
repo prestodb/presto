@@ -1493,6 +1493,7 @@ public class FeaturesConfig
     public FeaturesConfig setEmptyJoinOptimization(boolean value)
     {
         this.isEmptyJoinOptimization = value;
+        return this;
     }
     public boolean isCheckAccessControlOnUtilizedColumnsOnly()
     {
@@ -1539,18 +1540,6 @@ public class FeaturesConfig
     public FeaturesConfig setEnforceFixedDistributionForOutputOperator(boolean enforceFixedDistributionForOutputOperator)
     {
         this.enforceFixedDistributionForOutputOperator = enforceFixedDistributionForOutputOperator;
-        return this;
-    }
-
-    public boolean isEmptyJoinOptimization()
-    {
-        return isEmptyJoinOptimization;
-    }
-
-    @Config("optimizer.is-empty-join-optimization")
-    public FeaturesConfig setEmptyJoinOptimization(boolean value)
-    {
-        this.isEmptyJoinOptimization = value;
         return this;
     }
 }

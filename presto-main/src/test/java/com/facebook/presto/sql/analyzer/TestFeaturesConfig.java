@@ -372,7 +372,7 @@ public class TestFeaturesConfig
                 .setSkipRedundantSort(false)
                 .setAllowWindowOrderByLiterals(false)
                 .setEnforceFixedDistributionForOutputOperator(true)
-                .setEmptyJoinOptimization(false);
+                .setEmptyJoinOptimization(true);
         assertFullMapping(properties, expected);
     }
 
