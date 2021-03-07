@@ -60,6 +60,7 @@ public class PrestoSparkInjectorFactory
     private final Optional<Map<String, String>> accessControlProperties;
     private final Optional<Map<String, String>> sessionPropertyConfigurationProperties;
     private final Optional<Map<String, Map<String, String>>> functionNamespaceProperties;
+    private final Optional<Map<String, Map<String, String>>> tempStorageProperties;
     private final SqlParserOptions sqlParserOptions;
     private final List<Module> additionalModules;
     private final boolean isForTesting;
@@ -72,6 +73,7 @@ public class PrestoSparkInjectorFactory
             Optional<Map<String, String>> accessControlProperties,
             Optional<Map<String, String>> sessionPropertyConfigurationProperties,
             Optional<Map<String, Map<String, String>>> functionNamespaceProperties,
+            Optional<Map<String, Map<String, String>>> tempStorageProperties,
             SqlParserOptions sqlParserOptions,
             List<Module> additionalModules)
     {
@@ -83,6 +85,7 @@ public class PrestoSparkInjectorFactory
                 accessControlProperties,
                 sessionPropertyConfigurationProperties,
                 functionNamespaceProperties,
+                tempStorageProperties,
                 sqlParserOptions,
                 additionalModules,
                 false);
@@ -96,6 +99,7 @@ public class PrestoSparkInjectorFactory
             Optional<Map<String, String>> accessControlProperties,
             Optional<Map<String, String>> sessionPropertyConfigurationProperties,
             Optional<Map<String, Map<String, String>>> functionNamespaceProperties,
+            Optional<Map<String, Map<String, String>>> tempStorageProperties,
             SqlParserOptions sqlParserOptions,
             List<Module> additionalModules,
             boolean isForTesting)
@@ -108,6 +112,9 @@ public class PrestoSparkInjectorFactory
         this.accessControlProperties = requireNonNull(accessControlProperties, "accessControlProperties is null").map(ImmutableMap::copyOf);
         this.sessionPropertyConfigurationProperties = requireNonNull(sessionPropertyConfigurationProperties, "sessionPropertyConfigurationProperties is null").map(ImmutableMap::copyOf);
         this.functionNamespaceProperties = requireNonNull(functionNamespaceProperties, "functionNamespaceProperties is null")
+                .map(map -> map.entrySet().stream()
+                        .collect(toImmutableMap(Map.Entry::getKey, entry -> ImmutableMap.copyOf(entry.getValue()))));
+        this.tempStorageProperties = requireNonNull(tempStorageProperties, "tempStorageProperties is null")
                 .map(map -> map.entrySet().stream()
                         .collect(toImmutableMap(Map.Entry::getKey, entry -> ImmutableMap.copyOf(entry.getValue()))));
         this.sqlParserOptions = requireNonNull(sqlParserOptions, "sqlParserOptions is null");
@@ -173,7 +180,9 @@ public class PrestoSparkInjectorFactory
                     injector.getInstance(AccessControlManager.class).loadSystemAccessControl();
                 }
 
-                injector.getInstance(TempStorageManager.class).loadTempStorages();
+                if (tempStorageProperties.isPresent()) {
+                    injector.getInstance(TempStorageManager.class).loadTempStorages(tempStorageProperties.get());
+                }
             }
 
             if ((sparkProcessType.equals(DRIVER))) {
