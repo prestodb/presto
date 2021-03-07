@@ -1016,7 +1016,9 @@ public class PrestoSparkTaskExecutorFactory
                     ioException = e;
                 }
                 try {
-                    tempDataSink.rollback();
+                    if (tempDataSink != null) {
+                        tempDataSink.rollback();
+                    }
                 }
                 catch (IOException exception) {
                     if (ioException != exception) {
@@ -1026,7 +1028,9 @@ public class PrestoSparkTaskExecutorFactory
             }
             finally {
                 try {
-                    tempDataSink.close();
+                    if (tempDataSink != null) {
+                        tempDataSink.close();
+                    }
                 }
                 catch (IOException e) {
                     if (ioException == null) {

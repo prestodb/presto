@@ -36,6 +36,7 @@ public class PrestoSparkDistribution
     private final Optional<Map<String, String>> accessControlProperties;
     private final Optional<Map<String, String>> sessionPropertyConfigurationProperties;
     private final Optional<Map<String, Map<String, String>>> functionNamespaceProperties;
+    private final Optional<Map<String, Map<String, String>>> tempStorageProperties;
 
     public PrestoSparkDistribution(
             SparkContext sparkContext,
@@ -46,7 +47,8 @@ public class PrestoSparkDistribution
             Optional<Map<String, String>> eventListenerProperties,
             Optional<Map<String, String>> accessControlProperties,
             Optional<Map<String, String>> sessionPropertyConfigurationProperties,
-            Optional<Map<String, Map<String, String>>> functionNamespaceProperties)
+            Optional<Map<String, Map<String, String>>> functionNamespaceProperties,
+            Optional<Map<String, Map<String, String>>> tempStorageProperties)
     {
         this.sparkContext = requireNonNull(sparkContext, "sparkContext is null");
         this.packageSupplier = requireNonNull(packageSupplier, "packageSupplier is null");
@@ -61,6 +63,9 @@ public class PrestoSparkDistribution
         this.sessionPropertyConfigurationProperties = requireNonNull(sessionPropertyConfigurationProperties, "sessionPropertyConfigurationProperties is null")
                 .map(properties -> unmodifiableMap(new HashMap<>(properties)));
         this.functionNamespaceProperties = requireNonNull(functionNamespaceProperties, "functionNamespaceProperties is null")
+                .map(map -> map.entrySet().stream()
+                        .collect(toMap(Map.Entry::getKey, entry -> unmodifiableMap(new HashMap<>(entry.getValue())))));
+        this.tempStorageProperties = requireNonNull(tempStorageProperties, "tempStorageProperties is null")
                 .map(map -> map.entrySet().stream()
                         .collect(toMap(Map.Entry::getKey, entry -> unmodifiableMap(new HashMap<>(entry.getValue())))));
     }
@@ -108,5 +113,10 @@ public class PrestoSparkDistribution
     public Optional<Map<String, Map<String, String>>> getFunctionNamespaceProperties()
     {
         return functionNamespaceProperties;
+    }
+
+    public Optional<Map<String, Map<String, String>>> getTempStorageProperties()
+    {
+        return tempStorageProperties;
     }
 }
