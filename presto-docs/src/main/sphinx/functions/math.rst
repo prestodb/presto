@@ -85,6 +85,19 @@ Mathematical Functions
     The a, b parameters must be positive real numbers and value v must be a real value.
     The value v must lie on the interval [0, 1].
 
+.. function:: inverse_gamma_cdf(shape, scale, p) -> double
+
+    Compute the inverse of the Gamma cdf with given shape, scale parameters for the cumulative
+    probability (p): P(N < n). The shape, scale parameters must be positive real values.
+    The probability p must lie on the interval [0, 1].
+
+.. function:: gamma_cdf(a, b, v) -> double
+
+    Compute the Gamma cdf with given shape, scale parameters:  P(N < v; a, b).
+    The shape, scale parameters must be positive real numbers and value v must be a real value.
+    The value v must lie on the interval [0, 1].
+
+
 .. function:: ln(x) -> double
 
     Returns the natural logarithm of ``x``.
@@ -166,7 +179,7 @@ Mathematical Functions
 .. function:: truncate(x, n) -> double
 
     Returns ``x`` truncated to ``n`` decimal places.
-    ``n`` can be negative to truncate ``n`` digits left of the decimal point. 
+    ``n`` can be negative to truncate ``n`` digits left of the decimal point.
 
     Example:
     ``truncate(REAL '12.333', -1)`` -> result is 10.0
