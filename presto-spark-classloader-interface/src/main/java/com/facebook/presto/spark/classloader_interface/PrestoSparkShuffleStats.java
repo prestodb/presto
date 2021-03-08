@@ -15,9 +15,7 @@ package com.facebook.presto.spark.classloader_interface;
 
 import java.io.Serializable;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.spark_project.guava.base.Preconditions.checkArgument;
 
 public class PrestoSparkShuffleStats
@@ -97,14 +95,6 @@ public class PrestoSparkShuffleStats
     @Override
     public String toString()
     {
-        // readable summary to be displayed at the Spark web interface
-        return format(
-                "%s.%s:%s:%sM:%sMB:%smin",
-                fragmentId,
-                taskId,
-                operation.toString().charAt(0),
-                processedRows / 1000 / 1000,
-                processedBytes / 1024 / 1024,
-                MILLISECONDS.toMinutes(elapsedWallTimeMills));
+        return "";
     }
 }
