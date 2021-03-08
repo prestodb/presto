@@ -20,14 +20,10 @@ import static java.util.Objects.requireNonNull;
 public class SerializedTaskInfo
         implements Serializable
 {
-    private final int fragmentId;
-    private final int taskId;
     private final byte[] bytes;
 
-    public SerializedTaskInfo(int fragmentId, int taskId, byte[] bytes)
+    public SerializedTaskInfo(byte[] bytes)
     {
-        this.fragmentId = fragmentId;
-        this.taskId = taskId;
         this.bytes = requireNonNull(bytes, "bytes is null");
     }
 
@@ -40,6 +36,6 @@ public class SerializedTaskInfo
     // Displayed at the Spark web interface
     public String toString()
     {
-        return fragmentId + "." + taskId;
+        return "";
     }
 }
