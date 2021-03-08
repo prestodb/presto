@@ -60,6 +60,13 @@ public class TestTimeZoneUtils
                 continue;
             }
 
+            if (zoneId.equals("US/Pacific-New")) {
+                // TODO: Remove once minimum Java version is increased 11.0.10
+                // https://www.oracle.com/java/technologies/tzdata-versions.html
+                // http://mm.icann.org/pipermail/tz-announce/2020-October/000059.html
+                continue;
+            }
+
             DateTimeZone dateTimeZone = DateTimeZone.forID(zoneId);
             DateTimeZone indexedZone = getDateTimeZone(TimeZoneKey.getTimeZoneKey(zoneId));
 
