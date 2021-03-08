@@ -54,7 +54,9 @@
         <dep.jdbi3.version>3.4.0</dep.jdbi3.version>
         <dep.oracle.version>19.3.0.0</dep.oracle.version>
         <dep.drift.version>1.32</dep.drift.version>
-        <dep.joda.version>2.10.6</dep.joda.version>
+        <!-- Changing joda version changes tzdata which must match deployed JVM tzdata
+             Do not change this without also making sure it matches -->
+        <dep.joda.version>2.10.8</dep.joda.version>
         <dep.tempto.version>1.51</dep.tempto.version>
         <dep.testng.version>6.10</dep.testng.version>
         <dep.assertj-core.version>3.8.0</dep.assertj-core.version>
