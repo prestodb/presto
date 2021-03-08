@@ -707,8 +707,6 @@ public class PrestoSparkTaskExecutorFactory
 
             TaskInfo taskInfo = createTaskInfo(taskContext, taskStateMachine, taskInstanceId, outputBufferType, outputBuffer);
             SerializedTaskInfo serializedTaskInfo = new SerializedTaskInfo(
-                    taskInfo.getTaskId().getStageExecutionId().getStageId().getId(),
-                    taskInfo.getTaskId().getId(),
                     compress(taskInfoJsonCodec.toJsonBytes(taskInfo)));
             taskInfoCollector.add(serializedTaskInfo);
 
