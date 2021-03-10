@@ -31,6 +31,7 @@ import com.facebook.presto.thrift.api.udf.PrestoThriftPage;
 import com.facebook.presto.thrift.api.udf.ThriftFunctionHandle;
 import com.facebook.presto.thrift.api.udf.ThriftUdfPage;
 import com.facebook.presto.thrift.api.udf.ThriftUdfPageFormat;
+import com.facebook.presto.thrift.api.udf.ThriftUdfRequest;
 import com.facebook.presto.thrift.api.udf.ThriftUdfResult;
 import com.facebook.presto.thrift.api.udf.ThriftUdfService;
 import com.facebook.presto.thrift.api.udf.ThriftUdfServiceException;
@@ -80,6 +81,7 @@ public class ThriftSqlFunctionExecutor
     }
 
     public CompletableFuture<Block> executeFunction(
+            String source,
             ThriftScalarFunctionImplementation functionImplementation,
             Page input,
             List<Integer> channels,
@@ -97,18 +99,17 @@ public class ThriftSqlFunctionExecutor
                 returnType.toString(),
                 functionHandle.getVersion());
         ThriftUdfService thriftUdfService = thriftUdfClient.get(Optional.of(functionImplementation.getLanguage().getLanguage()));
-        return invokeUdfAndHandleException(thriftUdfService, thriftFunctionHandle, page)
+        return invokeUdfAndHandleException(thriftUdfService, new ThriftUdfRequest(source, thriftFunctionHandle, page))
                 .thenApply(result -> getResultBlock(result, returnType));
     }
 
     public static CompletableFuture<ThriftUdfResult> invokeUdfAndHandleException(
             ThriftUdfService thriftUdfService,
-            ThriftFunctionHandle functionHandle,
-            ThriftUdfPage page)
+            ThriftUdfRequest request)
     {
         ListenableFuture<ThriftUdfResult> resultFuture;
         try {
-            resultFuture = thriftUdfService.invokeUdf(functionHandle, page);
+            resultFuture = thriftUdfService.invokeUdf(request);
         }
         catch (ThriftUdfServiceException | TException e) {
             // Those exceptions are declared in ThriftUdfService.invokedUdf but
