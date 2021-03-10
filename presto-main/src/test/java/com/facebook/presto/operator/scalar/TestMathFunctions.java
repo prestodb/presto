@@ -1373,6 +1373,32 @@ public class TestMathFunctions
     }
 
     @Test
+    public void testInverseChiSquaredCdf()
+    {
+        assertFunction("inverse_chi_squared_cdf(3, 0.0)", DOUBLE, 0.0);
+        assertFunction("round(inverse_chi_squared_cdf(3, 0.99), 4)", DOUBLE, 11.3449);
+        assertFunction("round(inverse_chi_squared_cdf(3, 0.3),2)", DOUBLE, 1.42);
+        assertFunction("round(inverse_chi_squared_cdf(3, 0.95),2)", DOUBLE, 7.81);
+
+        assertInvalidFunction("inverse_chi_squared_cdf(-3, 0.3)", "df must be greater than 0");
+        assertInvalidFunction("inverse_chi_squared_cdf(3, -0.1)", "p must be in the interval [0, 1]");
+        assertInvalidFunction("inverse_chi_squared_cdf(3, 1.1)", "p must be in the interval [0, 1]");
+    }
+
+    @Test
+    public void testChiSquaredCdf()
+            throws Exception
+    {
+        assertFunction("chi_squared_cdf(3, 0.0)", DOUBLE, 0.0);
+        assertFunction("round(chi_squared_cdf(3, 1.0), 4)", DOUBLE, 0.1987);
+        assertFunction("round(chi_squared_cdf(3, 2.5), 2)", DOUBLE, 0.52);
+        assertFunction("round(chi_squared_cdf(3, 4), 2)", DOUBLE, 0.74);
+
+        assertInvalidFunction("chi_squared_cdf(-3, 0.3)", "df must be greater than 0");
+        assertInvalidFunction("chi_squared_cdf(3, -10)", "value must non-negative");
+    }
+
+    @Test
     public void testWilsonInterval()
     {
         assertInvalidFunction("wilson_interval_lower(-1, 100, 2.575)", "number of successes must not be negative");

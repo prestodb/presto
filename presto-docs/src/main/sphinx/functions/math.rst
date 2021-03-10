@@ -34,6 +34,12 @@ Mathematical Functions
 
     Returns ``x`` rounded up to the nearest integer.
 
+.. function:: chi_squared_cdf(df, value) -> double
+
+    Compute the Chi-square cdf with given df (degrees of freedom) parameter:  P(N < value; df).
+    The df parameter must be positive real numbers and value must be a real value.
+    The value must be non-negative.
+
 .. function:: cosine_similarity(x, y) -> double
 
     Returns the cosine similarity between the sparse vectors ``x`` and ``y``::
@@ -59,6 +65,12 @@ Mathematical Functions
 .. function:: from_base(string, radix) -> bigint
 
     Returns the value of ``string`` interpreted as a base-``radix`` number.
+
+.. function:: inverse_chi_squared_cdf(df, p) -> double
+
+    Compute the inverse of the Chi-square cdf with given df (degrees of freedom) parameter for the cumulative
+    probability (p): P(N < n). The df parameter must be positive real values.
+    The probability p must lie on the interval [0, 1].
 
 .. function:: inverse_normal_cdf(mean, sd, p) -> double
 
