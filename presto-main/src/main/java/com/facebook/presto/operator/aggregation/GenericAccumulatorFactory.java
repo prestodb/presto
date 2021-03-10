@@ -666,7 +666,7 @@ public class GenericAccumulatorFactory
             for (int i = 0; i < groupIdsBlock.getPositionCount(); i++) {
                 long currentGroupId = groupIdsBlock.getGroupId(i);
                 groupIdCount.ensureCapacity(currentGroupId);
-                groupIdCount.set(currentGroupId, groupIdCount.get(currentGroupId) + 1);
+                groupIdCount.increment(currentGroupId);
             }
         }
 
