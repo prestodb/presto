@@ -84,7 +84,7 @@ public interface FunctionNamespaceManager<F extends SqlFunction>
 
     ScalarFunctionImplementation getScalarFunctionImplementation(FunctionHandle functionHandle);
 
-    CompletableFuture<Block> executeFunction(FunctionHandle functionHandle, Page input, List<Integer> channels, TypeManager typeManager);
+    CompletableFuture<Block> executeFunction(String source, FunctionHandle functionHandle, Page input, List<Integer> channels, TypeManager typeManager);
 
     void addUserDefinedType(UserDefinedType userDefinedType);
 

@@ -83,6 +83,7 @@ public class RemoteProjectOperator
             else if (projection instanceof CallExpression) {
                 CallExpression remoteCall = (CallExpression) projection;
                 result[channel] = functionAndTypeManager.executeFunction(
+                        operatorContext.getDriverContext().getTaskId().toString(),
                         remoteCall.getFunctionHandle(),
                         page,
                         remoteCall.getArguments().stream()

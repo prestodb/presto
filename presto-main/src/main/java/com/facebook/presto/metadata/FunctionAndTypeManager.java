@@ -412,11 +412,11 @@ public class FunctionAndTypeManager
         return functionNamespaceManager.get().getScalarFunctionImplementation(functionHandle);
     }
 
-    public CompletableFuture<Block> executeFunction(FunctionHandle functionHandle, Page inputPage, List<Integer> channels)
+    public CompletableFuture<Block> executeFunction(String source, FunctionHandle functionHandle, Page inputPage, List<Integer> channels)
     {
         Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionHandle.getCatalogSchemaName());
         checkState(functionNamespaceManager.isPresent(), format("FunctionHandle %s should have a serving function namespace", functionHandle));
-        return functionNamespaceManager.get().executeFunction(functionHandle, inputPage, channels, this);
+        return functionNamespaceManager.get().executeFunction(source, functionHandle, inputPage, channels, this);
     }
 
     public WindowFunctionSupplier getWindowFunctionImplementation(FunctionHandle functionHandle)
