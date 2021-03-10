@@ -64,10 +64,10 @@ public class SqlFunctionExecutors
         return supportedLanguages.get(language);
     }
 
-    public CompletableFuture<Block> executeFunction(ScalarFunctionImplementation functionImplementation, Page input, List<Integer> channels, List<Type> argumentTypes, Type returnType)
+    public CompletableFuture<Block> executeFunction(String source, ScalarFunctionImplementation functionImplementation, Page input, List<Integer> channels, List<Type> argumentTypes, Type returnType)
     {
         checkArgument(functionImplementation instanceof ThriftScalarFunctionImplementation, format("Only support ThriftScalarFunctionImplementation, got %s", functionImplementation.getClass()));
         checkState(thriftSqlFunctionExecutor.isPresent(), "Thrift SQL function executor is not setup");
-        return thriftSqlFunctionExecutor.get().executeFunction((ThriftScalarFunctionImplementation) functionImplementation, input, channels, argumentTypes, returnType);
+        return thriftSqlFunctionExecutor.get().executeFunction(source, (ThriftScalarFunctionImplementation) functionImplementation, input, channels, argumentTypes, returnType);
     }
 }

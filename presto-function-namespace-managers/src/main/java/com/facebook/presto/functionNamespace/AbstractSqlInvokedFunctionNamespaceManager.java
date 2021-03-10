@@ -211,11 +211,12 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
     }
 
     @Override
-    public CompletableFuture<Block> executeFunction(FunctionHandle functionHandle, Page input, List<Integer> channels, TypeManager typeManager)
+    public CompletableFuture<Block> executeFunction(String source, FunctionHandle functionHandle, Page input, List<Integer> channels, TypeManager typeManager)
     {
         checkArgument(functionHandle instanceof SqlFunctionHandle, format("Expect SqlFunctionHandle, got %s", functionHandle.getClass()));
         FunctionMetadata functionMetadata = getFunctionMetadata(functionHandle);
         return sqlFunctionExecutors.executeFunction(
+                source,
                 getScalarFunctionImplementation(functionHandle),
                 input,
                 channels,

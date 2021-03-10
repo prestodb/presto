@@ -979,7 +979,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
     }
 
     @Override
-    public final CompletableFuture<Block> executeFunction(FunctionHandle functionHandle, Page input, List<Integer> channels, TypeManager typeManager)
+    public final CompletableFuture<Block> executeFunction(String source, FunctionHandle functionHandle, Page input, List<Integer> channels, TypeManager typeManager)
     {
         throw new IllegalStateException("Builtin function execution should be handled by the engine.");
     }

@@ -17,8 +17,8 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.thrift.api.udf.PrestoThriftPage;
-import com.facebook.presto.thrift.api.udf.ThriftFunctionHandle;
 import com.facebook.presto.thrift.api.udf.ThriftUdfPage;
+import com.facebook.presto.thrift.api.udf.ThriftUdfRequest;
 import com.facebook.presto.thrift.api.udf.ThriftUdfResult;
 import com.facebook.presto.thrift.api.udf.ThriftUdfService;
 import com.facebook.presto.thrift.api.udf.ThriftUdfStats;
@@ -44,10 +44,9 @@ public class EchoFirstInputThriftUdfService
     }
 
     @Override
-    public ListenableFuture<ThriftUdfResult> invokeUdf(
-            ThriftFunctionHandle functionHandle,
-            ThriftUdfPage inputs)
+    public ListenableFuture<ThriftUdfResult> invokeUdf(ThriftUdfRequest request)
     {
+        ThriftUdfPage inputs = request.getInputs();
         ThriftUdfPage result;
         switch (inputs.getPageFormat()) {
             case PRESTO_THRIFT:
