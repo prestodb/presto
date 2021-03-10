@@ -18,7 +18,6 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
 import com.facebook.presto.orc.metadata.OrcMetadataReader;
-import com.facebook.presto.orc.metadata.statistics.BloomFilter;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.metadata.statistics.HiveBloomFilter;
 import com.facebook.presto.orc.metadata.statistics.IntegerStatistics;
@@ -28,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Longs;
 import io.airlift.slice.Slice;
+import org.apache.hive.common.util.BloomFilter;
 import org.testng.annotations.Test;
 
 import java.io.ByteArrayInputStream;

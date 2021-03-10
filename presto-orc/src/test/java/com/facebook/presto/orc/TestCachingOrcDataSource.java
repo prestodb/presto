@@ -24,12 +24,10 @@ import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
-import org.apache.hadoop.hive.ql.io.IOConstants;
 import org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.JobConf;
-import org.apache.orc.OrcConf;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -283,13 +281,13 @@ public class TestCachingOrcDataSource
             throws IOException
     {
         JobConf jobConf = new JobConf();
-        OrcConf.WRITE_FORMAT.setString(jobConf, format == ORC_12 ? "0.12" : "0.11");
-        OrcConf.COMPRESS.setString(jobConf, compression.name());
+        jobConf.set("hive.exec.orc.write.format", format == ORC_12 ? "0.12" : "0.11");
+        jobConf.set("hive.exec.orc.default.compress", compression.name());
 
         Properties tableProperties = new Properties();
-        tableProperties.setProperty(IOConstants.COLUMNS, "test");
-        tableProperties.setProperty(IOConstants.COLUMNS_TYPES, columnObjectInspector.getTypeName());
-        tableProperties.setProperty(OrcConf.STRIPE_SIZE.getAttribute(), "120000");
+        tableProperties.setProperty("columns", "test");
+        tableProperties.setProperty("columns.types", columnObjectInspector.getTypeName());
+        tableProperties.setProperty("orc.stripe.size", "1200000");
 
         return new OrcOutputFormat().getHiveRecordWriter(
                 jobConf,
