@@ -54,6 +54,7 @@ import static com.facebook.presto.execution.scheduler.NodeScheduler.toWhenHasSpl
 import static com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionUtils.sortedNodes;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class TopologyAwareNodeSelector
@@ -69,6 +70,7 @@ public class TopologyAwareNodeSelector
     private final int minCandidates;
     private final int maxSplitsPerNode;
     private final int maxPendingSplitsPerTask;
+    private final int maxUnacknowledgedSplitsPerTask;
     private final List<CounterStat> topologicalSplitCounters;
     private final List<String> networkLocationSegmentNames;
     private final NetworkLocationCache networkLocationCache;
@@ -82,6 +84,7 @@ public class TopologyAwareNodeSelector
             int minCandidates,
             int maxSplitsPerNode,
             int maxPendingSplitsPerTask,
+            int maxUnacknowledgedSplitsPerTask,
             List<CounterStat> topologicalSplitCounters,
             List<String> networkLocationSegmentNames,
             NetworkLocationCache networkLocationCache)
@@ -94,6 +97,8 @@ public class TopologyAwareNodeSelector
         this.minCandidates = minCandidates;
         this.maxSplitsPerNode = maxSplitsPerNode;
         this.maxPendingSplitsPerTask = maxPendingSplitsPerTask;
+        this.maxUnacknowledgedSplitsPerTask = maxUnacknowledgedSplitsPerTask;
+        checkArgument(maxUnacknowledgedSplitsPerTask > 0, "maxUnacknowledgedSplitsPerTask must be > 0, found: %s", maxUnacknowledgedSplitsPerTask);
         this.topologicalSplitCounters = requireNonNull(topologicalSplitCounters, "topologicalSplitCounters is null");
         this.networkLocationSegmentNames = requireNonNull(networkLocationSegmentNames, "networkLocationSegmentNames is null");
         this.networkLocationCache = requireNonNull(networkLocationCache, "networkLocationCache is null");
@@ -235,7 +240,7 @@ public class TopologyAwareNodeSelector
     @Override
     public SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks, BucketNodeMap bucketNodeMap)
     {
-        return selectDistributionNodes(nodeMap.get().get(), nodeTaskMap, maxSplitsPerNode, maxPendingSplitsPerTask, splits, existingTasks, bucketNodeMap, nodeSelectionStats);
+        return selectDistributionNodes(nodeMap.get().get(), nodeTaskMap, maxSplitsPerNode, maxPendingSplitsPerTask, maxUnacknowledgedSplitsPerTask, splits, existingTasks, bucketNodeMap, nodeSelectionStats);
     }
 
     @Nullable
@@ -247,12 +252,13 @@ public class TopologyAwareNodeSelector
 
         while (candidates.hasNext() && (fullCandidatesConsidered < minCandidatesWhenFull || bestQueueNotFull == null)) {
             InternalNode node = candidates.next();
-            if (assignmentStats.getTotalSplitCount(node) < maxSplitsPerNode) {
+            boolean hasUnacknowledgedSplitSpace = assignmentStats.getUnacknowledgedSplitCountForStage(node) < maxUnacknowledgedSplitsPerTask;
+            if (hasUnacknowledgedSplitSpace && assignmentStats.getTotalSplitCount(node) < maxSplitsPerNode) {
                 return node;
             }
             fullCandidatesConsidered++;
             int totalSplitCount = assignmentStats.getQueuedSplitCountForStage(node);
-            if (totalSplitCount < min && totalSplitCount < maxPendingSplitsPerTask) {
+            if (hasUnacknowledgedSplitSpace && totalSplitCount < min && totalSplitCount < maxPendingSplitsPerTask) {
                 min = totalSplitCount;
                 bestQueueNotFull = node;
             }
