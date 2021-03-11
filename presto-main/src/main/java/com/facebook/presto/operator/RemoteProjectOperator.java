@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.function.SqlFunctionResult;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -37,6 +38,7 @@ import static java.lang.String.format;
 import static java.lang.Thread.currentThread;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class RemoteProjectOperator
         implements Operator
@@ -45,7 +47,7 @@ public class RemoteProjectOperator
     private final FunctionAndTypeManager functionAndTypeManager;
     private final List<RowExpression> projections;
 
-    private final CompletableFuture<Block>[] result;
+    private final CompletableFuture<SqlFunctionResult>[] result;
 
     private boolean finishing;
 
@@ -78,7 +80,7 @@ public class RemoteProjectOperator
         for (int channel = 0; channel < projections.size(); channel++) {
             RowExpression projection = projections.get(channel);
             if (projection instanceof InputReferenceExpression) {
-                result[channel] = completedFuture(page.getBlock(((InputReferenceExpression) projection).getField()));
+                result[channel] = completedFuture(new SqlFunctionResult(page.getBlock(((InputReferenceExpression) projection).getField()), 0));
             }
             else if (projection instanceof CallExpression) {
                 CallExpression remoteCall = (CallExpression) projection;
@@ -105,7 +107,8 @@ public class RemoteProjectOperator
             Page output;
             try {
                 for (int i = 0; i < blocks.length; i++) {
-                    blocks[i] = result[i].get();
+                    blocks[i] = result[i].get().getResult();
+                    operatorContext.recordAdditionalCpu(MILLISECONDS.toNanos(result[i].get().getCpuTimeMs()));
                 }
                 output = new Page(blocks);
                 Arrays.fill(result, null);

@@ -14,8 +14,8 @@
 package com.facebook.presto.functionNamespace.execution;
 
 import com.facebook.presto.common.Page;
-import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.common.function.SqlFunctionResult;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.functionNamespace.execution.thrift.ThriftSqlFunctionExecutor;
 import com.facebook.presto.spi.function.FunctionImplementationType;
@@ -64,7 +64,7 @@ public class SqlFunctionExecutors
         return supportedLanguages.get(language);
     }
 
-    public CompletableFuture<Block> executeFunction(String source, ScalarFunctionImplementation functionImplementation, Page input, List<Integer> channels, List<Type> argumentTypes, Type returnType)
+    public CompletableFuture<SqlFunctionResult> executeFunction(String source, ScalarFunctionImplementation functionImplementation, Page input, List<Integer> channels, List<Type> argumentTypes, Type returnType)
     {
         checkArgument(functionImplementation instanceof ThriftScalarFunctionImplementation, format("Only support ThriftScalarFunctionImplementation, got %s", functionImplementation.getClass()));
         checkState(thriftSqlFunctionExecutor.isPresent(), "Thrift SQL function executor is not setup");
