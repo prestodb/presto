@@ -28,6 +28,11 @@ Mathematical Functions
     The successProbability must be real value in [0, 1], numberOfTrials and value must be
     positive integers with numberOfTrials greater or equal to value.
 
+.. function:: cauchy_cdf(median, scale, value) -> double
+
+    Compute the Cauchy cdf with given parameters median and scale (gamma): P(N; median, scale).
+    The scale parameter must be a positive double. The value parameter must be a double on the interval [0, 1].
+
 .. function:: cbrt(x) -> double
 
     Returns the cube root of ``x``.
@@ -78,6 +83,11 @@ Mathematical Functions
     cumulative probability (p):  P(N <= n).
     The successProbability and p must be real values in [0, 1] and the numberOfTrials must be
     a positive integer.
+
+.. function:: inverse_cauchy_cdf(median, scale, p) -> double
+
+    Compute the inverse of the Cauchy cdf with given parameters median and scale (gamma) for the probability p.
+    The scale parameter must be a positive double. The probability p must be a double on the interval [0, 1].
 
 .. function:: inverse_chi_squared_cdf(df, p) -> double
 

@@ -1402,6 +1402,30 @@ public class TestMathFunctions
     }
 
     @Test
+    public void testInverseCauchyCdf()
+    {
+        assertFunction("inverse_cauchy_cdf(0.0, 1.0, 0.5)", DOUBLE, 0.0);
+        assertFunction("inverse_cauchy_cdf(5.0, 2.0, 0.25)", DOUBLE, 3.0);
+        assertFunction("round(inverse_cauchy_cdf(2.5, 1.0, 0.65), 2)", DOUBLE, 3.01);
+        assertFunction("round(inverse_cauchy_cdf(5.0, 1.0, 0.15), 2)", DOUBLE, 3.04);
+
+        assertInvalidFunction("inverse_cauchy_cdf(0.0, -1.0, 0.0)", "scale must be greater than 0");
+    }
+
+    @Test
+    public void testCauchyCdf()
+            throws Exception
+    {
+        assertFunction("cauchy_cdf(0.0, 1.0, 0.0)", DOUBLE, 0.5);
+        assertFunction("cauchy_cdf(0.0, 1.0, 1.0)", DOUBLE, 0.75);
+        assertFunction("cauchy_cdf(5.0, 2.0, 3.0)", DOUBLE, 0.25);
+        assertFunction("round(cauchy_cdf(2.5, 1.0, 3.0), 2)", DOUBLE, 0.65);
+        assertFunction("round(cauchy_cdf(5.0, 1.0, 3.0), 2)", DOUBLE, 0.15);
+
+        assertInvalidFunction("cauchy_cdf(0.0, -1.0, 0.0)", "scale must be greater than 0");
+    }
+
+    @Test
     public void testInverseChiSquaredCdf()
     {
         assertFunction("inverse_chi_squared_cdf(3, 0.0)", DOUBLE, 0.0);
