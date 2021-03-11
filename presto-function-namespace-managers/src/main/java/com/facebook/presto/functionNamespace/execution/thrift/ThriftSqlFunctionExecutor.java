@@ -18,6 +18,7 @@ import com.facebook.drift.client.DriftClient;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.common.function.SqlFunctionResult;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.PrestoException;
@@ -80,7 +81,7 @@ public class ThriftSqlFunctionExecutor
         this.blockEncodingSerde = blockEncodingSerde;
     }
 
-    public CompletableFuture<Block> executeFunction(
+    public CompletableFuture<SqlFunctionResult> executeFunction(
             String source,
             ThriftScalarFunctionImplementation functionImplementation,
             Page input,
@@ -100,7 +101,7 @@ public class ThriftSqlFunctionExecutor
                 functionHandle.getVersion());
         ThriftUdfService thriftUdfService = thriftUdfClient.get(Optional.of(functionImplementation.getLanguage().getLanguage()));
         return invokeUdfAndHandleException(thriftUdfService, new ThriftUdfRequest(source, thriftFunctionHandle, page))
-                .thenApply(result -> getResultBlock(result, returnType));
+                .thenApply(thriftResult -> toSqlFunctionResult(thriftResult, returnType));
     }
 
     public static CompletableFuture<ThriftUdfResult> invokeUdfAndHandleException(
@@ -174,16 +175,16 @@ public class ThriftSqlFunctionExecutor
         }
     }
 
-    private Block getResultBlock(ThriftUdfResult result, Type returnType)
+    private SqlFunctionResult toSqlFunctionResult(ThriftUdfResult result, Type returnType)
     {
         ThriftUdfPage page = result.getResult();
         switch (page.getPageFormat()) {
             case PRESTO_THRIFT:
-                return getOnlyElement(page.getThriftPage().getThriftBlocks()).toBlock(returnType);
+                return new SqlFunctionResult(getOnlyElement(page.getThriftPage().getThriftBlocks()).toBlock(returnType), result.getUdfStats().getTotalCpuTimeMs());
             case PRESTO_SERIALIZED:
                 checkState(blockEncodingSerde != null, "blockEncodingSerde not set");
                 PagesSerde pagesSerde = new PagesSerde(blockEncodingSerde, Optional.empty(), Optional.empty(), Optional.empty());
-                return pagesSerde.deserialize(page.getPrestoPage().toSerializedPage()).getBlock(0);
+                return new SqlFunctionResult(pagesSerde.deserialize(page.getPrestoPage().toSerializedPage()).getBlock(0), result.getUdfStats().getTotalCpuTimeMs());
             default:
                 throw new IllegalArgumentException(format("Unknown page format: %s", page.getPageFormat()));
         }

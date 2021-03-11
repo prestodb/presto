@@ -15,8 +15,8 @@ package com.facebook.presto.spi.function;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.QualifiedObjectName;
-import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.common.function.SqlFunctionResult;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.UserDefinedType;
@@ -84,7 +84,7 @@ public interface FunctionNamespaceManager<F extends SqlFunction>
 
     ScalarFunctionImplementation getScalarFunctionImplementation(FunctionHandle functionHandle);
 
-    CompletableFuture<Block> executeFunction(String source, FunctionHandle functionHandle, Page input, List<Integer> channels, TypeManager typeManager);
+    CompletableFuture<SqlFunctionResult> executeFunction(String source, FunctionHandle functionHandle, Page input, List<Integer> channels, TypeManager typeManager);
 
     void addUserDefinedType(UserDefinedType userDefinedType);
 
