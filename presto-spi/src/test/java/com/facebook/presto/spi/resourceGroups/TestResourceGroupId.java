@@ -37,8 +37,8 @@ public class TestResourceGroupId
         ResourceGroupId resourceGroupId = new ResourceGroupId(new ResourceGroupId("test.test"), "foo");
         assertEquals(codec.fromJson(codec.toJson(resourceGroupId)), resourceGroupId);
 
-        assertEquals(codec.toJson(resourceGroupId), "[ \"test.test\", \"foo\" ]");
-        assertEquals(codec.fromJson("[\"test.test\", \"foo\"]"), resourceGroupId);
+        assertEquals(codec.toJson(resourceGroupId), "[ \"test\", \"test\", \"foo\" ]");
+        assertEquals(codec.fromJson("[\"test\", \"test\", \"foo\"]"), resourceGroupId);
     }
 
     @Test

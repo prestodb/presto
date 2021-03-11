@@ -131,6 +131,37 @@ public class TestQueuesDb
         closeQuietly(queryRunner);
     }
 
+    @Test(timeOut = 60_000)
+    public void testMultiResourceGroupConcurrencyThreshold()
+            throws Exception
+    {
+        String dbConfigUrl1 = getDbConfigUrl();
+        H2ResourceGroupsDao dao = getDao(dbConfigUrl1);
+        DistributedQueryRunner queryRunner = createQueryRunner(dbConfigUrl1, dao, ImmutableMap.of("concurrency-threshold-to-enable-resource-group-refresh", "0.1", "resource-group-runtimeinfo-refresh-interval", "2s"));
+
+        MILLISECONDS.sleep(500);
+        QueryId firstAdhocQuery = createQuery(queryRunner, adhocSession(), LONG_LASTING_QUERY);
+
+        QueryId secondAdhocQuery = createQuery(queryRunner, adhocSession(), LONG_LASTING_QUERY);
+
+        QueryId thirdAdhocQuery = createQuery(queryRunner, adhocSession(), LONG_LASTING_QUERY);
+
+        waitForQueryState(queryRunner, firstAdhocQuery, RUNNING);
+        waitForQueryState(queryRunner, secondAdhocQuery, RUNNING);
+        waitForQueryState(queryRunner, thirdAdhocQuery, RUNNING);
+
+        QueryId firstDashboardQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
+
+        waitForQueryState(queryRunner, firstDashboardQuery, QUEUED);
+
+        cancelQuery(queryRunner, firstAdhocQuery);
+        waitForQueryState(queryRunner, firstDashboardQuery, RUNNING);
+
+        waitForRunningQueryCount(queryRunner, 3);
+
+        closeQuietly(queryRunner);
+    }
+
     @Test(timeOut = 600_000)
     public void testBasic()
             throws Exception

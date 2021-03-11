@@ -20,6 +20,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -36,7 +37,10 @@ public final class ResourceGroupId
 
     public ResourceGroupId(String name)
     {
-        this(singletonList(requireNonNull(name, "name is null")));
+//        requireNonNull(name, "name is null");
+//        String[] splits = name.split("\\.");
+//        List<String> resourceGroupSegments = Arrays.asList(splits);
+        this(Arrays.asList(requireNonNull(name, "name is null").split("\\.")));
     }
 
     public ResourceGroupId(ResourceGroupId parent, String name)
