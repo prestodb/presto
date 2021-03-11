@@ -16,6 +16,7 @@ package com.facebook.presto;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy;
 import com.facebook.presto.execution.TaskManagerConfig;
+import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.execution.warnings.WarningHandlingLevel;
 import com.facebook.presto.memory.MemoryManagerConfig;
@@ -174,12 +175,13 @@ public final class SystemSessionProperties
     public static final String SKIP_REDUNDANT_SORT = "skip_redundant_sort";
     public static final String ALLOW_WINDOW_ORDER_BY_LITERALS = "allow_window_order_by_literals";
     public static final String ENFORCE_FIXED_DISTRIBUTION_FOR_OUTPUT_OPERATOR = "enforce_fixed_distribution_for_output_operator";
+    public static final String MAX_UNACKNOWLEDGED_SPLITS_PER_TASK = "max_unacknowledged_splits_per_task";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
     public SystemSessionProperties()
     {
-        this(new QueryManagerConfig(), new TaskManagerConfig(), new MemoryManagerConfig(), new FeaturesConfig(), new NodeMemoryConfig(), new WarningCollectorConfig());
+        this(new QueryManagerConfig(), new TaskManagerConfig(), new MemoryManagerConfig(), new FeaturesConfig(), new NodeMemoryConfig(), new WarningCollectorConfig(), new NodeSchedulerConfig());
     }
 
     @Inject
@@ -189,7 +191,8 @@ public final class SystemSessionProperties
             MemoryManagerConfig memoryManagerConfig,
             FeaturesConfig featuresConfig,
             NodeMemoryConfig nodeMemoryConfig,
-            WarningCollectorConfig warningCollectorConfig)
+            WarningCollectorConfig warningCollectorConfig,
+            NodeSchedulerConfig nodeSchedulerConfig)
     {
         sessionProperties = ImmutableList.of(
                 stringProperty(
@@ -908,7 +911,16 @@ public final class SystemSessionProperties
                         ENFORCE_FIXED_DISTRIBUTION_FOR_OUTPUT_OPERATOR,
                         "Enforce fixed distribution for output operator",
                         featuresConfig.isEnforceFixedDistributionForOutputOperator(),
-                        true));
+                        true),
+                new PropertyMetadata<>(
+                        MAX_UNACKNOWLEDGED_SPLITS_PER_TASK,
+                        "Maximum number of leaf splits awaiting delivery to a given task",
+                        INTEGER,
+                        Integer.class,
+                        nodeSchedulerConfig.getMaxUnacknowledgedSplitsPerTask(),
+                        false,
+                        value -> validateIntegerValue(value, MAX_UNACKNOWLEDGED_SPLITS_PER_TASK, 1, false),
+                        object -> object));
     }
 
     public static boolean isSkipRedundantSort(Session session)
@@ -1538,5 +1550,10 @@ public final class SystemSessionProperties
     public static boolean isEnforceFixedDistributionForOutputOperator(Session session)
     {
         return session.getSystemProperty(ENFORCE_FIXED_DISTRIBUTION_FOR_OUTPUT_OPERATOR, Boolean.class);
+    }
+
+    public static int getMaxUnacknowledgedSplitsPerTask(Session session)
+    {
+        return session.getSystemProperty(MAX_UNACKNOWLEDGED_SPLITS_PER_TASK, Integer.class);
     }
 }

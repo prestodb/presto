@@ -98,6 +98,7 @@ import static com.facebook.airlift.http.client.Request.Builder.prepareDelete;
 import static com.facebook.airlift.http.client.Request.Builder.preparePost;
 import static com.facebook.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static com.facebook.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
+import static com.facebook.presto.SystemSessionProperties.getMaxUnacknowledgedSplitsPerTask;
 import static com.facebook.presto.execution.TaskInfo.createInitialTask;
 import static com.facebook.presto.execution.TaskState.ABORTED;
 import static com.facebook.presto.execution.TaskState.FAILED;
@@ -196,6 +197,7 @@ public final class HttpRemoteTask
     private final boolean thriftTransportEnabled;
     private final Protocol thriftProtocol;
     private final int maxTaskUpdateSizeInBytes;
+    private final int maxUnacknowledgedSplits;
 
     private final TableWriteInfo tableWriteInfo;
 
@@ -278,6 +280,8 @@ public final class HttpRemoteTask
             this.thriftProtocol = thriftProtocol;
             this.tableWriteInfo = tableWriteInfo;
             this.maxTaskUpdateSizeInBytes = maxTaskUpdateSizeInBytes;
+            this.maxUnacknowledgedSplits = getMaxUnacknowledgedSplitsPerTask(session);
+            checkArgument(maxUnacknowledgedSplits > 0, "maxUnacknowledgedSplits must be > 0, found: %s", maxUnacknowledgedSplits);
 
             this.tableScanPlanNodeIds = ImmutableSet.copyOf(planFragment.getTableScanSchedulingOrder());
             this.remoteSourcePlanNodeIds = planFragment.getRemoteSourceNodes().stream()
@@ -555,6 +559,12 @@ public final class HttpRemoteTask
         return getPendingSourceSplitCount() + taskStatus.getQueuedPartitionedDrivers();
     }
 
+    @Override
+    public int getUnacknowledgedPartitionedSplitCount()
+    {
+        return getPendingSourceSplitCount();
+    }
+
     @SuppressWarnings("FieldAccessNotGuarded")
     private int getPendingSourceSplitCount()
     {
@@ -593,11 +603,11 @@ public final class HttpRemoteTask
 
     private synchronized void updateSplitQueueSpace()
     {
-        if (!whenSplitQueueHasSpaceThreshold.isPresent()) {
-            return;
-        }
-        splitQueueHasSpace = getQueuedPartitionedSplitCount() < whenSplitQueueHasSpaceThreshold.getAsInt();
-        if (splitQueueHasSpace) {
+        // Must check whether the unacknowledged split count threshold is reached even without listeners registered yet
+        splitQueueHasSpace = getUnacknowledgedPartitionedSplitCount() < maxUnacknowledgedSplits &&
+                (!whenSplitQueueHasSpaceThreshold.isPresent() || getQueuedPartitionedSplitCount() < whenSplitQueueHasSpaceThreshold.getAsInt());
+        // Only trigger notifications if a listener might be registered
+        if (splitQueueHasSpace && whenSplitQueueHasSpaceThreshold.isPresent()) {
             whenSplitQueueHasSpace.complete(null, executor);
         }
     }

@@ -14,6 +14,7 @@
 package com.facebook.presto.spark.node;
 
 import com.facebook.airlift.stats.CounterStat;
+import com.facebook.presto.Session;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
 import com.facebook.presto.execution.scheduler.NetworkLocationCache;
@@ -49,13 +50,13 @@ public class PrestoSparkNodeScheduler
     }
 
     @Override
-    public NodeSelector createNodeSelector(ConnectorId connectorId)
+    public NodeSelector createNodeSelector(Session session, ConnectorId connectorId)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public NodeSelector createNodeSelector(ConnectorId connectorId, int maxTasksPerStage)
+    public NodeSelector createNodeSelector(Session session, ConnectorId connectorId, int maxTasksPerStage)
     {
         throw new UnsupportedOperationException();
     }
