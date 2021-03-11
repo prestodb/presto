@@ -495,6 +495,8 @@ public class TestSqlFunctions
         assertQuerySucceeds("CREATE FUNCTION testing.test.foo(x integer) RETURNS integer LANGUAGE JAVA EXTERNAL");
         assertQuery("SELECT testing.test.foo(cast(testing.test.foo(a) as varchar)) FROM (VALUES 1, 2, 3, 4) t(a)", "VALUES '1', '2', '3', '4'");
         assertQuery("SELECT testing.test.foo(cast(testing.test.foo(a) as varchar)) FROM (VALUES 1, 2, 3, 4) t(a) WHERE testing.test.foo(a) > 2", "VALUES '3', '4'");
+        assertQuerySucceeds("CREATE FUNCTION testing.test.foo() RETURNS integer LANGUAGE JAVA EXTERNAL");
+        assertQueryFails("SELECT testing.test.foo()", ".*ThriftUdfServiceException\\(GENERIC_INTERNAL_ERROR:0, NON-RETRYABLE\\): No input to echo");
     }
 
     @Test
