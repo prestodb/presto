@@ -67,6 +67,7 @@ import com.facebook.presto.operator.aggregation.MaxDataSizeForStats;
 import com.facebook.presto.operator.aggregation.MergeHyperLogLogAggregation;
 import com.facebook.presto.operator.aggregation.MergeQuantileDigestFunction;
 import com.facebook.presto.operator.aggregation.MergeTDigestFunction;
+import com.facebook.presto.operator.aggregation.PairedTStatisticAggregation;
 import com.facebook.presto.operator.aggregation.RealCorrelationAggregation;
 import com.facebook.presto.operator.aggregation.RealCovarianceAggregation;
 import com.facebook.presto.operator.aggregation.RealGeometricMeanAggregations;
@@ -75,6 +76,7 @@ import com.facebook.presto.operator.aggregation.RealRegressionAggregation;
 import com.facebook.presto.operator.aggregation.RealSumAggregation;
 import com.facebook.presto.operator.aggregation.ReduceAggregationFunction;
 import com.facebook.presto.operator.aggregation.SumDataSizeForStats;
+import com.facebook.presto.operator.aggregation.TStatisticAggregation;
 import com.facebook.presto.operator.aggregation.VarianceAggregation;
 import com.facebook.presto.operator.aggregation.approxmostfrequent.BigintApproximateMostFrequent;
 import com.facebook.presto.operator.aggregation.approxmostfrequent.VarcharApproximateMostFrequent;
@@ -591,6 +593,8 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .aggregates(CentralMomentsAggregation.class)
                 .aggregates(ApproximateLongPercentileAggregations.class)
                 .aggregates(ApproximateLongPercentileArrayAggregations.class)
+                .aggregates(TStatisticAggregation.class)
+                .aggregates(PairedTStatisticAggregation.class)
                 .aggregates(ApproximateDoublePercentileAggregations.class)
                 .aggregates(ApproximateDoublePercentileArrayAggregations.class)
                 .aggregates(ApproximateRealPercentileAggregations.class)

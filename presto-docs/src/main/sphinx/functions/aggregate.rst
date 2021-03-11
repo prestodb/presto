@@ -411,6 +411,15 @@ Statistical Aggregate Functions
 
     Returns the sample variance of all input values.
 
+.. function:: t_statistic(x) -> double
+
+    Returns the one-sample Student's t-statistic for all
+    input values.
+
+.. function:: paired_t_statistic(x, y) -> double
+
+    Returns the paired Student's t-statistic for the
+    difference ``y - x`` for all input values.
 
 Classification Metrics Aggregate Functions
 ------------------------------------------
