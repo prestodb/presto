@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.TaskManagerConfig;
+import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.memory.NodeMemoryConfig;
@@ -156,7 +157,8 @@ public class TestAnalyzer
                 new MemoryManagerConfig(),
                 new FeaturesConfig().setAllowWindowOrderByLiterals(false),
                 new NodeMemoryConfig(),
-                new WarningCollectorConfig()))).build();
+                new WarningCollectorConfig(),
+                new NodeSchedulerConfig()))).build();
         assertFails(session, WINDOW_FUNCTION_ORDERBY_LITERAL,
                 "SELECT SUM(x) OVER (PARTITION BY y ORDER BY 1) AS s\n" +
                         "FROM (values (1,10), (2, 10)) AS T(x, y)");
@@ -540,7 +542,8 @@ public class TestAnalyzer
                 new MemoryManagerConfig(),
                 new FeaturesConfig().setMaxGroupingSets(2048),
                 new NodeMemoryConfig(),
-                new WarningCollectorConfig()))).build();
+                new WarningCollectorConfig(),
+                new NodeSchedulerConfig()))).build();
         analyze(session, "SELECT a, b, c, d, e, f, g, h, i, j, k, SUM(l)" +
                 "FROM (VALUES (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12))\n" +
                 "t (a, b, c, d, e, f, g, h, i, j, k, l)\n" +

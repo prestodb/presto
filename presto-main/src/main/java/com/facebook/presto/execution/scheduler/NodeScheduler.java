@@ -14,6 +14,7 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.airlift.stats.CounterStat;
+import com.facebook.presto.Session;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionStats;
@@ -50,6 +51,7 @@ import java.util.Objects;
 import java.util.Set;
 
 import static com.facebook.airlift.concurrent.MoreFutures.whenAnyCompleteCancelOthers;
+import static com.facebook.presto.SystemSessionProperties.getMaxUnacknowledgedSplitsPerTask;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -132,18 +134,19 @@ public class NodeScheduler
         return counters.build();
     }
 
-    public NodeSelector createNodeSelector(ConnectorId connectorId)
+    public NodeSelector createNodeSelector(Session session, ConnectorId connectorId)
     {
-        return createNodeSelector(connectorId, Integer.MAX_VALUE);
+        return createNodeSelector(session, connectorId, Integer.MAX_VALUE);
     }
 
-    public NodeSelector createNodeSelector(ConnectorId connectorId, int maxTasksPerStage)
+    public NodeSelector createNodeSelector(Session session, ConnectorId connectorId, int maxTasksPerStage)
     {
         // this supplier is thread-safe. TODO: this logic should probably move to the scheduler since the choice of which node to run in should be
         // done as close to when the the split is about to be scheduled
         Supplier<NodeMap> nodeMap = nodeMapRefreshInterval.toMillis() > 0 ?
                 memoizeWithExpiration(createNodeMapSupplier(connectorId), nodeMapRefreshInterval.toMillis(), MILLISECONDS) : createNodeMapSupplier(connectorId);
 
+        int maxUnacknowledgedSplitsPerTask = getMaxUnacknowledgedSplitsPerTask(requireNonNull(session, "session is null"));
         if (useNetworkTopology) {
             return new TopologyAwareNodeSelector(
                     nodeManager,
@@ -154,12 +157,13 @@ public class NodeScheduler
                     minCandidates,
                     maxSplitsPerNode,
                     maxPendingSplitsPerTask,
+                    maxUnacknowledgedSplitsPerTask,
                     topologicalSplitCounters,
                     networkLocationSegmentNames,
                     networkLocationCache);
         }
         else {
-            return new SimpleNodeSelector(nodeManager, nodeSelectionStats, nodeTaskMap, includeCoordinator, nodeMap, minCandidates, maxSplitsPerNode, maxPendingSplitsPerTask, maxTasksPerStage);
+            return new SimpleNodeSelector(nodeManager, nodeSelectionStats, nodeTaskMap, includeCoordinator, nodeMap, minCandidates, maxSplitsPerNode, maxPendingSplitsPerTask, maxUnacknowledgedSplitsPerTask, maxTasksPerStage);
         }
     }
 
@@ -291,6 +295,7 @@ public class NodeScheduler
             NodeTaskMap nodeTaskMap,
             int maxSplitsPerNode,
             int maxPendingSplitsPerTask,
+            int maxUnacknowledgedSplitsPerTask,
             Set<Split> splits,
             List<RemoteTask> existingTasks,
             BucketNodeMap bucketNodeMap,
@@ -306,8 +311,7 @@ public class NodeScheduler
             boolean isCacheable = bucketNodeMap.isSplitCacheable(split);
 
             // if node is full, don't schedule now, which will push back on the scheduling of splits
-            if (assignmentStats.getTotalSplitCount(node) < maxSplitsPerNode ||
-                    assignmentStats.getQueuedSplitCountForStage(node) < maxPendingSplitsPerTask) {
+            if (!isDistributionNodeFull(assignmentStats, node, maxSplitsPerNode, maxPendingSplitsPerTask, maxUnacknowledgedSplitsPerTask)) {
                 if (isCacheable) {
                     split = new Split(split.getConnectorId(), split.getTransactionHandle(), split.getConnectorSplit(), split.getLifespan(), new SplitContext(true));
                     nodeSelectionStats.incrementBucketedPreferredNodeSelectedCount();
@@ -325,6 +329,12 @@ public class NodeScheduler
 
         ListenableFuture<?> blocked = toWhenHasSplitQueueSpaceFuture(blockedNodes, existingTasks, calculateLowWatermark(maxPendingSplitsPerTask));
         return new SplitPlacementResult(blocked, ImmutableMultimap.copyOf(assignments));
+    }
+
+    private static boolean isDistributionNodeFull(NodeAssignmentStats assignmentStats, InternalNode node, int maxSplitsPerNode, int maxPendingSplitsPerTask, int maxUnacknowledgedSplitsPerTask)
+    {
+        return assignmentStats.getUnacknowledgedSplitCountForStage(node) >= maxUnacknowledgedSplitsPerTask ||
+                (assignmentStats.getTotalSplitCount(node) >= maxSplitsPerNode && assignmentStats.getQueuedSplitCountForStage(node) >= maxPendingSplitsPerTask);
     }
 
     public static int calculateLowWatermark(int maxPendingSplitsPerTask)

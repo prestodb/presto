@@ -139,7 +139,7 @@ public class NodePartitioningManager
                 break;
             case NO_PREFERENCE:
                 bucketToNode = createArbitraryBucketToNode(
-                        nodeScheduler.createNodeSelector(connectorId).selectRandomNodes(getMaxTasksPerStage(session)),
+                        nodeScheduler.createNodeSelector(session, connectorId).selectRandomNodes(getMaxTasksPerStage(session)),
                         connectorBucketNodeMap.getBucketCount());
                 cacheable = false;
                 break;
@@ -187,7 +187,7 @@ public class NodePartitioningManager
                 return new FixedBucketNodeMap(
                         getSplitToBucket(session, partitioningHandle),
                         createArbitraryBucketToNode(
-                                nodeScheduler.createNodeSelector(partitioningHandle.getConnectorId().get()).selectRandomNodes(getMaxTasksPerStage(session)),
+                                nodeScheduler.createNodeSelector(session, partitioningHandle.getConnectorId().get()).selectRandomNodes(getMaxTasksPerStage(session)),
                                 connectorBucketNodeMap.getBucketCount()),
                         false);
             default:
@@ -207,7 +207,7 @@ public class NodePartitioningManager
         checkArgument(!(partitioningHandle.getConnectorHandle() instanceof SystemPartitioningHandle));
         ConnectorId connectorId = partitioningHandle.getConnectorId()
                 .orElseThrow(() -> new IllegalArgumentException("No connector ID for partitioning handle: " + partitioningHandle));
-        List<Node> sortedNodes = sortedNodes(connectorId);
+        List<Node> sortedNodes = sortedNodes(session, connectorId);
 
         ConnectorNodePartitioningProvider partitioningProvider = partitioningProviderManager.getPartitioningProvider(partitioningHandle.getConnectorId().get());
 
@@ -258,9 +258,9 @@ public class NodePartitioningManager
         return distribution.build();
     }
 
-    public List<Node> sortedNodes(ConnectorId connectorId)
+    public List<Node> sortedNodes(Session session, ConnectorId connectorId)
     {
-        List<InternalNode> nodes = nodeScheduler.createNodeSelector(connectorId).allNodes();
+        List<InternalNode> nodes = nodeScheduler.createNodeSelector(session, connectorId).allNodes();
         return nodes.stream().sorted(comparing(InternalNode::getNodeIdentifier)).collect(toImmutableList());
     }
 }
