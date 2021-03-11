@@ -100,6 +100,12 @@ public class InMemoryNodeManager
     }
 
     @Override
+    public Set<InternalNode> getAllConnectorNodes(ConnectorId connectorId)
+    {
+        return getActiveConnectorNodes(connectorId);
+    }
+
+    @Override
     public AllNodes getAllNodes()
     {
         return new AllNodes(

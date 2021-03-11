@@ -27,7 +27,9 @@ public interface NodeSelector
 {
     void lockDownNodes();
 
-    List<InternalNode> allNodes();
+    List<InternalNode> getActiveNodes();
+
+    List<InternalNode> getAllNodes();
 
     InternalNode selectCurrentNode();
 
