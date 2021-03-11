@@ -13,14 +13,17 @@
  */
 package com.facebook.presto.functionNamespace.execution;
 
+import com.facebook.presto.spi.ErrorCode;
+import com.facebook.presto.spi.ErrorType;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.thrift.api.udf.ThriftUdfErrorCodeSupplier;
 import com.facebook.presto.thrift.api.udf.ThriftUdfServiceException;
 import com.facebook.presto.thrift.api.udf.UdfExecutionFailureInfo;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
+import static java.lang.String.format;
 
 public class ExceptionUtils
 {
@@ -32,28 +35,44 @@ public class ExceptionUtils
 
     public static PrestoException toPrestoException(ThriftUdfServiceException thriftException)
     {
-        UdfExecutionFailure cause = toUdfExecutionException(thriftException.getFailureInfo());
+        ThriftUdfServiceException exception = formatException(thriftException);
         PrestoException prestoException = new PrestoException(
-                thriftException::getErrorCode,
-                firstNonNull(cause.getMessage(), "Error executing remote function"),
-                cause);
-        prestoException.addSuppressed(thriftException);
+                toThriftUdfErrorCodeSupplier(thriftException.getErrorCode()),
+                exception);
         return prestoException;
     }
 
-    private static UdfExecutionFailure toUdfExecutionException(UdfExecutionFailureInfo failureInfo)
+    private static ThriftUdfErrorCodeSupplier toThriftUdfErrorCodeSupplier(ErrorCode errorCode)
     {
-        UdfExecutionFailure exception = new UdfExecutionFailure(
-                failureInfo.getType(),
-                failureInfo.getMessage(),
-                failureInfo.getCause() == null ? null : toUdfExecutionException(failureInfo.getCause()));
+        ErrorType errorType = errorCode.getType();
+        switch (errorType) {
+            case USER_ERROR:
+                return ThriftUdfErrorCodeSupplier.THRIFT_UDF_USER_ERROR;
+            case INSUFFICIENT_RESOURCES:
+                return ThriftUdfErrorCodeSupplier.THRIFT_UDF_INSUFFICIENT_RESOURCES;
+            case EXTERNAL:
+            case INTERNAL_ERROR:
+                return ThriftUdfErrorCodeSupplier.THRIFT_UDF_EXTERNAL_ERROR;
+            default:
+                throw new IllegalStateException(format("Unknown error code type %s", errorCode.getType()));
+        }
+    }
+
+    private static ThriftUdfServiceException formatException(ThriftUdfServiceException exception)
+    {
+        UdfExecutionFailureInfo failureInfo = exception.getFailureInfo();
         for (UdfExecutionFailureInfo suppressed : failureInfo.getSuppressed()) {
-            exception.addSuppressed(toUdfExecutionException(suppressed));
+            exception.addSuppressed(toThrowable(suppressed));
         }
         exception.setStackTrace(failureInfo.getStack().stream()
                 .map(ExceptionUtils::toStackTraceElement)
                 .toArray(StackTraceElement[]::new));
         return exception;
+    }
+
+    private static Throwable toThrowable(UdfExecutionFailureInfo failureInfo)
+    {
+        return new Throwable(format("%s: %s", failureInfo.getType(), failureInfo.getMessage()), failureInfo.getCause() == null ? null : toThrowable(failureInfo.getCause()));
     }
 
     private static StackTraceElement toStackTraceElement(String stack)
