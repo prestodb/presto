@@ -55,6 +55,12 @@ public class PrestoSparkInternalNodeManager
     }
 
     @Override
+    public Set<InternalNode> getAllConnectorNodes(ConnectorId connectorId)
+    {
+        return getActiveConnectorNodes(connectorId);
+    }
+
+    @Override
     public InternalNode getCurrentNode()
     {
         // TODO: Hack to make TPCH connector work

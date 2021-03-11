@@ -23,6 +23,7 @@ import com.facebook.presto.spi.Node;
 import java.net.URI;
 import java.util.OptionalInt;
 
+import static com.facebook.presto.metadata.InternalNode.NodeStatus.ALIVE;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.nullToEmpty;
@@ -35,12 +36,19 @@ import static java.util.Objects.requireNonNull;
 public class InternalNode
         implements Node
 {
+    public enum NodeStatus
+    {
+        ALIVE,
+        DEAD
+    }
+
     private final String nodeIdentifier;
     private final URI internalUri;
     private final OptionalInt thriftPort;
     private final NodeVersion nodeVersion;
     private final boolean coordinator;
     private final boolean resourceManager;
+    private final NodeStatus nodeStatus;
 
     public InternalNode(String nodeIdentifier, URI internalUri, NodeVersion nodeVersion, boolean coordinator)
     {
@@ -49,16 +57,16 @@ public class InternalNode
 
     public InternalNode(String nodeIdentifier, URI internalUri, NodeVersion nodeVersion, boolean coordinator, boolean resourceManager)
     {
-        this(nodeIdentifier, internalUri, OptionalInt.empty(), nodeVersion, coordinator, resourceManager);
+        this(nodeIdentifier, internalUri, OptionalInt.empty(), nodeVersion, coordinator, resourceManager, ALIVE);
     }
 
     @ThriftConstructor
     public InternalNode(String nodeIdentifier, URI internalUri, OptionalInt thriftPort, String nodeVersion, boolean coordinator, boolean resourceManager)
     {
-        this(nodeIdentifier, internalUri, thriftPort, new NodeVersion(nodeVersion), coordinator, resourceManager);
+        this(nodeIdentifier, internalUri, thriftPort, new NodeVersion(nodeVersion), coordinator, resourceManager, ALIVE);
     }
 
-    public InternalNode(String nodeIdentifier, URI internalUri, OptionalInt thriftPort, NodeVersion nodeVersion, boolean coordinator, boolean resourceManager)
+    public InternalNode(String nodeIdentifier, URI internalUri, OptionalInt thriftPort, NodeVersion nodeVersion, boolean coordinator, boolean resourceManager, NodeStatus nodeStatus)
     {
         nodeIdentifier = emptyToNull(nullToEmpty(nodeIdentifier).trim());
         this.nodeIdentifier = requireNonNull(nodeIdentifier, "nodeIdentifier is null or empty");
@@ -67,6 +75,7 @@ public class InternalNode
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.coordinator = coordinator;
         this.resourceManager = resourceManager;
+        this.nodeStatus = nodeStatus;
     }
 
     @ThriftField(1)
@@ -131,6 +140,12 @@ public class InternalNode
     public NodeVersion getNodeVersion()
     {
         return nodeVersion;
+    }
+
+    @ThriftField(7)
+    public NodeStatus getNodeStatus()
+    {
+        return nodeStatus;
     }
 
     @Override
