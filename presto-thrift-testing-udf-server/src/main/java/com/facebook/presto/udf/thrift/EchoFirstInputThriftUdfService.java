@@ -66,6 +66,6 @@ public class EchoFirstInputThriftUdfService
         }
         return immediateFuture(new ThriftUdfResult(
                 result,
-                new ThriftUdfStats(0)));
+                new ThriftUdfStats(100)));
     }
 }
