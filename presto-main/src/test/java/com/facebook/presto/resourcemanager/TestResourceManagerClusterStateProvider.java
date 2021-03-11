@@ -38,6 +38,7 @@ import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -209,6 +210,84 @@ public class TestResourceManagerClusterStateProvider
         assertTrue(provider.getClusterResourceGroups("node6").isEmpty());
     }
 
+    @Test
+    public void testNonLeafResourceGroupsMerged()
+            throws Exception
+    {
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager();
+        nodeManager.addNode(new ConnectorId("x"), new InternalNode("node1", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true));
+        nodeManager.addNode(new ConnectorId("x"), new InternalNode("node2", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true));
+        nodeManager.addNode(new ConnectorId("x"), new InternalNode("node3", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true));
+        nodeManager.addNode(new ConnectorId("x"), new InternalNode("node4", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true));
+        nodeManager.addNode(new ConnectorId("x"), new InternalNode("node5", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true));
+        nodeManager.addNode(new ConnectorId("x"), new InternalNode("node6", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true));
+        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(nodeManager, new SessionPropertyManager(), 10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("5s"), true, newSingleThreadScheduledExecutor());
+
+        assertEquals(provider.getClusterQueries(), ImmutableList.of());
+
+        provider.registerQueryHeartbeat("node1", createQueryInfo("1", QUEUED, "root.rg4", GENERAL_POOL));
+        assertTrue(provider.getClusterResourceGroups("node1").isEmpty());
+        assertResourceGroup(provider, "node2", "root.rg4", 1, 0, DataSize.valueOf("1MB"));
+        assertNonLeafResourceGroup(provider, "node2", "root", 0, 0, 1, 0);
+
+        provider.registerQueryHeartbeat("node2", createQueryInfo("2", RUNNING, "root.rg4", GENERAL_POOL));
+        assertResourceGroup(provider, "node1", "root.rg4", 0, 1, DataSize.valueOf("1MB"));
+        assertNonLeafResourceGroup(provider, "node1", "root", 0, 0, 0, 1);
+        assertResourceGroup(provider, "node2", "root.rg4", 1, 0, DataSize.valueOf("1MB"));
+        assertNonLeafResourceGroup(provider, "node1", "root", 0, 0, 0, 1);
+        assertResourceGroup(provider, "node3", "root.rg4", 1, 1, DataSize.valueOf("2MB"));
+
+        provider.registerQueryHeartbeat("node3", createQueryInfo("3", FINISHED, "root.rg4", GENERAL_POOL));
+        assertResourceGroup(provider, "node1", "root.rg4", 0, 1, DataSize.valueOf("1MB"));
+        assertNonLeafResourceGroup(provider, "node1", "root", 0, 0, 0, 1);
+        assertResourceGroup(provider, "node2", "root.rg4", 1, 0, DataSize.valueOf("1MB"));
+        assertNonLeafResourceGroup(provider, "node2", "root", 0, 0, 1, 0);
+        assertResourceGroup(provider, "node3", "root.rg4", 1, 1, DataSize.valueOf("2MB"));
+        assertNonLeafResourceGroup(provider, "node3", "root", 0, 0, 1, 1);
+        assertResourceGroup(provider, "node4", "root.rg4", 1, 1, DataSize.valueOf("2MB"));
+        assertNonLeafResourceGroup(provider, "node4", "root", 0, 0, 1, 1);
+
+        provider.registerQueryHeartbeat("node4", createQueryInfo("4", FAILED, "root.rg4", GENERAL_POOL));
+        assertResourceGroup(provider, "node1", "root.rg4", 0, 1, DataSize.valueOf("1MB"));
+        assertNonLeafResourceGroup(provider, "node1", "root", 0, 0, 0, 1);
+        assertResourceGroup(provider, "node2", "root.rg4", 1, 0, DataSize.valueOf("1MB"));
+        assertNonLeafResourceGroup(provider, "node2", "root", 0, 0, 1, 0);
+        assertResourceGroup(provider, "node3", "root.rg4", 1, 1, DataSize.valueOf("2MB"));
+        assertNonLeafResourceGroup(provider, "node3", "root", 0, 0, 1, 1);
+        assertResourceGroup(provider, "node4", "root.rg4", 1, 1, DataSize.valueOf("2MB"));
+        assertNonLeafResourceGroup(provider, "node4", "root", 0, 0, 1, 1);
+        assertResourceGroup(provider, "node5", "root.rg4", 1, 1, DataSize.valueOf("2MB"));
+        assertNonLeafResourceGroup(provider, "node5", "root", 0, 0, 1, 1);
+
+        // Add queries which are in non-terminal states other than RUNNING and QUEUED
+        provider.registerQueryHeartbeat("node1", createQueryInfo("5", WAITING_FOR_RESOURCES, "root.rg4", GENERAL_POOL));
+        provider.registerQueryHeartbeat("node2", createQueryInfo("6", DISPATCHING, "root.rg4", GENERAL_POOL));
+        provider.registerQueryHeartbeat("node3", createQueryInfo("7", PLANNING, "root.rg4", GENERAL_POOL));
+        provider.registerQueryHeartbeat("node4", createQueryInfo("8", STARTING, "root.rg4", GENERAL_POOL));
+        provider.registerQueryHeartbeat("node5", createQueryInfo("9", FINISHING, "root.rg4", GENERAL_POOL));
+        assertResourceGroup(provider, "node1", "root.rg4", 0, 5, DataSize.valueOf("5MB"));
+        assertNonLeafResourceGroup(provider, "node1", "root", 0, 0, 0, 5);
+        assertResourceGroup(provider, "node2", "root.rg4", 1, 4, DataSize.valueOf("5MB"));
+        assertNonLeafResourceGroup(provider, "node2", "root", 0, 0, 1, 4);
+        assertResourceGroup(provider, "node3", "root.rg4", 1, 5, DataSize.valueOf("6MB"));
+        assertNonLeafResourceGroup(provider, "node3", "root", 0, 0, 1, 5);
+        assertResourceGroup(provider, "node4", "root.rg4", 1, 5, DataSize.valueOf("6MB"));
+        assertNonLeafResourceGroup(provider, "node4", "root", 0, 0, 1, 5);
+        assertResourceGroup(provider, "node5", "root.rg4", 1, 5, DataSize.valueOf("6MB"));
+        assertNonLeafResourceGroup(provider, "node5", "root", 0, 0, 1, 5);
+        assertResourceGroup(provider, "node6", "root.rg4", 1, 6, DataSize.valueOf("7MB"));
+        assertNonLeafResourceGroup(provider, "node6", "root", 0, 0, 1, 6);
+
+        // Expire running queries
+        Thread.sleep(SECONDS.toMillis(5));
+        assertTrue(provider.getClusterResourceGroups("node1").isEmpty());
+        assertTrue(provider.getClusterResourceGroups("node2").isEmpty());
+        assertTrue(provider.getClusterResourceGroups("node3").isEmpty());
+        assertTrue(provider.getClusterResourceGroups("node4").isEmpty());
+        assertTrue(provider.getClusterResourceGroups("node5").isEmpty());
+        assertTrue(provider.getClusterResourceGroups("node6").isEmpty());
+    }
+
     @Test(timeOut = 15_000)
     public void testClusterMemoryPoolInfo()
             throws Exception
@@ -341,6 +420,23 @@ public class TestResourceManagerClusterStateProvider
 
     private void assertResourceGroup(ResourceManagerClusterStateProvider provider, String excludingNode, String resourceGroupId, int queuedQueries, int runningQueries, DataSize userMemoryReservation)
     {
+        ResourceGroupId currResourceGroupId = new ResourceGroupId(Arrays.asList(resourceGroupId.split("\\.")));
+        List<ResourceGroupRuntimeInfo> list = provider.getClusterResourceGroups(excludingNode);
+        Optional<ResourceGroupRuntimeInfo> resourceGroupRuntimeInfo = list.stream()
+                .filter(resourceGroupInfo -> currResourceGroupId.equals(resourceGroupInfo.getResourceGroupId()))
+                .findFirst();
+        assertTrue(resourceGroupRuntimeInfo.isPresent(), "Resource group " + resourceGroupId + " not found");
+        ResourceGroupRuntimeInfo info = resourceGroupRuntimeInfo.get();
+        ResourceGroupId rg = new ResourceGroupId(Arrays.asList(resourceGroupId.split("\\.")));
+        assertEquals(info.getQueuedQueries(), queuedQueries, format("Expected %s queued queries, found %s", queuedQueries, info.getQueuedQueries()));
+        assertEquals(info.getRunningQueries(), runningQueries, format("Expected %s running queries, found %s", runningQueries, info.getRunningQueries()));
+        assertEquals(info.getResourceGroupId(), rg, format("Expected resource group id %s, found %s", resourceGroupId, info.getResourceGroupId()));
+        assertEquals(info.getMemoryUsageBytes(), userMemoryReservation.toBytes(), format("Expected %s user memory reservation found %s", userMemoryReservation, DataSize.succinctBytes(info.getMemoryUsageBytes())));
+    }
+
+    private void assertNonLeafResourceGroup(ResourceManagerClusterStateProvider provider, String excludingNode, String resourceGroupId, int queuedQueries, int runningQueries, int descendantQueuedQueries, int descendantRunningQueries)
+    {
+        List<ResourceGroupRuntimeInfo> resourceGroupRuntimeInfos = provider.getClusterResourceGroups(excludingNode);
         Optional<ResourceGroupRuntimeInfo> resourceGroupRuntimeInfo = provider.getClusterResourceGroups(excludingNode).stream()
                 .filter(resourceGroupInfo -> new ResourceGroupId(resourceGroupId).equals(resourceGroupInfo.getResourceGroupId()))
                 .findFirst();
@@ -349,8 +445,9 @@ public class TestResourceManagerClusterStateProvider
 
         assertEquals(info.getQueuedQueries(), queuedQueries, format("Expected %s queued queries, found %s", queuedQueries, info.getQueuedQueries()));
         assertEquals(info.getRunningQueries(), runningQueries, format("Expected %s running queries, found %s", runningQueries, info.getRunningQueries()));
+        assertEquals(info.getDescendantQueuedQueries(), descendantQueuedQueries, format("Expected %s descendant queued queries, found %s", descendantQueuedQueries, info.getDescendantQueuedQueries()));
+        assertEquals(info.getDescendantRunningQueries(), descendantRunningQueries, format("Expected %s descendant running queries, found %s", descendantRunningQueries, info.getDescendantRunningQueries()));
         assertEquals(info.getResourceGroupId(), new ResourceGroupId(resourceGroupId), format("Expected resource group id %s, found %s", resourceGroupId, info.getResourceGroupId()));
-        assertEquals(info.getMemoryUsageBytes(), userMemoryReservation.toBytes(), format("Expected %s user memory reservation found %s", userMemoryReservation, DataSize.succinctBytes(info.getMemoryUsageBytes())));
     }
 
     private void assertMemoryPoolMap(ResourceManagerClusterStateProvider provider, int memoryPoolSize, MemoryPoolId memoryPoolId, int assignedQueries, int blockedNodes, int maxBytes, int reservedBytes, int reservedRevocableBytes, Optional<String> largestMemoryQuery)
@@ -381,10 +478,12 @@ public class TestResourceManagerClusterStateProvider
 
     private static BasicQueryInfo createQueryInfo(String queryId, QueryState state, String resourceGroupId, MemoryPoolId memoryPool, DataSize totalMemoryReservation)
     {
+        String[] splits = resourceGroupId.split("\\.");
+        List<String> resourceGroupList = Arrays.asList(splits);
         return new BasicQueryInfo(
                 new QueryId(queryId),
                 TEST_SESSION.toSessionRepresentation(),
-                Optional.of(new ResourceGroupId(resourceGroupId)),
+                Optional.of(new ResourceGroupId(Arrays.asList(splits))),
                 state,
                 memoryPool,
                 true,

@@ -182,6 +182,16 @@ public class ResourceManagerClusterStateProvider
                         builder.addRunningQueries(1);
                     }
                     builder.addUserMemoryReservationBytes(info.getQueryStats().getUserMemoryReservation().toBytes());
+                    while (resourceGroupId.getParent().isPresent()) {
+                        resourceGroupId = resourceGroupId.getParent().get();
+                        ResourceGroupRuntimeInfo.Builder parentBuilder = resourceGroupBuilders.computeIfAbsent(resourceGroupId, ResourceGroupRuntimeInfo::builder);
+                        if (info.getState() == QUEUED) {
+                            parentBuilder.addDescendantQueuedQueries(1);
+                        }
+                        else if (!info.getState().isDone()) {
+                            parentBuilder.addDescendantRunningQueries(1);
+                        }
+                    }
                 });
         return resourceGroupBuilders.values().stream().map(ResourceGroupRuntimeInfo.Builder::build).collect(toImmutableList());
     }
