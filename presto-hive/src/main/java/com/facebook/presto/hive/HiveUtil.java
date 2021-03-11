@@ -161,6 +161,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
+import static org.apache.hadoop.hive.serde.serdeConstants.COLLECTION_DELIM;
 import static org.apache.hadoop.hive.serde.serdeConstants.DECIMAL_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_ALL_COLUMNS;
@@ -431,6 +432,14 @@ public final class HiveUtil
     public static Deserializer getDeserializer(Configuration configuration, Properties schema)
     {
         String name = getDeserializerClassName(schema);
+
+        // for collection delimiter, Hive 1.x, 2.x uses "colelction.delim" but Hive 3.x uses "collection.delim"
+        // see also https://issues.apache.org/jira/browse/HIVE-16922
+        if (name.equals("org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe")) {
+            if (schema.containsKey("colelction.delim") && !schema.containsKey(COLLECTION_DELIM)) {
+                schema.put(COLLECTION_DELIM, schema.getProperty("colelction.delim"));
+            }
+        }
 
         Deserializer deserializer = createDeserializer(getDeserializerClass(name));
         initializeDeserializer(configuration, deserializer, schema);
