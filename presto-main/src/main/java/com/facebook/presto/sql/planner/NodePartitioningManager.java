@@ -47,11 +47,11 @@ import java.util.function.ToIntFunction;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.SystemSessionProperties.getMaxTasksPerStage;
+import static com.facebook.presto.metadata.InternalNode.NodeStatus.DEAD;
 import static com.facebook.presto.spi.StandardErrorCode.NODE_SELECTION_NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
-import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 
 public class NodePartitioningManager
@@ -207,7 +207,7 @@ public class NodePartitioningManager
         checkArgument(!(partitioningHandle.getConnectorHandle() instanceof SystemPartitioningHandle));
         ConnectorId connectorId = partitioningHandle.getConnectorId()
                 .orElseThrow(() -> new IllegalArgumentException("No connector ID for partitioning handle: " + partitioningHandle));
-        List<Node> sortedNodes = sortedNodes(session, connectorId);
+        List<Node> nodes = getNodes(session, connectorId);
 
         ConnectorNodePartitioningProvider partitioningProvider = partitioningProviderManager.getPartitioningProvider(partitioningHandle.getConnectorId().get());
 
@@ -215,7 +215,7 @@ public class NodePartitioningManager
                 partitioningHandle.getTransactionHandle().orElse(null),
                 session.toConnectorSession(partitioningHandle.getConnectorId().get()),
                 partitioningHandle.getConnectorHandle(),
-                sortedNodes);
+                nodes);
 
         checkArgument(connectorBucketNodeMap != null, "No partition map %s", partitioningHandle);
         return connectorBucketNodeMap;
@@ -258,9 +258,25 @@ public class NodePartitioningManager
         return distribution.build();
     }
 
-    public List<Node> sortedNodes(Session session, ConnectorId connectorId)
+    public List<Node> getNodes(Session session, ConnectorId connectorId)
     {
-        List<InternalNode> nodes = nodeScheduler.createNodeSelector(session, connectorId).allNodes();
-        return nodes.stream().sorted(comparing(InternalNode::getNodeIdentifier)).collect(toImmutableList());
+        // Nodes returned by the node selector are already sorted based on nodeIdentifier. No need to sort again
+        List<InternalNode> allNodes = nodeScheduler.createNodeSelector(session, connectorId).getAllNodes();
+
+        ImmutableList.Builder<Node> nodeBuilder = ImmutableList.builder();
+        int nodeCount = allNodes.size();
+        for (int i = 0; i < nodeCount; i++) {
+            InternalNode node = allNodes.get(i);
+            if (node.getNodeStatus() == DEAD) {
+                // Replace dead nodes with the first alive node to the right of it in the sorted node list
+                int index = (i + 1) % nodeCount;
+                while (node.getNodeStatus() == DEAD && index < nodeCount) {
+                    node = allNodes.get(index);
+                    index = (index + 1) % nodeCount;
+                }
+            }
+            nodeBuilder.add(node);
+        }
+        return nodeBuilder.build();
     }
 }

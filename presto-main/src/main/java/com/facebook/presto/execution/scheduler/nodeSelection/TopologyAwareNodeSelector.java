@@ -51,10 +51,10 @@ import static com.facebook.presto.execution.scheduler.NodeScheduler.selectDistri
 import static com.facebook.presto.execution.scheduler.NodeScheduler.selectExactNodes;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.selectNodes;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.toWhenHasSplitQueueSpaceFuture;
-import static com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionUtils.sortedNodes;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class TopologyAwareNodeSelector
@@ -111,9 +111,15 @@ public class TopologyAwareNodeSelector
     }
 
     @Override
-    public List<InternalNode> allNodes()
+    public List<InternalNode> getActiveNodes()
     {
-        return ImmutableList.copyOf(nodeMap.get().get().getNodesByHostAndPort().values());
+        return ImmutableList.copyOf(nodeMap.get().get().getActiveNodes());
+    }
+
+    @Override
+    public List<InternalNode> getAllNodes()
+    {
+        return ImmutableList.copyOf(nodeMap.get().get().getAllNodes());
     }
 
     @Override
@@ -141,13 +147,15 @@ public class TopologyAwareNodeSelector
         Set<InternalNode> blockedExactNodes = new HashSet<>();
         boolean splitWaitingForAnyNode = false;
 
-        // todo identify if sorting will cause bottleneck
-        List<HostAddress> sortedCandidates = sortedNodes(nodeMap);
+        List<HostAddress> candidates = nodeMap.getActiveNodes().stream()
+                .map(InternalNode::getHostAndPort)
+                .collect(toImmutableList());
+
         for (Split split : splits) {
             if (split.getNodeSelectionStrategy() == HARD_AFFINITY) {
-                List<InternalNode> candidateNodes = selectExactNodes(nodeMap, split.getPreferredNodes(sortedCandidates), includeCoordinator);
+                List<InternalNode> candidateNodes = selectExactNodes(nodeMap, split.getPreferredNodes(candidates), includeCoordinator);
                 if (candidateNodes.isEmpty()) {
-                    log.debug("No nodes available to schedule %s. Available nodes %s", split, nodeMap.getNodesByHost().keys());
+                    log.debug("No nodes available to schedule %s. Available nodes %s", split, nodeMap.getActiveNodes());
                     throw new PrestoException(NO_NODES_AVAILABLE, "No nodes available to run query");
                 }
                 InternalNode chosenNode = bestNodeSplitCount(candidateNodes.iterator(), minCandidates, maxPendingSplitsPerTask, assignmentStats);
@@ -166,7 +174,7 @@ public class TopologyAwareNodeSelector
             int depth = networkLocationSegmentNames.size();
             int chosenDepth = 0;
             Set<NetworkLocation> locations = new HashSet<>();
-            for (HostAddress host : split.getPreferredNodes(sortedCandidates)) {
+            for (HostAddress host : split.getPreferredNodes(candidates)) {
                 locations.add(networkLocationCache.get(host));
             }
             if (locations.isEmpty()) {
@@ -186,7 +194,7 @@ public class TopologyAwareNodeSelector
                     if (filledLocations.contains(location)) {
                         continue;
                     }
-                    Set<InternalNode> nodes = nodeMap.getWorkersByNetworkPath().get(location);
+                    Set<InternalNode> nodes = nodeMap.getActiveWorkersByNetworkPath().get(location);
                     chosenNode = bestNodeSplitCount(new ResettableRandomizedIterator<>(nodes), minCandidates, calculateMaxPendingSplits(i, depth), assignmentStats);
                     if (chosenNode != null) {
                         chosenDepth = i;

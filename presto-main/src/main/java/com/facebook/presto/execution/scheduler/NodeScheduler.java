@@ -45,6 +45,7 @@ import java.net.UnknownHostException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -53,6 +54,7 @@ import java.util.Set;
 import static com.facebook.airlift.concurrent.MoreFutures.whenAnyCompleteCancelOthers;
 import static com.facebook.presto.SystemSessionProperties.getMaxUnacknowledgedSplitsPerTask;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType;
+import static com.facebook.presto.metadata.InternalNode.NodeStatus.ALIVE;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Suppliers.memoizeWithExpiration;
@@ -170,43 +172,47 @@ public class NodeScheduler
     private Supplier<NodeMap> createNodeMapSupplier(ConnectorId connectorId)
     {
         return () -> {
-            ImmutableMap.Builder<String, InternalNode> byNodeId = ImmutableMap.builder();
-            ImmutableSetMultimap.Builder<HostAddress, InternalNode> byHostAndPort = ImmutableSetMultimap.builder();
-            ImmutableSetMultimap.Builder<InetAddress, InternalNode> byHost = ImmutableSetMultimap.builder();
-            ImmutableSetMultimap.Builder<NetworkLocation, InternalNode> workersByNetworkPath = ImmutableSetMultimap.builder();
+            ImmutableMap.Builder<String, InternalNode> activeNodesByNodeId = ImmutableMap.builder();
+            ImmutableSetMultimap.Builder<NetworkLocation, InternalNode> activeWorkersByNetworkPath = ImmutableSetMultimap.builder();
+            ImmutableSetMultimap.Builder<HostAddress, InternalNode> allNodesByHostAndPort = ImmutableSetMultimap.builder();
+            ImmutableSetMultimap.Builder<InetAddress, InternalNode> allNodesByHost = ImmutableSetMultimap.builder();
 
-            Set<InternalNode> nodes;
+            Set<InternalNode> activeNodes;
+            Set<InternalNode> allNodes;
             if (connectorId != null) {
-                nodes = nodeManager.getActiveConnectorNodes(connectorId);
+                activeNodes = nodeManager.getActiveConnectorNodes(connectorId);
+                allNodes = nodeManager.getAllConnectorNodes(connectorId);
             }
             else {
-                nodes = nodeManager.getNodes(ACTIVE);
+                activeNodes = nodeManager.getNodes(ACTIVE);
+                allNodes = activeNodes;
             }
 
             Set<String> coordinatorNodeIds = nodeManager.getCoordinators().stream()
                     .map(InternalNode::getNodeIdentifier)
                     .collect(toImmutableSet());
 
-            for (InternalNode node : nodes) {
-                byNodeId.put(node.getNodeIdentifier(), node);
-                if (useNetworkTopology && (includeCoordinator || !coordinatorNodeIds.contains(node.getNodeIdentifier()))) {
-                    NetworkLocation location = networkLocationCache.get(node.getHostAndPort());
-                    for (int i = 0; i <= location.getSegments().size(); i++) {
-                        workersByNetworkPath.put(location.subLocation(0, i), node);
+            for (InternalNode node : allNodes) {
+                if (node.getNodeStatus() == ALIVE) {
+                    activeNodesByNodeId.put(node.getNodeIdentifier(), node);
+                    if (useNetworkTopology && (includeCoordinator || !coordinatorNodeIds.contains(node.getNodeIdentifier()))) {
+                        NetworkLocation location = networkLocationCache.get(node.getHostAndPort());
+                        for (int i = 0; i <= location.getSegments().size(); i++) {
+                            activeWorkersByNetworkPath.put(location.subLocation(0, i), node);
+                        }
                     }
                 }
                 try {
-                    byHostAndPort.put(node.getHostAndPort(), node);
-
+                    allNodesByHostAndPort.put(node.getHostAndPort(), node);
                     InetAddress host = InetAddress.getByName(node.getInternalUri().getHost());
-                    byHost.put(host, node);
+                    allNodesByHost.put(host, node);
                 }
                 catch (UnknownHostException e) {
                     // ignore
                 }
             }
 
-            return new NodeMap(byNodeId.build(), byHostAndPort.build(), byHost.build(), workersByNetworkPath.build(), coordinatorNodeIds);
+            return new NodeMap(activeNodesByNodeId.build(), activeWorkersByNetworkPath.build(), coordinatorNodeIds, new LinkedList<>(activeNodes), new LinkedList<>(allNodes), allNodesByHost.build(), allNodesByHostAndPort.build());
         };
     }
 
@@ -226,7 +232,7 @@ public class NodeScheduler
 
     public static ResettableRandomizedIterator<InternalNode> randomizedNodes(NodeMap nodeMap, boolean includeCoordinator, Set<InternalNode> excludedNodes)
     {
-        ImmutableList<InternalNode> nodes = nodeMap.getNodesByHostAndPort().values().stream()
+        ImmutableList<InternalNode> nodes = nodeMap.getActiveNodes().stream()
                 .filter(node -> includeCoordinator || !nodeMap.getCoordinatorNodeIds().contains(node.getNodeIdentifier()))
                 .filter(node -> !excludedNodes.contains(node))
                 .collect(toImmutableList());
@@ -239,7 +245,7 @@ public class NodeScheduler
         Set<String> coordinatorIds = nodeMap.getCoordinatorNodeIds();
 
         for (HostAddress host : hosts) {
-            nodeMap.getNodesByHostAndPort().get(host).stream()
+            nodeMap.getAllNodesByHostAndPort().get(host).stream()
                     .filter(node -> includeCoordinator || !coordinatorIds.contains(node.getNodeIdentifier()))
                     .forEach(chosen::add);
 
@@ -254,7 +260,7 @@ public class NodeScheduler
 
             // consider a split with a host without a port as being accessible by all nodes in that host
             if (!host.hasPort()) {
-                nodeMap.getNodesByHost().get(address).stream()
+                nodeMap.getAllNodesByHost().get(address).stream()
                         .filter(node -> includeCoordinator || !coordinatorIds.contains(node.getNodeIdentifier()))
                         .forEach(chosen::add);
             }
@@ -267,7 +273,7 @@ public class NodeScheduler
                 // `coordinatorIds.contains(node.getNodeIdentifier())`. But checking the condition isn't necessary
                 // because every node satisfies it. Otherwise, `chosen` wouldn't have been empty.
 
-                nodeMap.getNodesByHostAndPort().get(host).stream()
+                nodeMap.getAllNodesByHostAndPort().get(host).stream()
                         .forEach(chosen::add);
 
                 InetAddress address;
@@ -281,7 +287,7 @@ public class NodeScheduler
 
                 // consider a split with a host without a port as being accessible by all nodes in that host
                 if (!host.hasPort()) {
-                    nodeMap.getNodesByHost().get(address).stream()
+                    nodeMap.getAllNodesByHost().get(address).stream()
                             .forEach(chosen::add);
                 }
             }
