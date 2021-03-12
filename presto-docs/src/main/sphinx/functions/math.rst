@@ -99,6 +99,12 @@ Mathematical Functions
     The lambda parameter must be a positive real number (of type DOUBLE).
     The probability p must lie on the interval [0, 1).
 
+.. function:: inverse_weibull_cdf(a, b, p) -> double
+
+    Compute the inverse of the Weibull cdf with given parameters ``a``, ``b`` for the probability ``p``.
+    The ``a``, ``b`` parameters must be positive double values. The probability ``p`` must be a double
+    on the interval [0, 1].
+
 .. function:: normal_cdf(mean, sd, v) -> double
 
     Compute the Normal cdf with given mean and standard deviation (sd):  P(N < v; mean, sd).
@@ -209,6 +215,11 @@ Mathematical Functions
     ``truncate(REAL '12.333', -1)`` -> result is 10.0
     ``truncate(REAL '12.333', 0)``  -> result is 12.0
     ``truncate(REAL '12.333', 1)``  -> result is 12.3
+
+.. function:: weibull_cdf(a, b, value) -> double
+
+    Compute the Weibull cdf with given parameters a, b: P(N <= value). The ``a``
+    and ``b`` parameters must be positive doubles and ``value`` must also be a double.
 
 .. function:: width_bucket(x, bound1, bound2, n) -> bigint
 
