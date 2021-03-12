@@ -30,6 +30,8 @@ import com.facebook.presto.type.Constraint;
 import com.facebook.presto.type.LiteralParameter;
 import com.google.common.primitives.Doubles;
 import io.airlift.slice.Slice;
+import org.apache.commons.math3.analysis.interpolation.LinearInterpolator;
+import org.apache.commons.math3.analysis.polynomials.PolynomialSplineFunction;
 import org.apache.commons.math3.distribution.BetaDistribution;
 import org.apache.commons.math3.special.Erf;
 
@@ -1277,6 +1279,54 @@ public final class MathFunctions
         }
 
         return lower;
+    }
+
+    @Description("Linearly interpolate a value at x given coordinates")
+    @ScalarFunction("linear_interpolate")
+    @SqlNullable
+    @SqlType(StandardTypes.DOUBLE)
+    public static Double linearInterpolate(
+            @SqlType(StandardTypes.DOUBLE) double x,
+            @SqlType("array(double)") Block xArray,
+            @SqlType("array(double)") Block yArray)
+    {
+        int xCount = xArray.getPositionCount();
+        int yCount = yArray.getPositionCount();
+        checkCondition(xCount == yCount, INVALID_FUNCTION_ARGUMENT, "Arrays must be the same length");
+        checkCondition(xCount >= 2, INVALID_FUNCTION_ARGUMENT, "Arrays must have length >= 2");
+        checkCondition(!Double.isNaN(x) && !Double.isInfinite(x), INVALID_FUNCTION_ARGUMENT, "NaNs not supported");
+
+        double[] xPrimitiveArray = new double[xCount];
+        double[] yPrimitiveArray = new double[xCount];
+        boolean yIsNull = false;
+        for (int i = 0; i < xCount; i++) {
+            Double xValue = DOUBLE.getDouble(xArray, i);
+            Double yValue = DOUBLE.getDouble(yArray, i);
+            checkCondition(!xArray.isNull(i), INVALID_FUNCTION_ARGUMENT, "x array must be strictly increasing");
+            checkCondition(!Double.isNaN(xValue) && !Double.isInfinite(xValue), INVALID_FUNCTION_ARGUMENT, "NaNs not supported");
+            checkCondition(!Double.isNaN(yValue) && !Double.isInfinite(yValue), INVALID_FUNCTION_ARGUMENT, "NaNs not supported");
+            if (i < xCount - 1) {
+                checkCondition(xValue < DOUBLE.getDouble(xArray, i + 1), INVALID_FUNCTION_ARGUMENT, "x array must be strictly increasing");
+            }
+            xPrimitiveArray[i] = xValue;
+            yPrimitiveArray[i] = yValue;
+            yIsNull = yIsNull || yArray.isNull(i);
+        }
+
+        if (yIsNull) {
+            return null;
+        }
+
+        if (x < xPrimitiveArray[0]) {
+            return yPrimitiveArray[0];
+        }
+
+        if (x > xPrimitiveArray[xCount - 1]) {
+            return yPrimitiveArray[xCount - 1];
+        }
+
+        PolynomialSplineFunction func = (new LinearInterpolator()).interpolate(xPrimitiveArray, yPrimitiveArray);
+        return func.value(x);
     }
 
     @Description("cosine similarity between the given sparse vectors")

@@ -85,6 +85,17 @@ Mathematical Functions
     The a, b parameters must be positive real numbers and value v must be a real value.
     The value v must lie on the interval [0, 1].
 
+.. function:: linear_interpolate(x, x_array, y_array) -> double
+
+    Compute a linear-interpolated y value value at ``x`` given the coordinates in
+    ``x_array`` and ``y_array``. ``x_array`` and ``y_array`` must be arrays of
+    equal length, and that length must be >= 2. ``x_array`` additionally must
+    be strictly increasing. NULL values in ``y_array`` will result in the function
+    returning NULL whereas NULL values in ``x_array`` are invalid due to the
+    strictly increasing condition. If ``x`` is below the range of ``x_array`` then
+    the first value in ``y_array`` is returned, cast to a double. If ``x`` is above
+    the range of ``x_array`` then the last value in ``y_array`` will be returned.
+
 .. function:: ln(x) -> double
 
     Returns the natural logarithm of ``x``.
@@ -166,7 +177,7 @@ Mathematical Functions
 .. function:: truncate(x, n) -> double
 
     Returns ``x`` truncated to ``n`` decimal places.
-    ``n`` can be negative to truncate ``n`` digits left of the decimal point. 
+    ``n`` can be negative to truncate ``n`` digits left of the decimal point.
 
     Example:
     ``truncate(REAL '12.333', -1)`` -> result is 10.0
