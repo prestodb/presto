@@ -23,7 +23,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
-import java.util.Collections;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -122,12 +122,19 @@ public class TestBlockBuilder
         BlockBuilder largeVarcharBlockBuilder = pageBuilder.getBlockBuilder(0);
 
         // Construct a string of 64 * 16 = 2^11 bytes
-        Slice largeSlice = Slices.utf8Slice(String.join("", Collections.nCopies(64, "CowMonsterKing:)")));
+        byte[] wordBytes = "CowMonsterKing:)".getBytes(StandardCharsets.UTF_8);
+        Slice largeSlice = Slices.allocate(wordBytes.length * 64);
+        byte[] sliceBytes = largeSlice.byteArray();
+        for (int i = 0; i < 64; i++) {
+            System.arraycopy(wordBytes, 0, sliceBytes, i * wordBytes.length, wordBytes.length);
+        }
         // Write the string to the largeVarcharBlockBuilder for 2^20 times
         for (int i = 0; i < 1_048_576; i++) {
             VARCHAR.writeSlice(largeVarcharBlockBuilder, largeSlice);
             pageBuilder.declarePosition();
         }
+        sliceBytes = null;
+        largeSlice = null; // ensure large buffer is reclaimable
         BlockBuilder newVarcharBlockBuilder = largeVarcharBlockBuilder.newBlockBuilderLike(null, 1_048_576 * 8);
         assertEquals(newVarcharBlockBuilder.getPositionCount(), 0);
         assertEquals(newVarcharBlockBuilder.getRetainedSizeInBytes(), 164);
