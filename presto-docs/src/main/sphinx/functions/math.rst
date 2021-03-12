@@ -72,6 +72,12 @@ Mathematical Functions
 
     Returns the value of ``string`` interpreted as a base-``radix`` number.
 
+.. function:: hypergeometric_cdf(populationSize, numberOfSuccesses, sampleSize, value) -> double
+
+    Compute the Hypergeometric cdf with given populationSize, numberOfSuccesses, sampleSize
+    and a value (observed_successes):  P(N <= value). The populationSize must be a positive integer
+    and numberOfSuccesses cannot be negative. numberOfSuccesses and sampleSize also cannot exceed populationSize
+
 .. function:: inverse_binomial_cdf(numberOfTrials, successProbability, p) -> int
 
     Compute the inverse of the Binomial cdf with given numberOfTrials and successProbability (of a single trial) the
@@ -84,6 +90,13 @@ Mathematical Functions
     Compute the inverse of the Chi-square cdf with given df (degrees of freedom) parameter for the cumulative
     probability (p): P(N < n). The df parameter must be positive real values.
     The probability p must lie on the interval [0, 1].
+
+.. function:: inverse_hypergeometric_cdf(populationSize, numberOfSuccesses, sampleSize, p) -> double
+
+    Compute the inverse Hypergeometric cdf with given populationSize, numberOfSuccesses, sampleSize
+    and cumulative probability: Smallest integer X (observed successes) such that the hypergeometric cdf evaluated
+    at X equals or exceeds p. The populationSize must be a positive integer and numberOfSuccesses cannot be negative.
+    numberOfSuccesses and sampleSize also cannot exceed populationSize
 
 .. function:: inverse_normal_cdf(mean, sd, p) -> double
 

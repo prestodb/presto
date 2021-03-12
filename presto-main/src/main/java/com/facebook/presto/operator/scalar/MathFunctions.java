@@ -33,6 +33,7 @@ import io.airlift.slice.Slice;
 import org.apache.commons.math3.distribution.BetaDistribution;
 import org.apache.commons.math3.distribution.BinomialDistribution;
 import org.apache.commons.math3.distribution.ChiSquaredDistribution;
+import org.apache.commons.math3.distribution.HypergeometricDistribution;
 import org.apache.commons.math3.distribution.PoissonDistribution;
 import org.apache.commons.math3.special.Erf;
 
@@ -760,6 +761,45 @@ public final class MathFunctions
         checkCondition(df > 0, INVALID_FUNCTION_ARGUMENT, "df must be greater than 0");
         ChiSquaredDistribution distribution = new ChiSquaredDistribution(null, df, ChiSquaredDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
         return distribution.cumulativeProbability(value);
+    }
+
+    @Description("Computes Hypergeometric cdf given populationSize, numberOfSuccesses, sampleSize and value")
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double hypergeometricCdf(
+            @SqlType(StandardTypes.INTEGER) long populationSize,
+            @SqlType(StandardTypes.INTEGER) long numberOfSuccesses,
+            @SqlType(StandardTypes.INTEGER) long sampleSize,
+            @SqlType(StandardTypes.INTEGER) long value)
+    {
+        checkCondition(populationSize > 0, INVALID_FUNCTION_ARGUMENT, "populationSize must be greater than 0");
+        checkCondition(numberOfSuccesses >= 0, INVALID_FUNCTION_ARGUMENT, "numberOfSuccesses must be in the interval [0, populationSize]");
+        checkCondition(numberOfSuccesses <= populationSize, INVALID_FUNCTION_ARGUMENT, "numberOfSuccesses must be in the interval [0, populationSize]");
+        checkCondition(sampleSize <= populationSize, INVALID_FUNCTION_ARGUMENT, "sampleSize cannot exceed populationSize");
+
+        HypergeometricDistribution distribution = new HypergeometricDistribution((int) populationSize, (int) numberOfSuccesses, (int) sampleSize);
+
+        return distribution.cumulativeProbability((int) value);
+    }
+
+    @Description("Computes inverse of Hypergeometric cdf given populationSize, numberOfSuccesses, sampleSize and cumulative probability")
+    @ScalarFunction
+    @SqlType(StandardTypes.INTEGER)
+    public static long inverseHypergeometricCdf(
+            @SqlType(StandardTypes.INTEGER) long populationSize,
+            @SqlType(StandardTypes.INTEGER) long numberOfSuccesses,
+            @SqlType(StandardTypes.INTEGER) long sampleSize,
+            @SqlType(StandardTypes.DOUBLE) double p)
+    {
+        checkCondition(populationSize > 0, INVALID_FUNCTION_ARGUMENT, "populationSize must be greater than 0");
+        checkCondition(numberOfSuccesses >= 0, INVALID_FUNCTION_ARGUMENT, "numberOfSuccesses must be in the interval [0, populationSize]");
+        checkCondition(numberOfSuccesses <= populationSize, INVALID_FUNCTION_ARGUMENT, "numberOfSuccesses must be in the interval [0, populationSize]");
+        checkCondition(sampleSize <= populationSize, INVALID_FUNCTION_ARGUMENT, "sampleSize cannot exceed populationSize");
+        checkCondition(p >= 0 && p <= 1, INVALID_FUNCTION_ARGUMENT, "p must be in the interval [0, 1]");
+
+        HypergeometricDistribution distribution = new HypergeometricDistribution((int) populationSize, (int) numberOfSuccesses, (int) sampleSize);
+
+        return (long) distribution.inverseCumulativeProbability(p);
     }
 
     @Description("Inverse of Poisson cdf given lambda (mean) parameter and probability")

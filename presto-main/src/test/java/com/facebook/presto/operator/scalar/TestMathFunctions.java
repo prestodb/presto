@@ -1314,6 +1314,39 @@ public class TestMathFunctions
     }
 
     @Test
+    public void testHypergeometricCdf()
+            throws Exception
+    {
+        assertFunction("hypergeometric_cdf(50, 5, 10, 1)", DOUBLE, 0.7418999792331364);
+        assertFunction("hypergeometric_cdf(1, 1, 1, 1)", DOUBLE, 1.0);
+        assertFunction("hypergeometric_cdf(100, 20, 10, 2)", DOUBLE, 0.6812200638176885);
+        assertFunction("hypergeometric_cdf(60, 37, 7, 5)", DOUBLE, 0.8348929014529312);
+
+        assertInvalidFunction("hypergeometric_cdf(-50, 5, 10, 1)", "populationSize must be greater than 0");
+        assertInvalidFunction("hypergeometric_cdf(50, -5, 10, 1)", "numberOfSuccesses cannot be negative");
+        assertInvalidFunction("hypergeometric_cdf(50, 51, 10, 1)", "numberOfSuccesses cannot exceed populationSize");
+        assertInvalidFunction("hypergeometric_cdf(50, 5, 51, 1)", "sampleSize cannot exceed populationSize");
+    }
+
+    @Test
+    public void testInverseHypergeometricCdf()
+            throws Exception
+    {
+        assertFunction("inverse_hypergeometric_cdf(50, 5, 10, 0.741)", INTEGER, 1);
+        assertFunction("inverse_hypergeometric_cdf(1, 1, 1, 1.0)", INTEGER, 1);
+        assertFunction("inverse_hypergeometric_cdf(100, 20, 10, 0.681)", INTEGER, 2);
+        assertFunction("inverse_hypergeometric_cdf(60, 37, 7, 0.834)", INTEGER, 5);
+        assertFunction("inverse_hypergeometric_cdf(1000, 50, 10, 0.99)", INTEGER, 3);
+
+        assertInvalidFunction("inverse_hypergeometric_cdf(-50, 5, 10, 0.1)", "populationSize must be greater than 0");
+        assertInvalidFunction("inverse_hypergeometric_cdf(50, -5, 10, 0.1)", "numberOfSuccesses cannot be negative");
+        assertInvalidFunction("inverse_hypergeometric_cdf(50, 51, 10, 0.1)", "numberOfSuccesses cannot exceed populationSize");
+        assertInvalidFunction("inverse_hypergeometric_cdf(50, 5, 51, 0.1)", "sampleSize cannot exceed populationSize");
+        assertInvalidFunction("inverse_hypergeometric_cdf(50, 5, 10, -0.1)", "p must be in the interval [0, 1]");
+        assertInvalidFunction("inverse_hypergeometric_cdf(50, 5, 10, 1.1)", "p must be in the interval [0, 1]");
+    }
+
+    @Test
     public void testInverseNormalCdf()
     {
         assertFunction("inverse_normal_cdf(0, 1, 0.3)", DOUBLE, -0.52440051270804089);
