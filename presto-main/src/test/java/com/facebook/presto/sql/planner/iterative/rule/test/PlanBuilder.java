@@ -798,6 +798,7 @@ public class PlanBuilder
                 variable("tablecommitcontext", VARBINARY),
                 columns,
                 columnNames,
+                ImmutableSet.of(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
