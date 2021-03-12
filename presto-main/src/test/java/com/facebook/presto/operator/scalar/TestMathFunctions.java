@@ -1475,6 +1475,31 @@ public class TestMathFunctions
         assertInvalidFunction("poisson_cdf(3, -10)", "value must be a non-negative integer");
     }
 
+    public void testInverseWeibullCdf()
+    {
+        assertFunction("inverse_weibull_cdf(1.0, 1.0, 0.0)", DOUBLE, 0.0);
+        assertFunction("round(inverse_weibull_cdf(1.0, 1.0, 0.632), 2)", DOUBLE, 1.00);
+        assertFunction("round(inverse_weibull_cdf(1.0, 0.6, 0.91), 2)", DOUBLE, 1.44);
+
+        assertInvalidFunction("inverse_weibull_cdf(0, 3, 0.5)", "a must be greater than 0");
+        assertInvalidFunction("inverse_weibull_cdf(3, 0, 0.5)", "b must be greater than 0");
+        assertInvalidFunction("inverse_weibull_cdf(3, 5, -0.1)", "p must be in the interval [0, 1]");
+        assertInvalidFunction("inverse_weibull_cdf(3, 5, 1.1)", "p must be in the interval [0, 1]");
+    }
+
+    @Test
+    public void testWeibullCdf()
+            throws Exception
+    {
+        assertFunction("weibull_cdf(1.0, 1.0, 0.0)", DOUBLE, 0.0);
+        assertFunction("weibull_cdf(1.0, 1.0, 40.0)", DOUBLE, 1.0);
+        assertFunction("round(weibull_cdf(1.0, 0.6, 3.0), 2)", DOUBLE, 0.99);
+        assertFunction("round(weibull_cdf(1.0, 0.9, 2.0), 2)", DOUBLE, 0.89);
+
+        assertInvalidFunction("weibull_cdf(0, 3, 0.5)", "a must be greater than 0");
+        assertInvalidFunction("weibull_cdf(3, 0, 0.5)", "b must be greater than 0");
+    }
+
     @Test
     public void testWilsonInterval()
     {
