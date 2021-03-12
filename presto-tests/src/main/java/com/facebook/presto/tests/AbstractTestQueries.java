@@ -1155,6 +1155,11 @@ public abstract class AbstractTestQueries
                 "SELECT a, sum(b), grouping(a) FROM (VALUES ('h', 11, 0), ('k', 7, 0)) AS t (a, b, c) GROUP BY GROUPING SETS (a)",
                 "VALUES ('h', 11, 0), ('k', 7, 0)");
 
+        // Grouping sets with limit
+        assertQuery(
+                "SELECT a, sum(b) as sum FROM (VALUES ('h', 11), ('h', 12), ('k', 7)) AS t (a, b) GROUP BY GROUPING SETS ((), a) order by sum limit 1",
+                "VALUES ('k',7)");
+
         assertQuery(
                 "SELECT a, b, sum(c), grouping(a, b) FROM (VALUES ('h', 'j', 11), ('k', 'l', 7) ) AS t (a, b, c) GROUP BY GROUPING SETS ( (a), (b)) HAVING grouping(a, b) > 1 ",
                 "VALUES (NULL, 'j', 11, 2), (NULL, 'l', 7, 2)");
