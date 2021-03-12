@@ -314,6 +314,8 @@ public class TestTableWriterOperator
             TaskMetadataContext taskMetadataContext,
             DriverContext driverContext)
     {
+        List<String> notNullColumnNames = new ArrayList<>(1);
+        notNullColumnNames.add(null);
         TableWriterOperatorFactory factory = new TableWriterOperatorFactory(
                 0,
                 new PlanNodeId("test"),
@@ -326,6 +328,7 @@ public class TestTableWriterOperator
                         new ConnectorOutputTableHandle() {}),
                         new SchemaTableName("testSchema", "testTable")),
                 ImmutableList.of(0),
+                notNullColumnNames,
                 session,
                 statisticsAggregation,
                 outputTypes,
