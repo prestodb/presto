@@ -52,7 +52,7 @@ import java.util.Properties;
 import java.util.concurrent.TimeoutException;
 import java.util.regex.Pattern;
 
-import static com.facebook.presto.session.FileSessionPropertyManager.CODEC;
+import static com.facebook.presto.session.file.FileSessionPropertyManager.CODEC;
 import static com.facebook.presto.spark.testing.Processes.destroyProcess;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
