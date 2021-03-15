@@ -106,6 +106,7 @@
         <module>presto-hive-common</module>
         <module>presto-hive-hadoop2</module>
         <module>presto-hive-metastore</module>
+        <module>presto-iceberg</module>
         <module>presto-i18n-functions</module>
         <module>presto-teradata-functions</module>
         <module>presto-example-http</module>
@@ -280,6 +281,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-hive-hadoop2</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-iceberg</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
