@@ -31,12 +31,12 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.split.SplitSource;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import javax.annotation.concurrent.GuardedBy;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -54,8 +54,6 @@ import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NO
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class FixedSourcePartitionedScheduler
@@ -179,21 +177,6 @@ public class FixedSourcePartitionedScheduler
     @Override
     public ScheduleResult schedule()
     {
-        // schedule a task on every node in the distribution
-        List<RemoteTask> newTasks = ImmutableList.of();
-        if (!scheduledTasks) {
-            newTasks = Streams.mapWithIndex(
-                    nodes.stream(),
-                    (node, id) -> stage.scheduleTask(node, toIntExact(id)))
-                    .filter(Optional::isPresent)
-                    .map(Optional::get)
-                    .collect(toImmutableList());
-            scheduledTasks = true;
-
-            // notify listeners that we have scheduled all tasks so they can set no more buffers or exchange splits
-            stage.transitionToFinishedTaskScheduling();
-        }
-
         boolean allBlocked = true;
         List<ListenableFuture<?>> blocked = new ArrayList<>();
         BlockedReason blockedReason = BlockedReason.NO_ACTIVE_DRIVER_GROUP;
@@ -224,6 +207,7 @@ public class FixedSourcePartitionedScheduler
         int splitsScheduled = 0;
         Iterator<SourceScheduler> schedulerIterator = sourceSchedulers.iterator();
         List<Lifespan> driverGroupsToStart = ImmutableList.of();
+        Set<RemoteTask> newTasks = new HashSet();
         while (schedulerIterator.hasNext()) {
             synchronized (this) {
                 // if a source scheduler is closed while it is scheduling, we can get an error
@@ -238,9 +222,8 @@ public class FixedSourcePartitionedScheduler
                 }
 
                 ScheduleResult schedule = sourceScheduler.schedule();
-                if (schedule.getSplitsScheduled() > 0) {
-                    stage.transitionToSchedulingSplits();
-                }
+                newTasks.addAll(schedule.getNewTasks());
+
                 splitsScheduled += schedule.getSplitsScheduled();
                 if (schedule.getBlockedReason().isPresent()) {
                     blocked.add(schedule.getBlocked());
