@@ -31,6 +31,7 @@ import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
@@ -497,6 +498,14 @@ public class ClassLoaderSafeConnectorMetadata
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             delegate.dropMaterializedView(session, viewName);
+        }
+    }
+
+    @Override
+    public MaterializedViewStatus getMaterializedViewStatus(ConnectorSession session, SchemaTableName materializedViewName)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getMaterializedViewStatus(session, materializedViewName);
         }
     }
 

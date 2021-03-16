@@ -418,7 +418,9 @@ public final class ThriftMetastoreUtil
         // Materialized view fetched from Hive Metastore uses TableType.MANAGED_TABLE before Hive 3.0. Cast it back to MATERIALIZED_VIEW here.
         PrestoTableType tableType = PrestoTableType.optionalValueOf(table.getTableType()).orElse(OTHER);
         if (table.getParameters() != null && "true".equals(table.getParameters().get(PRESTO_MATERIALIZED_VIEW_FLAG))) {
-            checkState(TableType.MANAGED_TABLE.name().equals(table.getTableType()), "Materialized view %s has incorrect table type %s from Metastore.", table.getTableName(), table.getTableType());
+            checkState(
+                    TableType.MANAGED_TABLE.name().equals(table.getTableType()),
+                    "Materialized view %s has incorrect table type %s from Metastore.", table.getTableName(), table.getTableType());
             tableType = MATERIALIZED_VIEW;
         }
 

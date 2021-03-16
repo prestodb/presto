@@ -31,6 +31,7 @@ import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.SchemaTableName;
@@ -583,6 +584,14 @@ public interface ConnectorMetadata
     default void dropMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping materialized views");
+    }
+
+    /**
+     * Get the materialized view status to inform the engine how much data has been materialized in the view
+     */
+    default MaterializedViewStatus getMaterializedViewStatus(ConnectorSession session, SchemaTableName materializedViewName)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support getting materialized views status");
     }
 
     /**

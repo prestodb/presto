@@ -60,9 +60,9 @@ public final class ConnectorMaterializedViewDefinition
             String table,
             List<SchemaTableName> baseTables,
             Optional<String> owner,
-            Map<String, Map<SchemaTableName, String>> columnMappingsAsMap)
+            Map<String, Map<SchemaTableName, String>> originalColumnMapping)
     {
-        this(originalSql, schema, table, baseTables, owner, convertFromMapToColumnMappings(requireNonNull(columnMappingsAsMap, "columnMappings is null"), new SchemaTableName(schema, table)));
+        this(originalSql, schema, table, baseTables, owner, convertFromMapToColumnMappings(requireNonNull(originalColumnMapping, "originalColumnMapping is null"), new SchemaTableName(schema, table)));
     }
 
     @JsonProperty
@@ -125,16 +125,16 @@ public final class ConnectorMaterializedViewDefinition
     }
 
     @JsonIgnore
-    private static List<ColumnMapping> convertFromMapToColumnMappings(Map<String, Map<SchemaTableName, String>> columnMappings, SchemaTableName sourceTable)
+    private static List<ColumnMapping> convertFromMapToColumnMappings(Map<String, Map<SchemaTableName, String>> originalColumnMappings, SchemaTableName sourceTable)
     {
         List<ColumnMapping> columnMappingList = new ArrayList<>();
 
-        for (String sourceColumn : columnMappings.keySet()) {
+        for (String sourceColumn : originalColumnMappings.keySet()) {
             TableColumn viewColumn = new TableColumn(sourceTable, sourceColumn);
 
             List<TableColumn> baseTableColumns = new ArrayList<>();
-            for (SchemaTableName baseTable : columnMappings.get(sourceColumn).keySet()) {
-                baseTableColumns.add(new TableColumn(baseTable, columnMappings.get(sourceColumn).get(baseTable)));
+            for (SchemaTableName baseTable : originalColumnMappings.get(sourceColumn).keySet()) {
+                baseTableColumns.add(new TableColumn(baseTable, originalColumnMappings.get(sourceColumn).get(baseTable)));
             }
 
             columnMappingList.add(new ColumnMapping(viewColumn, unmodifiableList(baseTableColumns)));

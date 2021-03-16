@@ -63,6 +63,7 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.DiscretePredicates;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.MaterializedViewNotFoundException;
+import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.RecordCursor;
@@ -189,6 +190,10 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_ENCRYPTION
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HiveManifestUtils.getManifestSizeInBytes;
 import static com.facebook.presto.hive.HiveManifestUtils.updatePartitionMetadataWithFileNamesAndSizes;
+import static com.facebook.presto.hive.HiveMaterializedViewUtils.differenceDataPredicates;
+import static com.facebook.presto.hive.HiveMaterializedViewUtils.getMaterializedDataPredicates;
+import static com.facebook.presto.hive.HiveMaterializedViewUtils.getViewToBasePartitionMap;
+import static com.facebook.presto.hive.HiveMaterializedViewUtils.validateMaterializedViewPartitionColumns;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HivePartitioningHandle.createHiveCompatiblePartitioningHandle;
 import static com.facebook.presto.hive.HivePartitioningHandle.createPrestoNativePartitioningHandle;
@@ -294,6 +299,10 @@ import static com.facebook.presto.hive.metastore.StorageFormat.VIEW_STORAGE_FORM
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.listEnabledPrincipals;
 import static com.facebook.presto.hive.security.SqlStandardAccessControl.ADMIN_ROLE_NAME;
+import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedDataPredicates;
+import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.FULLY_MATERIALIZED;
+import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.NOT_MATERIALIZED;
+import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.PARTIALLY_MATERIALIZED;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_ANALYZE_PROPERTY;
@@ -317,6 +326,7 @@ import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -326,7 +336,6 @@ import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Streams.stream;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
-import static java.util.Collections.emptyMap;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
@@ -2270,6 +2279,56 @@ public class HiveMetadata
     }
 
     @Override
+    public MaterializedViewStatus getMaterializedViewStatus(ConnectorSession session, SchemaTableName materializedViewName)
+    {
+        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity());
+        ConnectorMaterializedViewDefinition viewDefinition = getMaterializedView(session, materializedViewName)
+                .orElseThrow(() -> new MaterializedViewNotFoundException(materializedViewName));
+
+        List<Table> baseTables = viewDefinition.getBaseTables().stream()
+                .map(baseTableName -> metastore.getTable(metastoreContext, baseTableName.getSchemaName(), baseTableName.getTableName())
+                        .orElseThrow(() -> new TableNotFoundException(baseTableName)))
+                .collect(toImmutableList());
+
+        baseTables.forEach(table -> checkState(
+                table.getTableType().equals(MANAGED_TABLE),
+                format("base table %s is not a managed table", table.getTableName())));
+
+        Table materializedViewTable = metastore.getTable(metastoreContext, materializedViewName.getSchemaName(), materializedViewName.getTableName())
+                .orElseThrow(() -> new MaterializedViewNotFoundException(materializedViewName));
+
+        checkState(
+                materializedViewTable.getTableType().equals(MATERIALIZED_VIEW),
+                format("materialized view table %s is not a materialized view", materializedViewTable.getTableName()));
+
+        validateMaterializedViewPartitionColumns(metastore, metastoreContext, materializedViewTable, viewDefinition);
+        Map<SchemaTableName, Map<String, String>> viewToBasePartitionMap = getViewToBasePartitionMap(materializedViewTable, baseTables, viewDefinition.getColumnMappingsAsMap());
+
+        MaterializedDataPredicates materializedDataPredicates = getMaterializedDataPredicates(metastore, metastoreContext, typeManager, materializedViewTable, timeZone);
+        if (materializedDataPredicates.getPredicateDisjuncts().isEmpty()) {
+            return new MaterializedViewStatus(NOT_MATERIALIZED);
+        }
+
+        // Partitions to keep track of for materialized view freshness are the partitions of every base table
+        // that are not available/updated to the materialized view yet.
+        Map<SchemaTableName, MaterializedDataPredicates> partitionsFromBaseTables = baseTables.stream()
+                .collect(toImmutableMap(
+                        baseTable -> new SchemaTableName(baseTable.getDatabaseName(), baseTable.getTableName()),
+                        baseTable -> differenceDataPredicates(
+                                getMaterializedDataPredicates(metastore, metastoreContext, typeManager, baseTable, timeZone),
+                                materializedDataPredicates,
+                                viewToBasePartitionMap.getOrDefault(new SchemaTableName(baseTable.getDatabaseName(), baseTable.getTableName()), ImmutableMap.of()))));
+
+        for (MaterializedDataPredicates dataPredicates : partitionsFromBaseTables.values()) {
+            if (!dataPredicates.getPredicateDisjuncts().isEmpty()) {
+                return new MaterializedViewStatus(PARTIALLY_MATERIALIZED, partitionsFromBaseTables);
+            }
+        }
+
+        return new MaterializedViewStatus(FULLY_MATERIALIZED);
+    }
+
+    @Override
     public void createMaterializedView(ConnectorSession session, ConnectorTableMetadata viewMetadata, ConnectorMaterializedViewDefinition viewDefinition, boolean ignoreExisting)
     {
         if (isExternalTable(viewMetadata.getProperties())) {
@@ -2287,12 +2346,7 @@ public class HiveMetadata
                 .setViewExpandedText(Optional.of("/* Presto Materialized View */"))
                 .build();
 
-        List<Table> baseTables = viewDefinition.getBaseTables().stream()
-                .map(baseTableName -> metastore.getTable(new MetastoreContext(session.getIdentity()), baseTableName.getSchemaName(), baseTableName.getTableName())
-                        .orElseThrow(() -> new TableNotFoundException(baseTableName)))
-                .collect(toImmutableList());
-
-        validateMaterializedViewPartitionColumns(viewTable, baseTables, viewDefinition.getColumnMappingsAsMap());
+        validateMaterializedViewPartitionColumns(metastore, new MetastoreContext(session.getIdentity()), viewTable, viewDefinition);
 
         try {
             PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(viewTable.getOwner());
@@ -3259,54 +3313,6 @@ public class HiveMetadata
         if (!allColumns.subList(allColumns.size() - partitionedBy.size(), allColumns.size()).equals(partitionedBy)) {
             throw new PrestoException(HIVE_COLUMN_ORDER_MISMATCH, "Partition keys must be the last columns in the table and in the same order as the table properties: " + partitionedBy);
         }
-    }
-
-    /**
-     * Validate the partition columns of a materialized view to ensure 1) a materialized view is partitioned; and 2) it has at least one partition
-     * directly mapped to a base table partition.
-     *
-     * A column is directly mapped to a base table column if it is derived directly or transitively from the base table column,
-     * by only selecting a column or an aliased column without any function or operator applied.
-     * For example, with SELECT column_b AS column_a, column_a is directly mapped to column_b.
-     * With SELECT column_b + column_c AS column_a, column_a is not directly mapped to any column.
-     *
-     * {@code viewToBaseColumnMap} only contains direct column mappings.
-     */
-    private static void validateMaterializedViewPartitionColumns(Table viewTable, List<Table> baseTables, Map<String, Map<SchemaTableName, String>> viewToBaseColumnMap)
-    {
-        SchemaTableName viewName = new SchemaTableName(viewTable.getDatabaseName(), viewTable.getTableName());
-        if (viewToBaseColumnMap.isEmpty()) {
-            throw new PrestoException(
-                    NOT_SUPPORTED,
-                    format("Materialized view %s must have at least one column directly defined by a base table column.", viewName.toString()));
-        }
-
-        List<Column> viewPartitions = viewTable.getPartitionColumns();
-        if (viewPartitions.isEmpty()) {
-            throw new PrestoException(NOT_SUPPORTED, "Unpartitioned materialized view is not supported.");
-        }
-
-        Map<SchemaTableName, List<Column>> baseTablePartitions = baseTables.stream()
-                .collect(toImmutableMap(
-                        table -> new SchemaTableName(table.getDatabaseName(), table.getTableName()),
-                        Table::getPartitionColumns));
-
-        for (Column viewPartition : viewPartitions) {
-            for (SchemaTableName baseTable : baseTablePartitions.keySet()) {
-                for (Column basePartition : baseTablePartitions.get(baseTable)) {
-                    if (viewToBaseColumnMap
-                            .getOrDefault(viewPartition.getName(), emptyMap())
-                            .getOrDefault(baseTable, "")
-                            .equals(basePartition.getName())) {
-                        return;
-                    }
-                }
-            }
-        }
-
-        throw new PrestoException(
-                NOT_SUPPORTED,
-                format("Materialized view %s must have at least one partition directly defined by a base table partition.", viewName.toString()));
     }
 
     protected Optional<TableEncryptionProperties> getTableEncryptionPropertiesFromTableProperties(ConnectorTableMetadata tableMetadata, HiveStorageFormat hiveStorageFormat, List<String> partitionedBy)

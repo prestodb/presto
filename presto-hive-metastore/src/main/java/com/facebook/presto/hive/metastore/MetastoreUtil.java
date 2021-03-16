@@ -60,6 +60,7 @@ import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.metastore.ProtectMode;
+import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.io.Text;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormatter;
@@ -114,6 +115,7 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.common.FileUtils.unescapePathName;
 import static org.apache.hadoop.hive.metastore.ColumnType.typeToThriftType;
 import static org.apache.hadoop.hive.metastore.ProtectMode.getProtectModeFromString;
+import static org.apache.hadoop.hive.metastore.Warehouse.makeSpecFromName;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.BUCKET_COUNT;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.BUCKET_FIELD_NAME;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
@@ -443,6 +445,17 @@ public class MetastoreUtil
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, getRenameErrorMessage(source, target), e);
+        }
+    }
+
+    // TODO: https://github.com/prestodb/presto/issues/15974
+    public static Map<String, String> toPartitionNamesAndValues(String partitionName)
+    {
+        try {
+            return ImmutableMap.copyOf(makeSpecFromName(partitionName));
+        }
+        catch (MetaException e) {
+            throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, "Invalid partition name: " + partitionName);
         }
     }
 
