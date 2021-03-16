@@ -85,6 +85,18 @@ Mathematical Functions
     The a, b parameters must be positive real numbers and value v must be a real value.
     The value v must lie on the interval [0, 1].
 
+.. function:: discrete_uniform_pmf(a, b, k) -> double
+
+    Compute the discrete uniform pmf with given boundaries [a, b]
+    probability (p): P(X = k). k must be an integer number within [a,b].
+    Boundaries a, b must be integers with a < b.
+
+.. function:: discrete_uniform_cdf(a, b, k) -> double
+
+    Compute the discrete uniform cdf with given boundaries [a, b]
+    probability (p): P(X <= k). k must be an integer number within [a,b].
+    Boundaries a, b must be integers with a < b.
+
 .. function:: ln(x) -> double
 
     Returns the natural logarithm of ``x``.

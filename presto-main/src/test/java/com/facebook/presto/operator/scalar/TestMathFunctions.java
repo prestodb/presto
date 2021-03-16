@@ -1373,6 +1373,28 @@ public class TestMathFunctions
     }
 
     @Test
+    public void testDiscreteUniformPmf()
+            throws Exception
+    {
+        assertFunction("discrete_uniform_pmf(1, 5, 3)", DOUBLE, 0.2);
+        assertFunction("discrete_uniform_pmf(-4, 3, 2)", DOUBLE, 0.125);
+
+        assertInvalidFunction("discrete_uniform_pmf(8, 5, 0)", "b must be > a");
+        assertInvalidFunction("discrete_uniform_pmf(1, 5, 6)", "k must be >= a and <= b");
+    }
+
+    @Test
+    public void discreteUniformCdf()
+            throws Exception
+    {
+        assertFunction("discrete_uniform_cdf(1, 5, 3)", DOUBLE, 0.6);
+        assertFunction("discrete_uniform_cdf(-4, 3, 2)", DOUBLE, 0.875);
+
+        assertInvalidFunction("discrete_uniform_cdf(8, 5, 0)", "b must be > a");
+        assertInvalidFunction("discrete_uniform_cdf(1, 5, 6)", "k must be >= a and <= b");
+    }
+
+    @Test
     public void testWilsonInterval()
     {
         assertInvalidFunction("wilson_interval_lower(-1, 100, 2.575)", "number of successes must not be negative");

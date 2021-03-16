@@ -31,6 +31,7 @@ import com.facebook.presto.type.LiteralParameter;
 import com.google.common.primitives.Doubles;
 import io.airlift.slice.Slice;
 import org.apache.commons.math3.distribution.BetaDistribution;
+import org.apache.commons.math3.distribution.UniformIntegerDistribution;
 import org.apache.commons.math3.special.Erf;
 
 import java.math.BigDecimal;
@@ -702,6 +703,36 @@ public final class MathFunctions
         checkCondition(b > 0, INVALID_FUNCTION_ARGUMENT, "b must be > 0");
         BetaDistribution distribution = new BetaDistribution(null, a, b, BetaDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
         return distribution.cumulativeProbability(value);
+    }
+
+    @Description("descrete uniform pmf P(X = k) where a <= k <= b")
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double discreteUniformPmf(
+            @SqlType(StandardTypes.INTEGER) long a,
+            @SqlType(StandardTypes.INTEGER) long b,
+            @SqlType(StandardTypes.INTEGER) long k)
+    {
+        checkCondition(a <= b, INVALID_FUNCTION_ARGUMENT, "b must be > a");
+        checkCondition(k >= a && k <= b, INVALID_FUNCTION_ARGUMENT, "k must be >= a and <= b");
+
+        UniformIntegerDistribution distribution = new UniformIntegerDistribution((int) a, (int) b);
+        return distribution.probability((int) k);
+    }
+
+    @Description("descrete uniform cdf P(X <= k) where a <= k <= b")
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double discreteUniformCdf(
+            @SqlType(StandardTypes.INTEGER) long a,
+            @SqlType(StandardTypes.INTEGER) long b,
+            @SqlType(StandardTypes.INTEGER) long k)
+    {
+        checkCondition(a <= b, INVALID_FUNCTION_ARGUMENT, "b must be > a");
+        checkCondition(k >= a && k <= b, INVALID_FUNCTION_ARGUMENT, "k must be >= a and <= b");
+
+        UniformIntegerDistribution distribution = new UniformIntegerDistribution((int) a, (int) b);
+        return distribution.cumulativeProbability((int) k);
     }
 
     @Description("round to nearest integer")
