@@ -177,9 +177,13 @@ public class FeaturesConfig
     private boolean skipRedundantSort = true;
     private boolean isAllowWindowOrderByLiterals = true;
 
+    private String tempStorageConfigurationDirPath = "etc/temp-storage/";
+
     private boolean spoolingOutputBufferEnabled;
     private DataSize spoolingOutputBufferThreshold = new DataSize(8, MEGABYTE);
     private String spoolingOutputBufferTempStorage = "local";
+
+    private String testingNodeManagerEnvironment = "testenv";
 
     private String warnOnNoTableLayoutFilter = "";
 
@@ -1548,6 +1552,18 @@ public class FeaturesConfig
         return this;
     }
 
+    public String getTempStorageConfigurationDirPath()
+    {
+        return tempStorageConfigurationDirPath;
+    }
+
+    @Config("temp-storage-configuration-dir-path")
+    public FeaturesConfig setTempStorageConfigurationDirPath(String path)
+    {
+        this.tempStorageConfigurationDirPath = path;
+        return this;
+    }
+
     public boolean isSpoolingOutputBufferEnabled()
     {
         return spoolingOutputBufferEnabled;
@@ -1581,6 +1597,18 @@ public class FeaturesConfig
     public FeaturesConfig setSpoolingOutputBufferTempStorage(String spoolingOutputBufferTempStorage)
     {
         this.spoolingOutputBufferTempStorage = spoolingOutputBufferTempStorage;
+        return this;
+    }
+
+    public String getTestingNodeManagerEnvironment()
+    {
+        return testingNodeManagerEnvironment;
+    }
+
+    @Config("testing-node-manager-environment")
+    public FeaturesConfig setTestingNodeManagerEnvironment(String environment)
+    {
+        this.testingNodeManagerEnvironment = environment;
         return this;
     }
 }

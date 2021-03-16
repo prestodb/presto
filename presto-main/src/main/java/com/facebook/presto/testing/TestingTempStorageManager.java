@@ -14,9 +14,11 @@
 package com.facebook.presto.testing;
 
 import com.facebook.presto.spiller.LocalTempStorage;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.storage.TempStorageManager;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
 
 import java.nio.file.Paths;
 import java.util.UUID;
@@ -26,20 +28,26 @@ import static com.facebook.presto.spiller.LocalTempStorage.TEMP_STORAGE_PATH;
 public class TestingTempStorageManager
         extends TempStorageManager
 {
-    public TestingTempStorageManager()
+    @Inject
+    public TestingTempStorageManager(FeaturesConfig featuresConfig)
     {
         // For tests like TestSpilled{Aggregations, Window, OrderBy}WithTemporaryStorage, TestDistributedSpilledQueriesWithTempStorage
         // Each of them will create their own TempStorage
         // Since TempStorage#initilaize is called lazily, the temporary directory might be cleaned up when other tests is still spilling.
         this(Paths.get(System.getProperty("java.io.tmpdir"), "presto", "temp_storage", UUID.randomUUID().toString().replaceAll("-", "_"))
                 .toAbsolutePath()
-                .toString());
+                .toString(), featuresConfig);
+    }
+
+    public void initialize()
+    {
+        loadTempStorage("tempfs", ImmutableMap.of(TempStorageManager.TEMP_STORAGE_FACTORY_NAME, "tempfs"));
     }
 
     @VisibleForTesting
-    public TestingTempStorageManager(String tempStoragePath)
+    public TestingTempStorageManager(String tempStoragePath, FeaturesConfig featuresConfig)
     {
-        super(new TestingNodeManager());
+        super(new TestingNodeManager(featuresConfig.getTestingNodeManagerEnvironment()), featuresConfig);
         loadTempStorage(
                 LocalTempStorage.NAME,
                 ImmutableMap.of(TEMP_STORAGE_PATH, tempStoragePath, TempStorageManager.TEMP_STORAGE_FACTORY_NAME, "local"));

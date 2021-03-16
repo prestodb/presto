@@ -429,6 +429,11 @@ public class TestingPrestoServer
         pluginManager.installPlugin(plugin);
     }
 
+    public TestingTempStorageManager getTestingTempStorageManager()
+    {
+        return injector.getInstance(TestingTempStorageManager.class);
+    }
+
     public DispatchManager getDispatchManager()
     {
         return dispatchManager;

@@ -562,6 +562,7 @@ public class TestSpoolingOutputBuffer
     {
         FeaturesConfig featuresConfig = new FeaturesConfig();
         featuresConfig.setSpoolingOutputBufferThreshold(threshold);
+        featuresConfig.setSpoolingOutputBufferTempStorage("local");
 
         SpoolingOutputBufferFactory spoolingOutputBufferFactory = new SpoolingOutputBufferFactory(featuresConfig);
         OutputBuffers outputBuffers = OutputBuffers.createSpoolingOutputBuffers();

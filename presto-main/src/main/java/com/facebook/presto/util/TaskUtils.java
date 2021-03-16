@@ -18,11 +18,11 @@ import io.airlift.units.Duration;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class TaskUtils
 {
-    public static final Duration DEFAULT_MAX_WAIT_TIME = new Duration(2, SECONDS);
+    public static final Duration DEFAULT_MAX_WAIT_TIME = new Duration(2, MINUTES);
 
     private TaskUtils() {}
 

@@ -379,6 +379,13 @@ public class DistributedQueryRunner
         return ImmutableList.copyOf(servers);
     }
 
+    public void initializeTempStorageManager()
+    {
+        for (TestingPrestoServer server : servers) {
+            server.getTestingTempStorageManager().initialize();
+        }
+    }
+
     @Override
     public void installPlugin(Plugin plugin)
     {

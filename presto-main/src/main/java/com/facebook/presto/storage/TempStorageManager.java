@@ -24,6 +24,7 @@ import com.facebook.presto.spi.storage.TempStorage;
 import com.facebook.presto.spi.storage.TempStorageContext;
 import com.facebook.presto.spi.storage.TempStorageFactory;
 import com.facebook.presto.spiller.LocalTempStorage;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -49,8 +50,6 @@ import static java.util.Objects.requireNonNull;
 public class TempStorageManager
 {
     private static final Logger log = Logger.get(TempStorageManager.class);
-    // TODO: Make this configurable
-    private static final File TEMP_STORAGE_CONFIGURATION_DIR = new File("etc/temp-storage/");
     public static final String TEMP_STORAGE_FACTORY_NAME = "temp-storage-factory.name";
 
     private final Map<String, TempStorageFactory> tempStorageFactories = new ConcurrentHashMap<>();
@@ -58,21 +57,25 @@ public class TempStorageManager
     private final AtomicBoolean tempStorageLoading = new AtomicBoolean();
 
     private final NodeManager nodeManager;
+    private final FeaturesConfig featuresConfig;
 
     @Inject
-    public TempStorageManager(InternalNodeManager internalNodeManager, NodeInfo nodeInfo)
+    public TempStorageManager(InternalNodeManager internalNodeManager, NodeInfo nodeInfo, FeaturesConfig featuresConfig)
     {
         this(new ConnectorAwareNodeManager(
                 requireNonNull(internalNodeManager, "internalNodeManager is null"),
                 requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment(),
-                new ConnectorId(GlobalSystemConnector.NAME)));
+                new ConnectorId(GlobalSystemConnector.NAME)),
+                featuresConfig);
     }
 
     @VisibleForTesting
-    public TempStorageManager(NodeManager nodeManager)
+    public TempStorageManager(NodeManager nodeManager, FeaturesConfig featuresConfig)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         addTempStorageFactory(new LocalTempStorage.Factory());
+
+        this.featuresConfig = requireNonNull(featuresConfig, "featuresConfig is null");
     }
 
     public void addTempStorageFactory(TempStorageFactory tempStorageFactory)
@@ -115,7 +118,8 @@ public class TempStorageManager
                         TEMP_STORAGE_FACTORY_NAME,
                         "local"));
 
-        for (File file : listFiles(TEMP_STORAGE_CONFIGURATION_DIR)) {
+        File tempStorageConfigurationDir = new File(featuresConfig.getTempStorageConfigurationDirPath());
+        for (File file : listFiles(tempStorageConfigurationDir)) {
             if (file.isFile() && file.getName().endsWith(".properties")) {
                 String name = getNameWithoutExtension(file.getName());
                 Map<String, String> properties = new HashMap<>(loadProperties(file));

@@ -23,6 +23,7 @@ import com.facebook.presto.operator.PageAssertions;
 import com.facebook.presto.spi.page.PageCodecMarker;
 import com.facebook.presto.spi.page.PagesSerdeUtil;
 import com.facebook.presto.spi.page.SerializedPage;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.testing.TestingTempStorageManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
@@ -113,7 +114,7 @@ public class TestTempStorageSingleStreamSpiller
         File spillPath = new File(tempDirectory, UUID.randomUUID().toString());
 
         TempStorageSingleStreamSpillerFactory spillerFactory = new TempStorageSingleStreamSpillerFactory(
-                new TestingTempStorageManager(spillPath.toString()),
+                new TestingTempStorageManager(spillPath.toString(), new FeaturesConfig()),
                 executor, // executor won't be closed, because we don't call destroy() on the spiller factory
                 new BlockEncodingManager(),
                 new SpillerStats(),

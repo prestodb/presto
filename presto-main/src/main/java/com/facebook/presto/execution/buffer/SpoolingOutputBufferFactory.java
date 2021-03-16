@@ -15,7 +15,6 @@ package com.facebook.presto.execution.buffer;
 
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.spiller.LocalTempStorage;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.storage.TempStorageManager;
 import com.facebook.presto.testing.TestingTempStorageManager;
@@ -60,7 +59,7 @@ public class SpoolingOutputBufferFactory
     public SpoolingOutputBufferFactory(FeaturesConfig featuresConfig)
     {
         this.featuresConfig = requireNonNull(featuresConfig);
-        tempStorageManager = new TestingTempStorageManager();
+        tempStorageManager = new TestingTempStorageManager(featuresConfig);
         finalizerService = new FinalizerService();
 
         initialize();
@@ -91,7 +90,7 @@ public class SpoolingOutputBufferFactory
                 taskInstanceId,
                 outputBuffers,
                 state,
-                tempStorageManager.getTempStorage(LocalTempStorage.NAME),
+                tempStorageManager.getTempStorage(featuresConfig.getSpoolingOutputBufferTempStorage()),
                 featuresConfig.getSpoolingOutputBufferThreshold(),
                 executor,
                 finalizerService);

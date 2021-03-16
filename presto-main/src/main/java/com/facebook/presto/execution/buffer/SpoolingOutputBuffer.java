@@ -254,29 +254,37 @@ public class SpoolingOutputBuffer
 
     private synchronized void flush()
     {
+        long currentMemorySequenceId = this.currentMemorySequenceId.get();
+        long bytes = totalInMemoryBytes.get();
+        int pageCount = pages.size();
+
         List<DataOutput> dataOutputs = pages.stream()
                 .map(PageDataOutput::new)
                 .collect(toImmutableList());
 
         // create a future that will hold the handle
         ListenableFuture<TempStorageHandle> handleFuture = executor.submit(() -> {
-            TempDataSink dataSink = tempStorage.create(tempDataOperationContext);
-            dataSink.write(dataOutputs);
-            return dataSink.commit();
+            try {
+                TempDataSink dataSink = tempStorage.create(tempDataOperationContext);
+                dataSink.write(dataOutputs);
+                return dataSink.commit();
+            }
+            catch (Exception e) {
+                log.error(e, "Failed to flush pages %s-%s", currentMemorySequenceId, currentMemorySequenceId + pageCount);
+                throw e;
+            }
         });
 
         // store the handleFuture and file information
-        long bytes = totalInMemoryBytes.get();
-        int pageCount = pages.size();
         HandleInfo handleInfo = new HandleInfo(
-                closedOpen(currentMemorySequenceId.get(), currentMemorySequenceId.get() + pageCount),
+                closedOpen(currentMemorySequenceId, currentMemorySequenceId + pageCount),
                 handleFuture,
                 bytes,
                 pageCount);
         handleInfoQueue.add(handleInfo);
 
         // update cutoff for file pages
-        currentMemorySequenceId.addAndGet(pageCount);
+        this.currentMemorySequenceId.addAndGet(pageCount);
 
         // clear the pages in memory
         pages.clear();
@@ -369,7 +377,7 @@ public class SpoolingOutputBuffer
         }, executor);
 
         return catchingAsync(resultFuture, Exception.class, e -> {
-            log.error("Task %s: Failed to get page with startSequenceId %s", taskId, startSequenceId);
+            log.error(e, "Task %s: Failed to get page with startSequenceId %s", taskId, startSequenceId);
             return immediateFailedFuture(e);
         }, executor);
     }

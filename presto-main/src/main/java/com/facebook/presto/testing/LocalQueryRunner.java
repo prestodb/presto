@@ -428,7 +428,7 @@ public class LocalQueryRunner
                 new PasswordAuthenticatorManager(),
                 new EventListenerManager(),
                 blockEncodingManager,
-                new TestingTempStorageManager(),
+                new TestingTempStorageManager(featuresConfig),
                 new SessionPropertyDefaults(nodeInfo));
 
         connectorManager.addConnectorFactory(globalSystemConnectorFactory);

@@ -157,9 +157,11 @@ public class TestFeaturesConfig
                 .setAllowWindowOrderByLiterals(true)
                 .setEnforceFixedDistributionForOutputOperator(false)
                 .setEmptyJoinOptimization(false)
+                .setTempStorageConfigurationDirPath("etc/temp-storage/")
                 .setSpoolingOutputBufferEnabled(false)
                 .setSpoolingOutputBufferThreshold(new DataSize(8, MEGABYTE))
-                .setSpoolingOutputBufferTempStorage("local"));
+                .setSpoolingOutputBufferTempStorage("local")
+                .setTestingNodeManagerEnvironment("testenv"));
     }
 
     @Test
@@ -269,9 +271,11 @@ public class TestFeaturesConfig
                 .put("is-allow-window-order-by-literals", "false")
                 .put("enforce-fixed-distribution-for-output-operator", "true")
                 .put("optimizer.optimize-joins-with-empty-sources", "true")
+                .put("temp-storage-configuration-dir-path", "temp/")
                 .put("spooling-output-buffer-enabled", "true")
                 .put("spooling-output-buffer-threshold", "16MB")
                 .put("spooling-output-buffer-temp-storage", "tempfs")
+                .put("testing-node-manager-environment", "atn6_testenv")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -379,9 +383,11 @@ public class TestFeaturesConfig
                 .setAllowWindowOrderByLiterals(false)
                 .setEnforceFixedDistributionForOutputOperator(true)
                 .setEmptyJoinOptimization(true)
+                .setTempStorageConfigurationDirPath("temp/")
                 .setSpoolingOutputBufferEnabled(true)
                 .setSpoolingOutputBufferThreshold(new DataSize(16, MEGABYTE))
-                .setSpoolingOutputBufferTempStorage("tempfs");
+                .setSpoolingOutputBufferTempStorage("tempfs")
+                .setTestingNodeManagerEnvironment("atn6_testenv");
         assertFullMapping(properties, expected);
     }
 
