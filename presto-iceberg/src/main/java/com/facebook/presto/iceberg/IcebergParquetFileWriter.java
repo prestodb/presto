@@ -22,8 +22,8 @@ import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.Metrics;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.parquet.ParquetUtil;
+import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.schema.MessageType;
-import parquet.hadoop.metadata.CompressionCodecName;
 
 import java.io.OutputStream;
 import java.util.List;
