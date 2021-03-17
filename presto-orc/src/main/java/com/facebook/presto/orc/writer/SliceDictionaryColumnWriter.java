@@ -15,6 +15,7 @@ package com.facebook.presto.orc.writer;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.DictionaryBlock;
+import com.facebook.presto.common.block.DictionaryId;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.DwrfDataEncryptor;
 import com.facebook.presto.orc.OrcEncoding;
@@ -29,6 +30,7 @@ import com.facebook.presto.orc.stream.ByteArrayOutputStream;
 import com.facebook.presto.orc.stream.LongOutputStream;
 import com.facebook.presto.orc.stream.PresentOutputStream;
 import com.facebook.presto.orc.stream.StreamDataOutput;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
@@ -92,6 +94,23 @@ public class SliceDictionaryColumnWriter
         return dictionary.getEntryCount();
     }
 
+    @VisibleForTesting
+    static int getChunkLength(int offset, int[] dictionaryIndexes, int positionCount, Block elementBlock, int maxChunkSize)
+    {
+        int endOffset = offset;
+        long size = elementBlock.getSliceLength(dictionaryIndexes[endOffset++]);
+        while (endOffset < positionCount) {
+            // getSliceLength does not include the nulls and length array. But this
+            // is a heuristic to avoid too much memory allocation, so this is fine.
+            size += elementBlock.getSliceLength(dictionaryIndexes[endOffset]);
+            if (size > maxChunkSize) {
+                break;
+            }
+            endOffset++;
+        }
+        return endOffset - offset;
+    }
+
     @Override
     protected boolean tryConvertToDirect(int dictionaryIndexCount, IntBigArray dictionaryIndexes, int maxDirectBytes)
     {
@@ -99,29 +118,19 @@ public class SliceDictionaryColumnWriter
         for (int i = 0; dictionaryIndexCount > 0 && i < segments.length; i++) {
             int[] segment = segments[i];
             int positionCount = Math.min(dictionaryIndexCount, segment.length);
-            Block block = new DictionaryBlock(positionCount, dictionary.getElementBlock(), segment);
+            Block elementBlock = dictionary.getElementBlock();
+            DictionaryId dictionaryId = DictionaryId.randomDictionaryId();
 
-            while (block != null) {
-                int chunkPositionCount = block.getPositionCount();
-                Block chunk = block.getRegion(0, chunkPositionCount);
-
-                // avoid chunk with huge logical size
-                while (chunkPositionCount > 1 && chunk.getLogicalSizeInBytes() > DIRECT_CONVERSION_CHUNK_MAX_LOGICAL_BYTES) {
-                    chunkPositionCount /= 2;
-                    chunk = chunk.getRegion(0, chunkPositionCount);
-                }
-
+            int offset = 0;
+            while (offset < positionCount) {
+                // Dictionary can contain large values that are repeated. In such a case, the conversion will be abandoned
+                // due to maxDirectBytes. To avoid allocating too much memory on those cases, process the dictionary in chunks.
+                int length = getChunkLength(offset, segment, positionCount, elementBlock, DIRECT_CONVERSION_CHUNK_MAX_LOGICAL_BYTES);
+                Block chunk = new DictionaryBlock(offset, length, elementBlock, segment, false, dictionaryId);
+                offset += length;
                 directColumnWriter.writeBlock(chunk);
                 if (directColumnWriter.getBufferedBytes() > maxDirectBytes) {
                     return false;
-                }
-
-                // slice block to only unconverted rows
-                if (chunkPositionCount < block.getPositionCount()) {
-                    block = block.getRegion(chunkPositionCount, block.getPositionCount() - chunkPositionCount);
-                }
-                else {
-                    block = null;
                 }
             }
 

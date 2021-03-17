@@ -22,11 +22,15 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
+import java.util.Arrays;
+
 import static com.facebook.presto.block.BlockAssertions.createRLEBlock;
 import static com.facebook.presto.block.BlockAssertions.createRandomDictionaryBlock;
 import static com.facebook.presto.block.BlockAssertions.createRandomLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createSlicesBlock;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
+import static io.airlift.slice.Slices.utf8Slice;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
@@ -42,6 +46,44 @@ public class TestDictionaryBlock
         Slice[] expectedValues = createExpectedValues(10);
         DictionaryBlock dictionaryBlock = createDictionaryBlock(expectedValues, 100);
         assertEquals(dictionaryBlock.getSizeInBytes(), dictionaryBlock.getDictionary().getSizeInBytes() + (100 * SIZE_OF_INT));
+    }
+
+    @Test
+    public void testNonCachedLogicalBytes()
+    {
+        int numEntries = 10;
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, numEntries);
+
+        // Over allocate dictionary indexes but only use the required limit.
+        int[] dictionaryIndexes = new int[numEntries + 10];
+        Arrays.fill(dictionaryIndexes, 1);
+        blockBuilder.appendNull();
+        dictionaryIndexes[0] = 0;
+
+        String string = "";
+        for (int i = 1; i < numEntries; i++) {
+            string += "a";
+            VARCHAR.writeSlice(blockBuilder, utf8Slice(string));
+            dictionaryIndexes[i] = numEntries - i;
+        }
+
+        // A dictionary block of size 10, 1st element -> null, 2nd element size -> 9....9th element size -> 1
+        // Pass different maxChunkSize and different offset and verify if it computes the chunk lengths correctly.
+        Block elementBlock = blockBuilder.build();
+        DictionaryBlock block = new DictionaryBlock(numEntries, elementBlock, dictionaryIndexes);
+        int elementSize = Integer.BYTES + Byte.BYTES;
+
+        long size = block.getRegionLogicalSizeInBytes(0, 1);
+        assertEquals(size, 0 + 1 * elementSize);
+
+        size = block.getRegionLogicalSizeInBytes(0, numEntries);
+        assertEquals(size, 45 + numEntries * elementSize);
+
+        size = block.getRegionLogicalSizeInBytes(1, 2);
+        assertEquals(size, 9 + 8 + 2 * elementSize);
+
+        size = block.getRegionLogicalSizeInBytes(9, 1);
+        assertEquals(size, 1 + 1 * elementSize);
     }
 
     @Test
