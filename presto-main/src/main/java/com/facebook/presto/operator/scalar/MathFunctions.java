@@ -31,6 +31,7 @@ import com.facebook.presto.type.LiteralParameter;
 import com.google.common.primitives.Doubles;
 import io.airlift.slice.Slice;
 import org.apache.commons.math3.distribution.BetaDistribution;
+import org.apache.commons.math3.distribution.GeometricDistribution;
 import org.apache.commons.math3.special.Erf;
 
 import java.math.BigDecimal;
@@ -702,6 +703,32 @@ public final class MathFunctions
         checkCondition(b > 0, INVALID_FUNCTION_ARGUMENT, "b must be > 0");
         BetaDistribution distribution = new BetaDistribution(null, a, b, BetaDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
         return distribution.cumulativeProbability(value);
+    }
+
+    @Description("geometric pmf P(X = k) given p probability for success")
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double geometricPmf(
+            @SqlType(StandardTypes.DOUBLE) double p,
+            @SqlType(StandardTypes.INTEGER) long k)
+    {
+        checkCondition(p > 0 && p <= 1, INVALID_FUNCTION_ARGUMENT, "p must be in the interval (0, 1]");
+        checkCondition(k >= 0, INVALID_FUNCTION_ARGUMENT, "k must be >= 0");
+        GeometricDistribution distribution = new GeometricDistribution(p);
+        return distribution.probability((int) k);
+    }
+
+    @Description("geometric cdf P(X <= k), given p probability for success")
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double geometricCdf(
+            @SqlType(StandardTypes.DOUBLE) double p,
+            @SqlType(StandardTypes.INTEGER) long k)
+    {
+        checkCondition(p > 0 && p <= 1, INVALID_FUNCTION_ARGUMENT, "p must be in the interval (0, 1]");
+        checkCondition(k >= 0, INVALID_FUNCTION_ARGUMENT, "k must be >= 0");
+        GeometricDistribution distribution = new GeometricDistribution(p);
+        return distribution.cumulativeProbability((int) k);
     }
 
     @Description("round to nearest integer")

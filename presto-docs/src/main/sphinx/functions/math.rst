@@ -85,6 +85,18 @@ Mathematical Functions
     The a, b parameters must be positive real numbers and value v must be a real value.
     The value v must lie on the interval [0, 1].
 
+.. function:: geometric_pmf(p, k) -> double
+
+    Compute the probability for first success at the kth Bernoulli trial where the probability for success is p.
+    probability (p): P(X = k). k must be an integer number within [0, 1, 2, 3, ...].
+    The probability p must lie on the interval (0, 1].
+
+.. function:: geometric_cdf(p, k) -> double
+
+    Compute the probability for first success before or at the kth Bernoulli trial where the probability for success is p.
+    probability (p): P(X <= k). k must be aN integer number within [0, 1, 2, 3, ...].
+    The probability p must lie on the interval (0, 1].
+
 .. function:: ln(x) -> double
 
     Returns the natural logarithm of ``x``.

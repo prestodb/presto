@@ -1373,6 +1373,34 @@ public class TestMathFunctions
     }
 
     @Test
+    public void testGeometricPmf()
+            throws Exception
+    {
+        assertFunction("geometric_pmf(0.4, 2)", DOUBLE, 0.144);
+        assertFunction("geometric_pmf(0.1, 3)", DOUBLE, 0.0729);
+        assertFunction("geometric_pmf(0.5, 2)", DOUBLE, 0.125);
+        assertFunction("round(geometric_pmf(0.5, 7), 12)", DOUBLE, 0.00390625);
+
+        assertInvalidFunction("geometric_pmf(0, 3)", "p must be in the interval (0, 1]");
+        assertInvalidFunction("geometric_pmf(1.5, 3)", "p must be in the interval (0, 1]");
+        assertInvalidFunction("geometric_pmf(0.4, -1)", "k must be >= 0");
+    }
+
+    @Test
+    public void testGeometricCdf()
+            throws Exception
+    {
+        assertFunction("geometric_cdf(0.4, 2)", DOUBLE, 0.784);
+        assertFunction("geometric_cdf(0.2, 3)", DOUBLE, 0.5904);
+        assertFunction("geometric_cdf(0.5, 3)", DOUBLE, 0.9375);
+        assertFunction("geometric_cdf(0.5, 7)", DOUBLE, 0.99609375);
+
+        assertInvalidFunction("geometric_cdf(0.0, 3)", "p must be in the interval (0, 1]");
+        assertInvalidFunction("geometric_cdf(1.5, 3)", "p must be in the interval (0, 1]");
+        assertInvalidFunction("geometric_cdf(0.4, -1)", "k must be >= 0");
+    }
+
+    @Test
     public void testWilsonInterval()
     {
         assertInvalidFunction("wilson_interval_lower(-1, 100, 2.575)", "number of successes must not be negative");
