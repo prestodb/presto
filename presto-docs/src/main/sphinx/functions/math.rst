@@ -85,6 +85,19 @@ Mathematical Functions
     The a, b parameters must be positive real numbers and value v must be a real value.
     The value v must lie on the interval [0, 1].
 
+.. function:: inverse_continuous_uniform_cdf(a, b, p) -> double
+
+    Compute the inverse of the continuous uniform cdf with given [a, b] boundaries.
+    inf{x in R | P(X<=x) >= p} for 0 < p <= 1,
+    inf{x in R | P(X<=x) > 0} for p = 0.
+    The a, b parameters must be real numbers.
+    The probability p must lie on the interval [0, 1].
+
+.. function:: continuous_uniform_cdf(a, b, v) -> double
+
+    Compute the continuous uniform cdf with given [a, b] boundaries:  P(X <= x).
+    The a, b parameters must be real numbers and value v must be a real number.
+
 .. function:: ln(x) -> double
 
     Returns the natural logarithm of ``x``.
