@@ -54,7 +54,6 @@ import java.util.Set;
 import static com.facebook.airlift.concurrent.MoreFutures.whenAnyCompleteCancelOthers;
 import static com.facebook.presto.SystemSessionProperties.getMaxUnacknowledgedSplitsPerTask;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType;
-import static com.facebook.presto.metadata.InternalNode.NodeStatus.ALIVE;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Suppliers.memoizeWithExpiration;
@@ -193,13 +192,14 @@ public class NodeScheduler
                     .collect(toImmutableSet());
 
             for (InternalNode node : allNodes) {
-                if (node.getNodeStatus() == ALIVE) {
-                    activeNodesByNodeId.put(node.getNodeIdentifier(), node);
-                    if (useNetworkTopology && (includeCoordinator || !coordinatorNodeIds.contains(node.getNodeIdentifier()))) {
-                        NetworkLocation location = networkLocationCache.get(node.getHostAndPort());
-                        for (int i = 0; i <= location.getSegments().size(); i++) {
-                            activeWorkersByNetworkPath.put(location.subLocation(0, i), node);
-                        }
+                if (node.isResourceManager()) {
+                    continue;
+                }
+                activeNodesByNodeId.put(node.getNodeIdentifier(), node);
+                if (useNetworkTopology && (includeCoordinator || !coordinatorNodeIds.contains(node.getNodeIdentifier()))) {
+                    NetworkLocation location = networkLocationCache.get(node.getHostAndPort());
+                    for (int i = 0; i <= location.getSegments().size(); i++) {
+                        activeWorkersByNetworkPath.put(location.subLocation(0, i), node);
                     }
                 }
                 try {
