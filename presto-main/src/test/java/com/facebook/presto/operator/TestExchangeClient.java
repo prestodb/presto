@@ -215,6 +215,83 @@ public class TestExchangeClient
     }
 
     @Test
+    public void testTargetResultSize()
+    {
+        DataSize bufferCapacity = new DataSize(10000, BYTE);
+        DataSize maxResponseSize = new DataSize(10000, BYTE);
+        MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
+
+        URI location = URI.create("http://localhost:8080");
+
+        // add a pages
+        Page page1 = createPage(1);
+        Page page2 = createPage(2);
+        Page page3 = createPage(3);
+        processor.addPage(location, page1);
+        processor.addPage(location, page2);
+        processor.addPage(location, page3);
+
+        ExchangeClient exchangeClient = createExchangeClient(processor, bufferCapacity, maxResponseSize);
+
+        exchangeClient.addLocation(location, TaskId.valueOf("taskid.0.0.0"));
+        assertFalse(exchangeClient.isClosed());
+
+        ListenableFuture<?> blocked1 = exchangeClient.isBlocked();
+        // The second future is blocked on a non-zero target result size.  It should not complete until the retained size of the buffer meets that size.
+        long minimumBufferedBytes = page1.getRetainedSizeInBytes() + page2.getRetainedSizeInBytes() + page3.getRetainedSizeInBytes();
+        ListenableFuture<?> blocked2 = exchangeClient.isBlocked(minimumBufferedBytes + 1);
+        ListenableFuture<?> blocked3 = exchangeClient.isBlocked(minimumBufferedBytes * 2);
+        assertFalse(blocked1.isDone());
+        assertFalse(blocked2.isDone());
+        assertFalse(blocked3.isDone());
+        assertFalse(exchangeClient.isClosed());
+
+        long start = System.nanoTime();
+
+        // start fetching pages
+        exchangeClient.scheduleRequestIfNecessary();
+        // wait for a page to be fetched
+        do {
+            // there is no thread coordination here, so sleep is the best we can do
+            assertLessThan(Duration.nanosSince(start), new Duration(5, TimeUnit.SECONDS));
+            sleepUninterruptibly(100, MILLISECONDS);
+        }
+        while (exchangeClient.getStatus().getBufferedPages() < 3);
+
+        assertTrue(blocked1.isDone());
+        assertFalse(blocked2.isDone());
+        assertFalse(blocked3.isDone());
+        assertFalse(exchangeClient.isClosed());
+
+        processor.addPage(location, createPage(4));
+        processor.setComplete(location);
+
+        // start fetching pages again
+        exchangeClient.scheduleRequestIfNecessary();
+        // wait for a page to be fetched
+        do {
+            // there is no thread coordination here, so sleep is the best we can do
+            assertLessThan(Duration.nanosSince(start), new Duration(5, TimeUnit.SECONDS));
+            sleepUninterruptibly(100, MILLISECONDS);
+        }
+        while (exchangeClient.getStatus().getBufferedPages() < 4);
+
+        assertTrue(blocked2.isDone());
+        assertFalse(blocked3.isDone());
+        assertFalse(exchangeClient.isClosed());
+
+        while (exchangeClient.pollPage() != null) {
+            // Keep polling until empty
+        }
+
+        exchangeClient.noMoreLocations();
+        assertTrue(exchangeClient.isClosed());
+        // Notifications occur in a separate thread, so sleep briefly
+        sleepUninterruptibly(100, MILLISECONDS);
+        assertTrue(blocked3.isDone());
+    }
+
+    @Test
     public void testBufferLimit()
     {
         DataSize bufferCapacity = new DataSize(1, BYTE);

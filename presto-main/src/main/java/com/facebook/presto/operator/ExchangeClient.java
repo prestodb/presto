@@ -29,6 +29,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
+import it.unimi.dsi.fastutil.longs.LongList;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -110,6 +112,8 @@ public class ExchangeClient
 
     @GuardedBy("this")
     private final List<SettableFuture<?>> blockedCallers = new ArrayList<>();
+    @GuardedBy("this")
+    private final LongList targetSizeInBytesForBlockedCallers = new LongArrayList();
 
     @GuardedBy("this")
     private long bufferRetainedSizeInBytes;
@@ -302,7 +306,7 @@ public class ExchangeClient
             // mark client closed; close() will add the end marker
             close();
 
-            notifyBlockedCallers();
+            notifyBlockedCallers(false);
 
             // don't return end of stream marker
             return null;
@@ -347,7 +351,7 @@ public class ExchangeClient
         if (pageBuffer.peekLast() != NO_MORE_PAGES) {
             checkState(pageBuffer.add(NO_MORE_PAGES), "Could not add no more pages marker");
         }
-        notifyBlockedCallers();
+        notifyBlockedCallers(true);
     }
 
     public synchronized void scheduleRequestIfNecessary()
@@ -364,7 +368,7 @@ public class ExchangeClient
             if (pageBuffer.peek() == NO_MORE_PAGES) {
                 close();
             }
-            notifyBlockedCallers();
+            notifyBlockedCallers(false);
             return;
         }
 
@@ -398,6 +402,11 @@ public class ExchangeClient
 
     public ListenableFuture<?> isBlocked()
     {
+        return isBlocked(0);
+    }
+
+    public ListenableFuture<?> isBlocked(long targetResultSizeInBytes)
+    {
         // Fast path return without synchronizing
         if (isClosed() || isFailed() || pageBuffer.peek() != null) {
             return NOT_BLOCKED;
@@ -409,6 +418,7 @@ public class ExchangeClient
             }
             SettableFuture<?> future = SettableFuture.create();
             blockedCallers.add(future);
+            targetSizeInBytesForBlockedCallers.add(targetResultSizeInBytes);
             return future;
         }
     }
@@ -423,7 +433,7 @@ public class ExchangeClient
             responseSize += page.getSizeInBytes();
         }
 
-        List<SettableFuture<?>> notify = ImmutableList.of();
+        List<SettableFuture<?>> notify = new ArrayList<>();
         synchronized (this) {
             if (isClosed() || isFailed()) {
                 return false;
@@ -437,8 +447,19 @@ public class ExchangeClient
                 systemMemoryContext.setBytes(bufferRetainedSizeInBytes);
 
                 // Notify pending listeners that a page has been added
-                notify = ImmutableList.copyOf(blockedCallers);
-                blockedCallers.clear();
+                int newBlockedCallersSize = 0;
+                for (int i = 0; i < blockedCallers.size(); i++) {
+                    if (bufferRetainedSizeInBytes >= targetSizeInBytesForBlockedCallers.getLong(i)) {
+                        notify.add(blockedCallers.get(i));
+                    }
+                    else {
+                        blockedCallers.set(newBlockedCallersSize, blockedCallers.get(i));
+                        targetSizeInBytesForBlockedCallers.set(newBlockedCallersSize, targetSizeInBytesForBlockedCallers.getLong(i));
+                        newBlockedCallersSize += 1;
+                    }
+                }
+                blockedCallers.subList(newBlockedCallersSize, blockedCallers.size()).clear();
+                targetSizeInBytesForBlockedCallers.subList(newBlockedCallersSize, targetSizeInBytesForBlockedCallers.size()).clear();
             }
 
             successfulRequests++;
@@ -450,12 +471,23 @@ public class ExchangeClient
         return true;
     }
 
-    private void notifyBlockedCallers()
+    private void notifyBlockedCallers(boolean forceNotify)
     {
-        List<SettableFuture<?>> callers;
+        List<SettableFuture<?>> callers = new ArrayList<>();
         synchronized (this) {
-            callers = ImmutableList.copyOf(blockedCallers);
-            blockedCallers.clear();
+            int newBlockedCallersSize = 0;
+            for (int i = 0; i < blockedCallers.size(); i++) {
+                if (forceNotify || bufferRetainedSizeInBytes >= targetSizeInBytesForBlockedCallers.getLong(i)) {
+                    callers.add(blockedCallers.get(i));
+                }
+                else {
+                    blockedCallers.set(newBlockedCallersSize, blockedCallers.get(i));
+                    targetSizeInBytesForBlockedCallers.set(newBlockedCallersSize, targetSizeInBytesForBlockedCallers.getLong(i));
+                    newBlockedCallersSize += 1;
+                }
+            }
+            blockedCallers.subList(newBlockedCallersSize, blockedCallers.size()).clear();
+            targetSizeInBytesForBlockedCallers.subList(newBlockedCallersSize, targetSizeInBytesForBlockedCallers.size()).clear();
         }
         notifyListeners(callers);
     }
@@ -494,7 +526,7 @@ public class ExchangeClient
         // it is important not to treat failures as a successful close
         if (!isClosed()) {
             failure.compareAndSet(null, cause);
-            notifyBlockedCallers();
+            notifyBlockedCallers(false);
         }
     }
 

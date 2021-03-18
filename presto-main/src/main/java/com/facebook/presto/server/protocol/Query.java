@@ -290,7 +290,7 @@ class Query
 
         // wait for a results data or query to finish, up to the wait timeout
         ListenableFuture<?> futureStateChange = addTimeout(
-                getFutureStateChange(),
+                getFutureStateChange(targetResultSize),
                 () -> null,
                 wait,
                 timeoutExecutor);
@@ -299,11 +299,11 @@ class Query
         return Futures.transform(futureStateChange, ignored -> getNextResult(token, uriInfo, scheme, targetResultSize), resultsProcessorExecutor);
     }
 
-    private synchronized ListenableFuture<?> getFutureStateChange()
+    private synchronized ListenableFuture<?> getFutureStateChange(DataSize targetResultSize)
     {
         // if the exchange client is open, wait for data
         if (!exchangeClient.isClosed()) {
-            return exchangeClient.isBlocked();
+            return exchangeClient.isBlocked(targetResultSize.toBytes());
         }
 
         // otherwise, wait for the query to finish
