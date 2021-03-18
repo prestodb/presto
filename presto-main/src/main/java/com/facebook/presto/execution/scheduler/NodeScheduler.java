@@ -188,6 +188,9 @@ public class NodeScheduler
                     .collect(toImmutableSet());
 
             for (InternalNode node : nodes) {
+                if (node.isResourceManager()) {
+                    continue;
+                }
                 byNodeId.put(node.getNodeIdentifier(), node);
                 if (useNetworkTopology && (includeCoordinator || !coordinatorNodeIds.contains(node.getNodeIdentifier()))) {
                     NetworkLocation location = networkLocationCache.get(node.getHostAndPort());
