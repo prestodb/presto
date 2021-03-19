@@ -190,6 +190,7 @@ public final class HttpRemoteTask
 
     private final NodeStatsTracker nodeStatsTracker;
 
+    private final AtomicBoolean started = new AtomicBoolean(false);
     private final AtomicBoolean aborting = new AtomicBoolean(false);
 
     private final boolean binaryTransportEnabled;
@@ -385,6 +386,7 @@ public final class HttpRemoteTask
     {
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             // to start we just need to trigger an update
+            started.set(true);
             scheduleUpdate();
 
             taskStatusFetcher.start();
@@ -660,7 +662,7 @@ public final class HttpRemoteTask
     {
         TaskStatus taskStatus = getTaskStatus();
         // don't update if the task hasn't been started yet or if it is already finished
-        if (!needsUpdate.get() || taskStatus.getState().isDone()) {
+        if (!started.get() || !needsUpdate.get() || taskStatus.getState().isDone()) {
             return;
         }
 
