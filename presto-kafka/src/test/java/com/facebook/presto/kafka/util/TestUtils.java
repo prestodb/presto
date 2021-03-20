@@ -17,6 +17,8 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.kafka.KafkaPlugin;
 import com.facebook.presto.kafka.KafkaTopicDescription;
+import com.facebook.presto.kafka.MapBasedTableDescriptionSupplier;
+import com.facebook.presto.kafka.TableDescriptionSupplier;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.TestingPrestoClient;
@@ -32,6 +34,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 
+import static com.facebook.presto.kafka.ConfigurationAwareModules.combine;
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static java.lang.String.format;
 
 public final class TestUtils
@@ -57,8 +61,10 @@ public final class TestUtils
 
     public static void installKafkaPlugin(EmbeddedKafka embeddedKafka, QueryRunner queryRunner, Map<SchemaTableName, KafkaTopicDescription> topicDescriptions)
     {
-        KafkaPlugin kafkaPlugin = new KafkaPlugin();
-        kafkaPlugin.setTableDescriptionSupplier(() -> topicDescriptions);
+        KafkaPlugin kafkaPlugin = new KafkaPlugin(combine(
+                binder -> newSetBinder(binder, TableDescriptionSupplier.class)
+                        .addBinding()
+                        .toInstance(new MapBasedTableDescriptionSupplier(topicDescriptions))));
         queryRunner.installPlugin(kafkaPlugin);
 
         Map<String, String> kafkaConfig = ImmutableMap.of(
