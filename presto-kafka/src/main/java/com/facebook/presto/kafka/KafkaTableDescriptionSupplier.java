@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import javax.inject.Inject;
+import javax.inject.Provider;
 
 import java.io.File;
 import java.io.IOException;
@@ -31,7 +32,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -40,7 +40,7 @@ import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
 public class KafkaTableDescriptionSupplier
-        implements Supplier<Map<SchemaTableName, KafkaTopicDescription>>
+        implements Provider<TableDescriptionSupplier>
 {
     private static final Logger log = Logger.get(KafkaTableDescriptionSupplier.class);
 
@@ -62,7 +62,13 @@ public class KafkaTableDescriptionSupplier
     }
 
     @Override
-    public Map<SchemaTableName, KafkaTopicDescription> get()
+    public TableDescriptionSupplier get()
+    {
+        Map<SchemaTableName, KafkaTopicDescription> tables = populateTables();
+        return new MapBasedTableDescriptionSupplier(tables);
+    }
+
+    private Map<SchemaTableName, KafkaTopicDescription> populateTables()
     {
         ImmutableMap.Builder<SchemaTableName, KafkaTopicDescription> builder = ImmutableMap.builder();
 
