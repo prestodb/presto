@@ -175,7 +175,7 @@ public class QueuedStatementResource
         }
 
         SessionContext sessionContext = new HttpRequestSessionContext(servletRequest, sqlParserOptions);
-        Query query = new Query(statement, sessionContext, dispatchManager, queryResultsProvider, timeoutExecutor);
+        Query query = new Query(statement, sessionContext, dispatchManager, queryResultsProvider);
         queries.put(query.getQueryId(), query);
 
         return withCompressionConfiguration(Response.ok(query.getInitialQueryResults(uriInfo, xForwardedProto)), compressionEnabled).build();
@@ -309,7 +309,6 @@ public class QueuedStatementResource
         private final SessionContext sessionContext;
         private final DispatchManager dispatchManager;
         private final LocalQueryProvider queryProvider;
-        private final ScheduledExecutorService timeoutExecutor;
         private final QueryId queryId;
         private final String slug = "x" + randomUUID().toString().toLowerCase(ENGLISH).replace("-", "");
         private final AtomicLong lastToken = new AtomicLong();
@@ -317,13 +316,12 @@ public class QueuedStatementResource
         @GuardedBy("this")
         private ListenableFuture<?> querySubmissionFuture;
 
-        public Query(String query, SessionContext sessionContext, DispatchManager dispatchManager, LocalQueryProvider queryResultsProvider, ScheduledExecutorService timeoutExecutor)
+        public Query(String query, SessionContext sessionContext, DispatchManager dispatchManager, LocalQueryProvider queryResultsProvider)
         {
             this.query = requireNonNull(query, "query is null");
             this.sessionContext = requireNonNull(sessionContext, "sessionContext is null");
             this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
             this.queryProvider = requireNonNull(queryResultsProvider, "queryExecutor is null");
-            this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
             this.queryId = dispatchManager.createQueryId();
         }
 
