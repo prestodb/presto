@@ -175,7 +175,7 @@ public class QueuedStatementResource
         }
 
         SessionContext sessionContext = new HttpRequestSessionContext(servletRequest, sqlParserOptions);
-        Query query = new Query(statement, sessionContext, dispatchManager, queryResultsProvider);
+        Query query = new Query(statement, sessionContext, dispatchManager, queryResultsProvider, 0);
         queries.put(query.getQueryId(), query);
 
         return withCompressionConfiguration(Response.ok(query.getInitialQueryResults(uriInfo, xForwardedProto)), compressionEnabled).build();
@@ -191,7 +191,7 @@ public class QueuedStatementResource
     {
         Query failedQuery = queries.get(queryId);
 
-        Query query = new Query(failedQuery.getQuery(), failedQuery.getSessionContext(), dispatchManager, queryResultsProvider);
+        Query query = new Query(failedQuery.getQuery(), failedQuery.getSessionContext(), dispatchManager, queryResultsProvider, failedQuery.getRetryCount() + 1);
         queries.put(query.getQueryId(), query);
 
         return withCompressionConfiguration(Response.ok(query.getInitialQueryResults(uriInfo, xForwardedProto)), compressionEnabled).build();
@@ -328,17 +328,19 @@ public class QueuedStatementResource
         private final QueryId queryId;
         private final String slug = "x" + randomUUID().toString().toLowerCase(ENGLISH).replace("-", "");
         private final AtomicLong lastToken = new AtomicLong();
+        private final int retryCount;
 
         @GuardedBy("this")
         private ListenableFuture<?> querySubmissionFuture;
 
-        public Query(String query, SessionContext sessionContext, DispatchManager dispatchManager, LocalQueryProvider queryResultsProvider)
+        public Query(String query, SessionContext sessionContext, DispatchManager dispatchManager, LocalQueryProvider queryResultsProvider, int retryCount)
         {
             this.query = requireNonNull(query, "query is null");
             this.sessionContext = requireNonNull(sessionContext, "sessionContext is null");
             this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
             this.queryProvider = requireNonNull(queryResultsProvider, "queryExecutor is null");
             this.queryId = dispatchManager.createQueryId();
+            this.retryCount = retryCount;
         }
 
         public QueryId getQueryId()
@@ -366,6 +368,11 @@ public class QueuedStatementResource
             return lastToken.get();
         }
 
+        public int getRetryCount()
+        {
+            return retryCount;
+        }
+
         public synchronized boolean isSubmissionFinished()
         {
             return querySubmissionFuture != null && querySubmissionFuture.isDone();
@@ -376,7 +383,7 @@ public class QueuedStatementResource
             // if query query submission has not finished, wait for it to finish
             synchronized (this) {
                 if (querySubmissionFuture == null) {
-                    querySubmissionFuture = dispatchManager.createQuery(queryId, slug, sessionContext, query);
+                    querySubmissionFuture = dispatchManager.createQuery(queryId, slug, retryCount, sessionContext, query);
                 }
                 if (!querySubmissionFuture.isDone()) {
                     return querySubmissionFuture;

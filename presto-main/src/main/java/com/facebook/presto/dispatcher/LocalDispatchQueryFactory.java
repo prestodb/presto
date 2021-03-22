@@ -88,6 +88,7 @@ public class LocalDispatchQueryFactory
             String query,
             PreparedQuery preparedQuery,
             String slug,
+            int retryCount,
             ResourceGroupId resourceGroup,
             Optional<QueryType> queryType,
             WarningCollector warningCollector)
@@ -113,7 +114,7 @@ public class LocalDispatchQueryFactory
                 throw new PrestoException(NOT_SUPPORTED, "Unsupported statement type: " + preparedQuery.getStatement().getClass().getSimpleName());
             }
 
-            return queryExecutionFactory.createQueryExecution(preparedQuery, stateMachine, slug, warningCollector, queryType);
+            return queryExecutionFactory.createQueryExecution(preparedQuery, stateMachine, slug, retryCount, warningCollector, queryType);
         });
 
         return new LocalDispatchQuery(

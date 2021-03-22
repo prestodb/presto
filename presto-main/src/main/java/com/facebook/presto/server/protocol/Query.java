@@ -69,6 +69,8 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.airlift.concurrent.MoreFutures.addTimeout;
+import static com.facebook.presto.SystemSessionProperties.getQueryRetryLimit;
+import static com.facebook.presto.SystemSessionProperties.getQueryRetryMaxExecutionTime;
 import static com.facebook.presto.SystemSessionProperties.getTargetResultSize;
 import static com.facebook.presto.SystemSessionProperties.isExchangeChecksumEnabled;
 import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionEnabled;
@@ -366,12 +368,17 @@ class Query
             return queryResults;
         }
 
+        // check if we have exceeded the global limit
         retryCircuitBreaker.incrementFailure();
         if (!retryCircuitBreaker.isRetryAllowed() || hasProducedResult) {
             return queryResults;
         }
 
-        // TODO: tunnel in per-query retry limit logic
+        // check if we have exceeded the local limit
+        if (queryManager.getQueryRetryCount(queryId) >= getQueryRetryLimit(session) ||
+                queryManager.getQueryInfo(queryId).getQueryStats().getExecutionTime().toMillis() > getQueryRetryMaxExecutionTime(session).toMillis()) {
+            return queryResults;
+        }
 
         // build a new query with next uri
         // we expect failed nodes have been removed from discovery server upon query failure
