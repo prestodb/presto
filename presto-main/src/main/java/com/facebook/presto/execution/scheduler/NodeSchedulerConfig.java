@@ -37,6 +37,14 @@ public class NodeSchedulerConfig
     private int maxPendingSplitsPerTask = 10;
     private int maxUnacknowledgedSplitsPerTask = 500;
     private String networkTopology = NetworkTopologyType.LEGACY;
+    private ResourceAwareSchedulingStrategy resourceAwareSchedulingStrategy = ResourceAwareSchedulingStrategy.RANDOM;
+
+    public enum ResourceAwareSchedulingStrategy
+    {
+        RANDOM,
+        MEMORY,
+        MEMORY_AND_CPU
+    }
 
     @NotNull
     public String getNetworkTopology()
@@ -112,6 +120,18 @@ public class NodeSchedulerConfig
     public NodeSchedulerConfig setMaxUnacknowledgedSplitsPerTask(int maxUnacknowledgedSplitsPerTask)
     {
         this.maxUnacknowledgedSplitsPerTask = maxUnacknowledgedSplitsPerTask;
+        return this;
+    }
+
+    public ResourceAwareSchedulingStrategy getResourceAwareSchedulingStrategy()
+    {
+        return resourceAwareSchedulingStrategy;
+    }
+
+    @Config("experimental.resource-aware-scheduling-strategy")
+    public NodeSchedulerConfig setResourceAwareSchedulingStrategy(ResourceAwareSchedulingStrategy resourceAwareSchedulingStrategy)
+    {
+        this.resourceAwareSchedulingStrategy = resourceAwareSchedulingStrategy;
         return this;
     }
 }

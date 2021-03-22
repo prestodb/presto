@@ -21,6 +21,7 @@ import com.facebook.presto.execution.scheduler.NetworkLocationCache;
 import com.facebook.presto.execution.scheduler.NetworkTopology;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.execution.scheduler.NodeSchedulerConfig.ResourceAwareSchedulingStrategy;
 import com.facebook.presto.execution.scheduler.SplitPlacementResult;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionStats;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelector;
@@ -62,7 +63,9 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.SystemSessionProperties.MAX_UNACKNOWLEDGED_SPLITS_PER_TASK;
+import static com.facebook.presto.SystemSessionProperties.RESOURCE_AWARE_SCHEDULING_STRATEGY;
 import static com.facebook.presto.execution.scheduler.NetworkLocation.ROOT_LOCATION;
+import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.ResourceAwareSchedulingStrategy.MEMORY;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static java.util.Objects.requireNonNull;
@@ -688,6 +691,75 @@ public class TestNodeScheduler
     }
 
     @Test
+    public void testMemoryUsageBasedNodeSelector()
+    {
+        ImmutableList.Builder<InternalNode> nodeBuilder = ImmutableList.builder();
+        InternalNode node0 = new InternalNode("node0", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false);
+        nodeBuilder.add(node0);
+        InternalNode node1 = new InternalNode("node1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false);
+        nodeBuilder.add(node1);
+        InternalNode node2 = new InternalNode("node2", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false);
+        nodeBuilder.add(node2);
+        InternalNode node3 = new InternalNode("node3", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false);
+        nodeBuilder.add(node3);
+        List<InternalNode> nodes = nodeBuilder.build();
+
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager();
+        nodeManager.addNode(CONNECTOR_ID, nodes);
+
+        MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor, remoteTaskScheduledExecutor);
+
+        RemoteTask remoteTask1 = getRemoteTask(node0, remoteTaskFactory, 1);
+        nodeTaskMap.addTask(node0, remoteTask1);
+        RemoteTask remoteTask2 = getRemoteTask(node1, remoteTaskFactory, 2);
+        nodeTaskMap.addTask(node1, remoteTask2);
+        RemoteTask remoteTask3 = getRemoteTask(node1, remoteTaskFactory, 2);
+        nodeTaskMap.addTask(node1, remoteTask3);
+
+        assertEquals(nodeTaskMap.getNodeTotalMemoryUsageInBytes(node0), 100);
+        assertEquals(nodeTaskMap.getNodeTotalMemoryUsageInBytes(node1), 200);
+
+        NodeScheduler nodeScheduler = new NodeScheduler(
+                new LegacyNetworkTopology(),
+                nodeManager,
+                new NodeSelectionStats(),
+                new NodeSchedulerConfig(),
+                nodeTaskMap);
+
+        NodeSelector nodeSelector = nodeScheduler.createNodeSelector(sessionWithResourceAwareSchedulingStrategy(MEMORY), CONNECTOR_ID, 1000);
+
+        List<InternalNode> internalNodes = nodeSelector.selectRandomNodes(3);
+
+        // 3 nodes should be selected
+        assertEquals(internalNodes.size(), 3);
+        // node1 should not be selected
+        assertEquals(internalNodes.stream().filter(internalNode -> internalNode.getNodeIdentifier().equals("node1")).count(), 0);
+        assertEquals(internalNodes.stream().filter(internalNode -> internalNode.getNodeIdentifier().equals("node0")).count(), 1);
+        assertEquals(internalNodes.stream().filter(internalNode -> internalNode.getNodeIdentifier().equals("node2")).count(), 1);
+        assertEquals(internalNodes.stream().filter(internalNode -> internalNode.getNodeIdentifier().equals("node3")).count(), 1);
+        // cancel remote task 1 and 2. Node 1 should have 0 memory usage
+        remoteTask2.abort();
+        remoteTask3.abort();
+        assertEquals(nodeTaskMap.getNodeTotalMemoryUsageInBytes(node1), 0);
+        internalNodes = nodeSelector.selectRandomNodes(3);
+        // node0 should not be selected
+        assertEquals(internalNodes.stream().filter(internalNode -> internalNode.getNodeIdentifier().equals("node0")).count(), 0);
+        assertEquals(internalNodes.stream().filter(internalNode -> internalNode.getNodeIdentifier().equals("node1")).count(), 1);
+        assertEquals(internalNodes.stream().filter(internalNode -> internalNode.getNodeIdentifier().equals("node2")).count(), 1);
+        assertEquals(internalNodes.stream().filter(internalNode -> internalNode.getNodeIdentifier().equals("node3")).count(), 1);
+    }
+
+    private RemoteTask getRemoteTask(InternalNode node1, MockRemoteTaskFactory remoteTaskFactory, int id)
+    {
+        TaskId taskId2 = new TaskId("test", 1, 0, id);
+        return remoteTaskFactory.createTableScanTask(
+                taskId2,
+                node1,
+                ImmutableList.of(new Split(CONNECTOR_ID, TestingTransactionHandle.create(), new TestSplitRemote())),
+                nodeTaskMap.createTaskStatsTracker(node1, taskId2));
+    }
+
+    @Test
     public void testMaxTasksPerStageWittLimit()
     {
         NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
@@ -782,6 +854,13 @@ public class TestNodeScheduler
     {
         return TestingSession.testSessionBuilder()
                 .setSystemProperty(MAX_UNACKNOWLEDGED_SPLITS_PER_TASK, Integer.toString(maxUnacknowledgedSplitsPerTask))
+                .build();
+    }
+
+    private static Session sessionWithResourceAwareSchedulingStrategy(ResourceAwareSchedulingStrategy resourceAwareSchedulingStrategy)
+    {
+        return TestingSession.testSessionBuilder()
+                .setSystemProperty(RESOURCE_AWARE_SCHEDULING_STRATEGY, resourceAwareSchedulingStrategy.name())
                 .build();
     }
 
