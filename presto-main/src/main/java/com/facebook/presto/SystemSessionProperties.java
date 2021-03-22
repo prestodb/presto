@@ -180,6 +180,8 @@ public final class SystemSessionProperties
     public static final String SPOOLING_OUTPUT_BUFFER_ENABLED = "spooling_output_buffer_enabled";
     public static final String SPARK_ASSIGN_BUCKET_TO_PARTITION_FOR_PARTITIONED_TABLE_WRITE_ENABLED = "spark_assign_bucket_to_partition_for_partitioned_table_write_enabled";
     public static final String LOG_FORMATTED_QUERY_ENABLED = "log_formatted_query_enabled";
+    public static final String QUERY_RETRY_LIMIT = "query_retry_limit";
+    public static final String QUERY_RETRY_MAX_EXECUTION_TIME = "query_retry_max_execution_time";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -944,7 +946,25 @@ public final class SystemSessionProperties
                         LOG_FORMATTED_QUERY_ENABLED,
                         "Log formatted prepared query instead of raw query when enabled",
                         featuresConfig.isLogFormattedQueryEnabled(),
-                        false));
+                        false),
+                new PropertyMetadata<>(
+                        QUERY_RETRY_LIMIT,
+                        "Query retry limit due to communication failures",
+                        INTEGER,
+                        Integer.class,
+                        queryManagerConfig.getPerQueryRetryLimit(),
+                        true,
+                        value -> validateIntegerValue(value, QUERY_RETRY_LIMIT, 0, false),
+                        object -> object),
+                new PropertyMetadata<>(
+                        QUERY_RETRY_MAX_EXECUTION_TIME,
+                        "Maximum execution time of a query allowed for retry",
+                        VARCHAR,
+                        Duration.class,
+                        queryManagerConfig.getPerQueryRetryMaxExecutionTime(),
+                        true,
+                        value -> Duration.valueOf((String) value),
+                        Duration::toString));
     }
 
     public static boolean isEmptyJoinOptimization(Session session)
@@ -1599,5 +1619,15 @@ public final class SystemSessionProperties
     public static boolean isLogFormattedQueryEnabled(Session session)
     {
         return session.getSystemProperty(LOG_FORMATTED_QUERY_ENABLED, Boolean.class);
+    }
+
+    public static int getQueryRetryLimit(Session session)
+    {
+        return session.getSystemProperty(QUERY_RETRY_LIMIT, Integer.class);
+    }
+
+    public static Duration getQueryRetryMaxExecutionTime(Session session)
+    {
+        return session.getSystemProperty(QUERY_RETRY_MAX_EXECUTION_TIME, Duration.class);
     }
 }
