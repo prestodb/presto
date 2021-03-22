@@ -56,6 +56,7 @@ public class DataDefinitionExecution<T extends Statement>
     private final DataDefinitionTask<T> task;
     private final T statement;
     private final String slug;
+    private final int retryCount;
     private final TransactionManager transactionManager;
     private final Metadata metadata;
     private final AccessControl accessControl;
@@ -66,6 +67,7 @@ public class DataDefinitionExecution<T extends Statement>
             DataDefinitionTask<T> task,
             T statement,
             String slug,
+            int retryCount,
             TransactionManager transactionManager,
             Metadata metadata,
             AccessControl accessControl,
@@ -75,6 +77,7 @@ public class DataDefinitionExecution<T extends Statement>
         this.task = requireNonNull(task, "task is null");
         this.statement = requireNonNull(statement, "statement is null");
         this.slug = requireNonNull(slug, "slug is null");
+        this.retryCount = retryCount;
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
@@ -86,6 +89,12 @@ public class DataDefinitionExecution<T extends Statement>
     public String getSlug()
     {
         return slug;
+    }
+
+    @Override
+    public int getRetryCount()
+    {
+        return retryCount;
     }
 
     @Override
@@ -322,24 +331,26 @@ public class DataDefinitionExecution<T extends Statement>
                 PreparedQuery preparedQuery,
                 QueryStateMachine stateMachine,
                 String slug,
+                int retryCount,
                 WarningCollector warningCollector,
                 Optional<QueryType> queryType)
         {
-            return createDataDefinitionExecution(preparedQuery.getStatement(), preparedQuery.getParameters(), stateMachine, slug);
+            return createDataDefinitionExecution(preparedQuery.getStatement(), preparedQuery.getParameters(), stateMachine, slug, retryCount);
         }
 
         private <T extends Statement> DataDefinitionExecution<T> createDataDefinitionExecution(
                 T statement,
                 List<Expression> parameters,
                 QueryStateMachine stateMachine,
-                String slug)
+                String slug,
+                int retryCount)
         {
             @SuppressWarnings("unchecked")
             DataDefinitionTask<T> task = (DataDefinitionTask<T>) tasks.get(statement.getClass());
             checkArgument(task != null, "no task for statement: %s", statement.getClass().getSimpleName());
 
             stateMachine.setUpdateType(task.getName());
-            return new DataDefinitionExecution<>(task, statement, slug, transactionManager, metadata, accessControl, stateMachine, parameters);
+            return new DataDefinitionExecution<>(task, statement, slug, retryCount, transactionManager, metadata, accessControl, stateMachine, parameters);
         }
     }
 }

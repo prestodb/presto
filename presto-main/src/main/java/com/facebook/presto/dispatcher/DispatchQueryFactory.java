@@ -28,6 +28,7 @@ public interface DispatchQueryFactory
             String query,
             PreparedQuery preparedQuery,
             String slug,
+            int retryCount,
             ResourceGroupId resourceGroup,
             Optional<QueryType> queryType,
             WarningCollector warningCollector);
