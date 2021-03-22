@@ -2,6 +2,9 @@
 Release 0.249
 =============
 
+.. warning::
+    There is a bug causing memory leak and potentially suboptimal split placement introduced by :pr:`15718`
+
 **Highlights**
 ==============
 * Add support for Hive Connector to work with Hive 3 metastore for basic tables.
