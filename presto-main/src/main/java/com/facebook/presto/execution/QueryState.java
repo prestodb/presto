@@ -49,17 +49,21 @@ public enum QueryState
      */
     RUNNING(false, 6),
     /**
+     * Query has finished executing, but not all output has been consumed.
+     */
+    SPOOLING(false, 7),
+    /**
      * Query is finishing (e.g. commit for autocommit queries)
      */
-    FINISHING(false, 7),
+    FINISHING(false, 8),
     /**
      * Query has finished executing and all output has been consumed.
      */
-    FINISHED(true, 8),
+    FINISHED(true, 9),
     /**
      * Query execution failed.
      */
-    FAILED(true, 9);
+    FAILED(true, 10);
 
     public static final Set<QueryState> TERMINAL_QUERY_STATES = Stream.of(QueryState.values()).filter(QueryState::isDone).collect(toImmutableSet());
 

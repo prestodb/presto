@@ -122,10 +122,10 @@ public class TestSqlTask
                 createInitialEmptyOutputBuffers(PARTITIONED)
                         .withNoMoreBufferIds(),
                 Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())));
-        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
+        assertTrue(taskInfo.getTaskStatus().getState().isRunning());
 
         taskInfo = sqlTask.getTaskInfo();
-        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
+        assertTrue(taskInfo.getTaskStatus().getState().isRunning());
 
         taskInfo = sqlTask.updateTask(TEST_SESSION,
                 Optional.of(PLAN_FRAGMENT),
@@ -150,10 +150,10 @@ public class TestSqlTask
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
                 createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds(),
                 Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())));
-        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
+        assertTrue(taskInfo.getTaskStatus().getState().isRunning());
 
         taskInfo = sqlTask.getTaskInfo();
-        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
+        assertTrue(taskInfo.getTaskStatus().getState().isRunning());
 
         BufferResult results = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE)).get();
         assertEquals(results.isBufferComplete(), false);
@@ -164,6 +164,14 @@ public class TestSqlTask
             results = sqlTask.getTaskResults(OUT, results.getToken() + results.getSerializedPages().size(), new DataSize(1, MEGABYTE)).get();
         }
         assertEquals(results.getSerializedPages().size(), 0);
+
+        taskInfo = sqlTask.getTaskInfo();
+        assertTrue(taskInfo.getTaskStatus().getState().isRunning());
+
+        // task state could be either running or spooling
+        // if it's running, check it turns into spooling since no more pages will be added to the output buffer
+        taskInfo = sqlTask.getTaskInfo(TaskState.RUNNING).get(1, SECONDS);
+        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.SPOOLING);
 
         // complete the task by calling abort on it
         TaskInfo info = sqlTask.abortTaskResults(OUT);
@@ -188,11 +196,11 @@ public class TestSqlTask
                         .withBuffer(OUT, 0)
                         .withNoMoreBufferIds(),
                 Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())));
-        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
+        assertTrue(taskInfo.getTaskStatus().getState().isRunning());
         assertNull(taskInfo.getStats().getEndTime());
 
         taskInfo = sqlTask.getTaskInfo();
-        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
+        assertTrue(taskInfo.getTaskStatus().getState().isRunning());
         assertNull(taskInfo.getStats().getEndTime());
 
         taskInfo = sqlTask.cancel();
@@ -215,10 +223,9 @@ public class TestSqlTask
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
                 createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds(),
                 Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())));
-        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
-
+        assertTrue(taskInfo.getTaskStatus().getState().isRunning());
         taskInfo = sqlTask.getTaskInfo();
-        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
+        assertTrue(taskInfo.getTaskStatus().getState().isRunning());
 
         sqlTask.abortTaskResults(OUT);
 

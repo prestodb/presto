@@ -72,6 +72,7 @@ import static com.facebook.presto.execution.QueryState.FINISHING;
 import static com.facebook.presto.execution.QueryState.PLANNING;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
+import static com.facebook.presto.execution.QueryState.SPOOLING;
 import static com.facebook.presto.execution.QueryState.STARTING;
 import static com.facebook.presto.execution.QueryState.TERMINAL_QUERY_STATES;
 import static com.facebook.presto.execution.QueryState.WAITING_FOR_RESOURCES;
@@ -663,6 +664,12 @@ public class QueryStateMachine
         return queryState.setIf(RUNNING, currentState -> currentState.ordinal() < RUNNING.ordinal());
     }
 
+    public boolean transitionToSpooling()
+    {
+        queryStateTimer.beginSpooling();
+        return queryState.setIf(SPOOLING, currentState -> currentState.ordinal() < SPOOLING.ordinal());
+    }
+
     public boolean transitionToFinishing()
     {
         queryStateTimer.beginFinishing();
@@ -949,6 +956,7 @@ public class QueryStateMachine
                 queryStats.getExecutionTime(),
                 queryStats.getAnalysisTime(),
                 queryStats.getTotalPlanningTime(),
+                queryStats.getSpoolingTime(),
                 queryStats.getFinishingTime(),
                 queryStats.getTotalTasks(),
                 queryStats.getRunningTasks(),

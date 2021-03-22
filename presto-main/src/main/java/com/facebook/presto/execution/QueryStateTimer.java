@@ -36,6 +36,7 @@ public class QueryStateTimer
     private final AtomicReference<Long> beginResourceWaitingNanos = new AtomicReference<>();
     private final AtomicReference<Long> beginDispatchingNanos = new AtomicReference<>();
     private final AtomicReference<Long> beginPlanningNanos = new AtomicReference<>();
+    private final AtomicReference<Long> beginSpoolingNanos = new AtomicReference<>();
     private final AtomicReference<Long> beginFinishingNanos = new AtomicReference<>();
     private final AtomicReference<Long> endNanos = new AtomicReference<>();
 
@@ -44,6 +45,7 @@ public class QueryStateTimer
     private final AtomicReference<Duration> dispatchingTime = new AtomicReference<>();
     private final AtomicReference<Duration> executionTime = new AtomicReference<>();
     private final AtomicReference<Duration> planningTime = new AtomicReference<>();
+    private final AtomicReference<Duration> spoolingTime = new AtomicReference<>();
     private final AtomicReference<Duration> finishingTime = new AtomicReference<>();
 
     private final AtomicReference<Long> beginAnalysisNanos = new AtomicReference<>();
@@ -118,6 +120,18 @@ public class QueryStateTimer
         beginStarting(now);
     }
 
+    public void beginSpooling()
+    {
+        beginSpooling(tickerNanos());
+    }
+
+    private void beginSpooling(long now)
+    {
+        beginRunning(now);
+        beginSpoolingNanos.compareAndSet(null, now);
+        executionTime.compareAndSet(null, nanosSince(beginPlanningNanos, now));
+    }
+
     public void beginFinishing()
     {
         beginFinishing(tickerNanos());
@@ -125,7 +139,8 @@ public class QueryStateTimer
 
     private void beginFinishing(long now)
     {
-        beginRunning(now);
+        beginSpooling(now);
+        spoolingTime.compareAndSet(null, nanosSince(beginSpoolingNanos, now));
         beginFinishingNanos.compareAndSet(null, now);
     }
 
@@ -136,9 +151,15 @@ public class QueryStateTimer
 
     private void endQuery(long now)
     {
-        beginFinishing(now);
-        finishingTime.compareAndSet(null, nanosSince(beginFinishingNanos, now));
-        executionTime.compareAndSet(null, nanosSince(beginPlanningNanos, now));
+        if (executionTime.get() == null) {
+            beginFinishing(now);
+            finishingTime.compareAndSet(null, nanosSince(beginFinishingNanos, now));
+        }
+        else {
+            beginFinishing(now);
+            finishingTime.compareAndSet(null, nanosSince(beginFinishingNanos, now));
+            executionTime.set(addSlice(finishingTime.get(), executionTime.get()));
+        }
         endNanos.compareAndSet(null, now);
     }
 
@@ -209,6 +230,11 @@ public class QueryStateTimer
         return getDuration(planningTime, beginPlanningNanos);
     }
 
+    public Duration getSpoolingTime()
+    {
+        return getDuration(spoolingTime, beginSpoolingNanos);
+    }
+
     public Duration getFinishingTime()
     {
         return getDuration(finishingTime, beginFinishingNanos);
@@ -237,6 +263,17 @@ public class QueryStateTimer
     //
     // Helper methods
     //
+
+    private Duration addSlice(Duration sliceDuration, Duration totalDuration)
+    {
+        requireNonNull(totalDuration, "totalDuration is null");
+        requireNonNull(sliceDuration, "sliceDuration is null");
+
+        long total = (long) totalDuration.getValue(NANOSECONDS);
+        long slice = (long) sliceDuration.getValue(NANOSECONDS);
+
+        return succinctNanos(total + slice);
+    }
 
     private long tickerNanos()
     {

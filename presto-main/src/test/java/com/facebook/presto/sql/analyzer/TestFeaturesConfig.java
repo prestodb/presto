@@ -159,7 +159,8 @@ public class TestFeaturesConfig
                 .setEmptyJoinOptimization(false)
                 .setSpoolingOutputBufferEnabled(false)
                 .setSpoolingOutputBufferThreshold(new DataSize(8, MEGABYTE))
-                .setSpoolingOutputBufferTempStorage("local"));
+                .setSpoolingOutputBufferTempStorage("local")
+                .setSpoolingStateExcludedFromResourceManagement(false));
     }
 
     @Test
@@ -272,6 +273,7 @@ public class TestFeaturesConfig
                 .put("spooling-output-buffer-enabled", "true")
                 .put("spooling-output-buffer-threshold", "16MB")
                 .put("spooling-output-buffer-temp-storage", "tempfs")
+                .put("spooling-state-excluded-from-resource-management", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -381,7 +383,8 @@ public class TestFeaturesConfig
                 .setEmptyJoinOptimization(true)
                 .setSpoolingOutputBufferEnabled(true)
                 .setSpoolingOutputBufferThreshold(new DataSize(16, MEGABYTE))
-                .setSpoolingOutputBufferTempStorage("tempfs");
+                .setSpoolingOutputBufferTempStorage("tempfs")
+                .setSpoolingStateExcludedFromResourceManagement(true);
         assertFullMapping(properties, expected);
     }
 

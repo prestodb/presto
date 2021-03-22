@@ -49,6 +49,10 @@ public enum StageExecutionState
      */
     RUNNING(false, false),
     /**
+     * Stage has finished executing, but not all output has been consumed.
+     */
+    SPOOLING(false, false),
+    /**
      * Stage has finished executing and all output has been consumed.
      */
     FINISHED(true, false),

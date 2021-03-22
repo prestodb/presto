@@ -90,6 +90,7 @@ import static com.facebook.presto.execution.StageExecutionState.FAILED;
 import static com.facebook.presto.execution.StageExecutionState.FINISHED;
 import static com.facebook.presto.execution.StageExecutionState.RUNNING;
 import static com.facebook.presto.execution.StageExecutionState.SCHEDULED;
+import static com.facebook.presto.execution.StageExecutionState.SPOOLING;
 import static com.facebook.presto.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createDiscardingOutputBuffers;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
@@ -392,7 +393,7 @@ public class SqlQueryScheduler
 
             for (StageExecutionAndScheduler stageExecutionAndScheduler : scheduledStageExecutions) {
                 StageExecutionState state = stageExecutionAndScheduler.getStageExecution().getState();
-                if (state != SCHEDULED && state != RUNNING && !state.isDone()) {
+                if (state != SCHEDULED && state != RUNNING && state != SPOOLING && !state.isDone()) {
                     throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Scheduling is complete, but stage execution %s is in state %s", stageExecutionAndScheduler.getStageExecution().getStageExecutionId(), state));
                 }
             }
@@ -644,7 +645,10 @@ public class SqlQueryScheduler
             SqlStageExecution stageExecution = stageExecutionAndScheduler.getStageExecution();
             if (isRootFragment(stageExecution.getFragment())) {
                 stageExecution.addStateChangeListener(state -> {
-                    if (state == FINISHED) {
+                    if (state == SPOOLING) {
+                        queryStateMachine.transitionToSpooling();
+                    }
+                    else if (state == FINISHED) {
                         queryStateMachine.transitionToFinishing();
                     }
                     else if (state == CANCELED) {

@@ -289,6 +289,11 @@ public final class SqlStageExecution
         if (getAllTasks().stream().anyMatch(task -> getState() == StageExecutionState.RUNNING)) {
             stateMachine.transitionToRunning();
         }
+
+        if (getAllTasks().stream().allMatch(task -> task.getTaskStatus().getState() == TaskState.SPOOLING || task.getTaskStatus().getState() == TaskState.FINISHED)) {
+            stateMachine.transitionToSpooling();
+        }
+
         if (finishedTasks.size() == allTasks.size()) {
             stateMachine.transitionToFinished();
         }
@@ -604,10 +609,15 @@ public final class SqlStageExecution
 
             // The finishedTasks.add(taskStatus.getTaskId()) must happen before the getState() (see schedulingComplete)
             stageExecutionState = getState();
-            if (stageExecutionState == StageExecutionState.SCHEDULED || stageExecutionState == StageExecutionState.RUNNING) {
+            if (stageExecutionState == StageExecutionState.SCHEDULED || stageExecutionState == StageExecutionState.RUNNING || stageExecutionState == StageExecutionState.SPOOLING) {
                 if (taskState == TaskState.RUNNING) {
                     stateMachine.transitionToRunning();
                 }
+
+                if (getAllTasks().stream().allMatch(task -> task.getTaskStatus().getState() == TaskState.SPOOLING || task.getTaskStatus().getState() == TaskState.FINISHED)) {
+                    stateMachine.transitionToSpooling();
+                }
+
                 if (finishedTasks.size() == allTasks.size()) {
                     stateMachine.transitionToFinished();
                 }

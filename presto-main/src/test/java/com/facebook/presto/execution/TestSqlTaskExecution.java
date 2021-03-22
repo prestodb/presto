@@ -112,6 +112,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestSqlTaskExecution
@@ -188,7 +189,7 @@ public class TestSqlTaskExecution
 
             //
             // test body
-            assertEquals(taskStateMachine.getState(), TaskState.RUNNING);
+            assertTrue(taskStateMachine.getState().isRunning());
 
             switch (executionStrategy) {
                 case UNGROUPED_EXECUTION:
@@ -293,8 +294,16 @@ public class TestSqlTaskExecution
                     throw new UnsupportedOperationException();
             }
 
-            outputBufferConsumer.abort(); // complete the task by calling abort on it
+            assertTrue(taskStateMachine.getState().isRunning());
+
+            // task state could be either running or spooling
+            // if it's running, check it turns into spooling since no more pages will be added to the output buffer
             TaskState taskState = taskStateMachine.getStateChange(TaskState.RUNNING).get(10, SECONDS);
+            assertEquals(taskState, TaskState.SPOOLING);
+
+            outputBufferConsumer.abort(); // complete the task by calling abort on it
+
+            taskState = taskStateMachine.getStateChange(TaskState.SPOOLING).get(10, SECONDS);
             assertEquals(taskState, TaskState.FINISHED);
         }
         finally {
@@ -450,7 +459,7 @@ public class TestSqlTaskExecution
 
             //
             // test body
-            assertEquals(taskStateMachine.getState(), TaskState.RUNNING);
+            assertTrue(taskStateMachine.getState().isRunning());
 
             switch (executionStrategy) {
                 case UNGROUPED_EXECUTION:
@@ -601,8 +610,16 @@ public class TestSqlTaskExecution
                     throw new UnsupportedOperationException();
             }
 
-            outputBufferConsumer.abort(); // complete the task by calling abort on it
+            assertTrue(taskStateMachine.getState().isRunning());
+
+            // task state could be either running or spooling
+            // if it's running, check it turns into spooling since no more pages will be added to the output buffer
             TaskState taskState = taskStateMachine.getStateChange(TaskState.RUNNING).get(10, SECONDS);
+            assertEquals(taskState, TaskState.SPOOLING);
+
+            outputBufferConsumer.abort(); // complete the task by calling abort on it
+
+            taskState = taskStateMachine.getStateChange(TaskState.SPOOLING).get(10, SECONDS);
             assertEquals(taskState, TaskState.FINISHED);
         }
         finally {

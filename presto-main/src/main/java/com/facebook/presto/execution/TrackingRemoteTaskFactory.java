@@ -94,7 +94,7 @@ public class TrackingRemoteTaskFactory
             if (state == PLANNED && newStatus.getState() == RUNNING) {
                 stateMachine.incrementCurrentRunningTaskCount();
             }
-            else if (state == RUNNING && newStatus.getState().isDone()) {
+            else if (state.isRunning() && newStatus.getState().isDone()) {
                 stateMachine.decrementCurrentRunningTaskCount();
             }
             state = newStatus.getState();

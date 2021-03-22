@@ -33,6 +33,7 @@ import java.util.OptionalDouble;
 import java.util.Set;
 
 import static com.facebook.presto.execution.StageExecutionState.RUNNING;
+import static com.facebook.presto.execution.StageExecutionState.SPOOLING;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.Math.min;
@@ -407,7 +408,7 @@ public class StageExecutionStats
 
     public BasicStageExecutionStats toBasicStageStats(StageExecutionState stageExecutionState)
     {
-        boolean isScheduled = (stageExecutionState == RUNNING) || stageExecutionState.isDone();
+        boolean isScheduled = (stageExecutionState == RUNNING) || (stageExecutionState == SPOOLING) || stageExecutionState.isDone();
 
         OptionalDouble progressPercentage = OptionalDouble.empty();
         if (isScheduled && totalDrivers != 0) {

@@ -49,6 +49,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.execution.StageExecutionState.RUNNING;
 import static com.facebook.presto.execution.StageExecutionState.SCHEDULED;
+import static com.facebook.presto.execution.StageExecutionState.SPOOLING;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -94,7 +95,7 @@ public class PhasedExecutionSchedule
     {
         for (Iterator<StageExecutionAndScheduler> stageIterator = activeSources.iterator(); stageIterator.hasNext(); ) {
             StageExecutionState state = stageIterator.next().getStageExecution().getState();
-            if (state == SCHEDULED || state == RUNNING || state.isDone()) {
+            if (state == SCHEDULED || state == RUNNING || state == SPOOLING || state.isDone()) {
                 stageIterator.remove();
             }
         }

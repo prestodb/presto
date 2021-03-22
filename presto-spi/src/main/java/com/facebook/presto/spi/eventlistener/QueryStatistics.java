@@ -25,6 +25,7 @@ public class QueryStatistics
     private final Duration wallTime;
     private final Duration queuedTime;
     private final Optional<Duration> analysisTime;
+    private final Duration executionTime;
 
     private final int peakRunningTasks;
     private final long peakUserMemoryBytes;
@@ -53,6 +54,7 @@ public class QueryStatistics
             Duration wallTime,
             Duration queuedTime,
             Optional<Duration> analysisTime,
+            Duration executionTime,
             int peakRunningTasks,
             long peakUserMemoryBytes,
             long peakTotalNonRevocableMemoryBytes,
@@ -76,6 +78,7 @@ public class QueryStatistics
         this.wallTime = requireNonNull(wallTime, "wallTime is null");
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
         this.analysisTime = requireNonNull(analysisTime, "analysisTime is null");
+        this.executionTime = requireNonNull(executionTime, "executionTime is null");
         this.peakRunningTasks = peakRunningTasks;
         this.peakUserMemoryBytes = peakUserMemoryBytes;
         this.peakTotalNonRevocableMemoryBytes = peakTotalNonRevocableMemoryBytes;
@@ -118,6 +121,11 @@ public class QueryStatistics
     public Optional<Duration> getAnalysisTime()
     {
         return analysisTime;
+    }
+
+    public Duration getExecutionTime()
+    {
+        return executionTime;
     }
 
     public int getPeakRunningTasks()

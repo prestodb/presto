@@ -68,6 +68,7 @@ public class StageLinkage
             case SCHEDULING_SPLITS:
             case SCHEDULED:
             case RUNNING:
+            case SPOOLING:
             case FINISHED:
             case CANCELED:
                 // no more workers will be added to the query

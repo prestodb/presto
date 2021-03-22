@@ -15,6 +15,7 @@ package com.facebook.presto.execution.resourceGroups;
 
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.execution.ManagedQueryExecution;
+import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.SqlQueryExecution;
 import com.facebook.presto.execution.resourceGroups.WeightedFairQueue.Usage;
 import com.facebook.presto.server.QueryStateInfo;
@@ -47,6 +48,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.SystemSessionProperties.getQueryPriority;
+import static com.facebook.presto.SystemSessionProperties.isSpoolingStateExcludedFromResourceManagement;
 import static com.facebook.presto.server.QueryStateInfo.createQueryStateInfo;
 import static com.facebook.presto.spi.ErrorType.USER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_RESOURCE_GROUP;
@@ -650,6 +652,9 @@ public class InternalResourceGroup
             }
             query.addStateChangeListener(state -> {
                 if (state.isDone()) {
+                    queryFinished(query);
+                }
+                else if (state == QueryState.SPOOLING && isSpoolingStateExcludedFromResourceManagement(query.getSession())) {
                     queryFinished(query);
                 }
             });

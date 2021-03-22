@@ -34,6 +34,7 @@
     "analysisTime": "7.47ms",
     "totalPlanningTime": "9.99ms",
     "finishingTime": "17.00ms",
+    "spoolingTime":  "18.00ms",
     "totalTasks": 1,
     "runningTasks": 0,
     "completedTasks": 1,

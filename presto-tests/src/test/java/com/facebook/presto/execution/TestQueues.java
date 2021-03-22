@@ -54,6 +54,7 @@ import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.FINISHED;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
+import static com.facebook.presto.execution.QueryState.SPOOLING;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.cancelQuery;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.createQuery;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.createQueryRunner;
@@ -373,7 +374,7 @@ public class TestQueues
             throws InterruptedException
     {
         QueryId queryId = createQuery(queryRunner, session, query);
-        waitForQueryState(queryRunner, queryId, ImmutableSet.of(RUNNING, FINISHED));
+        waitForQueryState(queryRunner, queryId, ImmutableSet.of(RUNNING, SPOOLING, FINISHED));
         Optional<ResourceGroupId> resourceGroupId = queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(queryId).getResourceGroupId();
         assertTrue(resourceGroupId.isPresent(), "Query should have a resource group");
         assertEquals(resourceGroupId.get(), expectedResourceGroup, format("Expected: '%s' resource group, found: %s", expectedResourceGroup, resourceGroupId.get()));

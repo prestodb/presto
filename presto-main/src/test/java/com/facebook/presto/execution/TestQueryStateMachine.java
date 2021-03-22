@@ -60,6 +60,7 @@ import static com.facebook.presto.execution.QueryState.FINISHING;
 import static com.facebook.presto.execution.QueryState.PLANNING;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
+import static com.facebook.presto.execution.QueryState.SPOOLING;
 import static com.facebook.presto.execution.QueryState.STARTING;
 import static com.facebook.presto.execution.QueryState.WAITING_FOR_RESOURCES;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -120,6 +121,9 @@ public class TestQueryStateMachine
         assertTrue(stateMachine.transitionToRunning());
         assertState(stateMachine, RUNNING);
 
+        assertTrue(stateMachine.transitionToSpooling());
+        assertState(stateMachine, SPOOLING);
+
         assertTrue(stateMachine.transitionToFinishing());
         tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, SECONDS);
         assertState(stateMachine, FINISHED);
@@ -145,6 +149,9 @@ public class TestQueryStateMachine
 
         assertTrue(stateMachine.transitionToRunning());
         assertState(stateMachine, RUNNING);
+
+        assertTrue(stateMachine.transitionToSpooling());
+        assertState(stateMachine, SPOOLING);
 
         assertTrue(stateMachine.transitionToFinishing());
         tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, SECONDS);
@@ -186,6 +193,7 @@ public class TestQueryStateMachine
         assertEquals(queryStats.getTotalPlanningTime(), new Duration(0, MILLISECONDS));
         assertEquals(queryStats.getExecutionTime(), new Duration(0, MILLISECONDS));
         assertEquals(queryStats.getFinishingTime(), new Duration(0, MILLISECONDS));
+        assertEquals(queryStats.getSpoolingTime(), new Duration(0, MILLISECONDS));
     }
 
     @Test
@@ -208,6 +216,9 @@ public class TestQueryStateMachine
         stateMachine.transitionToPlanning();
         assertTrue(stateMachine.transitionToRunning());
         assertState(stateMachine, RUNNING);
+
+        assertTrue(stateMachine.transitionToSpooling());
+        assertState(stateMachine, SPOOLING);
 
         stateMachine = createQueryStateMachine();
         stateMachine.transitionToPlanning();
@@ -240,6 +251,9 @@ public class TestQueryStateMachine
         assertTrue(stateMachine.transitionToRunning());
         assertState(stateMachine, RUNNING);
 
+        assertTrue(stateMachine.transitionToSpooling());
+        assertState(stateMachine, SPOOLING);
+
         stateMachine = createQueryStateMachine();
         stateMachine.transitionToStarting();
         assertTrue(stateMachine.transitionToFinishing());
@@ -270,6 +284,41 @@ public class TestQueryStateMachine
 
         assertFalse(stateMachine.transitionToRunning());
         assertState(stateMachine, RUNNING);
+
+        assertTrue(stateMachine.transitionToSpooling());
+        assertState(stateMachine, SPOOLING);
+
+        assertTrue(stateMachine.transitionToFinishing());
+        tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, SECONDS);
+        assertState(stateMachine, FINISHED);
+
+        stateMachine = createQueryStateMachine();
+        stateMachine.transitionToRunning();
+        assertTrue(stateMachine.transitionToFailed(FAILED_CAUSE));
+        assertState(stateMachine, FAILED, FAILED_CAUSE);
+    }
+
+    @Test
+    public void testSpooling()
+    {
+        QueryStateMachine stateMachine = createQueryStateMachine();
+        assertTrue(stateMachine.transitionToSpooling());
+        assertState(stateMachine, SPOOLING);
+
+        assertFalse(stateMachine.transitionToDispatching());
+        assertState(stateMachine, SPOOLING);
+
+        assertFalse(stateMachine.transitionToPlanning());
+        assertState(stateMachine, SPOOLING);
+
+        assertFalse(stateMachine.transitionToStarting());
+        assertState(stateMachine, SPOOLING);
+
+        assertFalse(stateMachine.transitionToRunning());
+        assertState(stateMachine, SPOOLING);
+
+        assertFalse(stateMachine.transitionToSpooling());
+        assertState(stateMachine, SPOOLING);
 
         assertTrue(stateMachine.transitionToFinishing());
         tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, SECONDS);
@@ -334,18 +383,23 @@ public class TestQueryStateMachine
         assertState(stateMachine, RUNNING);
 
         mockTicker.increment(400, MILLISECONDS);
+        assertTrue(stateMachine.transitionToSpooling());
+        assertState(stateMachine, SPOOLING);
+
+        mockTicker.increment(500, MILLISECONDS);
         assertTrue(stateMachine.transitionToFinishing());
         tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, SECONDS);
         assertState(stateMachine, FINISHED);
 
         QueryStats queryStats = stateMachine.getQueryInfo(Optional.empty()).getQueryStats();
-        assertEquals(queryStats.getElapsedTime().toMillis(), 1075);
+        assertEquals(queryStats.getElapsedTime().toMillis(), 1575);
         assertEquals(queryStats.getQueuedTime().toMillis(), 25);
         assertEquals(queryStats.getResourceWaitingTime().toMillis(), 50);
         assertEquals(queryStats.getDispatchingTime().toMillis(), 100);
         assertEquals(queryStats.getTotalPlanningTime().toMillis(), 200);
         // there is no way to induce finishing time without a transaction and connector
         assertEquals(queryStats.getFinishingTime().toMillis(), 0);
+        assertEquals(queryStats.getSpoolingTime().toMillis(), 500);
         // query execution time is starts when query transitions to planning
         assertEquals(queryStats.getExecutionTime().toMillis(), 900);
     }
@@ -475,6 +529,9 @@ public class TestQueryStateMachine
         assertState(stateMachine, expectedState, expectedException);
 
         assertFalse(stateMachine.transitionToRunning());
+        assertState(stateMachine, expectedState, expectedException);
+
+        assertFalse(stateMachine.transitionToSpooling());
         assertState(stateMachine, expectedState, expectedException);
 
         assertFalse(stateMachine.transitionToFinishing());

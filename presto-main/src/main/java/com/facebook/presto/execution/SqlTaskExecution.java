@@ -245,6 +245,7 @@ public class SqlTaskExecution
                 taskHandle = null;
             }
 
+            outputBuffer.addStateChangeListener(new CheckTaskCompletionOnBufferFlushing(SqlTaskExecution.this));
             outputBuffer.addStateChangeListener(new CheckTaskCompletionOnBufferFinish(SqlTaskExecution.this));
             outputBuffer.registerLifespanCompletionCallback(status::checkLifespanCompletion);
         }
@@ -643,6 +644,7 @@ public class SqlTaskExecution
 
         // are there still pages in the output buffer?
         if (!outputBuffer.isFinished()) {
+            taskStateMachine.spooling();
             return;
         }
 
@@ -1094,6 +1096,28 @@ public class SqlTaskExecution
 
             if (driver != null) {
                 driver.close();
+            }
+        }
+    }
+
+    private static final class CheckTaskCompletionOnBufferFlushing
+            implements StateChangeListener<BufferState>
+    {
+        private final WeakReference<SqlTaskExecution> sqlTaskExecutionReference;
+
+        public CheckTaskCompletionOnBufferFlushing(SqlTaskExecution sqlTaskExecution)
+        {
+            this.sqlTaskExecutionReference = new WeakReference<>(sqlTaskExecution);
+        }
+
+        @Override
+        public void stateChanged(BufferState newState)
+        {
+            if (newState == BufferState.FLUSHING) {
+                SqlTaskExecution sqlTaskExecution = sqlTaskExecutionReference.get();
+                if (sqlTaskExecution != null) {
+                    sqlTaskExecution.checkTaskCompletion();
+                }
             }
         }
     }

@@ -56,6 +56,9 @@ public class TestStageExecutionStateMachine
         assertTrue(stateMachine.transitionToRunning());
         assertState(stateMachine, StageExecutionState.RUNNING);
 
+        assertTrue(stateMachine.transitionToSpooling());
+        assertState(stateMachine, StageExecutionState.SPOOLING);
+
         assertTrue(stateMachine.transitionToFinished());
         assertState(stateMachine, StageExecutionState.FINISHED);
     }
@@ -73,6 +76,9 @@ public class TestStageExecutionStateMachine
         stateMachine = createStageStateMachine();
         assertTrue(stateMachine.transitionToRunning());
         assertState(stateMachine, StageExecutionState.RUNNING);
+
+        assertTrue(stateMachine.transitionToSpooling());
+        assertState(stateMachine, StageExecutionState.SPOOLING);
 
         stateMachine = createStageStateMachine();
         assertTrue(stateMachine.transitionToFinished());
@@ -108,6 +114,9 @@ public class TestStageExecutionStateMachine
         stateMachine.transitionToScheduling();
         assertTrue(stateMachine.transitionToRunning());
         assertState(stateMachine, StageExecutionState.RUNNING);
+
+        assertTrue(stateMachine.transitionToSpooling());
+        assertState(stateMachine, StageExecutionState.SPOOLING);
 
         stateMachine = createStageStateMachine();
         stateMachine.transitionToScheduling();
@@ -146,6 +155,9 @@ public class TestStageExecutionStateMachine
         assertTrue(stateMachine.transitionToRunning());
         assertState(stateMachine, StageExecutionState.RUNNING);
 
+        assertTrue(stateMachine.transitionToSpooling());
+        assertState(stateMachine, StageExecutionState.SPOOLING);
+
         stateMachine = createStageStateMachine();
         stateMachine.transitionToScheduled();
         assertTrue(stateMachine.transitionToFinished());
@@ -183,6 +195,9 @@ public class TestStageExecutionStateMachine
         assertFalse(stateMachine.transitionToRunning());
         assertState(stateMachine, StageExecutionState.RUNNING);
 
+        assertTrue(stateMachine.transitionToSpooling());
+        assertState(stateMachine, StageExecutionState.SPOOLING);
+
         assertTrue(stateMachine.transitionToFinished());
         assertState(stateMachine, StageExecutionState.FINISHED);
 
@@ -198,6 +213,41 @@ public class TestStageExecutionStateMachine
 
         stateMachine = createStageStateMachine();
         stateMachine.transitionToRunning();
+        assertTrue(stateMachine.transitionToCanceled());
+        assertState(stateMachine, StageExecutionState.CANCELED);
+    }
+
+    @Test
+    public void testSpooling()
+    {
+        StageExecutionStateMachine stateMachine = createStageStateMachine();
+        assertTrue(stateMachine.transitionToSpooling());
+        assertState(stateMachine, StageExecutionState.SPOOLING);
+
+        assertFalse(stateMachine.transitionToScheduling());
+        assertState(stateMachine, StageExecutionState.SPOOLING);
+
+        assertFalse(stateMachine.transitionToScheduled());
+        assertState(stateMachine, StageExecutionState.SPOOLING);
+
+        assertFalse(stateMachine.transitionToSpooling());
+        assertState(stateMachine, StageExecutionState.SPOOLING);
+
+        assertTrue(stateMachine.transitionToFinished());
+        assertState(stateMachine, StageExecutionState.FINISHED);
+
+        stateMachine = createStageStateMachine();
+        stateMachine.transitionToSpooling();
+        assertTrue(stateMachine.transitionToFailed(FAILED_CAUSE));
+        assertState(stateMachine, StageExecutionState.FAILED);
+
+        stateMachine = createStageStateMachine();
+        stateMachine.transitionToSpooling();
+        assertTrue(stateMachine.transitionToAborted());
+        assertState(stateMachine, StageExecutionState.ABORTED);
+
+        stateMachine = createStageStateMachine();
+        stateMachine.transitionToSpooling();
         assertTrue(stateMachine.transitionToCanceled());
         assertState(stateMachine, StageExecutionState.CANCELED);
     }
@@ -251,6 +301,9 @@ public class TestStageExecutionStateMachine
         assertState(stateMachine, expectedState);
 
         assertFalse(stateMachine.transitionToRunning());
+        assertState(stateMachine, expectedState);
+
+        assertFalse(stateMachine.transitionToSpooling());
         assertState(stateMachine, expectedState);
 
         assertFalse(stateMachine.transitionToFinished());

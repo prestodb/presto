@@ -43,6 +43,7 @@ import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.SystemSessionProperties.IGNORE_STATS_CALCULATOR_FAILURES;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
+import static com.facebook.presto.execution.QueryState.SPOOLING;
 import static com.facebook.presto.spi.Constraint.alwaysTrue;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
@@ -142,7 +143,7 @@ public class TestMetadataManager
                 assertEquals(queryInfo.getState(), FAILED);
                 throw dispatchManager.getDispatchInfo(queryId).get().getFailureInfo().get().toException();
             }
-            if (queryInfo.getState() == RUNNING) {
+            if (queryInfo.getState() == RUNNING || queryInfo.getState() == SPOOLING) {
                 break;
             }
             Thread.sleep(100);

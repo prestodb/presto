@@ -35,6 +35,7 @@ import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
+import static com.facebook.presto.execution.QueryState.SPOOLING;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.createQuery;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.waitForQueryState;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_CPU_LIMIT;
@@ -97,7 +98,7 @@ public class TestQueryManager
             if (state.isDone()) {
                 fail("unexpected query state: " + state);
             }
-            if (state == RUNNING) {
+            if (state == RUNNING || state == SPOOLING) {
                 break;
             }
             Thread.sleep(100);

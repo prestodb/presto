@@ -178,6 +178,7 @@ public final class SystemSessionProperties
     public static final String MAX_UNACKNOWLEDGED_SPLITS_PER_TASK = "max_unacknowledged_splits_per_task";
     public static final String OPTIMIZE_JOINS_WITH_EMPTY_SOURCES = "optimize_joins_with_empty_sources";
     public static final String SPOOLING_OUTPUT_BUFFER_ENABLED = "spooling_output_buffer_enabled";
+    public static final String SPOOLING_STATE_EXCLUDED_FROM_RESOURCE_MANAGEMENT = "spooling_state_excluded_from_resource_management";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -932,7 +933,17 @@ public final class SystemSessionProperties
                         SPOOLING_OUTPUT_BUFFER_ENABLED,
                         "Enable spooling output buffer for terminal task",
                         featuresConfig.isSpoolingOutputBufferEnabled(),
+                        false),
+                booleanProperty(
+                        SPOOLING_STATE_EXCLUDED_FROM_RESOURCE_MANAGEMENT,
+                        "Exclude spooling state from resource management",
+                        featuresConfig.isSpoolingStateExcludedFromResourceManagement(),
                         false));
+    }
+
+    public static boolean isSpoolingStateExcludedFromResourceManagement(Session session)
+    {
+        return session.getSystemProperty(SPOOLING_STATE_EXCLUDED_FROM_RESOURCE_MANAGEMENT, Boolean.class);
     }
 
     public static boolean isEmptyJoinOptimization(Session session)

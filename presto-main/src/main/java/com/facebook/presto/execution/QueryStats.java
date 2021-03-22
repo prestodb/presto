@@ -58,6 +58,7 @@ public class QueryStats
     private final Duration executionTime;
     private final Duration analysisTime;
     private final Duration totalPlanningTime;
+    private final Duration spoolingTime;
     private final Duration finishingTime;
 
     private final int totalTasks;
@@ -123,6 +124,7 @@ public class QueryStats
             @JsonProperty("executionTime") Duration executionTime,
             @JsonProperty("analysisTime") Duration analysisTime,
             @JsonProperty("totalPlanningTime") Duration totalPlanningTime,
+            @JsonProperty("spoolingTime") Duration spoolingTime,
             @JsonProperty("finishingTime") Duration finishingTime,
 
             @JsonProperty("totalTasks") int totalTasks,
@@ -186,6 +188,7 @@ public class QueryStats
         this.executionTime = requireNonNull(executionTime, "executionTime is null");
         this.analysisTime = requireNonNull(analysisTime, "analysisTime is null");
         this.totalPlanningTime = requireNonNull(totalPlanningTime, "totalPlanningTime is null");
+        this.spoolingTime = requireNonNull(spoolingTime, "spoolingTime is null");
         this.finishingTime = requireNonNull(finishingTime, "finishingTime is null");
 
         checkArgument(totalTasks >= 0, "totalTasks is negative");
@@ -379,6 +382,7 @@ public class QueryStats
                 queryStateTimer.getExecutionTime(),
                 queryStateTimer.getAnalysisTime(),
                 queryStateTimer.getPlanningTime(),
+                queryStateTimer.getSpoolingTime(),
                 queryStateTimer.getFinishingTime(),
 
                 totalTasks,
@@ -438,7 +442,7 @@ public class QueryStats
         return getAllStages(rootStage).stream()
                 .map(StageInfo::getLatestAttemptExecutionInfo)
                 .map(StageExecutionInfo::getState)
-                .allMatch(state -> (state == StageExecutionState.RUNNING) || state.isDone());
+                .allMatch(state -> (state == StageExecutionState.RUNNING) || (state == StageExecutionState.SPOOLING) || state.isDone());
     }
 
     private static long computeRetriedCpuTime(StageInfo stageInfo)
@@ -458,6 +462,7 @@ public class QueryStats
                 now,
                 now,
                 now,
+                new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
@@ -570,6 +575,12 @@ public class QueryStats
     public Duration getTotalPlanningTime()
     {
         return totalPlanningTime;
+    }
+
+    @JsonProperty
+    public Duration getSpoolingTime()
+    {
+        return spoolingTime;
     }
 
     @JsonProperty

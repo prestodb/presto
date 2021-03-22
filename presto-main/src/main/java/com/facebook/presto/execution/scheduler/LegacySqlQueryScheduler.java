@@ -81,6 +81,7 @@ import static com.facebook.presto.execution.StageExecutionState.FINISHED;
 import static com.facebook.presto.execution.StageExecutionState.PLANNED;
 import static com.facebook.presto.execution.StageExecutionState.RUNNING;
 import static com.facebook.presto.execution.StageExecutionState.SCHEDULED;
+import static com.facebook.presto.execution.StageExecutionState.SPOOLING;
 import static com.facebook.presto.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createDiscardingOutputBuffers;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
@@ -253,7 +254,10 @@ public class LegacySqlQueryScheduler
     {
         SqlStageExecution rootStage = stageExecutions.get(rootStageId).getStageExecution();
         rootStage.addStateChangeListener(state -> {
-            if (state == FINISHED) {
+            if (state == SPOOLING) {
+                queryStateMachine.transitionToSpooling();
+            }
+            else if (state == FINISHED) {
                 queryStateMachine.transitionToFinishing();
             }
             else if (state == CANCELED) {
@@ -487,7 +491,7 @@ public class LegacySqlQueryScheduler
 
             for (StageExecutionAndScheduler stageExecutionInfo : scheduledStageExecutions) {
                 StageExecutionState state = stageExecutionInfo.getStageExecution().getState();
-                if (state != SCHEDULED && state != RUNNING && !state.isDone()) {
+                if (state != SCHEDULED && state != RUNNING && state != SPOOLING && !state.isDone()) {
                     throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Scheduling is complete, but stage execution %s is in state %s", stageExecutionInfo.getStageExecution().getStageExecutionId(), state));
                 }
             }
@@ -674,7 +678,10 @@ public class LegacySqlQueryScheduler
             SqlStageExecution stageExecution = stageExecutionAndScheduler.getStageExecution();
             if (isRootFragment(stageExecution.getFragment())) {
                 stageExecution.addStateChangeListener(state -> {
-                    if (state == FINISHED) {
+                    if (state == SPOOLING) {
+                        queryStateMachine.transitionToSpooling();
+                    }
+                    else if (state == FINISHED) {
                         queryStateMachine.transitionToFinishing();
                     }
                     else if (state == CANCELED) {

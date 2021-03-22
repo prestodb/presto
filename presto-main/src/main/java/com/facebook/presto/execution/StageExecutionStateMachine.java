@@ -46,6 +46,7 @@ import static com.facebook.presto.execution.StageExecutionState.RUNNING;
 import static com.facebook.presto.execution.StageExecutionState.SCHEDULED;
 import static com.facebook.presto.execution.StageExecutionState.SCHEDULING;
 import static com.facebook.presto.execution.StageExecutionState.SCHEDULING_SPLITS;
+import static com.facebook.presto.execution.StageExecutionState.SPOOLING;
 import static com.facebook.presto.execution.StageExecutionState.TERMINAL_STAGE_STATES;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -137,7 +138,12 @@ public class StageExecutionStateMachine
 
     public boolean transitionToRunning()
     {
-        return state.setIf(RUNNING, currentState -> currentState != RUNNING && !currentState.isDone());
+        return state.setIf(RUNNING, currentState -> currentState != RUNNING && currentState != SPOOLING && !currentState.isDone());
+    }
+
+    public boolean transitionToSpooling()
+    {
+        return state.setIf(SPOOLING, currentState -> currentState != SPOOLING && !currentState.isDone());
     }
 
     public boolean transitionToFinished()
@@ -228,7 +234,7 @@ public class StageExecutionStateMachine
         // information, the stage could finish, and the task states would
         // never be visible.
         StageExecutionState state = this.state.get();
-        boolean isScheduled = (state == RUNNING) || state.isDone();
+        boolean isScheduled = (state == RUNNING) || (state == SPOOLING) || state.isDone();
 
         List<TaskInfo> taskInfos = ImmutableList.copyOf(taskInfosSupplier.get());
 

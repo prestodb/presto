@@ -23,6 +23,7 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
 
+import static com.facebook.presto.execution.TaskState.SPOOLING;
 import static com.facebook.presto.execution.TaskState.TERMINAL_TASK_STATES;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -85,6 +86,11 @@ public class TaskStateMachine
     public LinkedBlockingQueue<Throwable> getFailureCauses()
     {
         return failureCauses;
+    }
+
+    public void spooling()
+    {
+        taskState.setIf(SPOOLING, currentState -> !currentState.isDone());
     }
 
     public void finished()

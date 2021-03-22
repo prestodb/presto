@@ -35,22 +35,26 @@ public enum TaskState
      */
     RUNNING(1, false),
     /**
+     * Task has finished executing, but not all output has been consumed.
+     */
+    SPOOLING(2, false),
+    /**
      * Task has finished executing and all output has been consumed.
      */
-    FINISHED(2, true),
+    FINISHED(3, true),
     /**
      * Task was canceled by a user.
      */
-    CANCELED(3, true),
+    CANCELED(4, true),
     /**
      * Task was aborted due to a failure in the query.  The failure
      * was not in this task.
      */
-    ABORTED(4, true),
+    ABORTED(5, true),
     /**
      * Task execution failed.
      */
-    FAILED(5, true);
+    FAILED(6, true);
 
     public static final Set<TaskState> TERMINAL_TASK_STATES = Stream.of(TaskState.values()).filter(TaskState::isDone).collect(toImmutableSet());
 
@@ -69,6 +73,11 @@ public enum TaskState
     public boolean isDone()
     {
         return doneState;
+    }
+
+    public boolean isRunning()
+    {
+        return !isDone() && code != PLANNED.getCode();
     }
 
     @ThriftEnumValue

@@ -181,6 +181,8 @@ public class FeaturesConfig
     private DataSize spoolingOutputBufferThreshold = new DataSize(8, MEGABYTE);
     private String spoolingOutputBufferTempStorage = "local";
 
+    private boolean spoolingStateExcludedFromResourceManagement;
+
     private String warnOnNoTableLayoutFilter = "";
 
     private PartitioningPrecisionStrategy partitioningPrecisionStrategy = PartitioningPrecisionStrategy.AUTOMATIC;
@@ -1581,6 +1583,18 @@ public class FeaturesConfig
     public FeaturesConfig setSpoolingOutputBufferTempStorage(String spoolingOutputBufferTempStorage)
     {
         this.spoolingOutputBufferTempStorage = spoolingOutputBufferTempStorage;
+        return this;
+    }
+
+    public boolean isSpoolingStateExcludedFromResourceManagement()
+    {
+        return spoolingStateExcludedFromResourceManagement;
+    }
+
+    @Config("spooling-state-excluded-from-resource-management")
+    public FeaturesConfig setSpoolingStateExcludedFromResourceManagement(boolean value)
+    {
+        this.spoolingStateExcludedFromResourceManagement = value;
         return this;
     }
 }

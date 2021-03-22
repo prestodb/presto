@@ -64,10 +64,12 @@ import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.facebook.presto.memory.LocalMemoryManager.RESERVED_POOL;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 
 @Test
 public class TestSqlTaskManager
@@ -102,10 +104,10 @@ public class TestSqlTaskManager
         try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig())) {
             TaskId taskId = TASK_ID;
             TaskInfo taskInfo = createTask(sqlTaskManager, taskId, createInitialEmptyOutputBuffers(PARTITIONED).withNoMoreBufferIds());
-            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
+            assertTrue(taskInfo.getTaskStatus().getState().isRunning());
 
             taskInfo = sqlTaskManager.getTaskInfo(taskId);
-            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
+            assertTrue(taskInfo.getTaskStatus().getState().isRunning());
 
             taskInfo = createTask(sqlTaskManager, taskId, ImmutableSet.of(), createInitialEmptyOutputBuffers(PARTITIONED).withNoMoreBufferIds());
             assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
@@ -122,10 +124,10 @@ public class TestSqlTaskManager
         try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig())) {
             TaskId taskId = TASK_ID;
             TaskInfo taskInfo = createTask(sqlTaskManager, taskId, ImmutableSet.of(SPLIT), createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
-            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
+            assertTrue(taskInfo.getTaskStatus().getState().isRunning());
 
             taskInfo = sqlTaskManager.getTaskInfo(taskId);
-            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
+            assertTrue(taskInfo.getTaskStatus().getState().isRunning());
 
             BufferResult results = sqlTaskManager.getTaskResults(taskId, OUT, 0, new DataSize(1, Unit.MEGABYTE)).get();
             assertEquals(results.isBufferComplete(), false);
@@ -137,6 +139,14 @@ public class TestSqlTaskManager
             }
             assertEquals(results.isBufferComplete(), true);
             assertEquals(results.getSerializedPages().size(), 0);
+
+            taskInfo = sqlTaskManager.getTaskInfo(taskId);
+            assertTrue(taskInfo.getTaskStatus().getState().isRunning());
+
+            // task state could be either running or spooling
+            // if it's running, check it turns into spooling since no more pages will be added to the output buffer
+            taskInfo = sqlTaskManager.getTaskInfo(taskId, TaskState.RUNNING).get(1, SECONDS);
+            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.SPOOLING);
 
             // complete the task by calling abort on it
             TaskInfo info = sqlTaskManager.abortTaskResults(taskId, OUT);
@@ -155,11 +165,11 @@ public class TestSqlTaskManager
         try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig())) {
             TaskId taskId = TASK_ID;
             TaskInfo taskInfo = createTask(sqlTaskManager, taskId, createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
-            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
+            assertTrue(taskInfo.getTaskStatus().getState().isRunning());
             assertNull(taskInfo.getStats().getEndTime());
 
             taskInfo = sqlTaskManager.getTaskInfo(taskId);
-            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
+            assertTrue(taskInfo.getTaskStatus().getState().isRunning());
             assertNull(taskInfo.getStats().getEndTime());
 
             taskInfo = sqlTaskManager.cancelTask(taskId);
@@ -178,11 +188,11 @@ public class TestSqlTaskManager
         try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig())) {
             TaskId taskId = TASK_ID;
             TaskInfo taskInfo = createTask(sqlTaskManager, taskId, createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
-            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
+            assertTrue(taskInfo.getTaskStatus().getState().isRunning());
             assertNull(taskInfo.getStats().getEndTime());
 
             taskInfo = sqlTaskManager.getTaskInfo(taskId);
-            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
+            assertTrue(taskInfo.getTaskStatus().getState().isRunning());
             assertNull(taskInfo.getStats().getEndTime());
 
             taskInfo = sqlTaskManager.abortTask(taskId);
@@ -202,10 +212,10 @@ public class TestSqlTaskManager
         try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig())) {
             TaskId taskId = TASK_ID;
             TaskInfo taskInfo = createTask(sqlTaskManager, taskId, ImmutableSet.of(SPLIT), createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
-            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
+            assertTrue(taskInfo.getTaskStatus().getState().isRunning());
 
             taskInfo = sqlTaskManager.getTaskInfo(taskId);
-            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
+            assertTrue(taskInfo.getTaskStatus().getState().isRunning());
 
             sqlTaskManager.abortTaskResults(taskId, OUT);
 
@@ -225,7 +235,7 @@ public class TestSqlTaskManager
             TaskId taskId = TASK_ID;
 
             TaskInfo taskInfo = createTask(sqlTaskManager, taskId, createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
-            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
+            assertTrue(taskInfo.getTaskStatus().getState().isRunning());
 
             taskInfo = sqlTaskManager.cancelTask(taskId);
             assertEquals(taskInfo.getTaskStatus().getState(), TaskState.CANCELED);
@@ -248,7 +258,7 @@ public class TestSqlTaskManager
         try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig())) {
             TaskId taskId = TASK_ID;
             TaskInfo taskInfo = createTask(sqlTaskManager, taskId, createInitialEmptyOutputBuffers(PARTITIONED).withNoMoreBufferIds());
-            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
+            assertTrue(taskInfo.getTaskStatus().getState().isRunning());
 
             sqlTaskManager.updateMemoryPoolAssignments(new MemoryPoolAssignmentsRequest(
                     "coordinator1",
