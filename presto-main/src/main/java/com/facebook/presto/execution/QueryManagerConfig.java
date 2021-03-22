@@ -31,6 +31,7 @@ import javax.validation.constraints.NotNull;
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.units.DataSize.Unit.PETABYTE;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 @DefunctConfig({
         "query.max-pending-splits-per-node",
@@ -80,6 +81,11 @@ public class QueryManagerConfig
     private Duration requiredCoordinatorsMaxWait = new Duration(5, TimeUnit.MINUTES);
 
     private int querySubmissionMaxThreads = Runtime.getRuntime().availableProcessors() * 2;
+
+    private int perQueryRetryLimit;
+    private Duration perQueryRetryMaxExecutionTime = new Duration(5, MINUTES);
+    private int globalQueryRetryFailureLimit = 150;
+    private Duration globalQueryRetryFailureWindow = new Duration(5, MINUTES);
 
     @Min(1)
     public int getScheduleSplitBatchSize()
@@ -517,6 +523,58 @@ public class QueryManagerConfig
     public QueryManagerConfig setQuerySubmissionMaxThreads(int querySubmissionMaxThreads)
     {
         this.querySubmissionMaxThreads = querySubmissionMaxThreads;
+        return this;
+    }
+
+    public int getPerQueryRetryLimit()
+    {
+        return perQueryRetryLimit;
+    }
+
+    @Config("per-query-retry-limit")
+    @ConfigDescription("Per-query retry limit due to communication failures")
+    public QueryManagerConfig setPerQueryRetryLimit(int perQueryRetryLimit)
+    {
+        this.perQueryRetryLimit = perQueryRetryLimit;
+        return this;
+    }
+
+    public Duration getPerQueryRetryMaxExecutionTime()
+    {
+        return perQueryRetryMaxExecutionTime;
+    }
+
+    @Config("per-query-retry-max-execution-time")
+    @ConfigDescription("max per-query execution time limit allowed for retry")
+    public QueryManagerConfig setPerQueryRetryMaxExecutionTime(Duration perQueryRetryMaxExecutionTime)
+    {
+        this.perQueryRetryMaxExecutionTime = perQueryRetryMaxExecutionTime;
+        return this;
+    }
+
+    public int getGlobalQueryRetryFailureLimit()
+    {
+        return globalQueryRetryFailureLimit;
+    }
+
+    @Config("global-query-retry-failure-limit")
+    @ConfigDescription("A circuit breaker to stop query retry if the number of communication failures have gone over a limit")
+    public QueryManagerConfig setGlobalQueryRetryFailureLimit(int globalQueryRetryFailureLimit)
+    {
+        this.globalQueryRetryFailureLimit = globalQueryRetryFailureLimit;
+        return this;
+    }
+
+    public Duration getGlobalQueryRetryFailureWindow()
+    {
+        return globalQueryRetryFailureWindow;
+    }
+
+    @Config("global-query-retry-failure-window")
+    @ConfigDescription("A circuit breaker profiling window to stop query retry if the number of communication failures have gone over a limit")
+    public QueryManagerConfig setGlobalQueryRetryFailureWindow(Duration globalQueryRetryFailureWindow)
+    {
+        this.globalQueryRetryFailureWindow = globalQueryRetryFailureWindow;
         return this;
     }
 

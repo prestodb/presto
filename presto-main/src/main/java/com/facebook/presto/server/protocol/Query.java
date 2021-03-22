@@ -19,6 +19,7 @@ import com.facebook.presto.client.Column;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
+import com.facebook.presto.client.StatementStats;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.BooleanType;
@@ -72,6 +73,7 @@ import static com.facebook.presto.SystemSessionProperties.getTargetResultSize;
 import static com.facebook.presto.SystemSessionProperties.isExchangeChecksumEnabled;
 import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionEnabled;
 import static com.facebook.presto.execution.QueryState.FAILED;
+import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.server.protocol.QueryResourceUtil.toStatementStats;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.util.Failures.toFailure;
@@ -100,6 +102,7 @@ class Query
     private final ScheduledExecutorService timeoutExecutor;
 
     private final PagesSerde serde;
+    private final RetryCircuitBreaker retryCircuitBreaker;
 
     @GuardedBy("this")
     private OptionalLong nextToken = OptionalLong.of(0);
@@ -147,6 +150,9 @@ class Query
     private Long updateCount;
 
     @GuardedBy("this")
+    private boolean hasProducedResult;
+
+    @GuardedBy("this")
     private Map<SqlFunctionId, SqlInvokedFunction> addedSessionFunctions = ImmutableMap.of();
 
     @GuardedBy("this")
@@ -159,9 +165,10 @@ class Query
             ExchangeClient exchangeClient,
             Executor dataProcessorExecutor,
             ScheduledExecutorService timeoutExecutor,
-            BlockEncodingSerde blockEncodingSerde)
+            BlockEncodingSerde blockEncodingSerde,
+            RetryCircuitBreaker retryCircuitBreaker)
     {
-        Query result = new Query(session, slug, queryManager, exchangeClient, dataProcessorExecutor, timeoutExecutor, blockEncodingSerde);
+        Query result = new Query(session, slug, queryManager, exchangeClient, dataProcessorExecutor, timeoutExecutor, blockEncodingSerde, retryCircuitBreaker);
 
         result.queryManager.addOutputInfoListener(result.getQueryId(), result::setQueryOutputInfo);
 
@@ -182,7 +189,8 @@ class Query
             ExchangeClient exchangeClient,
             Executor resultsProcessorExecutor,
             ScheduledExecutorService timeoutExecutor,
-            BlockEncodingSerde blockEncodingSerde)
+            BlockEncodingSerde blockEncodingSerde,
+            RetryCircuitBreaker retryCircuitBreaker)
     {
         requireNonNull(session, "session is null");
         requireNonNull(slug, "slug is null");
@@ -191,6 +199,7 @@ class Query
         requireNonNull(resultsProcessorExecutor, "resultsProcessorExecutor is null");
         requireNonNull(timeoutExecutor, "timeoutExecutor is null");
         requireNonNull(blockEncodingSerde, "serde is null");
+        requireNonNull(retryCircuitBreaker, "retryCircuitBreaker is null");
 
         this.queryManager = queryManager;
 
@@ -201,7 +210,8 @@ class Query
         this.resultsProcessorExecutor = resultsProcessorExecutor;
         this.timeoutExecutor = timeoutExecutor;
 
-        serde = new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session), isExchangeChecksumEnabled(session)).createPagesSerde();
+        this.serde = new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session), isExchangeChecksumEnabled(session)).createPagesSerde();
+        this.retryCircuitBreaker = retryCircuitBreaker;
     }
 
     public void cancel()
@@ -296,7 +306,7 @@ class Query
                 timeoutExecutor);
 
         // when state changes, fetch the next result
-        return Futures.transform(futureStateChange, ignored -> getNextResult(token, uriInfo, scheme, targetResultSize), resultsProcessorExecutor);
+        return Futures.transform(futureStateChange, ignored -> getNextResultWithRetry(token, uriInfo, scheme, targetResultSize), resultsProcessorExecutor);
     }
 
     private synchronized ListenableFuture<?> getFutureStateChange()
@@ -349,6 +359,39 @@ class Query
         return Optional.empty();
     }
 
+    private synchronized QueryResults getNextResultWithRetry(long token, UriInfo uriInfo, String scheme, DataSize targetResultSize)
+    {
+        QueryResults queryResults = getNextResult(token, uriInfo, scheme, targetResultSize);
+        if (queryResults.getError() == null || !queryResults.getError().isRetriable()) {
+            return queryResults;
+        }
+
+        retryCircuitBreaker.incrementFailure();
+        if (!retryCircuitBreaker.isRetryAllowed() || hasProducedResult) {
+            return queryResults;
+        }
+
+        // TODO: tunnel in per-query retry limit logic
+
+        // build a new query with next uri
+        // we expect failed nodes have been removed from discovery server upon query failure
+        return new QueryResults(
+                queryId.toString(),
+                queryResults.getInfoUri(),
+                queryResults.getPartialCancelUri(),
+                createRetryUri(scheme, uriInfo),
+                queryResults.getColumns(),
+                null,
+                StatementStats.builder()
+                        .setState(QUEUED.toString())
+                        .setQueued(true)
+                        .build(),
+                null,
+                ImmutableList.of(),
+                queryResults.getUpdateType(),
+                queryResults.getUpdateCount());
+    }
+
     private synchronized QueryResults getNextResult(long token, UriInfo uriInfo, String scheme, DataSize targetResultSize)
     {
         // check if the result for the token have already been created
@@ -390,6 +433,7 @@ class Query
             if (rows > 0) {
                 // client implementations do not properly handle empty list of data
                 data = Iterables.concat(pages.build());
+                hasProducedResult = true;
             }
         }
         catch (Throwable cause) {
@@ -533,6 +577,20 @@ class Query
                 .path(String.valueOf(nextToken))
                 .replaceQuery("")
                 .queryParam("slug", this.slug);
+        Optional<DataSize> targetResultSize = getTargetResultSize(session);
+        if (targetResultSize.isPresent()) {
+            uri = uri.queryParam("targetResultSize", targetResultSize.get());
+        }
+        return uri.build();
+    }
+
+    private synchronized URI createRetryUri(String scheme, UriInfo uriInfo)
+    {
+        UriBuilder uri = uriInfo.getBaseUriBuilder()
+                .scheme(scheme)
+                .replacePath("/v1/statement/queued/retry")
+                .path(queryId.toString())
+                .replaceQuery("");
         Optional<DataSize> targetResultSize = getTargetResultSize(session);
         if (targetResultSize.isPresent()) {
             uri = uri.queryParam("targetResultSize", targetResultSize.get());

@@ -25,6 +25,8 @@ import java.util.concurrent.TimeUnit;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.airlift.units.DataSize.Unit.PETABYTE;
+import static java.util.concurrent.TimeUnit.HOURS;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class TestQueryManagerConfig
 {
@@ -63,7 +65,11 @@ public class TestQueryManagerConfig
                 .setRequiredCoordinators(1)
                 .setRequiredCoordinatorsMaxWait(new Duration(5, TimeUnit.MINUTES))
                 .setQuerySubmissionMaxThreads(Runtime.getRuntime().availableProcessors() * 2)
-                .setUseStreamingExchangeForMarkDistinct(false));
+                .setUseStreamingExchangeForMarkDistinct(false)
+                .setPerQueryRetryLimit(0)
+                .setPerQueryRetryMaxExecutionTime(new Duration(5, MINUTES))
+                .setGlobalQueryRetryFailureLimit(150)
+                .setGlobalQueryRetryFailureWindow(new Duration(5, MINUTES)));
     }
 
     @Test
@@ -102,6 +108,10 @@ public class TestQueryManagerConfig
                 .put("query-manager.experimental.required-coordinators", "999")
                 .put("query-manager.experimental.required-coordinators-max-wait", "99m")
                 .put("query-manager.experimental.query-submission-max-threads", "5")
+                .put("per-query-retry-limit", "10")
+                .put("per-query-retry-max-execution-time", "1h")
+                .put("global-query-retry-failure-limit", "200")
+                .put("global-query-retry-failure-window", "1h")
                 .build();
 
         QueryManagerConfig expected = new QueryManagerConfig()
@@ -136,7 +146,11 @@ public class TestQueryManagerConfig
                 .setRequiredCoordinators(999)
                 .setRequiredCoordinatorsMaxWait(new Duration(99, TimeUnit.MINUTES))
                 .setQuerySubmissionMaxThreads(5)
-                .setUseStreamingExchangeForMarkDistinct(true);
+                .setUseStreamingExchangeForMarkDistinct(true)
+                .setPerQueryRetryLimit(10)
+                .setPerQueryRetryMaxExecutionTime(new Duration(1, HOURS))
+                .setGlobalQueryRetryFailureLimit(200)
+                .setGlobalQueryRetryFailureWindow(new Duration(1, HOURS));
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
