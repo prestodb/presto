@@ -182,6 +182,22 @@ public class QueuedStatementResource
     }
 
     @GET
+    @Path("/v1/statement/queued/retry/{queryId}")
+    @Produces(APPLICATION_JSON)
+    public Response retryFailedQuery(
+            @PathParam("queryId") QueryId queryId,
+            @HeaderParam(X_FORWARDED_PROTO) String xForwardedProto,
+            @Context UriInfo uriInfo)
+    {
+        Query failedQuery = queries.get(queryId);
+
+        Query query = new Query(failedQuery.getQuery(), failedQuery.getSessionContext(), dispatchManager, queryResultsProvider);
+        queries.put(query.getQueryId(), query);
+
+        return withCompressionConfiguration(Response.ok(query.getInitialQueryResults(uriInfo, xForwardedProto)), compressionEnabled).build();
+    }
+
+    @GET
     @Path("/v1/statement/queued/{queryId}/{token}")
     @Produces(APPLICATION_JSON)
     public void getStatus(
@@ -328,6 +344,16 @@ public class QueuedStatementResource
         public QueryId getQueryId()
         {
             return queryId;
+        }
+
+        public String getQuery()
+        {
+            return query;
+        }
+
+        public SessionContext getSessionContext()
+        {
+            return sessionContext;
         }
 
         public String getSlug()
