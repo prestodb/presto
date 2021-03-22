@@ -78,6 +78,11 @@ public interface QueryManager
     /**
      * @throws NoSuchElementException if query does not exist
      */
+    int getQueryRetryCount(QueryId queryId);
+
+    /**
+     * @throws NoSuchElementException if query does not exist
+     */
     QueryState getQueryState(QueryId queryId)
             throws NoSuchElementException;
 

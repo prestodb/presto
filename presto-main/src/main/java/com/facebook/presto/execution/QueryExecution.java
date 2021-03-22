@@ -55,6 +55,8 @@ public interface QueryExecution
 
     String getSlug();
 
+    int getRetryCount();
+
     Duration getTotalCpuTime();
 
     DataSize getRawInputDataSize();
@@ -92,6 +94,7 @@ public interface QueryExecution
                 PreparedQuery preparedQuery,
                 QueryStateMachine stateMachine,
                 String slug,
+                int retryCount,
                 WarningCollector warningCollector,
                 Optional<QueryType> queryType);
     }

@@ -142,7 +142,7 @@ public class DispatchManager
         return queryIdGenerator.createNextQueryId();
     }
 
-    public ListenableFuture<?> createQuery(QueryId queryId, String slug, SessionContext sessionContext, String query)
+    public ListenableFuture<?> createQuery(QueryId queryId, String slug, int retryCount, SessionContext sessionContext, String query)
     {
         requireNonNull(queryId, "queryId is null");
         requireNonNull(sessionContext, "sessionFactory is null");
@@ -153,7 +153,7 @@ public class DispatchManager
         DispatchQueryCreationFuture queryCreationFuture = new DispatchQueryCreationFuture();
         boundedQueryExecutor.execute(() -> {
             try {
-                createQueryInternal(queryId, slug, sessionContext, query, resourceGroupManager);
+                createQueryInternal(queryId, slug, retryCount, sessionContext, query, resourceGroupManager);
             }
             finally {
                 queryCreationFuture.set(null);
@@ -166,7 +166,7 @@ public class DispatchManager
      *  Creates and registers a dispatch query with the query tracker.  This method will never fail to register a query with the query
      *  tracker.  If an error occurs while, creating a dispatch query a failed dispatch will be created and registered.
      */
-    private <C> void createQueryInternal(QueryId queryId, String slug, SessionContext sessionContext, String query, ResourceGroupManager<C> resourceGroupManager)
+    private <C> void createQueryInternal(QueryId queryId, String slug, int retryCount, SessionContext sessionContext, String query, ResourceGroupManager<C> resourceGroupManager)
     {
         Session session = null;
         PreparedQuery preparedQuery;
@@ -208,6 +208,7 @@ public class DispatchManager
                     query,
                     preparedQuery,
                     slug,
+                    retryCount,
                     selectionContext.getResourceGroupId(),
                     queryType,
                     warningCollector);

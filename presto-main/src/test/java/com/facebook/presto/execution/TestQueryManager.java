@@ -63,6 +63,12 @@ public class TestQueryManager
         return true;
     }
 
+    @Override
+    public int getQueryRetryCount(QueryId queryId)
+    {
+        return 0;
+    }
+
     public QueryState getQueryState(QueryId queryId)
     {
         return null;
