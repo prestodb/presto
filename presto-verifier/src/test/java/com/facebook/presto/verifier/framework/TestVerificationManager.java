@@ -134,9 +134,9 @@ public class TestVerificationManager
     {
         VerificationManager manager = getVerificationManager(ImmutableList.of(SOURCE_QUERY), new MockPrestoAction(HIVE_PARTITION_DROPPED_DURING_QUERY), VERIFIER_CONFIG);
         manager.start();
-        assertEquals(manager.getQueriesSubmitted().get(), 3);
+        assertEquals(manager.getQueriesSubmitted().get(), 7);
         assertEquals(eventClient.getEvents().size(), 1);
-        assertEquals(eventClient.getEvents().get(0).getResubmissionCount(), 2);
+        assertEquals(eventClient.getEvents().get(0).getResubmissionCount(), 6);
     }
 
     @Test
