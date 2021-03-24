@@ -717,7 +717,7 @@ public class PrestoSparkTaskExecutorFactory
 
             Throwable failure = getFirst(failures, null);
             // Delete the storage file, if task is not successful
-            if (outputSupplier instanceof DiskPageOutputSupplier) {
+            if (outputSupplier instanceof DiskPageOutputSupplier && output != null) {
                 PrestoSparkStorageHandle sparkStorageHandle = (PrestoSparkStorageHandle) output._2;
                 TempStorageHandle tempStorageHandle = tempStorage.deserialize(sparkStorageHandle.getSerializedStorageHandle());
                 try {
