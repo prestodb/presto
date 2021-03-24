@@ -24,6 +24,8 @@ public interface IPrestoSparkQueryExecutionFactory
             PrestoSparkSession session,
             Optional<String> sqlText,
             Optional<String> sqlLocation,
+            Optional<String> sqlFileHexHash,
+            Optional<String> sqlFileSizeInBytes,
             Optional<String> sparkQueueName,
             PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider,
             Optional<String> queryStatusInfoOutputLocation,

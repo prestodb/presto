@@ -101,6 +101,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
+import com.google.common.io.BaseEncoding;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.apache.spark.SparkContext;
@@ -117,6 +118,8 @@ import scala.Tuple2;
 import javax.inject.Inject;
 
 import java.net.URI;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -147,6 +150,7 @@ import static com.facebook.presto.spark.PrestoSparkSessionProperties.getSparkBro
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.isStorageBasedBroadcastJoinEnabled;
 import static com.facebook.presto.spark.SparkErrorCode.EXCEEDED_SPARK_DRIVER_MAX_RESULT_SIZE;
 import static com.facebook.presto.spark.SparkErrorCode.GENERIC_SPARK_ERROR;
+import static com.facebook.presto.spark.SparkErrorCode.MALFORMED_QUERY_FILE;
 import static com.facebook.presto.spark.SparkErrorCode.SPARK_EXECUTOR_LOST;
 import static com.facebook.presto.spark.SparkErrorCode.SPARK_EXECUTOR_OOM;
 import static com.facebook.presto.spark.SparkErrorCode.UNSUPPORTED_STORAGE_TYPE;
@@ -177,6 +181,7 @@ import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
@@ -279,6 +284,8 @@ public class PrestoSparkQueryExecutionFactory
             PrestoSparkSession prestoSparkSession,
             Optional<String> sqlText,
             Optional<String> sqlLocation,
+            Optional<String> sqlFileHexHash,
+            Optional<String> sqlFileSizeInBytes,
             Optional<String> sparkQueueName,
             PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider,
             Optional<String> queryStatusInfoOutputLocation,
@@ -293,7 +300,29 @@ public class PrestoSparkQueryExecutionFactory
         }
         else {
             checkArgument(sqlLocation.isPresent(), "sqlText or sqlLocation must be present");
-            sql = new String(metadataStorage.read(sqlLocation.get()), UTF_8);
+            byte[] sqlFileBytes = metadataStorage.read(sqlLocation.get());
+            if (sqlFileSizeInBytes.isPresent()) {
+                if (Integer.valueOf(sqlFileSizeInBytes.get()) != sqlFileBytes.length) {
+                    throw new PrestoException(
+                            MALFORMED_QUERY_FILE,
+                            format("sql file size %s is different from expected sqlFileSizeInBytes %s", sqlFileBytes.length, sqlFileSizeInBytes.get()));
+                }
+            }
+            if (sqlFileHexHash.isPresent()) {
+                try {
+                    MessageDigest md = MessageDigest.getInstance("SHA-512");
+                    String actualHexHashCode = BaseEncoding.base16().lowerCase().encode(md.digest(sqlFileBytes));
+                    if (!sqlFileHexHash.get().equals(actualHexHashCode)) {
+                        throw new PrestoException(
+                                MALFORMED_QUERY_FILE,
+                                format("actual hash code %s is different from expected sqlFileHexHash %s", actualHexHashCode, sqlFileHexHash.get()));
+                    }
+                }
+                catch (NoSuchAlgorithmException e) {
+                    throw new PrestoException(GENERIC_INTERNAL_ERROR, "unsupported hash algorithm", e);
+                }
+            }
+            sql = new String(sqlFileBytes, UTF_8);
         }
 
         log.info("Query: {}", sql);
