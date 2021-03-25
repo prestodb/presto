@@ -489,6 +489,7 @@ public class TestHiveSplitManager
                 false,
                 false,
                 true,
+                true,
                 hiveClientConfig.getMaxPartitionBatchSize(),
                 hiveClientConfig.getMaxPartitionsPerScan(),
                 FUNCTION_AND_TYPE_MANAGER,

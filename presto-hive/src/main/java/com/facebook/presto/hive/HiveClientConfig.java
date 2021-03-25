@@ -186,6 +186,7 @@ public class HiveClientConfig
     private boolean fileRenamingEnabled;
     private boolean preferManifestToListFiles;
     private boolean manifestVerificationEnabled;
+    private boolean undoMetastoreOperationsEnabled = true;
 
     public int getMaxInitialSplits()
     {
@@ -1579,5 +1580,18 @@ public class HiveClientConfig
     public boolean isManifestVerificationEnabled()
     {
         return this.manifestVerificationEnabled;
+    }
+
+    @Config("hive.undo-metastore-operations-enabled")
+    @ConfigDescription("Enable undo metastore operations")
+    public HiveClientConfig setUndoMetastoreOperationsEnabled(boolean undoMetastoreOperationsEnabled)
+    {
+        this.undoMetastoreOperationsEnabled = undoMetastoreOperationsEnabled;
+        return this;
+    }
+
+    public boolean isUndoMetastoreOperationsEnabled()
+    {
+        return undoMetastoreOperationsEnabled;
     }
 }
