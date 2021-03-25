@@ -108,6 +108,7 @@ public class SemiTransactionalHiveMetastore
     private final ListeningExecutorService renameExecutor;
     private final boolean skipDeletionForAlter;
     private final boolean skipTargetCleanupOnRollback;
+    private final boolean undoMetastoreOperationsEnabled;
 
     @GuardedBy("this")
     private final Map<SchemaTableName, Action<TableAndMore>> tableActions = new HashMap<>();
@@ -126,13 +127,15 @@ public class SemiTransactionalHiveMetastore
             ExtendedHiveMetastore delegate,
             ListeningExecutorService renameExecutor,
             boolean skipDeletionForAlter,
-            boolean skipTargetCleanupOnRollback)
+            boolean skipTargetCleanupOnRollback,
+            boolean undoMetastoreOperationsEnabled)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.renameExecutor = requireNonNull(renameExecutor, "renameExecutor is null");
         this.skipDeletionForAlter = skipDeletionForAlter;
         this.skipTargetCleanupOnRollback = skipTargetCleanupOnRollback;
+        this.undoMetastoreOperationsEnabled = undoMetastoreOperationsEnabled;
     }
 
     public synchronized List<String> getAllDatabases()
@@ -1442,6 +1445,9 @@ public class SemiTransactionalHiveMetastore
 
         private void undoAddPartitionOperations()
         {
+            if (!undoMetastoreOperationsEnabled) {
+                return;
+            }
             for (PartitionAdder partitionAdder : partitionAdders.values()) {
                 List<List<String>> partitionsFailedToRollback = partitionAdder.rollback();
                 if (!partitionsFailedToRollback.isEmpty()) {
@@ -1455,6 +1461,9 @@ public class SemiTransactionalHiveMetastore
 
         private void undoAddTableOperations()
         {
+            if (!undoMetastoreOperationsEnabled) {
+                return;
+            }
             for (CreateTableOperation addTableOperation : addTableOperations) {
                 try {
                     addTableOperation.undo(delegate);
@@ -1467,6 +1476,9 @@ public class SemiTransactionalHiveMetastore
 
         private void undoAlterPartitionOperations()
         {
+            if (!undoMetastoreOperationsEnabled) {
+                return;
+            }
             for (AlterPartitionOperation alterPartitionOperation : alterPartitionOperations) {
                 try {
                     alterPartitionOperation.undo(delegate);
@@ -1479,6 +1491,9 @@ public class SemiTransactionalHiveMetastore
 
         private void undoUpdateStatisticsOperations()
         {
+            if (!undoMetastoreOperationsEnabled) {
+                return;
+            }
             for (UpdateStatisticsOperation operation : updateStatisticsOperations) {
                 try {
                     operation.undo(delegate);

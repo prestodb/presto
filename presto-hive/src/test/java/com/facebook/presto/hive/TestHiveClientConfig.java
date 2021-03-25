@@ -149,7 +149,8 @@ public class TestHiveClientConfig
                 .setPartialAggregationPushdownForVariableLengthDatatypesEnabled(false)
                 .setFileRenamingEnabled(false)
                 .setPreferManifestsToListFiles(false)
-                .setManifestVerificationEnabled(false));
+                .setManifestVerificationEnabled(false)
+                .setUndoMetastoreOperationsEnabled(true));
     }
 
     @Test
@@ -260,6 +261,7 @@ public class TestHiveClientConfig
                 .put("hive.file_renaming_enabled", "true")
                 .put("hive.prefer-manifests-to-list-files", "true")
                 .put("hive.manifest-verification-enabled", "true")
+                .put("hive.undo-metastore-operations-enabled", "false")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -366,7 +368,8 @@ public class TestHiveClientConfig
                 .setPartialAggregationPushdownForVariableLengthDatatypesEnabled(true)
                 .setFileRenamingEnabled(true)
                 .setPreferManifestsToListFiles(true)
-                .setManifestVerificationEnabled(true);
+                .setManifestVerificationEnabled(true)
+                .setUndoMetastoreOperationsEnabled(false);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

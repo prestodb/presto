@@ -115,6 +115,7 @@ public class TestHiveMetadataFileFormatEncryptionSettings
                 false,
                 false,
                 true,
+                true,
                 HIVE_CLIENT_CONFIG.getMaxPartitionBatchSize(),
                 HIVE_CLIENT_CONFIG.getMaxPartitionsPerScan(),
                 FUNCTION_AND_TYPE_MANAGER,

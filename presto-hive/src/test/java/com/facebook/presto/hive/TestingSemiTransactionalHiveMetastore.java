@@ -62,9 +62,9 @@ public class TestingSemiTransactionalHiveMetastore
     private final Map<HiveTableName, Table> tablesMap = new HashMap<>();
     private final Map<HiveTableName, List<String>> partitionsMap = new HashMap<>();
 
-    private TestingSemiTransactionalHiveMetastore(HdfsEnvironment hdfsEnvironment, ExtendedHiveMetastore delegate, ListeningExecutorService renameExecutor, boolean skipDeletionForAlter, boolean skipTargetCleanupOnRollback)
+    private TestingSemiTransactionalHiveMetastore(HdfsEnvironment hdfsEnvironment, ExtendedHiveMetastore delegate, ListeningExecutorService renameExecutor, boolean skipDeletionForAlter, boolean skipTargetCleanupOnRollback, boolean undoMetastoreOperationsEnabled)
     {
-        super(hdfsEnvironment, delegate, renameExecutor, skipDeletionForAlter, skipTargetCleanupOnRollback);
+        super(hdfsEnvironment, delegate, renameExecutor, skipDeletionForAlter, skipTargetCleanupOnRollback, undoMetastoreOperationsEnabled);
     }
 
     public static TestingSemiTransactionalHiveMetastore create()
@@ -79,7 +79,7 @@ public class TestingSemiTransactionalHiveMetastore
         ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("hive-%s"));
         ListeningExecutorService renameExecutor = listeningDecorator(executor);
 
-        return new TestingSemiTransactionalHiveMetastore(hdfsEnvironment, delegate, renameExecutor, false, false);
+        return new TestingSemiTransactionalHiveMetastore(hdfsEnvironment, delegate, renameExecutor, false, false, true);
     }
 
     public void addTable(String database, String tableName, Table table, List<String> partitions)
