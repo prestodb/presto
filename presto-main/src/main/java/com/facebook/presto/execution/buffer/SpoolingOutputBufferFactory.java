@@ -46,7 +46,7 @@ public class SpoolingOutputBufferFactory
 
     private final Closer closer = Closer.create();
 
-    private static ExecutorService coreExecutor = newCachedThreadPool(daemonThreadsNamed("spooling-outputbuffer-%s"));
+    private final ExecutorService coreExecutor = newCachedThreadPool(daemonThreadsNamed("spooling-outputbuffer-%s"));
 
     @Inject
     public SpoolingOutputBufferFactory(FeaturesConfig featuresConfig, TempStorageManager tempStorageManager, FinalizerService finalizerService)
