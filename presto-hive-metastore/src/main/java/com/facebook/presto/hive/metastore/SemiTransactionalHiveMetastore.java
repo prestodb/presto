@@ -2543,7 +2543,20 @@ public class SemiTransactionalHiveMetastore
         public void run(ExtendedHiveMetastore metastore)
         {
             undo = true;
-            metastore.alterPartition(newPartition.getPartition().getDatabaseName(), newPartition.getPartition().getTableName(), newPartition);
+            try {
+                metastore.alterPartition(newPartition.getPartition().getDatabaseName(), newPartition.getPartition().getTableName(), newPartition);
+            }
+            catch (PrestoException e) {
+                // if there is an exception here (related to timeouts etc) and if it succeeds on the metastore,
+                // we will try to check if the partition is altered as expected
+                Optional<Partition> partition = metastore.getPartition(
+                        newPartition.getPartition().getDatabaseName(),
+                        newPartition.getPartition().getTableName(),
+                        newPartition.getPartition().getValues());
+                if (!partition.isPresent() || !partition.get().equals(newPartition.getPartition())) {
+                    throw e;
+                }
+            }
         }
 
         public void undo(ExtendedHiveMetastore metastore)
