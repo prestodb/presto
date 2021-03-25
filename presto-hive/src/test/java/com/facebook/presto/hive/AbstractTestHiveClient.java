@@ -951,6 +951,7 @@ public abstract class AbstractTestHiveClient
                 false,
                 false,
                 true,
+                true,
                 getHiveClientConfig().getMaxPartitionBatchSize(),
                 getHiveClientConfig().getMaxPartitionsPerScan(),
                 FUNCTION_AND_TYPE_MANAGER,
