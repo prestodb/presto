@@ -234,7 +234,7 @@ public final class DiscoveryNodeManager
         Set<ServiceDescriptor> services = serviceSelector.selectAllServices().stream()
                 .filter(service -> !failureDetector.getFailed().contains(service))
                 // Allowing coordinator node in the list of services, even if it's not allowed by nodeStatusService with currentNode check
-                .filter(service -> !nodeStatusService.isPresent() || nodeStatusService.get().isAllowed(service.getNodeId()) || isCoordinator(service))
+                .filter(service -> !nodeStatusService.isPresent() || nodeStatusService.get().isAllowed(service.getLocation()) || isCoordinator(service))
                 .collect(toImmutableSet());
 
         ImmutableSet.Builder<InternalNode> activeNodesBuilder = ImmutableSet.builder();
