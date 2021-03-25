@@ -129,9 +129,13 @@ public class NodeTaskMap
 
             // when nodeStatsTracker is garbage collected, run the cleanup method on the tracker
             // Note: tracker can not have a reference to nodeStatsTracker
-            finalizerService.addFinalizer(nodeStatsTracker, splitTracker::cleanup);
-            finalizerService.addFinalizer(memoryUsageTracker, memoryUsageTracker::cleanup);
-            finalizerService.addFinalizer(cpuUtilizationPercentageTracker, cpuUtilizationPercentageTracker::cleanup);
+            // instances of TaskStatsTracker and AccumulatedTaskStatsTracker should not be passed for GC to
+            // help ensure that GC is actually invoked for nodeStatsTracker
+            finalizerService.addFinalizer(nodeStatsTracker, () -> {
+                splitTracker.cleanup();
+                memoryUsageTracker.cleanup();
+                cpuUtilizationPercentageTracker.cleanup();
+            });
 
             return nodeStatsTracker;
         }

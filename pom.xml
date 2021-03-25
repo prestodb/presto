@@ -10,7 +10,7 @@
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.250-SNAPSHOT</version>
+    <version>0.251-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -96,6 +96,7 @@
         <module>presto-redis</module>
         <module>presto-accumulo</module>
         <module>presto-cassandra</module>
+        <module>presto-bigquery</module>
         <module>presto-blackhole</module>
         <module>presto-memory</module>
         <module>presto-orc</module>
@@ -353,6 +354,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-mysql</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-bigquery</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

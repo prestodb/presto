@@ -11,27 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.functionNamespace.execution;
+package com.facebook.presto.plugin.bigquery;
 
-import javax.annotation.Nullable;
+import com.facebook.presto.spi.ErrorCodeSupplier;
+import com.facebook.presto.spi.PrestoException;
 
-import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
-
-public class UdfExecutionFailure
-        extends RuntimeException
+public class BigQueryException
+        extends PrestoException
 {
-    private final String type;
-
-    public UdfExecutionFailure(String type, String message, @Nullable UdfExecutionFailure cause)
+    public BigQueryException(ErrorCodeSupplier errorCodeSupplier, String message, Throwable cause)
     {
-        super(message, cause);
-        this.type = requireNonNull(type, "type is null");
+        super(errorCodeSupplier, message, cause);
     }
 
-    @Override
-    public String getMessage()
+    public BigQueryException(ErrorCodeSupplier errorCodeSupplier, String message)
     {
-        return format("%s: %s", type, super.getMessage());
+        super(errorCodeSupplier, message);
     }
 }

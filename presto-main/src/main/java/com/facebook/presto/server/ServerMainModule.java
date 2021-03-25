@@ -56,6 +56,7 @@ import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.execution.TaskThresholdMemoryRevokingScheduler;
+import com.facebook.presto.execution.buffer.SpoolingOutputBufferFactory;
 import com.facebook.presto.execution.executor.MultilevelSplitQueue;
 import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.execution.scheduler.FlatNetworkTopology;
@@ -344,6 +345,7 @@ public class ServerMainModule
 
         binder.bind(SqlTaskManager.class).in(Scopes.SINGLETON);
         binder.bind(TaskManager.class).to(Key.get(SqlTaskManager.class));
+        binder.bind(SpoolingOutputBufferFactory.class).in(Scopes.SINGLETON);
 
         binder.bind(RandomResourceManagerAddressSelector.class).in(Scopes.SINGLETON);
         driftClientBinder(binder)

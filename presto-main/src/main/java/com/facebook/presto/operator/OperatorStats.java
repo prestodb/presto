@@ -64,6 +64,7 @@ public class OperatorStats
 
     private final DataSize physicalWrittenDataSize;
 
+    private final Duration additionalCpu;
     private final Duration blockedWall;
 
     private final long finishCalls;
@@ -114,6 +115,7 @@ public class OperatorStats
 
             @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
 
+            @JsonProperty("additionalCpu") Duration additionalCpu,
             @JsonProperty("blockedWall") Duration blockedWall,
 
             @JsonProperty("finishCalls") long finishCalls,
@@ -166,6 +168,7 @@ public class OperatorStats
 
         this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "writtenDataSize is null");
 
+        this.additionalCpu = requireNonNull(additionalCpu, "additionalCpu is null");
         this.blockedWall = requireNonNull(blockedWall, "blockedWall is null");
 
         this.finishCalls = finishCalls;
@@ -327,6 +330,12 @@ public class OperatorStats
     }
 
     @JsonProperty
+    public Duration getAdditionalCpu()
+    {
+        return additionalCpu;
+    }
+
+    @JsonProperty
     public Duration getBlockedWall()
     {
         return blockedWall;
@@ -439,6 +448,7 @@ public class OperatorStats
 
         long physicalWrittenDataSize = this.physicalWrittenDataSize.toBytes();
 
+        long additionalCpu = this.additionalCpu.roundTo(NANOSECONDS);
         long blockedWall = this.blockedWall.roundTo(NANOSECONDS);
 
         long finishCalls = this.finishCalls;
@@ -487,6 +497,7 @@ public class OperatorStats
             finishCpu += operator.getFinishCpu().roundTo(NANOSECONDS);
             finishAllocation += operator.getFinishAllocation().toBytes();
 
+            additionalCpu += operator.getAdditionalCpu().roundTo(NANOSECONDS);
             blockedWall += operator.getBlockedWall().roundTo(NANOSECONDS);
 
             memoryReservation += operator.getUserMemoryReservation().toBytes();
@@ -538,6 +549,7 @@ public class OperatorStats
 
                 succinctBytes(physicalWrittenDataSize),
 
+                succinctNanos(additionalCpu),
                 succinctNanos(blockedWall),
 
                 finishCalls,
@@ -601,6 +613,7 @@ public class OperatorStats
                 outputDataSize,
                 outputPositions,
                 physicalWrittenDataSize,
+                additionalCpu,
                 blockedWall,
                 finishCalls,
                 finishWall,

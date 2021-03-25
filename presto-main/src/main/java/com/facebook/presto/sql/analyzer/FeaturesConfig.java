@@ -110,6 +110,7 @@ public class FeaturesConfig
     private boolean forceSingleNodeOutput = true;
     private boolean pagesIndexEagerCompactionEnabled;
     private boolean distributedSort = true;
+    private boolean optimizeJoinsWithEmptySources;
 
     private boolean dictionaryAggregation;
 
@@ -175,6 +176,9 @@ public class FeaturesConfig
     private boolean checkAccessControlOnUtilizedColumnsOnly;
     private boolean skipRedundantSort = true;
     private boolean isAllowWindowOrderByLiterals = true;
+
+    private DataSize spoolingOutputBufferThreshold = new DataSize(8, MEGABYTE);
+    private String spoolingOutputBufferTempStorage = "local";
 
     private String warnOnNoTableLayoutFilter = "";
 
@@ -1528,6 +1532,42 @@ public class FeaturesConfig
     public FeaturesConfig setEnforceFixedDistributionForOutputOperator(boolean enforceFixedDistributionForOutputOperator)
     {
         this.enforceFixedDistributionForOutputOperator = enforceFixedDistributionForOutputOperator;
+        return this;
+    }
+
+    public boolean isEmptyJoinOptimization()
+    {
+        return optimizeJoinsWithEmptySources;
+    }
+
+    @Config("optimizer.optimize-joins-with-empty-sources")
+    public FeaturesConfig setEmptyJoinOptimization(boolean value)
+    {
+        this.optimizeJoinsWithEmptySources = value;
+        return this;
+    }
+
+    public DataSize getSpoolingOutputBufferThreshold()
+    {
+        return spoolingOutputBufferThreshold;
+    }
+
+    @Config("spooling-output-buffer-threshold")
+    public FeaturesConfig setSpoolingOutputBufferThreshold(DataSize spoolingOutputBufferThreshold)
+    {
+        this.spoolingOutputBufferThreshold = spoolingOutputBufferThreshold;
+        return this;
+    }
+
+    public String getSpoolingOutputBufferTempStorage()
+    {
+        return spoolingOutputBufferTempStorage;
+    }
+
+    @Config("spooling-output-buffer-temp-storage")
+    public FeaturesConfig setSpoolingOutputBufferTempStorage(String spoolingOutputBufferTempStorage)
+    {
+        this.spoolingOutputBufferTempStorage = spoolingOutputBufferTempStorage;
         return this;
     }
 }

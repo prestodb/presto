@@ -71,6 +71,8 @@ public class OperatorContext
     private final CounterStat outputDataSize = new CounterStat();
     private final CounterStat outputPositions = new CounterStat();
 
+    private final AtomicLong additionalCpuNanos = new AtomicLong();
+
     private final AtomicLong physicalWrittenDataSize = new AtomicLong();
 
     private final AtomicReference<SettableFuture<?>> memoryFuture;
@@ -202,6 +204,11 @@ public class OperatorContext
     public void recordPhysicalWrittenData(long sizeInBytes)
     {
         physicalWrittenDataSize.getAndAdd(sizeInBytes);
+    }
+
+    public void recordAdditionalCpu(long cpuTimeNanos)
+    {
+        this.additionalCpuNanos.getAndAdd(cpuTimeNanos);
     }
 
     public void recordBlocked(ListenableFuture<?> blocked)
@@ -481,6 +488,7 @@ public class OperatorContext
 
                 succinctBytes(physicalWrittenDataSize.get()),
 
+                succinctNanos(additionalCpuNanos.get()),
                 succinctNanos(blockedWallNanos.get()),
 
                 finishTiming.getCalls(),

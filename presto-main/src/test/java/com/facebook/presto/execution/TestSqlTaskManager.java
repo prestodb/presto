@@ -20,6 +20,7 @@ import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.BufferState;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
+import com.facebook.presto.execution.buffer.SpoolingOutputBufferFactory;
 import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.memory.LocalMemoryManager;
@@ -34,6 +35,7 @@ import com.facebook.presto.operator.NoOpFragmentResultCacheManager;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spiller.LocalSpillManager;
 import com.facebook.presto.spiller.NodeSpillConfig;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Ticker;
@@ -296,7 +298,8 @@ public class TestSqlTaskManager
                 new BlockEncodingManager(),
                 new OrderingCompiler(),
                 new NoOpFragmentResultCacheManager(),
-                new ObjectMapper());
+                new ObjectMapper(),
+                new SpoolingOutputBufferFactory(new FeaturesConfig()));
     }
 
     private TaskInfo createTask(SqlTaskManager sqlTaskManager, TaskId taskId, ImmutableSet<ScheduledSplit> splits, OutputBuffers outputBuffers)
