@@ -59,7 +59,7 @@ public class DriverConnectionFactory
         this.driver = requireNonNull(driver, "driver is null");
         this.connectionUrl = requireNonNull(connectionUrl, "connectionUrl is null");
         this.connectionProperties = new Properties();
-        this.connectionProperties.putAll(requireNonNull(connectionProperties, "basicConnectionProperties is null"));
+        this.connectionProperties.putAll(requireNonNull(connectionProperties, "connectionProperties is null"));
         this.userCredentialName = requireNonNull(userCredentialName, "userCredentialName is null");
         this.passwordCredentialName = requireNonNull(passwordCredentialName, "passwordCredentialName is null");
     }
@@ -68,10 +68,18 @@ public class DriverConnectionFactory
     public Connection openConnection(JdbcIdentity identity)
             throws SQLException
     {
-        userCredentialName.ifPresent(credentialName -> setConnectionProperty(connectionProperties, identity.getExtraCredentials(), credentialName, "user"));
-        passwordCredentialName.ifPresent(credentialName -> setConnectionProperty(connectionProperties, identity.getExtraCredentials(), credentialName, "password"));
+        Properties updatedConnectionProperties;
+        if (userCredentialName.isPresent() || passwordCredentialName.isPresent()) {
+            updatedConnectionProperties = new Properties();
+            updatedConnectionProperties.putAll(connectionProperties);
+            userCredentialName.ifPresent(credentialName -> setConnectionProperty(updatedConnectionProperties, identity.getExtraCredentials(), credentialName, "user"));
+            passwordCredentialName.ifPresent(credentialName -> setConnectionProperty(updatedConnectionProperties, identity.getExtraCredentials(), credentialName, "password"));
+        }
+        else {
+            updatedConnectionProperties = connectionProperties;
+        }
 
-        Connection connection = driver.connect(connectionUrl, connectionProperties);
+        Connection connection = driver.connect(connectionUrl, updatedConnectionProperties);
         checkState(connection != null, "Driver returned null connection");
         return connection;
     }
