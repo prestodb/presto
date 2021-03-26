@@ -20,9 +20,15 @@ import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.BaseEncoding;
+import com.google.common.net.HostAndPort;
 import io.airlift.tpch.TpchTable;
-import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest;
-import org.elasticsearch.common.xcontent.XContentType;
+import org.apache.http.HttpHost;
+import org.apache.http.entity.ContentType;
+import org.apache.http.nio.entity.NStringEntity;
+import org.elasticsearch.action.index.IndexRequest;
+import org.elasticsearch.action.support.WriteRequest;
+import org.elasticsearch.client.RestClient;
+import org.elasticsearch.client.RestHighLevelClient;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -34,34 +40,40 @@ import java.util.Map;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.elasticsearch.ElasticsearchQueryRunner.createElasticsearchQueryRunner;
-import static com.facebook.presto.elasticsearch.EmbeddedElasticsearchNode.createEmbeddedElasticsearchNode;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.elasticsearch.client.Requests.indexAliasesRequest;
-import static org.elasticsearch.client.Requests.refreshRequest;
 
 @Test(singleThreaded = true)
 public class TestElasticsearchIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private EmbeddedElasticsearchNode embeddedElasticsearchNode;
+    private ElasticsearchServer elasticsearch;
+    private RestHighLevelClient client;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        embeddedElasticsearchNode = createEmbeddedElasticsearchNode();
-        return createElasticsearchQueryRunner(embeddedElasticsearchNode, TpchTable.getTables());
+        elasticsearch = new ElasticsearchServer("docker.elastic.co/elasticsearch/elasticsearch-oss:6.0.0", ImmutableMap.of());
+
+        HostAndPort address = elasticsearch.getAddress();
+        client = new RestHighLevelClient(RestClient.builder(new HttpHost(address.getHost(), address.getPort())));
+
+        return createElasticsearchQueryRunner(elasticsearch.getAddress(),
+                TpchTable.getTables(),
+                ImmutableMap.of(),
+                ImmutableMap.of());
     }
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
             throws IOException
     {
-        embeddedElasticsearchNode.close();
+        elasticsearch.stop();
+        client.close();
     }
 
     @Test
@@ -143,92 +155,93 @@ public class TestElasticsearchIntegrationSmokeTest
 
     @Test
     public void testArrayFields()
+            throws IOException
     {
         String indexName = "test_arrays";
 
-        embeddedElasticsearchNode.getClient()
-                .admin()
-                .indices()
-                .prepareCreate(indexName)
-                .addMapping("doc", "" +
-                                "{" +
-                                "  \"_meta\": {" +
-                                "    \"presto\": {" +
-                                "      \"a\": {" +
-                                "        \"b\": {" +
-                                "          \"y\": {" +
-                                "            \"isArray\": true" +
-                                "          }" +
-                                "        }" +
-                                "      }," +
-                                "      \"c\": {" +
-                                "        \"f\": {" +
-                                "          \"g\": {" +
-                                "            \"isArray\": true" +
-                                "          }," +
-                                "          \"isArray\": true" +
-                                "        }" +
-                                "      }," +
-                                "      \"j\": {" +
-                                "        \"isArray\": true" +
-                                "      }," +
-                                "      \"k\": {" +
-                                "        \"isArray\": true" +
-                                "      }" +
-                                "    }" +
-                                "  }," +
-                                "  \"properties\":{" +
-                                "    \"a\": {" +
-                                "      \"type\": \"object\"," +
-                                "      \"properties\": {" +
-                                "        \"b\": {" +
-                                "          \"type\": \"object\"," +
-                                "          \"properties\": {" +
-                                "            \"x\": {" +
-                                "              \"type\": \"integer\"" +
-                                "            }," +
-                                "            \"y\": {" +
-                                "              \"type\": \"keyword\"" +
-                                "            }" +
-                                "          } " +
-                                "        }" +
-                                "      }" +
-                                "    }," +
-                                "    \"c\": {" +
-                                "      \"type\": \"object\"," +
-                                "      \"properties\": {" +
-                                "        \"d\": {" +
-                                "          \"type\": \"keyword\"" +
-                                "        }," +
-                                "        \"e\": {" +
-                                "          \"type\": \"keyword\"" +
-                                "        }," +
-                                "        \"f\": {" +
-                                "          \"type\": \"object\"," +
-                                "          \"properties\": {" +
-                                "            \"g\": {" +
-                                "              \"type\": \"integer\"" +
-                                "            }," +
-                                "            \"h\": {" +
-                                "              \"type\": \"integer\"" +
-                                "            }" +
-                                "          } " +
-                                "        }" +
-                                "      }" +
-                                "    }," +
-                                "    \"i\": {" +
-                                "      \"type\": \"long\"" +
-                                "    }," +
-                                "    \"j\": {" +
-                                "      \"type\": \"long\"" +
-                                "    }," +
-                                "    \"k\": {" +
-                                "      \"type\": \"long\"" +
-                                "    }" +
-                                "  }" +
-                                "}",
-                        XContentType.JSON)
-                .get();
+        String mapping = "" +
+                "{" +
+                "  \"mappings\": {" +
+                "    \"doc\": {" +
+                "      \"_meta\": {" +
+                "        \"presto\": {" +
+                "          \"a\": {" +
+                "            \"b\": {" +
+                "              \"y\": {" +
+                "                \"isArray\": true" +
+                "              }" +
+                "            }" +
+                "          }," +
+                "          \"c\": {" +
+                "            \"f\": {" +
+                "              \"g\": {" +
+                "                \"isArray\": true" +
+                "              }," +
+                "              \"isArray\": true" +
+                "            }" +
+                "          }," +
+                "          \"j\": {" +
+                "            \"isArray\": true" +
+                "          }," +
+                "          \"k\": {" +
+                "            \"isArray\": true" +
+                "          }" +
+                "        }" +
+                "      }," +
+                "      \"properties\":{" +
+                "        \"a\": {" +
+                "          \"type\": \"object\"," +
+                "          \"properties\": {" +
+                "            \"b\": {" +
+                "              \"type\": \"object\"," +
+                "              \"properties\": {" +
+                "                \"x\": {" +
+                "                  \"type\": \"integer\"" +
+                "                }," +
+                "                \"y\": {" +
+                "                  \"type\": \"keyword\"" +
+                "                }" +
+                "              } " +
+                "            }" +
+                "          }" +
+                "        }," +
+                "        \"c\": {" +
+                "          \"type\": \"object\"," +
+                "          \"properties\": {" +
+                "            \"d\": {" +
+                "              \"type\": \"keyword\"" +
+                "            }," +
+                "            \"e\": {" +
+                "              \"type\": \"keyword\"" +
+                "            }," +
+                "            \"f\": {" +
+                "              \"type\": \"object\"," +
+                "              \"properties\": {" +
+                "                \"g\": {" +
+                "                  \"type\": \"integer\"" +
+                "                }," +
+                "                \"h\": {" +
+                "                  \"type\": \"integer\"" +
+                "                }" +
+                "              } " +
+                "            }" +
+                "          }" +
+                "        }," +
+                "        \"i\": {" +
+                "          \"type\": \"long\"" +
+                "        }," +
+                "        \"j\": {" +
+                "          \"type\": \"long\"" +
+                "        }," +
+                "        \"k\": {" +
+                "          \"type\": \"long\"" +
+                "        }" +
+                "      }" +
+                "    }" +
+                "  }" +
+                "}";
+
+        createIndex(indexName, mapping);
 
         index(indexName, ImmutableMap.<String, Object>builder()
                 .put("a", ImmutableMap.<String, Object>builder()
@@ -266,12 +279,6 @@ public class TestElasticsearchIntegrationSmokeTest
                         .build())
                 .build());
 
-        embeddedElasticsearchNode.getClient()
-                .admin()
-                .indices()
-                .refresh(refreshRequest(indexName))
-                .actionGet();
-
         assertQuery(
                 "SELECT a.b.y[1], c.f[1].g[2], c.f[2].g[1], j[2], k[1] FROM test_arrays",
                 "VALUES ('hello', 20, 30, 60, NULL)");
@@ -279,6 +286,7 @@ public class TestElasticsearchIntegrationSmokeTest
 
     @Test
     public void testEmptyObjectFields()
+            throws IOException
     {
         String indexName = "emptyobject";
         index(indexName, ImmutableMap.<String, Object>builder()
@@ -288,12 +296,6 @@ public class TestElasticsearchIntegrationSmokeTest
                 .put("fields.fieldb", ImmutableMap.of())
                 .build());
 
-        embeddedElasticsearchNode.getClient()
-                .admin()
-                .indices()
-                .refresh(refreshRequest(indexName))
-                .actionGet();
-
         assertQuery(
                 "SELECT name, fields.fielda FROM emptyobject",
                 "VALUES ('stringfield', 32)");
@@ -301,6 +303,7 @@ public class TestElasticsearchIntegrationSmokeTest
 
     @Test
     public void testNestedFields()
+            throws IOException
     {
         String indexName = "data";
         index(indexName, ImmutableMap.<String, Object>builder()
@@ -309,12 +312,6 @@ public class TestElasticsearchIntegrationSmokeTest
                 .put("fields.fieldb", "valueb")
                 .build());
 
-        embeddedElasticsearchNode.getClient()
-                .admin()
-                .indices()
-                .refresh(refreshRequest(indexName))
-                .actionGet();
-
         assertQuery(
                 "SELECT name, fields.fielda, fields.fieldb FROM data",
                 "VALUES ('nestfield', 32, 'valueb')");
@@ -322,6 +319,7 @@ public class TestElasticsearchIntegrationSmokeTest
 
     @Test
     public void testNestedVariants()
+            throws IOException
     {
         String indexName = "nested_variants";
 
@@ -344,12 +342,6 @@ public class TestElasticsearchIntegrationSmokeTest
         index(indexName,
                 ImmutableMap.of("a.b.c", "value4"));
 
-        embeddedElasticsearchNode.getClient()
-                .admin()
-                .indices()
-                .refresh(refreshRequest(indexName))
-                .actionGet();
-
         assertQuery(
                 "SELECT a.b.c FROM nested_variants",
                 "VALUES 'value1', 'value2', 'value3', 'value4'");
@@ -357,26 +349,30 @@ public class TestElasticsearchIntegrationSmokeTest
 
     @Test
     public void testDataTypes()
+            throws IOException
     {
         String indexName = "types";
 
-        embeddedElasticsearchNode.getClient()
-                .admin()
-                .indices()
-                .prepareCreate(indexName)
-                .addMapping("doc",
-                        "boolean_column", "type=boolean",
-                        "float_column", "type=float",
-                        "double_column", "type=double",
-                        "integer_column", "type=integer",
-                        "long_column", "type=long",
-                        "keyword_column", "type=keyword",
-                        "text_column", "type=text",
-                        "binary_column", "type=binary",
-                        "timestamp_column", "type=date",
-                        "ipv4_column", "type=ip",
-                        "ipv6_column", "type=ip")
-                .get();
+        String mapping = "" +
+                "{" +
+                "  \"mappings\": {" +
+                "    \"doc\": {" +
+                "      \"properties\": {" +
+                "        \"boolean_column\":   { \"type\": \"boolean\" }," +
+                "        \"float_column\":     { \"type\": \"float\" }," +
+                "        \"double_column\":    { \"type\": \"double\" }," +
+                "        \"integer_column\":   { \"type\": \"integer\" }," +
+                "        \"long_column\":      { \"type\": \"long\" }," +
+                "        \"keyword_column\":   { \"type\": \"keyword\" }," +
+                "        \"text_column\":      { \"type\": \"text\" }," +
+                "        \"binary_column\":    { \"type\": \"binary\" }," +
+                "        \"timestamp_column\": { \"type\": \"date\" }" +
+                "      }" +
+                "    }" +
+                "  }" +
+                "}";
+
+        createIndex(indexName, mapping);
 
         index(indexName, ImmutableMap.<String, Object>builder()
                 .put("boolean_column", true)
@@ -392,11 +388,6 @@ public class TestElasticsearchIntegrationSmokeTest
                 .put("ipv6_column", "2001:db8:0:1:1:1:1:1")
                 .build());
 
-        embeddedElasticsearchNode.getClient()
-                .admin()
-                .indices()
-                .refresh(refreshRequest(indexName))
-                .actionGet();
         MaterializedResult rows = computeActual("" +
                 "SELECT " +
                 "boolean_column, " +
@@ -422,28 +413,30 @@ public class TestElasticsearchIntegrationSmokeTest
 
     @Test
     public void testFilters()
+            throws IOException
     {
         String indexName = "filter_pushdown";
 
-        embeddedElasticsearchNode.getClient()
-                .admin()
-                .indices()
-                .prepareCreate(indexName)
-                .addMapping("doc",
-                        "boolean_column", "type=boolean",
-                        "byte_column", "type=byte",
-                        "short_column", "type=short",
-                        "integer_column", "type=integer",
-                        "long_column", "type=long",
-                        "float_column", "type=float",
-                        "double_column", "type=double",
-                        "keyword_column", "type=keyword",
-                        "text_column", "type=text",
-                        "binary_column", "type=binary",
-                        "timestamp_column", "type=date",
-                        "ipv4_column", "type=ip",
-                        "ipv6_column", "type=ip")
-                .get();
+        String mapping = "" +
+                "{" +
+                "  \"mappings\": {" +
+                "    \"doc\": {" +
+                "      \"properties\": {" +
+                "        \"boolean_column\":   { \"type\": \"boolean\" }," +
+                "        \"float_column\":     { \"type\": \"float\" }," +
+                "        \"double_column\":    { \"type\": \"double\" }," +
+                "        \"integer_column\":   { \"type\": \"integer\" }," +
+                "        \"long_column\":      { \"type\": \"long\" }," +
+                "        \"keyword_column\":   { \"type\": \"keyword\" }," +
+                "        \"text_column\":      { \"type\": \"text\" }," +
+                "        \"binary_column\":    { \"type\": \"binary\" }," +
+                "        \"timestamp_column\": { \"type\": \"date\" }" +
+                "      }" +
+                "    }" +
+                "  }" +
+                "}";
+
+        createIndex(indexName, mapping);
 
         index(indexName, ImmutableMap.<String, Object>builder()
                 .put("boolean_column", true)
@@ -460,12 +453,6 @@ public class TestElasticsearchIntegrationSmokeTest
                 .put("ipv4_column", "192.0.2.4")
                 .put("ipv6_column", "2001:db8:0:1:1:1:1:1")
                 .build());
-
-        embeddedElasticsearchNode.getClient()
-                .admin()
-                .indices()
-                .refresh(refreshRequest(indexName))
-                .actionGet();
 
         // boolean
         assertQuery("SELECT count(*) FROM filter_pushdown WHERE boolean_column = true", "VALUES 1");
@@ -539,35 +526,34 @@ public class TestElasticsearchIntegrationSmokeTest
 
     @Test
     public void testDataTypesNested()
+            throws IOException
     {
         String indexName = "types_nested";
 
-        embeddedElasticsearchNode.getClient()
-                .admin()
-                .indices()
-                .prepareCreate(indexName)
-                .addMapping("doc", "" +
-                                "{ " +
-                                "    \"properties\": {\n" +
-                                "        \"field\": {\n" +
-                                "            \"properties\": {\n" +
-                                "                \"boolean_column\":   { \"type\": \"boolean\" },\n" +
-                                "                \"float_column\":     { \"type\": \"float\" },\n" +
-                                "                \"double_column\":    { \"type\": \"double\" },\n" +
-                                "                \"integer_column\":   { \"type\": \"integer\" },\n" +
-                                "                \"long_column\":      { \"type\": \"long\" },\n" +
-                                "                \"keyword_column\":   { \"type\": \"keyword\" },\n" +
-                                "                \"text_column\":      { \"type\": \"text\" },\n" +
-                                "                \"binary_column\":    { \"type\": \"binary\" },\n" +
-                                "                \"timestamp_column\": { \"type\": \"date\" },\n" +
-                                "                \"ipv4_column\":      { \"type\": \"ip\" },\n" +
-                                "                \"ipv6_column\":      { \"type\": \"ip\" }\n" +
-                                "            }\n" +
-                                "        }\n" +
-                                "    }" +
-                                "}\n",
-                        XContentType.JSON)
-                .get();
+        String mapping = "" +
+                "{" +
+                "  \"mappings\": {" +
+                "    \"doc\": {" +
+                "      \"properties\": {" +
+                "        \"field\": {" +
+                "          \"properties\": {" +
+                "            \"boolean_column\":   { \"type\": \"boolean\" }," +
+                "            \"float_column\":     { \"type\": \"float\" }," +
+                "            \"double_column\":    { \"type\": \"double\" }," +
+                "            \"integer_column\":   { \"type\": \"integer\" }," +
+                "            \"long_column\":      { \"type\": \"long\" }," +
+                "            \"keyword_column\":   { \"type\": \"keyword\" }," +
+                "            \"text_column\":      { \"type\": \"text\" }," +
+                "            \"binary_column\":    { \"type\": \"binary\" }," +
+                "            \"timestamp_column\": { \"type\": \"date\" }" +
+                "          }" +
+                "        }" +
+                "      }" +
+                "    }" +
+                "  }" +
+                "}";
+
+        createIndex(indexName, mapping);
 
         index(indexName, ImmutableMap.of(
                 "field",
@@ -584,12 +570,6 @@ public class TestElasticsearchIntegrationSmokeTest
                         .put("ipv4_column", "192.0.2.4")
                         .put("ipv6_column", "2001:db8:0:1:1:1:1:1")
                         .build()));
-
-        embeddedElasticsearchNode.getClient()
-                .admin()
-                .indices()
-                .refresh(refreshRequest(indexName))
-                .actionGet();
 
         MaterializedResult rows = computeActual("" +
                 "SELECT " +
@@ -616,36 +596,37 @@ public class TestElasticsearchIntegrationSmokeTest
 
     @Test
     public void testNestedTypeDataTypesNested()
+            throws IOException
     {
         String indexName = "nested_type_nested";
 
-        embeddedElasticsearchNode.getClient()
-                .admin()
-                .indices()
-                .prepareCreate(indexName)
-                .addMapping("doc", "" +
-                                "{ " +
-                                "    \"properties\": {\n" +
-                                "        \"nested_field\": {" +
-                                "          \"type\":\"nested\"," +
-                                "          \"properties\": {" +
-                                "            \"boolean_column\":   { \"type\": \"boolean\" },\n" +
-                                "            \"float_column\":     { \"type\": \"float\" },\n" +
-                                "            \"double_column\":    { \"type\": \"double\" },\n" +
-                                "            \"integer_column\":   { \"type\": \"integer\" }\n," +
-                                "            \"long_column\":      { \"type\": \"long\" },\n" +
-                                "            \"keyword_column\":   { \"type\": \"keyword\" },\n" +
-                                "            \"text_column\":      { \"type\": \"text\" },\n" +
-                                "            \"binary_column\":    { \"type\": \"binary\" },\n" +
-                                "            \"timestamp_column\": { \"type\": \"date\" },\n" +
-                                "            \"ipv4_column\":      { \"type\": \"ip\" },\n" +
-                                "            \"ipv6_column\":      { \"type\": \"ip\" }\n" +
-                                "            }\n" +
-                                "        }\n" +
-                                "    }" +
-                                "}\n",
-                        XContentType.JSON)
-                .get();
+        String mapping = "" +
+                "{" +
+                "  \"mappings\": {" +
+                "    \"doc\": {" +
+                "      \"properties\": {" +
+                "        \"nested_field\": {" +
+                "          \"type\":\"nested\"," +
+                "          \"properties\": {" +
+                "            \"boolean_column\":   { \"type\": \"boolean\" }," +
+                "            \"float_column\":     { \"type\": \"float\" }," +
+                "            \"double_column\":    { \"type\": \"double\" }," +
+                "            \"integer_column\":   { \"type\": \"integer\" }," +
+                "            \"long_column\":      { \"type\": \"long\" }," +
+                "            \"keyword_column\":   { \"type\": \"keyword\" }," +
+                "            \"text_column\":      { \"type\": \"text\" }," +
+                "            \"binary_column\":    { \"type\": \"binary\" }," +
+                "            \"timestamp_column\": { \"type\": \"date\" }," +
+                "            \"ipv4_column\":      { \"type\": \"ip\" }," +
+                "            \"ipv6_column\":      { \"type\": \"ip\" }" +
+                "          }" +
+                "        }" +
+                "      }" +
+                "    }" +
+                "  }" +
+                "}";
+
+        createIndex(indexName, mapping);
 
         index(indexName, ImmutableMap.of(
                 "nested_field",
@@ -662,12 +643,6 @@ public class TestElasticsearchIntegrationSmokeTest
                         .put("ipv4_column", "192.0.2.4")
                         .put("ipv6_column", "2001:db8:0:1:1:1:1:1")
                         .build()));
-
-        embeddedElasticsearchNode.getClient()
-                .admin()
-                .indices()
-                .refresh(refreshRequest(indexName))
-                .actionGet();
 
         MaterializedResult rows = computeActual("" +
                 "SELECT " +
@@ -706,18 +681,13 @@ public class TestElasticsearchIntegrationSmokeTest
 
     @Test
     public void testMixedCase()
+            throws IOException
     {
         String indexName = "mixed_case";
         index(indexName, ImmutableMap.<String, Object>builder()
                 .put("Name", "john")
                 .put("AGE", 32)
                 .build());
-
-        embeddedElasticsearchNode.getClient()
-                .admin()
-                .indices()
-                .refresh(refreshRequest(indexName))
-                .actionGet();
 
         assertQuery(
                 "SELECT name, age FROM mixed_case",
@@ -733,29 +703,16 @@ public class TestElasticsearchIntegrationSmokeTest
             throws IOException
     {
         String indexName = "numeric_keyword";
-        embeddedElasticsearchNode.getClient()
-                .admin()
-                .indices()
-                .prepareCreate(indexName)
-                .addMapping("doc",
-                        "numeric_column", "type=keyword")
-                .get();
 
         index(indexName, ImmutableMap.<String, Object>builder()
                 .put("numeric_column", 20)
                 .build());
 
-        embeddedElasticsearchNode.getClient()
-                .admin()
-                .indices()
-                .refresh(refreshRequest(indexName))
-                .actionGet();
-
         assertQuery(
                 "SELECT numeric_column FROM numeric_keyword",
                 "VALUES 20");
         assertQuery(
-                "SELECT numeric_column FROM numeric_keyword where numeric_column = '20'",
+                "SELECT numeric_column FROM numeric_keyword where numeric_column = 20",
                 "VALUES 20");
     }
 
@@ -768,21 +725,9 @@ public class TestElasticsearchIntegrationSmokeTest
 
     @Test
     public void testAlias()
+            throws IOException
     {
-        embeddedElasticsearchNode.getClient()
-                .admin()
-                .indices()
-                .aliases(indexAliasesRequest()
-                        .addAliasAction(IndicesAliasesRequest.AliasActions.add()
-                                .index("orders")
-                                .alias("orders_alias")))
-                .actionGet();
-
-        embeddedElasticsearchNode.getClient()
-                .admin()
-                .indices()
-                .refresh(refreshRequest("orders_alias"))
-                .actionGet();
+        addAlias("orders", "orders_alias");
 
         assertQuery(
                 "SELECT count(*) FROM orders_alias",
@@ -791,42 +736,22 @@ public class TestElasticsearchIntegrationSmokeTest
 
     @Test(enabled = false)
     public void testMultiIndexAlias()
+            throws IOException
     {
-        embeddedElasticsearchNode.getClient()
-                .admin()
-                .indices()
-                .aliases(indexAliasesRequest()
-                        .addAliasAction(IndicesAliasesRequest.AliasActions.add()
-                                .index("nation")
-                                .alias("multi_alias")))
-                .actionGet();
-
-        embeddedElasticsearchNode.getClient()
-                .admin()
-                .indices()
-                .aliases(indexAliasesRequest()
-                        .addAliasAction(IndicesAliasesRequest.AliasActions.add()
-                                .index("region")
-                                .alias("multi_alias")))
-                .actionGet();
-
-        embeddedElasticsearchNode.getClient()
-                .admin()
-                .indices()
-                .refresh(refreshRequest("multi_alias"))
-                .actionGet();
+        addAlias("nation", "multi_alias");
+        addAlias("region", "multi_alias");
 
         assertQuery(
                 "SELECT count(*) FROM multi_alias",
                 "SELECT (SELECT count(*) FROM region) + (SELECT count(*) FROM nation)");
     }
 
-    private void index(String indexName, Map<String, Object> document)
+    private void index(String index, Map<String, Object> document)
+            throws IOException
     {
-        embeddedElasticsearchNode.getClient()
-                .prepareIndex(indexName, "doc")
-                .setSource(document)
-                .get();
+        client.index(new IndexRequest(index, "doc")
+                .source(document)
+                .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE));
     }
 
     @Test
@@ -855,5 +780,19 @@ public class TestElasticsearchIntegrationSmokeTest
         assertQueryFails(
                 format("SELECT * FROM \"orders$query:%s\"", BaseEncoding.base32().encode("invalid json".getBytes(UTF_8))),
                 "Elasticsearch query for 'orders' is not valid JSON");
+    }
+
+    private void addAlias(String index, String alias)
+            throws IOException
+    {
+        client.getLowLevelClient()
+                .performRequest("PUT", format("/%s/_alias/%s", index, alias));
+    }
+
+    private void createIndex(String indexName, @Language("JSON") String mapping)
+            throws IOException
+    {
+        client.getLowLevelClient()
+                .performRequest("PUT", "/" + indexName, ImmutableMap.of(), new NStringEntity(mapping, ContentType.APPLICATION_JSON));
     }
 }

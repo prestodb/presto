@@ -57,7 +57,6 @@ import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
-import static com.facebook.presto.common.type.RowType.Field;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
@@ -66,7 +65,6 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.elasticsearch.ElasticsearchTableHandle.Type.QUERY;
 import static com.facebook.presto.elasticsearch.ElasticsearchTableHandle.Type.SCAN;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_ARGUMENTS;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -320,11 +318,21 @@ public class ElasticsearchMetadata
         else if (type instanceof ObjectType) {
             ObjectType objectType = (ObjectType) type;
 
-            List<Field> fields = objectType.getFields().stream()
-                    .map(field -> RowType.field(field.getName(), toPrestoType(field)))
-                    .collect(toImmutableList());
+            ImmutableList.Builder<RowType.Field> builder = ImmutableList.builder();
+            for (IndexMetadata.Field field : objectType.getFields()) {
+                Type prestoType = toPrestoType(field);
+                if (prestoType != null) {
+                    builder.add(RowType.field(field.getName(), prestoType));
+                }
+            }
 
-            return RowType.from(fields);
+            List<RowType.Field> fields = builder.build();
+
+            if (!fields.isEmpty()) {
+                return RowType.from(fields);
+            }
+
+            // otherwise, skip -- row types must have at least 1 field
         }
 
         return null;
