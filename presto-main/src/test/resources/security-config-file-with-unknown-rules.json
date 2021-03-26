@@ -1,9 +1,9 @@
 {
-  "schemas": [
+  "sessionProperties": [
     {
-      "user": "(alice|bob)",
-      "schema": "(default|pv)",
-      "owner": true
+      "user": "admin",
+      "property": "max_split_size",
+      "allow": true
     }
   ]
 }
