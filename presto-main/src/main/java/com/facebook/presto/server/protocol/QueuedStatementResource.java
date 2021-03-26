@@ -26,6 +26,7 @@ import com.facebook.presto.server.HttpRequestSessionContext;
 import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.server.SessionContext;
 import com.facebook.presto.spi.ErrorCode;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.google.common.collect.ImmutableList;
@@ -72,6 +73,7 @@ import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.server.security.RoleType.USER;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.RETRY_QUERY_NOT_FOUND;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
@@ -190,6 +192,11 @@ public class QueuedStatementResource
             @Context UriInfo uriInfo)
     {
         Query failedQuery = queries.get(queryId);
+
+        if (failedQuery == null) {
+            // TODO: purge retryable queries slower than normal ones
+            throw new PrestoException(RETRY_QUERY_NOT_FOUND, "failed to find the query to retry with ID " + queryId);
+        }
 
         Query query = new Query(failedQuery.getQuery(), failedQuery.getSessionContext(), dispatchManager, queryResultsProvider, failedQuery.getRetryCount() + 1);
         queries.put(query.getQueryId(), query);
