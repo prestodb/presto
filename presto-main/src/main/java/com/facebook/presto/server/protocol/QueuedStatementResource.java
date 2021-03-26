@@ -198,7 +198,13 @@ public class QueuedStatementResource
             throw new PrestoException(RETRY_QUERY_NOT_FOUND, "failed to find the query to retry with ID " + queryId);
         }
 
-        Query query = new Query(failedQuery.getQuery(), failedQuery.getSessionContext(), dispatchManager, queryResultsProvider, failedQuery.getRetryCount() + 1);
+        int retryCount = failedQuery.getRetryCount() + 1;
+        Query query = new Query(
+                "-- retry query " + queryId + "; attempt: " + retryCount + "\n" + failedQuery.getQuery(),
+                failedQuery.getSessionContext(),
+                dispatchManager,
+                queryResultsProvider,
+                retryCount);
         queries.put(query.getQueryId(), query);
 
         return withCompressionConfiguration(Response.ok(query.getInitialQueryResults(uriInfo, xForwardedProto)), compressionEnabled).build();
