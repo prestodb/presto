@@ -23,6 +23,7 @@ import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.server.ForStatementResource;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.transaction.TransactionManager;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -49,6 +50,7 @@ public class LocalQueryProvider
     private static final Logger log = Logger.get(LocalQueryProvider.class);
 
     private final QueryManager queryManager;
+    private final TransactionManager transactionManager;
     private final ExchangeClientSupplier exchangeClientSupplier;
     private final BlockEncodingSerde blockEncodingSerde;
     private final BoundedExecutor responseExecutor;
@@ -61,6 +63,7 @@ public class LocalQueryProvider
     @Inject
     public LocalQueryProvider(
             QueryManager queryManager,
+            TransactionManager transactionManager,
             ExchangeClientSupplier exchangeClientSupplier,
             BlockEncodingSerde blockEncodingSerde,
             @ForStatementResource BoundedExecutor responseExecutor,
@@ -68,6 +71,7 @@ public class LocalQueryProvider
             RetryCircuitBreaker retryCircuitBreaker)
     {
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
+        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.exchangeClientSupplier = requireNonNull(exchangeClientSupplier, "exchangeClientSupplier is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.responseExecutor = requireNonNull(responseExecutor, "responseExecutor is null");
@@ -135,6 +139,7 @@ public class LocalQueryProvider
                     session,
                     slug,
                     queryManager,
+                    transactionManager,
                     exchangeClient,
                     responseExecutor,
                     timeoutExecutor,
