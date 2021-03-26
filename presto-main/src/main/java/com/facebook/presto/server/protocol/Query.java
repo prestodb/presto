@@ -40,6 +40,8 @@ import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.transaction.TransactionId;
+import com.facebook.presto.transaction.TransactionInfo;
+import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -93,6 +95,7 @@ class Query
     private static final Logger log = Logger.get(Query.class);
 
     private final QueryManager queryManager;
+    private final TransactionManager transactionManager;
     private final QueryId queryId;
     private final Session session;
     private final String slug;
@@ -164,13 +167,14 @@ class Query
             Session session,
             String slug,
             QueryManager queryManager,
+            TransactionManager transactionManager,
             ExchangeClient exchangeClient,
             Executor dataProcessorExecutor,
             ScheduledExecutorService timeoutExecutor,
             BlockEncodingSerde blockEncodingSerde,
             RetryCircuitBreaker retryCircuitBreaker)
     {
-        Query result = new Query(session, slug, queryManager, exchangeClient, dataProcessorExecutor, timeoutExecutor, blockEncodingSerde, retryCircuitBreaker);
+        Query result = new Query(session, slug, queryManager, transactionManager, exchangeClient, dataProcessorExecutor, timeoutExecutor, blockEncodingSerde, retryCircuitBreaker);
 
         result.queryManager.addOutputInfoListener(result.getQueryId(), result::setQueryOutputInfo);
 
@@ -188,6 +192,7 @@ class Query
             Session session,
             String slug,
             QueryManager queryManager,
+            TransactionManager transactionManager,
             ExchangeClient exchangeClient,
             Executor resultsProcessorExecutor,
             ScheduledExecutorService timeoutExecutor,
@@ -197,6 +202,7 @@ class Query
         requireNonNull(session, "session is null");
         requireNonNull(slug, "slug is null");
         requireNonNull(queryManager, "queryManager is null");
+        requireNonNull(transactionManager, "transactionManager is null");
         requireNonNull(exchangeClient, "exchangeClient is null");
         requireNonNull(resultsProcessorExecutor, "resultsProcessorExecutor is null");
         requireNonNull(timeoutExecutor, "timeoutExecutor is null");
@@ -204,6 +210,7 @@ class Query
         requireNonNull(retryCircuitBreaker, "retryCircuitBreaker is null");
 
         this.queryManager = queryManager;
+        this.transactionManager = transactionManager;
 
         this.queryId = session.getQueryId();
         this.session = session;
@@ -377,6 +384,12 @@ class Query
         // check if we have exceeded the local limit
         if (queryManager.getQueryRetryCount(queryId) >= getQueryRetryLimit(session) ||
                 queryManager.getQueryInfo(queryId).getQueryStats().getExecutionTime().toMillis() > getQueryRetryMaxExecutionTime(session).toMillis()) {
+            return queryResults;
+        }
+
+        // no support for transactions
+        if (session.getTransactionId().isPresent() &&
+                !transactionManager.getOptionalTransactionInfo(session.getRequiredTransactionId()).map(TransactionInfo::isAutoCommitContext).orElse(true)) {
             return queryResults;
         }
 
