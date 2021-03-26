@@ -268,6 +268,7 @@ public final class DiscoveryNodeManager
 
                         // record available active nodes organized by connector id
                         String connectorIds = service.getProperties().get("connectorIds");
+                        log.info("ConnectorIDS", connectorIds);
                         if (connectorIds != null) {
                             connectorIds = connectorIds.toLowerCase(ENGLISH);
                             for (String connectorId : CONNECTOR_ID_SPLITTER.split(connectorIds)) {
