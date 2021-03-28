@@ -41,6 +41,17 @@ public class TestUpdateablePriorityQueue
         assertTrue(populateAndExtract(new StochasticPriorityQueue<>()).size() == 3);
     }
 
+    @Test
+    public void testTieredQueue()
+    {
+        TieredQueue<Integer> queue = new TieredQueue<>(FifoQueue::new);
+        assertEquals(populateAndExtract(queue), ImmutableList.of(1, 2, 3));
+
+        queue.prioritize(4, 0);
+        queue.prioritize(5, 0);
+        assertEquals(populateAndExtract(queue), ImmutableList.of(4, 5, 1, 2, 3));
+    }
+
     private static List<Integer> populateAndExtract(UpdateablePriorityQueue<Integer> queue)
     {
         queue.addOrUpdate(1, 1);
