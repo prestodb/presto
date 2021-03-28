@@ -124,7 +124,7 @@ public class InternalResourceGroup
     @GuardedBy("root")
     private final Set<InternalResourceGroup> dirtySubGroups = new HashSet<>();
     @GuardedBy("root")
-    private UpdateablePriorityQueue<ManagedQueryExecution> queuedQueries = new FifoQueue<>();
+    private TieredQueue<ManagedQueryExecution> queuedQueries = new TieredQueue<>(FifoQueue::new);
     @GuardedBy("root")
     private final Set<ManagedQueryExecution> runningQueries = new HashSet<>();
     @GuardedBy("root")
@@ -522,19 +522,19 @@ public class InternalResourceGroup
 
             // Switch to the appropriate queue implementation to implement the desired policy
             Queue<InternalResourceGroup> queue;
-            UpdateablePriorityQueue<ManagedQueryExecution> queryQueue;
+            TieredQueue<ManagedQueryExecution> queryQueue;
             switch (policy) {
                 case FAIR:
                     queue = new FifoQueue<>();
-                    queryQueue = new FifoQueue<>();
+                    queryQueue = new TieredQueue<>(FifoQueue::new);
                     break;
                 case WEIGHTED:
                     queue = new StochasticPriorityQueue<>();
-                    queryQueue = new StochasticPriorityQueue<>();
+                    queryQueue = new TieredQueue<>(StochasticPriorityQueue::new);
                     break;
                 case WEIGHTED_FAIR:
                     queue = new WeightedFairQueue<>();
-                    queryQueue = new IndexedPriorityQueue<>();
+                    queryQueue = new TieredQueue<>(IndexedPriorityQueue::new);
                     break;
                 case QUERY_PRIORITY:
                     // Sub groups must use query priority to ensure ordering
@@ -542,7 +542,7 @@ public class InternalResourceGroup
                         group.setSchedulingPolicy(QUERY_PRIORITY);
                     }
                     queue = new IndexedPriorityQueue<>();
-                    queryQueue = new IndexedPriorityQueue<>();
+                    queryQueue = new TieredQueue<>(IndexedPriorityQueue::new);
                     break;
                 default:
                     throw new UnsupportedOperationException("Unsupported scheduling policy: " + policy);
@@ -659,8 +659,15 @@ public class InternalResourceGroup
     private void enqueueQuery(ManagedQueryExecution query)
     {
         checkState(Thread.holdsLock(root), "Must hold lock to enqueue a query");
+
         synchronized (root) {
-            queuedQueries.addOrUpdate(query, getQueryPriority(query.getSession()));
+            int priority = getQueryPriority(query.getSession());
+            if (query.isRetry()) {
+                queuedQueries.prioritize(query, priority);
+            }
+            else {
+                queuedQueries.addOrUpdate(query, priority);
+            }
             InternalResourceGroup group = this;
             while (group.parent.isPresent()) {
                 group.parent.get().descendantQueuedQueries++;
@@ -877,7 +884,7 @@ public class InternalResourceGroup
     {
         checkState(Thread.holdsLock(root), "Must hold lock");
         synchronized (root) {
-            checkState(queuedQueries instanceof IndexedPriorityQueue, "Queued queries not ordered");
+            checkState(queuedQueries.getLowPriorityQueue() instanceof IndexedPriorityQueue, "Queued queries not ordered");
             if (queuedQueries.isEmpty()) {
                 return 0;
             }

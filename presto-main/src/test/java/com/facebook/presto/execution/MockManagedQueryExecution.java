@@ -96,6 +96,12 @@ public class MockManagedQueryExecution
     }
 
     @Override
+    public boolean isRetry()
+    {
+        return false;
+    }
+
+    @Override
     public BasicQueryInfo getBasicQueryInfo()
     {
         return new BasicQueryInfo(
