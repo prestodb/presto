@@ -58,10 +58,10 @@ import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
 
 import java.net.URI;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
@@ -111,7 +111,8 @@ public class QueuedStatementResource
     private final Executor responseExecutor;
     private final ScheduledExecutorService timeoutExecutor;
 
-    private final ConcurrentMap<QueryId, Query> queries = new ConcurrentHashMap<>();
+    private final Map<QueryId, Query> queries = new ConcurrentHashMap<>();          // a mapping from current query id to current query
+    private final Map<QueryId, Query> retriedQueries = new ConcurrentHashMap<>();   // a mapping from old to-be-retried query id to the current retry query
     private final ScheduledExecutorService queryPurger = newSingleThreadScheduledExecutor(threadsNamed("dispatch-query-purger"));
     private final boolean compressionEnabled;
 
@@ -137,16 +138,8 @@ public class QueuedStatementResource
                 () -> {
                     try {
                         // snapshot the queries before checking states to avoid registration race
-                        for (Entry<QueryId, Query> entry : ImmutableSet.copyOf(queries.entrySet())) {
-                            if (!entry.getValue().isSubmissionFinished()) {
-                                continue;
-                            }
-
-                            // forget about this query if the query manager is no longer tracking it
-                            if (!dispatchManager.isQueryPresent(entry.getKey())) {
-                                queries.remove(entry.getKey());
-                            }
-                        }
+                        purgeQueries(queries);
+                        purgeQueries(retriedQueries);
                     }
                     catch (Throwable e) {
                         log.error(e, "Error removing old queries");
@@ -205,7 +198,18 @@ public class QueuedStatementResource
                 dispatchManager,
                 queryResultsProvider,
                 retryCount);
-        queries.put(query.getQueryId(), query);
+
+        retriedQueries.putIfAbsent(queryId, query);
+        synchronized (retriedQueries.get(queryId)) {
+            if (retriedQueries.get(queryId).getQueryId().equals(query.getQueryId())) {
+                queries.put(query.getQueryId(), query);
+            }
+            else {
+                // other thread has already created the new retry query
+                // use the existing one
+                query = retriedQueries.get(queryId);
+            }
+        }
 
         return withCompressionConfiguration(Response.ok(query.getInitialQueryResults(uriInfo, xForwardedProto)), compressionEnabled).build();
     }
@@ -258,6 +262,20 @@ public class QueuedStatementResource
             throw badRequest(NOT_FOUND, "Query not found");
         }
         return query;
+    }
+
+    private void purgeQueries(Map<QueryId, Query> queries)
+    {
+        for (Entry<QueryId, Query> entry : ImmutableSet.copyOf(queries.entrySet())) {
+            if (!entry.getValue().isSubmissionFinished()) {
+                continue;
+            }
+
+            // forget about this query if the query manager is no longer tracking it
+            if (!dispatchManager.isQueryPresent(entry.getKey())) {
+                queries.remove(entry.getKey());
+            }
+        }
     }
 
     private static URI getQueryHtmlUri(QueryId queryId, UriInfo uriInfo, String xForwardedProto)
