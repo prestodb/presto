@@ -596,6 +596,7 @@ class Query
                 errorCode.getCode(),
                 errorCode.getName(),
                 errorCode.getType().toString(),
+                errorCode.isRetriable(),
                 failure.getErrorLocation(),
                 failure);
     }
