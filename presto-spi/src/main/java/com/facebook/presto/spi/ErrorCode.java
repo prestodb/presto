@@ -29,13 +29,15 @@ public final class ErrorCode
     private final int code;
     private final String name;
     private final ErrorType type;
+    private final boolean retriable;
 
     @JsonCreator
     @ThriftConstructor
     public ErrorCode(
             @JsonProperty("code") int code,
             @JsonProperty("name") String name,
-            @JsonProperty("type") ErrorType type)
+            @JsonProperty("type") ErrorType type,
+            @JsonProperty("retriable") boolean retriable)
     {
         if (code < 0) {
             throw new IllegalArgumentException("code is negative");
@@ -43,6 +45,12 @@ public final class ErrorCode
         this.code = code;
         this.name = requireNonNull(name, "name is null");
         this.type = requireNonNull(type, "type is null");
+        this.retriable = retriable;
+    }
+
+    public ErrorCode(int code, String name, ErrorType type)
+    {
+        this(code, name, type, false);
     }
 
     @JsonProperty
@@ -64,6 +72,13 @@ public final class ErrorCode
     public ErrorType getType()
     {
         return type;
+    }
+
+    @JsonProperty
+    @ThriftField(4)
+    public boolean isRetriable()
+    {
+        return retriable;
     }
 
     @Override

@@ -469,6 +469,7 @@ public class QueuedStatementResource
                     errorCode.getCode(),
                     errorCode.getName(),
                     errorCode.getType().toString(),
+                    errorCode.isRetriable(),
                     executionFailureInfo.getErrorLocation(),
                     executionFailureInfo.toFailureInfo());
         }
