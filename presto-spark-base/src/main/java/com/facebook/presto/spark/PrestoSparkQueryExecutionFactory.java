@@ -798,6 +798,7 @@ public class PrestoSparkQueryExecutionFactory
                 errorCode.getCode(),
                 errorCode.getName(),
                 errorCode.getType().toString(),
+                errorCode.isRetriable(),
                 executionFailureInfo.getErrorLocation(),
                 executionFailureInfo.toFailureInfo());
     }
