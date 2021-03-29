@@ -998,8 +998,8 @@ public class PrestoSparkQueryExecutionFactory
                 throws SparkException, TimeoutException
         {
             ImmutableMap.Builder<PlanFragmentId, JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow>> rddInputs = ImmutableMap.builder();
-            ImmutableMap.Builder<PlanFragmentId, Broadcast<List<T>>> broadcastInputs = ImmutableMap.builder();
-            ImmutableList.Builder<PrestoSparkBroadcastDependency> broadcastDependencies = ImmutableList.builder();
+            ImmutableMap.Builder<PlanFragmentId, Broadcast<?>> broadcastInputs = ImmutableMap.builder();
+            ImmutableList.Builder<PrestoSparkBroadcastDependency<?>> broadcastDependencies = ImmutableList.builder();
 
             for (SubPlan child : subPlan.getChildren()) {
                 PlanFragment childFragment = child.getFragment();
@@ -1008,7 +1008,7 @@ public class PrestoSparkQueryExecutionFactory
                     if (maxBroadcastMemory == null) {
                         maxBroadcastMemory = new DataSize(min(nodeMemoryConfig.getMaxQueryBroadcastMemory().toBytes(), getQueryMaxBroadcastMemory(session).toBytes()), BYTE);
                     }
-                    PrestoSparkBroadcastDependency broadcastDependency;
+                    PrestoSparkBroadcastDependency<?> broadcastDependency;
                     if (isStorageBasedBroadcastJoinEnabled(session)) {
                         validateStorageCapabilities(tempStorage);
                         RddAndMore<PrestoSparkStorageHandle> childRdd = createRdd(child, PrestoSparkStorageHandle.class);
