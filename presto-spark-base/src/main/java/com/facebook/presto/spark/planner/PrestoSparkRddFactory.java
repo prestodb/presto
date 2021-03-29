@@ -139,7 +139,7 @@ public class PrestoSparkRddFactory
             Session session,
             PlanFragment fragment,
             Map<PlanFragmentId, JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow>> rddInputs,
-            Map<PlanFragmentId, Broadcast<List<T>>> broadcastInputs,
+            Map<PlanFragmentId, Broadcast<?>> broadcastInputs,
             PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider,
             CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
             CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector,
@@ -259,7 +259,7 @@ public class PrestoSparkRddFactory
             CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector,
             TableWriteInfo tableWriteInfo,
             Map<PlanFragmentId, JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow>> rddInputs,
-            Map<PlanFragmentId, Broadcast<List<T>>> broadcastInputs,
+            Map<PlanFragmentId, Broadcast<?>> broadcastInputs,
             Class<T> outputType)
     {
         checkInputs(fragment.getRemoteSourceNodes(), rddInputs, broadcastInputs);
@@ -544,16 +544,16 @@ public class PrestoSparkRddFactory
                 .findAll();
     }
 
-    private static <T extends PrestoSparkTaskOutput> Map<String, Broadcast<List<T>>> toTaskProcessorBroadcastInputs(Map<PlanFragmentId, Broadcast<List<T>>> broadcastInputs)
+    private static Map<String, Broadcast<?>> toTaskProcessorBroadcastInputs(Map<PlanFragmentId, Broadcast<?>> broadcastInputs)
     {
         return broadcastInputs.entrySet().stream()
                 .collect(toImmutableMap(entry -> entry.getKey().toString(), Map.Entry::getValue));
     }
 
-    private static <T extends PrestoSparkTaskOutput> void checkInputs(
+    private static void checkInputs(
             List<RemoteSourceNode> remoteSources,
             Map<PlanFragmentId, JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow>> rddInputs,
-            Map<PlanFragmentId, Broadcast<List<T>>> broadcastInputs)
+            Map<PlanFragmentId, Broadcast<?>> broadcastInputs)
     {
         Set<PlanFragmentId> expectedInputs = remoteSources.stream()
                 .map(RemoteSourceNode::getSourceFragmentIds)
