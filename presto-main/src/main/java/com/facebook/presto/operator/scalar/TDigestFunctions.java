@@ -27,6 +27,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -47,7 +48,7 @@ public final class TDigestFunctions
                     RowType.field("min", DOUBLE),
                     RowType.field("max", DOUBLE),
                     RowType.field("sum", DOUBLE),
-                    RowType.field("count", INTEGER)));
+                    RowType.field("count", BIGINT)));
 
     private TDigestFunctions() {}
 
@@ -106,7 +107,7 @@ public final class TDigestFunctions
 
     @ScalarFunction(value = "destructure_tdigest", visibility = EXPERIMENTAL)
     @Description("Return the raw TDigest, including arrays of centroid means and weights, as well as min, max, sum, count, and compression factor.")
-    @SqlType("row(centroid_means array(double), centroid_weights array(integer), compression double, min double, max double, sum double, count integer)")
+    @SqlType("row(centroid_means array(double), centroid_weights array(integer), compression double, min double, max double, sum double, count bigint)")
     public static Block destructureTDigest(@SqlType("tdigest(double)") Slice input)
     {
         TDigest tDigest = createTDigest(input);
@@ -117,12 +118,10 @@ public final class TDigestFunctions
         // Centroid means / weights
         BlockBuilder meansBuilder = DOUBLE.createBlockBuilder(null, tDigest.centroidCount());
         BlockBuilder weightsBuilder = INTEGER.createBlockBuilder(null, tDigest.centroidCount());
-        int count = 0;
         for (Centroid centroid : tDigest.centroids()) {
             int weight = centroid.getWeight();
             DOUBLE.writeDouble(meansBuilder, centroid.getMean());
             INTEGER.writeLong(weightsBuilder, weight);
-            count += weight;
         }
         rowBuilder.appendStructure(meansBuilder);
         rowBuilder.appendStructure(weightsBuilder);
@@ -132,7 +131,7 @@ public final class TDigestFunctions
         DOUBLE.writeDouble(rowBuilder, tDigest.getMin());
         DOUBLE.writeDouble(rowBuilder, tDigest.getMax());
         DOUBLE.writeDouble(rowBuilder, tDigest.getSum());
-        INTEGER.writeLong(rowBuilder, count);
+        BIGINT.writeLong(rowBuilder, (long) tDigest.getSize());
 
         blockBuilder.closeEntry();
         return TDIGEST_CENTROIDS_ROW_TYPE.getObject(blockBuilder, blockBuilder.getPositionCount() - 1);
