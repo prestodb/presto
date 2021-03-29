@@ -14,10 +14,10 @@
  */
 package com.facebook.presto.parquet.cache;
 
+import com.facebook.presto.parquet.ParquetDataSource;
 import com.facebook.presto.parquet.ParquetDataSourceId;
 import com.google.common.cache.Cache;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-import org.apache.hadoop.fs.FSDataInputStream;
 
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
@@ -38,14 +38,14 @@ public class CachingParquetMetadataSource
     }
 
     @Override
-    public ParquetFileMetadata getParquetMetadata(FSDataInputStream inputStream, ParquetDataSourceId parquetDataSourceId, long fileSize, boolean cacheable)
+    public ParquetFileMetadata getParquetMetadata(ParquetDataSource parquetDataSource, long fileSize, boolean cacheable)
             throws IOException
     {
         try {
             if (cacheable) {
-                return cache.get(parquetDataSourceId, () -> delegate.getParquetMetadata(inputStream, parquetDataSourceId, fileSize, cacheable));
+                return cache.get(parquetDataSource.getId(), () -> delegate.getParquetMetadata(parquetDataSource, fileSize, cacheable));
             }
-            return delegate.getParquetMetadata(inputStream, parquetDataSourceId, fileSize, cacheable);
+            return delegate.getParquetMetadata(parquetDataSource, fileSize, cacheable);
         }
         catch (ExecutionException | UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), IOException.class);
