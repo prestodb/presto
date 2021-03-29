@@ -613,10 +613,10 @@ public class AddLocalExchanges
                         any().withOrderSensitivity(),
                         any().withOrderSensitivity());
             }
-            if (isEnforceFixedDistributionForOutputOperator(session)) {
-                return planAndEnforceChildren(node, fixedParallelism(), fixedParallelism());
-            }
-            return planAndEnforceChildren(node, any(), defaultParallelism(session));
+            return planAndEnforceChildren(
+                    node,
+                    isEnforceFixedDistributionForOutputOperator(session) ? fixedParallelism() : any(),
+                    defaultParallelism(session));
         }
 
         @Override
