@@ -48,6 +48,7 @@ public class ClusterSizeMonitor
     private final InternalNodeManager nodeManager;
     private final boolean includeCoordinator;
     private final int workerMinCount;
+    private final int workerMinCountActive;
     private final Duration executionMaxWait;
     private final int coordinatorMinCount;
     private final Duration coordinatorMaxWait;
@@ -68,12 +69,13 @@ public class ClusterSizeMonitor
     private final List<SettableFuture<?>> coordinatorSizeFutures = new ArrayList<>();
 
     @Inject
-    public ClusterSizeMonitor(InternalNodeManager nodeManager, NodeSchedulerConfig nodeSchedulerConfig, QueryManagerConfig queryManagerConfig)
+    public ClusterSizeMonitor(InternalNodeManager nodeManager, NodeSchedulerConfig nodeSchedulerConfig, QueryManagerConfig queryManagerConfig, NodeResourceStatusConfig nodeResourceStatusConfig)
     {
         this(
                 nodeManager,
                 requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null").isIncludeCoordinator(),
                 requireNonNull(queryManagerConfig, "queryManagerConfig is null").getRequiredWorkers(),
+                requireNonNull(nodeResourceStatusConfig, "nodeResourceStatusConfig is null").getRequiredWorkersActive(),
                 queryManagerConfig.getRequiredWorkersMaxWait(),
                 queryManagerConfig.getRequiredCoordinators(),
                 queryManagerConfig.getRequiredCoordinatorsMaxWait());
@@ -83,6 +85,7 @@ public class ClusterSizeMonitor
             InternalNodeManager nodeManager,
             boolean includeCoordinator,
             int workerMinCount,
+            int workerMinCountActive,
             Duration executionMaxWait,
             int coordinatorMinCount,
             Duration coordinatorMaxWait)
@@ -91,6 +94,8 @@ public class ClusterSizeMonitor
         this.includeCoordinator = includeCoordinator;
         checkArgument(workerMinCount >= 0, "executionMinCount is negative");
         this.workerMinCount = workerMinCount;
+        checkArgument(workerMinCountActive >= 0, "executionMinCountActive is negative");
+        this.workerMinCountActive = workerMinCountActive;
         this.executionMaxWait = requireNonNull(executionMaxWait, "executionMaxWait is null");
         checkArgument(coordinatorMinCount >= 0, "coordinatorMinCount is negative");
         this.coordinatorMinCount = coordinatorMinCount;
@@ -109,6 +114,15 @@ public class ClusterSizeMonitor
     public void stop()
     {
         nodeManager.removeNodeChangeListener(listener);
+    }
+
+    /**
+     * @return true when the current worker count is greater or equals to
+     * minimum worker count for Coordinator.
+     */
+    public boolean hasRequiredWorkers()
+    {
+        return currentWorkerCount >= workerMinCountActive;
     }
 
     /**

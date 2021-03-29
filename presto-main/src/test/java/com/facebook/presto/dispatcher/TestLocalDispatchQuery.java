@@ -222,7 +222,7 @@ public class TestLocalDispatchQuery
 
     private ClusterSizeMonitor createClusterSizeMonitor(int minimumNodes)
     {
-        return new ClusterSizeMonitor(new InMemoryNodeManager(), true, minimumNodes, new Duration(10, MILLISECONDS), 1, new Duration(1, SECONDS));
+        return new ClusterSizeMonitor(new InMemoryNodeManager(), true, minimumNodes, minimumNodes, new Duration(10, MILLISECONDS), 1, new Duration(1, SECONDS));
     }
 
     private QueryMonitor createQueryMonitor(CountingEventListener eventListener)
