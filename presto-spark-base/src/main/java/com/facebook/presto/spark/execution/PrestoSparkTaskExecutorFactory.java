@@ -39,7 +39,6 @@ import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
-import com.facebook.presto.operator.FragmentResultCacheManager;
 import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskStats;
@@ -81,7 +80,6 @@ import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
 import com.facebook.presto.storage.TempStorageManager;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -192,8 +190,6 @@ public class PrestoSparkTaskExecutorFactory
             TaskExecutor taskExecutor,
             SplitMonitor splitMonitor,
             Set<PrestoSparkAuthenticatorProvider> authenticatorProviders,
-            FragmentResultCacheManager fragmentResultCacheManager,
-            ObjectMapper objectMapper,
             TaskManagerConfig taskManagerConfig,
             NodeMemoryConfig nodeMemoryConfig,
             NodeSpillConfig nodeSpillConfig,
@@ -391,18 +387,15 @@ public class PrestoSparkTaskExecutorFactory
 
         ImmutableMap.Builder<PlanNodeId, List<PrestoSparkShuffleInput>> shuffleInputs = ImmutableMap.builder();
         ImmutableMap.Builder<PlanNodeId, List<java.util.Iterator<PrestoSparkSerializedPage>>> pageInputs = ImmutableMap.builder();
-        ImmutableMap.Builder<PlanNodeId, List<List<?>>> broadcastInputs = ImmutableMap.builder();
+        ImmutableMap.Builder<PlanNodeId, List<?>> broadcastInputs = ImmutableMap.builder();
         for (RemoteSourceNode remoteSource : fragment.getRemoteSourceNodes()) {
             List<PrestoSparkShuffleInput> remoteSourceRowInputs = new ArrayList<>();
             List<java.util.Iterator<PrestoSparkSerializedPage>> remoteSourcePageInputs = new ArrayList<>();
             List<List<?>> broadcastInputsList = new ArrayList<>();
             for (PlanFragmentId sourceFragmentId : remoteSource.getSourceFragmentIds()) {
-                Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>> shuffleInput =
-                        (Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>>) inputs.getShuffleInputs().get(sourceFragmentId.toString());
-                Broadcast<List<T>> broadcastInput =
-                        (Broadcast<List<T>>) inputs.getBroadcastInputs().get(sourceFragmentId.toString());
-                List<PrestoSparkSerializedPage> inMemoryInput =
-                        (List<PrestoSparkSerializedPage>) inputs.getInMemoryInputs().get(sourceFragmentId.toString());
+                Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>> shuffleInput = inputs.getShuffleInputs().get(sourceFragmentId.toString());
+                Broadcast<?> broadcastInput = inputs.getBroadcastInputs().get(sourceFragmentId.toString());
+                List<PrestoSparkSerializedPage> inMemoryInput = inputs.getInMemoryInputs().get(sourceFragmentId.toString());
 
                 if (shuffleInput != null) {
                     checkArgument(broadcastInput == null, "single remote source is not expected to accept different kind of inputs");
@@ -417,7 +410,7 @@ public class PrestoSparkTaskExecutorFactory
                     // NullifyingIterator removes element from the list upon return
                     // This allows GC to gradually reclaim memory
                     // remoteSourcePageInputs.add(getNullifyingIterator(broadcastInput.value()));
-                    broadcastInputsList.add(broadcastInput.value());
+                    broadcastInputsList.add((List<?>) broadcastInput.value());
                     continue;
                 }
 
