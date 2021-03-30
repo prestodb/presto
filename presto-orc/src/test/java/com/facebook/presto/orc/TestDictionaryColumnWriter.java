@@ -17,6 +17,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
+import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.CompressionKind;
@@ -31,13 +32,17 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Random;
+import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.StandardTypes.ARRAY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
@@ -68,6 +73,7 @@ public class TestDictionaryColumnWriter
     private static final int COLUMN_ID = 1;
     private static final int BATCH_ROWS = 1_000;
     private static final int STRIPE_MAX_ROWS = 15_000;
+    private static final Random RANDOM = new Random();
 
     private static int megabytes(int size)
     {
@@ -136,10 +142,55 @@ public class TestDictionaryColumnWriter
     }
 
     @Test
+    public void testStringRandomValuesWithNull()
+            throws Exception
+    {
+        List<String> values = new ArrayList<>();
+        for (int i = 0; i < 60_000; i++) {
+            values.add(RANDOM.nextBoolean() ? null : UUID.randomUUID().toString());
+        }
+        for (OrcEncoding encoding : OrcEncoding.values()) {
+            DirectConversionTester directConversionTester = new DirectConversionTester();
+            List<StripeFooter> stripeFooters = testStringDictionary(directConversionTester, encoding, values);
+            verifyDirectEncoding(getStripeSize(values.size()), encoding, stripeFooters);
+        }
+    }
+
+    @Test
+    public void testStringRandomRepeatingValues()
+            throws Exception
+    {
+        List<String> stripeValues = new ArrayList<>();
+        int dictionarySize = 1_000;
+        for (int i = 0; i < dictionarySize; i++) {
+            stripeValues.add(UUID.randomUUID().toString());
+        }
+
+        for (int i = dictionarySize; i < STRIPE_MAX_ROWS; i++) {
+            stripeValues.add(stripeValues.get(RANDOM.nextInt(dictionarySize)));
+        }
+
+        Collections.shuffle(stripeValues);
+        List<String> values = new ArrayList<>(stripeValues);
+
+        Collections.shuffle(stripeValues);
+        values.addAll(stripeValues);
+
+        Collections.shuffle(stripeValues);
+        values.addAll(stripeValues);
+
+        for (OrcEncoding encoding : OrcEncoding.values()) {
+            DirectConversionTester directConversionTester = new DirectConversionTester();
+            List<StripeFooter> stripeFooters = testStringDictionary(directConversionTester, encoding, values);
+            verifyDictionaryEncoding(getStripeSize(values.size()), encoding, stripeFooters, ImmutableList.of(dictionarySize, dictionarySize, dictionarySize));
+        }
+    }
+
+    @Test
     public void testStringNonRepeatingValues()
             throws Exception
     {
-        ImmutableList.Builder<String> builder = new ImmutableList.Builder<>();
+        ImmutableList.Builder<String> builder = ImmutableList.builder();
         for (int i = 0; i < 60_000; i++) {
             builder.add(Integer.toString(i));
         }
@@ -152,10 +203,26 @@ public class TestDictionaryColumnWriter
     }
 
     @Test
+    public void testStringIncreasedStrideSize()
+            throws Exception
+    {
+        ImmutableList.Builder<String> builder = ImmutableList.builder();
+        for (int i = 0; i < 60_000; i++) {
+            builder.add(Integer.toString(i));
+        }
+        List<String> values = builder.build();
+        for (OrcEncoding encoding : OrcEncoding.values()) {
+            DirectConversionTester directConversionTester = new DirectConversionTester();
+            OrcWriterOptions writerOptions = new OrcWriterOptions().withRowGroupMaxRowCount(14_876).withStripeMaxRowCount(STRIPE_MAX_ROWS);
+            testDictionary(VARCHAR, encoding, writerOptions, directConversionTester, values);
+        }
+    }
+
+    @Test
     public void testStringRepeatingValues()
             throws Exception
     {
-        ImmutableList.Builder<String> builder = new ImmutableList.Builder<>();
+        ImmutableList.Builder<String> builder = ImmutableList.builder();
         for (int i = 0; i < 60_000; i++) {
             // Make a 7 letter String, by using million as base to force dictionary encoding.
             builder.add(Integer.toString((i % 1000) + 1_000_000));
@@ -172,7 +239,7 @@ public class TestDictionaryColumnWriter
     public void testStringRepeatingValuesWithDirectConversion()
             throws Exception
     {
-        ImmutableList.Builder<String> builder = new ImmutableList.Builder<>();
+        ImmutableList.Builder<String> builder = ImmutableList.builder();
         for (int i = 0; i < 60_000; i++) {
             builder.add(Integer.toString((i % 2000) + 1_000_000));
         }
@@ -218,11 +285,78 @@ public class TestDictionaryColumnWriter
     }
 
     @Test
+    public void testIntegerDictionaryAlternatingNulls()
+            throws IOException
+    {
+        DirectConversionTester directConversionTester = new DirectConversionTester();
+        List<Integer> values = newArrayList(limit(cycle(Integer.MAX_VALUE, null, Integer.MIN_VALUE), 60_000));
+
+        List<StripeFooter> stripeFooters = testIntegerDictionary(directConversionTester, values);
+        verifyDictionaryEncoding(getStripeSize(values.size()), DWRF, stripeFooters, ImmutableList.of(2, 2, 2, 2));
+    }
+
+    @Test
+    public void testIntegerRandomValues()
+            throws IOException
+    {
+        List<Integer> values = generateRandomIntegers(70_000);
+        DirectConversionTester directConversionTester = new DirectConversionTester();
+        testIntegerDictionary(directConversionTester, values);
+    }
+
+    @Test
+    public void testIntegerIncreasedStrideSize()
+            throws IOException
+    {
+        List<Integer> values = generateRandomIntegers(90_000);
+        DirectConversionTester directConversionTester = new DirectConversionTester();
+        OrcWriterOptions writerOptions = new OrcWriterOptions().withStripeMaxRowCount(STRIPE_MAX_ROWS).withIntegerDictionaryEncodingEnabled(true).withRowGroupMaxRowCount(14_998);
+        testDictionary(INTEGER, DWRF, writerOptions, directConversionTester, values);
+    }
+
+    private List<Integer> generateRandomIntegers(int maxSize)
+    {
+        List<Integer> values = new ArrayList<>();
+        for (int i = 0; i < maxSize; i++) {
+            values.add(RANDOM.nextBoolean() ? null : RANDOM.nextInt());
+        }
+        return values;
+    }
+
+    @Test
+    public void testLongRandomValues()
+            throws IOException
+    {
+        List<Long> values = generateRandomLongs(70_000);
+        DirectConversionTester directConversionTester = new DirectConversionTester();
+        testLongDictionary(directConversionTester, values);
+    }
+
+    @Test
+    public void testLongIncreasedStrideSize()
+            throws IOException
+    {
+        List<Long> values = generateRandomLongs(80_000);
+        DirectConversionTester directConversionTester = new DirectConversionTester();
+        OrcWriterOptions writerOptions = new OrcWriterOptions().withStripeMaxRowCount(STRIPE_MAX_ROWS).withIntegerDictionaryEncodingEnabled(true).withRowGroupMaxRowCount(14_998);
+        testDictionary(BIGINT, DWRF, writerOptions, directConversionTester, values);
+    }
+
+    private List<Long> generateRandomLongs(int maxSize)
+    {
+        List<Long> values = new ArrayList<>();
+        for (int i = 0; i < maxSize; i++) {
+            values.add(RANDOM.nextBoolean() ? null : RANDOM.nextLong());
+        }
+        return values;
+    }
+
+    @Test
     public void testIntegerDictionaryRepeatingValues()
             throws IOException
     {
         ImmutableList<Integer> baseList = ImmutableList.of(Integer.MAX_VALUE, Integer.MIN_VALUE);
-        ImmutableList.Builder<Integer> builder = new ImmutableList.Builder<>();
+        ImmutableList.Builder<Integer> builder = ImmutableList.builder();
         builder.addAll(baseList);
         int repeatInterval = 1500;
         for (int i = baseList.size(); i < 45_000; i++) {
@@ -245,7 +379,7 @@ public class TestDictionaryColumnWriter
     {
         DirectConversionTester directConversionTester = new DirectConversionTester();
         ImmutableList<Integer> baseList = ImmutableList.of(Integer.MAX_VALUE, Integer.MIN_VALUE);
-        ImmutableList.Builder<Integer> builder = new ImmutableList.Builder<>();
+        ImmutableList.Builder<Integer> builder = ImmutableList.builder();
         builder.addAll(baseList);
         for (int i = baseList.size(); i < 60_000; i++) {
             builder.add(i);
@@ -265,7 +399,7 @@ public class TestDictionaryColumnWriter
         directConversionTester.add(16, 10_000, true);
 
         ImmutableList<Integer> baseList = ImmutableList.of(Integer.MAX_VALUE, Integer.MIN_VALUE);
-        ImmutableList.Builder<Integer> builder = new ImmutableList.Builder<>();
+        ImmutableList.Builder<Integer> builder = ImmutableList.builder();
         builder.addAll(baseList);
         int repeatInterval = 1500;
         for (int i = baseList.size(); i < 60_000; i++) {
@@ -286,7 +420,7 @@ public class TestDictionaryColumnWriter
     {
         DirectConversionTester directConversionTester = new DirectConversionTester();
         ImmutableList<Long> baseList = ImmutableList.of(Long.MAX_VALUE, Long.MIN_VALUE);
-        ImmutableList.Builder<Long> builder = new ImmutableList.Builder<>();
+        ImmutableList.Builder<Long> builder = ImmutableList.builder();
         builder.addAll(baseList);
         for (long i = baseList.size(); i < 100_000; i++) {
             builder.add(i);
@@ -306,7 +440,7 @@ public class TestDictionaryColumnWriter
         directConversionTester.add(16, 10_000, true);
 
         ImmutableList<Long> baseList = ImmutableList.of(Long.MAX_VALUE, Long.MIN_VALUE);
-        ImmutableList.Builder<Long> builder = new ImmutableList.Builder<>();
+        ImmutableList.Builder<Long> builder = ImmutableList.builder();
         builder.addAll(baseList);
         int repeatInterval = 1500;
         for (long i = baseList.size(); i < 50_000; i++) {
@@ -320,6 +454,82 @@ public class TestDictionaryColumnWriter
         verifyDwrfDirectEncoding(stripeFooters, 1);
         verifyDictionaryEncoding(stripeFooters, DWRF, 2, repeatInterval);
         verifyDictionaryEncoding(stripeFooters, DWRF, 3, repeatInterval);
+    }
+
+    @Test
+    public void verifyIntegerInList()
+            throws IOException
+    {
+        List<List<Integer>> values = new ArrayList<>();
+        for (int i = 0; i < 50_000; i++) {
+            int childSize = i % 5;
+            if (childSize == 4) {
+                values.add(null);
+            }
+            else {
+                List<Integer> childList = new ArrayList<>();
+                for (int j = 0; j < childSize; j++) {
+                    childList.add(i + j);
+                }
+                values.add(childList);
+            }
+        }
+        DirectConversionTester directConversionTester = new DirectConversionTester();
+        Type listType = new ArrayType(INTEGER);
+        testDictionary(listType, DWRF, true, directConversionTester, values);
+    }
+
+    @Test
+    public void verifyChildElementEmptyOrMissingInList()
+            throws IOException
+    {
+        List<List<Integer>> values = new ArrayList<>();
+        List<Integer> emptyChildList = new ArrayList<>();
+        for (int i = 0; i < 50_000; i++) {
+            int childSize = i % 2;
+            values.add(childSize == 0 ? null : emptyChildList);
+        }
+        DirectConversionTester directConversionTester = new DirectConversionTester();
+        Type listType = new ArrayType(INTEGER);
+        testDictionary(listType, DWRF, true, directConversionTester, values);
+    }
+
+    @Test
+    public void verifyStringInList()
+            throws IOException
+    {
+        List<List<String>> values = new ArrayList<>();
+        for (int i = 0; i < 50_000; i++) {
+            int childSize = i % 5;
+            if (childSize == 4) {
+                values.add(null);
+            }
+            else {
+                List<String> childList = new ArrayList<>();
+                for (int j = 0; j < childSize; j++) {
+                    childList.add(Integer.toString(i + j));
+                }
+                values.add(childList);
+            }
+        }
+        DirectConversionTester directConversionTester = new DirectConversionTester();
+        Type listType = new ArrayType(VARCHAR);
+        testDictionary(listType, DWRF, true, directConversionTester, values);
+    }
+
+    @Test
+    public void verifyStringEmptyOrMissingInList()
+            throws IOException
+    {
+        List<List<String>> values = new ArrayList<>();
+        List<String> emptyChildList = new ArrayList<>();
+        for (int i = 0; i < 50_000; i++) {
+            int childSize = i % 2;
+            values.add(childSize == 0 ? null : emptyChildList);
+        }
+        DirectConversionTester directConversionTester = new DirectConversionTester();
+        Type listType = new ArrayType(VARCHAR);
+        testDictionary(listType, DWRF, true, directConversionTester, values);
     }
 
     private ColumnEncoding getColumnEncoding(List<StripeFooter> stripeFooters, int stripeId)
@@ -404,8 +614,44 @@ public class TestDictionaryColumnWriter
     private List<StripeFooter> testDictionary(Type type, OrcEncoding encoding, boolean enableIntDictionary, DirectConversionTester directConversionTester, List<?> values)
             throws IOException
     {
-        List<Type> types = ImmutableList.of(type);
         OrcWriterOptions orcWriterOptions = new OrcWriterOptions().withStripeMaxRowCount(STRIPE_MAX_ROWS).withIntegerDictionaryEncodingEnabled(enableIntDictionary);
+        return testDictionary(type, encoding, orcWriterOptions, directConversionTester, values);
+    }
+
+    private static boolean isArrayType(Type type)
+    {
+        return type.getTypeSignature().getBase().equals(ARRAY);
+    }
+
+    private void appendListToBlock(Type type, List<?> values, BlockBuilder blockBuilder, int startIndex, int endIndex)
+    {
+        while (startIndex < endIndex) {
+            Object value = values.get(startIndex++);
+            if (value == null) {
+                blockBuilder.appendNull();
+            }
+            else {
+                if (isArrayType(type)) {
+                    List<?> childList = (List<?>) value;
+                    BlockBuilder childBlockBuilder = blockBuilder.beginBlockEntry();
+                    appendListToBlock(type.getTypeParameters().get(0), childList, childBlockBuilder, 0, childList.size());
+                    blockBuilder.closeEntry();
+                }
+                else if (type.equals(VARCHAR)) {
+                    type.writeSlice(blockBuilder, utf8Slice((String) value));
+                }
+                else {
+                    Number number = (Number) value;
+                    type.writeLong(blockBuilder, number.longValue());
+                }
+            }
+        }
+    }
+
+    private List<StripeFooter> testDictionary(Type type, OrcEncoding encoding, OrcWriterOptions orcWriterOptions, DirectConversionTester directConversionTester, List<?> values)
+            throws IOException
+    {
+        List<Type> types = ImmutableList.of(type);
         try (TempFile tempFile = new TempFile()) {
             OrcWriter writer = createOrcWriter(tempFile.getFile(), encoding, ZSTD, Optional.empty(), types, orcWriterOptions, new OrcWriterStats());
 
@@ -413,27 +659,13 @@ public class TestDictionaryColumnWriter
             int batchId = 0;
             while (index < values.size()) {
                 int end = Math.min(index + BATCH_ROWS, values.size());
-                BlockBuilder blockBuilder = type.createBlockBuilder(null, BATCH_ROWS);
-                while (index < end) {
-                    Object value = values.get(index++);
-                    if (value == null) {
-                        blockBuilder.appendNull();
-                    }
-                    else {
-                        if (type.equals(VARCHAR)) {
-                            String strValue = (String) value;
-                            type.writeSlice(blockBuilder, utf8Slice(strValue));
-                        }
-                        else {
-                            Number number = (Number) value;
-                            type.writeLong(blockBuilder, number.longValue());
-                        }
-                    }
-                }
+                BlockBuilder blockBuilder = type.createBlockBuilder(null, end - index);
+                appendListToBlock(type, values, blockBuilder, index, end);
                 Block[] blocks = new Block[] {blockBuilder.build()};
                 writer.write(new Page(blocks));
                 directConversionTester.validate(batchId, writer);
                 batchId++;
+                index = end;
             }
 
             writer.close();
@@ -459,25 +691,37 @@ public class TestDictionaryColumnWriter
                     }
 
                     Block block = page.getBlock(0).getLoadedBlock();
-                    for (int i = 0; i < block.getPositionCount(); i++) {
-                        Object value = values.get(index++);
-                        assertEquals(block.isNull(i), value == null);
-                        if (value != null) {
-                            if (type.equals(VARCHAR)) {
-                                assertEquals(block.getSlice(i, 0, block.getSliceLength(i)), utf8Slice((String) value));
-                            }
-                            else {
-                                Number number = (Number) value;
-                                assertEquals(type.getLong(block, i), number.longValue());
-                            }
-                        }
-                    }
+                    index = verifyBlock(type, values, index, block);
                 }
                 assertEquals(index, values.size());
             }
 
             return OrcTester.getStripes(tempFile.getFile(), encoding);
         }
+    }
+
+    private int verifyBlock(Type type, List<?> values, int index, Block block)
+    {
+        for (int i = 0; i < block.getPositionCount(); i++) {
+            Object value = values.get(index++);
+            assertEquals(block.isNull(i), value == null);
+            if (value != null) {
+                if (type.equals(VARCHAR)) {
+                    assertEquals(block.getSlice(i, 0, block.getSliceLength(i)), utf8Slice((String) value));
+                }
+                else if (isArrayType(type)) {
+                    List<?> childList = (List<?>) value;
+                    Block childBlock = block.getBlock(i);
+                    int childIndex = verifyBlock(type.getTypeParameters().get(0), childList, 0, childBlock);
+                    assertEquals(childIndex, childList.size());
+                }
+                else {
+                    Number number = (Number) value;
+                    assertEquals(type.getLong(block, i), number.longValue());
+                }
+            }
+        }
+        return index;
     }
 
     static class DirectConversionTester
