@@ -50,10 +50,11 @@ public class SliceDictionaryColumnWriter
 {
     private static final long INSTANCE_SIZE = ClassLayout.parseClass(SliceDictionaryColumnWriter.class).instanceSize();
     private static final int DIRECT_CONVERSION_CHUNK_MAX_LOGICAL_BYTES = toIntExact(new DataSize(32, MEGABYTE).toBytes());
+    private static final int NULL_INDEX = -1;
 
     private final ByteArrayOutputStream dictionaryDataStream;
     private final LongOutputStream dictionaryLengthStream;
-    private final DictionaryBuilder dictionary = new DictionaryBuilder(10000);
+    private final DictionaryBuilder dictionary = new DictionaryBuilder(10_000);
     private final int stringStatisticsLimitInBytes;
 
     private StringStatisticsBuilder statisticsBuilder;
@@ -96,12 +97,12 @@ public class SliceDictionaryColumnWriter
         Block elementBlock = dictionary.getElementBlock();
 
         for (int offset = 0; offset < dictionaryIndexCount; offset++) {
-            directColumnWriter.writePresentValue(!elementBlock.isNull(dictionaryIndexes[offset]));
+            directColumnWriter.writePresentValue(dictionaryIndexes[offset] != NULL_INDEX);
         }
         long size = 0;
         for (int offset = 0; offset < dictionaryIndexCount; offset++) {
             int dictionaryIndex = dictionaryIndexes[offset];
-            if (!elementBlock.isNull(dictionaryIndex)) {
+            if (dictionaryIndex != NULL_INDEX) {
                 int length = elementBlock.getSliceLength(dictionaryIndex);
                 Slice slice = elementBlock.getSlice(dictionaryIndex, 0, length);
                 directColumnWriter.writeSlice(slice);
@@ -131,11 +132,10 @@ public class SliceDictionaryColumnWriter
         int nonNullValueCount = 0;
         long rawBytes = 0;
         for (int position = 0; position < block.getPositionCount(); position++) {
-            int index = dictionary.putIfAbsent(block, position);
-            rowGroupIndexes[rowGroupValueCount] = index;
-            rowGroupValueCount++;
-
+            int index;
             if (!block.isNull(position)) {
+                index = dictionary.putIfAbsent(block, position);
+
                 // todo min/max statistics only need to be updated if value was not already in the dictionary, but non-null count does
                 Slice slice = type.getSlice(block, position);
                 statisticsBuilder.addValue(slice, 0, slice.length());
@@ -143,6 +143,10 @@ public class SliceDictionaryColumnWriter
                 rawBytes += block.getSliceLength(position);
                 nonNullValueCount++;
             }
+            else {
+                index = NULL_INDEX;
+            }
+            rowGroupIndexes[rowGroupValueCount++] = index;
         }
         return new BlockStatistics(nonNullValueCount, rawBytes);
     }
@@ -165,55 +169,30 @@ public class SliceDictionaryColumnWriter
         return statistics;
     }
 
-    private static int[] getSortedDictionaryNullsLast(Block elementBlock)
+    private static int[] getSortedDictionary(DictionaryBuilder dictionary)
     {
-        int[] sortedPositions = new int[elementBlock.getPositionCount()];
+        int[] sortedPositions = new int[dictionary.getEntryCount()];
         for (int i = 0; i < sortedPositions.length; i++) {
             sortedPositions[i] = i;
         }
 
-        IntArrays.quickSort(sortedPositions, 0, sortedPositions.length, (left, right) -> {
-            boolean nullLeft = elementBlock.isNull(left);
-            boolean nullRight = elementBlock.isNull(right);
-            if (nullLeft && nullRight) {
-                return 0;
-            }
-            if (nullLeft) {
-                return 1;
-            }
-            if (nullRight) {
-                return -1;
-            }
-
-            return elementBlock.compareTo(
-                    left,
-                    0,
-                    elementBlock.getSliceLength(left),
-                    elementBlock,
-                    right,
-                    0,
-                    elementBlock.getSliceLength(right));
-        });
-
+        IntArrays.quickSort(sortedPositions, 0, sortedPositions.length, dictionary::compareIndex);
         return sortedPositions;
     }
 
     @Override
     protected Optional<int[]> writeDictionary()
     {
-        Block dictionaryElements = dictionary.getElementBlock();
+        Block elementBlock = dictionary.getElementBlock();
 
-        // write dictionary in sorted order
-        int[] sortedDictionaryIndexes = getSortedDictionaryNullsLast(dictionaryElements);
+        int[] sortedDictionaryIndexes = getSortedDictionary(dictionary);
         for (int sortedDictionaryIndex : sortedDictionaryIndexes) {
-            if (!dictionaryElements.isNull(sortedDictionaryIndex)) {
-                int length = dictionaryElements.getSliceLength(sortedDictionaryIndex);
-                dictionaryLengthStream.writeLong(length);
-                Slice value = dictionaryElements.getSlice(sortedDictionaryIndex, 0, length);
-                dictionaryDataStream.writeSlice(value);
-            }
+            int length = elementBlock.getSliceLength(sortedDictionaryIndex);
+            dictionaryLengthStream.writeLong(length);
+            Slice slice = elementBlock.getSlice(sortedDictionaryIndex, 0, length);
+            dictionaryDataStream.writeSlice(slice, 0, length);
         }
-        columnEncoding = new ColumnEncoding(orcEncoding == DWRF ? DICTIONARY : DICTIONARY_V2, dictionaryElements.getPositionCount() - 1);
+        columnEncoding = new ColumnEncoding(orcEncoding == DWRF ? DICTIONARY : DICTIONARY_V2, dictionary.getEntryCount());
 
         // build index from original dictionary index to new sorted position
         int[] originalDictionaryToSortedIndex = new int[sortedDictionaryIndexes.length];
@@ -235,12 +214,12 @@ public class SliceDictionaryColumnWriter
         checkState(optionalSortedIndex.isPresent(), "originalDictionaryToSortedIndex is null");
         int[] originalDictionaryToSortedIndex = optionalSortedIndex.get();
         for (int position = 0; position < rowGroupValueCount; position++) {
-            presentStream.writeBoolean(rowGroupIndexes[position] != 0);
+            presentStream.writeBoolean(rowGroupIndexes[position] != NULL_INDEX);
         }
         for (int position = 0; position < rowGroupValueCount; position++) {
             int originalDictionaryIndex = rowGroupIndexes[position];
             // index zero in original dictionary is reserved for null
-            if (originalDictionaryIndex != 0) {
+            if (originalDictionaryIndex != NULL_INDEX) {
                 int sortedIndex = originalDictionaryToSortedIndex[originalDictionaryIndex];
                 if (sortedIndex < 0) {
                     throw new IllegalArgumentException();
