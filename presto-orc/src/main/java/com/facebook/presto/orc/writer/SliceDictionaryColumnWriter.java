@@ -14,8 +14,6 @@
 package com.facebook.presto.orc.writer;
 
 import com.facebook.presto.common.block.Block;
-import com.facebook.presto.common.block.DictionaryBlock;
-import com.facebook.presto.common.block.DictionaryId;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.DwrfDataEncryptor;
 import com.facebook.presto.orc.OrcEncoding;
@@ -29,7 +27,6 @@ import com.facebook.presto.orc.stream.ByteArrayOutputStream;
 import com.facebook.presto.orc.stream.LongOutputStream;
 import com.facebook.presto.orc.stream.PresentOutputStream;
 import com.facebook.presto.orc.stream.StreamDataOutput;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
@@ -93,43 +90,32 @@ public class SliceDictionaryColumnWriter
         return dictionary.getEntryCount();
     }
 
-    @VisibleForTesting
-    static int getChunkLength(int offset, int[] dictionaryIndexes, int positionCount, Block elementBlock, int maxChunkSize)
-    {
-        int endOffset = offset;
-        long size = elementBlock.getSliceLength(dictionaryIndexes[endOffset++]);
-        while (endOffset < positionCount) {
-            // getSliceLength does not include the nulls and length array. But this
-            // is a heuristic to avoid too much memory allocation, so this is fine.
-            size += elementBlock.getSliceLength(dictionaryIndexes[endOffset]);
-            if (size > maxChunkSize) {
-                break;
-            }
-            endOffset++;
-        }
-        return endOffset - offset;
-    }
-
     @Override
     protected boolean tryConvertRowGroupToDirect(int dictionaryIndexCount, int[] dictionaryIndexes, int maxDirectBytes)
     {
         Block elementBlock = dictionary.getElementBlock();
-        DictionaryId dictionaryId = DictionaryId.randomDictionaryId();
 
-        int offset = 0;
-        while (offset < dictionaryIndexCount) {
-            // Dictionary can contain large values that are repeated. In such a case, the conversion will be abandoned
-            // due to maxDirectBytes. To avoid allocating too much memory on those cases, process the dictionary in chunks.
-            int length = getChunkLength(offset, dictionaryIndexes, dictionaryIndexCount, elementBlock, DIRECT_CONVERSION_CHUNK_MAX_LOGICAL_BYTES);
-            Block chunk = new DictionaryBlock(offset, length, elementBlock, dictionaryIndexes, false, dictionaryId);
-            offset += length;
-            directColumnWriter.writeBlock(chunk);
-            if (directColumnWriter.getBufferedBytes() > maxDirectBytes) {
-                return false;
+        for (int offset = 0; offset < dictionaryIndexCount; offset++) {
+            directColumnWriter.writePresentValue(!elementBlock.isNull(dictionaryIndexes[offset]));
+        }
+        long size = 0;
+        for (int offset = 0; offset < dictionaryIndexCount; offset++) {
+            int dictionaryIndex = dictionaryIndexes[offset];
+            if (!elementBlock.isNull(dictionaryIndex)) {
+                int length = elementBlock.getSliceLength(dictionaryIndex);
+                Slice slice = elementBlock.getSlice(dictionaryIndex, 0, length);
+                directColumnWriter.writeSlice(slice);
+                size += length;
+                if (size > DIRECT_CONVERSION_CHUNK_MAX_LOGICAL_BYTES) {
+                    if (directColumnWriter.getBufferedBytes() > maxDirectBytes) {
+                        return false;
+                    }
+                    size = 0;
+                }
             }
         }
 
-        return true;
+        return directColumnWriter.getBufferedBytes() <= maxDirectBytes;
     }
 
     @Override
