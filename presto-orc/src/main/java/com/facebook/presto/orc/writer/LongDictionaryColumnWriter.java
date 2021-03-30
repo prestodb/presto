@@ -20,7 +20,6 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.DwrfDataEncryptor;
 import com.facebook.presto.orc.OrcEncoding;
 import com.facebook.presto.orc.array.Arrays;
-import com.facebook.presto.orc.array.IntBigArray;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.CompressionParameters;
 import com.facebook.presto.orc.metadata.MetadataWriter;
@@ -107,33 +106,25 @@ public class LongDictionaryColumnWriter
     }
 
     @Override
-    protected boolean tryConvertToDirect(int dictionaryIndexCount, IntBigArray dictionaryIndexes, int maxDirectBytes)
+    protected boolean tryConvertRowGroupToDirect(int dictionaryIndexCount, int[] dictionaryIndexes, int maxDirectBytes)
     {
-        int[][] segments = dictionaryIndexes.getSegments();
-        for (int i = 0; dictionaryIndexCount > 0 && i < segments.length; i++) {
-            int[] segment = segments[i];
-            int positionCount = Math.min(dictionaryIndexCount, segment.length);
-            directValues = Arrays.ensureCapacity(directValues, positionCount);
-            directNulls = Arrays.ensureCapacity(directNulls, positionCount);
-            for (int j = 0; j < positionCount; j++) {
-                if (segment[j] != NULL_INDEX) {
-                    directValues[j] = dictionary.getValue(segment[j]);
-                    directNulls[j] = false;
+        if (dictionaryIndexCount > 0) {
+            directValues = Arrays.ensureCapacity(directValues, dictionaryIndexCount);
+            directNulls = Arrays.ensureCapacity(directNulls, dictionaryIndexCount);
+            for (int i = 0; i < dictionaryIndexCount; i++) {
+                if (dictionaryIndexes[i] != NULL_INDEX) {
+                    directValues[i] = dictionary.getValue(dictionaryIndexes[i]);
+                    directNulls[i] = false;
                 }
                 else {
-                    directNulls[j] = true;
+                    directNulls[i] = true;
                 }
             }
 
-            LongArrayBlock longArrayBlock = new LongArrayBlock(positionCount, Optional.of(directNulls), directValues);
+            LongArrayBlock longArrayBlock = new LongArrayBlock(dictionaryIndexCount, Optional.of(directNulls), directValues);
             directColumnWriter.writeBlock(longArrayBlock);
-            if (directColumnWriter.getBufferedBytes() > maxDirectBytes) {
-                return false;
-            }
-            dictionaryIndexCount -= positionCount;
         }
-        checkState(dictionaryIndexCount == 0);
-        return true;
+        return directColumnWriter.getBufferedBytes() <= maxDirectBytes;
     }
 
     @Override
@@ -144,22 +135,23 @@ public class LongDictionaryColumnWriter
     }
 
     @Override
-    protected BlockStatistics addBlockToDictionary(Block block, int rowGroupValueCount, IntBigArray rowGroupIndexes)
+    protected BlockStatistics addBlockToDictionary(Block block, int rowGroupValueCount, int[] rowGroupIndexes)
     {
         int nonNullValueCount = 0;
         long rawBytes = 0;
+        int index;
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (block.isNull(position)) {
-                rowGroupIndexes.set(rowGroupValueCount, NULL_INDEX);
+                index = NULL_INDEX;
             }
             else {
                 long value = type.getLong(block, position);
-                int index = dictionary.addIfNotExists(value);
-                rowGroupIndexes.set(rowGroupValueCount, index);
+                index = dictionary.addIfNotExists(value);
                 statisticsBuilder.addValue(value);
                 rawBytes += typeSize;
                 nonNullValueCount++;
             }
+            rowGroupIndexes[rowGroupValueCount] = index;
             rowGroupValueCount++;
         }
         return new BlockStatistics(nonNullValueCount, rawBytes);
@@ -191,17 +183,17 @@ public class LongDictionaryColumnWriter
     @Override
     protected void writePresentAndDataStreams(
             int rowGroupValueCount,
-            IntBigArray rowGroupIndexes,
+            int[] rowGroupIndexes,
             Optional<int[]> originalDictionaryToSortedIndex,
             PresentOutputStream presentStream,
             LongOutputStream dataStream)
     {
         checkArgument(!originalDictionaryToSortedIndex.isPresent(), "Unsupported originalDictionaryToSortedIndex");
         for (int position = 0; position < rowGroupValueCount; position++) {
-            presentStream.writeBoolean(rowGroupIndexes.get(position) != NULL_INDEX);
+            presentStream.writeBoolean(rowGroupIndexes[position] != NULL_INDEX);
         }
         for (int position = 0; position < rowGroupValueCount; position++) {
-            int index = rowGroupIndexes.get(position);
+            int index = rowGroupIndexes[position];
             if (index != NULL_INDEX) {
                 dataStream.writeLong(index);
             }

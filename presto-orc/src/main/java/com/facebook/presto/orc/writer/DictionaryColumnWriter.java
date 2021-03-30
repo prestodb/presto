@@ -18,7 +18,6 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.DictionaryCompressionOptimizer.DictionaryColumn;
 import com.facebook.presto.orc.DwrfDataEncryptor;
 import com.facebook.presto.orc.OrcEncoding;
-import com.facebook.presto.orc.array.IntBigArray;
 import com.facebook.presto.orc.checkpoint.BooleanStreamCheckpoint;
 import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
@@ -40,6 +39,7 @@ import io.airlift.slice.Slice;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -47,10 +47,14 @@ import java.util.OptionalInt;
 
 import static com.facebook.presto.orc.DictionaryCompressionOptimizer.estimateIndexBytesPerValue;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
+import static com.facebook.presto.orc.array.Arrays.ExpansionFactor.MEDIUM;
+import static com.facebook.presto.orc.array.Arrays.ExpansionOption.PRESERVE;
+import static com.facebook.presto.orc.array.Arrays.ensureCapacity;
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -71,7 +75,7 @@ public abstract class DictionaryColumnWriter
     private final List<DictionaryRowGroup> rowGroups = new ArrayList<>();
     private long columnStatisticsRetainedSizeInBytes;
 
-    private IntBigArray rowGroupIndexes;
+    private int[] rowGroupIndexes;
     private int rowGroupValueCount;
     private long rawBytes;
     private long totalValueCount;
@@ -105,18 +109,18 @@ public abstract class DictionaryColumnWriter
         this.presentStream = new PresentOutputStream(compressionParameters, dwrfEncryptor);
         this.metadataWriter = requireNonNull(metadataWriter, "metadataWriter is null");
         this.compressedMetadataWriter = new CompressedMetadataWriter(metadataWriter, compressionParameters, dwrfEncryptor);
-        rowGroupIndexes = new IntBigArray();
+        this.rowGroupIndexes = new int[10_000];
     }
 
     protected abstract ColumnWriter createDirectColumnWriter();
 
     protected abstract ColumnWriter getDirectColumnWriter();
 
-    protected abstract boolean tryConvertToDirect(int dictionaryIndexCount, IntBigArray dictionaryIndexes, int maxDirectBytes);
+    protected abstract boolean tryConvertRowGroupToDirect(int dictionaryIndexCount, int[] dictionaryIndexes, int maxDirectBytes);
 
     protected abstract ColumnEncoding getDictionaryColumnEncoding();
 
-    protected abstract BlockStatistics addBlockToDictionary(Block block, int rowGroupValueCount, IntBigArray rowGroupIndexes);
+    protected abstract BlockStatistics addBlockToDictionary(Block block, int rowGroupValueCount, int[] rowGroupIndexes);
 
     protected abstract long getRetainedDictionaryBytes();
 
@@ -130,7 +134,7 @@ public abstract class DictionaryColumnWriter
 
     protected abstract void writePresentAndDataStreams(
             int rowGroupValueCount,
-            IntBigArray rowGroupIndexes,
+            int[] rowGroupIndexes,
             Optional<int[]> originalDictionaryToSortedIndex,
             PresentOutputStream presentStream,
             LongOutputStream dataStream);
@@ -188,7 +192,7 @@ public abstract class DictionaryColumnWriter
         for (DictionaryRowGroup rowGroup : rowGroups) {
             directWriter.beginRowGroup();
             // todo we should be able to pass the stats down to avoid recalculating min and max
-            boolean success = tryConvertToDirect(rowGroup.getValueCount(), rowGroup.getDictionaryIndexes(), maxDirectBytes);
+            boolean success = tryConvertRowGroupToDirect(rowGroup.getValueCount(), rowGroup.getDictionaryIndexes(), maxDirectBytes);
             directWriter.finishRowGroup();
 
             if (!success) {
@@ -200,7 +204,7 @@ public abstract class DictionaryColumnWriter
 
         if (inRowGroup) {
             directWriter.beginRowGroup();
-            if (!tryConvertToDirect(rowGroupValueCount, rowGroupIndexes, maxDirectBytes)) {
+            if (!tryConvertRowGroupToDirect(rowGroupValueCount, rowGroupIndexes, maxDirectBytes)) {
                 directWriter.close();
                 directWriter.reset();
                 return OptionalInt.empty();
@@ -258,7 +262,7 @@ public abstract class DictionaryColumnWriter
             return;
         }
 
-        rowGroupIndexes.ensureCapacity(rowGroupValueCount + block.getPositionCount());
+        rowGroupIndexes = ensureCapacity(rowGroupIndexes, rowGroupValueCount + block.getPositionCount(), MEDIUM, PRESERVE);
         BlockStatistics blockStatistics = addBlockToDictionary(block, rowGroupValueCount, rowGroupIndexes);
         totalNonNullValueCount += blockStatistics.getNonNullValueCount();
         rawBytes += blockStatistics.getRawBytes();
@@ -282,7 +286,6 @@ public abstract class DictionaryColumnWriter
         rowGroups.add(rowGroup);
         columnStatisticsRetainedSizeInBytes += rowGroup.getColumnStatistics().getRetainedSizeInBytes();
         rowGroupValueCount = 0;
-        rowGroupIndexes = new IntBigArray();
         return ImmutableMap.of(column, statistics);
     }
 
@@ -407,7 +410,7 @@ public abstract class DictionaryColumnWriter
     @Override
     public long getRetainedBytes()
     {
-        return rowGroupIndexes.sizeOf() +
+        return sizeOf(rowGroupIndexes) +
                 dataStream.getRetainedBytes() +
                 presentStream.getRetainedBytes() +
                 getRetainedDictionaryBytes() +
@@ -438,29 +441,27 @@ public abstract class DictionaryColumnWriter
 
     private static class DictionaryRowGroup
     {
-        private final IntBigArray dictionaryIndexes;
-        private final int valueCount;
+        private final int[] dictionaryIndexes;
         private final ColumnStatistics columnStatistics;
 
-        public DictionaryRowGroup(IntBigArray dictionaryIndexes, int valueCount, ColumnStatistics columnStatistics)
+        public DictionaryRowGroup(int[] dictionaryIndexes, int valueCount, ColumnStatistics columnStatistics)
         {
             requireNonNull(dictionaryIndexes, "dictionaryIndexes is null");
             checkArgument(valueCount >= 0, "valueCount is negative");
             requireNonNull(columnStatistics, "columnStatistics is null");
 
-            this.dictionaryIndexes = dictionaryIndexes;
-            this.valueCount = valueCount;
+            this.dictionaryIndexes = Arrays.copyOf(dictionaryIndexes, valueCount);
             this.columnStatistics = columnStatistics;
         }
 
-        public IntBigArray getDictionaryIndexes()
+        public int[] getDictionaryIndexes()
         {
             return dictionaryIndexes;
         }
 
         public int getValueCount()
         {
-            return valueCount;
+            return dictionaryIndexes.length;
         }
 
         public ColumnStatistics getColumnStatistics()

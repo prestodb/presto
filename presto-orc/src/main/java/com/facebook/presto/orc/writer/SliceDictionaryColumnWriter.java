@@ -19,7 +19,6 @@ import com.facebook.presto.common.block.DictionaryId;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.DwrfDataEncryptor;
 import com.facebook.presto.orc.OrcEncoding;
-import com.facebook.presto.orc.array.IntBigArray;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.CompressionParameters;
 import com.facebook.presto.orc.metadata.MetadataWriter;
@@ -112,31 +111,24 @@ public class SliceDictionaryColumnWriter
     }
 
     @Override
-    protected boolean tryConvertToDirect(int dictionaryIndexCount, IntBigArray dictionaryIndexes, int maxDirectBytes)
+    protected boolean tryConvertRowGroupToDirect(int dictionaryIndexCount, int[] dictionaryIndexes, int maxDirectBytes)
     {
-        int[][] segments = dictionaryIndexes.getSegments();
-        for (int i = 0; dictionaryIndexCount > 0 && i < segments.length; i++) {
-            int[] segment = segments[i];
-            int positionCount = Math.min(dictionaryIndexCount, segment.length);
-            Block elementBlock = dictionary.getElementBlock();
-            DictionaryId dictionaryId = DictionaryId.randomDictionaryId();
+        Block elementBlock = dictionary.getElementBlock();
+        DictionaryId dictionaryId = DictionaryId.randomDictionaryId();
 
-            int offset = 0;
-            while (offset < positionCount) {
-                // Dictionary can contain large values that are repeated. In such a case, the conversion will be abandoned
-                // due to maxDirectBytes. To avoid allocating too much memory on those cases, process the dictionary in chunks.
-                int length = getChunkLength(offset, segment, positionCount, elementBlock, DIRECT_CONVERSION_CHUNK_MAX_LOGICAL_BYTES);
-                Block chunk = new DictionaryBlock(offset, length, elementBlock, segment, false, dictionaryId);
-                offset += length;
-                directColumnWriter.writeBlock(chunk);
-                if (directColumnWriter.getBufferedBytes() > maxDirectBytes) {
-                    return false;
-                }
+        int offset = 0;
+        while (offset < dictionaryIndexCount) {
+            // Dictionary can contain large values that are repeated. In such a case, the conversion will be abandoned
+            // due to maxDirectBytes. To avoid allocating too much memory on those cases, process the dictionary in chunks.
+            int length = getChunkLength(offset, dictionaryIndexes, dictionaryIndexCount, elementBlock, DIRECT_CONVERSION_CHUNK_MAX_LOGICAL_BYTES);
+            Block chunk = new DictionaryBlock(offset, length, elementBlock, dictionaryIndexes, false, dictionaryId);
+            offset += length;
+            directColumnWriter.writeBlock(chunk);
+            if (directColumnWriter.getBufferedBytes() > maxDirectBytes) {
+                return false;
             }
-
-            dictionaryIndexCount -= positionCount;
         }
-        checkState(dictionaryIndexCount == 0);
+
         return true;
     }
 
@@ -148,13 +140,13 @@ public class SliceDictionaryColumnWriter
     }
 
     @Override
-    protected BlockStatistics addBlockToDictionary(Block block, int rowGroupValueCount, IntBigArray rowGroupIndexes)
+    protected BlockStatistics addBlockToDictionary(Block block, int rowGroupValueCount, int[] rowGroupIndexes)
     {
         int nonNullValueCount = 0;
         long rawBytes = 0;
         for (int position = 0; position < block.getPositionCount(); position++) {
             int index = dictionary.putIfAbsent(block, position);
-            rowGroupIndexes.set(rowGroupValueCount, index);
+            rowGroupIndexes[rowGroupValueCount] = index;
             rowGroupValueCount++;
 
             if (!block.isNull(position)) {
@@ -248,7 +240,7 @@ public class SliceDictionaryColumnWriter
     @Override
     protected void writePresentAndDataStreams(
             int rowGroupValueCount,
-            IntBigArray rowGroupIndexes,
+            int[] rowGroupIndexes,
             Optional<int[]> optionalSortedIndex,
             PresentOutputStream presentStream,
             LongOutputStream dataStream)
@@ -256,10 +248,10 @@ public class SliceDictionaryColumnWriter
         checkState(optionalSortedIndex.isPresent(), "originalDictionaryToSortedIndex is null");
         int[] originalDictionaryToSortedIndex = optionalSortedIndex.get();
         for (int position = 0; position < rowGroupValueCount; position++) {
-            presentStream.writeBoolean(rowGroupIndexes.get(position) != 0);
+            presentStream.writeBoolean(rowGroupIndexes[position] != 0);
         }
         for (int position = 0; position < rowGroupValueCount; position++) {
-            int originalDictionaryIndex = rowGroupIndexes.get(position);
+            int originalDictionaryIndex = rowGroupIndexes[position];
             // index zero in original dictionary is reserved for null
             if (originalDictionaryIndex != 0) {
                 int sortedIndex = originalDictionaryToSortedIndex[originalDictionaryIndex];
