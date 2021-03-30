@@ -15,12 +15,18 @@ package com.facebook.presto.spark;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static com.facebook.presto.spark.PrestoSparkQueryRunner.createHivePrestoSparkQueryRunner;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.STORAGE_BASED_BROADCAST_JOIN_ENABLED;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
+import static io.airlift.tpch.TpchTable.NATION;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPrestoSparkQueryRunner
@@ -608,6 +614,20 @@ public class TestPrestoSparkQueryRunner
                 "SELECT o.custkey, l.orderkey " +
                         "FROM (SELECT * FROM lineitem WHERE linenumber = 4) l " +
                         "CROSS JOIN (SELECT * FROM orders WHERE orderkey = 5) o");
+    }
+
+    @Test
+    public void testSmileSerialization()
+    {
+        String query = "SELECT * FROM nation";
+        try (QueryRunner queryRunner = createHivePrestoSparkQueryRunner(ImmutableList.of(NATION), ImmutableMap.of("spark.smile-serialization-enabled", "true"))) {
+            MaterializedResult actual = queryRunner.execute(query);
+            assertEqualsIgnoreOrder(actual, computeExpected(query, actual.getTypes()));
+        }
+        try (QueryRunner queryRunner = createHivePrestoSparkQueryRunner(ImmutableList.of(NATION), ImmutableMap.of("spark.smile-serialization-enabled", "false"))) {
+            MaterializedResult actual = queryRunner.execute(query);
+            assertEqualsIgnoreOrder(actual, computeExpected(query, actual.getTypes()));
+        }
     }
 
     private void assertBucketedQuery(String sql)

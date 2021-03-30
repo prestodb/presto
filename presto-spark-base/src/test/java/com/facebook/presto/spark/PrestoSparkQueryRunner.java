@@ -146,7 +146,12 @@ public class PrestoSparkQueryRunner
 
     public static PrestoSparkQueryRunner createHivePrestoSparkQueryRunner(Iterable<TpchTable<?>> tables)
     {
-        PrestoSparkQueryRunner queryRunner = new PrestoSparkQueryRunner("hive");
+        return createHivePrestoSparkQueryRunner(tables, ImmutableMap.of());
+    }
+
+    public static PrestoSparkQueryRunner createHivePrestoSparkQueryRunner(Iterable<TpchTable<?>> tables, Map<String, String> additionalConfigProperties)
+    {
+        PrestoSparkQueryRunner queryRunner = new PrestoSparkQueryRunner("hive", additionalConfigProperties);
         ExtendedHiveMetastore metastore = queryRunner.getMetastore();
         if (!metastore.getDatabase("tpch").isPresent()) {
             metastore.createDatabase(createDatabaseMetastoreObject("tpch"));
@@ -190,15 +195,18 @@ public class PrestoSparkQueryRunner
         log.info("Imported %s rows for %s in %s", rows, tableName, nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 
-    public PrestoSparkQueryRunner(String defaultCatalog)
+    public PrestoSparkQueryRunner(String defaultCatalog, Map<String, String> additionalConfigProperties)
     {
         setupLogging();
 
+        ImmutableMap.Builder<String, String> configProperties = ImmutableMap.builder();
+        configProperties.put("presto.version", "testversion");
+        configProperties.put("query.hash-partition-count", Integer.toString(NODE_COUNT * 2));
+        configProperties.putAll(additionalConfigProperties);
+
         PrestoSparkInjectorFactory injectorFactory = new PrestoSparkInjectorFactory(
                 DRIVER,
-                ImmutableMap.of(
-                        "presto.version", "testversion",
-                        "query.hash-partition-count", Integer.toString(NODE_COUNT * 2)),
+                configProperties.build(),
                 ImmutableMap.of(),
                 Optional.empty(),
                 Optional.empty(),

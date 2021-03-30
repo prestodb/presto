@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.spark.planner;
 
+import com.facebook.airlift.json.Codec;
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.ScheduledSplit;
@@ -34,7 +36,6 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskSourceRdd;
 import com.facebook.presto.spark.classloader_interface.SerializedPrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.classloader_interface.SerializedPrestoSparkTaskSource;
 import com.facebook.presto.spark.classloader_interface.SerializedTaskInfo;
-import com.facebook.presto.spark.util.PrestoSparkUtils;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.PrestoException;
@@ -54,10 +55,13 @@ import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
+import io.airlift.units.DataSize;
 import org.apache.spark.Partitioner;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -71,9 +75,7 @@ import scala.reflect.ClassTag;
 import javax.inject.Inject;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -90,6 +92,7 @@ import static com.facebook.presto.spark.PrestoSparkSessionProperties.getMaxSplit
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getMinSparkInputPartitionCountForAutoTune;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getSparkInitialPartitionCount;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.isSparkPartitionCountAutoTuneEnabled;
+import static com.facebook.presto.spark.util.PrestoSparkUtils.serializeZstdCompressed;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.ARBITRARY_DISTRIBUTION;
@@ -103,11 +106,8 @@ import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DI
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Multimaps.asMap;
 import static com.google.common.collect.Sets.difference;
 import static com.google.common.collect.Sets.union;
 import static java.lang.String.format;
@@ -116,22 +116,24 @@ import static java.util.Objects.requireNonNull;
 
 public class PrestoSparkRddFactory
 {
+    private static final Logger log = Logger.get(PrestoSparkRddFactory.class);
+
     private final SplitManager splitManager;
     private final PartitioningProviderManager partitioningProviderManager;
     private final JsonCodec<PrestoSparkTaskDescriptor> taskDescriptorJsonCodec;
-    private final JsonCodec<TaskSource> taskSourceJsonCodec;
+    private final Codec<TaskSource> taskSourceCodec;
 
     @Inject
     public PrestoSparkRddFactory(
             SplitManager splitManager,
             PartitioningProviderManager partitioningProviderManager,
             JsonCodec<PrestoSparkTaskDescriptor> taskDescriptorJsonCodec,
-            JsonCodec<TaskSource> taskSourceJsonCodec)
+            Codec<TaskSource> taskSourceCodec)
     {
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.partitioningProviderManager = requireNonNull(partitioningProviderManager, "partitioningProviderManager is null");
         this.taskDescriptorJsonCodec = requireNonNull(taskDescriptorJsonCodec, "taskDescriptorJsonCodec is null");
-        this.taskSourceJsonCodec = requireNonNull(taskSourceJsonCodec, "taskSourceJsonCodec is null");
+        this.taskSourceCodec = requireNonNull(taskSourceCodec, "taskSourceCodec is null");
     }
 
     public <T extends PrestoSparkTaskOutput> JavaPairRDD<MutablePartitionId, T> createSparkRdd(
@@ -304,6 +306,7 @@ public class PrestoSparkRddFactory
                 SplitSourceFactory splitSourceFactory = new SplitSourceFactory(splitSourceProvider, WarningCollector.NOOP);
                 Map<PlanNodeId, SplitSource> splitSources = splitSourceFactory.createSplitSources(fragment, session, tableWriteInfo);
                 taskSourceRdd = Optional.of(createTaskSourcesRdd(
+                        fragment.getId(),
                         sparkContext,
                         session,
                         fragment.getPartitioning(),
@@ -331,6 +334,7 @@ public class PrestoSparkRddFactory
     }
 
     private PrestoSparkTaskSourceRdd createTaskSourcesRdd(
+            PlanFragmentId fragmentId,
             JavaSparkContext sparkContext,
             Session session,
             PartitioningHandle partitioning,
@@ -338,15 +342,26 @@ public class PrestoSparkRddFactory
             Map<PlanNodeId, SplitSource> splitSources,
             Optional<Integer> numberOfShufflePartitions)
     {
-        ListMultimap<Integer, TaskSource> taskSourcesMap = ArrayListMultimap.create();
+        ListMultimap<Integer, SerializedPrestoSparkTaskSource> taskSourcesMap = ArrayListMultimap.create();
         for (TableScanNode tableScan : tableScans) {
             SplitSource splitSource = requireNonNull(splitSources.get(tableScan.getId()), "split source is missing for table scan node with id: " + tableScan.getId());
             List<ScheduledSplit> scheduledSplits = getSplitsAndCloseSource(tableScan, splitSource);
+            log.info("Found %s splits for table scan node with id %s", scheduledSplits.size(), tableScan.getId());
             shuffle(scheduledSplits);
             SetMultimap<Integer, ScheduledSplit> assignedSplits = assignSplitsToTasks(session, partitioning, scheduledSplits);
-            asMap(assignedSplits).forEach((partitionId, splits) ->
-                    taskSourcesMap.put(partitionId, new TaskSource(tableScan.getId(), splits, true)));
+            for (int partitionId : ImmutableSet.copyOf(assignedSplits.keySet())) {
+                // remove the entry from the collection to let GC reclaim the memory
+                Set<ScheduledSplit> splits = assignedSplits.removeAll(partitionId);
+                TaskSource taskSource = new TaskSource(tableScan.getId(), splits, true);
+                SerializedPrestoSparkTaskSource serializedTaskSource = new SerializedPrestoSparkTaskSource(serializeZstdCompressed(taskSourceCodec, taskSource));
+                taskSourcesMap.put(partitionId, serializedTaskSource);
+            }
         }
+
+        long allTaskSourcesSerializedSizeInBytes = taskSourcesMap.values().stream()
+                .mapToLong(serializedTaskSource -> serializedTaskSource.getBytes().length)
+                .sum();
+        log.info("Total serialized size of all task sources for fragment %s: %s", fragmentId, DataSize.succinctBytes(allTaskSourcesSerializedSizeInBytes));
 
         List<List<SerializedPrestoSparkTaskSource>> taskSourcesByPartitionId = new ArrayList<>();
         // If the fragment contains any shuffle inputs, this value will be present
@@ -360,20 +375,11 @@ public class PrestoSparkRddFactory
             for (int partitionId = 0; partitionId < numberOfShufflePartitions.get(); partitionId++) {
                 // Eagerly remove task sources from the map to let GC reclaim the memory
                 // If task sources are missing for a partition the removeAll returns an empty list
-                List<TaskSource> taskSources = requireNonNull(taskSourcesMap.removeAll(partitionId), "taskSources is null");
-                taskSourcesByPartitionId.add(serializeTaskSources(taskSources));
+                taskSourcesByPartitionId.add(requireNonNull(taskSourcesMap.removeAll(partitionId), "taskSources is null"));
             }
         }
         else {
-            Iterator<Entry<Integer, Collection<TaskSource>>> partitionsIterator = taskSourcesMap.asMap().entrySet().iterator();
-            while (partitionsIterator.hasNext()) {
-                Entry<Integer, Collection<TaskSource>> entry = partitionsIterator.next();
-                taskSourcesByPartitionId.add(serializeTaskSources(entry.getValue()));
-                // Eagerly remove task sources from the map to let GC reclaim the memory
-                partitionsIterator.remove();
-                // make sure the entry is removed
-                verify(taskSourcesMap.get(entry.getKey()).isEmpty());
-            }
+            taskSourcesByPartitionId.addAll(Multimaps.asMap(taskSourcesMap).values());
         }
 
         return new PrestoSparkTaskSourceRdd(sparkContext.sc(), taskSourcesByPartitionId);
@@ -410,7 +416,7 @@ public class PrestoSparkRddFactory
     @VisibleForTesting
     public static SetMultimap<Integer, ScheduledSplit> assignSourceDistributionSplits(Session session, List<ScheduledSplit> splits)
     {
-        ImmutableSetMultimap.Builder<Integer, ScheduledSplit> result = ImmutableSetMultimap.builder();
+        HashMultimap<Integer, ScheduledSplit> result = HashMultimap.create();
 
         long maxSplitsSizeInBytesPerPartition = getMaxSplitsDataSizePerSparkPartition(session).toBytes();
         checkArgument(maxSplitsSizeInBytesPerPartition > 0,
@@ -425,7 +431,7 @@ public class PrestoSparkRddFactory
             for (int splitIndex = 0; splitIndex < splits.size(); splitIndex++) {
                 result.put(splitIndex % initialPartitionCount, splits.get(splitIndex));
             }
-            return result.build();
+            return result;
         }
 
         splits.sort((ScheduledSplit o1, ScheduledSplit o2) -> {
@@ -489,27 +495,18 @@ public class PrestoSparkRddFactory
             }
         }
 
-        return result.build();
-    }
-
-    private List<SerializedPrestoSparkTaskSource> serializeTaskSources(Collection<TaskSource> taskSources)
-    {
-        return taskSources.stream()
-                .map(taskSourceJsonCodec::toJsonBytes)
-                .map(PrestoSparkUtils::compress)
-                .map(SerializedPrestoSparkTaskSource::new)
-                .collect(toImmutableList());
+        return result;
     }
 
     private SetMultimap<Integer, ScheduledSplit> assignPartitionedSplits(Session session, PartitioningHandle partitioning, List<ScheduledSplit> splits)
     {
         ToIntFunction<ConnectorSplit> splitBucketFunction = getSplitBucketFunction(session, partitioning);
-        ImmutableSetMultimap.Builder<Integer, ScheduledSplit> result = ImmutableSetMultimap.builder();
+        HashMultimap<Integer, ScheduledSplit> result = HashMultimap.create();
         for (ScheduledSplit scheduledSplit : splits) {
             int partitionId = splitBucketFunction.applyAsInt(scheduledSplit.getSplit().getConnectorSplit());
             result.put(partitionId, scheduledSplit);
         }
-        return result.build();
+        return result;
     }
 
     private ToIntFunction<ConnectorSplit> getSplitBucketFunction(Session session, PartitioningHandle partitioning)
