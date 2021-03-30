@@ -54,7 +54,7 @@ public class SliceDictionaryColumnWriter
 
     private final ByteArrayOutputStream dictionaryDataStream;
     private final LongOutputStream dictionaryLengthStream;
-    private final DictionaryBuilder dictionary = new DictionaryBuilder(10_000);
+    private final SliceDictionaryBuilder dictionary = new SliceDictionaryBuilder(10_000);
     private final int stringStatisticsLimitInBytes;
 
     private StringStatisticsBuilder statisticsBuilder;
@@ -94,8 +94,6 @@ public class SliceDictionaryColumnWriter
     @Override
     protected boolean tryConvertRowGroupToDirect(int dictionaryIndexCount, int[] dictionaryIndexes, int maxDirectBytes)
     {
-        Block elementBlock = dictionary.getElementBlock();
-
         for (int offset = 0; offset < dictionaryIndexCount; offset++) {
             directColumnWriter.writePresentValue(dictionaryIndexes[offset] != NULL_INDEX);
         }
@@ -103,9 +101,10 @@ public class SliceDictionaryColumnWriter
         for (int offset = 0; offset < dictionaryIndexCount; offset++) {
             int dictionaryIndex = dictionaryIndexes[offset];
             if (dictionaryIndex != NULL_INDEX) {
-                int length = elementBlock.getSliceLength(dictionaryIndex);
-                Slice slice = elementBlock.getSlice(dictionaryIndex, 0, length);
-                directColumnWriter.writeSlice(slice);
+                int length = dictionary.getSliceLength(dictionaryIndex);
+                Slice rawSlice = dictionary.getRawSlice(dictionaryIndex);
+                int rawSliceOffset = dictionary.getRawSliceOffset(dictionaryIndex);
+                directColumnWriter.writeSlice(rawSlice, rawSliceOffset, length);
                 size += length;
                 if (size > DIRECT_CONVERSION_CHUNK_MAX_LOGICAL_BYTES) {
                     if (directColumnWriter.getBufferedBytes() > maxDirectBytes) {
@@ -169,7 +168,7 @@ public class SliceDictionaryColumnWriter
         return statistics;
     }
 
-    private static int[] getSortedDictionary(DictionaryBuilder dictionary)
+    private static int[] getSortedDictionary(SliceDictionaryBuilder dictionary)
     {
         int[] sortedPositions = new int[dictionary.getEntryCount()];
         for (int i = 0; i < sortedPositions.length; i++) {
@@ -183,14 +182,13 @@ public class SliceDictionaryColumnWriter
     @Override
     protected Optional<int[]> writeDictionary()
     {
-        Block elementBlock = dictionary.getElementBlock();
-
         int[] sortedDictionaryIndexes = getSortedDictionary(dictionary);
         for (int sortedDictionaryIndex : sortedDictionaryIndexes) {
-            int length = elementBlock.getSliceLength(sortedDictionaryIndex);
+            int length = dictionary.getSliceLength(sortedDictionaryIndex);
             dictionaryLengthStream.writeLong(length);
-            Slice slice = elementBlock.getSlice(sortedDictionaryIndex, 0, length);
-            dictionaryDataStream.writeSlice(slice, 0, length);
+            Slice rawSlice = dictionary.getRawSlice(sortedDictionaryIndex);
+            int rawSliceOffset = dictionary.getRawSliceOffset(sortedDictionaryIndex);
+            dictionaryDataStream.writeSlice(rawSlice, rawSliceOffset, length);
         }
         columnEncoding = new ColumnEncoding(orcEncoding == DWRF ? DICTIONARY : DICTIONARY_V2, dictionary.getEntryCount());
 
@@ -218,7 +216,6 @@ public class SliceDictionaryColumnWriter
         }
         for (int position = 0; position < rowGroupValueCount; position++) {
             int originalDictionaryIndex = rowGroupIndexes[position];
-            // index zero in original dictionary is reserved for null
             if (originalDictionaryIndex != NULL_INDEX) {
                 int sortedIndex = originalDictionaryToSortedIndex[originalDictionaryIndex];
                 if (sortedIndex < 0) {
