@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spark.execution;
 
+import com.facebook.airlift.json.Codec;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.TestingGcMonitor;
@@ -123,7 +124,7 @@ import static com.facebook.presto.spark.PrestoSparkSessionProperties.getSparkBro
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getStorageBasedBroadcastJoinWriteBufferSize;
 import static com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleStats.Operation.WRITE;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.compress;
-import static com.facebook.presto.spark.util.PrestoSparkUtils.decompress;
+import static com.facebook.presto.spark.util.PrestoSparkUtils.deserializeZstdCompressed;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.toPrestoSparkSerializedPage;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.util.Failures.toFailures;
@@ -146,7 +147,7 @@ public class PrestoSparkTaskExecutorFactory
     private final FunctionAndTypeManager functionAndTypeManager;
 
     private final JsonCodec<PrestoSparkTaskDescriptor> taskDescriptorJsonCodec;
-    private final JsonCodec<TaskSource> taskSourceJsonCodec;
+    private final Codec<TaskSource> taskSourceCodec;
     private final JsonCodec<TaskInfo> taskInfoJsonCodec;
 
     private final Executor notificationExecutor;
@@ -180,7 +181,7 @@ public class PrestoSparkTaskExecutorFactory
             BlockEncodingManager blockEncodingManager,
             FunctionAndTypeManager functionAndTypeManager,
             JsonCodec<PrestoSparkTaskDescriptor> taskDescriptorJsonCodec,
-            JsonCodec<TaskSource> taskSourceJsonCodec,
+            Codec<TaskSource> taskSourceCodec,
             JsonCodec<TaskInfo> taskInfoJsonCodec,
             Executor notificationExecutor,
             ScheduledExecutorService yieldExecutor,
@@ -202,7 +203,7 @@ public class PrestoSparkTaskExecutorFactory
                 blockEncodingManager,
                 functionAndTypeManager,
                 taskDescriptorJsonCodec,
-                taskSourceJsonCodec,
+                taskSourceCodec,
                 taskInfoJsonCodec,
                 notificationExecutor,
                 yieldExecutor,
@@ -230,7 +231,7 @@ public class PrestoSparkTaskExecutorFactory
             BlockEncodingManager blockEncodingManager,
             FunctionAndTypeManager functionAndTypeManager,
             JsonCodec<PrestoSparkTaskDescriptor> taskDescriptorJsonCodec,
-            JsonCodec<TaskSource> taskSourceJsonCodec,
+            Codec<TaskSource> taskSourceCodec,
             JsonCodec<TaskInfo> taskInfoJsonCodec,
             Executor notificationExecutor,
             ScheduledExecutorService yieldExecutor,
@@ -256,7 +257,7 @@ public class PrestoSparkTaskExecutorFactory
         this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
         this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
         this.taskDescriptorJsonCodec = requireNonNull(taskDescriptorJsonCodec, "sparkTaskDescriptorJsonCodec is null");
-        this.taskSourceJsonCodec = requireNonNull(taskSourceJsonCodec, "taskSourceJsonCodec is null");
+        this.taskSourceCodec = requireNonNull(taskSourceCodec, "taskSourceCodec is null");
         this.taskInfoJsonCodec = requireNonNull(taskInfoJsonCodec, "taskInfoJsonCodec is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
@@ -537,11 +538,14 @@ public class PrestoSparkTaskExecutorFactory
 
     private List<TaskSource> getTaskSources(Iterator<SerializedPrestoSparkTaskSource> serializedTaskSources)
     {
+        long totalSerializedSizeInBytes = 0;
         ImmutableList.Builder<TaskSource> result = ImmutableList.builder();
         while (serializedTaskSources.hasNext()) {
             SerializedPrestoSparkTaskSource serializedTaskSource = serializedTaskSources.next();
-            result.add(taskSourceJsonCodec.fromJson(decompress(serializedTaskSource.getBytes())));
+            totalSerializedSizeInBytes += serializedTaskSource.getBytes().length;
+            result.add(deserializeZstdCompressed(taskSourceCodec, serializedTaskSource.getBytes()));
         }
+        log.info("Total serialized size of all task sources: %s", DataSize.succinctBytes(totalSerializedSizeInBytes));
         return result.build();
     }
 

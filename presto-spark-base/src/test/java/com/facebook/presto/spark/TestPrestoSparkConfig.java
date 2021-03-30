@@ -41,7 +41,8 @@ public class TestPrestoSparkConfig
                 .setStorageBasedBroadcastJoinEnabled(false)
                 .setStorageBasedBroadcastJoinStorage("local")
                 .setStorageBasedBroadcastJoinWriteBufferSize(new DataSize(24, MEGABYTE))
-                .setSparkBroadcastJoinMaxMemoryOverride(null));
+                .setSparkBroadcastJoinMaxMemoryOverride(null)
+                .setSmileSerializationEnabled(true));
     }
 
     @Test
@@ -58,6 +59,7 @@ public class TestPrestoSparkConfig
                 .put("spark.storage-based-broadcast-join-storage", "tempfs")
                 .put("spark.storage-based-broadcast-join-write-buffer-size", "4MB")
                 .put("spark.broadcast-join-max-memory-override", "1GB")
+                .put("spark.smile-serialization-enabled", "false")
                 .build();
         PrestoSparkConfig expected = new PrestoSparkConfig()
                 .setSparkPartitionCountAutoTuneEnabled(false)
@@ -69,7 +71,8 @@ public class TestPrestoSparkConfig
                 .setStorageBasedBroadcastJoinEnabled(true)
                 .setStorageBasedBroadcastJoinStorage("tempfs")
                 .setStorageBasedBroadcastJoinWriteBufferSize(new DataSize(4, MEGABYTE))
-                .setSparkBroadcastJoinMaxMemoryOverride(new DataSize(1, GIGABYTE));
+                .setSparkBroadcastJoinMaxMemoryOverride(new DataSize(1, GIGABYTE))
+                .setSmileSerializationEnabled(false);
         assertFullMapping(properties, expected);
     }
 }

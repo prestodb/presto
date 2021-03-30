@@ -14,6 +14,9 @@
 package com.facebook.presto.spark;
 
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
+import com.facebook.airlift.json.Codec;
+import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.json.smile.SmileCodec;
 import com.facebook.airlift.node.NodeConfig;
 import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.GroupByHashPageIndexerFactory;
@@ -176,6 +179,7 @@ import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static com.facebook.airlift.json.smile.SmileCodecBinder.smileCodecBinder;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static java.util.Objects.requireNonNull;
@@ -231,6 +235,17 @@ public class PrestoSparkModule
         jsonCodecBinder(binder).bindJsonCodec(QueryInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(PrestoSparkQueryStatusInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(PrestoSparkQueryData.class);
+
+        // smile codecs
+        smileCodecBinder(binder).bindSmileCodec(TaskSource.class);
+
+        PrestoSparkConfig prestoSparkConfig = buildConfigObject(PrestoSparkConfig.class);
+        if (prestoSparkConfig.isSmileSerializationEnabled()) {
+            binder.bind(new TypeLiteral<Codec<TaskSource>>() {}).to(new TypeLiteral<SmileCodec<TaskSource>>() {}).in(Scopes.SINGLETON);
+        }
+        else {
+            binder.bind(new TypeLiteral<Codec<TaskSource>>() {}).to(new TypeLiteral<JsonCodec<TaskSource>>() {}).in(Scopes.SINGLETON);
+        }
 
         // index manager
         binder.bind(IndexManager.class).in(Scopes.SINGLETON);

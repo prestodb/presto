@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spark.util;
 
+import com.facebook.airlift.json.Codec;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage;
 import com.facebook.presto.spi.page.PageCompressor;
@@ -20,6 +21,8 @@ import com.facebook.presto.spi.page.PageDecompressor;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.github.luben.zstd.Zstd;
+import com.github.luben.zstd.ZstdInputStream;
+import com.github.luben.zstd.ZstdOutputStream;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -29,6 +32,7 @@ import org.apache.spark.api.java.JavaFutureAction;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.util.Optional;
@@ -91,6 +95,31 @@ public class PrestoSparkUtils
             throw new UncheckedIOException(e);
         }
         return output.toByteArray();
+    }
+
+    public static <T> byte[] serializeZstdCompressed(Codec<T> codec, T instance)
+    {
+        try (ByteArrayOutputStream output = new ByteArrayOutputStream();
+                ZstdOutputStream zstdOutput = new ZstdOutputStream(output)) {
+            codec.writeBytes(zstdOutput, instance);
+            zstdOutput.close();
+            output.close();
+            return output.toByteArray();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    public static <T> T deserializeZstdCompressed(Codec<T> codec, byte[] bytes)
+    {
+        try (InputStream input = new ByteArrayInputStream(bytes);
+                ZstdInputStream zstdInput = new ZstdInputStream(input)) {
+            return codec.readBytes(zstdInput);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     public static PagesSerde createPagesSerde(BlockEncodingManager blockEncodingManager)
