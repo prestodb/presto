@@ -507,7 +507,11 @@ public final class StreamPropertyDerivations
         @Override
         public StreamProperties visitWindow(WindowNode node, List<StreamProperties> inputProperties)
         {
-            return Iterables.getOnlyElement(inputProperties);
+            StreamProperties properties = Iterables.getOnlyElement(inputProperties);
+            if (properties.isSingleStream() && node.getOrderingScheme().isPresent()) {
+                return StreamProperties.ordered();
+            }
+            return properties;
         }
 
         @Override
@@ -519,6 +523,10 @@ public final class StreamPropertyDerivations
         @Override
         public StreamProperties visitTopNRowNumber(TopNRowNumberNode node, List<StreamProperties> inputProperties)
         {
+            StreamProperties properties = Iterables.getOnlyElement(inputProperties);
+            if (properties.isSingleStream()) {
+                return StreamProperties.ordered();
+            }
             return Iterables.getOnlyElement(inputProperties);
         }
 
