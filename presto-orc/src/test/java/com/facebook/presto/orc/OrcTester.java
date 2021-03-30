@@ -1680,7 +1680,6 @@ public class OrcTester
                 DwrfKeyProvider.of(intermediateEncryptionKeys));
 
         assertEquals(orcReader.getColumnNames().subList(0, types.size()), makeColumnNames(types.size()));
-        assertEquals(orcReader.getFooter().getRowsInRowGroup(), 10_000);
 
         return orcReader.createSelectiveRecordReader(
                 includedColumns,
