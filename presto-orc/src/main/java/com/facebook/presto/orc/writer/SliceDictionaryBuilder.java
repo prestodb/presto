@@ -14,7 +14,6 @@
 package com.facebook.presto.orc.writer;
 
 import com.facebook.presto.common.block.Block;
-import com.facebook.presto.common.block.VariableWidthBlockBuilder;
 import com.facebook.presto.orc.array.IntBigArray;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
@@ -34,8 +33,8 @@ public class SliceDictionaryBuilder
     private static final int EMPTY_SLOT = -1;
     private static final int EXPECTED_BYTES_PER_ENTRY = 32;
 
-    private final IntBigArray blockPositionByHash = new IntBigArray();
-    private VariableWidthBlockBuilder elementBlock;
+    private final IntBigArray slicePositionByHash = new IntBigArray();
+    private final SegmentedSliceBlockBuilder segmentedSliceBuilder;
 
     private int maxFill;
     private int hashMask;
@@ -47,8 +46,7 @@ public class SliceDictionaryBuilder
         // todo we can do better
         int expectedEntries = min(expectedSize, DEFAULT_MAX_PAGE_SIZE_IN_BYTES / EXPECTED_BYTES_PER_ENTRY);
         // it is guaranteed expectedEntries * EXPECTED_BYTES_PER_ENTRY will not overflow
-        this.elementBlock = new VariableWidthBlockBuilder(
-                null,
+        this.segmentedSliceBuilder = new SegmentedSliceBlockBuilder(
                 expectedEntries,
                 expectedEntries * EXPECTED_BYTES_PER_ENTRY);
 
@@ -56,75 +54,68 @@ public class SliceDictionaryBuilder
         this.maxFill = calculateMaxFill(hashSize);
         this.hashMask = hashSize - 1;
 
-        blockPositionByHash.ensureCapacity(hashSize);
-        blockPositionByHash.fill(EMPTY_SLOT);
+        slicePositionByHash.ensureCapacity(hashSize);
+        slicePositionByHash.fill(EMPTY_SLOT);
     }
 
     public long getSizeInBytes()
     {
-        return elementBlock.getSizeInBytes();
+        return segmentedSliceBuilder.getSizeInBytes();
     }
 
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + elementBlock.getRetainedSizeInBytes() + blockPositionByHash.sizeOf();
+        return INSTANCE_SIZE + segmentedSliceBuilder.getRetainedSizeInBytes() + slicePositionByHash.sizeOf();
     }
 
     public int compareIndex(int left, int right)
     {
-        return elementBlock.compareTo(
-                left,
-                0,
-                elementBlock.getSliceLength(left),
-                elementBlock,
-                right,
-                0,
-                elementBlock.getSliceLength(right));
+        return segmentedSliceBuilder.compareTo(left, right);
     }
 
     public int getSliceLength(int position)
     {
-        return elementBlock.getSliceLength(position);
+        return segmentedSliceBuilder.getSliceLength(position);
     }
 
     public Slice getSlice(int position, int length)
     {
-        return elementBlock.getSlice(position, 0, length);
+        return segmentedSliceBuilder.getSlice(position, 0, length);
     }
 
     public Slice getRawSlice(int position)
     {
-        return elementBlock.getRawSlice(position);
+        return segmentedSliceBuilder.getRawSlice(position);
     }
 
     public int getRawSliceOffset(int position)
     {
-        return elementBlock.getPositionOffset(position);
+        return segmentedSliceBuilder.getPositionOffset(position);
     }
 
     public void clear()
     {
-        blockPositionByHash.fill(EMPTY_SLOT);
-        elementBlock = (VariableWidthBlockBuilder) elementBlock.newBlockBuilderLike(null);
+        slicePositionByHash.fill(EMPTY_SLOT);
+        segmentedSliceBuilder.reset();
     }
 
     public int putIfAbsent(Block block, int position)
     {
         requireNonNull(block, "block must not be null");
-        int blockPosition;
+        int slicePosition;
         long hashPosition = getHashPositionOfElement(block, position);
-        if (blockPositionByHash.get(hashPosition) != EMPTY_SLOT) {
-            blockPosition = blockPositionByHash.get(hashPosition);
+        if (slicePositionByHash.get(hashPosition) != EMPTY_SLOT) {
+            slicePosition = slicePositionByHash.get(hashPosition);
         }
         else {
-            blockPosition = addNewElement(hashPosition, block, position);
+            slicePosition = addNewElement(hashPosition, block, position);
         }
-        return blockPosition;
+        return slicePosition;
     }
 
     public int getEntryCount()
     {
-        return elementBlock.getPositionCount();
+        return segmentedSliceBuilder.getPositionCount();
     }
 
     /**
@@ -136,12 +127,12 @@ public class SliceDictionaryBuilder
         int length = block.getSliceLength(position);
         long hashPosition = getMaskedHash(block.hash(position, 0, length));
         while (true) {
-            int blockPosition = blockPositionByHash.get(hashPosition);
-            if (blockPosition == EMPTY_SLOT) {
+            int slicePosition = this.slicePositionByHash.get(hashPosition);
+            if (slicePosition == EMPTY_SLOT) {
                 // Doesn't have this element
                 return hashPosition;
             }
-            else if (elementBlock.getSliceLength(blockPosition) == length && block.equals(position, 0, elementBlock, blockPosition, 0, length)) {
+            else if (segmentedSliceBuilder.equals(slicePosition, block, position, length)) {
                 // Already has this element
                 return hashPosition;
             }
@@ -150,12 +141,10 @@ public class SliceDictionaryBuilder
         }
     }
 
-    private long getRehashPositionOfElement(Block block, int position)
+    private long getRehashPositionOfElement(int position)
     {
-        checkArgument(!block.isNull(position), "position is null");
-        int length = block.getSliceLength(position);
-        long hashPosition = getMaskedHash(block.hash(position, 0, length));
-        while (blockPositionByHash.get(hashPosition) != EMPTY_SLOT) {
+        long hashPosition = getMaskedHash(segmentedSliceBuilder.hash(position));
+        while (slicePositionByHash.get(hashPosition) != EMPTY_SLOT) {
             // in Re-hash there is no collision and continue to search until an empty spot is found.
             hashPosition = getMaskedHash(hashPosition + 1);
         }
@@ -165,14 +154,14 @@ public class SliceDictionaryBuilder
     private int addNewElement(long hashPosition, Block block, int position)
     {
         checkArgument(!block.isNull(position), "position is null");
-        block.writeBytesTo(position, 0, block.getSliceLength(position), elementBlock);
-        elementBlock.closeEntry();
+        block.writeBytesTo(position, 0, block.getSliceLength(position), segmentedSliceBuilder);
+        segmentedSliceBuilder.closeEntry();
 
-        int newElementPositionInBlock = elementBlock.getPositionCount() - 1;
-        blockPositionByHash.set(hashPosition, newElementPositionInBlock);
+        int newElementPositionInBlock = segmentedSliceBuilder.getPositionCount() - 1;
+        slicePositionByHash.set(hashPosition, newElementPositionInBlock);
 
         // increase capacity, if necessary
-        if (elementBlock.getPositionCount() >= maxFill) {
+        if (segmentedSliceBuilder.getPositionCount() >= maxFill) {
             rehash(maxFill * 2);
         }
 
@@ -184,11 +173,11 @@ public class SliceDictionaryBuilder
         int newHashSize = arraySize(size + 1, FILL_RATIO);
         hashMask = newHashSize - 1;
         maxFill = calculateMaxFill(newHashSize);
-        blockPositionByHash.ensureCapacity(newHashSize);
-        blockPositionByHash.fill(EMPTY_SLOT);
+        slicePositionByHash.ensureCapacity(newHashSize);
+        slicePositionByHash.fill(EMPTY_SLOT);
 
-        for (int blockPosition = 0; blockPosition < elementBlock.getPositionCount(); blockPosition++) {
-            blockPositionByHash.set(getRehashPositionOfElement(elementBlock, blockPosition), blockPosition);
+        for (int slicePosition = 0; slicePosition < segmentedSliceBuilder.getPositionCount(); slicePosition++) {
+            slicePositionByHash.set(getRehashPositionOfElement(slicePosition), slicePosition);
         }
     }
 
