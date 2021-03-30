@@ -14,9 +14,9 @@
 package com.facebook.presto.orc.writer;
 
 import com.facebook.presto.common.block.Block;
-import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.VariableWidthBlockBuilder;
 import com.facebook.presto.orc.array.IntBigArray;
+import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
 import static com.facebook.presto.common.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
@@ -26,23 +26,21 @@ import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 // TODO this class is not memory efficient.  We can bypass all of the Presto type and block code
-// since we are only interested in a hash of byte arrays.  The only place an actual block is needed
-// is during conversion to direct, and in that case we can use a slice array block.  This code
-// can use store the data in multiple Slices to avoid a large contiguous allocation.
-public class DictionaryBuilder
+// since we are only interested in a hash of byte arrays.
+public class SliceDictionaryBuilder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DictionaryBuilder.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceDictionaryBuilder.class).instanceSize();
     private static final float FILL_RATIO = 0.75f;
     private static final int EMPTY_SLOT = -1;
     private static final int EXPECTED_BYTES_PER_ENTRY = 32;
 
     private final IntBigArray blockPositionByHash = new IntBigArray();
-    private BlockBuilder elementBlock;
+    private VariableWidthBlockBuilder elementBlock;
 
     private int maxFill;
     private int hashMask;
 
-    public DictionaryBuilder(int expectedSize)
+    public SliceDictionaryBuilder(int expectedSize)
     {
         checkArgument(expectedSize >= 0, "expectedSize must not be negative");
 
@@ -72,17 +70,6 @@ public class DictionaryBuilder
         return INSTANCE_SIZE + elementBlock.getRetainedSizeInBytes() + blockPositionByHash.sizeOf();
     }
 
-    public Block getElementBlock()
-    {
-        return elementBlock;
-    }
-
-    public void clear()
-    {
-        blockPositionByHash.fill(EMPTY_SLOT);
-        elementBlock = elementBlock.newBlockBuilderLike(null);
-    }
-
     public int compareIndex(int left, int right)
     {
         return elementBlock.compareTo(
@@ -93,6 +80,32 @@ public class DictionaryBuilder
                 right,
                 0,
                 elementBlock.getSliceLength(right));
+    }
+
+    public int getSliceLength(int position)
+    {
+        return elementBlock.getSliceLength(position);
+    }
+
+    public Slice getSlice(int position, int length)
+    {
+        return elementBlock.getSlice(position, 0, length);
+    }
+
+    public Slice getRawSlice(int position)
+    {
+        return elementBlock.getRawSlice(position);
+    }
+
+    public int getRawSliceOffset(int position)
+    {
+        return elementBlock.getPositionOffset(position);
+    }
+
+    public void clear()
+    {
+        blockPositionByHash.fill(EMPTY_SLOT);
+        elementBlock = (VariableWidthBlockBuilder) elementBlock.newBlockBuilderLike(null);
     }
 
     public int putIfAbsent(Block block, int position)
@@ -137,6 +150,18 @@ public class DictionaryBuilder
         }
     }
 
+    private long getRehashPositionOfElement(Block block, int position)
+    {
+        checkArgument(!block.isNull(position), "position is null");
+        int length = block.getSliceLength(position);
+        long hashPosition = getMaskedHash(block.hash(position, 0, length));
+        while (blockPositionByHash.get(hashPosition) != EMPTY_SLOT) {
+            // in Re-hash there is no collision and continue to search until an empty spot is found.
+            hashPosition = getMaskedHash(hashPosition + 1);
+        }
+        return hashPosition;
+    }
+
     private int addNewElement(long hashPosition, Block block, int position)
     {
         checkArgument(!block.isNull(position), "position is null");
@@ -163,7 +188,7 @@ public class DictionaryBuilder
         blockPositionByHash.fill(EMPTY_SLOT);
 
         for (int blockPosition = 0; blockPosition < elementBlock.getPositionCount(); blockPosition++) {
-            blockPositionByHash.set(getHashPositionOfElement(elementBlock, blockPosition), blockPosition);
+            blockPositionByHash.set(getRehashPositionOfElement(elementBlock, blockPosition), blockPosition);
         }
     }
 
