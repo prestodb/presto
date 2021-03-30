@@ -546,6 +546,41 @@ public class TestHashJoinOperator
         return OperatorAssertion.toMaterializedResult(joinOperator.getOperatorContext().getSession(), types, actualPages);
     }
 
+    @Test(timeOut = 30_000)
+    public void testBuildGracefulSpill()
+            throws Exception
+    {
+        TaskStateMachine taskStateMachine = new TaskStateMachine(new TaskId("query", 0, 0, 0), executor);
+        TaskContext taskContext = TestingTaskContext.createTaskContext(executor, scheduledExecutor, TEST_SESSION, taskStateMachine);
+
+        // build factory
+        RowPagesBuilder buildPages = rowPagesBuilder(ImmutableList.of(VARCHAR, BIGINT))
+                .addSequencePage(4, 20, 200);
+
+        DummySpillerFactory buildSpillerFactory = new DummySpillerFactory();
+
+        BuildSideSetup buildSideSetup = setupBuildSide(true, taskContext, Ints.asList(0), buildPages, Optional.empty(), true, buildSpillerFactory);
+        instantiateBuildDrivers(buildSideSetup, taskContext);
+
+        JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager = buildSideSetup.getLookupSourceFactoryManager();
+        PartitionedLookupSourceFactory lookupSourceFactory = lookupSourceFactoryManager.getJoinBridge(Lifespan.taskWide());
+
+        // finish probe before any build partition is spilled
+        lookupSourceFactory.finishProbeOperator(OptionalInt.of(1));
+
+        // spill build partition after probe is finished
+        HashBuilderOperator hashBuilderOperator = buildSideSetup.getBuildOperators().get(0);
+        hashBuilderOperator.startMemoryRevoke().get();
+        hashBuilderOperator.finishMemoryRevoke();
+        hashBuilderOperator.finish();
+
+        // hash builder operator should not deadlock waiting for spilled lookup source to be disposed
+        hashBuilderOperator.isBlocked().get();
+
+        lookupSourceFactory.destroy();
+        assertTrue(hashBuilderOperator.isFinished());
+    }
+
     @Test(dataProvider = "hashJoinTestValues")
     public void testInnerJoinWithNullProbe(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
     {
