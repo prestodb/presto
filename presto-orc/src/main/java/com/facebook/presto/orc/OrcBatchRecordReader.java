@@ -101,7 +101,8 @@ public class OrcBatchRecordReader
                 writeValidation,
                 initialBatchSize,
                 stripeMetadataSource,
-                cacheable);
+                cacheable,
+                Optional.empty());
     }
 
     public int nextBatch()

@@ -31,6 +31,7 @@ import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.PostScript;
 import com.facebook.presto.orc.metadata.StripeInformation;
+import com.facebook.presto.orc.metadata.StripeMetaCache;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.metadata.statistics.StripeStatistics;
 import com.facebook.presto.orc.reader.SelectiveStreamReader;
@@ -178,7 +179,8 @@ public class OrcSelectiveRecordReader
             Optional<OrcWriteValidation> writeValidation,
             int initialBatchSize,
             StripeMetadataSource stripeMetadataSource,
-            boolean cacheable)
+            boolean cacheable,
+            Optional<StripeMetaCache> stripeMetaCache)
     {
         super(includedColumns,
                 requiredSubfields,
@@ -220,7 +222,8 @@ public class OrcSelectiveRecordReader
                 writeValidation,
                 initialBatchSize,
                 stripeMetadataSource,
-                cacheable);
+                cacheable,
+                stripeMetaCache);
 
         // Hive column indices can't be used to index into arrays because they are negative
         // for partition and hidden columns. Hence, we create synthetic zero-based indices.

@@ -1512,7 +1512,13 @@ public class OrcTester
     public static void writeOrcColumnsPresto(File outputFile, Format format, CompressionKind compression, Optional<DwrfWriterEncryption> dwrfWriterEncryption, List<Type> types, List<List<?>> values, WriterStats stats)
             throws Exception
     {
-        OrcWriter writer = createOrcWriter(outputFile, format.orcEncoding, compression, dwrfWriterEncryption, types, new OrcWriterOptions(), stats);
+        writeOrcColumnsPresto(outputFile, format, compression, new OrcWriterOptions(), dwrfWriterEncryption, types, values, stats);
+    }
+
+    public static void writeOrcColumnsPresto(File outputFile, Format format, CompressionKind compression, OrcWriterOptions writerOptions, Optional<DwrfWriterEncryption> dwrfWriterEncryption, List<Type> types, List<List<?>> values, WriterStats stats)
+            throws Exception
+    {
+        OrcWriter writer = createOrcWriter(outputFile, format.orcEncoding, compression, dwrfWriterEncryption, types, writerOptions, stats);
 
         Block[] blocks = new Block[types.size()];
         for (int i = 0; i < types.size(); i++) {

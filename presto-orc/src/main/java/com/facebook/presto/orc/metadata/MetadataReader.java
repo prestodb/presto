@@ -15,10 +15,13 @@ package com.facebook.presto.orc.metadata;
 
 import com.facebook.presto.orc.DwrfEncryptionProvider;
 import com.facebook.presto.orc.DwrfKeyProvider;
+import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcDataSource;
+import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.OrcDecompressor;
 import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
 import com.facebook.presto.orc.metadata.statistics.HiveBloomFilter;
+import io.airlift.slice.Slice;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -30,7 +33,12 @@ public interface MetadataReader
     PostScript readPostScript(byte[] data, int offset, int length)
             throws IOException;
 
-    Metadata readMetadata(HiveWriterVersion hiveWriterVersion, InputStream inputStream)
+    Metadata readMetadata(HiveWriterVersion hiveWriterVersion,
+            OrcDataSourceId dataSourceId,
+            Slice metadataSlice,
+            Optional<OrcDecompressor> decompressor,
+            OrcAggregatedMemoryContext memoryContext,
+            Optional<StripeMetaCache> stripeMetaCache)
             throws IOException;
 
     Footer readFooter(HiveWriterVersion hiveWriterVersion,

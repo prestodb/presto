@@ -40,7 +40,8 @@ public class StorageOrcFileTailSource
 {
     private static final Logger log = Logger.get(StorageOrcFileTailSource.class);
 
-    private static final int EXPECTED_FOOTER_SIZE = 16 * 1024;
+    // try to catch both footer and metadata cache with a large enough first read
+    private static final int EXPECTED_FOOTER_SIZE = 1024 * 1024;
 
     private static final int CURRENT_MAJOR_VERSION = 0;
     private static final int CURRENT_MINOR_VERSION = 12;

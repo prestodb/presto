@@ -186,18 +186,18 @@ public class TestDecryption
     public void testGetStripeDecryptionKeys()
     {
         List<StripeInformation> encryptedStripes = ImmutableList.of(A_STRIPE, NO_KEYS_STRIPE, B_STRIPE, NO_KEYS_STRIPE);
-        assertEquals(getDecryptionKeyMetadata(0, encryptedStripes), A_KEYS);
-        assertEquals(getDecryptionKeyMetadata(1, encryptedStripes), A_KEYS);
-        assertEquals(getDecryptionKeyMetadata(2, encryptedStripes), B_KEYS);
-        assertEquals(getDecryptionKeyMetadata(3, encryptedStripes), B_KEYS);
+        assertEquals(getDecryptionKeyMetadata(0, asStripeInfos(encryptedStripes)), A_KEYS);
+        assertEquals(getDecryptionKeyMetadata(1, asStripeInfos(encryptedStripes)), A_KEYS);
+        assertEquals(getDecryptionKeyMetadata(2, asStripeInfos(encryptedStripes)), B_KEYS);
+        assertEquals(getDecryptionKeyMetadata(3, asStripeInfos(encryptedStripes)), B_KEYS);
     }
 
     @Test
     public void testGetStripeDecryptionKeysUnencrypted()
     {
         List<StripeInformation> unencryptedStripes = ImmutableList.of(NO_KEYS_STRIPE, NO_KEYS_STRIPE);
-        assertEquals(getDecryptionKeyMetadata(0, unencryptedStripes), ImmutableList.of());
-        assertEquals(getDecryptionKeyMetadata(1, unencryptedStripes), ImmutableList.of());
+        assertEquals(getDecryptionKeyMetadata(0, asStripeInfos(unencryptedStripes)), ImmutableList.of());
+        assertEquals(getDecryptionKeyMetadata(1, asStripeInfos(unencryptedStripes)), ImmutableList.of());
     }
 
     @Test
@@ -715,5 +715,10 @@ public class TestDecryption
                 new TestingHiveOrcAggregatedMemoryContext(),
                 Optional.empty(),
                 MAX_BATCH_SIZE);
+    }
+
+    private static List<StripeInfo> asStripeInfos(List<StripeInformation> infos)
+    {
+        return infos.stream().map(StripeInfo::new).collect(toImmutableList());
     }
 }

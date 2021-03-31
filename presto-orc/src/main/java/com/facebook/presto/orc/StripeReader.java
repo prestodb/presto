@@ -46,6 +46,7 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
+import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.Slice;
 
 import java.io.IOException;
@@ -141,16 +142,17 @@ public class StripeReader
     }
 
     public Stripe readStripe(
-            StripeInformation stripe,
+            StripeInfo stripeInfo,
             OrcAggregatedMemoryContext systemMemoryUsage,
             Optional<DwrfEncryptionInfo> decryptors,
             SharedBuffer sharedDecompressionBuffer)
             throws IOException
     {
+        StripeInformation stripe = stripeInfo.getStripe();
         StripeId stripeId = new StripeId(orcDataSource.getId(), stripe.getOffset());
 
         // read the stripe footer
-        StripeFooter stripeFooter = readStripeFooter(stripeId, stripe, systemMemoryUsage);
+        StripeFooter stripeFooter = readStripeFooter(stripeId, stripeInfo, systemMemoryUsage);
 
         // get streams for selected columns
         List<List<Stream>> allStreams = new ArrayList<>();
@@ -178,7 +180,7 @@ public class StripeReader
         Map<StreamId, DiskRange> diskRanges = getDiskRanges(allStreams, Predicates.in(includedStreams.keySet()));
 
         // read the file regions
-        Map<StreamId, OrcInputStream> streamsData = readDiskRanges(stripeId, diskRanges, systemMemoryUsage, decryptors, sharedDecompressionBuffer);
+        Map<StreamId, OrcInputStream> streamsData = readStreamData(stripeId, stripeInfo, diskRanges, systemMemoryUsage, decryptors, sharedDecompressionBuffer);
 
         // handle stripes with more than one row group or a dictionary
         boolean invalidCheckPoint = false;
@@ -322,20 +324,29 @@ public class StripeReader
         return hasRowGroupDictionary;
     }
 
-    private Map<StreamId, OrcInputStream> readDiskRanges(
+    private Map<StreamId, OrcInputStream> readStreamData(
             StripeId stripeId,
+            StripeInfo stripeInfo,
             Map<StreamId, DiskRange> diskRanges,
             OrcAggregatedMemoryContext systemMemoryUsage,
             Optional<DwrfEncryptionInfo> decryptors,
             SharedBuffer sharedDecompressionBuffer)
             throws IOException
     {
-        //
-        // Note: this code does not use the Java 8 stream APIs to avoid any extra object allocation
-        //
+        // get index streams from the stripe meta cache
+        Map<StreamId, OrcDataSourceInput> cachedInputs = getCachedIndexStreams(stripeInfo.getIndexCache(), diskRanges);
 
-        // read ranges
-        Map<StreamId, OrcDataSourceInput> streamsData = stripeMetadataSource.getInputs(orcDataSource, stripeId, diskRanges, cacheable);
+        // get the rest of the streams
+        Map<StreamId, OrcDataSourceInput> readInputs = stripeMetadataSource.getInputs(orcDataSource,
+                stripeId,
+                Maps.filterKeys(diskRanges, key -> !cachedInputs.containsKey(key)),
+                cacheable);
+
+        // merge cached and read streams
+        Map<StreamId, OrcDataSourceInput> streamsData = ImmutableMap.<StreamId, OrcDataSourceInput>builder()
+                .putAll(cachedInputs)
+                .putAll(readInputs)
+                .build();
 
         // transform streams to OrcInputStream
         ImmutableMap.Builder<StreamId, OrcInputStream> streamsBuilder = ImmutableMap.builder();
@@ -352,6 +363,31 @@ public class StripeReader
                     sourceInput.getRetainedSizeInBytes()));
         }
         return streamsBuilder.build();
+    }
+
+    private Map<StreamId, OrcDataSourceInput> getCachedIndexStreams(Optional<Slice> indexCache, Map<StreamId, DiskRange> diskRanges)
+    {
+        if (!indexCache.isPresent()) {
+            return ImmutableMap.of();
+        }
+
+        ImmutableMap.Builder<StreamId, OrcDataSourceInput> cachedIndexes = ImmutableMap.builder();
+        Slice slice = indexCache.get();
+        int sliceLength = slice.length();
+        for (Entry<StreamId, DiskRange> entry : diskRanges.entrySet()) {
+            if (isIndexStream(entry.getKey().getStreamKind())) {
+                DiskRange diskRange = entry.getValue();
+
+                // offset is relative to the beginning of the stripe, we can use it directly
+                int cacheOffset = toIntExact(diskRange.getOffset());
+                if (sliceLength >= cacheOffset + diskRange.getLength()) {
+                    BasicSliceInput rowIndexSlice = slice.slice(cacheOffset, diskRange.getLength()).getInput();
+                    OrcDataSourceInput orcDataSourceInput = new OrcDataSourceInput(rowIndexSlice, diskRange.getLength());
+                    cachedIndexes.put(entry.getKey(), orcDataSourceInput);
+                }
+            }
+        }
+        return cachedIndexes.build();
     }
 
     private Optional<DwrfDataEncryptor> createDwrfDecryptor(StreamId id, Optional<DwrfEncryptionInfo> decryptors)
@@ -464,14 +500,19 @@ public class StripeReader
         return new RowGroup(groupId, rowOffset, rowCount, minAverageRowBytes, rowGroupStreams);
     }
 
-    public StripeFooter readStripeFooter(StripeId stripeId, StripeInformation stripe, OrcAggregatedMemoryContext systemMemoryUsage)
+    public StripeFooter readStripeFooter(StripeId stripeId, StripeInfo stripeInfo, OrcAggregatedMemoryContext systemMemoryUsage)
             throws IOException
     {
-        long footerOffset = stripe.getOffset() + stripe.getIndexLength() + stripe.getDataLength();
+        StripeInformation stripe = stripeInfo.getStripe();
         int footerLength = toIntExact(stripe.getFooterLength());
 
-        // read the footer
-        Slice footerSlice = stripeMetadataSource.getStripeFooterSlice(orcDataSource, stripeId, footerOffset, footerLength, cacheable);
+        // read the footer from the cache or source
+        Slice footerSlice = stripeInfo.getFooterCache().orElse(null);
+        if (footerSlice == null) {
+            long footerOffset = stripe.getOffset() + stripe.getIndexLength() + stripe.getDataLength();
+            footerSlice = stripeMetadataSource.getStripeFooterSlice(orcDataSource, stripeId, footerOffset, footerLength, cacheable);
+        }
+
         try (InputStream inputStream = new OrcInputStream(
                 orcDataSource.getId(),
                 // Memory is not accounted as the buffer is expected to be tiny and will be immediately discarded

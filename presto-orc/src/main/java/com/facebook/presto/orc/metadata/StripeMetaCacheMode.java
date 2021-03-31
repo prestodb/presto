@@ -18,27 +18,30 @@ package com.facebook.presto.orc.metadata;
  */
 public enum StripeMetaCacheMode
 {
-    // no cache
-    NONE(0b00),
-
-    // cache contains stripe indexes
-    INDEX(0b1),
-
-    // cache contains stripe footers
-    FOOTER(0b10),
-
-    // cache contains stripe indexes and footers
-    INDEX_AND_FOOTER(0b11);
+    NONE(0b00, "no cache"),
+    INDEX(0b01, "stripe indexes"),
+    FOOTER(0b10, "stripe footers"),
+    INDEX_AND_FOOTER(0b11, "stripe indexes and footers");
 
     private final int value;
+    private final String description;
 
-    StripeMetaCacheMode(int value)
+    StripeMetaCacheMode(int value, String description)
     {
         this.value = value;
+        this.description = description;
     }
 
     public boolean has(StripeMetaCacheMode test)
     {
         return (value & test.value) == test.value;
+    }
+
+    @Override
+    public String toString()
+    {
+        return "StripeMetaCacheMode{" +
+                "description='" + description + '\'' +
+                '}';
     }
 }

@@ -28,6 +28,7 @@ import com.facebook.presto.orc.metadata.OrcFileTail;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
 import com.facebook.presto.orc.metadata.StripeInformation;
+import com.facebook.presto.orc.metadata.StripeMetaCache;
 import com.facebook.presto.orc.stream.OrcInputStream;
 import com.facebook.presto.orc.stream.SharedBuffer;
 import com.google.common.annotations.VisibleForTesting;
@@ -166,17 +167,20 @@ public class OrcReader
             this.columnsToIntermediateKeys = ImmutableMap.of();
         }
 
-        try (InputStream metadataInputStream = new OrcInputStream(
-                orcDataSource.getId(),
-                // Memory is not accounted as the buffer is expected to be tiny and will be immediately discarded
-                new SharedBuffer(NOOP_ORC_LOCAL_MEMORY_CONTEXT),
-                orcFileTail.getMetadataSlice().getInput(),
-                decompressor,
-                Optional.empty(),
-                aggregatedMemoryContext,
-                orcFileTail.getMetadataSize())) {
-            this.metadata = metadataReader.readMetadata(hiveWriterVersion, metadataInputStream);
+        Slice metadataSlice = orcFileTail.getMetadataSlice();
+        Optional<StripeMetaCache> stripeMetaCache = Optional.empty();
+        if (orcReaderOptions.isStripeMetaCacheEnabled() && !footer.getStripeCacheOffsets().isEmpty()) {
+            stripeMetaCache = Optional.of(new StripeMetaCache(footer.getStripeCacheOffsets(), orcFileTail.getCacheMode(), metadataSlice));
         }
+
+        this.metadata = metadataReader.readMetadata(
+                hiveWriterVersion,
+                orcDataSource.getId(),
+                metadataSlice,
+                decompressor,
+                aggregatedMemoryContext,
+                stripeMetaCache);
+
         validateWrite(writeValidation, orcDataSource, validation -> validation.getColumnNames().equals(footer.getTypes().get(0).getFieldNames()), "Unexpected column names");
         validateWrite(writeValidation, orcDataSource, validation -> validation.getRowGroupMaxRowCount() == footer.getRowsInRowGroup(), "Unexpected rows in group");
         if (writeValidation.isPresent()) {
@@ -185,7 +189,7 @@ public class OrcReader
             writeValidation.get().validateStripeStatistics(orcDataSource.getId(), footer.getStripes(), metadata.getStripeStatsList());
         }
 
-        this.cacheable = requireNonNull(cacheable, "hiveFileContext is null");
+        this.cacheable = cacheable;
     }
 
     @VisibleForTesting
@@ -341,7 +345,8 @@ public class OrcReader
                 writeValidation,
                 initialBatchSize,
                 stripeMetadataSource,
-                cacheable);
+                cacheable,
+                metadata.getStripeMetaCache());
     }
 
     private static OrcDataSource wrapWithCacheIfTiny(OrcDataSource dataSource, DataSize maxCacheSize, OrcAggregatedMemoryContext systemMemoryContext)

@@ -16,6 +16,7 @@ package com.facebook.presto.orc;
 import com.google.common.collect.ImmutableList;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -28,6 +29,7 @@ class TestingOrcDataSource
 
     private int readCount;
     private List<DiskRange> lastReadRanges;
+    private List<DiskRange> readRanges = new ArrayList<>();
 
     public TestingOrcDataSource(OrcDataSource delegate)
     {
@@ -48,6 +50,11 @@ class TestingOrcDataSource
     public List<DiskRange> getLastReadRanges()
     {
         return lastReadRanges;
+    }
+
+    public List<DiskRange> getReadRanges()
+    {
+        return ImmutableList.copyOf(readRanges);
     }
 
     @Override
@@ -74,6 +81,7 @@ class TestingOrcDataSource
     {
         readCount++;
         lastReadRanges = ImmutableList.of(new DiskRange(position, buffer.length));
+        readRanges.addAll(lastReadRanges);
         delegate.readFully(position, buffer);
     }
 
@@ -83,6 +91,7 @@ class TestingOrcDataSource
     {
         readCount++;
         lastReadRanges = ImmutableList.of(new DiskRange(position, bufferLength));
+        readRanges.addAll(lastReadRanges);
         delegate.readFully(position, buffer, bufferOffset, bufferLength);
     }
 
@@ -92,6 +101,7 @@ class TestingOrcDataSource
     {
         readCount += diskRanges.size();
         lastReadRanges = ImmutableList.copyOf(diskRanges.values());
+        readRanges.addAll(lastReadRanges);
         return delegate.readFully(diskRanges);
     }
 }

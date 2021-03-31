@@ -15,7 +15,9 @@ package com.facebook.presto.orc.metadata;
 
 import com.facebook.presto.orc.DwrfEncryptionProvider;
 import com.facebook.presto.orc.DwrfKeyProvider;
+import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcDataSource;
+import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.OrcDecompressor;
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
@@ -35,6 +37,8 @@ import com.facebook.presto.orc.proto.OrcProto;
 import com.facebook.presto.orc.proto.OrcProto.RowIndexEntry;
 import com.facebook.presto.orc.protobuf.ByteString;
 import com.facebook.presto.orc.protobuf.CodedInputStream;
+import com.facebook.presto.orc.stream.OrcInputStream;
+import com.facebook.presto.orc.stream.SharedBuffer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -50,6 +54,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.orc.NoopOrcLocalMemoryContext.NOOP_ORC_LOCAL_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.metadata.CompressionKind.LZ4;
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
@@ -106,13 +111,28 @@ public class OrcMetadataReader
     }
 
     @Override
-    public Metadata readMetadata(HiveWriterVersion hiveWriterVersion, InputStream inputStream)
+    public Metadata readMetadata(HiveWriterVersion hiveWriterVersion,
+            OrcDataSourceId dataSourceId,
+            Slice metadataSlice,
+            Optional<OrcDecompressor> decompressor,
+            OrcAggregatedMemoryContext memoryContext,
+            Optional<StripeMetaCache> stripeMetaCache)
             throws IOException
     {
-        CodedInputStream input = CodedInputStream.newInstance(inputStream);
-        input.setSizeLimit(PROTOBUF_MESSAGE_MAX_LIMIT);
-        OrcProto.Metadata metadata = OrcProto.Metadata.parseFrom(input);
-        return new Metadata(toStripeStatistics(hiveWriterVersion, metadata.getStripeStatsList()));
+        try (InputStream inputStream = new OrcInputStream(
+                dataSourceId,
+                // Memory is not accounted as the buffer is expected to be tiny and will be immediately discarded
+                new SharedBuffer(NOOP_ORC_LOCAL_MEMORY_CONTEXT),
+                metadataSlice.getInput(),
+                decompressor,
+                Optional.empty(),
+                memoryContext,
+                metadataSlice.length())) {
+            CodedInputStream input = CodedInputStream.newInstance(inputStream);
+            input.setSizeLimit(PROTOBUF_MESSAGE_MAX_LIMIT);
+            OrcProto.Metadata metadata = OrcProto.Metadata.parseFrom(input);
+            return new Metadata(toStripeStatistics(hiveWriterVersion, metadata.getStripeStatsList()));
+        }
     }
 
     private static List<StripeStatistics> toStripeStatistics(HiveWriterVersion hiveWriterVersion, List<OrcProto.StripeStatistics> types)

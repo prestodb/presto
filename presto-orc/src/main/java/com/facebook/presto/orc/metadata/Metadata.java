@@ -16,18 +16,31 @@ package com.facebook.presto.orc.metadata;
 import com.facebook.presto.orc.metadata.statistics.StripeStatistics;
 
 import java.util.List;
+import java.util.Optional;
 
 public class Metadata
 {
     private final List<StripeStatistics> stripeStatistics;
+    private final Optional<StripeMetaCache> stripeMetaCache;
 
     public Metadata(List<StripeStatistics> stripeStatistics)
     {
+        this(stripeStatistics, Optional.empty());
+    }
+
+    public Metadata(List<StripeStatistics> stripeStatistics, Optional<StripeMetaCache> stripeMetaCache)
+    {
         this.stripeStatistics = stripeStatistics;
+        this.stripeMetaCache = stripeMetaCache;
     }
 
     public List<StripeStatistics> getStripeStatsList()
     {
         return stripeStatistics;
+    }
+
+    public Optional<StripeMetaCache> getStripeMetaCache()
+    {
+        return stripeMetaCache;
     }
 }

@@ -17,8 +17,10 @@ import com.facebook.presto.orc.DwrfDataEncryptor;
 import com.facebook.presto.orc.DwrfEncryptionProvider;
 import com.facebook.presto.orc.DwrfKeyProvider;
 import com.facebook.presto.orc.EncryptionLibrary;
+import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDataSource;
+import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.OrcDecompressor;
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
@@ -99,9 +101,14 @@ public class DwrfMetadataReader
     }
 
     @Override
-    public Metadata readMetadata(HiveWriterVersion hiveWriterVersion, InputStream inputStream)
+    public Metadata readMetadata(HiveWriterVersion hiveWriterVersion,
+            OrcDataSourceId dataSourceId,
+            Slice metadataSlice,
+            Optional<OrcDecompressor> decompressor,
+            OrcAggregatedMemoryContext memoryContext,
+            Optional<StripeMetaCache> stripeMetaCache)
     {
-        return new Metadata(ImmutableList.of());
+        return new Metadata(ImmutableList.of(), stripeMetaCache);
     }
 
     @Override

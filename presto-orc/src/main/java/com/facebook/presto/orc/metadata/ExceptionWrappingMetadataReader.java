@@ -15,12 +15,14 @@ package com.facebook.presto.orc.metadata;
 
 import com.facebook.presto.orc.DwrfEncryptionProvider;
 import com.facebook.presto.orc.DwrfKeyProvider;
+import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.OrcDecompressor;
 import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
 import com.facebook.presto.orc.metadata.statistics.HiveBloomFilter;
+import io.airlift.slice.Slice;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -55,12 +57,16 @@ public class ExceptionWrappingMetadataReader
         }
     }
 
-    @Override
-    public Metadata readMetadata(HiveWriterVersion hiveWriterVersion, InputStream inputStream)
+    public Metadata readMetadata(HiveWriterVersion hiveWriterVersion,
+            OrcDataSourceId dataSourceId,
+            Slice metadataSlice,
+            Optional<OrcDecompressor> decompressor,
+            OrcAggregatedMemoryContext memoryContext,
+            Optional<StripeMetaCache> stripeMetaCache)
             throws OrcCorruptionException
     {
         try {
-            return delegate.readMetadata(hiveWriterVersion, inputStream);
+            return delegate.readMetadata(hiveWriterVersion, dataSourceId, metadataSlice, decompressor, memoryContext, stripeMetaCache);
         }
         catch (IOException | RuntimeException e) {
             throw propagate(e, "Invalid file metadata");
