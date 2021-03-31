@@ -46,15 +46,17 @@ public class PostScript
     private final List<Integer> version;
     private final long footerLength;
     private final long metadataLength;
+    private final StripeMetaCacheMode cacheMode;
     private final CompressionKind compression;
     private final long compressionBlockSize;
     private final HiveWriterVersion hiveWriterVersion;
 
-    public PostScript(List<Integer> version, long footerLength, long metadataLength, CompressionKind compression, long compressionBlockSize, HiveWriterVersion hiveWriterVersion)
+    public PostScript(List<Integer> version, long footerLength, long metadataLength, StripeMetaCacheMode cacheMode, CompressionKind compression, long compressionBlockSize, HiveWriterVersion hiveWriterVersion)
     {
         this.version = ImmutableList.copyOf(requireNonNull(version, "version is null"));
         this.footerLength = footerLength;
         this.metadataLength = metadataLength;
+        this.cacheMode = requireNonNull(cacheMode, "cacheMode is null");
         this.compression = requireNonNull(compression, "compressionKind is null");
         this.compressionBlockSize = compressionBlockSize;
         this.hiveWriterVersion = requireNonNull(hiveWriterVersion, "hiveWriterVersion is null");
@@ -73,6 +75,11 @@ public class PostScript
     public long getMetadataLength()
     {
         return metadataLength;
+    }
+
+    public StripeMetaCacheMode getCacheMode()
+    {
+        return cacheMode;
     }
 
     public CompressionKind getCompression()
@@ -97,6 +104,7 @@ public class PostScript
                 .add("version", version)
                 .add("footerLength", footerLength)
                 .add("metadataLength", metadataLength)
+                .add("cacheMode", cacheMode)
                 .add("compressionKind", compression)
                 .add("compressionBlockSize", compressionBlockSize)
                 .add("hiveWriterVersion", hiveWriterVersion)

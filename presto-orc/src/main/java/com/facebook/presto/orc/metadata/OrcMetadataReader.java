@@ -91,6 +91,7 @@ public class OrcMetadataReader
                 postScript.getVersionList(),
                 postScript.getFooterLength(),
                 postScript.getMetadataLength(),
+                StripeMetaCacheMode.NONE,
                 toCompression(postScript.getCompression()),
                 postScript.getCompressionBlockSize(),
                 toHiveWriterVersion(postScript.getWriterVersion()));
@@ -145,7 +146,8 @@ public class OrcMetadataReader
                 toType(footer.getTypesList()),
                 toColumnStatistics(hiveWriterVersion, footer.getStatisticsList(), false),
                 toUserMetadata(footer.getMetadataList()),
-                Optional.empty());
+                Optional.empty(),
+                ImmutableList.of());
     }
 
     private static List<StripeInformation> toStripeInformation(List<OrcProto.StripeInformation> types)

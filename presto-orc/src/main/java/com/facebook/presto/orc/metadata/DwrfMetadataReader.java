@@ -91,7 +91,8 @@ public class DwrfMetadataReader
         return new PostScript(
                 ImmutableList.of(),
                 postScript.getFooterLength(),
-                0,
+                postScript.getCacheSize(),
+                toCacheMode(postScript.getCacheMode()),
                 toCompression(postScript.getCompression()),
                 postScript.getCompressionBlockSize(),
                 writerVersion);
@@ -132,7 +133,8 @@ public class DwrfMetadataReader
                 types,
                 fileStats,
                 toUserMetadata(footer.getMetadataList()),
-                encryption);
+                encryption,
+                footer.getStripeCacheOffsetsList());
     }
 
     private List<ColumnStatistics> decryptAndCombineFileStatistics(HiveWriterVersion hiveWriterVersion,
@@ -589,6 +591,8 @@ public class DwrfMetadataReader
                 return StreamKind.ROW_GROUP_DICTIONARY;
             case STRIDE_DICTIONARY_LENGTH:
                 return StreamKind.ROW_GROUP_DICTIONARY_LENGTH;
+            case BLOOM_FILTER_UTF8:
+                return StreamKind.BLOOM_FILTER_UTF8;
             case IN_MAP:
                 return StreamKind.IN_MAP;
             default:
@@ -642,5 +646,19 @@ public class DwrfMetadataReader
         return new StripeEncryptionGroup(
                 encryptedStreams,
                 toColumnEncoding(types, stripeEncryptionGroup.getEncodingList()));
+    }
+
+    private static StripeMetaCacheMode toCacheMode(DwrfProto.StripeCacheMode mode)
+    {
+        switch (mode) {
+            case INDEX:
+                return StripeMetaCacheMode.INDEX;
+            case FOOTER:
+                return StripeMetaCacheMode.FOOTER;
+            case BOTH:
+                return StripeMetaCacheMode.INDEX_AND_FOOTER;
+            default:
+                return StripeMetaCacheMode.NONE;
+        }
     }
 }

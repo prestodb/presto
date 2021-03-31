@@ -671,7 +671,8 @@ public class OrcWriter
                 orcTypes,
                 ImmutableList.copyOf(unencryptedStats),
                 userMetadata,
-                dwrfEncryption);
+                dwrfEncryption,
+                ImmutableList.of());
 
         closedStripes.clear();
         closedStripesRetainedBytes = 0;

@@ -36,8 +36,16 @@ public class Footer
     private final List<ColumnStatistics> fileStats;
     private final Map<String, Slice> userMetadata;
     private final Optional<DwrfEncryption> encryption;
+    private final List<Integer> stripeCacheOffsets;
 
-    public Footer(long numberOfRows, int rowsInRowGroup, List<StripeInformation> stripes, List<OrcType> types, List<ColumnStatistics> fileStats, Map<String, Slice> userMetadata, Optional<DwrfEncryption> encryption)
+    public Footer(long numberOfRows,
+            int rowsInRowGroup,
+            List<StripeInformation> stripes,
+            List<OrcType> types,
+            List<ColumnStatistics> fileStats,
+            Map<String, Slice> userMetadata,
+            Optional<DwrfEncryption> encryption,
+            List<Integer> stripeCacheOffsets)
     {
         this.numberOfRows = numberOfRows;
         this.rowsInRowGroup = rowsInRowGroup;
@@ -47,6 +55,7 @@ public class Footer
         requireNonNull(userMetadata, "userMetadata is null");
         this.userMetadata = ImmutableMap.copyOf(transformValues(userMetadata, Slices::copyOf));
         this.encryption = requireNonNull(encryption, "encryption is null");
+        this.stripeCacheOffsets = ImmutableList.copyOf(requireNonNull(stripeCacheOffsets, "stripeCacheOffsets is null"));
     }
 
     public long getNumberOfRows()
@@ -79,6 +88,11 @@ public class Footer
         return ImmutableMap.copyOf(transformValues(userMetadata, Slices::copyOf));
     }
 
+    public List<Integer> getStripeCacheOffsets()
+    {
+        return stripeCacheOffsets;
+    }
+
     @Override
     public String toString()
     {
@@ -89,6 +103,7 @@ public class Footer
                 .add("types", types)
                 .add("columnStatistics", fileStats)
                 .add("userMetadata", userMetadata.keySet())
+                .add("stripeCacheOffsets", stripeCacheOffsets)
                 .toString();
     }
 

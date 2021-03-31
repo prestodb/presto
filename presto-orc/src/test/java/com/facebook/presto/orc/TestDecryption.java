@@ -159,7 +159,8 @@ public class TestDecryption
                 types,
                 ImmutableList.of(),
                 ImmutableMap.of(),
-                encryption);
+                encryption,
+                ImmutableList.of());
     }
 
     @Test
