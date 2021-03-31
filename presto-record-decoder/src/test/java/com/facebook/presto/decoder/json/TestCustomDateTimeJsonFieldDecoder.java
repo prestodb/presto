@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.decoder.json;
 
-import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.decoder.DecoderTestColumnHandle;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableSet;
@@ -93,7 +93,7 @@ public class TestCustomDateTimeJsonFieldDecoder
                 false,
                 false,
                 false);
-        assertThatThrownBy(() -> new JsonRowDecoderFactory(new ObjectMapperProvider().get()).create(emptyMap(), ImmutableSet.of(columnHandle)))
+        assertThatThrownBy(() -> new JsonRowDecoderFactory(new JsonObjectMapperProvider().get()).create(emptyMap(), ImmutableSet.of(columnHandle)))
                 .isInstanceOf(PrestoException.class)
                 .hasMessageMatching("invalid joda pattern 'XXMM/yyyy/dd H:m:sXX' passed as format hint for column 'some_column'");
     }

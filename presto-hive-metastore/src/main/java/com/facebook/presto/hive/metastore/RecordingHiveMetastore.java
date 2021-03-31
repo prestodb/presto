@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive.metastore;
 
-import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.ForRecordingHiveMetastore;
@@ -108,7 +108,7 @@ public class RecordingHiveMetastore
     void loadRecording()
             throws IOException
     {
-        Recording recording = new ObjectMapperProvider().get().readValue(new File(recordingPath), Recording.class);
+        Recording recording = new JsonObjectMapperProvider().get().readValue(new File(recordingPath), Recording.class);
 
         allDatabases = recording.getAllDatabases();
         allRoles = recording.getAllRoles();
@@ -163,7 +163,7 @@ public class RecordingHiveMetastore
                 toPairs(partitionsByNamesCache),
                 toPairs(tablePrivilegesCache),
                 toPairs(roleGrantsCache));
-        new ObjectMapperProvider().get()
+        new JsonObjectMapperProvider().get()
                 .writerWithDefaultPrettyPrinter()
                 .writeValue(new File(recordingPath), recording);
     }

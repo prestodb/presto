@@ -15,7 +15,7 @@ package com.facebook.presto.common.type;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonCodecFactory;
-import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;
@@ -25,7 +25,7 @@ public class TestParameterKind
     public static final JsonCodec<ParameterKind> PARAMETER_KIND_CODEC;
 
     static {
-        ObjectMapperProvider provider = new ObjectMapperProvider();
+        JsonObjectMapperProvider provider = new JsonObjectMapperProvider();
         JsonCodecFactory codecFactory = new JsonCodecFactory(provider);
         PARAMETER_KIND_CODEC = codecFactory.jsonCodec(ParameterKind.class);
     }
