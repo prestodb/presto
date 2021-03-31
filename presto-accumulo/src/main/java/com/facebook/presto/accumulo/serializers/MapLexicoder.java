@@ -19,10 +19,10 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import static org.apache.accumulo.core.client.lexicoder.impl.ByteUtils.concat;
-import static org.apache.accumulo.core.client.lexicoder.impl.ByteUtils.escape;
-import static org.apache.accumulo.core.client.lexicoder.impl.ByteUtils.split;
-import static org.apache.accumulo.core.client.lexicoder.impl.ByteUtils.unescape;
+import static org.apache.accumulo.core.clientImpl.lexicoder.ByteUtils.concat;
+import static org.apache.accumulo.core.clientImpl.lexicoder.ByteUtils.escape;
+import static org.apache.accumulo.core.clientImpl.lexicoder.ByteUtils.split;
+import static org.apache.accumulo.core.clientImpl.lexicoder.ByteUtils.unescape;
 
 /**
  * Accumulo lexicoder for encoding a Java Map

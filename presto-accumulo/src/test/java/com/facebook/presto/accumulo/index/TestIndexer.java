@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.accumulo.index;
 
+import com.facebook.presto.accumulo.MiniAccumuloConfigUtil;
 import com.facebook.presto.accumulo.metadata.AccumuloTable;
 import com.facebook.presto.accumulo.model.AccumuloColumnHandle;
 import com.facebook.presto.accumulo.serializers.AccumuloRowSerializer;
@@ -20,12 +21,8 @@ import com.facebook.presto.accumulo.serializers.LexicoderRowSerializer;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Type;
 import com.google.common.collect.ImmutableList;
-import org.apache.accumulo.core.client.BatchWriterConfig;
-import org.apache.accumulo.core.client.Connector;
-import org.apache.accumulo.core.client.Instance;
-import org.apache.accumulo.core.client.IteratorSetting;
-import org.apache.accumulo.core.client.Scanner;
-import org.apache.accumulo.core.client.mock.MockInstance;
+import com.google.common.io.Files;
+import org.apache.accumulo.core.client.*;
 import org.apache.accumulo.core.client.security.tokens.PasswordToken;
 import org.apache.accumulo.core.data.Key;
 import org.apache.accumulo.core.data.Mutation;
@@ -33,9 +30,15 @@ import org.apache.accumulo.core.data.Range;
 import org.apache.accumulo.core.data.Value;
 import org.apache.accumulo.core.security.Authorizations;
 import org.apache.accumulo.core.security.ColumnVisibility;
+import org.apache.accumulo.minicluster.MiniAccumuloCluster;
+import org.apache.accumulo.minicluster.MiniAccumuloConfig;
+import org.apache.accumulo.miniclusterImpl.MiniAccumuloConfigImpl;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.io.File;
 import java.util.Iterator;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -75,6 +78,10 @@ public class TestIndexer
     private Mutation m2v;
     private AccumuloTable table;
 
+    private File tempDir;
+    private MiniAccumuloCluster accumulo;
+    private Instance inst;
+
     @BeforeClass
     public void setupClass()
     {
@@ -108,11 +115,27 @@ public class TestIndexer
         m2v.put(CF, SENDERS, visibility2, M2_ARR_VALUE);
     }
 
+    @BeforeMethod
+    public void setup() throws Exception {
+        tempDir = Files.createTempDir();
+        accumulo = new MiniAccumuloCluster(tempDir, "");
+        accumulo.start();
+        inst = new ZooKeeperInstance(accumulo.getInstanceName(), accumulo.getZooKeepers());
+    }
+
+    @AfterMethod
+    public void tearDown() throws Exception {
+        try {
+            accumulo.stop();
+        } finally {
+            tempDir.delete();
+        }
+    }
+
     @Test
     public void testMutationIndex()
             throws Exception
     {
-        Instance inst = new MockInstance();
         Connector conn = inst.getConnector("root", new PasswordToken(""));
         conn.tableOperations().create(table.getFullTableName());
         conn.tableOperations().create(table.getIndexTableName());
@@ -198,8 +221,8 @@ public class TestIndexer
     public void testMutationIndexWithVisibilities()
             throws Exception
     {
-        Instance inst = new MockInstance();
         Connector conn = inst.getConnector("root", new PasswordToken(""));
+        conn.securityOperations().changeUserAuthorizations("root", new Authorizations("private", "moreprivate"));
         conn.tableOperations().create(table.getFullTableName());
         conn.tableOperations().create(table.getIndexTableName());
         conn.tableOperations().create(table.getMetricsTableName());
