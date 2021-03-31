@@ -15,7 +15,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonCodecFactory;
-import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.CatalogSchemaName;
@@ -1377,7 +1377,7 @@ public class MetadataManager
 
     private static JsonCodec<ViewDefinition> createTestingViewCodec(FunctionAndTypeManager functionAndTypeManager)
     {
-        ObjectMapperProvider provider = new ObjectMapperProvider();
+        JsonObjectMapperProvider provider = new JsonObjectMapperProvider();
         provider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(functionAndTypeManager)));
         return new JsonCodecFactory(provider).jsonCodec(ViewDefinition.class);
     }

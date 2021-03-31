@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.TestingBlockEncodingSerde;
@@ -59,7 +59,7 @@ public class TestHiveCanonicalPlanGenerator
         super(() -> createQueryRunner(ImmutableList.of(ORDERS, LINE_ITEM)));
         TestingTypeManager typeManager = new TestingTypeManager();
         TestingBlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
-        this.objectMapper = new ObjectMapperProvider().get()
+        this.objectMapper = new JsonObjectMapperProvider().get()
                 .registerModule(new SimpleModule()
                         .addDeserializer(Type.class, new TestingTypeDeserializer(typeManager))
                         .addSerializer(Block.class, new TestingBlockJsonSerde.Serializer(blockEncodingSerde))

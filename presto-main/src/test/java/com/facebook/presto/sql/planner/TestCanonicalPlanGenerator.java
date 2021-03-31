@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.TestingBlockEncodingSerde;
 import com.facebook.presto.common.block.TestingBlockJsonSerde;
@@ -56,7 +56,7 @@ public class TestCanonicalPlanGenerator
     {
         TestingTypeManager typeManager = new TestingTypeManager();
         TestingBlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
-        this.objectMapper = new ObjectMapperProvider().get()
+        this.objectMapper = new JsonObjectMapperProvider().get()
                 .registerModule(new SimpleModule()
                         .addDeserializer(Type.class, new TestingTypeDeserializer(typeManager))
                         .addSerializer(Block.class, new TestingBlockJsonSerde.Serializer(blockEncodingSerde))
