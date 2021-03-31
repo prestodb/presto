@@ -1464,9 +1464,7 @@ public class OrcTester
                         new DataSize(1, MEGABYTE),
                         new DataSize(1, MEGABYTE),
                         MAX_BLOCK_SIZE,
-                        false,
-                        mapNullKeysEnabled,
-                        false),
+                        ImmutableMap.of(OrcReaderFeature.MAP_NULL_KEYS, mapNullKeysEnabled)),
                 cacheable,
                 new DwrfEncryptionProvider(new UnsupportedEncryptionLibrary(), new TestingEncryptionLibrary()),
                 DwrfKeyProvider.of(intermediateEncryptionKeys));
@@ -1498,9 +1496,7 @@ public class OrcTester
                         new DataSize(1, MEGABYTE),
                         new DataSize(1, MEGABYTE),
                         MAX_BLOCK_SIZE,
-                        false,
-                        mapNullKeysEnabled,
-                        false),
+                        ImmutableMap.of(OrcReaderFeature.MAP_NULL_KEYS, mapNullKeysEnabled)),
                 false,
                 new DwrfEncryptionProvider(new UnsupportedEncryptionLibrary(), new TestingEncryptionLibrary()),
                 DwrfKeyProvider.of(intermediateEncryptionKeys));
@@ -1672,9 +1668,7 @@ public class OrcTester
                         new DataSize(1, MEGABYTE),
                         new DataSize(1, MEGABYTE),
                         MAX_BLOCK_SIZE,
-                        false,
-                        mapNullKeysEnabled,
-                        false),
+                        ImmutableMap.of(OrcReaderFeature.MAP_NULL_KEYS, mapNullKeysEnabled)),
                 false,
                 new DwrfEncryptionProvider(new UnsupportedEncryptionLibrary(), new TestingEncryptionLibrary()),
                 DwrfKeyProvider.of(intermediateEncryptionKeys));

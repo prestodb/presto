@@ -13,7 +13,10 @@
  */
 package com.facebook.presto.orc;
 
+import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
+
+import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
@@ -22,29 +25,23 @@ public class OrcReaderOptions
     private final DataSize maxMergeDistance;
     private final DataSize tinyStripeThreshold;
     private final DataSize maxBlockSize;
-    private final boolean zstdJniDecompressionEnabled;
-    private final boolean mapNullKeysEnabled;
-    private final boolean enableTimestampMicroPrecision;
+    private final Map<OrcReaderFeature, Boolean> featureFlags;
 
     public OrcReaderOptions(DataSize maxMergeDistance, DataSize tinyStripeThreshold, DataSize maxBlockSize, boolean zstdJniDecompressionEnabled)
     {
-        this(maxMergeDistance, tinyStripeThreshold, maxBlockSize, zstdJniDecompressionEnabled, false, false);
+        this(maxMergeDistance, tinyStripeThreshold, maxBlockSize, ImmutableMap.of(OrcReaderFeature.ZSTD_JNI_DECOMPRESSION, zstdJniDecompressionEnabled));
     }
 
     public OrcReaderOptions(
             DataSize maxMergeDistance,
             DataSize tinyStripeThreshold,
             DataSize maxBlockSize,
-            boolean zstdJniDecompressionEnabled,
-            boolean mapNullKeysEnabled,
-            boolean enableTimestampMicroPrecision)
+            Map<OrcReaderFeature, Boolean> featureFlags)
     {
         this.maxMergeDistance = requireNonNull(maxMergeDistance, "maxMergeDistance is null");
         this.maxBlockSize = requireNonNull(maxBlockSize, "maxBlockSize is null");
         this.tinyStripeThreshold = requireNonNull(tinyStripeThreshold, "tinyStripeThreshold is null");
-        this.zstdJniDecompressionEnabled = zstdJniDecompressionEnabled;
-        this.mapNullKeysEnabled = mapNullKeysEnabled;
-        this.enableTimestampMicroPrecision = enableTimestampMicroPrecision;
+        this.featureFlags = ImmutableMap.copyOf(requireNonNull(featureFlags, "featureFlags is null"));
     }
 
     public DataSize getMaxMergeDistance()
@@ -59,7 +56,7 @@ public class OrcReaderOptions
 
     public boolean isOrcZstdJniDecompressionEnabled()
     {
-        return zstdJniDecompressionEnabled;
+        return isFeatureEnabled(OrcReaderFeature.ZSTD_JNI_DECOMPRESSION);
     }
 
     public DataSize getTinyStripeThreshold()
@@ -69,11 +66,21 @@ public class OrcReaderOptions
 
     public boolean mapNullKeysEnabled()
     {
-        return mapNullKeysEnabled;
+        return isFeatureEnabled(OrcReaderFeature.MAP_NULL_KEYS);
     }
 
     public boolean enableTimestampMicroPrecision()
     {
-        return enableTimestampMicroPrecision;
+        return isFeatureEnabled(OrcReaderFeature.TIMESTAMP_MICRO_PRECISION);
+    }
+
+    public boolean isStripeMetaCacheEnabled()
+    {
+        return isFeatureEnabled(OrcReaderFeature.STRIPE_META_CACHE);
+    }
+
+    private boolean isFeatureEnabled(OrcReaderFeature feature)
+    {
+        return featureFlags.getOrDefault(feature, false);
     }
 }

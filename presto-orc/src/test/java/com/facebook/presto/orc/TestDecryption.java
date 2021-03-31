@@ -488,9 +488,7 @@ public class TestDecryption
                         new DataSize(1, MEGABYTE),
                         new DataSize(1, MEGABYTE),
                         MAX_BLOCK_SIZE,
-                        false,
-                        false,
-                        false),
+                        ImmutableMap.of()),
                 false,
                 new DwrfEncryptionProvider(new UnsupportedEncryptionLibrary(), new TestingPlainKeyEncryptionLibrary()),
                 DwrfKeyProvider.of(ImmutableMap.of(0, Slices.utf8Slice("key"))));
