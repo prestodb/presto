@@ -333,6 +333,8 @@ public class PrestoSparkQueryExecutionFactory
 
         QueryId queryId = queryIdGenerator.createNextQueryId();
         log.info("Starting execution for presto query: %s", queryId);
+        System.out.printf("Query id: %s\n", queryId);
+
         SessionContext sessionContext = PrestoSparkSessionContext.createFromSessionInfo(
                 prestoSparkSession,
                 credentialsProviders,
