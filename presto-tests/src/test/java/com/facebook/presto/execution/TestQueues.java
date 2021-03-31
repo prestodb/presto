@@ -16,7 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.http.client.jetty.JettyHttpClient;
-import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.Session;
 import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.resourceGroups.ResourceGroupManagerPlugin;
@@ -87,7 +87,7 @@ public class TestQueues
     {
         queryRunner = createQueryRunner();
         client = new JettyHttpClient();
-        objectMapper = new ObjectMapperProvider().get();
+        objectMapper = new JsonObjectMapperProvider().get();
         objectMapper.registerModule(new SimpleModule() {
             {
                 addKeyDeserializer(VariableReferenceExpression.class, new Serialization.VariableReferenceExpressionDeserializer(createTestFunctionAndTypeManager()));

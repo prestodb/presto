@@ -19,7 +19,7 @@ import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.facebook.airlift.json.JsonCodec;
-import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.security.pem.PemReader;
 import com.facebook.presto.elasticsearch.AwsSecurityConfig;
@@ -112,7 +112,7 @@ public class ElasticsearchClient
     private static final JsonCodec<SearchShardsResponse> SEARCH_SHARDS_RESPONSE_CODEC = jsonCodec(SearchShardsResponse.class);
     private static final JsonCodec<NodesResponse> NODES_RESPONSE_CODEC = jsonCodec(NodesResponse.class);
     private static final JsonCodec<CountResponse> COUNT_RESPONSE_CODEC = jsonCodec(CountResponse.class);
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
+    private static final ObjectMapper OBJECT_MAPPER = new JsonObjectMapperProvider().get();
     private static final Pattern ADDRESS_PATTERN = Pattern.compile("((?<cname>[^/]+)/)?(?<ip>.+):(?<port>\\d+)");
 
     private final RestHighLevelClient client;
