@@ -27,6 +27,7 @@ public class OrcFileTail
     private final int footerSize;
     private final Slice metadataSlice;
     private final int metadataSize;
+    private final StripeMetaCacheMode cacheMode;
 
     public OrcFileTail(
             HiveWriterVersion hiveWriterVersion,
@@ -35,7 +36,8 @@ public class OrcFileTail
             Slice footerSlice,
             int footerSize,
             Slice metadataSlice,
-            int metadataSize)
+            int metadataSize,
+            StripeMetaCacheMode cacheMode)
     {
         this.hiveWriterVersion = requireNonNull(hiveWriterVersion, "hiveWriterVersion is null");
         this.bufferSize = bufferSize;
@@ -44,6 +46,7 @@ public class OrcFileTail
         this.footerSize = footerSize;
         this.metadataSlice = requireNonNull(metadataSlice, "metadataSlice is null");
         this.metadataSize = metadataSize;
+        this.cacheMode = requireNonNull(cacheMode, "cacheMode is null");
     }
 
     public HiveWriterVersion getHiveWriterVersion()
@@ -79,5 +82,10 @@ public class OrcFileTail
     public int getMetadataSize()
     {
         return metadataSize;
+    }
+
+    public StripeMetaCacheMode getCacheMode()
+    {
+        return cacheMode;
     }
 }

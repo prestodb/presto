@@ -114,7 +114,7 @@ public class StorageOrcFileTailSource
         Slice metadataSlice = completeFooterSlice.slice(0, metadataSize);
         Slice footerSlice = completeFooterSlice.slice(metadataSize, footerSize);
 
-        return new OrcFileTail(hiveWriterVersion, bufferSize, compressionKind, footerSlice, footerSize, metadataSlice, metadataSize);
+        return new OrcFileTail(hiveWriterVersion, bufferSize, compressionKind, footerSlice, footerSize, metadataSlice, metadataSize, postScript.getCacheMode());
     }
 
     /**
