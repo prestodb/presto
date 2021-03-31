@@ -66,7 +66,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 @SuppressWarnings("MethodMayBeStatic")
 @State(Scope.Thread)
 @OutputTimeUnit(MILLISECONDS)
-@Fork(0)
+@Fork(2)
 @Warmup(iterations = 3, time = 1000, timeUnit = MILLISECONDS)
 @Measurement(iterations = 10, time = 1000, timeUnit = MILLISECONDS)
 @BenchmarkMode(Mode.AverageTime)
@@ -152,8 +152,9 @@ public class BenchmarkDictionaryWriter
             columnWriter.writeBlock(block);
             columnWriter.finishRowGroup();
         }
-        int maxDirectBytes = toIntExact(new DataSize(128, MEGABYTE).toBytes());
-        columnWriter.tryConvertToDirect(maxDirectBytes);
+        int maxDirectBytes = toIntExact(new DataSize(512, MEGABYTE).toBytes());
+        OptionalInt optionalInt = columnWriter.tryConvertToDirect(maxDirectBytes);
+        checkState(optionalInt.isPresent(), "Column did not covert to direct");
         columnWriter.close();
         columnWriter.reset();
     }

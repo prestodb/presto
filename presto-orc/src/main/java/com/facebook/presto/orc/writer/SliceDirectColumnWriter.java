@@ -142,9 +142,14 @@ public class SliceDirectColumnWriter
 
     void writeSlice(Slice value)
     {
-        lengthStream.writeLong(value.length());
-        dataStream.writeSlice(value);
-        statisticsBuilder.addValue(value);
+        writeSlice(value, 0, value.length());
+    }
+
+    void writeSlice(Slice slice, int sourceIndex, int length)
+    {
+        lengthStream.writeLong(length);
+        dataStream.writeSlice(slice, sourceIndex, length);
+        statisticsBuilder.addValue(slice, sourceIndex, length);
     }
 
     @Override

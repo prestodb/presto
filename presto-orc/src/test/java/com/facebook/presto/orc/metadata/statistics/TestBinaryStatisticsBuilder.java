@@ -59,6 +59,19 @@ public class TestBinaryStatisticsBuilder
     }
 
     @Test
+    public void testSliceWithIndexLength()
+    {
+        BinaryStatisticsBuilder binaryStatisticsBuilder = new BinaryStatisticsBuilder();
+        Slice slice = utf8Slice("abcdefghijklmnopqrstuvwxyz");
+        for (int i = 0; i < slice.length(); i++) {
+            binaryStatisticsBuilder.addValue(slice, i, 1);
+        }
+
+        BinaryStatistics binaryStatistics = binaryStatisticsBuilder.buildColumnStatistics().getBinaryStatistics();
+        assertEquals(binaryStatistics.getSum(), slice.length());
+    }
+
+    @Test
     public void testMerge()
     {
         List<ColumnStatistics> statisticsList = new ArrayList<>();
