@@ -14,6 +14,7 @@
 package com.facebook.presto.server.smile;
 
 import com.facebook.airlift.http.client.StaticBodyGenerator;
+import com.facebook.airlift.json.smile.SmileCodec;
 import com.google.common.annotations.Beta;
 
 @Beta
