@@ -18,11 +18,12 @@ import com.facebook.airlift.http.client.HttpClient.HttpResponseFuture;
 import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.http.client.ResponseHandler;
 import com.facebook.airlift.http.client.StaticBodyGenerator;
+import com.facebook.airlift.json.Codec;
+import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.json.smile.SmileCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.metadata.InternalNode;
-import com.facebook.presto.server.codec.Codec;
 import com.facebook.presto.server.smile.BaseResponse;
-import com.facebook.presto.server.smile.SmileCodec;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import io.airlift.units.Duration;
@@ -42,7 +43,6 @@ import static com.facebook.airlift.http.client.Request.Builder.preparePost;
 import static com.facebook.presto.server.RequestHelpers.setContentTypeHeaders;
 import static com.facebook.presto.server.smile.AdaptingJsonResponseHandler.createAdaptingJsonResponseHandler;
 import static com.facebook.presto.server.smile.FullSmileResponseHandler.createFullSmileResponseHandler;
-import static com.facebook.presto.server.smile.JsonCodecWrapper.unwrapJsonCodec;
 import static com.facebook.presto.server.smile.SmileBodyGenerator.smileBodyGenerator;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.Duration.nanosSince;
@@ -117,7 +117,7 @@ public class RemoteNodeMemory
                 responseHandler = createFullSmileResponseHandler((SmileCodec<MemoryInfo>) memoryInfoCodec);
             }
             else {
-                responseHandler = createAdaptingJsonResponseHandler(unwrapJsonCodec(memoryInfoCodec));
+                responseHandler = createAdaptingJsonResponseHandler((JsonCodec<MemoryInfo>) memoryInfoCodec);
             }
 
             HttpResponseFuture<BaseResponse<MemoryInfo>> responseFuture = httpClient.executeAsync(request, responseHandler);
@@ -159,6 +159,6 @@ public class RemoteNodeMemory
         if (isBinaryTransportEnabled) {
             return smileBodyGenerator((SmileCodec<MemoryPoolAssignmentsRequest>) assignmentsRequestCodec, assignments);
         }
-        return jsonBodyGenerator(unwrapJsonCodec(assignmentsRequestCodec), assignments);
+        return jsonBodyGenerator((JsonCodec<MemoryPoolAssignmentsRequest>) assignmentsRequestCodec, assignments);
     }
 }
