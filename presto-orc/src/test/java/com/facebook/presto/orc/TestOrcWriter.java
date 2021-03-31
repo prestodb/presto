@@ -117,7 +117,7 @@ public class TestOrcWriter
                 int size = 0;
                 boolean dataStreamStarted = false;
                 for (Stream stream : stripeFooter.getStreams()) {
-                    if (isIndexStream(stream)) {
+                    if (isIndexStream(stream.getStreamKind())) {
                         assertFalse(dataStreamStarted);
                         continue;
                     }
