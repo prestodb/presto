@@ -256,6 +256,21 @@ public class TestStringStatisticsBuilder
         assertMinAverageValueBytes((LOW_BOTTOM_VALUE.length() + LOW_TOP_VALUE.length()) / 2 + STRING_VALUE_BYTES_OVERHEAD, ImmutableList.of(LOW_BOTTOM_VALUE, LOW_TOP_VALUE));
     }
 
+    @Test
+    public void testSliceWithIndexLength()
+    {
+        StringStatisticsBuilder builder = new StringStatisticsBuilder(10);
+        Slice slice = utf8Slice("abcdefghijklmnopqrstuvwxyz");
+        for (int i = 0; i < slice.length(); i++) {
+            builder.addValue(slice, i, 1);
+        }
+
+        StringStatistics stringStatistics = builder.buildColumnStatistics().getStringStatistics();
+        assertEquals(stringStatistics.getMin(), slice.slice(0, 1));
+        assertEquals(stringStatistics.getMax(), slice.slice(slice.length() - 1, 1));
+        assertEquals(stringStatistics.getSum(), slice.length());
+    }
+
     private void assertMergedStringStatistics(List<ColumnStatistics> statisticsList, int expectedNumberOfValues, long expectedSum)
     {
         assertStringStatistics(mergeColumnStatistics(statisticsList), expectedNumberOfValues, expectedSum);
