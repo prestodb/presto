@@ -297,7 +297,7 @@ public class OperatorContext
     // listen to revocable memory allocations and call any listeners waiting on task memory allocation
     private void updateTaskRevocableMemoryReservation()
     {
-        driverContext.getPipelineContext().getTaskContext().getQueryContext().getMemoryPool().onTaskMemoryReserved(driverContext.getTaskId());
+        driverContext.getPipelineContext().getTaskContext().getQueryContext().getMemoryPool().onTaskRevocableMemoryReserved(driverContext.getTaskId());
     }
 
     public long getReservedRevocableBytes()
