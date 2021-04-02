@@ -306,12 +306,12 @@ public class MemoryPool
         return reservedRevocableBytes;
     }
 
-    synchronized long getQueryMemoryReservation(QueryId queryId)
+    public synchronized long getQueryMemoryReservation(QueryId queryId)
     {
         return queryMemoryReservations.getOrDefault(queryId, 0L);
     }
 
-    synchronized long getQueryRevocableMemoryReservation(QueryId queryId)
+    public synchronized long getQueryRevocableMemoryReservation(QueryId queryId)
     {
         return queryMemoryRevocableReservations.getOrDefault(queryId, 0L);
     }
