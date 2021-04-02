@@ -145,13 +145,14 @@ public class MemoryPool
             }
         }
 
-        onMemoryReserved();
+        onMemoryReserved(queryId);
         return result;
     }
 
-    private void onMemoryReserved()
+    private void onMemoryReserved(QueryId queryId)
     {
-        listeners.forEach(listener -> listener.onMemoryReserved(this));
+        long totalMemoryReservation = queryMemoryReservations.getOrDefault(queryId, 0L) + queryMemoryRevocableReservations.getOrDefault(queryId, 0L);
+        listeners.forEach(listener -> listener.onMemoryReserved(this, queryId, totalMemoryReservation));
     }
 
     public void onTaskMemoryReserved(TaskId taskId)
@@ -181,7 +182,7 @@ public class MemoryPool
             }
         }
 
-        onMemoryReserved();
+        onMemoryReserved(queryId);
         return result;
     }
 
@@ -202,7 +203,7 @@ public class MemoryPool
             }
         }
 
-        onMemoryReserved();
+        onMemoryReserved(queryId);
         return true;
     }
 
