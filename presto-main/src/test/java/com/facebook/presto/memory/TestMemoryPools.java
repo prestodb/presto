@@ -165,10 +165,10 @@ public class TestMemoryPools
         setupConsumeRevocableMemory(ONE_BYTE, 10);
         AtomicReference<MemoryPool> notifiedPool = new AtomicReference<>();
         AtomicLong notifiedBytes = new AtomicLong();
-        userPool.addListener(MemoryPoolListener.onMemoryReserved(pool -> {
+        userPool.addListener((pool, queryId, memoryReservation) -> {
             notifiedPool.set(pool);
             notifiedBytes.set(pool.getReservedBytes());
-        }));
+        });
 
         userPool.reserve(fakeQueryId, "test", 3);
         assertEquals(notifiedPool.get(), userPool);

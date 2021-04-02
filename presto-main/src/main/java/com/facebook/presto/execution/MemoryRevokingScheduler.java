@@ -22,6 +22,7 @@ import com.facebook.presto.memory.VoidTraversingQueryContextVisitor;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.PipelineContext;
 import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.TaskSpillingStrategy;
@@ -64,7 +65,7 @@ public class MemoryRevokingScheduler
     private final double memoryRevokingTarget;
     private final TaskSpillingStrategy spillingStrategy;
 
-    private final MemoryPoolListener memoryPoolListener = MemoryPoolListener.onMemoryReserved(this::onMemoryReserved);
+    private final MemoryPoolListener memoryPoolListener = this::onMemoryReserved;
 
     @Nullable
     private ScheduledFuture<?> scheduledFuture;
@@ -152,7 +153,7 @@ public class MemoryRevokingScheduler
         memoryPools.forEach(memoryPool -> memoryPool.addListener(memoryPoolListener));
     }
 
-    private void onMemoryReserved(MemoryPool memoryPool)
+    private void onMemoryReserved(MemoryPool memoryPool, QueryId queryId, long queryMemoryReservation)
     {
         try {
             if (!memoryRevokingNeeded(memoryPool)) {
