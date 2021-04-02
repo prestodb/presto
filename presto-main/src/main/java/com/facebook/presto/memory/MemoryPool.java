@@ -155,9 +155,9 @@ public class MemoryPool
         listeners.forEach(listener -> listener.onMemoryReserved(this, queryId, totalMemoryReservation));
     }
 
-    public void onTaskMemoryReserved(TaskId taskId)
+    public void onTaskRevocableMemoryReserved(TaskId taskId)
     {
-        taskRevocableMemoryListeners.forEach(listener -> listener.onMemoryReserved(taskId, this));
+        taskRevocableMemoryListeners.forEach(listener -> listener.onMemoryReserved(taskId));
     }
 
     public ListenableFuture<?> reserveRevocable(QueryId queryId, long bytes)
