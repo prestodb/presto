@@ -37,6 +37,7 @@ import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
+import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
 import org.apache.http.impl.nio.reactor.IOReactorConfig;
@@ -102,6 +103,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.StrictMath.toIntExact;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.list;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static org.elasticsearch.action.search.SearchType.QUERY_THEN_FETCH;
@@ -535,6 +537,36 @@ public class ElasticsearchClient
             return NullNode.getInstance();
         }
         return jsonNode.get(name);
+    }
+
+    public String executeQuery(String index, String query)
+    {
+        String path = format("/%s/_search", index);
+
+        Response response;
+        try {
+            response = client.getLowLevelClient()
+                    .performRequest(
+                            "GET",
+                            path,
+                            ImmutableMap.of(),
+                            new ByteArrayEntity(query.getBytes(UTF_8)),
+                            new BasicHeader("Content-Type", "application/json"),
+                            new BasicHeader("Accept-Encoding", "application/json"));
+        }
+        catch (IOException e) {
+            throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, e);
+        }
+
+        String body;
+        try {
+            body = EntityUtils.toString(response.getEntity());
+        }
+        catch (IOException e) {
+            throw new PrestoException(ELASTICSEARCH_INVALID_RESPONSE, e);
+        }
+
+        return body;
     }
 
     public SearchResponse beginSearch(String index, int shard, QueryBuilder query, Optional<List<String>> fields, List<String> documentFields, Optional<String> sort)
