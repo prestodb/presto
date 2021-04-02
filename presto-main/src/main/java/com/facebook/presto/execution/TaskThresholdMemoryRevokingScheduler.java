@@ -59,7 +59,7 @@ public class TaskThresholdMemoryRevokingScheduler
 
     private final AtomicBoolean checkPending = new AtomicBoolean();
     private final List<MemoryPool> memoryPools;
-    private final TaskRevocableMemoryListener taskRevocableMemoryListener = TaskRevocableMemoryListener.onMemoryReserved(this::onMemoryReserved);
+    private final TaskRevocableMemoryListener taskRevocableMemoryListener = this::onMemoryReserved;
 
     @Inject
     public TaskThresholdMemoryRevokingScheduler(
@@ -136,7 +136,7 @@ public class TaskThresholdMemoryRevokingScheduler
         }
     }
 
-    private void onMemoryReserved(TaskId taskId, MemoryPool memoryPool)
+    private void onMemoryReserved(TaskId taskId)
     {
         try {
             SqlTask task = taskSupplier.apply(taskId);
@@ -145,7 +145,7 @@ public class TaskThresholdMemoryRevokingScheduler
             }
 
             if (checkPending.compareAndSet(false, true)) {
-                log.debug("Scheduling check for %s", memoryPool);
+                log.debug("Scheduling check for %s", taskId);
                 scheduleRevoking();
             }
         }
