@@ -23,12 +23,14 @@ import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spiller.SpillSpaceTracker;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -364,6 +366,11 @@ public class QueryContext
         TaskContext taskContext = taskContexts.get(taskId);
         verify(taskContext != null, "task does not exist");
         return taskContext;
+    }
+
+    public Collection<TaskContext> getAllTaskContexts()
+    {
+        return ImmutableList.copyOf(taskContexts.values());
     }
 
     public QueryId getQueryId()

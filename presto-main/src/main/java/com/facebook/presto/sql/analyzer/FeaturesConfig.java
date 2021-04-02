@@ -247,7 +247,8 @@ public class FeaturesConfig
     {
         ORDER_BY_CREATE_TIME, // When spilling is triggered, revoke tasks in order of oldest to newest
         ORDER_BY_REVOCABLE_BYTES, // When spilling is triggered, revoke tasks by most allocated revocable memory to least allocated revocable memory
-        PER_TASK_MEMORY_THRESHOLD // Spill any task after it reaches the per task memory threshold defined by experimental.spiller.max-revocable-task-memory
+        PER_TASK_MEMORY_THRESHOLD, // Spill any task after it reaches the per task memory threshold defined by experimental.spiller.max-revocable-task-memory
+        PER_QUERY_MEMORY_LIMIT // Spill whenever a query's combined revocable, system, and user memory exceeds the per-node total memory limit
     }
 
     public enum SingleStreamSpillerChoice
