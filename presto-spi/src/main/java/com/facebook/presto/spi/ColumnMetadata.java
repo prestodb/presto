@@ -15,9 +15,12 @@ package com.facebook.presto.spi;
 
 import com.facebook.presto.common.type.Type;
 
+import javax.annotation.Nullable;
+
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.SchemaUtil.checkNotEmpty;
 import static java.util.Collections.emptyMap;
@@ -40,21 +43,37 @@ public class ColumnMetadata
         this(name, type, true, null, null, false, emptyMap());
     }
 
+    /**
+     * @deprecated Use {@link #builder()} instead.
+     */
+    @Deprecated
     public ColumnMetadata(String name, Type type, String comment, boolean hidden)
     {
         this(name, type, true, comment, null, hidden, emptyMap());
     }
 
+    /**
+     * @deprecated Use {@link #builder()} instead.
+     */
+    @Deprecated
     public ColumnMetadata(String name, Type type, String comment, String extraInfo, boolean hidden)
     {
         this(name, type, true, comment, extraInfo, hidden, emptyMap());
     }
 
+    /**
+     * @deprecated Use {@link #builder()} instead.
+     */
+    @Deprecated
     public ColumnMetadata(String name, Type type, String comment, String extraInfo, boolean hidden, Map<String, Object> properties)
     {
         this(name, type, true, comment, extraInfo, hidden, properties);
     }
 
+    /**
+     * @deprecated Use {@link #builder()} instead.
+     */
+    @Deprecated
     public ColumnMetadata(String name, Type type, boolean nullable, String comment, String extraInfo, boolean hidden, Map<String, Object> properties)
     {
         checkNotEmpty(name, "name");
@@ -85,11 +104,13 @@ public class ColumnMetadata
         return nullable;
     }
 
+    @Nullable // TODO make it Optional
     public String getComment()
     {
         return comment;
     }
 
+    @Nullable // TODO make it Optional
     public String getExtraInfo()
     {
         return extraInfo;
@@ -150,5 +171,77 @@ public class ColumnMetadata
                 Objects.equals(this.comment, other.comment) &&
                 Objects.equals(this.extraInfo, other.extraInfo) &&
                 Objects.equals(this.hidden, other.hidden);
+    }
+
+    public static Builder builder()
+    {
+        return new Builder();
+    }
+
+    public static class Builder
+    {
+        private String name;
+        private Type type;
+        private boolean nullable = true;
+        private Optional<String> comment = Optional.empty();
+        private Optional<String> extraInfo = Optional.empty();
+        private boolean hidden;
+        private Map<String, Object> properties = emptyMap();
+
+        private Builder() {}
+
+        public Builder setName(String name)
+        {
+            this.name = requireNonNull(name, "name is null");
+            return this;
+        }
+
+        public Builder setType(Type type)
+        {
+            this.type = requireNonNull(type, "type is null");
+            return this;
+        }
+
+        public Builder setNullable(boolean nullable)
+        {
+            this.nullable = nullable;
+            return this;
+        }
+
+        public Builder setComment(Optional<String> comment)
+        {
+            this.comment = requireNonNull(comment, "comment is null");
+            return this;
+        }
+
+        public Builder setExtraInfo(Optional<String> extraInfo)
+        {
+            this.extraInfo = requireNonNull(extraInfo, "extraInfo is null");
+            return this;
+        }
+
+        public Builder setHidden(boolean hidden)
+        {
+            this.hidden = hidden;
+            return this;
+        }
+
+        public Builder setProperties(Map<String, Object> properties)
+        {
+            this.properties = requireNonNull(properties, "properties is null");
+            return this;
+        }
+
+        public ColumnMetadata build()
+        {
+            return new ColumnMetadata(
+                    name,
+                    type,
+                    nullable,
+                    comment.orElse(null),
+                    extraInfo.orElse(null),
+                    hidden,
+                    properties);
+        }
     }
 }
