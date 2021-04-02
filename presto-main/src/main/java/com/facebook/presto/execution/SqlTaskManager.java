@@ -46,7 +46,6 @@ import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -545,7 +544,6 @@ public class SqlTaskManager
         tasks.getUnchecked(taskId).addStateChangeListener(stateChangeListener);
     }
 
-    @VisibleForTesting
     public QueryContext getQueryContext(QueryId queryId)
 
     {
