@@ -112,7 +112,7 @@ import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.util.CollectionAccumulator;
 import org.joda.time.DateTime;
-import scala.Some;
+import scala.Option;
 import scala.Tuple2;
 
 import javax.inject.Inject;
@@ -382,9 +382,9 @@ public class PrestoSparkQueryExecutionFactory
 
             JavaSparkContext javaSparkContext = new JavaSparkContext(sparkContext);
             CollectionAccumulator<SerializedTaskInfo> taskInfoCollector = new CollectionAccumulator<>();
-            taskInfoCollector.register(sparkContext, new Some<>("taskInfoCollector"), false);
+            taskInfoCollector.register(sparkContext, Option.empty(), false);
             CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector = new CollectionAccumulator<>();
-            shuffleStatsCollector.register(sparkContext, new Some<>("shuffleStatsCollector"), false);
+            shuffleStatsCollector.register(sparkContext, Option.empty(), false);
             TempStorage tempStorage = tempStorageManager.getTempStorage(storageBasedBroadcastJoinStorage);
             queryStateTimer.endAnalysis();
 
