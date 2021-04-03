@@ -29,6 +29,8 @@ public class NodeSelectionStats
     private final CounterStat bucketedPreferredNodeSelectedCount = new CounterStat();
     private final CounterStat bucketedNonPreferredNodeSelectedCount = new CounterStat();
 
+    private final CounterStat preferredNonAliveNodeSkippedCount = new CounterStat();
+
     public void incrementPrimaryPreferredNodeSelectedCount()
     {
         primaryPreferredNodeSelectedCount.update(1);
@@ -52,6 +54,11 @@ public class NodeSelectionStats
     public void incrementBucketedNonPreferredNodeSelectedCount()
     {
         bucketedNonPreferredNodeSelectedCount.update(1);
+    }
+
+    public void incrementPreferredNonAliveNodeSkippedCount()
+    {
+        preferredNonAliveNodeSkippedCount.update(1);
     }
 
     @Managed
@@ -87,5 +94,12 @@ public class NodeSelectionStats
     public CounterStat getBucketedNonPreferredNodeSelectedCount()
     {
         return bucketedNonPreferredNodeSelectedCount;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getPreferredNonAliveNodeSkippedCount()
+    {
+        return preferredNonAliveNodeSkippedCount;
     }
 }
