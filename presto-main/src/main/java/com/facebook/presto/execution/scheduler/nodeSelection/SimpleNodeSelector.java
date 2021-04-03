@@ -227,7 +227,10 @@ public class SimpleNodeSelector
         for (int i = 0; i < candidateNodes.size(); i++) {
             InternalNode node = candidateNodes.get(i);
             if (node.getNodeStatus() == DEAD) {
-                // Node is down. Do not schedule split
+                // Node is down. Do not schedule split. Skip it.
+                if (preferredNodeCount.isPresent() && i < preferredNodeCount.getAsInt()) {
+                    nodeSelectionStats.incrementPreferredNonAliveNodeSkippedCount();
+                }
                 continue;
             }
 
