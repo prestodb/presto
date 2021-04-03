@@ -13,21 +13,18 @@
  */
 package com.facebook.presto.orc.metadata.statistics;
 
-import org.apache.hive.common.util.Murmur3;
+import com.google.common.annotations.VisibleForTesting;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.Arrays;
 
+// This class is Forked from class org.apache.hive.common.util.BloomFilter from the com.facebook.presto.hive:hive-apache
+// https://github.com/apache/hive/blob/master/storage-api/src/java/org/apache/hive/common/util/BloomFilter.java
+// hive-apache has org.apache.hadoop.hive.ql.exec.vector.*ColumnVector classes which conflicts with consumers of presto-orc
 public class BloomFilter
 {
     protected BloomFilter.BitSet bitSet;
     protected int numBits;
     protected int numHashFunctions;
-    public static final int START_OF_SERIALIZED_LONGS = 5;
 
     public BloomFilter()
     {
@@ -72,7 +69,7 @@ public class BloomFilter
 
     public void addBytes(byte[] val, int offset, int length)
     {
-        long hash64 = val == null ? 2862933555777941757L : Murmur3.hash64(val, offset, length);
+        long hash64 = val == null ? Murmur3.NULL_HASHCODE : Murmur3.hash64(val, offset, length);
         this.addHash(hash64);
     }
 
@@ -119,7 +116,7 @@ public class BloomFilter
 
     public boolean testBytes(byte[] val, int offset, int length)
     {
-        long hash64 = val == null ? 2862933555777941757L : Murmur3.hash64(val, offset, length);
+        long hash64 = val == null ? Murmur3.NULL_HASHCODE : Murmur3.hash64(val, offset, length);
         return this.testHash(hash64);
     }
 
@@ -210,66 +207,7 @@ public class BloomFilter
         this.bitSet.clear();
     }
 
-    public static void serialize(OutputStream out, BloomFilter bloomFilter) throws IOException
-    {
-        DataOutputStream dataOutputStream = new DataOutputStream(out);
-        dataOutputStream.writeByte(bloomFilter.numHashFunctions);
-        dataOutputStream.writeInt(bloomFilter.getBitSet().length);
-        long[] var3 = bloomFilter.getBitSet();
-        int var4 = var3.length;
-
-        for (int var5 = 0; var5 < var4; ++var5) {
-            long value = var3[var5];
-            dataOutputStream.writeLong(value);
-        }
-    }
-
-    public static org.apache.hive.common.util.BloomFilter deserialize(InputStream in) throws IOException
-    {
-        if (in == null) {
-            throw new IOException("Input stream is null");
-        }
-        else {
-            try {
-                DataInputStream dataInputStream = new DataInputStream(in);
-                int numHashFunc = dataInputStream.readByte();
-                int numLongs = dataInputStream.readInt();
-                long[] data = new long[numLongs];
-
-                for (int i = 0; i < numLongs; ++i) {
-                    data[i] = dataInputStream.readLong();
-                }
-
-                return new org.apache.hive.common.util.BloomFilter(data, numHashFunc);
-            }
-            catch (RuntimeException var6) {
-                IOException io = new IOException("Unable to deserialize BloomFilter");
-                io.initCause(var6);
-                throw io;
-            }
-        }
-    }
-
-    public static void mergeBloomFilterBytes(byte[] bf1Bytes, int bf1Start, int bf1Length, byte[] bf2Bytes, int bf2Start, int bf2Length)
-    {
-        if (bf1Length != bf2Length) {
-            throw new IllegalArgumentException("bf1Length " + bf1Length + " does not match bf2Length " + bf2Length);
-        }
-        else {
-            int idx;
-            for (idx = 0; idx < START_OF_SERIALIZED_LONGS; ++idx) {
-                if (bf1Bytes[bf1Start + idx] != bf2Bytes[bf2Start + idx]) {
-                    throw new IllegalArgumentException("bf1 NumHashFunctions/NumBits does not match bf2");
-                }
-            }
-
-            for (idx = START_OF_SERIALIZED_LONGS; idx < bf1Length; ++idx) {
-                bf1Bytes[bf1Start + idx] |= bf2Bytes[bf2Start + idx];
-            }
-        }
-    }
-
-    public class BitSet
+    public static class BitSet
     {
         private final long[] data;
 
@@ -319,6 +257,114 @@ public class BloomFilter
         public void clear()
         {
             Arrays.fill(this.data, 0L);
+        }
+    }
+
+    // Murmur3 code was originally from com.facebook.presto.hive:hive-apache jar in the class org.apache.hive.common.util.Murmur3
+    // https://github.com/apache/hive/blob/master/storage-api/src/java/org/apache/hive/common/util/Murmur3.java
+    // hive-apache has org.apache.hadoop.hive.ql.exec.vector.*ColumnVector classes which conflicts with consumers of presto-orc
+    public static class Murmur3
+    {
+        public static final long NULL_HASHCODE = 2862933555777941757L;
+
+        private static final long C1 = 0x87c37b91114253d5L;
+        private static final long C2 = 0x4cf5ad432745937fL;
+        private static final int R1 = 31;
+        private static final int R2 = 27;
+        private static final int M = 5;
+        private static final int N1 = 0x52dce729;
+
+        public static final int DEFAULT_SEED = 104729;
+
+        /**
+         * Murmur3 64-bit variant. This is essentially MSB 8 bytes of Murmur3 128-bit variant.
+         *
+         * @param data - input byte array
+         * @return - hashcode
+         */
+        @VisibleForTesting
+        static long hash64(byte[] data)
+        {
+            return hash64(data, 0, data.length);
+        }
+
+        public static long hash64(byte[] data, int offset, int length)
+        {
+            return hash64(data, offset, length, DEFAULT_SEED);
+        }
+
+        /**
+         * Murmur3 64-bit variant. This is essentially MSB 8 bytes of Murmur3 128-bit variant.
+         *
+         * @param data - input byte array
+         * @param length - length of array
+         * @param seed - seed. (default is 0)
+         * @return - hashcode
+         */
+        public static long hash64(byte[] data, int offset, int length, int seed)
+        {
+            long hash = seed;
+            final int nblocks = length >> 3;
+
+            // body
+            for (int i = 0; i < nblocks; i++) {
+                final int i8 = i << 3;
+                long k = ((long) data[offset + i8] & 0xff)
+                        | (((long) data[offset + i8 + 1] & 0xff) << 8)
+                        | (((long) data[offset + i8 + 2] & 0xff) << 16)
+                        | (((long) data[offset + i8 + 3] & 0xff) << 24)
+                        | (((long) data[offset + i8 + 4] & 0xff) << 32)
+                        | (((long) data[offset + i8 + 5] & 0xff) << 40)
+                        | (((long) data[offset + i8 + 6] & 0xff) << 48)
+                        | (((long) data[offset + i8 + 7] & 0xff) << 56);
+
+                // mix functions
+                k *= C1;
+                k = Long.rotateLeft(k, R1);
+                k *= C2;
+                hash ^= k;
+                hash = Long.rotateLeft(hash, R2) * M + N1;
+            }
+
+            // tail
+            long k1 = 0;
+            int tailStart = nblocks << 3;
+            switch (length - tailStart) {
+                case 7:
+                    k1 ^= ((long) data[offset + tailStart + 6] & 0xff) << 48;
+                case 6:
+                    k1 ^= ((long) data[offset + tailStart + 5] & 0xff) << 40;
+                case 5:
+                    k1 ^= ((long) data[offset + tailStart + 4] & 0xff) << 32;
+                case 4:
+                    k1 ^= ((long) data[offset + tailStart + 3] & 0xff) << 24;
+                case 3:
+                    k1 ^= ((long) data[offset + tailStart + 2] & 0xff) << 16;
+                case 2:
+                    k1 ^= ((long) data[offset + tailStart + 1] & 0xff) << 8;
+                case 1:
+                    k1 ^= ((long) data[offset + tailStart] & 0xff);
+                    k1 *= C1;
+                    k1 = Long.rotateLeft(k1, R1);
+                    k1 *= C2;
+                    hash ^= k1;
+            }
+
+            // finalization
+            hash ^= length;
+            hash = fmix64(hash);
+
+            return hash;
+        }
+
+        private static long fmix64(long h)
+        {
+            h ^= (h >>> 33);
+            h *= 0xff51afd7ed558ccdL;
+            h ^= (h >>> 33);
+            h *= 0xc4ceb9fe1a85ec53L;
+            h ^= (h >>> 33);
+            return h;
         }
     }
 }
