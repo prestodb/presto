@@ -13,12 +13,13 @@
  */
 package com.facebook.presto.parquet.cache;
 
-import com.facebook.presto.parquet.ParquetDataSource;
+import com.facebook.presto.parquet.ParquetDataSourceId;
+import org.apache.hadoop.fs.FSDataInputStream;
 
 import java.io.IOException;
 
 public interface ParquetMetadataSource
 {
-    ParquetFileMetadata getParquetMetadata(ParquetDataSource parquetDataSource, long fileSize, boolean cacheable)
+    ParquetFileMetadata getParquetMetadata(FSDataInputStream inputStream, ParquetDataSourceId parquetDataSourceId, long fileSize, boolean cacheable)
             throws IOException;
 }

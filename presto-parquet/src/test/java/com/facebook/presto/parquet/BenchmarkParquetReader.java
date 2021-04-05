@@ -22,6 +22,9 @@ import com.facebook.presto.parquet.cache.MetadataReader;
 import com.facebook.presto.parquet.reader.ParquetReader;
 import com.google.common.base.Strings;
 import io.airlift.units.DataSize;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.io.ColumnIOConverter;
 import org.apache.parquet.io.MessageColumnIO;
@@ -272,7 +275,7 @@ public class BenchmarkParquetReader
                 throws IOException
         {
             FileParquetDataSource dataSource = new FileParquetDataSource(file);
-            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, file.length()).getParquetMetadata();
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(FileSystem.getLocal(new Configuration()), new Path(file.getAbsolutePath()), file.length()).getParquetMetadata();
             MessageType schema = parquetMetadata.getFileMetaData().getSchema();
             MessageColumnIO messageColumnIO = getColumnIO(schema, schema);
 
