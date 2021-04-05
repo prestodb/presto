@@ -350,6 +350,19 @@ public class Analysis
         return joins.get(NodeRef.of(join));
     }
 
+    public Collection<Join> getJoinNodes()
+    {
+        return ImmutableList.<Join>builder()
+                .addAll(dereference(joins.keySet()))
+                .addAll(dereference(joinUsing.keySet()))
+                .build();
+    }
+
+    public boolean hasJoins()
+    {
+        return !joins.isEmpty() || !joinUsing.isEmpty();
+    }
+
     public void recordSubqueries(Node node, ExpressionAnalysis expressionAnalysis)
     {
         NodeRef<Node> key = NodeRef.of(node);

@@ -26,15 +26,26 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
+import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
+import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Join;
+import com.facebook.presto.sql.tree.JoinCriteria;
+import com.facebook.presto.sql.tree.JoinOn;
+import com.facebook.presto.sql.tree.LogicalBinaryExpression;
+import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import javax.inject.Inject;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -47,6 +58,8 @@ import static com.facebook.presto.sql.NodeUtils.mapFromProperties;
 import static com.facebook.presto.sql.SqlFormatterUtil.getFormattedSql;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MATERIALIZED_VIEW_ALREADY_EXISTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Objects.requireNonNull;
@@ -151,5 +164,135 @@ public class CreateMaterializedViewTask
     public String explain(CreateMaterializedView statement, List<Expression> parameters)
     {
         return "CREATE MATERIALIZED VIEW" + statement.getName();
+    }
+
+    private static void validateMaterializedView(CreateMaterializedView statement, Analysis analysis)
+    {
+        Query query = statement.getQuery();
+        if (analysis.hasJoins()) {
+            if (analysis.getJoinNodes().size() > 1) {
+                throw new SemanticException(NOT_SUPPORTED, query, "More than one join in materialized view is not supported yet.");
+            }
+            analysis.getJoinNodes().forEach(joinNode -> validateJoin(joinNode, analysis));
+        }
+    }
+
+    private static Map<String, Map<SchemaTableName, String>> getViewToBaseColumnMapping(Query query, Analysis analysis)
+    {
+        ImmutableList.Builder<List<Field>> joinColumns = ImmutableList.builder();
+        analysis.getJoinNodes().forEach(joinNode -> new JoinAnalyzerVisitor(joinNode, analysis).process(joinNode, joinColumns));
+
+        ImmutableMap.Builder<String, Map<SchemaTableName, String>> columnMapping = ImmutableMap.builder();
+
+        for (Map.Entry<String, Map<SchemaTableName, String>> entry: analysis.getOriginalColumnMapping(query).entrySet()) {
+            String viewColumn = entry.getKey();
+
+            Map<SchemaTableName, String> baseColumns = new HashMap<>();
+            baseColumns.putAll(entry.getValue());
+
+            for (SchemaTableName baseTable : entry.getValue().keySet()) {
+                String baseColumn = entry.getValue().get(baseTable);
+
+                for (List<Field> joinColumnPair : joinColumns.build()) {
+                    Optional<SchemaTableName> oneJoinBaseTable = joinColumnPair.get(0).getOriginTable().map(name -> toSchemaTableName(name));
+                    Optional<String> oneJoinBaseColumn = joinColumnPair.get(0).getOriginColumnName();
+                    Optional<SchemaTableName> otherJoinBaseTable = joinColumnPair.get(1).getOriginTable().map(name -> toSchemaTableName(name));
+                    Optional<String> otherJoinBaseColumn = joinColumnPair.get(1).getOriginColumnName();
+                    if (!oneJoinBaseTable.isPresent() || !oneJoinBaseColumn.isPresent() || !otherJoinBaseTable.isPresent() || !otherJoinBaseColumn.isPresent()) {
+                        continue;
+                    }
+
+                    if (baseTable.equals(oneJoinBaseTable.get()) && baseColumn.equals(oneJoinBaseColumn.get())) {
+                        baseColumns.put(otherJoinBaseTable.get(), otherJoinBaseColumn.get());
+                    }
+                    else if (baseTable.equals(otherJoinBaseTable.get()) && baseColumn.equals(otherJoinBaseColumn.get())) {
+                        baseColumns.put(oneJoinBaseTable.get(), oneJoinBaseColumn.get());
+                    }
+                }
+            }
+
+            columnMapping.put(viewColumn, ImmutableMap.copyOf(baseColumns));
+        }
+
+        return columnMapping.build();
+    }
+
+    private static void validateJoin(Join joinNode, Analysis analysis)
+    {
+        new JoinAnalyzerVisitor(joinNode, analysis).process(joinNode, ImmutableList.builder());
+    }
+
+    private static class JoinAnalyzerVisitor extends DefaultTraversalVisitor<Void, ImmutableList.Builder<List<Field>>>
+    {
+        private final Join joinNode;
+        private final Analysis analysis;
+
+        public JoinAnalyzerVisitor(Join joinNode, Analysis analysis)
+        {
+            this.joinNode = joinNode;
+            this.analysis = analysis;
+        }
+
+        @Override
+        protected Void visitJoin(Join node, ImmutableList.Builder<List<Field>> builder)
+        {
+            if (!node.getType().equals(Join.Type.INNER)) {
+                throw new SemanticException(NOT_SUPPORTED, node, "Only inner join is supported for materialized view.");
+            }
+            if (!node.getCriteria().isPresent()) {
+                throw new SemanticException(NOT_SUPPORTED, node, "Join with no criteria is not supported for materialized view.");
+            }
+
+            JoinCriteria joinCriteria = node.getCriteria().get();
+            if (!(joinCriteria instanceof JoinOn)) {
+                throw new SemanticException(NOT_SUPPORTED, node, "Only join-on is supported for materialized view.");
+            }
+
+            process(((JoinOn) joinCriteria).getExpression(), builder);
+            return null;
+        }
+
+        @Override
+        protected Void visitLogicalBinaryExpression(LogicalBinaryExpression node, ImmutableList.Builder<List<Field>> builder)
+        {
+            if (!node.getOperator().equals(LogicalBinaryExpression.Operator.AND)) {
+                throw new SemanticException(NOT_SUPPORTED, node, "Only AND operator is supported for join criteria for materialized view.");
+            }
+            return super.visitLogicalBinaryExpression(node, builder);
+        }
+
+        @Override
+        protected Void visitComparisonExpression(ComparisonExpression node, ImmutableList.Builder<List<Field>> builder)
+        {
+            if (!node.getOperator().equals(ComparisonExpression.Operator.EQUAL)) {
+                throw new SemanticException(NOT_SUPPORTED, node, "Only EQUAL join is supported for materialized view.");
+            }
+            Field left = analysis.getScope(joinNode).tryResolveField(node.getLeft())
+                    .orElseThrow(() -> new SemanticException(NOT_SUPPORTED, node.getLeft(), "%s in join criteria is not supported for materialized view.", node.getLeft().getClass().getSimpleName()))
+                    .getField();
+            Field right = analysis.getScope(joinNode).tryResolveField(node.getRight())
+                    .orElseThrow(() -> new SemanticException(NOT_SUPPORTED, node.getRight(), "%s in join criteria is not supported for materialized view.", node.getRight().getClass().getSimpleName()))
+                    .getField();
+            builder.add(ImmutableList.of(left, right));
+            return null;
+        }
+
+        @Override
+        protected Void visitExpression(Expression node, ImmutableList.Builder<List<Field>> builder)
+        {
+            throw new SemanticException(NOT_SUPPORTED, node, "%s is not supported for materialized view.", node.getClass().getSimpleName());
+        }
+
+        private void processJoinUsingAnalysis(Analysis.JoinUsingAnalysis joinUsingAnalysis, ImmutableList.Builder<List<Field>> builder)
+        {
+            checkState(joinUsingAnalysis != null, "joinUsingAnalysis is missing.");
+            checkState(joinUsingAnalysis.getLeftJoinFields().size() == joinUsingAnalysis.getRightJoinFields().size(), "leftJoinFields and rightJoinFields are of different size.");
+
+            for (int i = 0; i < joinUsingAnalysis.getLeftJoinFields().size(); i++) {
+                Field left = analysis.getOutputDescriptor(joinNode.getLeft()).getFieldByIndex(joinUsingAnalysis.getLeftJoinFields().get(i));
+                Field right = analysis.getOutputDescriptor(joinNode.getRight()).getFieldByIndex(joinUsingAnalysis.getRightJoinFields().get(i));
+                builder.add(ImmutableList.of(left, right));
+            }
+        }
     }
 }
