@@ -650,9 +650,9 @@ public final class HttpRemoteTask
                 pendingSourceSplitCount -= removed;
             }
         }
-        updateSplitQueueSpace();
-
+        // Update stats before split queue space to ensure node stats are up to date before waking up the scheduler
         updateTaskStats();
+        updateSplitQueueSpace();
     }
 
     private void updateTaskInfo(TaskInfo taskInfo)
