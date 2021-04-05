@@ -1531,6 +1531,51 @@ public class TestHiveLogicalPlanner
     }
 
     @Test
+    public void testMaterializedViewForUnionAllWithMultipleTables()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        String table1 = "orders_key_small_union";
+        String table2 = "orders_key_large_union";
+        String view = "orders_view_union";
+        try {
+            queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['ds']) AS " +
+                    "SELECT orderkey, '2020-01-01' as ds FROM orders WHERE orderkey < 1000 " +
+                    "UNION ALL " +
+                    "SELECT orderkey, '2019-01-02' as ds FROM orders WHERE orderkey > 1000 and orderkey < 2000", table1));
+
+            queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['ds']) AS " +
+                    "SELECT orderkey, '2020-01-01' as ds FROM orders WHERE orderkey > 2000 and orderkey < 3000 " +
+                    "UNION ALL " +
+                    "SELECT orderkey, '2019-01-02' as ds FROM orders WHERE orderkey > 3000 and orderkey < 4000", table2));
+
+            assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds']) AS " +
+                    "SELECT orderkey AS view_orderkey, ds FROM ( " +
+                    "SELECT orderkey, ds FROM %s " +
+                    "UNION ALL " +
+                    "SELECT orderkey, ds FROM %s ) ", view, table1, table2));
+
+            assertTrue(queryRunner.tableExists(getSession(), view));
+
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2020-01-01'", view), 503);
+
+            String viewQuery = format("SELECT view_orderkey, ds from %s where view_orderkey <  10000 ORDER BY view_orderkey", view);
+            String baseQuery = format("SELECT orderkey AS view_orderkey, ds FROM ( " +
+                    "SELECT orderkey, ds FROM %s " +
+                    "UNION ALL " +
+                    "SELECT orderkey, ds FROM %s ) " +
+                    "WHERE orderkey < 10000 ORDER BY orderkey", table1, table2);
+            MaterializedResult viewTable = computeActual(viewQuery);
+            MaterializedResult baseTable = computeActual(baseQuery);
+            assertEquals(viewTable, baseTable);
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS " + view);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table1);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table2);
+        }
+    }
+
+    @Test
     public void testMaterializedViewForGroupingSet()
     {
         QueryRunner queryRunner = getQueryRunner();
@@ -1877,8 +1922,7 @@ public class TestHiveLogicalPlanner
         }
     }
 
-    //TODO: Populate columnMappings to cover all joined base tables, https://github.com/prestodb/presto/issues/16220
-    @Test(enabled = false)
+    @Test
     public void testMaterializedViewForJoin()
     {
         QueryRunner queryRunner = getQueryRunner();
@@ -1889,22 +1933,28 @@ public class TestHiveLogicalPlanner
             queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['ds']) AS " +
                     "SELECT orderkey, '2020-01-01' as ds FROM orders WHERE orderkey < 1000 " +
                     "UNION ALL " +
-                    "SELECT orderkey, '2019-01-02' as ds FROM orders WHERE orderkey > 1000", table1));
+                    "SELECT orderkey, '2019-01-02' as ds FROM orders WHERE orderkey > 1000 and orderkey < 2000", table1));
 
             queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['ds']) AS " +
-                    "SELECT totalprice, '2020-01-01' as ds FROM orders WHERE orderkey < 1000 " +
+                    "SELECT orderkey, totalprice, '2020-01-01' as ds FROM orders WHERE orderkey < 1000 " +
                     "UNION ALL " +
-                    "SELECT totalprice, '2019-01-02' as ds FROM orders WHERE orderkey > 1000", table2));
+                    "SELECT orderkey, totalprice, '2019-01-02' as ds FROM orders WHERE orderkey > 1000 and orderkey < 2000", table2));
 
-            assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds']) " +
-                    "AS SELECT t1.orderkey as view_orderkey, t2.totalprice as view_totalprice, t1.ds" +
-                    " FROM %s t1 inner join  %s t2 ON t1.ds=t2.ds", view, table1, table2));
+            assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds']) AS " +
+                    "SELECT t1.orderkey as view_orderkey, t2.totalprice as view_totalprice, t1.ds " +
+                    "FROM %s t1 inner join %s t2 ON (t1.ds=t2.ds AND t1.orderkey = t2.orderkey)", view, table1, table2));
 
             assertTrue(queryRunner.tableExists(getSession(), view));
 
-            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2020-01-01'", view), 65025);
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2020-01-01'", view), 255);
 
-            String viewQuery = format("SELECT view_orderkey, view_totalprice from %s where view_orderkey < 10000", view);
+            String viewQuery = format("SELECT view_orderkey, view_totalprice, ds FROM %s WHERE view_orderkey <  10000 ORDER BY view_orderkey", view);
+            String baseQuery = format("SELECT t1.orderkey as view_orderkey, t2.totalprice as view_totalprice, t1.ds " +
+                    "FROM %s t1 inner join  %s t2 ON (t1.ds=t2.ds AND t1.orderkey = t2.orderkey) " +
+                    "WHERE t1.orderkey < 10000 ORDER BY t1.orderkey", table1, table2);
+            MaterializedResult viewTable = computeActual(viewQuery);
+            MaterializedResult baseTable = computeActual(baseQuery);
+            assertEquals(viewTable, baseTable);
             // getExplainPlan(viewQuery, LOGICAL);
         }
         finally {
@@ -2021,7 +2071,7 @@ public class TestHiveLogicalPlanner
                             "AS SELECT t1.orderkey as view_orderkey, t2.totalprice as view_totalprice, " +
                             "t1.ds as ds, t1.orderpriority as view_orderpriority, t2.orderstatus as view_orderstatus " +
                             " FROM %s t1 full outer join %s t2 ON t1.ds=t2.ds", view, table1, table2),
-                    ".*Only inner join is supported for materialized view.*");
+                    ".*Only inner join and cross join unnested are supported for materialized view.*");
         }
         finally {
             queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);

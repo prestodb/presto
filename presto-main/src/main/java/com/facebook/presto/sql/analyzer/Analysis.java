@@ -18,7 +18,6 @@ import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.security.Identity;
@@ -65,14 +64,12 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.isCheckAccessControlOnUtilizedColumnsOnly;
-import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
 import static com.facebook.presto.sql.analyzer.Analysis.MaterializedViewAnalysisState.NOT_VISITED;
 import static com.facebook.presto.sql.analyzer.Analysis.MaterializedViewAnalysisState.VISITED;
 import static com.facebook.presto.sql.analyzer.Analysis.MaterializedViewAnalysisState.VISITING;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Multimaps.forMap;
 import static com.google.common.collect.Multimaps.unmodifiableMultimap;
 import static java.lang.String.format;
@@ -799,15 +796,6 @@ public class Analysis
     public boolean isOrderByRedundant(OrderBy orderBy)
     {
         return redundantOrderBy.contains(NodeRef.of(orderBy));
-    }
-
-    public Map<String, Map<SchemaTableName, String>> getOriginalColumnMapping(Node node)
-    {
-        return getOutputDescriptor(node).getVisibleFields().stream()
-                .filter(field -> field.getOriginTable().isPresent() && field.getOriginColumnName().isPresent())
-                .collect(toImmutableMap(
-                        field -> field.getName().get(),
-                        field -> ImmutableMap.of(toSchemaTableName(field.getOriginTable().get()), field.getOriginColumnName().get())));
     }
 
     @Immutable
