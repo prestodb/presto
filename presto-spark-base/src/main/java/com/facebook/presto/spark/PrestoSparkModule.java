@@ -238,13 +238,16 @@ public class PrestoSparkModule
 
         // smile codecs
         smileCodecBinder(binder).bindSmileCodec(TaskSource.class);
+        smileCodecBinder(binder).bindSmileCodec(TaskInfo.class);
 
         PrestoSparkConfig prestoSparkConfig = buildConfigObject(PrestoSparkConfig.class);
         if (prestoSparkConfig.isSmileSerializationEnabled()) {
             binder.bind(new TypeLiteral<Codec<TaskSource>>() {}).to(new TypeLiteral<SmileCodec<TaskSource>>() {}).in(Scopes.SINGLETON);
+            binder.bind(new TypeLiteral<Codec<TaskInfo>>() {}).to(new TypeLiteral<SmileCodec<TaskInfo>>() {}).in(Scopes.SINGLETON);
         }
         else {
             binder.bind(new TypeLiteral<Codec<TaskSource>>() {}).to(new TypeLiteral<JsonCodec<TaskSource>>() {}).in(Scopes.SINGLETON);
+            binder.bind(new TypeLiteral<Codec<TaskInfo>>() {}).to(new TypeLiteral<JsonCodec<TaskInfo>>() {}).in(Scopes.SINGLETON);
         }
 
         // index manager

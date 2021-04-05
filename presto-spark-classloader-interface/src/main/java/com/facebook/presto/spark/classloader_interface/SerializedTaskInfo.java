@@ -20,7 +20,7 @@ import static java.util.Objects.requireNonNull;
 public class SerializedTaskInfo
         implements Serializable
 {
-    private final byte[] bytes;
+    private byte[] bytes;
 
     public SerializedTaskInfo(byte[] bytes)
     {
@@ -29,7 +29,14 @@ public class SerializedTaskInfo
 
     public byte[] getBytes()
     {
-        return bytes;
+        return requireNonNull(bytes, "bytes is null");
+    }
+
+    public byte[] getBytesAndClear()
+    {
+        byte[] result = getBytes();
+        bytes = null;
+        return result;
     }
 
     @Override
