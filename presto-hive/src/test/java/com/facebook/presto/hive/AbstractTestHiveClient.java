@@ -4770,6 +4770,8 @@ public abstract class AbstractTestHiveClient
             List<? extends ColumnHandle> columnHandles)
             throws IOException
     {
+        // Some page sources may need to read additional bytes (eg: the metadata footer) in addition to the split data
+        long initialPageSourceCompletedBytes = pageSource.getCompletedBytes();
         try {
             MaterializedResult result = materializeSourceDataStream(newSession(), pageSource, getTypes(columnHandles));
 
@@ -4966,11 +4968,11 @@ public abstract class AbstractTestHiveClient
 
                 long newCompletedBytes = pageSource.getCompletedBytes();
                 assertTrue(newCompletedBytes >= completedBytes);
-                assertTrue(newCompletedBytes <= hiveSplit.getLength());
+                assertTrue(newCompletedBytes <= hiveSplit.getLength() + initialPageSourceCompletedBytes);
                 completedBytes = newCompletedBytes;
             }
 
-            assertTrue(completedBytes <= hiveSplit.getLength());
+            assertTrue(completedBytes <= hiveSplit.getLength() + initialPageSourceCompletedBytes);
             assertEquals(rowNumber, 100);
         }
         finally {
