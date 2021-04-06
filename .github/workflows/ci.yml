@@ -59,7 +59,6 @@ jobs:
         run: presto-main/bin/check_webui.sh
 
   product-tests-basic-environment:
-    if: ${{ false }}  # disable for now
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -88,7 +87,6 @@ jobs:
         run: presto-product-tests/bin/run_on_docker.sh multinode -x quarantine,big_query,storage_formats,profile_specific_tests,tpcds,cassandra,mysql_connector,postgresql_connector,mysql,kafka,avro
 
   product-tests-specific-environment1:
-    if: ${{ false }}  # disable for now
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -127,7 +125,6 @@ jobs:
         run: presto-product-tests/bin/run_on_docker.sh multinode-tls-kerberos -g cli,group-by,join,tls
 
   product-tests-specific-environment2:
-    if: ${{ false }}  # disable for now
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -202,7 +199,6 @@ jobs:
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl :presto-hive-hadoop2
       - name: Run Hive Tests
-        if: ${{ false }}  # disable for now
         run: presto-hive-hadoop2/bin/run_hive_tests.sh
       - name: Run Hive S3 Tests
         env:
