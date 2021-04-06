@@ -473,9 +473,9 @@ public class HiveWriterFactory
     {
         // Note: temporary table is always empty at this step
         if (!table.getTableType().equals(TEMPORARY_TABLE)) {
-            if (bucketNumber.isPresent()) {
-                throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Cannot insert into bucketed unpartitioned Hive table");
-            }
+//            if (bucketNumber.isPresent()) {
+//                throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Cannot insert into bucketed unpartitioned Hive table");
+//            }
             if (immutablePartitions) {
                 throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Unpartitioned Hive tables are immutable");
             }

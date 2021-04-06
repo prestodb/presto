@@ -1017,6 +1017,12 @@
             </dependency>
 
             <dependency>
+                <groupId>com.eren-ck</groupId>
+                <artifactId>MortonLib</artifactId>
+                <version>1.0-SNAPSHOT</version>
+            </dependency>
+
+            <dependency>
                 <groupId>org.apache.thrift</groupId>
                 <artifactId>libthrift</artifactId>
                 <version>0.9.3</version>

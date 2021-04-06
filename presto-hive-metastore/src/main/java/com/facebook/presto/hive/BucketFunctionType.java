@@ -16,5 +16,6 @@ package com.facebook.presto.hive;
 public enum BucketFunctionType
 {
     HIVE_COMPATIBLE,
-    PRESTO_NATIVE
+    PRESTO_NATIVE,
+    HIVE_CLUSTERING
 }

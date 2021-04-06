@@ -344,10 +344,15 @@ public final class HiveQueryRunner
                 sql = format("CREATE TABLE %s AS SELECT * FROM %s", table.getObjectName(), table);
                 break;
             case "lineitem":
-                sql = format("CREATE TABLE %s WITH (bucketed_by=array['orderkey'], bucket_count=11) AS SELECT * FROM %s", table.getObjectName(), table);
+                sql = format(
+                        "CREATE TABLE %s WITH (bucketed_by=array['orderkey'], bucket_count=11, " +
+                        "distribution=array['150', '300', '450', '600', '750', '900', '1050', '1200', '1350']) " +
+                        "AS SELECT * FROM %s", table.getObjectName(), table);
                 break;
             case "customer":
-                sql = format("CREATE TABLE %s WITH (bucketed_by=array['custkey'], bucket_count=11) AS SELECT * FROM %s", table.getObjectName(), table);
+                sql = format("CREATE TABLE %s WITH (bucketed_by=array['custkey'], bucket_count=11, " +
+                        "distribution=array['150', '300', '450', '600', '750', '900', '1050', '1200', '1350']) " +
+                        "AS SELECT * FROM %s", table.getObjectName(), table);
                 break;
             case "orders":
                 sql = format("CREATE TABLE %s WITH (bucketed_by=array['custkey'], bucket_count=11) AS SELECT * FROM %s", table.getObjectName(), table);

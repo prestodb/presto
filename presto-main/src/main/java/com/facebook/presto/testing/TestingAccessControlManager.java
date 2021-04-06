@@ -163,9 +163,9 @@ public class TestingAccessControlManager
         if (shouldDenyPrivilege(identity.getUser(), tableName.getObjectName(), DROP_TABLE)) {
             denyDropTable(tableName.toString());
         }
-        if (denyPrivileges.isEmpty()) {
-            super.checkCanDropTable(transactionId, identity, context, tableName);
-        }
+//        if (denyPrivileges.isEmpty()) {
+//            super.checkCanDropTable(transactionId, identity, context, tableName);
+//        }
     }
 
     @Override

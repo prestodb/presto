@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.hive.clustering.HiveClusteringFunction;
 import com.facebook.presto.spi.BucketFunction;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -57,6 +58,8 @@ public class HiveNodePartitioningProvider
                 return createHiveCompatibleBucketFunction(bucketCount, handle.getHiveTypes().get());
             case PRESTO_NATIVE:
                 return createPrestoNativeBucketFunction(bucketCount, handle.getTypes().get());
+            case HIVE_CLUSTERING:
+                return HiveClusteringFunction.createHiveClusteringFunction(handle.getHiveTypes());
             default:
                 throw new IllegalArgumentException("Unsupported bucket function type " + bucketFunctionType);
         }

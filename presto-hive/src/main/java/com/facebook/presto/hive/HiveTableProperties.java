@@ -46,6 +46,7 @@ public class HiveTableProperties
     public static final String PARTITIONED_BY_PROPERTY = "partitioned_by";
     public static final String BUCKETED_BY_PROPERTY = "bucketed_by";
     public static final String BUCKET_COUNT_PROPERTY = "bucket_count";
+    public static final String DISTRIBUTION_PROPERTY = "distribution";
     public static final String SORTED_BY_PROPERTY = "sorted_by";
     public static final String ORC_BLOOM_FILTER_COLUMNS = "orc_bloom_filter_columns";
     public static final String ORC_BLOOM_FILTER_FPP = "orc_bloom_filter_fpp";
@@ -93,6 +94,17 @@ public class HiveTableProperties
                 new PropertyMetadata<>(
                         BUCKETED_BY_PROPERTY,
                         "Bucketing columns",
+                        typeManager.getType(parseTypeSignature("array(varchar)")),
+                        List.class,
+                        ImmutableList.of(),
+                        false,
+                        value -> ImmutableList.copyOf(((Collection<?>) value).stream()
+                                .map(name -> ((String) name).toLowerCase(ENGLISH))
+                                .collect(Collectors.toList())),
+                        value -> value),
+                new PropertyMetadata<>(
+                        DISTRIBUTION_PROPERTY,
+                        "data distribution given bucket columns",
                         typeManager.getType(parseTypeSignature("array(varchar)")),
                         List.class,
                         ImmutableList.of(),
