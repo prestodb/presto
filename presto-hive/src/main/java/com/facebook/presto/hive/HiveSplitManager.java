@@ -553,8 +553,9 @@ public class HiveSplitManager
                 for (Map.Entry<String, HiveColumnHandle> predicateColumnEntry : predicateColumns.entrySet()) {
                     if (columnStatistics.containsKey(predicateColumnEntry.getKey())) {
                         Optional<ValueSet> columnsStatisticsValueSet = getColumnStatisticsValueSet(columnStatistics.get(predicateColumnEntry.getKey()), predicateColumnEntry.getValue().getHiveType());
-                        if (columnsStatisticsValueSet.isPresent()) {
-                            ValueSet columnPredicateValueSet = domains.get().get(new Subfield(predicateColumnEntry.getKey())).getValues();
+                        Subfield subfield = new Subfield(predicateColumnEntry.getKey());
+                        if (columnsStatisticsValueSet.isPresent() && domains.get().containsKey(subfield)) {
+                            ValueSet columnPredicateValueSet = domains.get().get(subfield).getValues();
                             if (!columnPredicateValueSet.overlaps(columnsStatisticsValueSet.get())) {
                                 pruned = true;
                                 break;
