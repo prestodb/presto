@@ -108,6 +108,7 @@ public class TestQueryStateInfo
                         DateTime.parse("1991-09-06T05:02-05:30"),
                         DateTime.parse("1991-09-06T06:00-05:30"),
                         Duration.valueOf("8m"),
+                        Duration.valueOf("5m"),
                         Duration.valueOf("7m"),
                         Duration.valueOf("34m"),
                         Duration.valueOf("35m"),
