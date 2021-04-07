@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.tests;
+package com.facebook.presto.testng.services;
 
 import com.facebook.airlift.log.Logger;
 import com.google.common.collect.ImmutableMap;
@@ -103,7 +103,7 @@ public class LogTestDurationListener
         Map<String, Long> runningTests = ImmutableMap.copyOf(started);
         if (!runningTests.isEmpty()) {
             String testDetails = runningTests.entrySet().stream()
-                    .map(entry -> String.format("%s running for %s", entry.getKey(), nanosSince(entry.getValue())))
+                    .map(entry -> format("%s running for %s", entry.getKey(), nanosSince(entry.getValue())))
                     .collect(joining("\n\t", "\n\t", ""));
             dumpAllThreads(format("No test started or completed in %s. Running tests:%s.", GLOBAL_IDLE_LOGGING_THRESHOLD, testDetails));
         }

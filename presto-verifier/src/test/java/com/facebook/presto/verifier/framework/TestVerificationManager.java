@@ -55,6 +55,7 @@ import static com.facebook.presto.verifier.prestoaction.QueryActionStats.EMPTY_S
 import static com.google.common.base.Preconditions.checkArgument;
 import static org.testng.Assert.assertEquals;
 
+@Test(singleThreaded = true)
 public class TestVerificationManager
 {
     private static class MockPrestoAction
