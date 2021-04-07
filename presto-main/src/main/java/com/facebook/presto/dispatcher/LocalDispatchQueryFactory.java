@@ -37,6 +37,7 @@ import javax.inject.Inject;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.util.StatementUtils.isTransactionControlStatement;
@@ -91,7 +92,8 @@ public class LocalDispatchQueryFactory
             int retryCount,
             ResourceGroupId resourceGroup,
             Optional<QueryType> queryType,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            Consumer<DispatchQuery> queryQueuer)
     {
         QueryStateMachine stateMachine = QueryStateMachine.begin(
                 query,
@@ -123,6 +125,7 @@ public class LocalDispatchQueryFactory
                 queryExecutionFuture,
                 clusterSizeMonitor,
                 executor,
+                queryQueuer,
                 queryManager::createQuery,
                 retryCount > 0);
     }

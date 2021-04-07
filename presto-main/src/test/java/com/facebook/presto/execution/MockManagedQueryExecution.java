@@ -116,6 +116,7 @@ public class MockManagedQueryExecution
                 new BasicQueryStats(
                         new DateTime(1),
                         new DateTime(2),
+                        new Duration(2, NANOSECONDS),
                         new Duration(3, NANOSECONDS),
                         new Duration(4, NANOSECONDS),
                         new Duration(5, NANOSECONDS),
@@ -165,6 +166,13 @@ public class MockManagedQueryExecution
     public QueryState getState()
     {
         return state;
+    }
+
+    @Override
+    public void queueQuery()
+    {
+        state = QUEUED;
+        fireStateChange();
     }
 
     @Override

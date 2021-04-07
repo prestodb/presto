@@ -39,6 +39,8 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
+import javax.ws.rs.HEAD;
+
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
@@ -84,6 +86,7 @@ public class TestLocalDispatchQuery
                 immediateFailedFuture(new IllegalStateException("abc")),
                 createClusterSizeMonitor(0),
                 directExecutor(),
+                q -> {},
                 execution -> {},
                 false);
 
@@ -107,6 +110,7 @@ public class TestLocalDispatchQuery
                 immediateFailedFuture(new IllegalStateException("abc")),
                 createClusterSizeMonitor(0),
                 directExecutor(),
+                q -> {},
                 execution -> {},
                 false);
 
@@ -127,6 +131,7 @@ public class TestLocalDispatchQuery
                 immediateFuture(null),
                 createClusterSizeMonitor(0),
                 directExecutor(),
+                q -> {},
                 execution -> {
                     throw new AccessDeniedException("sdf");
                 },
@@ -157,6 +162,7 @@ public class TestLocalDispatchQuery
                 immediateFuture(null),
                 createClusterSizeMonitor(1),
                 directExecutor(),
+                q -> {},
                 execution -> {},
                 false);
 
@@ -186,6 +192,7 @@ public class TestLocalDispatchQuery
                 immediateFuture(null),
                 createClusterSizeMonitor(0),
                 directExecutor(),
+                q -> {},
                 execution -> {},
                 false);
 
@@ -213,6 +220,7 @@ public class TestLocalDispatchQuery
                 immediateFuture(null),
                 createClusterSizeMonitor(0),
                 directExecutor(),
+                q -> {},
                 execution -> {},
                 false);
 

@@ -51,6 +51,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 
+import static com.facebook.airlift.concurrent.MoreFutures.addExceptionCallback;
+import static com.facebook.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static com.facebook.presto.SystemSessionProperties.getWarningHandlingLevel;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_TEXT_TOO_LARGE;
 import static com.facebook.presto.util.StatementUtils.getQueryType;
@@ -213,18 +215,36 @@ public class DispatchManager
                     retryCount,
                     selectionContext.getResourceGroupId(),
                     queryType,
-                    warningCollector);
+                    warningCollector,
+                    (dispatchQueryInternal) -> {
+                        try {
+                            resourceGroupManager.submit(preparedQuery.getStatement(), dispatchQueryInternal, selectionContext, queryExecutor);
+                        }
+                        catch (Throwable e) {
+                            // dispatch query has already been registered, so just fail it directly
+                            dispatchQueryInternal.fail(e);
+                        }
+                    });
 
             boolean queryAdded = queryCreated(dispatchQuery);
             if (queryAdded && !dispatchQuery.isDone()) {
                 try {
                     clusterStatusSender.registerQuery(dispatchQuery);
-                    resourceGroupManager.submit(preparedQuery.getStatement(), dispatchQuery, selectionContext, queryExecutor);
                 }
                 catch (Throwable e) {
                     // dispatch query has already been registered, so just fail it directly
                     dispatchQuery.fail(e);
                 }
+
+                ListenableFuture<?> prerequisitesFuture = immediateFuture(null);
+                dispatchQuery.addStateChangeListener(state -> {
+                    if (state.isDone() && !prerequisitesFuture.isDone()) {
+                        // If the query fails, in that situation cancel the future
+                        prerequisitesFuture.cancel(true);
+                    }
+                });
+                addSuccessCallback(prerequisitesFuture, dispatchQuery::queueQuery);
+                addExceptionCallback(prerequisitesFuture, throwable -> queryExecutor.execute(() -> dispatchQuery.fail(throwable)));
             }
         }
         catch (Throwable throwable) {

@@ -40,6 +40,7 @@ import static com.facebook.airlift.concurrent.MoreFutures.addExceptionCallback;
 import static com.facebook.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static com.facebook.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static com.facebook.presto.execution.QueryState.FAILED;
+import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.facebook.presto.util.Failures.toFailure;
@@ -60,6 +61,7 @@ public class LocalDispatchQuery
 
     private final Executor queryExecutor;
 
+    private final Consumer<DispatchQuery> queuer;
     private final Consumer<QueryExecution> querySubmitter;
     private final SettableFuture<?> submitted = SettableFuture.create();
 
@@ -71,6 +73,7 @@ public class LocalDispatchQuery
             ListenableFuture<QueryExecution> queryExecutionFuture,
             ClusterSizeMonitor clusterSizeMonitor,
             Executor queryExecutor,
+            Consumer<DispatchQuery> queryQueuer,
             Consumer<QueryExecution> querySubmitter,
             boolean retry)
     {
@@ -79,6 +82,7 @@ public class LocalDispatchQuery
         this.queryExecutionFuture = requireNonNull(queryExecutionFuture, "queryExecutionFuture is null");
         this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
+        this.queuer = requireNonNull(queryQueuer, "queryQueuer is null");
         this.querySubmitter = requireNonNull(querySubmitter, "querySubmitter is null");
         this.retry = retry;
 
@@ -95,6 +99,14 @@ public class LocalDispatchQuery
     }
 
     @Override
+    public void queueQuery()
+    {
+        if (stateMachine.transitionToQueued()) {
+            queuer.accept(this);
+        }
+    }
+
+    @Override
     public void startWaitingForResources()
     {
         if (stateMachine.transitionToWaitingForResources()) {
@@ -105,6 +117,7 @@ public class LocalDispatchQuery
     private void waitForMinimumWorkers()
     {
         ListenableFuture<?> minimumWorkerFuture = clusterSizeMonitor.waitForMinimumWorkers();
+        log.info("Registering callback");
         // when worker requirement is met, wait for query execution to finish construction and then start the execution
         addSuccessCallback(minimumWorkerFuture, () -> addSuccessCallback(queryExecutionFuture, this::startExecution));
         addExceptionCallback(minimumWorkerFuture, throwable -> queryExecutor.execute(() -> fail(throwable)));
@@ -112,7 +125,9 @@ public class LocalDispatchQuery
 
     private void startExecution(QueryExecution queryExecution)
     {
+        log.info("Starting execution");
         queryExecutor.execute(() -> {
+            log.info("transitioning to dispatching");
             if (stateMachine.transitionToDispatching()) {
                 try {
                     querySubmitter.accept(queryExecution);
@@ -158,12 +173,17 @@ public class LocalDispatchQuery
         if (queryInfo.getState() == FAILED) {
             ExecutionFailureInfo failureInfo = stateMachine.getFailureInfo()
                     .orElseGet(() -> toFailure(new PrestoException(GENERIC_INTERNAL_ERROR, "Query failed for an unknown reason")));
-            return DispatchInfo.failed(failureInfo, queryInfo.getQueryStats().getElapsedTime(), queryInfo.getQueryStats().getQueuedTime());
+            return DispatchInfo.failed(failureInfo, queryInfo.getQueryStats().getElapsedTime(), queryInfo.getQueryStats().getPrerequisiteWaitTime(), queryInfo.getQueryStats().getQueuedTime());
         }
         if (dispatched) {
-            return DispatchInfo.dispatched(new LocalCoordinatorLocation(), queryInfo.getQueryStats().getElapsedTime(), queryInfo.getQueryStats().getQueuedTime());
+            return DispatchInfo.dispatched(new LocalCoordinatorLocation(), queryInfo.getQueryStats().getElapsedTime(), queryInfo.getQueryStats().getPrerequisiteWaitTime(), queryInfo.getQueryStats().getQueuedTime());
         }
-        return DispatchInfo.queued(queryInfo.getQueryStats().getElapsedTime(), queryInfo.getQueryStats().getQueuedTime());
+        else if (queryInfo.getState() == QUEUED) {
+            return DispatchInfo.queued(queryInfo.getQueryStats().getElapsedTime(), queryInfo.getQueryStats().getPrerequisiteWaitTime(), queryInfo.getQueryStats().getQueuedTime());
+        }
+        else {
+            return DispatchInfo.waitingForPrequisites(queryInfo.getQueryStats().getElapsedTime(), queryInfo.getQueryStats().getPrerequisiteWaitTime());
+        }
     }
 
     @Override

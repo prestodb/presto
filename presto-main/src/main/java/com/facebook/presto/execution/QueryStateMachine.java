@@ -70,6 +70,7 @@ import static com.facebook.presto.execution.QueryState.DISPATCHING;
 import static com.facebook.presto.execution.QueryState.FINISHED;
 import static com.facebook.presto.execution.QueryState.FINISHING;
 import static com.facebook.presto.execution.QueryState.PLANNING;
+import static com.facebook.presto.execution.QueryState.WAITING_FOR_PREREQUISITES;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.execution.QueryState.STARTING;
@@ -173,7 +174,7 @@ public class QueryStateMachine
         this.queryStateTimer = new QueryStateTimer(ticker);
         this.metadata = requireNonNull(metadata, "metadata is null");
 
-        this.queryState = new StateMachine<>("query " + query, executor, QUEUED, TERMINAL_QUERY_STATES);
+        this.queryState = new StateMachine<>("query " + query, executor, WAITING_FOR_PREREQUISITES, TERMINAL_QUERY_STATES);
         this.finalQueryInfo = new StateMachine<>("finalQueryInfo-" + queryId, executor, Optional.empty());
         this.outputManager = new QueryOutputManager(executor);
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
@@ -343,6 +344,7 @@ public class QueryStateMachine
         BasicQueryStats queryStats = new BasicQueryStats(
                 queryStateTimer.getCreateTime(),
                 getEndTime().orElse(null),
+                queryStateTimer.getPrerequisiteWaitingTime(),
                 queryStateTimer.getQueuedTime(),
                 queryStateTimer.getElapsedTime(),
                 queryStateTimer.getExecutionTime(),
@@ -633,21 +635,31 @@ public class QueryStateMachine
         return queryState.get().isDone();
     }
 
+    public boolean transitionToQueued()
+    {
+        queryStateTimer.beginQueuing();
+        QUERY_STATE_LOG.info(query + " is entering QUEUED");
+        return queryState.setIf(QUEUED, currentState -> currentState.ordinal() < QUEUED.ordinal());
+    }
+
     public boolean transitionToWaitingForResources()
     {
         queryStateTimer.beginWaitingForResources();
+        QUERY_STATE_LOG.info(query + " is entering WAITING_FOR_RESOURCES");
         return queryState.setIf(WAITING_FOR_RESOURCES, currentState -> currentState.ordinal() < WAITING_FOR_RESOURCES.ordinal());
     }
 
     public boolean transitionToDispatching()
     {
         queryStateTimer.beginDispatching();
+        QUERY_STATE_LOG.info(query + " is entering DISPATCHING");
         return queryState.setIf(DISPATCHING, currentState -> currentState.ordinal() < DISPATCHING.ordinal());
     }
 
     public boolean transitionToPlanning()
     {
         queryStateTimer.beginPlanning();
+        QUERY_STATE_LOG.info(query + " is entering PLANNING");
         return queryState.setIf(PLANNING, currentState -> currentState.ordinal() < PLANNING.ordinal());
     }
 
@@ -943,6 +955,7 @@ public class QueryStateMachine
                 queryStats.getLastHeartbeat(),
                 queryStats.getEndTime(),
                 queryStats.getElapsedTime(),
+                queryStats.getPrerequisiteWaitTime(),
                 queryStats.getQueuedTime(),
                 queryStats.getResourceWaitingTime(),
                 queryStats.getDispatchingTime(),

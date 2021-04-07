@@ -46,6 +46,7 @@ public class BasicQueryStats
     private final DateTime createTime;
     private final DateTime endTime;
 
+    private final Duration prerequisiteWaitTime;
     private final Duration queuedTime;
     private final Duration elapsedTime;
     private final Duration executionTime;
@@ -82,6 +83,7 @@ public class BasicQueryStats
     public BasicQueryStats(
             @JsonProperty("createTime") DateTime createTime,
             @JsonProperty("endTime") DateTime endTime,
+            @JsonProperty("prerequisiteWaitTime") Duration prerequisiteWaitTime,
             @JsonProperty("queuedTime") Duration queuedTime,
             @JsonProperty("elapsedTime") Duration elapsedTime,
             @JsonProperty("executionTime") Duration executionTime,
@@ -109,6 +111,7 @@ public class BasicQueryStats
         this.createTime = createTime;
         this.endTime = endTime;
 
+        this.prerequisiteWaitTime = requireNonNull(prerequisiteWaitTime, "prerequisiteWaitTime is null");
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
         this.elapsedTime = requireNonNull(elapsedTime, "elapsedTime is null");
         this.executionTime = requireNonNull(executionTime, "executionTime is null");
@@ -149,6 +152,7 @@ public class BasicQueryStats
     {
         this(queryStats.getCreateTime(),
                 queryStats.getEndTime(),
+                queryStats.getPrerequisiteWaitTime(),
                 queryStats.getQueuedTime(),
                 queryStats.getElapsedTime(),
                 queryStats.getExecutionTime(),
@@ -180,6 +184,7 @@ public class BasicQueryStats
         return new BasicQueryStats(
                 now,
                 now,
+                new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
@@ -377,5 +382,12 @@ public class BasicQueryStats
     public OptionalDouble getProgressPercentage()
     {
         return progressPercentage;
+    }
+
+    @ThriftField(26)
+    @JsonProperty
+    public Duration getPrerequisiteWaitTime()
+    {
+        return prerequisiteWaitTime;
     }
 }

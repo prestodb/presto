@@ -101,6 +101,11 @@ public class FailedDispatchQuery
     }
 
     @Override
+    public void queueQuery()
+    {
+    }
+
+    @Override
     public void startWaitingForResources() {}
 
     @Override

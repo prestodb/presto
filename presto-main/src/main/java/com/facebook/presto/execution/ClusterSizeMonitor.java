@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.metadata.InternalNodeManager;
@@ -45,6 +46,8 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class ClusterSizeMonitor
 {
+    private static final Logger log = Logger.get(ClusterSizeMonitor.class);
+
     private final InternalNodeManager nodeManager;
     private final boolean includeCoordinator;
     private final int workerMinCount;
@@ -133,6 +136,7 @@ public class ClusterSizeMonitor
     public synchronized ListenableFuture<?> waitForMinimumWorkers()
     {
         if (currentWorkerCount >= workerMinCount) {
+            log.info("returning future since the count is met");
             return immediateFuture(null);
         }
 

@@ -70,7 +70,7 @@ import static com.facebook.airlift.concurrent.MoreFutures.addTimeout;
 import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
 import static com.facebook.presto.execution.QueryState.FAILED;
-import static com.facebook.presto.execution.QueryState.QUEUED;
+import static com.facebook.presto.execution.QueryState.WAITING_FOR_PREREQUISITES;
 import static com.facebook.presto.server.security.RoleType.USER;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.RETRY_QUERY_NOT_FOUND;
@@ -313,7 +313,7 @@ public class QueuedStatementResource
             Duration elapsedTime,
             Duration queuedTime)
     {
-        QueryState state = queryError.map(error -> FAILED).orElse(QUEUED);
+        QueryState state = queryError.map(error -> FAILED).orElse(WAITING_FOR_PREREQUISITES);
         return new QueryResults(
                 queryId.toString(),
                 getQueryHtmlUri(queryId, uriInfo, xForwardedProto),
@@ -323,7 +323,7 @@ public class QueuedStatementResource
                 null,
                 StatementStats.builder()
                         .setState(state.toString())
-                        .setQueued(state == QUEUED)
+                        .setWaitingForResources(state == WAITING_FOR_PREREQUISITES)
                         .setElapsedTimeMillis(elapsedTime.toMillis())
                         .setQueuedTimeMillis(queuedTime.toMillis())
                         .build(),

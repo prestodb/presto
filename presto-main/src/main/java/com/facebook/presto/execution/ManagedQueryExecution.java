@@ -24,6 +24,8 @@ import java.util.Optional;
 
 public interface ManagedQueryExecution
 {
+    void queueQuery();
+
     void startWaitingForResources();
 
     void fail(Throwable cause);

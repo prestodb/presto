@@ -29,6 +29,7 @@ import static java.util.Objects.requireNonNull;
 public class StatementStats
 {
     private final String state;
+    private final boolean waitingForPrerequisites;
     private final boolean queued;
     private final boolean scheduled;
     private final int nodes;
@@ -51,6 +52,7 @@ public class StatementStats
     @JsonCreator
     public StatementStats(
             @JsonProperty("state") String state,
+            @JsonProperty("waitingForResources") boolean waitingForPrerequisites,
             @JsonProperty("queued") boolean queued,
             @JsonProperty("scheduled") boolean scheduled,
             @JsonProperty("nodes") int nodes,
@@ -71,6 +73,7 @@ public class StatementStats
             @JsonProperty("rootStage") StageStats rootStage)
     {
         this.state = requireNonNull(state, "state is null");
+        this.waitingForPrerequisites = waitingForPrerequisites;
         this.queued = queued;
         this.scheduled = scheduled;
         this.nodes = nodes;
@@ -95,6 +98,12 @@ public class StatementStats
     public String getState()
     {
         return state;
+    }
+
+    @JsonProperty
+    public boolean isWaitingForPrerequisites()
+    {
+        return waitingForPrerequisites;
     }
 
     @JsonProperty
@@ -220,6 +229,7 @@ public class StatementStats
     {
         return toStringHelper(this)
                 .add("state", state)
+                .add("waitingForPrerequisites", waitingForPrerequisites)
                 .add("queued", queued)
                 .add("scheduled", scheduled)
                 .add("nodes", nodes)
@@ -249,6 +259,7 @@ public class StatementStats
     public static class Builder
     {
         private String state;
+        private boolean waitingForResources;
         private boolean queued;
         private boolean scheduled;
         private int nodes;
@@ -279,6 +290,12 @@ public class StatementStats
         public Builder setNodes(int nodes)
         {
             this.nodes = nodes;
+            return this;
+        }
+
+        public Builder setWaitingForResources(boolean waitingForResources)
+        {
+            this.waitingForResources = waitingForResources;
             return this;
         }
 
@@ -388,6 +405,7 @@ public class StatementStats
         {
             return new StatementStats(
                     state,
+                    waitingForResources,
                     queued,
                     scheduled,
                     nodes,

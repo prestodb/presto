@@ -19,36 +19,49 @@ import io.airlift.units.Duration;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class DispatchInfo
 {
     private final Optional<CoordinatorLocation> coordinatorLocation;
     private final Optional<ExecutionFailureInfo> failureInfo;
     private final Duration elapsedTime;
+    private final Duration waitingForPrerequisitesTime;
     private final Duration queuedTime;
 
-    public static DispatchInfo queued(Duration elapsedTime, Duration queuedTime)
+    public static DispatchInfo waitingForPrequisites(Duration elapsedTime, Duration waitingForPrerequisitesTime)
     {
-        return new DispatchInfo(Optional.empty(), Optional.empty(), elapsedTime, queuedTime);
+        return new DispatchInfo(Optional.empty(), Optional.empty(), elapsedTime, waitingForPrerequisitesTime, new Duration(0, MILLISECONDS));
     }
 
-    public static DispatchInfo dispatched(CoordinatorLocation coordinatorLocation, Duration elapsedTime, Duration queuedTime)
+    public static DispatchInfo queued(Duration elapsedTime, Duration waitingForPrerequisitesTime, Duration queuedTime)
+    {
+        return new DispatchInfo(Optional.empty(), Optional.empty(), elapsedTime, waitingForPrerequisitesTime, queuedTime);
+    }
+
+    public static DispatchInfo dispatched(CoordinatorLocation coordinatorLocation, Duration elapsedTime, Duration waitingForPrerequisitesTime, Duration queuedTime)
     {
         requireNonNull(coordinatorLocation, "coordinatorLocation is null");
-        return new DispatchInfo(Optional.of(coordinatorLocation), Optional.empty(), elapsedTime, queuedTime);
+        return new DispatchInfo(Optional.of(coordinatorLocation), Optional.empty(), elapsedTime, waitingForPrerequisitesTime, queuedTime);
     }
 
-    public static DispatchInfo failed(ExecutionFailureInfo failureInfo, Duration elapsedTime, Duration queuedTime)
+    public static DispatchInfo failed(ExecutionFailureInfo failureInfo, Duration elapsedTime, Duration waitingForPrerequisitesTime, Duration queuedTime)
     {
         requireNonNull(failureInfo, "coordinatorLocation is null");
-        return new DispatchInfo(Optional.empty(), Optional.of(failureInfo), elapsedTime, queuedTime);
+        return new DispatchInfo(Optional.empty(), Optional.of(failureInfo), elapsedTime, waitingForPrerequisitesTime, queuedTime);
     }
 
-    private DispatchInfo(Optional<CoordinatorLocation> coordinatorLocation, Optional<ExecutionFailureInfo> failureInfo, Duration elapsedTime, Duration queuedTime)
+    private DispatchInfo(
+            Optional<CoordinatorLocation> coordinatorLocation,
+            Optional<ExecutionFailureInfo> failureInfo,
+            Duration elapsedTime,
+            Duration waitingForPrerequisitesTime,
+            Duration queuedTime)
     {
         this.coordinatorLocation = requireNonNull(coordinatorLocation, "coordinatorLocation is null");
         this.failureInfo = requireNonNull(failureInfo, "failureInfo is null");
         this.elapsedTime = requireNonNull(elapsedTime, "elapsedTime is null");
+        this.waitingForPrerequisitesTime = requireNonNull(waitingForPrerequisitesTime, "waitingForPrerequisitesTime is null");
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
     }
 
@@ -65,6 +78,11 @@ public class DispatchInfo
     public Duration getElapsedTime()
     {
         return elapsedTime;
+    }
+
+    public Duration getWaitingForPrerequisitesTime()
+    {
+        return waitingForPrerequisitesTime;
     }
 
     public Duration getQueuedTime()

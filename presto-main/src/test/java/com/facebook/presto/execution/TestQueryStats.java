@@ -162,6 +162,7 @@ public class TestQueryStats
             new DateTime(3),
             new DateTime(4),
             new Duration(6, NANOSECONDS),
+            new Duration(7, NANOSECONDS),
             new Duration(5, NANOSECONDS),
             new Duration(31, NANOSECONDS),
             new Duration(32, NANOSECONDS),

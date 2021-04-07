@@ -20,6 +20,7 @@ import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 
 import java.util.Optional;
+import java.util.function.Consumer;
 
 public interface DispatchQueryFactory
 {
@@ -31,5 +32,6 @@ public interface DispatchQueryFactory
             int retryCount,
             ResourceGroupId resourceGroup,
             Optional<QueryType> queryType,
-            WarningCollector warningCollector);
+            WarningCollector warningCollector,
+            Consumer<DispatchQuery> queryQueuer);
 }
