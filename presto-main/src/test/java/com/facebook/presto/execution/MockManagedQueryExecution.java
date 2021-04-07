@@ -116,6 +116,7 @@ public class MockManagedQueryExecution
                 new BasicQueryStats(
                         new DateTime(1),
                         new DateTime(2),
+                        new Duration(2, NANOSECONDS),
                         new Duration(3, NANOSECONDS),
                         new Duration(4, NANOSECONDS),
                         new Duration(5, NANOSECONDS),

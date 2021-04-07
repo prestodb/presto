@@ -42,7 +42,7 @@ import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 
 public class TestPrestoExceptionClassifier
 {
-    private static final QueryStats QUERY_STATS = new QueryStats("id", "", false, false, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, Optional.empty());
+    private static final QueryStats QUERY_STATS = new QueryStats("id", "", false, false, false, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, Optional.empty());
 
     private final SqlExceptionClassifier classifier = new PrestoExceptionClassifier(ImmutableSet.of());
 

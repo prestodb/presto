@@ -105,7 +105,7 @@ public class AbstractTestPrestoQueryFailureResolver
 
     protected static QueryStats createQueryStats(long cpuTimeMillis, long peakTotalMemoryBytes)
     {
-        return new QueryStats("id", "", false, false, 1, 2, 3, 4, 5, cpuTimeMillis, 7, 8, 9, 10, 11, 12, peakTotalMemoryBytes, 13, Optional.empty());
+        return new QueryStats("id", "", false, false, false, 1, 2, 3, 4, 5, cpuTimeMillis, 7, 8, 9, 10, 11, 12, 13, peakTotalMemoryBytes, 13, Optional.empty());
     }
 
     protected static QueryActionStats createQueryActionStats(long cpuTimeMillis, long peakTotalMemoryBytes)
