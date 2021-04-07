@@ -71,6 +71,7 @@ import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.QUEUED;
+import static com.facebook.presto.execution.QueryState.WAITING_FOR_PREREQUISITES;
 import static com.facebook.presto.server.security.RoleType.USER;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.RETRY_QUERY_NOT_FOUND;
@@ -311,9 +312,10 @@ public class QueuedStatementResource
             UriInfo uriInfo,
             String xForwardedProto,
             Duration elapsedTime,
-            Duration queuedTime)
+            Optional<Duration> queuedTime,
+            Duration waitingForPrerequisitesTime)
     {
-        QueryState state = queryError.map(error -> FAILED).orElse(QUEUED);
+        QueryState state = queryError.map(error -> FAILED).orElse(queuedTime.isPresent() ? QUEUED : WAITING_FOR_PREREQUISITES);
         return new QueryResults(
                 queryId.toString(),
                 getQueryHtmlUri(queryId, uriInfo, xForwardedProto),
@@ -323,9 +325,10 @@ public class QueuedStatementResource
                 null,
                 StatementStats.builder()
                         .setState(state.toString())
-                        .setQueued(state == QUEUED)
+                        .setWaitingForPrerequisites(state == WAITING_FOR_PREREQUISITES)
                         .setElapsedTimeMillis(elapsedTime.toMillis())
-                        .setQueuedTimeMillis(queuedTime.toMillis())
+                        .setQueuedTimeMillis(queuedTime.orElse(NO_DURATION).toMillis())
+                        .setWaitingForPrerequisitesTimeMillis(waitingForPrerequisitesTime.toMillis())
                         .build(),
                 queryError.orElse(null),
                 ImmutableList.of(),
@@ -433,7 +436,7 @@ public class QueuedStatementResource
                     1,
                     uriInfo,
                     xForwardedProto,
-                    DispatchInfo.queued(NO_DURATION, NO_DURATION));
+                    DispatchInfo.waitingForPrerequisites(NO_DURATION, NO_DURATION));
         }
 
         public ListenableFuture<Response> toResponse(long token, UriInfo uriInfo, String xForwardedProto, Duration maxWait, boolean compressionEnabled)
@@ -453,7 +456,7 @@ public class QueuedStatementResource
                             token + 1,
                             uriInfo,
                             xForwardedProto,
-                            DispatchInfo.queued(NO_DURATION, NO_DURATION));
+                            DispatchInfo.waitingForPrerequisites(NO_DURATION, NO_DURATION));
                     return immediateFuture(withCompressionConfiguration(Response.ok(queryResults), compressionEnabled).build());
                 }
             }
@@ -504,7 +507,8 @@ public class QueuedStatementResource
                     uriInfo,
                     xForwardedProto,
                     dispatchInfo.getElapsedTime(),
-                    dispatchInfo.getQueuedTime());
+                    dispatchInfo.getQueuedTime(),
+                    dispatchInfo.getWaitingForPrerequisitesTime());
         }
 
         private URI getNextUri(long token, UriInfo uriInfo, String xForwardedProto, DispatchInfo dispatchInfo)
