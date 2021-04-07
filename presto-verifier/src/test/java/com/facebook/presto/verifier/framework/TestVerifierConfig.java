@@ -42,7 +42,7 @@ public class TestVerifierConfig
                 .setRelativeErrorMargin(1e-4)
                 .setAbsoluteErrorMargin(1e-12)
                 .setSmartTeardown(false)
-                .setVerificationResubmissionLimit(2)
+                .setVerificationResubmissionLimit(6)
                 .setSetupOnMainClusters(true)
                 .setTeardownOnMainClusters(true)
                 .setSkipControl(false)

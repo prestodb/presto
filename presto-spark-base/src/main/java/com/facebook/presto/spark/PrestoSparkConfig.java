@@ -35,6 +35,7 @@ public class PrestoSparkConfig
     private DataSize storageBasedBroadcastJoinWriteBufferSize = new DataSize(24, MEGABYTE);
     private String storageBasedBroadcastJoinStorage = "local";
     private DataSize sparkBroadcastJoinMaxMemoryOverride;
+    private boolean smileSerializationEnabled = true;
 
     public boolean isSparkPartitionCountAutoTuneEnabled()
     {
@@ -163,6 +164,18 @@ public class PrestoSparkConfig
     public PrestoSparkConfig setSparkBroadcastJoinMaxMemoryOverride(DataSize sparkBroadcastJoinMaxMemoryOverride)
     {
         this.sparkBroadcastJoinMaxMemoryOverride = sparkBroadcastJoinMaxMemoryOverride;
+        return this;
+    }
+
+    public boolean isSmileSerializationEnabled()
+    {
+        return smileSerializationEnabled;
+    }
+
+    @Config("spark.smile-serialization-enabled")
+    public PrestoSparkConfig setSmileSerializationEnabled(boolean smileSerializationEnabled)
+    {
+        this.smileSerializationEnabled = smileSerializationEnabled;
         return this;
     }
 }

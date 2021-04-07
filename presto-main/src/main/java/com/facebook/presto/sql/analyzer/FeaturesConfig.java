@@ -177,6 +177,7 @@ public class FeaturesConfig
     private boolean skipRedundantSort = true;
     private boolean isAllowWindowOrderByLiterals = true;
 
+    private boolean spoolingOutputBufferEnabled;
     private DataSize spoolingOutputBufferThreshold = new DataSize(8, MEGABYTE);
     private String spoolingOutputBufferTempStorage = "local";
 
@@ -1544,6 +1545,18 @@ public class FeaturesConfig
     public FeaturesConfig setEmptyJoinOptimization(boolean value)
     {
         this.optimizeJoinsWithEmptySources = value;
+        return this;
+    }
+
+    public boolean isSpoolingOutputBufferEnabled()
+    {
+        return spoolingOutputBufferEnabled;
+    }
+
+    @Config("spooling-output-buffer-enabled")
+    public FeaturesConfig setSpoolingOutputBufferEnabled(boolean value)
+    {
+        this.spoolingOutputBufferEnabled = value;
         return this;
     }
 

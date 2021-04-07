@@ -62,24 +62,25 @@ public class StringStatisticsBuilder
     }
 
     @Override
-    public void addValue(Slice value)
+    public void addValue(Slice value, int sourceIndex, int length)
     {
         requireNonNull(value, "value is null");
 
         if (nonNullValueCount == 0) {
             checkState(minimum == null && maximum == null);
-            minimum = value;
-            maximum = value;
+            Slice minMaxSlice = value.slice(sourceIndex, length);
+            minimum = minMaxSlice;
+            maximum = minMaxSlice;
         }
-        else if (minimum != null && value.compareTo(minimum) <= 0) {
-            minimum = value;
+        else if (minimum != null && value.compareTo(sourceIndex, length, minimum, 0, minimum.length()) <= 0) {
+            minimum = value.slice(sourceIndex, length);
         }
-        else if (maximum != null && value.compareTo(maximum) >= 0) {
-            maximum = value;
+        else if (maximum != null && value.compareTo(sourceIndex, length, maximum, 0, maximum.length()) >= 0) {
+            maximum = value.slice(sourceIndex, length);
         }
 
         nonNullValueCount++;
-        sum = addExact(sum, value.length());
+        sum = addExact(sum, length);
     }
 
     /**

@@ -29,11 +29,10 @@ public class BinaryStatisticsBuilder
     private long sum;
 
     @Override
-    public void addValue(Slice value)
+    public void addValue(Slice value, int sourceIndex, int length)
     {
         requireNonNull(value, "value is null");
-
-        sum += value.length();
+        sum += length;
         nonNullValueCount++;
     }
 

@@ -14,7 +14,9 @@
 package com.facebook.presto.memory;
 
 import com.facebook.airlift.http.client.HttpClient;
+import com.facebook.airlift.json.Codec;
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.json.smile.SmileCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryExecution;
@@ -27,8 +29,6 @@ import com.facebook.presto.resourcemanager.MemoryManagerService;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.InternalCommunicationConfig;
 import com.facebook.presto.server.ServerConfig;
-import com.facebook.presto.server.codec.Codec;
-import com.facebook.presto.server.smile.SmileCodec;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolInfo;
@@ -77,7 +77,6 @@ import static com.facebook.presto.SystemSessionProperties.getQueryMaxTotalMemory
 import static com.facebook.presto.SystemSessionProperties.resourceOvercommit;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.facebook.presto.memory.LocalMemoryManager.RESERVED_POOL;
-import static com.facebook.presto.server.smile.JsonCodecWrapper.wrapJsonCodec;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.spi.NodeState.SHUTTING_DOWN;
 import static com.facebook.presto.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
@@ -180,8 +179,8 @@ public class ClusterMemoryManager
             this.assignmentsRequestCodec = requireNonNull(assignmentsRequestSmileCodec, "assignmentsRequestSmileCodec is null");
         }
         else {
-            this.memoryInfoCodec = wrapJsonCodec(requireNonNull(memoryInfoJsonCodec, "memoryInfoJsonCodec is null"));
-            this.assignmentsRequestCodec = wrapJsonCodec(requireNonNull(assignmentsRequestJsonCodec, "assignmentsRequestJsonCodec is null"));
+            this.memoryInfoCodec = requireNonNull(memoryInfoJsonCodec, "memoryInfoJsonCodec is null");
+            this.assignmentsRequestCodec = requireNonNull(assignmentsRequestJsonCodec, "assignmentsRequestJsonCodec is null");
         }
 
         verify(maxQueryMemory.toBytes() <= maxQueryTotalMemory.toBytes(),

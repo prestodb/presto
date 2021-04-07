@@ -34,7 +34,7 @@ public final class NodeAssignmentStats
     public NodeAssignmentStats(NodeTaskMap nodeTaskMap, NodeMap nodeMap, List<RemoteTask> existingTasks)
     {
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
-        int nodeMapSize = requireNonNull(nodeMap, "nodeMap is null").getNodesByHostAndPort().size();
+        int nodeMapSize = requireNonNull(nodeMap, "nodeMap is null").getActiveNodes().size();
         this.nodeTotalSplitCount = new HashMap<>(nodeMapSize);
         this.stageQueuedSplitInfo = new HashMap<>(nodeMapSize);
 
@@ -45,7 +45,7 @@ public final class NodeAssignmentStats
         // pre-populate the assignment counts with zeros
         if (existingTasks.size() < nodeMapSize) {
             Function<String, PendingSplitInfo> createEmptySplitInfo = (ignored) -> new PendingSplitInfo(0, 0);
-            for (InternalNode node : nodeMap.getNodesByHostAndPort().values()) {
+            for (InternalNode node : nodeMap.getActiveNodes()) {
                 stageQueuedSplitInfo.computeIfAbsent(node.getNodeIdentifier(), createEmptySplitInfo);
             }
         }

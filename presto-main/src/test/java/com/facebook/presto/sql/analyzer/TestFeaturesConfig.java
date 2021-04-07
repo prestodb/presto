@@ -157,6 +157,7 @@ public class TestFeaturesConfig
                 .setAllowWindowOrderByLiterals(true)
                 .setEnforceFixedDistributionForOutputOperator(false)
                 .setEmptyJoinOptimization(false)
+                .setSpoolingOutputBufferEnabled(false)
                 .setSpoolingOutputBufferThreshold(new DataSize(8, MEGABYTE))
                 .setSpoolingOutputBufferTempStorage("local"));
     }
@@ -268,8 +269,9 @@ public class TestFeaturesConfig
                 .put("is-allow-window-order-by-literals", "false")
                 .put("enforce-fixed-distribution-for-output-operator", "true")
                 .put("optimizer.optimize-joins-with-empty-sources", "true")
+                .put("spooling-output-buffer-enabled", "true")
                 .put("spooling-output-buffer-threshold", "16MB")
-                .put("spooling-output-buffer-tempstorage", "tempfs")
+                .put("spooling-output-buffer-temp-storage", "tempfs")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -377,6 +379,7 @@ public class TestFeaturesConfig
                 .setAllowWindowOrderByLiterals(false)
                 .setEnforceFixedDistributionForOutputOperator(true)
                 .setEmptyJoinOptimization(true)
+                .setSpoolingOutputBufferEnabled(true)
                 .setSpoolingOutputBufferThreshold(new DataSize(16, MEGABYTE))
                 .setSpoolingOutputBufferTempStorage("tempfs");
         assertFullMapping(properties, expected);

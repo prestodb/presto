@@ -47,11 +47,13 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_SORT;
+import static com.facebook.presto.SystemSessionProperties.ENFORCE_FIXED_DISTRIBUTION_FOR_OUTPUT_OPERATOR;
 import static com.facebook.presto.SystemSessionProperties.FORCE_SINGLE_NODE_OUTPUT;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_JOINS_WITH_EMPTY_SOURCES;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_NULLS_IN_JOINS;
+import static com.facebook.presto.SystemSessionProperties.TASK_CONCURRENCY;
 import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_LAST;
 import static com.facebook.presto.common.predicate.Domain.singleValue;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -1227,5 +1229,53 @@ public class TestLogicalPlanner
                                                 "region",
                                                 ImmutableMap.of(
                                                         "REGION_REGIONKEY", "regionkey"))))));
+    }
+
+    @Test
+    public void testEnforceFixedDistributionForOutputOperator()
+    {
+        Session session = Session.builder(this.getQueryRunner().getDefaultSession())
+                // enable concurrency (default is 1)
+                .setSystemProperty(TASK_CONCURRENCY, "2")
+                .setSystemProperty(ENFORCE_FIXED_DISTRIBUTION_FOR_OUTPUT_OPERATOR, "true")
+                .build();
+
+        // simple group by
+        assertDistributedPlan(
+                "SELECT orderstatus, sum(totalprice) FROM orders GROUP BY orderstatus",
+                session,
+                anyTree(
+                        aggregation(
+                                ImmutableMap.of("final_sum", functionCall("sum", ImmutableList.of("partial_sum"))),
+                                FINAL,
+                                exchange(LOCAL, REPARTITION,
+                                        exchange(REMOTE_STREAMING, REPARTITION,
+                                                exchange(LOCAL, REPARTITION,
+                                                        aggregation(
+                                                                ImmutableMap.of("partial_sum", functionCall("sum", ImmutableList.of("totalprice"))),
+                                                                PARTIAL,
+                                                                project(tableScan("orders", ImmutableMap.of("totalprice", "totalprice"))))))))));
+
+        assertDistributedPlan(
+                "SELECT orderstatus FROM (SELECT orderstatus, row_number() OVER (PARTITION BY orderstatus ORDER BY custkey) n FROM orders) WHERE n = 1",
+                session,
+                anyTree(
+                        topNRowNumber(topNRowNumber -> topNRowNumber
+                                        .specification(
+                                                ImmutableList.of("orderstatus"),
+                                                ImmutableList.of("custkey"),
+                                                ImmutableMap.of("custkey", ASC_NULLS_LAST))
+                                        .partial(false),
+                                exchange(LOCAL, REPARTITION,
+                                        exchange(REMOTE_STREAMING, REPARTITION,
+                                                exchange(LOCAL, REPARTITION,
+                                                        topNRowNumber(topNRowNumber -> topNRowNumber
+                                                                        .specification(
+                                                                                ImmutableList.of("orderstatus"),
+                                                                                ImmutableList.of("custkey"),
+                                                                                ImmutableMap.of("custkey", ASC_NULLS_LAST))
+                                                                        .partial(true),
+
+                                                                project(tableScan("orders", ImmutableMap.of("orderstatus", "orderstatus", "custkey", "custkey"))))))))));
     }
 }

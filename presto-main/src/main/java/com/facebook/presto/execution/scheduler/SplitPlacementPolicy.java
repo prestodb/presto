@@ -25,5 +25,5 @@ public interface SplitPlacementPolicy
 
     void lockDownNodes();
 
-    List<InternalNode> allNodes();
+    List<InternalNode> getActiveNodes();
 }

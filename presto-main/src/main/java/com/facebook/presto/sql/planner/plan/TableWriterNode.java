@@ -26,12 +26,14 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -47,6 +49,7 @@ public class TableWriterNode
     private final VariableReferenceExpression tableCommitContextVariable;
     private final List<VariableReferenceExpression> columns;
     private final List<String> columnNames;
+    private final Set<VariableReferenceExpression> notNullColumnVariables;
     private final Optional<PartitioningScheme> tablePartitioningScheme;
     private final Optional<PartitioningScheme> preferredShufflePartitioningScheme;
     private final Optional<StatisticAggregations> statisticsAggregation;
@@ -62,6 +65,7 @@ public class TableWriterNode
             @JsonProperty("tableCommitContextVariable") VariableReferenceExpression tableCommitContextVariable,
             @JsonProperty("columns") List<VariableReferenceExpression> columns,
             @JsonProperty("columnNames") List<String> columnNames,
+            @JsonProperty("notNullColumnVariables") Set<VariableReferenceExpression> notNullColumnVariables,
             @JsonProperty("partitioningScheme") Optional<PartitioningScheme> tablePartitioningScheme,
             @JsonProperty("preferredShufflePartitioningScheme") Optional<PartitioningScheme> preferredShufflePartitioningScheme,
             @JsonProperty("statisticsAggregation") Optional<StatisticAggregations> statisticsAggregation)
@@ -82,6 +86,7 @@ public class TableWriterNode
         this.tableCommitContextVariable = requireNonNull(tableCommitContextVariable, "tableCommitContextVariable is null");
         this.columns = ImmutableList.copyOf(columns);
         this.columnNames = ImmutableList.copyOf(columnNames);
+        this.notNullColumnVariables = ImmutableSet.copyOf(requireNonNull(notNullColumnVariables, "notNullColumns is null"));
         this.tablePartitioningScheme = requireNonNull(tablePartitioningScheme, "partitioningScheme is null");
         this.preferredShufflePartitioningScheme = requireNonNull(preferredShufflePartitioningScheme, "preferredShufflePartitioningScheme is null");
         this.statisticsAggregation = requireNonNull(statisticsAggregation, "statisticsAggregation is null");
@@ -140,6 +145,12 @@ public class TableWriterNode
     }
 
     @JsonProperty
+    public Set<VariableReferenceExpression> getNotNullColumnVariables()
+    {
+        return notNullColumnVariables;
+    }
+
+    @JsonProperty
     public Optional<PartitioningScheme> getTablePartitioningScheme()
     {
         return tablePartitioningScheme;
@@ -187,6 +198,7 @@ public class TableWriterNode
                 tableCommitContextVariable,
                 columns,
                 columnNames,
+                notNullColumnVariables,
                 tablePartitioningScheme,
                 preferredShufflePartitioningScheme,
                 statisticsAggregation);

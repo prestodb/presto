@@ -482,7 +482,7 @@ public class SourcePartitionedScheduler
         splitPlacementPolicy.lockDownNodes();
 
         Set<InternalNode> scheduledNodes = stage.getScheduledNodes();
-        Set<RemoteTask> newTasks = splitPlacementPolicy.allNodes().stream()
+        Set<RemoteTask> newTasks = splitPlacementPolicy.getActiveNodes().stream()
                 .filter(node -> !scheduledNodes.contains(node))
                 .flatMap(node -> stage.scheduleSplits(node, ImmutableMultimap.of(), ImmutableMultimap.of()).stream())
                 .collect(toImmutableSet());

@@ -40,8 +40,8 @@ import static com.facebook.airlift.discovery.client.DiscoveryBinder.discoveryBin
 import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static com.facebook.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static com.facebook.airlift.json.smile.SmileCodecBinder.smileCodecBinder;
 import static com.facebook.drift.server.guice.DriftServerBinder.driftServerBinder;
-import static com.facebook.presto.server.smile.SmileCodecBinder.smileCodecBinder;
 
 public class ResourceManagerModule
         extends AbstractConfigurationAwareModule

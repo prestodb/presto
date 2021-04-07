@@ -61,6 +61,12 @@ public class ByteArrayOutputStream
         buffer.writeBytes(value);
     }
 
+    public void writeSlice(Slice slice, int sourceIndex, int length)
+    {
+        checkState(!closed);
+        buffer.writeBytes(slice, sourceIndex, length);
+    }
+
     @Override
     public void close()
     {

@@ -31,13 +31,13 @@ import static java.util.Objects.requireNonNull;
 public class RddAndMore<T extends PrestoSparkTaskOutput>
 {
     private final JavaPairRDD<MutablePartitionId, T> rdd;
-    private final List<PrestoSparkBroadcastDependency> broadcastDependencies;
+    private final List<PrestoSparkBroadcastDependency<?>> broadcastDependencies;
 
     private boolean collected;
 
     public RddAndMore(
             JavaPairRDD<MutablePartitionId, T> rdd,
-            List<PrestoSparkBroadcastDependency> broadcastDependencies)
+            List<PrestoSparkBroadcastDependency<?>> broadcastDependencies)
     {
         this.rdd = requireNonNull(rdd, "rdd is null");
         this.broadcastDependencies = ImmutableList.copyOf(requireNonNull(broadcastDependencies, "broadcastDependencies is null"));
@@ -58,7 +58,7 @@ public class RddAndMore<T extends PrestoSparkTaskOutput>
         return rdd;
     }
 
-    public List<PrestoSparkBroadcastDependency> getBroadcastDependencies()
+    public List<PrestoSparkBroadcastDependency<?>> getBroadcastDependencies()
     {
         return broadcastDependencies;
     }

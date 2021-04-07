@@ -30,9 +30,12 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.NodeState;
 import com.facebook.presto.statusservice.NodeStatusService;
 import com.google.common.base.Splitter;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
@@ -47,7 +50,9 @@ import javax.inject.Inject;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
@@ -59,12 +64,15 @@ import java.util.function.Consumer;
 
 import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static com.facebook.presto.metadata.InternalNode.NodeStatus.ALIVE;
+import static com.facebook.presto.metadata.InternalNode.NodeStatus.DEAD;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.spi.NodeState.INACTIVE;
 import static com.facebook.presto.spi.NodeState.SHUTTING_DOWN;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.difference;
+import static java.util.Comparator.comparing;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -89,9 +97,19 @@ public final class DiscoveryNodeManager
     private final boolean httpsRequired;
     private final InternalNode currentNode;
     private final CommunicationProtocol protocol;
+    private final boolean isMemoizeDeadNodesEnabled;
 
     @GuardedBy("this")
     private SetMultimap<ConnectorId, InternalNode> activeNodesByConnectorId;
+
+    @GuardedBy("this")
+    private SetMultimap<ConnectorId, InternalNode> nodesByConnectorId;
+
+    @GuardedBy("this")
+    private SetMultimap<String, ConnectorId> connectorIdsByNodeId;
+
+    @GuardedBy("this")
+    private Map<String, InternalNode> nodes;
 
     @GuardedBy("this")
     private AllNodes allNodes;
@@ -132,6 +150,7 @@ public final class DiscoveryNodeManager
                 expectedNodeVersion,
                 httpsRequired);
         this.protocol = internalCommunicationConfig.getServerInfoCommunicationProtocol();
+        this.isMemoizeDeadNodesEnabled = internalCommunicationConfig.isMemoizeDeadNodesEnabled();
 
         refreshNodesInternal();
     }
@@ -143,7 +162,7 @@ public final class DiscoveryNodeManager
             OptionalInt thriftPort = getThriftServerPort(service);
             NodeVersion nodeVersion = getNodeVersion(service);
             if (uri != null && nodeVersion != null) {
-                InternalNode node = new InternalNode(service.getNodeId(), uri, thriftPort, nodeVersion, isCoordinator(service), isResourceManager(service));
+                InternalNode node = new InternalNode(service.getNodeId(), uri, thriftPort, nodeVersion, isCoordinator(service), isResourceManager(service), ALIVE);
 
                 if (node.getNodeIdentifier().equals(currentNodeId)) {
                     checkState(
@@ -234,15 +253,27 @@ public final class DiscoveryNodeManager
         Set<ServiceDescriptor> services = serviceSelector.selectAllServices().stream()
                 .filter(service -> !failureDetector.getFailed().contains(service))
                 // Allowing coordinator node in the list of services, even if it's not allowed by nodeStatusService with currentNode check
-                .filter(service -> !nodeStatusService.isPresent() || nodeStatusService.get().isAllowed(service.getNodeId()) || isCoordinator(service))
+                .filter(service -> !nodeStatusService.isPresent() || nodeStatusService.get().isAllowed(service.getLocation()) || isCoordinator(service))
                 .collect(toImmutableSet());
 
-        ImmutableSet.Builder<InternalNode> activeNodesBuilder = ImmutableSet.builder();
+        ImmutableSet.Builder<InternalNode> activeNodesBuilder = ImmutableSortedSet.orderedBy(comparing(InternalNode::getNodeIdentifier));
         ImmutableSet.Builder<InternalNode> inactiveNodesBuilder = ImmutableSet.builder();
         ImmutableSet.Builder<InternalNode> shuttingDownNodesBuilder = ImmutableSet.builder();
         ImmutableSet.Builder<InternalNode> coordinatorsBuilder = ImmutableSet.builder();
         ImmutableSet.Builder<InternalNode> resourceManagersBuilder = ImmutableSet.builder();
         ImmutableSetMultimap.Builder<ConnectorId, InternalNode> byConnectorIdBuilder = ImmutableSetMultimap.builder();
+        Map<String, InternalNode> nodes = new HashMap<>();
+        SetMultimap<String, ConnectorId> connectorIdsByNodeId = HashMultimap.create();
+
+        // For a given connectorId, sort the nodes based on their nodeIdentifier
+        byConnectorIdBuilder.orderValuesBy(comparing(InternalNode::getNodeIdentifier));
+
+        if (isMemoizeDeadNodesEnabled && this.nodes != null) {
+            nodes.putAll(this.nodes);
+        }
+        if (isMemoizeDeadNodesEnabled && this.connectorIdsByNodeId != null) {
+            connectorIdsByNodeId.putAll(this.connectorIdsByNodeId);
+        }
 
         for (ServiceDescriptor service : services) {
             URI uri = getHttpUri(service, httpsRequired);
@@ -253,7 +284,7 @@ public final class DiscoveryNodeManager
             boolean coordinator = isCoordinator(service);
             boolean resourceManager = isResourceManager(service);
             if (uri != null && nodeVersion != null) {
-                InternalNode node = new InternalNode(service.getNodeId(), uri, thriftPort, nodeVersion, coordinator, resourceManager);
+                InternalNode node = new InternalNode(service.getNodeId(), uri, thriftPort, nodeVersion, coordinator, resourceManager, ALIVE);
                 NodeState nodeState = getNodeState(node);
 
                 switch (nodeState) {
@@ -266,12 +297,16 @@ public final class DiscoveryNodeManager
                             resourceManagersBuilder.add(node);
                         }
 
+                        nodes.put(node.getNodeIdentifier(), node);
+
                         // record available active nodes organized by connector id
                         String connectorIds = service.getProperties().get("connectorIds");
                         if (connectorIds != null) {
                             connectorIds = connectorIds.toLowerCase(ENGLISH);
-                            for (String connectorId : CONNECTOR_ID_SPLITTER.split(connectorIds)) {
-                                byConnectorIdBuilder.put(new ConnectorId(connectorId), node);
+                            for (String id : CONNECTOR_ID_SPLITTER.split(connectorIds)) {
+                                ConnectorId connectorId = new ConnectorId(id);
+                                byConnectorIdBuilder.put(connectorId, node);
+                                connectorIdsByNodeId.put(node.getNodeIdentifier(), connectorId);
                             }
                         }
 
@@ -300,6 +335,26 @@ public final class DiscoveryNodeManager
 
         // nodes by connector id changes anytime a node adds or removes a connector (note: this is not part of the listener system)
         activeNodesByConnectorId = byConnectorIdBuilder.build();
+
+        if (isMemoizeDeadNodesEnabled) {
+            SetView<String> deadNodeIds = difference(
+                    nodes.keySet(),
+                    activeNodesBuilder.build()
+                            .stream()
+                            .map(InternalNode::getNodeIdentifier)
+                            .collect(toImmutableSet()));
+
+            for (String nodeId : deadNodeIds) {
+                InternalNode deadNode = nodes.get(nodeId);
+                Set<ConnectorId> deadNodeConnectorIds = connectorIdsByNodeId.get(nodeId);
+                for (ConnectorId id : deadNodeConnectorIds) {
+                    byConnectorIdBuilder.put(id, new InternalNode(deadNode.getNodeIdentifier(), deadNode.getInternalUri(), deadNode.getThriftPort(), deadNode.getNodeVersion(), deadNode.isCoordinator(), deadNode.isResourceManager(), DEAD));
+                }
+            }
+        }
+        this.nodes = ImmutableMap.copyOf(nodes);
+        this.nodesByConnectorId = byConnectorIdBuilder.build();
+        this.connectorIdsByNodeId = ImmutableSetMultimap.copyOf(connectorIdsByNodeId);
 
         AllNodes allNodes = new AllNodes(activeNodesBuilder.build(), inactiveNodesBuilder.build(), shuttingDownNodesBuilder.build(), coordinatorsBuilder.build(), resourceManagersBuilder.build());
         // only update if all nodes actually changed (note: this does not include the connectors registered with the nodes)
@@ -381,6 +436,11 @@ public final class DiscoveryNodeManager
     public synchronized Set<InternalNode> getActiveConnectorNodes(ConnectorId connectorId)
     {
         return activeNodesByConnectorId.get(connectorId);
+    }
+
+    public synchronized Set<InternalNode> getAllConnectorNodes(ConnectorId connectorId)
+    {
+        return nodesByConnectorId.get(connectorId);
     }
 
     @Override

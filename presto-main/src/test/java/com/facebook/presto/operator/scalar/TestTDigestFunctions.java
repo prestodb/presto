@@ -33,6 +33,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
@@ -425,7 +426,7 @@ public class TestTDigestFunctions
         double min = values.stream().reduce(Double.POSITIVE_INFINITY, Double::min);
         double max = values.stream().reduce(Double.NEGATIVE_INFINITY, Double::max);
         double sum = values.stream().reduce(0.0d, Double::sum);
-        int count = values.size();
+        long count = values.size();
 
         String sql = format("destructure_tdigest(CAST(X'%s' AS tdigest(%s)))",
                 new SqlVarbinary(tDigest.serialize().getBytes()).toString().replaceAll("\\s+", " "),
@@ -440,7 +441,7 @@ public class TestTDigestFunctions
         functionAssertions.assertFunction(format("%s.min", sql), DOUBLE, min);
         functionAssertions.assertFunction(format("%s.max", sql), DOUBLE, max);
         functionAssertions.assertFunction(format("%s.sum", sql), DOUBLE, sum);
-        functionAssertions.assertFunction(format("%s.count", sql), INTEGER, count);
+        functionAssertions.assertFunction(format("%s.count", sql), BIGINT, count);
         functionAssertions.assertFunction(
                 format("%s.centroid_means", sql),
                 new ArrayType(DOUBLE),
@@ -466,7 +467,7 @@ public class TestTDigestFunctions
         double min = values.stream().reduce(Double.POSITIVE_INFINITY, Double::min);
         double max = values.stream().reduce(Double.NEGATIVE_INFINITY, Double::max);
         double sum = values.stream().reduce(0.0d, Double::sum);
-        int count = values.size();
+        long count = values.size();
 
         String sql = format("destructure_tdigest(CAST(X'%s' AS tdigest(%s)))",
                 new SqlVarbinary(tDigest.serialize().getBytes()).toString().replaceAll("\\s+", " "),
@@ -476,7 +477,7 @@ public class TestTDigestFunctions
         functionAssertions.assertFunction(format("%s.min", sql), DOUBLE, min);
         functionAssertions.assertFunction(format("%s.max", sql), DOUBLE, max);
         functionAssertions.assertFunction(format("%s.sum", sql), DOUBLE, sum);
-        functionAssertions.assertFunction(format("%s.count", sql), INTEGER, count);
+        functionAssertions.assertFunction(format("%s.count", sql), BIGINT, count);
     }
 
     // disabled because test takes almost 10s

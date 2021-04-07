@@ -11,18 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.server.smile;
+package com.facebook.presto.kafka;
 
-import com.facebook.airlift.json.ObjectMapperProvider;
-import com.fasterxml.jackson.dataformat.smile.SmileFactory;
-import com.google.inject.Inject;
+import com.facebook.presto.spi.SchemaTableName;
 
-public class SmileObjectMapperProvider
-        extends ObjectMapperProvider
+import java.util.Optional;
+import java.util.Set;
+
+public interface TableDescriptionSupplier
 {
-    @Inject
-    public SmileObjectMapperProvider()
-    {
-        super(new SmileFactory());
-    }
+    Set<SchemaTableName> listTables();
+
+    Optional<KafkaTopicDescription> getTopicDescription(SchemaTableName schemaTableName);
 }

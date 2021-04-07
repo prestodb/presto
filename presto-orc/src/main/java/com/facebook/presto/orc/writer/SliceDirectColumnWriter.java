@@ -123,18 +123,33 @@ public class SliceDirectColumnWriter
 
         // record nulls
         for (int position = 0; position < block.getPositionCount(); position++) {
-            presentStream.writeBoolean(!block.isNull(position));
+            writePresentValue(!block.isNull(position));
         }
 
         // record values
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (!block.isNull(position)) {
                 Slice value = type.getSlice(block, position);
-                lengthStream.writeLong(value.length());
-                dataStream.writeSlice(value);
-                statisticsBuilder.addValue(value);
+                writeSlice(value);
             }
         }
+    }
+
+    void writePresentValue(boolean value)
+    {
+        presentStream.writeBoolean(value);
+    }
+
+    void writeSlice(Slice value)
+    {
+        writeSlice(value, 0, value.length());
+    }
+
+    void writeSlice(Slice slice, int sourceIndex, int length)
+    {
+        lengthStream.writeLong(length);
+        dataStream.writeSlice(slice, sourceIndex, length);
+        statisticsBuilder.addValue(slice, sourceIndex, length);
     }
 
     @Override

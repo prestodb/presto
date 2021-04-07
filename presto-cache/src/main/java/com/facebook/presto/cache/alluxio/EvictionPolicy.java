@@ -11,20 +11,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.server.smile;
+package com.facebook.presto.cache.alluxio;
 
-import com.google.inject.BindingAnnotation;
-
-import java.lang.annotation.Retention;
-import java.lang.annotation.Target;
-
-import static java.lang.annotation.ElementType.FIELD;
-import static java.lang.annotation.ElementType.PARAMETER;
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
-
-@Retention(RUNTIME)
-@Target({FIELD, PARAMETER})
-@BindingAnnotation
-public @interface ForSmile
+public enum EvictionPolicy
 {
+    FIFO("alluxio.client.file.cache.evictor.FIFOEvictor"),
+    LFU("alluxio.client.file.cache.evictor.LFUEvictor"),
+    LRU("alluxio.client.file.cache.evictor.LRUEvictor"),
+    UNEVICTABLE("alluxio.client.file.cache.evictor.UnevictableCacheEvictor"),
+    /**/;
+
+    private final String className;
+
+    EvictionPolicy(String className)
+    {
+        this.className = className;
+    }
+
+    public String getClassName()
+    {
+        return className;
+    }
 }
