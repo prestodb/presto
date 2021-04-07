@@ -77,7 +77,7 @@ import static com.facebook.presto.SystemSessionProperties.getTargetResultSize;
 import static com.facebook.presto.SystemSessionProperties.isExchangeChecksumEnabled;
 import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionEnabled;
 import static com.facebook.presto.execution.QueryState.FAILED;
-import static com.facebook.presto.execution.QueryState.QUEUED;
+import static com.facebook.presto.execution.QueryState.WAITING_FOR_PREREQUISITES;
 import static com.facebook.presto.server.protocol.QueryResourceUtil.toStatementStats;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.util.Failures.toFailure;
@@ -403,8 +403,8 @@ class Query
                 queryResults.getColumns(),
                 null,
                 StatementStats.builder()
-                        .setState(QUEUED.toString())
-                        .setQueued(true)
+                        .setState(WAITING_FOR_PREREQUISITES.toString())
+                        .setWaitingForPrerequisites(true)
                         .build(),
                 null,
                 ImmutableList.of(),

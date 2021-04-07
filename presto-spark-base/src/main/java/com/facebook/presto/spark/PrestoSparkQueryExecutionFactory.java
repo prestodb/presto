@@ -739,6 +739,7 @@ public class PrestoSparkQueryExecutionFactory
         // nullify stage stats to keep the object slim
         stats = new StatementStats(
                 stats.getState(),
+                stats.isWaitingForPrerequisites(),
                 stats.isQueued(),
                 stats.isScheduled(),
                 stats.getNodes(),
@@ -748,6 +749,7 @@ public class PrestoSparkQueryExecutionFactory
                 stats.getCompletedSplits(),
                 stats.getCpuTimeMillis(),
                 stats.getWallTimeMillis(),
+                stats.getWaitingForPrerequisitesTimeMillis(),
                 stats.getQueuedTimeMillis(),
                 stats.getElapsedTimeMillis(),
                 stats.getProcessedRows(),

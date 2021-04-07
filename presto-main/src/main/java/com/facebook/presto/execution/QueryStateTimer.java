@@ -33,12 +33,14 @@ public class QueryStateTimer
     private final DateTime createTime = DateTime.now();
 
     private final long createNanos;
+    private final AtomicReference<Long> beginQueuedNanos = new AtomicReference<>();
     private final AtomicReference<Long> beginResourceWaitingNanos = new AtomicReference<>();
     private final AtomicReference<Long> beginDispatchingNanos = new AtomicReference<>();
     private final AtomicReference<Long> beginPlanningNanos = new AtomicReference<>();
     private final AtomicReference<Long> beginFinishingNanos = new AtomicReference<>();
     private final AtomicReference<Long> endNanos = new AtomicReference<>();
 
+    private final AtomicReference<Duration> waitingForPrerequisitesTime = new AtomicReference<>();
     private final AtomicReference<Duration> queuedTime = new AtomicReference<>();
     private final AtomicReference<Duration> resourceWaitingTime = new AtomicReference<>();
     private final AtomicReference<Duration> dispatchingTime = new AtomicReference<>();
@@ -62,6 +64,17 @@ public class QueryStateTimer
     // State transitions
     //
 
+    public void beginQueued()
+    {
+        beginQueued(tickerNanos());
+    }
+
+    private void beginQueued(long now)
+    {
+        waitingForPrerequisitesTime.compareAndSet(null, nanosSince(createNanos, now));
+        beginQueuedNanos.compareAndSet(null, now);
+    }
+
     public void beginWaitingForResources()
     {
         beginWaitingForResources(tickerNanos());
@@ -69,7 +82,8 @@ public class QueryStateTimer
 
     private void beginWaitingForResources(long now)
     {
-        queuedTime.compareAndSet(null, nanosSince(createNanos, now));
+        beginQueued(now);
+        queuedTime.compareAndSet(null, nanosSince(beginQueuedNanos, now));
         beginResourceWaitingNanos.compareAndSet(null, now);
     }
 
@@ -183,15 +197,20 @@ public class QueryStateTimer
         return nanosSince(createNanos, tickerNanos());
     }
 
-    public Duration getQueuedTime()
+    public Duration getWaitingForPrerequisitesTime()
     {
-        Duration queuedTime = this.queuedTime.get();
-        if (queuedTime != null) {
-            return queuedTime;
+        Duration waitingForPrerequisitesTime = this.waitingForPrerequisitesTime.get();
+        if (waitingForPrerequisitesTime != null) {
+            return waitingForPrerequisitesTime;
         }
 
-        // if queue time is not set, the query is still queued
+        // if prerequisite wait time is not set, the query is still waiting for prerequisites to finish
         return getElapsedTime();
+    }
+
+    public Duration getQueuedTime()
+    {
+        return getDuration(queuedTime, beginQueuedNanos);
     }
 
     public Duration getResourceWaitingTime()

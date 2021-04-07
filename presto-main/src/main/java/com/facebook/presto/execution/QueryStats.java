@@ -52,6 +52,7 @@ public class QueryStats
     private final DateTime endTime;
 
     private final Duration elapsedTime;
+    private final Duration waitingForPrerequisitesTime;
     private final Duration queuedTime;
     private final Duration resourceWaitingTime;
     private final Duration dispatchingTime;
@@ -117,6 +118,7 @@ public class QueryStats
             @JsonProperty("endTime") DateTime endTime,
 
             @JsonProperty("elapsedTime") Duration elapsedTime,
+            @JsonProperty("waitingForPrerequisitesTime") Duration waitingForPrerequisitesTime,
             @JsonProperty("queuedTime") Duration queuedTime,
             @JsonProperty("resourceWaitingTime") Duration resourceWaitingTime,
             @JsonProperty("dispatchingTime") Duration dispatchingTime,
@@ -180,6 +182,7 @@ public class QueryStats
         this.endTime = endTime;
 
         this.elapsedTime = requireNonNull(elapsedTime, "elapsedTime is null");
+        this.waitingForPrerequisitesTime = requireNonNull(waitingForPrerequisitesTime, "waitingForPrerequisitesTime is null");
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
         this.resourceWaitingTime = requireNonNull(resourceWaitingTime, "resourceWaitingTime is null");
         this.dispatchingTime = requireNonNull(dispatchingTime, "dispatchingTime is null");
@@ -373,6 +376,7 @@ public class QueryStats
                 queryStateTimer.getEndTime().orElse(null),
 
                 queryStateTimer.getElapsedTime(),
+                queryStateTimer.getWaitingForPrerequisitesTime(),
                 queryStateTimer.getQueuedTime(),
                 queryStateTimer.getResourceWaitingTime(),
                 queryStateTimer.getDispatchingTime(),
@@ -466,6 +470,7 @@ public class QueryStats
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
                 0,
                 0,
                 0,
@@ -534,6 +539,12 @@ public class QueryStats
     public Duration getElapsedTime()
     {
         return elapsedTime;
+    }
+
+    @JsonProperty
+    public Duration getWaitingForPrerequisitesTime()
+    {
+        return waitingForPrerequisitesTime;
     }
 
     @JsonProperty

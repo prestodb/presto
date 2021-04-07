@@ -98,6 +98,7 @@ public class TestLocalDispatchQuery
     public void testQueryQueuedExceptionBeforeDispatch()
     {
         QueryStateMachine stateMachine = createStateMachine();
+        stateMachine.transitionToQueued();
         stateMachine.transitionToFailed(new QueryQueueFullException(new ResourceGroupId("global")));
         CountingEventListener eventListener = new CountingEventListener();
 
