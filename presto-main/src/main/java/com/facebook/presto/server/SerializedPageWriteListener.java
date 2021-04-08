@@ -15,7 +15,7 @@ package com.facebook.presto.server;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.spi.page.SerializedPage;
-import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 
 import javax.servlet.AsyncContext;
 import javax.servlet.ServletOutputStream;
@@ -25,9 +25,9 @@ import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.List;
 
+import static com.facebook.presto.spi.page.PagesSerdeUtil.PAGE_METADATA_SIZE;
+import static com.facebook.presto.spi.page.PagesSerdeUtil.writeSerializedPageMetadata;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
-import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.Slices.allocate;
 import static java.util.Objects.requireNonNull;
 import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
@@ -37,11 +37,10 @@ public class SerializedPageWriteListener
 {
     private static final Logger log = Logger.get(SerializedPageWriteListener.class);
 
-    public static final int PAGE_METADATA_SIZE = SIZE_OF_INT * 3 + SIZE_OF_BYTE;
     private final ArrayDeque<SerializedPage> serializedPages;
     private final AsyncContext asyncContext;
     private final ServletOutputStream output;
-    private final Slice slice;
+    private final SliceOutput pageMetadataSliceOutput;
     private SerializedPage page;
 
     public SerializedPageWriteListener(
@@ -52,7 +51,7 @@ public class SerializedPageWriteListener
         this.serializedPages = new ArrayDeque<>(requireNonNull(serializedPages, "serializedPages is null"));
         this.asyncContext = requireNonNull(asyncContext, "asyncContext is null");
         this.output = requireNonNull(output, "output is null");
-        this.slice = allocate(PAGE_METADATA_SIZE);
+        this.pageMetadataSliceOutput = allocate(PAGE_METADATA_SIZE).getOutput();
     }
 
     @Override
@@ -67,19 +66,9 @@ public class SerializedPageWriteListener
 
             if (page == null) {
                 page = serializedPages.poll();
-
-                int bufferPosition = 0;
-
-                slice.setInt(bufferPosition, page.getPositionCount());
-                bufferPosition += SIZE_OF_INT;
-                slice.setByte(bufferPosition, page.getPageCodecMarkers());
-                bufferPosition += SIZE_OF_BYTE;
-                slice.setInt(bufferPosition, page.getUncompressedSizeInBytes());
-                bufferPosition += SIZE_OF_INT;
-                slice.setInt(bufferPosition, page.getSizeInBytes());
-                bufferPosition += SIZE_OF_INT;
-
-                output.write(slice.byteArray(), 0, bufferPosition);
+                pageMetadataSliceOutput.reset();
+                writeSerializedPageMetadata(pageMetadataSliceOutput, page);
+                output.write(pageMetadataSliceOutput.getUnderlyingSlice().byteArray(), 0, pageMetadataSliceOutput.size());
             }
             else {
                 Object base = page.getSlice().getBase();
