@@ -17,7 +17,6 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.memory.MemoryPool;
 import com.facebook.presto.memory.MemoryPoolListener;
-import com.facebook.presto.memory.TraversingQueryContextVisitor;
 import com.facebook.presto.memory.VoidTraversingQueryContextVisitor;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.PipelineContext;
@@ -49,6 +48,7 @@ import java.util.function.Supplier;
 import static com.facebook.presto.execution.MemoryRevokingUtils.getMemoryPools;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.TaskSpillingStrategy.PER_TASK_MEMORY_THRESHOLD;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -226,37 +226,12 @@ public class MemoryRevokingScheduler
 
     private long getMemoryAlreadyBeingRevoked(List<SqlTask> sqlTasks, long targetRevokingLimit)
     {
-        TraversingQueryContextVisitor<Void, Long> visitor = new TraversingQueryContextVisitor<Void, Long>()
-        {
-            @Override
-            public Long visitOperatorContext(OperatorContext operatorContext, Void context)
-            {
-                if (operatorContext.isMemoryRevokingRequested()) {
-                    return operatorContext.getReservedRevocableBytes();
-                }
-                return 0L;
-            }
-
-            @Override
-            public Long mergeResults(List<Long> childrenResults)
-            {
-                return childrenResults.stream()
-                        .mapToLong(i -> i).sum();
-            }
-        };
-
-        long currentRevoking = 0;
-        for (SqlTask task : sqlTasks) {
-            Optional<TaskContext> taskContext = task.getTaskContext();
-            if (taskContext.isPresent()) {
-                currentRevoking += taskContext.get().accept(visitor, null);
-                if (currentRevoking > targetRevokingLimit) {
-                    // Return early, target value exceeded and revoking will not occur
-                    return currentRevoking;
-                }
-            }
-        }
-        return currentRevoking;
+        List<TaskContext> taskContexts = sqlTasks.stream()
+                .map(SqlTask::getTaskContext)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(toImmutableList());
+        return MemoryRevokingSchedulerUtils.getMemoryAlreadyBeingRevoked(taskContexts, targetRevokingLimit);
     }
 
     private void requestRevoking(MemoryPoolId memoryPoolId, ArrayList<SqlTask> sqlTasks, long remainingBytesToRevoke)
