@@ -50,7 +50,6 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_SIZE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
-import static com.facebook.presto.server.SerializedPageWriteListener.PAGE_METADATA_SIZE;
 import static com.facebook.presto.server.security.RoleType.INTERNAL;
 import static com.facebook.presto.util.TaskUtils.DEFAULT_MAX_WAIT_TIME;
 import static com.facebook.presto.util.TaskUtils.randomizeWaitTime;
@@ -166,7 +165,7 @@ public class AsyncPageTransportServlet
                         }
                         else {
                             int contentLength = serializedPages.stream()
-                                    .mapToInt(page -> page.getSizeInBytes() + PAGE_METADATA_SIZE)
+                                    .mapToInt(page -> page.getSizeInBytes() + page.getMetadataSize())
                                     .sum();
                             response.setHeader(CONTENT_LENGTH, String.valueOf(contentLength));
                             out.setWriteListener(new SerializedPageWriteListener(serializedPages, asyncContext, out));

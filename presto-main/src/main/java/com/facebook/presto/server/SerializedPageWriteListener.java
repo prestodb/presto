@@ -22,12 +22,15 @@ import javax.servlet.ServletOutputStream;
 import javax.servlet.WriteListener;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
 import java.util.List;
 
+import static com.facebook.presto.spi.page.PageCodecMarker.CHECKSUMMED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.Slices.allocate;
 import static java.util.Objects.requireNonNull;
 import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
@@ -37,11 +40,9 @@ public class SerializedPageWriteListener
 {
     private static final Logger log = Logger.get(SerializedPageWriteListener.class);
 
-    public static final int PAGE_METADATA_SIZE = SIZE_OF_INT * 3 + SIZE_OF_BYTE;
     private final ArrayDeque<SerializedPage> serializedPages;
     private final AsyncContext asyncContext;
     private final ServletOutputStream output;
-    private final Slice slice;
     private SerializedPage page;
 
     public SerializedPageWriteListener(
@@ -52,7 +53,6 @@ public class SerializedPageWriteListener
         this.serializedPages = new ArrayDeque<>(requireNonNull(serializedPages, "serializedPages is null"));
         this.asyncContext = requireNonNull(asyncContext, "asyncContext is null");
         this.output = requireNonNull(output, "output is null");
-        this.slice = allocate(PAGE_METADATA_SIZE);
     }
 
     @Override
@@ -67,7 +67,7 @@ public class SerializedPageWriteListener
 
             if (page == null) {
                 page = serializedPages.poll();
-
+                Slice slice = allocate(page.getMetadataSize());
                 int bufferPosition = 0;
 
                 slice.setInt(bufferPosition, page.getPositionCount());
@@ -78,6 +78,15 @@ public class SerializedPageWriteListener
                 bufferPosition += SIZE_OF_INT;
                 slice.setInt(bufferPosition, page.getSizeInBytes());
                 bufferPosition += SIZE_OF_INT;
+                if (CHECKSUMMED.isSet(page.getPageCodecMarkers())) {
+                    slice.setLong(bufferPosition, page.getChecksum());
+                    bufferPosition += SIZE_OF_LONG;
+                    byte[] bytes = page.getHostName();
+                    slice.setInt(bufferPosition, bytes.length);
+                    bufferPosition += SIZE_OF_INT;
+                    slice.setBytes(bufferPosition, bytes);
+                    bufferPosition += bytes.length;
+                }
 
                 output.write(slice.byteArray(), 0, bufferPosition);
             }

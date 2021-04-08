@@ -21,9 +21,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
-import java.net.Inet6Address;
-import java.net.UnknownHostException;
-import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
@@ -69,14 +66,9 @@ public class PagesSerdeUtil
         output.writeInt(page.getSizeInBytes());
         if (CHECKSUMMED.isSet(page.getPageCodecMarkers())) {
             output.writeLong(page.getChecksum());
-            try {
-                String host = Inet6Address.getLocalHost().getHostAddress();
-                output.writeInt(host.length());
-                output.writeBytes(host.getBytes(StandardCharsets.UTF_8));
-            }
-            catch (UnknownHostException e) {
-                throw new RuntimeException(e);
-            }
+            byte[] host = page.getHostName();
+            output.writeInt(host.length);
+            output.writeBytes(host);
         }
         output.writeBytes(page.getSlice());
     }

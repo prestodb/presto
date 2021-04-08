@@ -16,18 +16,34 @@ package com.facebook.presto.spi.page;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.net.Inet6Address;
+import java.net.UnknownHostException;
+import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import java.util.zip.CRC32;
 
 import static com.facebook.presto.spi.page.PageCodecMarker.CHECKSUMMED;
 import static com.facebook.presto.spi.page.PageCodecMarker.COMPRESSED;
 import static com.facebook.presto.spi.page.PageCodecMarker.ENCRYPTED;
+import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
+import static io.airlift.slice.SizeOf.SIZE_OF_INT;
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class SerializedPage
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(SerializedPage.class).instanceSize();
+    private static byte[] hostName;
+
+    static {
+        try {
+            hostName = Inet6Address.getLocalHost().getHostName().getBytes(StandardCharsets.UTF_8);
+        }
+        catch (UnknownHostException e) {
+            hostName = "".getBytes(StandardCharsets.UTF_8);
+        }
+    }
 
     private final Slice slice;
     private final int positionCount;
@@ -104,6 +120,11 @@ public class SerializedPage
         return checksum;
     }
 
+    public byte[] getHostName()
+    {
+        return hostName;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -131,5 +152,16 @@ public class SerializedPage
         if (!condition) {
             throw new IllegalArgumentException(format(message, messageArgs));
         }
+    }
+
+    public int getMetadataSize()
+    {
+        int metadataSize = SIZE_OF_INT * 3 + SIZE_OF_BYTE;
+        if (CHECKSUMMED.isSet(getPageCodecMarkers())) {
+            metadataSize += SIZE_OF_LONG; // checksum
+            metadataSize += SIZE_OF_INT;  // int size to hold length of the hostname
+            metadataSize += hostName.length; // length of the hostname
+        }
+        return metadataSize;
     }
 }
