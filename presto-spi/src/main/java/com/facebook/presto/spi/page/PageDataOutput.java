@@ -16,9 +16,8 @@ package com.facebook.presto.spi.page;
 import com.facebook.presto.common.io.DataOutput;
 import io.airlift.slice.SliceOutput;
 
+import static com.facebook.presto.spi.page.PagesSerdeUtil.PAGE_METADATA_SIZE;
 import static com.facebook.presto.spi.page.PagesSerdeUtil.writeSerializedPage;
-import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
-import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static java.util.Objects.requireNonNull;
 
 public class PageDataOutput
@@ -34,7 +33,7 @@ public class PageDataOutput
     @Override
     public long size()
     {
-        return SIZE_OF_INT * 3 + SIZE_OF_BYTE + serializedPage.getSizeInBytes();
+        return PAGE_METADATA_SIZE + serializedPage.getSizeInBytes();
     }
 
     @Override

@@ -115,7 +115,7 @@ public class TestExchangeClient
         testHappyPath(true, in -> in);
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Incorrect checksum reading serialized page from host.*")
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Received corrupted serialized page from host.*")
     public void testHappyPathChecksumFail()
     {
         testHappyPath(true, in -> {
