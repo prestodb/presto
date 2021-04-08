@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.druid;
 
+import com.facebook.airlift.log.Logger;
+import com.facebook.presto.druid.DruidClient.RemoteTableObject;
 import com.facebook.presto.druid.ingestion.DruidIngestionTableHandle;
 import com.facebook.presto.druid.metadata.DruidColumnInfo;
 import com.facebook.presto.druid.metadata.DruidColumnType;
@@ -46,7 +48,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.druid.DruidTableHandle.fromSchemaTableName;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
@@ -54,6 +55,8 @@ import static java.util.Objects.requireNonNull;
 public class DruidMetadata
         implements ConnectorMetadata
 {
+    private static final Logger log = Logger.get(DruidMetadata.class);
+
     private final DruidClient druidClient;
 
     @Inject
@@ -69,11 +72,15 @@ public class DruidMetadata
     }
 
     @Override
-    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
+    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
     {
+        String remoteTableName = druidClient.toRemoteTable(schemaTableName)
+                .map(RemoteTableObject::getOnlyRemoteTableName)
+                .orElse(schemaTableName.getTableName());
+
         return druidClient.getTables().stream()
-                .filter(name -> name.equals(tableName.getTableName()))
-                .map(name -> fromSchemaTableName(tableName))
+                .filter(name -> name.equals(remoteTableName))
+                .map(name -> new DruidTableHandle(druidClient.getSchema(), remoteTableName, Optional.empty()))
                 .findFirst()
                 .orElse(null);
     }
@@ -106,9 +113,22 @@ public class DruidMetadata
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
-        return druidClient.getTables().stream()
-                .map(tableName -> new SchemaTableName(druidClient.getSchema(), tableName))
-                .collect(toImmutableList());
+        ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
+        for (String table : druidClient.getTables()) {
+            // Ignore ambiguous tables
+            boolean isAmbiguous = druidClient.toRemoteTable(new SchemaTableName(druidClient.getSchema(), table))
+                    .filter(RemoteTableObject::isAmbiguous)
+                    .isPresent();
+
+            if (!isAmbiguous) {
+                tableNames.add(new SchemaTableName(druidClient.getSchema(), table));
+            }
+            else {
+                log.debug("Filtered out [%s.%s] from list of tables due to ambiguous name", druidClient.getSchema(), table);
+            }
+        }
+
+        return tableNames.build();
     }
 
     @Override
@@ -125,7 +145,7 @@ public class DruidMetadata
         requireNonNull(prefix, "prefix is null");
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
         for (SchemaTableName tableName : listTables(session, prefix)) {
-            ConnectorTableMetadata tableMetadata = getTableMetadata(session, fromSchemaTableName(tableName));
+            ConnectorTableMetadata tableMetadata = getTableMetadata(session, getTableHandle(session, tableName));
             if (tableMetadata != null) {
                 columns.put(tableName, tableMetadata.getColumns());
             }
@@ -173,7 +193,7 @@ public class DruidMetadata
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
     {
         if (prefix.getTableName() == null) {
-            return listTables(session, prefix.getSchemaName());
+            return listTables(session, Optional.of(prefix.getSchemaName()));
         }
         return ImmutableList.of(prefix.toSchemaTableName());
     }
