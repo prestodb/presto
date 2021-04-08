@@ -63,7 +63,8 @@ public class PrestoSparkUtils
                 compactArray(slice.byteArray(), slice.byteArrayOffset(), slice.length()),
                 serializedPage.getPositionCount(),
                 serializedPage.getUncompressedSizeInBytes(),
-                serializedPage.getPageCodecMarkers());
+                serializedPage.getPageCodecMarkers(),
+                serializedPage.getChecksum());
     }
 
     public static SerializedPage toSerializedPage(PrestoSparkSerializedPage prestoSparkSerializedPage)
@@ -72,7 +73,8 @@ public class PrestoSparkUtils
                 Slices.wrappedBuffer(prestoSparkSerializedPage.getBytes()),
                 prestoSparkSerializedPage.getPageCodecMarkers(),
                 toIntExact(prestoSparkSerializedPage.getPositionCount()),
-                prestoSparkSerializedPage.getUncompressedSizeInBytes());
+                prestoSparkSerializedPage.getUncompressedSizeInBytes(),
+                prestoSparkSerializedPage.getChecksum());
     }
 
     public static byte[] compress(byte[] bytes)

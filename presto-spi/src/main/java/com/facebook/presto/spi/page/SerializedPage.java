@@ -17,9 +17,7 @@ import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
-import java.util.zip.CRC32;
 
-import static com.facebook.presto.spi.page.PageCodecMarker.CHECKSUMMED;
 import static com.facebook.presto.spi.page.PageCodecMarker.COMPRESSED;
 import static com.facebook.presto.spi.page.PageCodecMarker.ENCRYPTED;
 import static java.lang.String.format;
@@ -39,7 +37,8 @@ public class SerializedPage
             Slice slice,
             byte pageCodecMarkers,
             int positionCount,
-            int uncompressedSizeInBytes)
+            int uncompressedSizeInBytes,
+            long checksum)
     {
         this.slice = requireNonNull(slice, "slice is null");
         this.positionCount = positionCount;
@@ -55,18 +54,7 @@ public class SerializedPage
                 checkArgument(uncompressedSizeInBytes == slice.length(), "uncompressed size must be equal to slice length when uncompressed");
             }
         }
-        if (CHECKSUMMED.isSet(pageCodecMarkers)) {
-            CRC32 crc32 = new CRC32();
-            crc32.update(slice.byteArray());
-            crc32.update(pageCodecMarkers);
-            crc32.update(positionCount);
-            crc32.update(uncompressedSizeInBytes);
-
-            checksum = crc32.getValue();
-        }
-        else {
-            checksum = 0;
-        }
+        this.checksum = checksum;
     }
 
     public byte getPageCodecMarkers()
@@ -117,13 +105,14 @@ public class SerializedPage
         return Objects.equals(slice, that.slice) &&
                 Objects.equals(positionCount, that.positionCount) &&
                 Objects.equals(uncompressedSizeInBytes, that.uncompressedSizeInBytes) &&
-                Objects.equals(pageCodecMarkers, that.pageCodecMarkers);
+                Objects.equals(pageCodecMarkers, that.pageCodecMarkers) &&
+                Objects.equals(checksum, that.checksum);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(slice, positionCount, uncompressedSizeInBytes, pageCodecMarkers);
+        return Objects.hash(slice, positionCount, uncompressedSizeInBytes, pageCodecMarkers, checksum);
     }
 
     private static void checkArgument(boolean condition, String message, Object... messageArgs)
