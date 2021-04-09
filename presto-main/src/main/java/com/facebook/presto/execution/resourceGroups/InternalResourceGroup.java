@@ -707,14 +707,15 @@ public class InternalResourceGroup
             }
             if (isEligibleToStartNext()) {
                 parent.get().addOrUpdateSubGroup(this);
+                parent.get().updateEligibility();
             }
             else {
                 if (queuedQueries.isEmpty() && eligibleSubGroups.isEmpty()) {
                     parent.get().eligibleSubGroups.remove(this);
                     lastStartMillis = 0;
+                    parent.get().updateEligibility();
                 }
             }
-            parent.get().updateEligibility();
         }
     }
 
@@ -794,6 +795,7 @@ public class InternalResourceGroup
                     cachedMemoryUsageBytes += subGroup.cachedMemoryUsageBytes;
                     if (!subGroup.isDirty()) {
                         iterator.remove();
+                        subGroup.updateEligibility();
                     }
                     if (oldMemoryUsageBytes != subGroup.cachedMemoryUsageBytes) {
                         subGroup.updateEligibility();
@@ -851,10 +853,13 @@ public class InternalResourceGroup
                 lastStartMillis = currentTime;
 
                 descendantQueuedQueries--;
-            }
 
-            // Don't call updateEligibility here, as we're in a recursive call, and don't want to repeatedly update our ancestors.
-            if (subGroup.isEligibleToStartNext()) {
+                // Don't call updateEligibility here, as we're in a recursive call, and don't want to repeatedly update our ancestors.
+                if (subGroup.isEligibleToStartNext()) {
+                    addOrUpdateSubGroup(subGroup);
+                }
+            }
+            else {
                 addOrUpdateSubGroup(subGroup);
             }
             return started;
@@ -907,9 +912,6 @@ public class InternalResourceGroup
     {
         checkState(Thread.holdsLock(root), "Must hold lock");
         synchronized (root) {
-            if (!canRunMore()) {
-                return false;
-            }
             return !queuedQueries.isEmpty() || !eligibleSubGroups.isEmpty();
         }
     }
