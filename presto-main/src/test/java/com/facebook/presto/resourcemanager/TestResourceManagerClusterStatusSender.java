@@ -67,7 +67,7 @@ public class TestResourceManagerClusterStatusSender
     {
         resourceManagerClient = new MockResourceManagerClient();
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
-        nodeManager.addNode(CONNECTOR_ID, new InternalNode("identifier", URI.create("http://localhost:80/identifier"), OptionalInt.of(1), new NodeVersion("1"), false, true));
+        nodeManager.addNode(CONNECTOR_ID, new InternalNode("identifier", URI.create("http://localhost:80/identifier"), OptionalInt.of(1), "1", false, true));
 
         sender = new ResourceManagerClusterStatusSender(
                 (addressSelectionContext, headers) -> resourceManagerClient,

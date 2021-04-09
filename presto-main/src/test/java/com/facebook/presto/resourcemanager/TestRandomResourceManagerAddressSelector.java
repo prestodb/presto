@@ -14,7 +14,6 @@
 package com.facebook.presto.resourcemanager;
 
 import com.facebook.drift.client.address.SimpleAddressSelector;
-import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.spi.ConnectorId;
@@ -59,9 +58,9 @@ public class TestRandomResourceManagerAddressSelector
         InMemoryNodeManager internalNodeManager = new InMemoryNodeManager();
         RandomResourceManagerAddressSelector selector = new RandomResourceManagerAddressSelector(internalNodeManager, hostAndPorts -> Optional.of(hostAndPorts.get(0)));
 
-        internalNodeManager.addNode(CONNECTOR_ID, new InternalNode("1", URI.create("local://localhost:123/1"), OptionalInt.empty(), new NodeVersion("1"), false, true));
-        internalNodeManager.addNode(CONNECTOR_ID, new InternalNode("2", URI.create("local://localhost:456/1"), OptionalInt.of(2), new NodeVersion("1"), false, true));
-        internalNodeManager.addNode(CONNECTOR_ID, new InternalNode("3", URI.create("local://localhost:789/2"), OptionalInt.of(3), new NodeVersion("1"), false, true));
+        internalNodeManager.addNode(CONNECTOR_ID, new InternalNode("1", URI.create("local://localhost:123/1"), OptionalInt.empty(), "1", false, true));
+        internalNodeManager.addNode(CONNECTOR_ID, new InternalNode("2", URI.create("local://localhost:456/1"), OptionalInt.of(2), "1", false, true));
+        internalNodeManager.addNode(CONNECTOR_ID, new InternalNode("3", URI.create("local://localhost:789/2"), OptionalInt.of(3), "1", false, true));
 
         Optional<SimpleAddressSelector.SimpleAddress> address = selector.selectAddress(Optional.empty());
         assertTrue(address.isPresent());
