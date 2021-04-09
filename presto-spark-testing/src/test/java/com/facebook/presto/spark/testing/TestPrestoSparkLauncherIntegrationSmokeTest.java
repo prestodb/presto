@@ -29,6 +29,7 @@ import com.google.common.hash.Hashing;
 import io.airlift.units.Duration;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -87,6 +88,7 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
     private static final DateTimeZone TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
 
     private File tempDir;
+    private File sparkWorkDirectory;
 
     private DockerCompose dockerCompose;
     private Process composeProcess;
@@ -106,6 +108,8 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
         // the default temporary directory location on MacOS is not sharable to docker
         tempDir = new File("/tmp", randomUUID().toString());
         createDirectories(tempDir.toPath());
+        sparkWorkDirectory = new File(tempDir, "work");
+        createDirectories(sparkWorkDirectory.toPath());
 
         File composeYaml = extractResource("docker-compose.yml", tempDir);
         dockerCompose = new DockerCompose(composeYaml);
@@ -211,6 +215,27 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
                             .map(value -> "'" + value + "'")
                             .collect(joining(",")),
                     table));
+        }
+    }
+
+    /**
+     * Spark has to deploy Presto on Spark package to every worker for every query.
+     * Unfortunately Spark doesn't try to eagerly delete application data from the workers, and after running
+     * a couple of queries the disk space utilization spikes.
+     * While this might not be an issue when testing locally the disk space is usually very limited on CI environments.
+     * To avoid issues when running on a CI environment we have to drop temporary application data eagerly after each test.
+     */
+    @AfterMethod(alwaysRun = true)
+    public void cleanupSparkWorkDirectory()
+            throws Exception
+    {
+        if (sparkWorkDirectory != null) {
+            // Docker containers are run with a different user id. Run "rm" in a container to avoid permission related issues.
+            int exitCode = dockerCompose.run(
+                    "-v", format("%s:/spark/work", sparkWorkDirectory.getAbsolutePath()),
+                    "spark-submit",
+                    "/bin/bash", "-c", "rm -rf /spark/work/*");
+            assertEquals(exitCode, 0);
         }
     }
 
