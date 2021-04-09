@@ -476,27 +476,13 @@ public class TestAlluxioCachingFileSystem
 
     private Configuration getHdfsConfiguration(CacheConfig cacheConfig, AlluxioCacheConfig alluxioCacheConfig)
     {
+        AlluxioCachingConfigurationProvider provider = new AlluxioCachingConfigurationProvider(cacheConfig, alluxioCacheConfig);
         Configuration configuration = new Configuration();
+        provider.updateConfiguration(configuration, null /* ignored */, null /* ignored */);
         if (cacheConfig.isCachingEnabled() && cacheConfig.getCacheType() == ALLUXIO) {
-            configuration.set("alluxio.user.local.cache.enabled", String.valueOf(cacheConfig.isCachingEnabled()));
-            if (cacheConfig.getBaseDirectory() != null) {
-                configuration.set("alluxio.user.client.cache.dir", cacheConfig.getBaseDirectory().getPath());
-            }
-            configuration.set("alluxio.user.client.cache.size", alluxioCacheConfig.getMaxCacheSize().toString());
+            // we don't have corresponding Presto properties for these two, set them manually
             configuration.set("alluxio.user.client.cache.page.size", Integer.toString(PAGE_SIZE));
-            configuration.set("alluxio.user.metrics.collection.enabled", String.valueOf(alluxioCacheConfig.isMetricsCollectionEnabled()));
-            configuration.set("alluxio.user.client.cache.async.write.enabled", String.valueOf(alluxioCacheConfig.isAsyncWriteEnabled()));
             configuration.set("alluxio.user.client.cache.async.restore.enabled", String.valueOf(false));
-            configuration.set("alluxio.user.client.cache.quota.enabled", String.valueOf(alluxioCacheConfig.isCacheQuotaEnabled()));
-            configuration.set("sink.jmx.class", alluxioCacheConfig.getJmxClass());
-            configuration.set("sink.jmx.domain", alluxioCacheConfig.getMetricsDomain());
-            if (alluxioCacheConfig.getTimeoutEnabled()) {
-                configuration.set("alluxio.user.client.cache.timeout.duration", String.valueOf(alluxioCacheConfig.getTimeoutDuration().toMillis()));
-                configuration.set("alluxio.user.client.cache.timeout.threads", String.valueOf(alluxioCacheConfig.getTimeoutThreads()));
-            }
-            else {
-                configuration.set("alluxio.user.client.cache.timeout.duration", "-1");
-            }
         }
         return configuration;
     }
