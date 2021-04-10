@@ -46,7 +46,7 @@ public class TestNullabilityAnalyzer
             .put("c", RowType.from(ImmutableList.of(field("field_1", BIGINT))))
             .build());
 
-    private static final NullabilityAnalyzer analyzer = new NullabilityAnalyzer(METADATA.getFunctionManager(), METADATA.getTypeManager());
+    private static final NullabilityAnalyzer analyzer = new NullabilityAnalyzer(METADATA.getFunctionAndTypeManager());
 
     @Test
     void test()
@@ -55,9 +55,8 @@ public class TestNullabilityAnalyzer
         assertNullability("TRY_CAST(a AS VARCHAR)", true);
         assertNullability("CAST(a AS VARCHAR)", true);
 
-        //TODO following two tests should return false but we are not yet smart enough to infer it.
-        assertNullability("TRY_CAST('123' AS VARCHAR)", true);
-        assertNullability("CAST('123' AS VARCHAR)", true);
+        assertNullability("TRY_CAST('123' AS VARCHAR)", false);
+        assertNullability("CAST('123' AS VARCHAR)", false);
 
         assertNullability("a = 1", false);
         assertNullability("(a/9+1)*5-10 > 10", false);
@@ -81,7 +80,6 @@ public class TestNullabilityAnalyzer
         Expression rawExpression = rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(expression, new ParsingOptions()));
         Expression desugaredExpression = new TestingDesugarExpressions(TYPES.allVariables()).rewrite(rawExpression);
         RowExpression rowExpression = TRANSLATOR.translate(desugaredExpression, TYPES);
-        assertEquals(NullabilityAnalyzer.mayReturnNullOnNonNullInput(rawExpression), mayReturnNullForNotNullInput);
         assertEquals(analyzer.mayReturnNullOnNonNullInput(rowExpression), mayReturnNullForNotNullInput);
     }
 

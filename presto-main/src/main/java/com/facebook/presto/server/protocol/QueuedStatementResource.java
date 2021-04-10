@@ -23,9 +23,11 @@ import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.server.HttpRequestSessionContext;
+import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.server.SessionContext;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
@@ -109,17 +111,23 @@ public class QueuedStatementResource
 
     private final ConcurrentMap<QueryId, Query> queries = new ConcurrentHashMap<>();
     private final ScheduledExecutorService queryPurger = newSingleThreadScheduledExecutor(threadsNamed("dispatch-query-purger"));
+    private final boolean compressionEnabled;
+
+    private final SqlParserOptions sqlParserOptions;
 
     @Inject
     public QueuedStatementResource(
             DispatchManager dispatchManager,
             DispatchExecutor executor,
-            LocalQueryProvider queryResultsProvider)
+            LocalQueryProvider queryResultsProvider,
+            SqlParserOptions sqlParserOptions,
+            ServerConfig serverConfig)
     {
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
         this.queryResultsProvider = queryResultsProvider;
+        this.sqlParserOptions = requireNonNull(sqlParserOptions, "sqlParserOptions is null");
+        this.compressionEnabled = requireNonNull(serverConfig, "serverConfig is null").isQueryResultsCompressionEnabled();
 
-        requireNonNull(dispatchManager, "dispatchManager is null");
         this.responseExecutor = requireNonNull(executor, "responseExecutor is null").getExecutor();
         this.timeoutExecutor = requireNonNull(executor, "timeoutExecutor is null").getScheduledExecutor();
 
@@ -139,7 +147,7 @@ public class QueuedStatementResource
                         }
                     }
                     catch (Throwable e) {
-                        log.warn(e, "Error removing old queries");
+                        log.error(e, "Error removing old queries");
                     }
                 },
                 200,
@@ -166,11 +174,11 @@ public class QueuedStatementResource
             throw badRequest(BAD_REQUEST, "SQL statement is empty");
         }
 
-        SessionContext sessionContext = new HttpRequestSessionContext(servletRequest);
+        SessionContext sessionContext = new HttpRequestSessionContext(servletRequest, sqlParserOptions);
         Query query = new Query(statement, sessionContext, dispatchManager, queryResultsProvider, timeoutExecutor);
         queries.put(query.getQueryId(), query);
 
-        return Response.ok(query.getInitialQueryResults(uriInfo, xForwardedProto)).build();
+        return withCompressionConfiguration(Response.ok(query.getInitialQueryResults(uriInfo, xForwardedProto)), compressionEnabled).build();
     }
 
     @GET
@@ -197,7 +205,7 @@ public class QueuedStatementResource
         // when state changes, fetch the next result
         ListenableFuture<Response> queryResultsFuture = transformAsync(
                 futureStateChange,
-                ignored -> query.toResponse(token, uriInfo, xForwardedProto, WAIT_ORDERING.min(MAX_WAIT_TIME, maxWait)),
+                ignored -> query.toResponse(token, uriInfo, xForwardedProto, WAIT_ORDERING.min(MAX_WAIT_TIME, maxWait), compressionEnabled),
                 responseExecutor);
         bindAsyncResponse(asyncResponse, queryResultsFuture, responseExecutor);
     }
@@ -287,6 +295,14 @@ public class QueuedStatementResource
                         .build());
     }
 
+    private static Response.ResponseBuilder withCompressionConfiguration(Response.ResponseBuilder builder, boolean compressionEnabled)
+    {
+        if (!compressionEnabled) {
+            builder.encoding("identity");
+        }
+        return builder;
+    }
+
     private static final class Query
     {
         private final String query;
@@ -358,7 +374,7 @@ public class QueuedStatementResource
                     DispatchInfo.queued(NO_DURATION, NO_DURATION));
         }
 
-        public ListenableFuture<Response> toResponse(long token, UriInfo uriInfo, String xForwardedProto, Duration maxWait)
+        public ListenableFuture<Response> toResponse(long token, UriInfo uriInfo, String xForwardedProto, Duration maxWait, boolean compressionEnabled)
         {
             long lastToken = this.lastToken.get();
             // token should be the last token or the next token
@@ -376,7 +392,7 @@ public class QueuedStatementResource
                             uriInfo,
                             xForwardedProto,
                             DispatchInfo.queued(NO_DURATION, NO_DURATION));
-                    return immediateFuture(Response.ok(queryResults).build());
+                    return immediateFuture(withCompressionConfiguration(Response.ok(queryResults), compressionEnabled).build());
                 }
             }
 
@@ -389,7 +405,7 @@ public class QueuedStatementResource
             }
 
             if (!waitForDispatched().isDone()) {
-                return immediateFuture(Response.ok(createQueryResults(token + 1, uriInfo, xForwardedProto, dispatchInfo.get())).build());
+                return immediateFuture(withCompressionConfiguration(Response.ok(createQueryResults(token + 1, uriInfo, xForwardedProto, dispatchInfo.get())), compressionEnabled).build());
             }
 
             com.facebook.presto.server.protocol.Query query;
@@ -397,13 +413,13 @@ public class QueuedStatementResource
                 query = queryProvider.getQuery(queryId, slug);
             }
             catch (WebApplicationException e) {
-                return immediateFuture(Response.ok(createQueryResults(token + 1, uriInfo, xForwardedProto, dispatchInfo.get())).build());
+                return immediateFuture(withCompressionConfiguration(Response.ok(createQueryResults(token + 1, uriInfo, xForwardedProto, dispatchInfo.get())), compressionEnabled).build());
             }
             // If this future completes successfully, the next URI will redirect to the executing statement endpoint.
             // Hence it is safe to hardcode the token to be 0.
             return transform(
                     query.waitForResults(0, uriInfo, getScheme(xForwardedProto, uriInfo), maxWait, TARGET_RESULT_SIZE),
-                    results -> QueryResourceUtil.toResponse(query, results),
+                    results -> QueryResourceUtil.toResponse(query, results, compressionEnabled),
                     directExecutor());
         }
 

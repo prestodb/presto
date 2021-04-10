@@ -14,12 +14,12 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.SortOrder;
-import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.Ordering;
@@ -104,11 +104,11 @@ public class PushAggregationThroughOuterJoin
 
     private static final Pattern<AggregationNode> PATTERN = aggregation()
             .with(source().matching(join().capturedAs(JOIN)));
-    private final FunctionManager functionManager;
+    private final FunctionAndTypeManager functionAndTypeManager;
 
-    public PushAggregationThroughOuterJoin(FunctionManager functionManager)
+    public PushAggregationThroughOuterJoin(FunctionAndTypeManager functionAndTypeManager)
     {
-        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
     }
 
     @Override
@@ -163,7 +163,8 @@ public class PushAggregationThroughOuterJoin
                     join.getFilter(),
                     join.getLeftHashVariable(),
                     join.getRightHashVariable(),
-                    join.getDistributionType());
+                    join.getDistributionType(),
+                    join.getDynamicFilters());
         }
         else {
             rewrittenJoin = new JoinNode(
@@ -179,7 +180,8 @@ public class PushAggregationThroughOuterJoin
                     join.getFilter(),
                     join.getLeftHashVariable(),
                     join.getRightHashVariable(),
-                    join.getDistributionType());
+                    join.getDistributionType(),
+                    join.getDynamicFilters());
         }
 
         Optional<PlanNode> resultNode = coalesceWithNullAggregation(rewrittenAggregation, rewrittenJoin, context.getVariableAllocator(), context.getIdAllocator(), context.getLookup());
@@ -258,7 +260,8 @@ public class PushAggregationThroughOuterJoin
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                ImmutableMap.of());
 
         // Add coalesce expressions for all aggregation functions
         Assignments.Builder assignmentsBuilder = Assignments.builder();
@@ -326,8 +329,8 @@ public class PushAggregationThroughOuterJoin
                     aggregation.getOrderBy().map(orderBy -> inlineOrderByVariables(sourcesVariableMapping, orderBy)),
                     aggregation.isDistinct(),
                     aggregation.getMask().map(x -> new VariableReferenceExpression(sourcesVariableMapping.get(x).getName(), x.getType())));
-            QualifiedFunctionName functionName = functionManager.getFunctionMetadata(overNullAggregation.getFunctionHandle()).getName();
-            VariableReferenceExpression overNull = variableAllocator.newVariable(functionName.getFunctionName(), aggregationVariable.getType());
+            QualifiedObjectName functionName = functionAndTypeManager.getFunctionMetadata(overNullAggregation.getFunctionHandle()).getName();
+            VariableReferenceExpression overNull = variableAllocator.newVariable(functionName.getObjectName(), aggregationVariable.getType());
             aggregationsOverNullBuilder.put(overNull, overNullAggregation);
             aggregationsVariableMappingBuilder.put(aggregationVariable, overNull);
         }

@@ -15,11 +15,11 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.predicate.TupleDomain;
-import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.ResolvedIndex;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -185,7 +185,18 @@ public class IndexJoinOptimizer
             }
 
             if (leftRewritten != node.getLeft() || rightRewritten != node.getRight()) {
-                return new JoinNode(node.getId(), node.getType(), leftRewritten, rightRewritten, node.getCriteria(), node.getOutputVariables(), node.getFilter(), node.getLeftHashVariable(), node.getRightHashVariable(), node.getDistributionType());
+                return new JoinNode(
+                        node.getId(),
+                        node.getType(),
+                        leftRewritten,
+                        rightRewritten,
+                        node.getCriteria(),
+                        node.getOutputVariables(),
+                        node.getFilter(),
+                        node.getLeftHashVariable(),
+                        node.getRightHashVariable(),
+                        node.getDistributionType(),
+                        node.getDynamicFilters());
             }
             return node;
         }
@@ -236,9 +247,9 @@ public class IndexJoinOptimizer
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.domainTranslator = new RowExpressionDomainTranslator(metadata);
             this.logicalRowExpressions = new LogicalRowExpressions(
-                    new RowExpressionDeterminismEvaluator(metadata.getFunctionManager()),
-                    new FunctionResolution(metadata.getFunctionManager()),
-                    metadata.getFunctionManager());
+                    new RowExpressionDeterminismEvaluator(metadata.getFunctionAndTypeManager()),
+                    new FunctionResolution(metadata.getFunctionAndTypeManager()),
+                    metadata.getFunctionAndTypeManager());
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.session = requireNonNull(session, "session is null");
         }
@@ -353,7 +364,7 @@ public class IndexJoinOptimizer
         public PlanNode visitWindow(WindowNode node, RewriteContext<Context> context)
         {
             if (!node.getWindowFunctions().values().stream()
-                    .allMatch(function -> metadata.getFunctionManager().getFunctionMetadata(function.getFunctionHandle()).getFunctionKind() == AGGREGATE)) {
+                    .allMatch(function -> metadata.getFunctionAndTypeManager().getFunctionMetadata(function.getFunctionHandle()).getFunctionKind() == AGGREGATE)) {
                 return node;
             }
 

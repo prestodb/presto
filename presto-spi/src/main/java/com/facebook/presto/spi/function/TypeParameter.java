@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi.function;
 
+import com.facebook.presto.common.type.Type;
+
 import java.lang.annotation.Repeatable;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
@@ -28,4 +30,6 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 public @interface TypeParameter
 {
     String value();
+
+    Class<? extends Type> boundedBy() default Type.class;
 }

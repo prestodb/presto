@@ -21,6 +21,7 @@ import com.facebook.airlift.http.client.ResponseHandler;
 import com.facebook.airlift.http.client.ResponseTooLargeException;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.operator.PageBufferClient.PagesResponse;
+import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.MediaType;
@@ -147,7 +148,11 @@ public final class HttpRpcShuffleClient
                 // no content means no content was created within the wait period, but query is still ok
                 // if job is finished, complete is set in the response
                 if (response.getStatusCode() == HttpStatus.NO_CONTENT.code()) {
-                    return createEmptyPagesResponse(getTaskInstanceId(response), getToken(response), getNextToken(response), getComplete(response));
+                    return createEmptyPagesResponse(
+                            getTaskInstanceId(request, response),
+                            getToken(request, response),
+                            getNextToken(request, response),
+                            getComplete(request, response));
                 }
 
                 // otherwise we must have gotten an OK response, everything else is considered fatal
@@ -167,22 +172,31 @@ public final class HttpRpcShuffleClient
                     catch (RuntimeException | IOException e) {
                         // Ignored. Just return whatever message we were able to decode
                     }
-                    throw new PageTransportErrorException(format("Expected response code to be 200, but was %s %s:%n%s", response.getStatusCode(), response.getStatusMessage(), body.toString()));
+                    throw new PageTransportErrorException(
+                            HostAddress.fromUri(request.getUri()),
+                            format("Expected response code to be 200, but was %s %s:%n%s",
+                                    response.getStatusCode(),
+                                    response.getStatusMessage(),
+                                    body.toString()));
                 }
 
                 // invalid content type can happen when an error page is returned, but is unlikely given the above 200
                 String contentType = response.getHeader(CONTENT_TYPE);
                 if (contentType == null) {
-                    throw new PageTransportErrorException(format("%s header is not set: %s", CONTENT_TYPE, response));
+                    throw new PageTransportErrorException(
+                            HostAddress.fromUri(request.getUri()),
+                            format("%s header is not set: %s", CONTENT_TYPE, response));
                 }
                 if (!mediaTypeMatches(contentType, PRESTO_PAGES_TYPE)) {
-                    throw new PageTransportErrorException(format("Expected %s response from server but got %s", PRESTO_PAGES_TYPE, contentType));
+                    throw new PageTransportErrorException(
+                            HostAddress.fromUri(request.getUri()),
+                            format("Expected %s response from server but got %s", PRESTO_PAGES_TYPE, contentType));
                 }
 
-                String taskInstanceId = getTaskInstanceId(response);
-                long token = getToken(response);
-                long nextToken = getNextToken(response);
-                boolean complete = getComplete(response);
+                String taskInstanceId = getTaskInstanceId(request, response);
+                long token = getToken(request, response);
+                long nextToken = getNextToken(request, response);
+                boolean complete = getComplete(request, response);
 
                 try (SliceInput input = new InputStreamSliceInput(response.getInputStream())) {
                     List<SerializedPage> pages = ImmutableList.copyOf(readSerializedPages(input));
@@ -193,42 +207,45 @@ public final class HttpRpcShuffleClient
                 }
             }
             catch (PageTransportErrorException e) {
-                throw new PageTransportErrorException("Error fetching " + request.getUri().toASCIIString(), e);
+                throw new PageTransportErrorException(
+                        e.getRemoteHost(),
+                        "Error fetching " + request.getUri().toASCIIString(),
+                        e);
             }
         }
 
-        private static String getTaskInstanceId(Response response)
+        private static String getTaskInstanceId(Request request, Response response)
         {
             String taskInstanceId = response.getHeader(PRESTO_TASK_INSTANCE_ID);
             if (taskInstanceId == null) {
-                throw new PageTransportErrorException(format("Expected %s header", PRESTO_TASK_INSTANCE_ID));
+                throw new PageTransportErrorException(HostAddress.fromUri(request.getUri()), format("Expected %s header", PRESTO_TASK_INSTANCE_ID));
             }
             return taskInstanceId;
         }
 
-        private static long getToken(Response response)
+        private static long getToken(Request request, Response response)
         {
             String tokenHeader = response.getHeader(PRESTO_PAGE_TOKEN);
             if (tokenHeader == null) {
-                throw new PageTransportErrorException(format("Expected %s header", PRESTO_PAGE_TOKEN));
+                throw new PageTransportErrorException(HostAddress.fromUri(request.getUri()), format("Expected %s header", PRESTO_PAGE_TOKEN));
             }
             return Long.parseLong(tokenHeader);
         }
 
-        private static long getNextToken(Response response)
+        private static long getNextToken(Request request, Response response)
         {
             String nextTokenHeader = response.getHeader(PRESTO_PAGE_NEXT_TOKEN);
             if (nextTokenHeader == null) {
-                throw new PageTransportErrorException(format("Expected %s header", PRESTO_PAGE_NEXT_TOKEN));
+                throw new PageTransportErrorException(HostAddress.fromUri(request.getUri()), format("Expected %s header", PRESTO_PAGE_NEXT_TOKEN));
             }
             return Long.parseLong(nextTokenHeader);
         }
 
-        private static boolean getComplete(Response response)
+        private static boolean getComplete(Request request, Response response)
         {
             String bufferComplete = response.getHeader(PRESTO_BUFFER_COMPLETE);
             if (bufferComplete == null) {
-                throw new PageTransportErrorException(format("Expected %s header", PRESTO_BUFFER_COMPLETE));
+                throw new PageTransportErrorException(HostAddress.fromUri(request.getUri()), format("Expected %s header", PRESTO_BUFFER_COMPLETE));
             }
             return Boolean.parseBoolean(bufferComplete);
         }

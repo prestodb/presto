@@ -30,6 +30,7 @@ public class GlueHiveMetastoreConfig
     private Optional<String> catalogId = Optional.empty();
     private int partitionSegments = 5;
     private int getPartitionThreads = 20;
+    private Optional<String> iamRole = Optional.empty();
 
     public Optional<String> getGlueRegion()
     {
@@ -123,6 +124,19 @@ public class GlueHiveMetastoreConfig
     public GlueHiveMetastoreConfig setGetPartitionThreads(int getPartitionThreads)
     {
         this.getPartitionThreads = getPartitionThreads;
+        return this;
+    }
+
+    public Optional<String> getIamRole()
+    {
+        return iamRole;
+    }
+
+    @Config("hive.metastore.glue.iam-role")
+    @ConfigDescription("IAM role to assume when connecting to the Hive Glue metastore")
+    public GlueHiveMetastoreConfig setIamRole(String iamRole)
+    {
+        this.iamRole = Optional.ofNullable(iamRole);
         return this;
     }
 }

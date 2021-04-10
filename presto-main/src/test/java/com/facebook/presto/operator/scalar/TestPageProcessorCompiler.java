@@ -17,7 +17,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.DictionaryBlock;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.type.ArrayType;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.project.PageProcessor;
@@ -80,10 +80,10 @@ public class TestPageProcessorCompiler
     @Test
     public void testNoCaching()
     {
-        FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
+        FunctionAndTypeManager functionAndTypeManager = createTestMetadataManager().getFunctionAndTypeManager();
         ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
         ArrayType arrayType = new ArrayType(VARCHAR);
-        FunctionHandle functionHandle = functionManager.lookupFunction("concat", fromTypes(arrayType, arrayType));
+        FunctionHandle functionHandle = functionAndTypeManager.lookupFunction("concat", fromTypes(arrayType, arrayType));
         projectionsBuilder.add(new CallExpression("concat", functionHandle, arrayType, ImmutableList.of(field(0, arrayType), field(1, arrayType))));
 
         ImmutableList<RowExpression> projections = projectionsBuilder.build();
@@ -121,10 +121,10 @@ public class TestPageProcessorCompiler
     @Test
     public void testSanityFilterOnDictionary()
     {
-        FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
+        FunctionAndTypeManager functionAndTypeManager = createTestMetadataManager().getFunctionAndTypeManager();
         CallExpression lengthVarchar = new CallExpression(
-                "length", functionManager.lookupFunction("length", fromTypes(VARCHAR)), BIGINT, ImmutableList.of(field(0, VARCHAR)));
-        FunctionHandle lessThan = functionManager.resolveOperator(LESS_THAN, fromTypes(BIGINT, BIGINT));
+                "length", functionAndTypeManager.lookupFunction("length", fromTypes(VARCHAR)), BIGINT, ImmutableList.of(field(0, VARCHAR)));
+        FunctionHandle lessThan = functionAndTypeManager.resolveOperator(LESS_THAN, fromTypes(BIGINT, BIGINT));
         CallExpression filter = new CallExpression(LESS_THAN.name(), lessThan, BOOLEAN, ImmutableList.of(lengthVarchar, constant(10L, BIGINT)));
 
         PageProcessor processor = compiler.compilePageProcessor(TEST_SESSION.getSqlFunctionProperties(), Optional.of(filter), ImmutableList.of(field(0, VARCHAR)), false, MAX_BATCH_SIZE).get();
@@ -162,8 +162,8 @@ public class TestPageProcessorCompiler
     @Test
     public void testSanityFilterOnRLE()
     {
-        FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
-        FunctionHandle lessThan = functionManager.resolveOperator(LESS_THAN, fromTypes(BIGINT, BIGINT));
+        FunctionAndTypeManager functionAndTypeManager = createTestMetadataManager().getFunctionAndTypeManager();
+        FunctionHandle lessThan = functionAndTypeManager.resolveOperator(LESS_THAN, fromTypes(BIGINT, BIGINT));
         CallExpression filter = new CallExpression(LESS_THAN.name(), lessThan, BOOLEAN, ImmutableList.of(field(0, BIGINT), constant(10L, BIGINT)));
 
         PageProcessor processor = compiler.compilePageProcessor(TEST_SESSION.getSqlFunctionProperties(), Optional.of(filter), ImmutableList.of(field(0, BIGINT)), false, MAX_BATCH_SIZE).get();
@@ -208,16 +208,16 @@ public class TestPageProcessorCompiler
     @Test
     public void testNonDeterministicProject()
     {
-        FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
-        FunctionHandle lessThan = functionManager.resolveOperator(LESS_THAN, fromTypes(BIGINT, BIGINT));
+        FunctionAndTypeManager functionAndTypeManager = createTestMetadataManager().getFunctionAndTypeManager();
+        FunctionHandle lessThan = functionAndTypeManager.resolveOperator(LESS_THAN, fromTypes(BIGINT, BIGINT));
         CallExpression random = new CallExpression(
-                "random", functionManager.lookupFunction("random", fromTypes(BIGINT)), BIGINT, singletonList(constant(10L, BIGINT)));
+                "random", functionAndTypeManager.lookupFunction("random", fromTypes(BIGINT)), BIGINT, singletonList(constant(10L, BIGINT)));
         InputReferenceExpression col0 = field(0, BIGINT);
         CallExpression lessThanRandomExpression = new CallExpression(LESS_THAN.name(), lessThan, BOOLEAN, ImmutableList.of(col0, random));
 
         PageProcessor processor = compiler.compilePageProcessor(TEST_SESSION.getSqlFunctionProperties(), Optional.empty(), ImmutableList.of(lessThanRandomExpression), false, MAX_BATCH_SIZE).get();
 
-        assertFalse(new RowExpressionDeterminismEvaluator(metadataManager.getFunctionManager()).isDeterministic(lessThanRandomExpression));
+        assertFalse(new RowExpressionDeterminismEvaluator(metadataManager.getFunctionAndTypeManager()).isDeterministic(lessThanRandomExpression));
 
         Page page = new Page(createLongDictionaryBlock(1, 100));
         Page outputPage = getOnlyElement(

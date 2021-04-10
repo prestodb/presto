@@ -18,8 +18,8 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
+import com.facebook.presto.common.io.DataSink;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.orc.DataSink;
 import com.facebook.presto.orc.DwrfEncryptionProvider;
 import com.facebook.presto.orc.DwrfWriterEncryption;
 import com.facebook.presto.orc.OrcDataSource;
@@ -27,7 +27,7 @@ import com.facebook.presto.orc.OrcEncoding;
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
 import com.facebook.presto.orc.OrcWriter;
 import com.facebook.presto.orc.OrcWriterOptions;
-import com.facebook.presto.orc.OrcWriterStats;
+import com.facebook.presto.orc.WriterStats;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
@@ -80,7 +80,7 @@ public class OrcFileWriter
             DateTimeZone hiveStorageTimeZone,
             Optional<Supplier<OrcDataSource>> validationInputFactory,
             OrcWriteValidationMode validationMode,
-            OrcWriterStats stats,
+            WriterStats stats,
             DwrfEncryptionProvider dwrfEncryptionProvider,
             Optional<DwrfWriterEncryption> dwrfWriterEncryption)
     {
@@ -124,6 +124,12 @@ public class OrcFileWriter
     public long getWrittenBytes()
     {
         return orcWriter.getWrittenBytes() + orcWriter.getBufferedBytes();
+    }
+
+    @Override
+    public long getFileSizeInBytes()
+    {
+        return orcWriter.getWrittenBytes();
     }
 
     @Override
@@ -184,7 +190,7 @@ public class OrcFileWriter
             }
         }
 
-        return Optional.of(createFileStatisticsPage(getWrittenBytes(), rowCount));
+        return Optional.of(createFileStatisticsPage(getFileSizeInBytes(), rowCount));
     }
 
     @Override

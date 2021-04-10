@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.airlift.http.client.HttpUriBuilder;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.server.remotetask.Backoff;
+import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.google.common.base.Ticker;
@@ -46,6 +47,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import static com.facebook.presto.spi.HostAddress.fromUri;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_BUFFER_CLOSE_FAILED;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
+import static com.facebook.presto.spi.StandardErrorCode.SERIALIZED_PAGE_CHECKSUM_ERROR;
+import static com.facebook.presto.spi.page.PagesSerdeUtil.isChecksumValid;
 import static com.facebook.presto.util.Failures.REMOTE_TASK_MISMATCH_ERROR;
 import static com.facebook.presto.util.Failures.WORKER_NODE_ERROR;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -309,24 +312,30 @@ public final class PageBufferClient
                         // This is to fast release the pages on the buffer side.
                         resultClient.acknowledgeResultsAsync(result.getNextToken());
                     }
+
+                    for (SerializedPage page : pages) {
+                        if (!isChecksumValid(page)) {
+                            throw new PrestoException(SERIALIZED_PAGE_CHECKSUM_ERROR, format("Received corrupted serialized page from host %s", HostAddress.fromUri(uri)));
+                        }
+                    }
+
+                    // add pages:
+                    // addPages must be called regardless of whether pages is an empty list because
+                    // clientCallback can keep stats of requests and responses. For example, it may
+                    // keep track of how often a client returns empty response and adjust request
+                    // frequency or buffer size.
+                    if (clientCallback.addPages(PageBufferClient.this, pages)) {
+                        pagesReceived.addAndGet(pages.size());
+                        rowsReceived.addAndGet(pages.stream().mapToLong(SerializedPage::getPositionCount).sum());
+                    }
+                    else {
+                        pagesRejected.addAndGet(pages.size());
+                        rowsRejected.addAndGet(pages.stream().mapToLong(SerializedPage::getPositionCount).sum());
+                    }
                 }
                 catch (PrestoException e) {
                     handleFailure(e, resultFuture);
                     return;
-                }
-
-                // add pages:
-                // addPages must be called regardless of whether pages is an empty list because
-                // clientCallback can keep stats of requests and responses. For example, it may
-                // keep track of how often a client returns empty response and adjust request
-                // frequency or buffer size.
-                if (clientCallback.addPages(PageBufferClient.this, pages)) {
-                    pagesReceived.addAndGet(pages.size());
-                    rowsReceived.addAndGet(pages.stream().mapToLong(SerializedPage::getPositionCount).sum());
-                }
-                else {
-                    pagesRejected.addAndGet(pages.size());
-                    rowsRejected.addAndGet(pages.stream().mapToLong(SerializedPage::getPositionCount).sum());
                 }
 
                 synchronized (PageBufferClient.this) {

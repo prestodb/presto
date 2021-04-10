@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.rewrite;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.DoubleType;
@@ -22,15 +23,14 @@ import com.facebook.presto.common.type.RealType;
 import com.facebook.presto.common.type.SmallintType;
 import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.statistics.ColumnStatistics;

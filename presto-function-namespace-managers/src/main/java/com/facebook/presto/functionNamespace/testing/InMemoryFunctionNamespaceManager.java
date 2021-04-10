@@ -13,10 +13,14 @@
  */
 package com.facebook.presto.functionNamespace.testing;
 
-import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.UserDefinedType;
 import com.facebook.presto.functionNamespace.AbstractSqlInvokedFunctionNamespaceManager;
 import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerConfig;
+import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutors;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
 import com.facebook.presto.spi.function.FunctionMetadata;
@@ -35,8 +39,10 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
+import static java.lang.Long.parseLong;
 import static java.lang.String.format;
 
 @ThreadSafe
@@ -44,10 +50,18 @@ public class InMemoryFunctionNamespaceManager
         extends AbstractSqlInvokedFunctionNamespaceManager
 {
     private final Map<SqlFunctionId, SqlInvokedFunction> latestFunctions = new ConcurrentHashMap<>();
+    private final Map<TypeSignature, Type> types = new ConcurrentHashMap<>();
+    private final Map<QualifiedObjectName, UserDefinedType> userDefinedTypes = new ConcurrentHashMap<>();
 
-    public InMemoryFunctionNamespaceManager(String catalogName, SqlInvokedFunctionNamespaceManagerConfig config)
+    public InMemoryFunctionNamespaceManager(String catalogName, SqlFunctionExecutors sqlFunctionExecutors, SqlInvokedFunctionNamespaceManagerConfig config)
     {
-        super(catalogName, config);
+        super(catalogName, sqlFunctionExecutors, config);
+    }
+
+    @Override
+    public void setBlockEncodingSerde(BlockEncodingSerde blockEncodingSerde)
+    {
+        // Do not need to do anything here since InMemoryFunctionNamespaceManager cannot execute functions
     }
 
     @Override
@@ -62,19 +76,19 @@ public class InMemoryFunctionNamespaceManager
         SqlInvokedFunction replacedFunction = latestFunctions.get(functionId);
         long version = 1;
         if (replacedFunction != null) {
-            version = replacedFunction.getRequiredVersion() + 1;
+            version = parseLong(replacedFunction.getRequiredVersion()) + 1;
         }
-        latestFunctions.put(functionId, function.withVersion(version));
+        latestFunctions.put(functionId, function.withVersion(String.valueOf(version)));
     }
 
     @Override
-    public void alterFunction(QualifiedFunctionName functionName, Optional<List<TypeSignature>> parameterTypes, AlterRoutineCharacteristics alterRoutineCharacteristics)
+    public void alterFunction(QualifiedObjectName functionName, Optional<List<TypeSignature>> parameterTypes, AlterRoutineCharacteristics alterRoutineCharacteristics)
     {
         throw new PrestoException(NOT_SUPPORTED, "Alter Function is not supported in InMemoryFunctionNamespaceManager");
     }
 
     @Override
-    public synchronized void dropFunction(QualifiedFunctionName functionName, Optional<List<TypeSignature>> parameterTypes, boolean exists)
+    public synchronized void dropFunction(QualifiedObjectName functionName, Optional<List<TypeSignature>> parameterTypes, boolean exists)
     {
         throw new PrestoException(NOT_SUPPORTED, "Drop Function is not supported in InMemoryFunctionNamespaceManager");
     }
@@ -86,12 +100,29 @@ public class InMemoryFunctionNamespaceManager
     }
 
     @Override
-    public Collection<SqlInvokedFunction> fetchFunctionsDirect(QualifiedFunctionName name)
+    public void addUserDefinedType(UserDefinedType type)
+    {
+        QualifiedObjectName name = type.getUserDefinedTypeName();
+        checkArgument(
+                !userDefinedTypes.containsKey(name),
+                "Parametric type %s already registered",
+                        name);
+        userDefinedTypes.put(name, type);
+    }
+
+    @Override
+    public Collection<SqlInvokedFunction> fetchFunctionsDirect(QualifiedObjectName name)
     {
         return latestFunctions.values().stream()
                 .filter(function -> function.getSignature().getName().equals(name))
                 .map(InMemoryFunctionNamespaceManager::copyFunction)
                 .collect(toImmutableList());
+    }
+
+    @Override
+    protected UserDefinedType fetchUserDefinedTypeDirect(QualifiedObjectName typeName)
+    {
+        return userDefinedTypes.get(typeName);
     }
 
     @Override

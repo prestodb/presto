@@ -23,6 +23,8 @@ import java.util.Map;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.airlift.units.DataSize.Unit.KILOBYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class TestPrestoSparkConfig
 {
@@ -32,7 +34,15 @@ public class TestPrestoSparkConfig
         assertRecordedDefaults(ConfigAssertions.recordDefaults(PrestoSparkConfig.class)
                 .setSparkPartitionCountAutoTuneEnabled(true)
                 .setInitialSparkPartitionCount(16)
-                .setMaxSplitsDataSizePerSparkPartition(new DataSize(2, GIGABYTE)));
+                .setMinSparkInputPartitionCountForAutoTune(100)
+                .setMaxSparkInputPartitionCountForAutoTune(1000)
+                .setMaxSplitsDataSizePerSparkPartition(new DataSize(2, GIGABYTE))
+                .setShuffleOutputTargetAverageRowSize(new DataSize(1, KILOBYTE))
+                .setStorageBasedBroadcastJoinEnabled(false)
+                .setStorageBasedBroadcastJoinStorage("local")
+                .setStorageBasedBroadcastJoinWriteBufferSize(new DataSize(24, MEGABYTE))
+                .setSparkBroadcastJoinMaxMemoryOverride(null)
+                .setSmileSerializationEnabled(true));
     }
 
     @Test
@@ -41,12 +51,28 @@ public class TestPrestoSparkConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("spark.partition-count-auto-tune-enabled", "false")
                 .put("spark.initial-partition-count", "128")
+                .put("spark.min-spark-input-partition-count-for-auto-tune", "200")
+                .put("spark.max-spark-input-partition-count-for-auto-tune", "2000")
                 .put("spark.max-splits-data-size-per-partition", "4GB")
+                .put("spark.shuffle-output-target-average-row-size", "10kB")
+                .put("spark.storage-based-broadcast-join-enabled", "true")
+                .put("spark.storage-based-broadcast-join-storage", "tempfs")
+                .put("spark.storage-based-broadcast-join-write-buffer-size", "4MB")
+                .put("spark.broadcast-join-max-memory-override", "1GB")
+                .put("spark.smile-serialization-enabled", "false")
                 .build();
         PrestoSparkConfig expected = new PrestoSparkConfig()
                 .setSparkPartitionCountAutoTuneEnabled(false)
                 .setInitialSparkPartitionCount(128)
-                .setMaxSplitsDataSizePerSparkPartition(new DataSize(4, GIGABYTE));
+                .setMinSparkInputPartitionCountForAutoTune(200)
+                .setMaxSparkInputPartitionCountForAutoTune(2000)
+                .setMaxSplitsDataSizePerSparkPartition(new DataSize(4, GIGABYTE))
+                .setShuffleOutputTargetAverageRowSize(new DataSize(10, KILOBYTE))
+                .setStorageBasedBroadcastJoinEnabled(true)
+                .setStorageBasedBroadcastJoinStorage("tempfs")
+                .setStorageBasedBroadcastJoinWriteBufferSize(new DataSize(4, MEGABYTE))
+                .setSparkBroadcastJoinMaxMemoryOverride(new DataSize(1, GIGABYTE))
+                .setSmileSerializationEnabled(false);
         assertFullMapping(properties, expected);
     }
 }

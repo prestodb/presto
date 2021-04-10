@@ -14,13 +14,13 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.hive.HiveSessionProperties.InsertExistingPartitionsBehavior;
 import com.facebook.presto.metadata.InsertTableHandle;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.CatalogSchemaTableName;
@@ -62,6 +62,8 @@ import java.io.File;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -74,9 +76,8 @@ import java.util.stream.LongStream;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.SystemSessionProperties.COLOCATED_JOIN;
 import static com.facebook.presto.SystemSessionProperties.CONCURRENT_LIFESPANS_PER_NODE;
-import static com.facebook.presto.SystemSessionProperties.DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION;
 import static com.facebook.presto.SystemSessionProperties.EXCHANGE_MATERIALIZATION_STRATEGY;
-import static com.facebook.presto.SystemSessionProperties.GROUPED_EXECUTION_FOR_AGGREGATION;
+import static com.facebook.presto.SystemSessionProperties.GROUPED_EXECUTION;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.PARTIAL_MERGE_PUSHDOWN_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.PARTITIONING_PROVIDER_CATALOG;
@@ -98,6 +99,9 @@ import static com.facebook.presto.hive.HiveQueryRunner.TPCH_SCHEMA;
 import static com.facebook.presto.hive.HiveQueryRunner.createBucketedSession;
 import static com.facebook.presto.hive.HiveQueryRunner.createMaterializeExchangesSession;
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
+import static com.facebook.presto.hive.HiveSessionProperties.FILE_RENAMING_ENABLED;
+import static com.facebook.presto.hive.HiveSessionProperties.MANIFEST_VERIFICATION_ENABLED;
+import static com.facebook.presto.hive.HiveSessionProperties.PREFER_MANIFESTS_TO_LIST_FILES;
 import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.RCFILE_OPTIMIZED_WRITER_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.SORTED_WRITE_TEMP_PATH_SUBDIRECTORY_COUNT;
@@ -108,7 +112,7 @@ import static com.facebook.presto.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
-import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
+import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveUtil.columnExtraInfo;
 import static com.facebook.presto.spi.security.SelectedRole.Type.ROLE;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
@@ -207,6 +211,24 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testCreateTableWithInvalidProperties()
+    {
+        // CSV
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE invalid_table (col1 bigint) WITH (format = 'ORC', csv_separator = 'S')"))
+                .hasMessageMatching("Cannot specify csv_separator table property for storage format: ORC");
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE invalid_table (col1 varchar) WITH (format = 'CSV', csv_separator = 'SS')"))
+                .hasMessageMatching("csv_separator must be a single character string, but was: 'SS'");
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE invalid_table (col1 bigint) WITH (format = 'ORC', csv_quote = 'Q')"))
+                .hasMessageMatching("Cannot specify csv_quote table property for storage format: ORC");
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE invalid_table (col1 varchar) WITH (format = 'CSV', csv_quote = 'QQ')"))
+                .hasMessageMatching("csv_quote must be a single character string, but was: 'QQ'");
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE invalid_table (col1 varchar) WITH (format = 'ORC', csv_escape = 'E')"))
+                .hasMessageMatching("Cannot specify csv_escape table property for storage format: ORC");
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE invalid_table (col1 varchar) WITH (format = 'CSV', csv_escape = 'EE')"))
+                .hasMessageMatching("csv_escape must be a single character string, but was: 'EE'");
+    }
+
+    @Test
     public void testIOExplain()
     {
         // Test IO explain with small number of discrete components.
@@ -270,6 +292,22 @@ public class TestHiveIntegrationSmokeTest
                         Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_orders"))));
 
         assertUpdate("DROP TABLE test_orders");
+    }
+
+    @Test
+    public void testReadNoColumns()
+    {
+        testWithAllStorageFormats(this::testReadNoColumns);
+    }
+
+    private void testReadNoColumns(Session session, HiveStorageFormat storageFormat)
+    {
+        if (!insertOperationsSupported(storageFormat)) {
+            return;
+        }
+        assertUpdate(session, format("CREATE TABLE test_read_no_columns WITH (format = '%s') AS SELECT 0 x", storageFormat), 1);
+        assertQuery(session, "SELECT count(*) FROM test_read_no_columns", "SELECT 1");
+        assertUpdate(session, "DROP TABLE test_read_no_columns");
     }
 
     @Test
@@ -1079,8 +1117,8 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testCreateEmptyBucketedPartition()
     {
-        for (HiveStorageFormat storageFormat : HiveStorageFormat.values()) {
-            testCreateEmptyBucketedPartition(storageFormat);
+        for (TestingHiveStorageFormat storageFormat : getAllTestingHiveStorageFormat()) {
+            testCreateEmptyBucketedPartition(storageFormat.getFormat());
         }
     }
 
@@ -2359,6 +2397,201 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testPreferManifestsToListFilesForPartitionedTable()
+    {
+        try {
+            // Create partitioned table. Partitions are populated with list of fileNames,sizes
+            assertUpdate(
+                    Session.builder(getSession())
+                            .setCatalogSessionProperty(catalog, FILE_RENAMING_ENABLED, "true")
+                            .setCatalogSessionProperty(catalog, PREFER_MANIFESTS_TO_LIST_FILES, "true")
+                            .setSystemProperty("scale_writers", "false")
+                            .setSystemProperty("writer_min_size", "1MB")
+                            .setSystemProperty("task_writer_count", "1")
+                            .build(),
+                    "CREATE TABLE partitioned_ordering_table (orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus)\n" +
+                            "WITH (partitioned_by = ARRAY['orderstatus'], preferred_ordering_columns = ARRAY['orderkey']) AS\n" +
+                            "SELECT orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus FROM tpch.tiny.orders where orderstatus = 'O'",
+                    (long) computeActual("SELECT count(*) FROM tpch.tiny.orders where orderstatus = 'O'").getOnlyValue());
+
+            // Assert that we are able to read data after disabling listFiles() call to storage
+            assertQuery(
+                    Session.builder(getSession())
+                            .setCatalogSessionProperty(catalog, FILE_RENAMING_ENABLED, "true")
+                            .setCatalogSessionProperty(catalog, PREFER_MANIFESTS_TO_LIST_FILES, "true")
+                            .setCatalogSessionProperty(catalog, MANIFEST_VERIFICATION_ENABLED, "true")
+                            .build(),
+                    "SELECT orderkey, custkey, totalprice, orderdate FROM partitioned_ordering_table",
+                    "SELECT orderkey, custkey, totalprice, orderdate FROM orders where orderstatus = 'O'");
+
+            // Insert a new partition with NO file_renaming. Meaning the list of filenames,sizes will NOT be stored in Metastore partition.
+            assertUpdate(
+                    Session.builder(getSession())
+                            .setSystemProperty("scale_writers", "false")
+                            .setSystemProperty("writer_min_size", "1MB")
+                            .setSystemProperty("task_writer_count", "1")
+                            .build(),
+                    "INSERT INTO partitioned_ordering_table (orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus)\n" +
+                            "SELECT orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus FROM tpch.tiny.orders where orderstatus = 'P'",
+                    (long) computeActual("SELECT count(*) FROM tpch.tiny.orders where orderstatus = 'P'").getOnlyValue());
+
+            // This SELECT involves querying partitions with and without list of filenames, sizes.
+            // Assert that we are able to read mixed partition metadata with and without path/size info.
+            assertQuery(
+                    Session.builder(getSession())
+                            .setCatalogSessionProperty(catalog, FILE_RENAMING_ENABLED, "true")
+                            .setCatalogSessionProperty(catalog, PREFER_MANIFESTS_TO_LIST_FILES, "true")
+                            .setCatalogSessionProperty(catalog, MANIFEST_VERIFICATION_ENABLED, "true")
+                            .build(),
+                    "SELECT orderkey, custkey, totalprice, orderdate FROM partitioned_ordering_table",
+                    "SELECT orderkey, custkey, totalprice, orderdate FROM orders where orderstatus = 'O' OR orderstatus = 'P'");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS partitioned_ordering_table");
+        }
+    }
+
+    @Test
+    public void testPreferManifestsToListFilesForUnPartitionedTable()
+    {
+        try {
+            // Create un-partitioned table
+            assertUpdate(
+                    Session.builder(getSession())
+                            .setCatalogSessionProperty(catalog, FILE_RENAMING_ENABLED, "true")
+                            .setCatalogSessionProperty(catalog, PREFER_MANIFESTS_TO_LIST_FILES, "true")
+                            .setSystemProperty("scale_writers", "false")
+                            .setSystemProperty("writer_min_size", "1MB")
+                            .setSystemProperty("task_writer_count", "1")
+                            .build(),
+                    "CREATE TABLE unpartitioned_ordering_table AS SELECT * FROM tpch.tiny.orders where orderstatus = 'O'",
+                    (long) computeActual("SELECT count(*) FROM tpch.tiny.orders where orderstatus = 'O'").getOnlyValue());
+
+            assertQuery(
+                    Session.builder(getSession())
+                            .setCatalogSessionProperty(catalog, FILE_RENAMING_ENABLED, "true")
+                            .setCatalogSessionProperty(catalog, PREFER_MANIFESTS_TO_LIST_FILES, "true")
+                            .setCatalogSessionProperty(catalog, MANIFEST_VERIFICATION_ENABLED, "true")
+                            .build(),
+                    "SELECT orderkey, custkey, totalprice, orderdate FROM unpartitioned_ordering_table",
+                    "SELECT orderkey, custkey, totalprice, orderdate FROM orders where orderstatus = 'O'");
+
+            // Insert data with NO file_renaming.
+            assertUpdate(
+                    Session.builder(getSession())
+                            .setSystemProperty("scale_writers", "false")
+                            .setSystemProperty("writer_min_size", "1MB")
+                            .setSystemProperty("task_writer_count", "1")
+                            .build(),
+                    "INSERT INTO unpartitioned_ordering_table (orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus)\n" +
+                            "SELECT orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus FROM tpch.tiny.orders where orderstatus = 'P'",
+                    (long) computeActual("SELECT count(*) FROM tpch.tiny.orders where orderstatus = 'P'").getOnlyValue());
+
+            assertQuery(
+                    Session.builder(getSession())
+                            .setCatalogSessionProperty(catalog, FILE_RENAMING_ENABLED, "true")
+                            .setCatalogSessionProperty(catalog, PREFER_MANIFESTS_TO_LIST_FILES, "true")
+                            .setCatalogSessionProperty(catalog, MANIFEST_VERIFICATION_ENABLED, "true")
+                            .build(),
+                    "SELECT orderkey, custkey, totalprice, orderdate FROM unpartitioned_ordering_table",
+                    "SELECT orderkey, custkey, totalprice, orderdate FROM orders where orderstatus = 'O' OR orderstatus = 'P'");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS unpartitioned_ordering_table");
+        }
+    }
+
+    @Test
+    public void testFileRenamingForPartitionedTable()
+    {
+        try {
+            // Create partitioned table
+            assertUpdate(
+                    Session.builder(getSession())
+                            .setCatalogSessionProperty(catalog, FILE_RENAMING_ENABLED, "true")
+                            .setSystemProperty("scale_writers", "false")
+                            .setSystemProperty("writer_min_size", "1MB")
+                            .setSystemProperty("task_writer_count", "1")
+                            .build(),
+                    "CREATE TABLE partitioned_ordering_table (orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus)\n" +
+                            "WITH (partitioned_by = ARRAY['orderstatus'], preferred_ordering_columns = ARRAY['orderkey']) AS\n" +
+                            "SELECT orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus FROM tpch.sf1.orders",
+                    (long) computeActual("SELECT count(*) FROM tpch.sf1.orders").getOnlyValue());
+
+            // Collect all file names
+            Map<String, List<Integer>> partitionFileNamesMap = new HashMap<>();
+            MaterializedResult partitionedResults = computeActual("SELECT DISTINCT \"$path\" FROM partitioned_ordering_table");
+            for (int i = 0; i < partitionedResults.getRowCount(); i++) {
+                MaterializedRow row = partitionedResults.getMaterializedRows().get(i);
+                Path pathName = new Path((String) row.getField(0));
+                String partitionName = pathName.getParent().toString();
+                String fileName = pathName.getName();
+                partitionFileNamesMap.putIfAbsent(partitionName, new ArrayList<>());
+                partitionFileNamesMap.get(partitionName).add(Integer.valueOf(fileName));
+            }
+
+            // Assert that file names are a continuous increasing sequence for all partitions
+            for (String partitionName : partitionFileNamesMap.keySet()) {
+                List<Integer> partitionedTableFileNames = partitionFileNamesMap.get(partitionName);
+                assertTrue(partitionedTableFileNames.size() > 0);
+                assertTrue(isIncreasingSequence(partitionedTableFileNames));
+            }
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS partitioned_ordering_table");
+        }
+    }
+
+    @Test
+    public void testFileRenamingForUnpartitionedTable()
+    {
+        try {
+            // Create un-partitioned table
+            assertUpdate(
+                    Session.builder(getSession())
+                            .setCatalogSessionProperty(catalog, FILE_RENAMING_ENABLED, "true")
+                            .setSystemProperty("scale_writers", "false")
+                            .setSystemProperty("writer_min_size", "1MB")
+                            .setSystemProperty("task_writer_count", "1")
+                            .build(),
+                    "CREATE TABLE unpartitioned_ordering_table AS SELECT * FROM tpch.sf1.orders",
+                    (long) computeActual("SELECT count(*) FROM tpch.sf1.orders").getOnlyValue());
+
+            // Collect file names of the table
+            List<Integer> fileNames = new ArrayList<>();
+            MaterializedResult results = computeActual("SELECT DISTINCT \"$path\" FROM unpartitioned_ordering_table");
+            for (int i = 0; i < results.getRowCount(); i++) {
+                MaterializedRow row = results.getMaterializedRows().get(i);
+                String pathName = (String) row.getField(0);
+                String fileName = new Path(pathName).getName();
+                fileNames.add(Integer.valueOf(fileName));
+            }
+
+            assertTrue(fileNames.size() > 0);
+
+            // Assert that file names are continuous increasing sequence
+            assertTrue(isIncreasingSequence(fileNames));
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS unpartitioned_ordering_table");
+        }
+    }
+
+    boolean isIncreasingSequence(List<Integer> fileNames)
+    {
+        Collections.sort(fileNames);
+
+        int i = 0;
+        for (int fileName : fileNames) {
+            if (i != fileName) {
+                return false;
+            }
+            i++;
+        }
+        return true;
+    }
+
+    @Test
     public void testShowCreateTable()
     {
         String createTableSql = format("" +
@@ -3350,54 +3583,42 @@ public class TestHiveIntegrationSmokeTest
                             "SELECT custkey key, orderkey value FROM orders WHERE custkey <= 5 ORDER BY orderkey LIMIT 10",
                     10);
 
-            // NOT grouped execution; default
-            Session notColocated = Session.builder(session)
+            // NO colocated join, no grouped execution
+            Session notColocatedNotGrouped = Session.builder(session)
                     .setSystemProperty(COLOCATED_JOIN, "false")
-                    .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "false")
+                    .setSystemProperty(GROUPED_EXECUTION, "false")
                     .build();
-            // Co-located JOIN with all groups at once, fixed schedule
+
+            // colocated join, no grouped execution
+            Session colocatedNotGrouped = Session.builder(session)
+                    .setSystemProperty(COLOCATED_JOIN, "true")
+                    .setSystemProperty(GROUPED_EXECUTION, "false")
+                    .build();
+
+            // No colocated join, grouped execution
+            Session notColocatedGrouped = Session.builder(session)
+                    .setSystemProperty(COLOCATED_JOIN, "false")
+                    .setSystemProperty(GROUPED_EXECUTION, "true")
+                    .build();
+
+            // Co-located JOIN with all groups at once
             Session colocatedAllGroupsAtOnce = Session.builder(session)
                     .setSystemProperty(COLOCATED_JOIN, "true")
-                    .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "true")
+                    .setSystemProperty(GROUPED_EXECUTION, "true")
                     .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "0")
-                    .setSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, "false")
                     .build();
-            // Co-located JOIN, 1 group per worker at a time, fixed schedule
+            // Co-located JOIN, 1 group per worker at a time
             Session colocatedOneGroupAtATime = Session.builder(session)
                     .setSystemProperty(COLOCATED_JOIN, "true")
-                    .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "true")
+                    .setSystemProperty(GROUPED_EXECUTION, "true")
                     .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "1")
-                    .setSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, "false")
-                    .build();
-            // Co-located JOIN with all groups at once, dynamic schedule
-            Session colocatedAllGroupsAtOnceDynamic = Session.builder(session)
-                    .setSystemProperty(COLOCATED_JOIN, "true")
-                    .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "true")
-                    .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "0")
-                    .setSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, "true")
-                    .build();
-            // Co-located JOIN, 1 group per worker at a time, dynamic schedule
-            Session colocatedOneGroupAtATimeDynamic = Session.builder(session)
-                    .setSystemProperty(COLOCATED_JOIN, "true")
-                    .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "true")
-                    .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "1")
-                    .setSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, "true")
                     .build();
             // Broadcast JOIN, 1 group per worker at a time
             Session broadcastOneGroupAtATime = Session.builder(session)
                     .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
                     .setSystemProperty(COLOCATED_JOIN, "true")
-                    .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "true")
+                    .setSystemProperty(GROUPED_EXECUTION, "true")
                     .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "1")
-                    .build();
-
-            // Broadcast JOIN, 1 group per worker at a time, dynamic schedule
-            Session broadcastOneGroupAtATimeDynamic = Session.builder(session)
-                    .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
-                    .setSystemProperty(COLOCATED_JOIN, "true")
-                    .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "true")
-                    .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "1")
-                    .setSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, "true")
                     .build();
 
             //
@@ -3431,27 +3652,26 @@ public class TestHiveIntegrationSmokeTest
                             "ON key1 = key2";
             @Language("SQL") String expectedOuterJoinQuery = "SELECT orderkey, comment, CASE mod(orderkey, 2) WHEN 0 THEN orderkey END, CASE mod(orderkey, 2) WHEN 0 THEN comment END from orders";
 
-            assertQuery(notColocated, joinThreeBucketedTable, expectedJoinQuery);
-            assertQuery(notColocated, leftJoinBucketedTable, expectedOuterJoinQuery);
-            assertQuery(notColocated, rightJoinBucketedTable, expectedOuterJoinQuery);
+            assertQuery(notColocatedNotGrouped, joinThreeBucketedTable, expectedJoinQuery);
+            assertQuery(notColocatedNotGrouped, leftJoinBucketedTable, expectedOuterJoinQuery);
+            assertQuery(notColocatedNotGrouped, rightJoinBucketedTable, expectedOuterJoinQuery);
+            assertQuery(notColocatedGrouped, joinThreeBucketedTable, expectedJoinQuery);
+            assertQuery(notColocatedGrouped, leftJoinBucketedTable, expectedOuterJoinQuery);
+            assertQuery(notColocatedGrouped, rightJoinBucketedTable, expectedOuterJoinQuery);
 
+            assertQuery(colocatedNotGrouped, joinThreeBucketedTable, expectedJoinQuery, assertRemoteExchangesCount(1));
+            assertQuery(colocatedNotGrouped, joinThreeMixedTable, expectedJoinQuery, assertRemoteExchangesCount(2));
             assertQuery(colocatedAllGroupsAtOnce, joinThreeBucketedTable, expectedJoinQuery, assertRemoteExchangesCount(1));
             assertQuery(colocatedAllGroupsAtOnce, joinThreeMixedTable, expectedJoinQuery, assertRemoteExchangesCount(2));
             assertQuery(colocatedOneGroupAtATime, joinThreeBucketedTable, expectedJoinQuery, assertRemoteExchangesCount(1));
             assertQuery(colocatedOneGroupAtATime, joinThreeMixedTable, expectedJoinQuery, assertRemoteExchangesCount(2));
-            assertQuery(colocatedAllGroupsAtOnceDynamic, joinThreeBucketedTable, expectedJoinQuery, assertRemoteExchangesCount(1));
-            assertQuery(colocatedAllGroupsAtOnceDynamic, joinThreeMixedTable, expectedJoinQuery, assertRemoteExchangesCount(2));
-            assertQuery(colocatedOneGroupAtATimeDynamic, joinThreeBucketedTable, expectedJoinQuery, assertRemoteExchangesCount(1));
-            assertQuery(colocatedOneGroupAtATimeDynamic, joinThreeMixedTable, expectedJoinQuery, assertRemoteExchangesCount(2));
 
+            assertQuery(colocatedNotGrouped, leftJoinBucketedTable, expectedOuterJoinQuery, assertRemoteExchangesCount(1));
+            assertQuery(colocatedNotGrouped, rightJoinBucketedTable, expectedOuterJoinQuery, assertRemoteExchangesCount(1));
             assertQuery(colocatedAllGroupsAtOnce, leftJoinBucketedTable, expectedOuterJoinQuery, assertRemoteExchangesCount(1));
             assertQuery(colocatedAllGroupsAtOnce, rightJoinBucketedTable, expectedOuterJoinQuery, assertRemoteExchangesCount(1));
             assertQuery(colocatedOneGroupAtATime, leftJoinBucketedTable, expectedOuterJoinQuery, assertRemoteExchangesCount(1));
             assertQuery(colocatedOneGroupAtATime, rightJoinBucketedTable, expectedOuterJoinQuery, assertRemoteExchangesCount(1));
-            assertQuery(colocatedAllGroupsAtOnceDynamic, leftJoinBucketedTable, expectedOuterJoinQuery, assertRemoteExchangesCount(1));
-            assertQuery(colocatedAllGroupsAtOnceDynamic, rightJoinBucketedTable, expectedOuterJoinQuery, assertRemoteExchangesCount(1));
-            assertQuery(colocatedOneGroupAtATimeDynamic, leftJoinBucketedTable, expectedOuterJoinQuery, assertRemoteExchangesCount(1));
-            assertQuery(colocatedOneGroupAtATimeDynamic, rightJoinBucketedTable, expectedOuterJoinQuery, assertRemoteExchangesCount(1));
 
             //
             // CROSS JOIN and HASH JOIN mixed
@@ -3469,7 +3689,9 @@ public class TestHiveIntegrationSmokeTest
                             "  (SELECT orderkey key1, comment value1 FROM orders)\n" +
                             "CROSS JOIN\n" +
                             "  (SELECT orderkey key3, comment value3 FROM orders where orderkey <= 3)";
-            assertQuery(notColocated, crossJoin, expectedCrossJoinQuery);
+            assertQuery(notColocatedNotGrouped, crossJoin, expectedCrossJoinQuery);
+            assertQuery(notColocatedGrouped, crossJoin, expectedCrossJoinQuery);
+            assertQuery(colocatedNotGrouped, crossJoin, expectedCrossJoinQuery, assertRemoteExchangesCount(2));
             assertQuery(colocatedAllGroupsAtOnce, crossJoin, expectedCrossJoinQuery, assertRemoteExchangesCount(2));
             assertQuery(colocatedOneGroupAtATime, crossJoin, expectedCrossJoinQuery, assertRemoteExchangesCount(2));
 
@@ -3490,10 +3712,11 @@ public class TestHiveIntegrationSmokeTest
                             "JOIN test_grouped_join3\n" +
                             "ON key1 = key3";
             @Language("SQL") String expectedBucketedAndUnbucketedJoinQuery = "SELECT orderkey, comment, orderkey, comment, orderkey, comment, orderkey, comment from orders";
-            assertQuery(notColocated, bucketedAndUnbucketedJoin, expectedBucketedAndUnbucketedJoinQuery);
+            assertQuery(notColocatedNotGrouped, bucketedAndUnbucketedJoin, expectedBucketedAndUnbucketedJoinQuery);
+            assertQuery(notColocatedGrouped, bucketedAndUnbucketedJoin, expectedBucketedAndUnbucketedJoinQuery);
+            assertQuery(colocatedNotGrouped, bucketedAndUnbucketedJoin, expectedBucketedAndUnbucketedJoinQuery, assertRemoteExchangesCount(2));
             assertQuery(colocatedAllGroupsAtOnce, bucketedAndUnbucketedJoin, expectedBucketedAndUnbucketedJoinQuery, assertRemoteExchangesCount(2));
             assertQuery(colocatedOneGroupAtATime, bucketedAndUnbucketedJoin, expectedBucketedAndUnbucketedJoinQuery, assertRemoteExchangesCount(2));
-            assertQuery(colocatedOneGroupAtATimeDynamic, bucketedAndUnbucketedJoin, expectedBucketedAndUnbucketedJoinQuery, assertRemoteExchangesCount(2));
 
             //
             // UNION ALL / GROUP BY
@@ -3573,12 +3796,12 @@ public class TestHiveIntegrationSmokeTest
             @Language("SQL") String expectedGroupByOfUnionOfGroupBy = "SELECT orderkey, 3 from orders";
 
             // Eligible GROUP BYs run in the same fragment regardless of colocated_join flag
+            assertQuery(notColocatedGrouped, groupBySingleBucketed, expectedSingleGroupByQuery, assertRemoteExchangesCount(1));
             assertQuery(colocatedAllGroupsAtOnce, groupBySingleBucketed, expectedSingleGroupByQuery, assertRemoteExchangesCount(1));
             assertQuery(colocatedOneGroupAtATime, groupBySingleBucketed, expectedSingleGroupByQuery, assertRemoteExchangesCount(1));
-            assertQuery(colocatedOneGroupAtATimeDynamic, groupBySingleBucketed, expectedSingleGroupByQuery, assertRemoteExchangesCount(1));
+            assertQuery(notColocatedGrouped, groupByOfUnionBucketed, expectedGroupByOfUnion, assertRemoteExchangesCount(1));
             assertQuery(colocatedAllGroupsAtOnce, groupByOfUnionBucketed, expectedGroupByOfUnion, assertRemoteExchangesCount(1));
             assertQuery(colocatedOneGroupAtATime, groupByOfUnionBucketed, expectedGroupByOfUnion, assertRemoteExchangesCount(1));
-            assertQuery(colocatedOneGroupAtATimeDynamic, groupByOfUnionBucketed, expectedGroupByOfUnion, assertRemoteExchangesCount(1));
 
             // cannot be executed in a grouped manner but should still produce correct result
             assertQuery(colocatedOneGroupAtATime, groupByOfUnionMixed, expectedGroupByOfUnion, assertRemoteExchangesCount(2));
@@ -3645,18 +3868,17 @@ public class TestHiveIntegrationSmokeTest
             @Language("SQL") String expectedGroupOnUngroupedJoinResult = "SELECT orderkey, count(*), count(*) from orders group by orderkey";
 
             // Eligible GROUP BYs run in the same fragment regardless of colocated_join flag
+            assertQuery(notColocatedGrouped, joinGroupedWithGrouped, expectedJoinGroupedWithGrouped, assertRemoteExchangesCount(2));
             assertQuery(colocatedAllGroupsAtOnce, joinGroupedWithGrouped, expectedJoinGroupedWithGrouped, assertRemoteExchangesCount(1));
             assertQuery(colocatedOneGroupAtATime, joinGroupedWithGrouped, expectedJoinGroupedWithGrouped, assertRemoteExchangesCount(1));
-            assertQuery(colocatedOneGroupAtATimeDynamic, joinGroupedWithGrouped, expectedJoinGroupedWithGrouped, assertRemoteExchangesCount(1));
+            assertQuery(notColocatedGrouped, joinGroupedWithUngrouped, expectedJoinGroupedWithUngrouped, assertRemoteExchangesCount(2));
             assertQuery(colocatedAllGroupsAtOnce, joinGroupedWithUngrouped, expectedJoinGroupedWithUngrouped, assertRemoteExchangesCount(2));
             assertQuery(colocatedOneGroupAtATime, joinGroupedWithUngrouped, expectedJoinGroupedWithUngrouped, assertRemoteExchangesCount(2));
-            assertQuery(colocatedOneGroupAtATimeDynamic, joinGroupedWithUngrouped, expectedJoinGroupedWithUngrouped, assertRemoteExchangesCount(2));
+            assertQuery(notColocatedGrouped, groupOnJoinResult, expectedGroupOnJoinResult, assertRemoteExchangesCount(2));
             assertQuery(colocatedAllGroupsAtOnce, groupOnJoinResult, expectedGroupOnJoinResult, assertRemoteExchangesCount(2));
             assertQuery(colocatedOneGroupAtATime, groupOnJoinResult, expectedGroupOnJoinResult, assertRemoteExchangesCount(2));
-            assertQuery(colocatedOneGroupAtATimeDynamic, groupOnJoinResult, expectedGroupOnJoinResult, assertRemoteExchangesCount(2));
 
             assertQuery(broadcastOneGroupAtATime, groupOnUngroupedJoinResult, expectedGroupOnUngroupedJoinResult, assertRemoteExchangesCount(2));
-            assertQuery(broadcastOneGroupAtATimeDynamic, groupOnUngroupedJoinResult, expectedGroupOnUngroupedJoinResult, assertRemoteExchangesCount(2));
 
             // cannot be executed in a grouped manner but should still produce correct result
             assertQuery(colocatedOneGroupAtATime, joinUngroupedWithGrouped, expectedJoinUngroupedWithGrouped, assertRemoteExchangesCount(2));
@@ -3713,16 +3935,17 @@ public class TestHiveIntegrationSmokeTest
                     "FROM ORDERS\n" +
                     "WHERE mod(orderkey, 3) = 0";
 
-            assertQuery(notColocated, chainedOuterJoin, expectedChainedOuterJoinResult);
+            assertQuery(notColocatedNotGrouped, chainedOuterJoin, expectedChainedOuterJoinResult);
+            assertQuery(notColocatedGrouped, chainedOuterJoin, expectedChainedOuterJoinResult);
+            assertQuery(colocatedNotGrouped, chainedOuterJoin, expectedChainedOuterJoinResult, assertRemoteExchangesCount(1));
             assertQuery(colocatedAllGroupsAtOnce, chainedOuterJoin, expectedChainedOuterJoinResult, assertRemoteExchangesCount(1));
             assertQuery(colocatedOneGroupAtATime, chainedOuterJoin, expectedChainedOuterJoinResult, assertRemoteExchangesCount(1));
-            assertQuery(colocatedOneGroupAtATimeDynamic, chainedOuterJoin, expectedChainedOuterJoinResult, assertRemoteExchangesCount(1));
-            assertQuery(notColocated, sharedBuildOuterJoin, expectedSharedBuildOuterJoinResult);
+            assertQuery(notColocatedNotGrouped, sharedBuildOuterJoin, expectedSharedBuildOuterJoinResult);
+            assertQuery(notColocatedGrouped, sharedBuildOuterJoin, expectedSharedBuildOuterJoinResult);
+            assertQuery(colocatedNotGrouped, sharedBuildOuterJoin, expectedSharedBuildOuterJoinResult, assertRemoteExchangesCount(2));
             assertQuery(colocatedAllGroupsAtOnce, sharedBuildOuterJoin, expectedSharedBuildOuterJoinResult, assertRemoteExchangesCount(2));
             assertQuery(colocatedOneGroupAtATime, sharedBuildOuterJoin, expectedSharedBuildOuterJoinResult, assertRemoteExchangesCount(2));
-            assertQuery(colocatedOneGroupAtATimeDynamic, sharedBuildOuterJoin, expectedSharedBuildOuterJoinResult, assertRemoteExchangesCount(2));
             assertQuery(colocatedOneGroupAtATime, chainedSharedBuildOuterJoin, expectedChainedOuterJoinResult, assertRemoteExchangesCount(2));
-            assertQuery(colocatedOneGroupAtATimeDynamic, chainedSharedBuildOuterJoin, expectedChainedOuterJoinResult, assertRemoteExchangesCount(2));
 
             //
             // Window function
@@ -3802,10 +4025,14 @@ public class TestHiveIntegrationSmokeTest
                     "FROM ORDERS\n" +
                     "WHERE mod(orderkey, 13) IN (1, 11)";
 
-            assertQuery(notColocated, noSplits, expectedNoSplits);
+            assertQuery(notColocatedNotGrouped, noSplits, expectedNoSplits);
+            assertQuery(notColocatedGrouped, noSplits, expectedNoSplits);
+            assertQuery(colocatedNotGrouped, noSplits, expectedNoSplits, assertRemoteExchangesCount(1));
             assertQuery(colocatedAllGroupsAtOnce, noSplits, expectedNoSplits, assertRemoteExchangesCount(1));
             assertQuery(colocatedOneGroupAtATime, noSplits, expectedNoSplits, assertRemoteExchangesCount(1));
-            assertQuery(notColocated, joinMismatchedBuckets, expectedJoinMismatchedBuckets);
+            assertQuery(notColocatedNotGrouped, joinMismatchedBuckets, expectedJoinMismatchedBuckets);
+            assertQuery(notColocatedGrouped, joinMismatchedBuckets, expectedJoinMismatchedBuckets);
+            assertQuery(colocatedNotGrouped, joinMismatchedBuckets, expectedJoinMismatchedBuckets, assertRemoteExchangesCount(1));
             assertQuery(colocatedAllGroupsAtOnce, joinMismatchedBuckets, expectedJoinMismatchedBuckets, assertRemoteExchangesCount(1));
             assertQuery(colocatedOneGroupAtATime, joinMismatchedBuckets, expectedJoinMismatchedBuckets, assertRemoteExchangesCount(1));
         }
@@ -3835,7 +4062,7 @@ public class TestHiveIntegrationSmokeTest
                     .size();
             if (actualRemoteExchangesCount != expectedRemoteExchangesCount) {
                 Metadata metadata = queryRunner.getCoordinator().getMetadata();
-                String formattedPlan = textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata.getFunctionManager(), StatsAndCosts.empty(), session, 0);
+                String formattedPlan = textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata.getFunctionAndTypeManager(), StatsAndCosts.empty(), session, 0);
                 throw new AssertionError(format(
                         "Expected [\n%s\n] remote exchanges but found [\n%s\n] remote exchanges. Actual plan is [\n\n%s\n]",
                         expectedRemoteExchangesCount,
@@ -3915,6 +4142,18 @@ public class TestHiveIntegrationSmokeTest
         assertQuery(user2, "SELECT account_name FROM test_accounts_view", "VALUES 'account2'");
         assertUpdate("DROP VIEW test_accounts_view");
         assertUpdate("DROP TABLE test_accounts");
+    }
+
+    @Test
+    public void testCreateViewWithNonHiveType()
+    {
+        String testTable = "test_create_view_table";
+        String testView = "test_view_with_hll";
+        assertUpdate(format("CREATE TABLE %s AS SELECT user_name, account_name" +
+                "  FROM (VALUES ('user1', 'account1'), ('user2', 'account2'))" +
+                "  t (user_name, account_name)", testTable), 2);
+        assertUpdate(format("CREATE VIEW %s AS SELECT approx_set(account_name) as hll FROM %s", testView, testTable));
+        assertQuery(format("SELECT cardinality(hll) from %s", testView), "VALUES '2'");
     }
 
     @Test
@@ -4721,12 +4960,12 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(
                 smallStripeSession,
                 "CREATE TABLE test_pagefile_small_stripe\n" +
-                "WITH (\n" +
-                "format = 'PAGEFILE'\n" +
-                ") AS\n" +
-                "SELECT\n" +
-                "*\n" +
-                "FROM tpch.orders",
+                        "WITH (\n" +
+                        "format = 'PAGEFILE'\n" +
+                        ") AS\n" +
+                        "SELECT\n" +
+                        "*\n" +
+                        "FROM tpch.orders",
                 "SELECT count(*) FROM orders");
 
         assertQuery("SELECT count(*) FROM test_pagefile_small_stripe", "SELECT count(*) FROM orders");
@@ -4772,6 +5011,236 @@ public class TestHiveIntegrationSmokeTest
             }
             testPageFileCompression(compression.name());
         }
+    }
+
+    @Test
+    public void testPartialAggregatePushdownORC()
+    {
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE test_orc_table (" +
+                " _boolean BOOLEAN" +
+                ", _tinyint TINYINT" +
+                ", _smallint SMALLINT" +
+                ", _integer INTEGER" +
+                ", _bigint BIGINT" +
+                ", _real REAL" +
+                ", _double DOUBLE" +
+                ", _shortdecimal DECIMAL(8,3)" +
+                ", _longdecimal DECIMAL(25,2)" +
+                ", _string VARCHAR" +
+                ", _varchar VARCHAR(10)" +
+                ", _singlechar CHAR" +
+                ", _char CHAR(10)" +
+                ", _varbinary VARBINARY" +
+                ", _date DATE" +
+                ", _timestamp TIMESTAMP" +
+                ")" +
+                "WITH (format = 'orc')";
+
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "partial_aggregation_pushdown_enabled", "true")
+                .setCatalogSessionProperty(catalog, "partial_aggregation_pushdown_for_variable_length_datatypes_enabled", "true")
+                .build();
+        try {
+            assertUpdate(session, createTable);
+
+            TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_orc_table");
+            assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), HiveStorageFormat.ORC);
+
+            assertUpdate(session, "INSERT INTO test_orc_table VALUES (" +
+                    "true" +
+                    ", cast(1 as tinyint)" +
+                    ", cast(2 as smallint)" +
+                    ", 3" +
+                    ", 4" +
+                    ", 1.2" +
+                    ", 2.3" +
+                    ", 4.5" +
+                    ", 55555555555555.32" +
+                    ", 'abc'" +
+                    ", 'def'" +
+                    ", 'g'" +
+                    ", 'hij'" +
+                    ", cast('klm' as varbinary)" +
+                    ", cast('2020-05-01' as date)" +
+                    ", cast('2020-06-04 16:55:40.777' as timestamp)" +
+                    ")", 1);
+
+            assertUpdate(session, "INSERT INTO test_orc_table VALUES (" +
+                    "false" +
+                    ", cast(10 as tinyint)" +
+                    ", cast(20 as smallint)" +
+                    ", 30" +
+                    ", 40" +
+                    ", 10.25" +
+                    ", 25.334" +
+                    ", 465.523" +
+                    ", 88888888555555.91" +
+                    ", 'foo'" +
+                    ", 'bar'" +
+                    ", 'b'" +
+                    ", 'baz'" +
+                    ", cast('qux' as varbinary)" +
+                    ", cast('2020-06-02' as date)" +
+                    ", cast('2020-05-01 18:34:23.88' as timestamp)" +
+                    ")", 1);
+            String rowCount = "SELECT 2";
+
+            assertQuery(session, "SELECT COUNT(*) FROM test_orc_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_boolean) FROM test_orc_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_tinyint) FROM test_orc_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_smallint) FROM test_orc_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_integer) FROM test_orc_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_bigint) FROM test_orc_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_real) FROM test_orc_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_double) FROM test_orc_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_shortdecimal) FROM test_orc_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_longdecimal) FROM test_orc_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_string) FROM test_orc_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_varchar) FROM test_orc_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_singlechar) FROM test_orc_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_char) FROM test_orc_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_varbinary) FROM test_orc_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_date) FROM test_orc_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_timestamp) FROM test_orc_table", rowCount);
+
+            assertQuery(session, "SELECT MIN(_boolean), MAX(_boolean) FROM test_orc_table", "select false, true");
+            assertQuery(session, "SELECT MIN(_tinyint), MAX(_tinyint) FROM test_orc_table", "select 1, 10");
+            assertQuery(session, "SELECT MIN(_smallint), MAX(_smallint) FROM test_orc_table", "select 2, 20");
+            assertQuery(session, "SELECT MIN(_integer), MAX(_integer) FROM test_orc_table", "select 3, 30");
+            assertQuery(session, "SELECT MIN(_bigint), MAX(_bigint) FROM test_orc_table", "select 4, 40");
+            assertQuery(session, "SELECT MIN(_real), MAX(_real) FROM test_orc_table", "select 1.2, 10.25");
+            assertQuery(session, "SELECT MIN(_double), MAX(_double) FROM test_orc_table", "select 2.3, 25.334");
+            assertQuery(session, "SELECT MIN(_shortdecimal), MAX(_shortdecimal) FROM test_orc_table", "select 4.5, 465.523");
+            assertQuery(session, "SELECT MIN(_longdecimal), MAX(_longdecimal) FROM test_orc_table", "select 55555555555555.32, 88888888555555.91");
+            assertQuery(session, "SELECT MIN(_string), MAX(_string) FROM test_orc_table", "select 'abc', 'foo'");
+            assertQuery(session, "SELECT MIN(_varchar), MAX(_varchar) FROM test_orc_table", "select 'bar', 'def'");
+            assertQuery(session, "SELECT MIN(_singlechar), MAX(_singlechar) FROM test_orc_table", "select 'b', 'g'");
+            assertQuery(session, "SELECT MIN(_char), MAX(_char) FROM test_orc_table", "select 'baz', 'hij'");
+            assertQuery(session, "SELECT MIN(_varbinary), MAX(_varbinary) FROM test_orc_table", "select X'6b6c6d', X'717578'");
+            assertQuery(session, "SELECT MIN(_date), MAX(_date) FROM test_orc_table", "select cast('2020-05-01' as date), cast('2020-06-02' as date)");
+            assertQuery(session, "SELECT MIN(_timestamp), MAX(_timestamp) FROM test_orc_table", "select cast('2020-05-01 18:34:23.88' as timestamp), cast('2020-06-04 16:55:40.777' as timestamp)");
+        }
+        finally {
+            assertUpdate(session, "DROP TABLE test_orc_table");
+        }
+        assertFalse(getQueryRunner().tableExists(session, "test_orc_table"));
+    }
+
+    @Test
+    public void testPartialAggregatePushdownParquet()
+    {
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE test_parquet_table (" +
+                " _boolean BOOLEAN" +
+                ", _tinyint TINYINT" +
+                ", _smallint SMALLINT" +
+                ", _integer INTEGER" +
+                ", _bigint BIGINT" +
+                ", _real REAL" +
+                ", _double DOUBLE" +
+                ", _shortdecimal DECIMAL(8,3)" +
+                ", _longdecimal DECIMAL(25,2)" +
+                ", _string VARCHAR" +
+                ", _varchar VARCHAR(10)" +
+                ", _singlechar CHAR" +
+                ", _char CHAR(10)" +
+                ", _varbinary VARBINARY" +
+                ", _date DATE" +
+                ", _timestamp TIMESTAMP" +
+                ")" +
+                "WITH (format = 'parquet')";
+
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "partial_aggregation_pushdown_enabled", "true")
+                .setCatalogSessionProperty(catalog, "partial_aggregation_pushdown_for_variable_length_datatypes_enabled", "true")
+                .build();
+        try {
+            assertUpdate(session, createTable);
+
+            TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_parquet_table");
+            assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), HiveStorageFormat.PARQUET);
+
+            assertUpdate(session, "INSERT INTO test_parquet_table VALUES (" +
+                    "true" +
+                    ", cast(1 as tinyint)" +
+                    ", cast(2 as smallint)" +
+                    ", 3" +
+                    ", 4" +
+                    ", 1.2" +
+                    ", 2.3" +
+                    ", 4.5" +
+                    ", 55555555555555.32" +
+                    ", 'abc'" +
+                    ", 'def'" +
+                    ", 'g'" +
+                    ", 'hij'" +
+                    ", cast('klm' as varbinary)" +
+                    ", cast('2020-05-01' as date)" +
+                    ", cast('2020-06-04 16:55:40.777' as timestamp)" +
+                    ")", 1);
+
+            assertUpdate(session, "INSERT INTO test_parquet_table VALUES (" +
+                    "false" +
+                    ", cast(10 as tinyint)" +
+                    ", cast(20 as smallint)" +
+                    ", 30" +
+                    ", 40" +
+                    ", 10.25" +
+                    ", 25.334" +
+                    ", 465.523" +
+                    ", 88888888555555.91" +
+                    ", 'foo'" +
+                    ", 'bar'" +
+                    ", 'b'" +
+                    ", 'baz'" +
+                    ", cast('qux' as varbinary)" +
+                    ", cast('2020-06-02' as date)" +
+                    ", cast('2020-05-01 18:34:23.88' as timestamp)" +
+                    ")", 1);
+            String rowCount = "SELECT 2";
+
+            assertQuery(session, "SELECT COUNT(*) FROM test_parquet_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_boolean) FROM test_parquet_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_tinyint) FROM test_parquet_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_smallint) FROM test_parquet_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_integer) FROM test_parquet_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_bigint) FROM test_parquet_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_real) FROM test_parquet_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_double) FROM test_parquet_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_shortdecimal) FROM test_parquet_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_longdecimal) FROM test_parquet_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_string) FROM test_parquet_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_varchar) FROM test_parquet_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_singlechar) FROM test_parquet_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_char) FROM test_parquet_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_varbinary) FROM test_parquet_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_date) FROM test_parquet_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_timestamp) FROM test_parquet_table", rowCount);
+
+            assertQuery(session, "SELECT MIN(_boolean), MAX(_boolean) FROM test_parquet_table", "select false, true");
+            assertQuery(session, "SELECT MIN(_tinyint), MAX(_tinyint) FROM test_parquet_table", "select 1, 10");
+            assertQuery(session, "SELECT MIN(_smallint), MAX(_smallint) FROM test_parquet_table", "select 2, 20");
+            assertQuery(session, "SELECT MIN(_integer), MAX(_integer) FROM test_parquet_table", "select 3, 30");
+            assertQuery(session, "SELECT MIN(_bigint), MAX(_bigint) FROM test_parquet_table", "select 4, 40");
+            assertQuery(session, "SELECT MIN(_real), MAX(_real) FROM test_parquet_table", "select 1.2, 10.25");
+            assertQuery(session, "SELECT MIN(_double), MAX(_double) FROM test_parquet_table", "select 2.3, 25.334");
+
+            assertQuery(session, "SELECT MIN(_shortdecimal), MAX(_shortdecimal) FROM test_parquet_table", "select 4.5, 465.523");
+            assertQuery(session, "SELECT MIN(_longdecimal), MAX(_longdecimal) FROM test_parquet_table", "select 55555555555555.32, 88888888555555.91");
+            assertQuery(session, "SELECT MIN(_string), MAX(_string) FROM test_parquet_table", "select 'abc', 'foo'");
+            assertQuery(session, "SELECT MIN(_varchar), MAX(_varchar) FROM test_parquet_table", "select 'bar', 'def'");
+            assertQuery(session, "SELECT MIN(_singlechar), MAX(_singlechar) FROM test_parquet_table", "select 'b', 'g'");
+            assertQuery(session, "SELECT MIN(_char), MAX(_char) FROM test_parquet_table", "select 'baz', 'hij'");
+            assertQuery(session, "SELECT MIN(_varbinary), MAX(_varbinary) FROM test_parquet_table", "select X'6b6c6d', X'717578'");
+
+            assertQuery(session, "SELECT MIN(_date), MAX(_date) FROM test_parquet_table", "select cast('2020-05-01' as date), cast('2020-06-02' as date)");
+            assertQuery(session, "SELECT MIN(_timestamp), MAX(_timestamp) FROM test_parquet_table", "select cast('2020-05-01 18:34:23.88' as timestamp), cast('2020-06-04 16:55:40.777' as timestamp)");
+        }
+        finally {
+            assertUpdate(session, "DROP TABLE test_parquet_table");
+        }
+        assertFalse(getQueryRunner().tableExists(session, "test_parquet_table"));
     }
 
     private void testPageFileCompression(String compression)
@@ -4824,6 +5293,166 @@ public class TestHiveIntegrationSmokeTest
                 });
     }
 
+    @Test
+    public void testUnsupportedCsvTable()
+    {
+        assertQueryFails(
+                "CREATE TABLE create_unsupported_csv(i INT, bound VARCHAR(10), unbound VARCHAR, dummy VARCHAR) WITH (format = 'CSV')",
+                "\\QHive CSV storage format only supports VARCHAR (unbounded). Unsupported columns: i integer, bound varchar(10)\\E");
+    }
+
+    @Test
+    public void testCreateMaterializedView()
+    {
+        computeActual("CREATE TABLE test_customer_base WITH (partitioned_by = ARRAY['nationkey']) AS SELECT custkey, name, address, nationkey FROM customer LIMIT 10");
+        computeActual("CREATE TABLE test_orders_base WITH (partitioned_by = ARRAY['orderstatus']) AS SELECT orderkey, custkey, totalprice, orderstatus FROM orders LIMIT 10");
+
+        // Test successful create
+        assertUpdate("CREATE MATERIALIZED VIEW test_customer_mv WITH (partitioned_by = ARRAY['nationkey']" + retentionDays(30) + ") AS SELECT name, nationkey FROM test_customer_base");
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_customer_mv"));
+        assertTableColumnNames("test_customer_mv", "name", "nationkey");
+
+        // Test if exists
+        assertQueryFails(
+                "CREATE MATERIALIZED VIEW test_customer_mv AS SELECT name FROM test_customer_base",
+                format(".* Materialized view '%s.%s.test_customer_mv' already exists", getSession().getCatalog().get(), getSession().getSchema().get()));
+        assertQuerySucceeds("CREATE MATERIALIZED VIEW IF NOT EXISTS test_customer_mv AS SELECT name FROM test_customer_base");
+
+        // Test partition mapping
+        assertQueryFails(
+                "CREATE MATERIALIZED VIEW test_customer_mv_no_partition " + withRetentionDays(30) + " AS SELECT name FROM test_customer_base",
+                ".*Unpartitioned materialized view is not supported.");
+        assertQueryFails(
+                "CREATE MATERIALIZED VIEW test_customer_mv_no_direct_partition_mapped WITH (partitioned_by = ARRAY['nationkey']" + retentionDays(30) + ") AS SELECT name, CAST(nationkey AS BIGINT) AS nationkey FROM test_customer_base",
+                format(".*Materialized view %s.test_customer_mv_no_direct_partition_mapped must have at least one partition directly defined by a base table partition.", getSession().getSchema().get()));
+
+        // Test nested
+        assertQueryFails(
+                "CREATE MATERIALIZED VIEW test_customer_nested_mv WITH (partitioned_by = ARRAY['nationkey']" + retentionDays(30) + ") AS SELECT name, nationkey FROM test_customer_mv",
+                format(".*CreateMaterializedView on a materialized view %s.%s.test_customer_mv is not supported.", getSession().getCatalog().get(), getSession().getSchema().get()));
+
+        // Test query shape
+        assertUpdate("CREATE MATERIALIZED VIEW test_customer_agg_mv WITH (partitioned_by = ARRAY['nationkey']" + retentionDays(30) + ") AS SELECT COUNT(DISTINCT name) AS num, nationkey FROM (SELECT name, nationkey FROM test_customer_base GROUP BY 1, 2) a GROUP BY nationkey");
+        assertUpdate("CREATE MATERIALIZED VIEW test_customer_union_mv WITH (partitioned_by = ARRAY['nationkey']" + retentionDays(30) + ") AS SELECT name, nationkey FROM ( SELECT name, nationkey FROM test_customer_base WHERE nationkey = 1 UNION ALL SELECT name, nationkey FROM test_customer_base WHERE nationkey = 2)");
+        assertUpdate("CREATE MATERIALIZED VIEW test_customer_order_join_mv WITH (partitioned_by = ARRAY['orderstatus', 'nationkey']" + retentionDays(30) + ") AS SELECT orders.totalprice, orders.orderstatus, customer.nationkey FROM test_customer_base customer JOIN test_orders_base orders ON orders.custkey = customer.custkey");
+        assertQueryFails(
+                "CREATE MATERIALIZED VIEW test_customer_order_join_mv_no_base_partition_mapped WITH (partitioned_by = ARRAY['custkey']" + retentionDays(30) + ") AS SELECT orders.totalprice, customer.nationkey, customer.custkey FROM test_customer_base customer JOIN test_orders_base orders ON orders.custkey = customer.custkey",
+                format(".*Materialized view %s.test_customer_order_join_mv_no_base_partition_mapped must have at least one partition directly defined by a base table partition.", getSession().getSchema().get()));
+        assertQueryFails(
+                "CREATE MATERIALIZED VIEW test_customer_order_join_mv_no_base_partition_mapped WITH (partitioned_by = ARRAY['nation_order']" + retentionDays(30) + ") AS SELECT orders.totalprice, CONCAT(CAST(customer.nationkey AS VARCHAR), orders.orderstatus) AS nation_order FROM test_customer_base customer JOIN test_orders_base orders ON orders.custkey = customer.custkey",
+                format(".*Materialized view %s.test_customer_order_join_mv_no_base_partition_mapped must have at least one partition directly defined by a base table partition.", getSession().getSchema().get()));
+
+        // Clean up
+        computeActual("DROP TABLE IF EXISTS test_customer_base");
+        computeActual("DROP TABLE IF EXISTS test_orders_base");
+    }
+
+    @Test
+    public void testShowCreateOnMaterializedView()
+    {
+        String createMaterializedViewSql = formatSqlText(format("CREATE MATERIALIZED VIEW %s.%s.test_customer_mv_1\n" +
+                "WITH (\n" +
+                "   format = 'ORC'," +
+                "   partitioned_by = ARRAY['nationkey']\n" +
+                retentionDays(15) +
+                ") AS SELECT\n" +
+                "  name\n" +
+                ", nationkey\n" +
+                "FROM\n" +
+                "  test_customer_base_1",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get()));
+
+        computeActual("CREATE TABLE test_customer_base_1 WITH (partitioned_by = ARRAY['nationkey']) AS SELECT custkey, name, address, nationkey FROM customer LIMIT 10");
+        computeActual(createMaterializedViewSql);
+
+        MaterializedResult actualResult = computeActual("SHOW CREATE MATERIALIZED VIEW test_customer_mv_1");
+        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createMaterializedViewSql.trim());
+
+        assertQueryFails(
+                "SHOW CREATE MATERIALIZED VIEW test_customer_base_1",
+                format(".*Relation '%s.%s.test_customer_base_1' is a table, not a materialized view", getSession().getCatalog().get(), getSession().getSchema().get()));
+        assertQueryFails(
+                "SHOW CREATE VIEW test_customer_mv_1",
+                format(".*Relation '%s.%s.test_customer_mv_1' is a materialized view, not a view", getSession().getCatalog().get(), getSession().getSchema().get()));
+        assertQueryFails(
+                "SHOW CREATE TABLE test_customer_mv_1",
+                format(".*Relation '%s.%s.test_customer_mv_1' is a materialized view, not a table", getSession().getCatalog().get(), getSession().getSchema().get()));
+
+        // Clean up
+        computeActual("DROP TABLE IF EXISTS test_customer_base_1");
+    }
+
+    @Test
+    public void testAlterOnMaterializedView()
+    {
+        computeActual("CREATE TABLE test_customer_base_2 WITH (partitioned_by = ARRAY['nationkey']) AS SELECT custkey, name, address, nationkey FROM customer LIMIT 10");
+        computeActual("CREATE MATERIALIZED VIEW test_customer_mv_2 WITH (partitioned_by = ARRAY['nationkey']" + retentionDays(30) + ") AS SELECT name, nationkey FROM test_customer_base_2");
+
+        assertQueryFails(
+                "ALTER TABLE test_customer_mv_2 RENAME TO test_customer_mv_new",
+                format(".*'%s.%s.test_customer_mv_2' is a materialized view, and rename is not supported", getSession().getCatalog().get(), getSession().getSchema().get()));
+        assertQueryFails(
+                "ALTER TABLE test_customer_mv_2 ADD COLUMN timezone VARCHAR",
+                format(".*'%s.%s.test_customer_mv_2' is a materialized view, and add column is not supported", getSession().getCatalog().get(), getSession().getSchema().get()));
+        assertQueryFails(
+                "ALTER TABLE test_customer_mv_2 DROP COLUMN address",
+                format(".*'%s.%s.test_customer_mv_2' is a materialized view, and drop column is not supported", getSession().getCatalog().get(), getSession().getSchema().get()));
+        assertQueryFails(
+                "ALTER TABLE test_customer_mv_2 RENAME COLUMN name TO custname",
+                format(".*'%s.%s.test_customer_mv_2' is a materialized view, and rename column is not supported", getSession().getCatalog().get(), getSession().getSchema().get()));
+
+        // Clean up
+        computeActual("DROP TABLE IF EXISTS test_customer_base_2");
+    }
+
+    @Test
+    public void testInsertDeleteOnMaterializedView()
+    {
+        computeActual("CREATE TABLE test_customer_base_3 WITH (partitioned_by = ARRAY['nationkey']) AS SELECT custkey, name, address, nationkey FROM customer LIMIT 10");
+        computeActual("CREATE MATERIALIZED VIEW test_customer_mv_3 WITH (partitioned_by = ARRAY['nationkey']" + retentionDays(30) + ") AS SELECT name, nationkey FROM test_customer_base_3");
+
+        assertQueryFails(
+                "INSERT INTO test_customer_mv_3 SELECT name, nationkey FROM test_customer_base_2",
+                ".*Inserting into materialized views is not supported");
+        assertQueryFails(
+                "DELETE FROM test_customer_mv_3",
+                ".*Deleting from materialized views is not supported");
+
+        // Clean up
+        computeActual("DROP TABLE IF EXISTS test_customer_base_3");
+    }
+
+    @Test
+    public void testDropMaterializedView()
+    {
+        computeActual("CREATE TABLE test_customer_base_4 WITH (partitioned_by = ARRAY['nationkey']) AS SELECT custkey, name, address, nationkey FROM customer LIMIT 10");
+        computeActual("CREATE MATERIALIZED VIEW test_customer_mv_4 WITH (partitioned_by = ARRAY['nationkey']" + retentionDays(30) + ") AS SELECT name, nationkey FROM test_customer_base_4");
+
+        assertQueryFails(
+                "DROP TABLE test_customer_mv_4",
+                format(".*'%s.%s.test_customer_mv_4' is a materialized view, not a table. Use DROP MATERIALIZED VIEW to drop.", getSession().getCatalog().get(), getSession().getSchema().get()));
+        assertQueryFails(
+                "DROP VIEW test_customer_mv_4",
+                format(".*View '%s.%s.test_customer_mv_4' does not exist", getSession().getCatalog().get(), getSession().getSchema().get()));
+
+        assertUpdate("DROP MATERIALIZED VIEW test_customer_mv_4");
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_customer_mv_4"));
+
+        // Clean up
+        computeActual("DROP TABLE IF EXISTS test_customer_base_4");
+    }
+
+    protected String retentionDays(int days)
+    {
+        return "";
+    }
+
+    protected String withRetentionDays(int days)
+    {
+        return "";
+    }
+
     private Session getParallelWriteSession()
     {
         return Session.builder(getSession())
@@ -4847,13 +5476,13 @@ public class TestHiveIntegrationSmokeTest
     private Type canonicalizeType(Type type)
     {
         HiveType hiveType = HiveType.toHiveType(typeTranslator, type);
-        return TYPE_MANAGER.getType(hiveType.getTypeSignature());
+        return FUNCTION_AND_TYPE_MANAGER.getType(hiveType.getTypeSignature());
     }
 
     private String canonicalizeTypeName(String type)
     {
         TypeSignature typeSignature = TypeSignature.parseTypeSignature(type);
-        return canonicalizeType(TYPE_MANAGER.getType(typeSignature)).toString();
+        return canonicalizeType(FUNCTION_AND_TYPE_MANAGER.getType(typeSignature)).toString();
     }
 
     private void assertColumnType(TableMetadata tableMetadata, String columnName, Type expectedType)
@@ -4904,8 +5533,57 @@ public class TestHiveIntegrationSmokeTest
 
     private void testWithAllStorageFormats(BiConsumer<Session, HiveStorageFormat> test)
     {
-        for (HiveStorageFormat storageFormat : HiveStorageFormat.values()) {
-            test.accept(getSession(), storageFormat);
+        for (TestingHiveStorageFormat storageFormat : getAllTestingHiveStorageFormat()) {
+            testWithStorageFormat(storageFormat, test);
+        }
+    }
+
+    private static void testWithStorageFormat(TestingHiveStorageFormat storageFormat, BiConsumer<Session, HiveStorageFormat> test)
+    {
+        requireNonNull(storageFormat, "storageFormat is null");
+        requireNonNull(test, "test is null");
+        Session session = storageFormat.getSession();
+        try {
+            test.accept(session, storageFormat.getFormat());
+        }
+        catch (Exception | AssertionError e) {
+            fail(format("Failure for format %s with properties %s", storageFormat.getFormat(), session.getConnectorProperties()), e);
+        }
+    }
+
+    private List<TestingHiveStorageFormat> getAllTestingHiveStorageFormat()
+    {
+        Session session = getSession();
+        ImmutableList.Builder<TestingHiveStorageFormat> formats = ImmutableList.builder();
+        for (HiveStorageFormat hiveStorageFormat : HiveStorageFormat.values()) {
+            if (hiveStorageFormat == HiveStorageFormat.CSV) {
+                // CSV supports only unbounded VARCHAR type
+                continue;
+            }
+            formats.add(new TestingHiveStorageFormat(session, hiveStorageFormat));
+        }
+        return formats.build();
+    }
+
+    private static class TestingHiveStorageFormat
+    {
+        private final Session session;
+        private final HiveStorageFormat format;
+
+        TestingHiveStorageFormat(Session session, HiveStorageFormat format)
+        {
+            this.session = requireNonNull(session, "session is null");
+            this.format = requireNonNull(format, "format is null");
+        }
+
+        public Session getSession()
+        {
+            return session;
+        }
+
+        public HiveStorageFormat getFormat()
+        {
+            return format;
         }
     }
 }

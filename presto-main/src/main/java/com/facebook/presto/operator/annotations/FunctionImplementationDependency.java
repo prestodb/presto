@@ -15,7 +15,7 @@ package com.facebook.presto.operator.annotations;
 
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.InvocationConvention;
 import com.google.common.collect.ImmutableList;
@@ -42,9 +42,9 @@ public final class FunctionImplementationDependency
     }
 
     @Override
-    protected FunctionHandle getFunctionHandle(BoundVariables boundVariables, FunctionManager functionManager)
+    protected FunctionHandle getFunctionHandle(BoundVariables boundVariables, FunctionAndTypeManager functionAndTypeManager)
     {
-        return functionManager.lookupFunction(name, fromTypeSignatures(applyBoundVariables(argumentTypes, boundVariables)));
+        return functionAndTypeManager.lookupFunction(name, fromTypeSignatures(applyBoundVariables(argumentTypes, boundVariables)));
     }
 
     @Override

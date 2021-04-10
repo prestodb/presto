@@ -20,6 +20,7 @@ import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.memory.context.SimpleLocalMemoryContext;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.google.common.collect.ImmutableMap;
@@ -40,6 +41,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.facebook.airlift.concurrent.MoreFutures.tryGetFutureValue;
@@ -104,8 +106,29 @@ public class TestExchangeClient
     @Test
     public void testHappyPath()
     {
+        testHappyPath(false, in -> in);
+    }
+
+    @Test
+    public void testHappyPathChecksum()
+    {
+        testHappyPath(true, in -> in);
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Received corrupted serialized page from host.*")
+    public void testHappyPathChecksumFail()
+    {
+        testHappyPath(true, in -> {
+            in[in.length - 1] = (byte) ~in[in.length - 1];
+            return in;
+        });
+    }
+
+    private void testHappyPath(boolean checksum, Function<byte[], byte[]> dataChanger)
+    {
+        DataSize bufferCapacity = new DataSize(32, MEGABYTE);
         DataSize maxResponseSize = new DataSize(10, MEGABYTE);
-        MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
+        MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize, testingPagesSerde(checksum), dataChanger);
 
         URI location = URI.create("http://localhost:8080");
         processor.addPage(location, createPage(1));
@@ -113,20 +136,7 @@ public class TestExchangeClient
         processor.addPage(location, createPage(3));
         processor.setComplete(location);
 
-        @SuppressWarnings("resource")
-        ExchangeClient exchangeClient = new ExchangeClient(
-                new DataSize(32, MEGABYTE),
-                maxResponseSize,
-                1,
-                new Duration(1, MINUTES),
-                true,
-                false,
-                0.2,
-                new TestingHttpClient(processor, scheduler),
-                new TestingDriftClient<>(),
-                scheduler,
-                new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
-                pageBufferClientCallbackExecutor);
+        ExchangeClient exchangeClient = createExchangeClient(processor, bufferCapacity, maxResponseSize);
 
         exchangeClient.addLocation(location, TaskId.valueOf("queryid.0.0.0"));
         exchangeClient.noMoreLocations();
@@ -152,23 +162,11 @@ public class TestExchangeClient
     public void testAddLocation()
             throws Exception
     {
+        DataSize bufferCapacity = new DataSize(32, MEGABYTE);
         DataSize maxResponseSize = new DataSize(10, MEGABYTE);
         MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
 
-        @SuppressWarnings("resource")
-        ExchangeClient exchangeClient = new ExchangeClient(
-                new DataSize(32, MEGABYTE),
-                maxResponseSize,
-                1,
-                new Duration(1, MINUTES),
-                true,
-                false,
-                0.2,
-                new TestingHttpClient(processor, testingHttpClientExecutor),
-                new TestingDriftClient<>(),
-                scheduler,
-                new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
-                pageBufferClientCallbackExecutor);
+        ExchangeClient exchangeClient = createExchangeClient(processor, bufferCapacity, maxResponseSize);
 
         URI location1 = URI.create("http://localhost:8081/foo");
         processor.addPage(location1, createPage(1));
@@ -219,6 +217,7 @@ public class TestExchangeClient
     @Test
     public void testBufferLimit()
     {
+        DataSize bufferCapacity = new DataSize(1, BYTE);
         DataSize maxResponseSize = new DataSize(1, BYTE);
         MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
 
@@ -230,20 +229,7 @@ public class TestExchangeClient
         processor.addPage(location, createPage(3));
         processor.setComplete(location);
 
-        @SuppressWarnings("resource")
-        ExchangeClient exchangeClient = new ExchangeClient(
-                new DataSize(1, BYTE),
-                maxResponseSize,
-                1,
-                new Duration(1, MINUTES),
-                true,
-                false,
-                0.2,
-                new TestingHttpClient(processor, testingHttpClientExecutor),
-                new TestingDriftClient<>(),
-                scheduler,
-                new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
-                pageBufferClientCallbackExecutor);
+        ExchangeClient exchangeClient = createExchangeClient(processor, bufferCapacity, maxResponseSize);
 
         exchangeClient.addLocation(location, TaskId.valueOf("taskid.0.0.0"));
         exchangeClient.noMoreLocations();
@@ -307,6 +293,7 @@ public class TestExchangeClient
     public void testClose()
             throws Exception
     {
+        DataSize bufferCapacity = new DataSize(1, BYTE);
         DataSize maxResponseSize = new DataSize(1, BYTE);
         MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
 
@@ -315,20 +302,8 @@ public class TestExchangeClient
         processor.addPage(location, createPage(2));
         processor.addPage(location, createPage(3));
 
-        @SuppressWarnings("resource")
-        ExchangeClient exchangeClient = new ExchangeClient(
-                new DataSize(1, BYTE),
-                maxResponseSize,
-                1,
-                new Duration(1, MINUTES),
-                true,
-                false,
-                0.2,
-                new TestingHttpClient(processor, testingHttpClientExecutor),
-                new TestingDriftClient<>(),
-                scheduler,
-                new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
-                pageBufferClientCallbackExecutor);
+        ExchangeClient exchangeClient = createExchangeClient(processor, bufferCapacity, maxResponseSize);
+
         exchangeClient.addLocation(location, TaskId.valueOf("taskid.0.0.0"));
         exchangeClient.noMoreLocations();
 
@@ -352,6 +327,7 @@ public class TestExchangeClient
     @Test
     public void testInitialRequestLimit()
     {
+        DataSize bufferCapacity = new DataSize(16, MEGABYTE);
         DataSize maxResponseSize = new DataSize(DEFAULT_MAX_PAGE_SIZE_IN_BYTES, BYTE);
         CountDownLatch countDownLatch = new CountDownLatch(1);
         MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize) {
@@ -383,19 +359,7 @@ public class TestExchangeClient
             expectedMaxSizes.add(maxResponseSize);
         }
 
-        try (ExchangeClient exchangeClient = new ExchangeClient(
-                new DataSize(16, MEGABYTE),
-                maxResponseSize,
-                1,
-                new Duration(1, MINUTES),
-                true,
-                false,
-                0.2,
-                new TestingHttpClient(processor, testingHttpClientExecutor),
-                new TestingDriftClient<>(),
-                scheduler,
-                new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
-                pageBufferClientCallbackExecutor)) {
+        try (ExchangeClient exchangeClient = createExchangeClient(processor, bufferCapacity, maxResponseSize)) {
             for (int i = 0; i < numLocations; i++) {
                 exchangeClient.addLocation(locations.get(i), TaskId.valueOf("taskid.0.0." + i));
             }
@@ -449,6 +413,7 @@ public class TestExchangeClient
     public void testRemoveRemoteSource()
             throws Exception
     {
+        DataSize bufferCapacity = new DataSize(1, BYTE);
         DataSize maxResponseSize = new DataSize(1, BYTE);
         MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
 
@@ -461,19 +426,8 @@ public class TestExchangeClient
         processor.addPage(location1, createPage(2));
         processor.addPage(location1, createPage(3));
 
-        ExchangeClient exchangeClient = new ExchangeClient(
-                new DataSize(1, BYTE),
-                maxResponseSize,
-                1,
-                new Duration(1, MINUTES),
-                true,
-                false,
-                0.2,
-                new TestingHttpClient(processor, testingHttpClientExecutor),
-                new TestingDriftClient<>(),
-                scheduler,
-                new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
-                pageBufferClientCallbackExecutor);
+        ExchangeClient exchangeClient = createExchangeClient(processor, bufferCapacity, maxResponseSize);
+
         exchangeClient.addLocation(location1, taskId1);
         exchangeClient.addLocation(location2, taskId2);
 
@@ -587,5 +541,22 @@ public class TestExchangeClient
             }
         }
         assertEquals(actualSupplier.get(), expected);
+    }
+
+    private ExchangeClient createExchangeClient(MockExchangeRequestProcessor processor, DataSize bufferCapacity, DataSize maxResponseSize)
+    {
+        return new ExchangeClient(
+                bufferCapacity,
+                maxResponseSize,
+                1,
+                new Duration(1, MINUTES),
+                true,
+                false,
+                0.2,
+                new TestingHttpClient(processor, testingHttpClientExecutor),
+                new TestingDriftClient<>(),
+                scheduler,
+                new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
+                pageBufferClientCallbackExecutor);
     }
 }

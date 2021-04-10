@@ -14,9 +14,9 @@
 package com.facebook.presto.sql.planner.sanity;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.relation.CallExpression;
@@ -36,7 +36,7 @@ public class VerifyProjectionLocality
     @Override
     public void validate(PlanNode planNode, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
     {
-        planNode.accept(new Visitor(metadata.getFunctionManager()), null);
+        planNode.accept(new Visitor(metadata.getFunctionAndTypeManager()), null);
     }
 
     private static class Visitor
@@ -44,9 +44,9 @@ public class VerifyProjectionLocality
     {
         private final ExternalCallExpressionChecker externalCallExpressionChecker;
 
-        Visitor(FunctionManager functionManager)
+        Visitor(FunctionAndTypeManager functionAndTypeManager)
         {
-            this.externalCallExpressionChecker = new ExternalCallExpressionChecker(requireNonNull(functionManager, "functionManager is null"));
+            this.externalCallExpressionChecker = new ExternalCallExpressionChecker(requireNonNull(functionAndTypeManager, "functionManager is null"));
         }
 
         @Override

@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.240-SNAPSHOT</version>
+        <version>0.252-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-accumulo</artifactId>
@@ -276,6 +276,12 @@
         </dependency>
 
         <dependency>
+            <groupId>com.facebook.drift</groupId>
+            <artifactId>drift-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
             <scope>provided</scope>
@@ -309,7 +315,7 @@
         <dependency>
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
-            <version>13.0</version>
+            <version>19.0.0</version>
             <scope>test</scope>
         </dependency>
 

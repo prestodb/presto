@@ -14,7 +14,7 @@
 package com.facebook.presto.spark.planner;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.warnings.WarningCollector;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Plan;

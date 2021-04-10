@@ -27,6 +27,7 @@ import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.metadata.statistics.StripeStatistics;
 import com.facebook.presto.orc.reader.StreamReader;
 import com.facebook.presto.orc.stream.InputStreamSources;
+import com.facebook.presto.orc.stream.SharedBuffer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
@@ -73,6 +74,8 @@ import static java.util.Objects.requireNonNull;
 abstract class AbstractOrcRecordReader<T extends StreamReader>
         implements Closeable
 {
+    protected final OrcAggregatedMemoryContext systemMemoryUsage;
+
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(AbstractOrcRecordReader.class).instanceSize();
 
     private final OrcDataSource orcDataSource;
@@ -111,8 +114,6 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
     private long maxCombinedBytesPerRow;
 
     private final Map<String, Slice> userMetadata;
-
-    private final OrcAggregatedMemoryContext systemMemoryUsage;
 
     private final Optional<OrcWriteValidation> writeValidation;
     private final Optional<OrcWriteValidation.WriteChecksumBuilder> writeChecksumBuilder;
@@ -221,7 +222,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
         this.stripes = stripes.build();
         this.stripeFilePositions = stripeFilePositions.build();
 
-        orcDataSource = wrapWithCacheIfTinyStripes(orcDataSource, this.stripes, maxMergeDistance, tinyStripeThreshold);
+        orcDataSource = wrapWithCacheIfTinyStripes(orcDataSource, this.stripes, maxMergeDistance, tinyStripeThreshold, systemMemoryUsage);
         this.orcDataSource = orcDataSource;
         this.splitLength = splitLength;
 
@@ -427,7 +428,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
     }
 
     @VisibleForTesting
-    static OrcDataSource wrapWithCacheIfTinyStripes(OrcDataSource dataSource, List<StripeInformation> stripes, DataSize maxMergeDistance, DataSize tinyStripeThreshold)
+    static OrcDataSource wrapWithCacheIfTinyStripes(OrcDataSource dataSource, List<StripeInformation> stripes, DataSize maxMergeDistance, DataSize tinyStripeThreshold, OrcAggregatedMemoryContext systemMemoryContext)
     {
         if (dataSource instanceof CachingOrcDataSource) {
             return dataSource;
@@ -437,7 +438,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
                 return dataSource;
             }
         }
-        return new CachingOrcDataSource(dataSource, createTinyStripesRangeFinder(stripes, maxMergeDistance, tinyStripeThreshold));
+        return new CachingOrcDataSource(dataSource, createTinyStripesRangeFinder(stripes, maxMergeDistance, tinyStripeThreshold), systemMemoryContext.newOrcLocalMemoryContext(CachingOrcDataSource.class.getSimpleName()));
     }
 
     /**
@@ -653,7 +654,8 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
             dwrfEncryptionInfo = Optional.of(createDwrfEncryptionInfo(encryptionLibrary.get(), stripeDecryptionKeyMetadata, intermediateKeyMetadata, dwrfEncryptionGroupMap));
         }
 
-        Stripe stripe = stripeReader.readStripe(stripeInformation, currentStripeSystemMemoryContext, dwrfEncryptionInfo);
+        SharedBuffer sharedDecompressionBuffer = new SharedBuffer(currentStripeSystemMemoryContext.newOrcLocalMemoryContext("sharedDecompressionBuffer"));
+        Stripe stripe = stripeReader.readStripe(stripeInformation, currentStripeSystemMemoryContext, dwrfEncryptionInfo, sharedDecompressionBuffer);
         if (stripe != null) {
             // Give readers access to dictionary streams
             InputStreamSources dictionaryStreamSources = stripe.getDictionaryStreamSources();

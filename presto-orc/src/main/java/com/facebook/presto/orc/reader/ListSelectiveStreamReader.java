@@ -23,6 +23,7 @@ import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcLocalMemoryContext;
+import com.facebook.presto.orc.OrcRecordReaderOptions;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.TupleDomainFilter;
 import com.facebook.presto.orc.TupleDomainFilter.NullsFilter;
@@ -119,6 +120,7 @@ public class ListSelectiveStreamReader
             int subfieldLevel,  // 0 - top level
             Optional<Type> outputType,
             DateTimeZone hiveStorageTimeZone,
+            OrcRecordReaderOptions options,
             boolean legacyMapSubscript,
             OrcAggregatedMemoryContext systemMemoryContext)
     {
@@ -199,7 +201,16 @@ public class ListSelectiveStreamReader
                     .collect(toImmutableList());
         }
 
-        this.elementStreamReader = createNestedStreamReader(elementStreamDescriptor, level + 1, Optional.ofNullable(this.listFilter), elementOutputType, elementSubfields, hiveStorageTimeZone, legacyMapSubscript, systemMemoryContext);
+        this.elementStreamReader = createNestedStreamReader(
+                elementStreamDescriptor,
+                level + 1,
+                Optional.ofNullable(this.listFilter),
+                elementOutputType,
+                elementSubfields,
+                hiveStorageTimeZone,
+                options,
+                legacyMapSubscript,
+                systemMemoryContext);
         this.systemMemoryContext = systemMemoryContext.newOrcLocalMemoryContext(ListSelectiveStreamReader.class.getSimpleName());
     }
 

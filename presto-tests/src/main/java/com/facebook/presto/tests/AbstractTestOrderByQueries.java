@@ -25,7 +25,7 @@ import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.QueryTemplate.parameter;
 import static com.facebook.presto.tests.QueryTemplate.queryTemplate;
 
-public class AbstractTestOrderByQueries
+public abstract class AbstractTestOrderByQueries
         extends AbstractTestQueryFramework
 {
     public AbstractTestOrderByQueries(QueryRunnerSupplier supplier)
@@ -80,7 +80,6 @@ public class AbstractTestOrderByQueries
         assertQueryOrdered("SELECT max(a) FROM (values (1,2), (2,1)) t(a,b) GROUP BY b ORDER BY b", "VALUES 2, 1");
         assertQueryOrdered("SELECT max(a) FROM (values (1,2), (2,1)) t(a,b) GROUP BY t.b ORDER BY t.b*1.0", "VALUES 2, 1");
         assertQueryOrdered("SELECT -(a+b) AS a, -(a+b) AS b, a+b FROM (values (41, 42), (-41, -42)) t(a,b) GROUP BY a+b ORDER BY a+b", "VALUES (-83, -83, 83), (83, 83, -83)");
-        assertQueryOrdered("SELECT c.a FROM (SELECT CAST(ROW(-a.a) AS ROW(a BIGINT)) a FROM (VALUES (2), (1)) a(a) GROUP BY a.a ORDER BY a.a) t(c)", "VALUES -2, -1");
         assertQueryOrdered("SELECT -a AS a FROM (values (1,2),(3,2)) t(a,b) GROUP BY GROUPING SETS ((a), (a, b)) ORDER BY -a", "VALUES -1, -1, -3, -3");
         assertQueryOrdered("SELECT a AS foo FROM (values (1,2),(3,2)) t(a,b) GROUP BY GROUPING SETS ((a), (a, b)) HAVING b IS NOT NULL ORDER BY -a", "VALUES 3, 1");
         assertQueryOrdered("SELECT max(a) FROM (values (1,2),(3,2)) t(a,b) ORDER BY max(-a)", "VALUES 3");
@@ -244,7 +243,7 @@ public class AbstractTestOrderByQueries
     @Test
     public void testOrderLimitCompaction()
     {
-        assertQueryOrdered("SELECT * FROM (SELECT * FROM orders ORDER BY orderkey) LIMIT 10");
+        assertQueryOrdered("SELECT * FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10)");
     }
 
     @Test

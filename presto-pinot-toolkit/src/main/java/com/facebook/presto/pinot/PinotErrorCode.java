@@ -19,6 +19,7 @@ import com.facebook.presto.spi.ErrorType;
 
 import static com.facebook.presto.spi.ErrorType.EXTERNAL;
 import static com.facebook.presto.spi.ErrorType.INTERNAL_ERROR;
+import static com.facebook.presto.spi.ErrorType.USER_ERROR;
 
 public enum PinotErrorCode
         implements ErrorCodeSupplier
@@ -35,7 +36,10 @@ public enum PinotErrorCode
     PINOT_INVALID_PQL_GENERATED(9, INTERNAL_ERROR),
     PINOT_INVALID_CONFIGURATION(10, INTERNAL_ERROR),
     PINOT_DATA_FETCH_EXCEPTION(11, EXTERNAL, true),
-    PINOT_REQUEST_GENERATOR_FAILURE(12, INTERNAL_ERROR), // Unable to generate Pinot request
+    PINOT_REQUEST_GENERATOR_FAILURE(12, INTERNAL_ERROR),
+    PINOT_UNABLE_TO_FIND_INSTANCE(13, EXTERNAL),
+    PINOT_INVALID_SEGMENT_QUERY_GENERATED(14, INTERNAL_ERROR),
+    PINOT_PUSH_DOWN_QUERY_NOT_PRESENT(20, USER_ERROR),
     PINOT_UNCLASSIFIED_ERROR(100, EXTERNAL);
 
     /**

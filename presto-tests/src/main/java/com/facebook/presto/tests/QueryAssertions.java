@@ -15,9 +15,10 @@ package com.facebook.presto.tests;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.metadata.QualifiedObjectName;
+import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.sql.planner.Plan;
+import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
@@ -98,32 +99,32 @@ public final class QueryAssertions
             QueryRunner actualQueryRunner,
             Session session,
             @Language("SQL") String actual,
-            H2QueryRunner h2QueryRunner,
+            ExpectedQueryRunner expectedQueryRunner,
             @Language("SQL") String expected,
             boolean ensureOrdering,
             boolean compareUpdate)
     {
-        assertQuery(actualQueryRunner, session, actual, h2QueryRunner, expected, ensureOrdering, compareUpdate, Optional.empty());
+        assertQuery(actualQueryRunner, session, actual, expectedQueryRunner, expected, ensureOrdering, compareUpdate, Optional.empty());
     }
 
     public static void assertQuery(
             QueryRunner actualQueryRunner,
             Session session,
             @Language("SQL") String actual,
-            H2QueryRunner h2QueryRunner,
+            ExpectedQueryRunner expectedQueryRunner,
             @Language("SQL") String expected,
             boolean ensureOrdering,
             boolean compareUpdate,
             Consumer<Plan> planAssertion)
     {
-        assertQuery(actualQueryRunner, session, actual, h2QueryRunner, expected, ensureOrdering, compareUpdate, Optional.of(planAssertion));
+        assertQuery(actualQueryRunner, session, actual, expectedQueryRunner, expected, ensureOrdering, compareUpdate, Optional.of(planAssertion));
     }
 
     private static void assertQuery(
             QueryRunner actualQueryRunner,
             Session session,
             @Language("SQL") String actual,
-            H2QueryRunner h2QueryRunner,
+            ExpectedQueryRunner expectedQueryRunner,
             @Language("SQL") String expected,
             boolean ensureOrdering,
             boolean compareUpdate,
@@ -158,14 +159,14 @@ public final class QueryAssertions
         long expectedStart = System.nanoTime();
         MaterializedResult expectedResults = null;
         try {
-            expectedResults = h2QueryRunner.execute(session, expected, actualResults.getTypes());
+            expectedResults = expectedQueryRunner.execute(session, expected, actualResults.getTypes());
         }
         catch (RuntimeException ex) {
             fail("Execution of 'expected' query failed: " + expected, ex);
         }
         Duration totalTime = nanosSince(start);
         if (totalTime.compareTo(Duration.succinctDuration(1, SECONDS)) > 0) {
-            log.info("FINISHED in presto: %s, h2: %s, total: %s", actualTime, nanosSince(expectedStart), totalTime);
+            log.info("FINISHED in presto: %s, expected: %s, total: %s", actualTime, nanosSince(expectedStart), totalTime);
         }
 
         if (actualResults.getUpdateType().isPresent() || actualResults.getUpdateCount().isPresent()) {

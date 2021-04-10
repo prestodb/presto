@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.analyzer;
 
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -25,11 +25,11 @@ import static java.util.Objects.requireNonNull;
 class WindowFunctionValidator
         extends DefaultExpressionTraversalVisitor<Void, Analysis>
 {
-    private final FunctionManager functionManager;
+    private final FunctionAndTypeManager functionAndTypeManager;
 
-    public WindowFunctionValidator(FunctionManager functionManager)
+    public WindowFunctionValidator(FunctionAndTypeManager functionAndTypeManager)
     {
-        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
     }
 
     @Override
@@ -37,7 +37,7 @@ class WindowFunctionValidator
     {
         requireNonNull(analysis, "analysis is null");
 
-        FunctionMetadata functionMetadata = functionManager.getFunctionMetadata(analysis.getFunctionHandle(functionCall));
+        FunctionMetadata functionMetadata = functionAndTypeManager.getFunctionMetadata(analysis.getFunctionHandle(functionCall));
         if (functionMetadata != null && functionMetadata.getFunctionKind() == WINDOW && !functionCall.getWindow().isPresent()) {
             throw new SemanticException(WINDOW_REQUIRES_OVER, functionCall, "Window function %s requires an OVER clause", functionMetadata.getName());
         }

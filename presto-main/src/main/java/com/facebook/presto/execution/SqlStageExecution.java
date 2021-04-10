@@ -35,6 +35,7 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -74,8 +75,10 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @ThreadSafe
 public final class SqlStageExecution
@@ -328,9 +331,20 @@ public final class SqlStageExecution
     public synchronized Duration getTotalCpuTime()
     {
         long millis = getAllTasks().stream()
-                .mapToLong(task -> task.getTaskInfo().getStats().getTotalCpuTime().toMillis())
+                .mapToLong(task -> NANOSECONDS.toMillis(task.getTaskInfo().getStats().getTotalCpuTimeInNanos()))
                 .sum();
         return new Duration(millis, TimeUnit.MILLISECONDS);
+    }
+
+    public synchronized DataSize getRawInputDataSize()
+    {
+        if (planFragment.getTableScanSchedulingOrder().isEmpty()) {
+            return new DataSize(0, BYTE);
+        }
+        long datasize = getAllTasks().stream()
+                .mapToLong(task -> task.getTaskInfo().getStats().getRawInputDataSizeInBytes())
+                .sum();
+        return DataSize.succinctBytes(datasize);
     }
 
     public BasicStageExecutionStats getBasicStageStats()
@@ -504,7 +518,7 @@ public final class SqlStageExecution
                 planFragment,
                 initialSplits.build(),
                 outputBuffers,
-                nodeTaskMap.createPartitionedSplitCountTracker(node, taskId),
+                nodeTaskMap.createTaskStatsTracker(node, taskId),
                 summarizeTaskInfo,
                 tableWriteInfo);
 
@@ -697,7 +711,7 @@ public final class SqlStageExecution
             long deltaTotalMemoryInBytes = (currentUserMemory + currentSystemMemory) - (previousUserMemory + previousSystemMemory);
             previousUserMemory = currentUserMemory;
             previousSystemMemory = currentSystemMemory;
-            stateMachine.updateMemoryUsage(deltaUserMemoryInBytes, deltaTotalMemoryInBytes);
+            stateMachine.updateMemoryUsage(deltaUserMemoryInBytes, deltaTotalMemoryInBytes, taskStatus.getPeakNodeTotalMemoryReservationInBytes());
         }
 
         private synchronized void updateCompletedDriverGroups(TaskStatus taskStatus)

@@ -18,6 +18,7 @@ import com.facebook.airlift.http.client.HttpUriBuilder;
 import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.http.client.ResponseHandler;
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.druid.ingestion.DruidIngestTask;
 import com.facebook.presto.druid.metadata.DruidColumnInfo;
 import com.facebook.presto.druid.metadata.DruidSegmentIdWrapper;
 import com.facebook.presto.druid.metadata.DruidSegmentInfo;
@@ -29,10 +30,13 @@ import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
 
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.URI;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static com.facebook.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
@@ -42,18 +46,20 @@ import static com.facebook.airlift.http.client.StaticBodyGenerator.createStaticB
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
 import static com.facebook.presto.druid.DruidErrorCode.DRUID_BROKER_RESULT_ERROR;
-import static com.facebook.presto.druid.DruidResultFormat.ARRAY_LINES;
 import static com.facebook.presto.druid.DruidResultFormat.OBJECT;
+import static com.facebook.presto.druid.DruidResultFormat.OBJECT_LINES;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.MediaType.JSON_UTF_8;
 import static java.lang.String.format;
+import static java.net.HttpURLConnection.HTTP_OK;
 import static java.util.Objects.requireNonNull;
 
 public class DruidClient
 {
     private static final String METADATA_PATH = "/druid/coordinator/v1/metadata";
     private static final String SQL_ENDPOINT = "/druid/v2/sql";
+    private static final String INDEXER_TASK_ENDPOINT = "/druid/indexer/v1/task";
     private static final String APPLICATION_JSON = "application/json";
     private static final String LIST_TABLE_QUERY = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'druid'";
     private static final String GET_COLUMN_TEMPLATE = "SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'druid' AND TABLE_NAME = '%s'";
@@ -131,6 +137,11 @@ public class DruidClient
         return httpClient.execute(prepareDataQuery(dql), new StreamingJsonResponseHandler());
     }
 
+    public InputStream ingestData(DruidIngestTask ingestTask)
+    {
+        return httpClient.execute(prepareDataIngestion(ingestTask), new StreamingJsonResponseHandler());
+    }
+
     private static Request.Builder setContentTypeHeaders(Request.Builder requestBuilder)
     {
         return requestBuilder
@@ -158,10 +169,18 @@ public class DruidClient
 
         return setContentTypeHeaders(preparePost())
                 .setUri(uriBuilder.build())
-                .setBodyGenerator(createStaticBodyGenerator(createRequestBody(query, ARRAY_LINES, false)))
+                .setBodyGenerator(createStaticBodyGenerator(createRequestBody(query, OBJECT_LINES, false)))
                 .build();
     }
 
+    private Request prepareDataIngestion(DruidIngestTask ingestTask)
+    {
+        HttpUriBuilder uriBuilder = uriBuilderFrom(druidCoordinator).replacePath(INDEXER_TASK_ENDPOINT);
+        return setContentTypeHeaders(preparePost())
+                .setUri(uriBuilder.build())
+                .setBodyGenerator(createStaticBodyGenerator(ingestTask.toJson().getBytes()))
+                .build();
+    }
     private static class StreamingJsonResponseHandler
             implements ResponseHandler<InputStream, RuntimeException>
     {
@@ -175,6 +194,10 @@ public class DruidClient
         public InputStream handle(Request request, com.facebook.airlift.http.client.Response response)
         {
             try {
+                if (response.getStatusCode() != HTTP_OK) {
+                    String result = new BufferedReader(new InputStreamReader(response.getInputStream())).lines().collect(Collectors.joining("\n"));
+                    throw new PrestoException(DRUID_BROKER_RESULT_ERROR, result);
+                }
                 if (APPLICATION_JSON.equals(response.getHeader(CONTENT_TYPE))) {
                     return response.getInputStream();
                 }

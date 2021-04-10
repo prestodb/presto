@@ -40,6 +40,7 @@ public class HiveMetadataFactory
     private final boolean allowCorruptWritesForTesting;
     private final boolean skipDeletionForAlter;
     private final boolean skipTargetCleanupOnRollback;
+    private final boolean undoMetastoreOperationsEnabled;
     private final boolean writesToNonManagedTablesEnabled;
     private final boolean createsOfNonManagedTablesEnabled;
     private final int maxPartitionBatchSize;
@@ -63,6 +64,7 @@ public class HiveMetadataFactory
     private final PartitionObjectBuilder partitionObjectBuilder;
     private final HiveEncryptionInformationProvider encryptionInformationProvider;
     private final HivePartitionStats hivePartitionStats;
+    private final HiveFileRenamer hiveFileRenamer;
 
     @Inject
     @SuppressWarnings("deprecation")
@@ -86,7 +88,8 @@ public class HiveMetadataFactory
             NodeVersion nodeVersion,
             PartitionObjectBuilder partitionObjectBuilder,
             HiveEncryptionInformationProvider encryptionInformationProvider,
-            HivePartitionStats hivePartitionStats)
+            HivePartitionStats hivePartitionStats,
+            HiveFileRenamer hiveFileRenamer)
     {
         this(
                 metastore,
@@ -98,6 +101,7 @@ public class HiveMetadataFactory
                 hiveClientConfig.isSkipTargetCleanupOnRollback(),
                 hiveClientConfig.getWritesToNonManagedTablesEnabled(),
                 hiveClientConfig.getCreatesOfNonManagedTablesEnabled(),
+                hiveClientConfig.isUndoMetastoreOperationsEnabled(),
                 hiveClientConfig.getMaxPartitionBatchSize(),
                 metastoreClientConfig.getPerTransactionMetastoreCacheMaximumSize(),
                 typeManager,
@@ -114,7 +118,8 @@ public class HiveMetadataFactory
                 nodeVersion.toString(),
                 partitionObjectBuilder,
                 encryptionInformationProvider,
-                hivePartitionStats);
+                hivePartitionStats,
+                hiveFileRenamer);
     }
 
     public HiveMetadataFactory(
@@ -127,6 +132,7 @@ public class HiveMetadataFactory
             boolean skipTargetCleanupOnRollback,
             boolean writesToNonManagedTablesEnabled,
             boolean createsOfNonManagedTablesEnabled,
+            boolean undoMetastoreOperationsEnabled,
             int maxPartitionBatchSize,
             long perTransactionCacheMaximumSize,
             TypeManager typeManager,
@@ -143,13 +149,15 @@ public class HiveMetadataFactory
             String prestoVersion,
             PartitionObjectBuilder partitionObjectBuilder,
             HiveEncryptionInformationProvider encryptionInformationProvider,
-            HivePartitionStats hivePartitionStats)
+            HivePartitionStats hivePartitionStats,
+            HiveFileRenamer hiveFileRenamer)
     {
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
         this.skipDeletionForAlter = skipDeletionForAlter;
         this.skipTargetCleanupOnRollback = skipTargetCleanupOnRollback;
         this.writesToNonManagedTablesEnabled = writesToNonManagedTablesEnabled;
         this.createsOfNonManagedTablesEnabled = createsOfNonManagedTablesEnabled;
+        this.undoMetastoreOperationsEnabled = undoMetastoreOperationsEnabled;
         this.maxPartitionBatchSize = maxPartitionBatchSize;
         this.perTransactionCacheMaximumSize = perTransactionCacheMaximumSize;
 
@@ -172,6 +180,7 @@ public class HiveMetadataFactory
         this.partitionObjectBuilder = requireNonNull(partitionObjectBuilder, "partitionObjectBuilder is null");
         this.encryptionInformationProvider = requireNonNull(encryptionInformationProvider, "encryptionInformationProvider is null");
         this.hivePartitionStats = requireNonNull(hivePartitionStats, "hivePartitionStats is null");
+        this.hiveFileRenamer = requireNonNull(hiveFileRenamer, "hiveFileRenamer is null");
 
         if (!allowCorruptWritesForTesting && !timeZone.equals(DateTimeZone.getDefault())) {
             log.warn("Hive writes are disabled. " +
@@ -189,7 +198,8 @@ public class HiveMetadataFactory
                 CachingHiveMetastore.memoizeMetastore(this.metastore, perTransactionCacheMaximumSize), // per-transaction cache
                 fileRenameExecutor,
                 skipDeletionForAlter,
-                skipTargetCleanupOnRollback);
+                skipTargetCleanupOnRollback,
+                undoMetastoreOperationsEnabled);
 
         return new HiveMetadata(
                 metastore,
@@ -214,6 +224,7 @@ public class HiveMetadataFactory
                 zeroRowFileCreator,
                 partitionObjectBuilder,
                 encryptionInformationProvider,
-                hivePartitionStats);
+                hivePartitionStats,
+                hiveFileRenamer);
     }
 }

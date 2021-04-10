@@ -125,7 +125,7 @@ public abstract class AbstractDecimalSelectiveStreamReader
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + sizeOf(values) + sizeOf(nulls) + sizeOf(outputPositions);
+        return INSTANCE_SIZE + sizeOf(values) + sizeOf(nulls) + sizeOf(outputPositions) + (nullBlock == null ? 0 : nullBlock.getRetainedSizeInBytes());
     }
 
     private void openRowGroup()

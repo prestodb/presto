@@ -18,6 +18,7 @@ import com.google.common.base.Splitter;
 import com.google.common.base.Splitter.MapSplitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
@@ -29,6 +30,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class PinotConfig
 {
@@ -38,6 +40,7 @@ public class PinotConfig
     public static final int DEFAULT_MIN_CONNECTIONS_PER_SERVER = 10;
     public static final int DEFAULT_THREAD_POOL_SIZE = 30;
     public static final int DEFAULT_NON_AGGREGATE_LIMIT_FOR_BROKER_QUERIES = 25_000;
+    public static final int DEFAULT_STREAMING_SERVER_GRPC_MAX_INBOUND_MESSAGE_BYTES = (int) new DataSize(128, MEGABYTE).toBytes();
 
     // There is a perf penalty of having a large topN since the structures are allocated to this size
     // So size this judiciously
@@ -73,18 +76,29 @@ public class PinotConfig
     private Map<String, String> extraHttpHeaders = ImmutableMap.of();
     private Duration metadataCacheExpiry = new Duration(2, TimeUnit.MINUTES);
 
-    private boolean allowMultipleAggregations;
+    private boolean allowMultipleAggregations = true;
     private boolean forbidBrokerQueries;
     private boolean forbidSegmentQueries;
-    private boolean inferDateTypeInSchema;
-    private boolean inferTimestampTypeInSchema;
-    private boolean markDataFetchExceptionsAsRetriable;
-    private boolean usePinotSqlForBrokerQueries;
+
+    // Infer Pinot time fields to Presto Date/Timestamp type
+    private boolean inferDateTypeInSchema = true;
+    private boolean inferTimestampTypeInSchema = true;
+
+    // Retry on data fetch exceptions, e.g. timeout from the server side.
+    private boolean markDataFetchExceptionsAsRetriable = true;
+
+    // Requires Pinot version >= 0.4.0.
+    private boolean usePinotSqlForBrokerQueries = true;
+    // Requires Pinot version >= 0.6.0.
+    private boolean useStreamingForSegmentQueries;
+    private int streamingServerGrpcMaxInboundMessageBytes = DEFAULT_STREAMING_SERVER_GRPC_MAX_INBOUND_MESSAGE_BYTES;
+
     private int numSegmentsPerSplit = 1;
     private boolean ignoreEmptyResponses;
     private int fetchRetryCount = 2;
     private boolean useDateTrunc;
     private int nonAggregateLimitForBrokerQueries = DEFAULT_NON_AGGREGATE_LIMIT_FOR_BROKER_QUERIES;
+    private boolean pushdownTopNBrokerQueries;
 
     @NotNull
     public Map<String, String> getExtraHttpHeaders()
@@ -466,6 +480,44 @@ public class PinotConfig
     public PinotConfig setUsePinotSqlForBrokerQueries(boolean usePinotSqlForBrokerQueries)
     {
         this.usePinotSqlForBrokerQueries = usePinotSqlForBrokerQueries;
+        return this;
+    }
+
+    public boolean isPushdownTopNBrokerQueries()
+    {
+        return pushdownTopNBrokerQueries;
+    }
+
+    // This is used to switch on/off push down Pinot broker queries with ORDER BY clause and LIMIT.
+    // The reason is that presto doesn't retain the order of query response from Pinot for large number of records returned.
+    @Config("pinot.pushdown-topn-broker-queries")
+    public PinotConfig setPushdownTopNBrokerQueries(boolean pushdownTopNBrokerQueries)
+    {
+        this.pushdownTopNBrokerQueries = pushdownTopNBrokerQueries;
+        return this;
+    }
+
+    public boolean isUseStreamingForSegmentQueries()
+    {
+        return useStreamingForSegmentQueries;
+    }
+
+    @Config("pinot.use-streaming-for-segment-queries")
+    public PinotConfig setUseStreamingForSegmentQueries(boolean useStreamingForSegmentQueries)
+    {
+        this.useStreamingForSegmentQueries = useStreamingForSegmentQueries;
+        return this;
+    }
+
+    public int getStreamingServerGrpcMaxInboundMessageBytes()
+    {
+        return streamingServerGrpcMaxInboundMessageBytes;
+    }
+
+    @Config("pinot.streaming-server-grpc-max-inbound-message-bytes")
+    public PinotConfig setStreamingServerGrpcMaxInboundMessageBytes(int streamingServerGrpcMaxInboundMessageBytes)
+    {
+        this.streamingServerGrpcMaxInboundMessageBytes = streamingServerGrpcMaxInboundMessageBytes;
         return this;
     }
 }

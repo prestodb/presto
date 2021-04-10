@@ -19,6 +19,8 @@ import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.ErrorType;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
@@ -82,6 +84,8 @@ public class QueryInfo
     private final Optional<List<TaskId>> failedTasks;
     // RuntimeOptimizedStages is only available for final query info, because it is appended during runtime.
     private final Optional<List<StageId>> runtimeOptimizedStages;
+    private final Map<SqlFunctionId, SqlInvokedFunction> addedSessionFunctions;
+    private final Set<SqlFunctionId> removedSessionFunctions;
 
     @JsonCreator
     public QueryInfo(
@@ -114,7 +118,9 @@ public class QueryInfo
             @JsonProperty("resourceGroupId") Optional<ResourceGroupId> resourceGroupId,
             @JsonProperty("queryType") Optional<QueryType> queryType,
             @JsonProperty("failedTasks") Optional<List<TaskId>> failedTasks,
-            @JsonProperty("runtimeOptimizedStages") Optional<List<StageId>> runtimeOptimizedStages)
+            @JsonProperty("runtimeOptimizedStages") Optional<List<StageId>> runtimeOptimizedStages,
+            @JsonProperty("addedSessionFunctions") Map<SqlFunctionId, SqlInvokedFunction> addedSessionFunctions,
+            @JsonProperty("removedSessionFunctions") Set<SqlFunctionId> removedSessionFunctions)
     {
         requireNonNull(queryId, "queryId is null");
         requireNonNull(session, "session is null");
@@ -138,6 +144,8 @@ public class QueryInfo
         requireNonNull(queryType, "queryType is null");
         requireNonNull(failedTasks, "failedTasks is null");
         requireNonNull(runtimeOptimizedStages, "runtimeOptimizedStages is null");
+        requireNonNull(addedSessionFunctions, "addedSessionFunctions is null");
+        requireNonNull(removedSessionFunctions, "removedSessionFunctions is null");
 
         this.queryId = queryId;
         this.session = session;
@@ -170,6 +178,8 @@ public class QueryInfo
         this.queryType = queryType;
         this.failedTasks = failedTasks;
         this.runtimeOptimizedStages = runtimeOptimizedStages;
+        this.addedSessionFunctions = ImmutableMap.copyOf(addedSessionFunctions);
+        this.removedSessionFunctions = ImmutableSet.copyOf(removedSessionFunctions);
     }
 
     public static QueryInfo immediateFailureQueryInfo(Session session, String query, URI self, Optional<ResourceGroupId> resourceGroupId, ExecutionFailureInfo failureCause)
@@ -204,7 +214,9 @@ public class QueryInfo
                 resourceGroupId,
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                ImmutableMap.of(),
+                ImmutableSet.of());
 
         return queryInfo;
     }
@@ -397,6 +409,18 @@ public class QueryInfo
     public Optional<List<StageId>> getRuntimeOptimizedStages()
     {
         return runtimeOptimizedStages;
+    }
+
+    @JsonProperty
+    public Map<SqlFunctionId, SqlInvokedFunction> getAddedSessionFunctions()
+    {
+        return addedSessionFunctions;
+    }
+
+    @JsonProperty
+    public Set<SqlFunctionId> getRemovedSessionFunctions()
+    {
+        return removedSessionFunctions;
     }
 
     @Override

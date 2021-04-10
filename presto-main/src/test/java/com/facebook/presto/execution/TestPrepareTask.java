@@ -14,12 +14,9 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.Execute;
@@ -32,13 +29,12 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import java.net.URI;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.execution.TaskTestUtils.createQueryStateMachine;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.QueryUtil.identifier;
@@ -103,18 +99,7 @@ public class TestPrepareTask
     private Map<String, String> executePrepare(String statementName, Statement statement, String sqlString, Session session)
     {
         TransactionManager transactionManager = createTestTransactionManager();
-        QueryStateMachine stateMachine = QueryStateMachine.begin(
-                sqlString,
-                session,
-                URI.create("fake://uri"),
-                new ResourceGroupId("test"),
-                Optional.empty(),
-                false,
-                transactionManager,
-                new AccessControlManager(transactionManager),
-                executor,
-                metadata,
-                WarningCollector.NOOP);
+        QueryStateMachine stateMachine = createQueryStateMachine(sqlString, session, false, transactionManager, executor, metadata);
         Prepare prepare = new Prepare(identifier(statementName), statement);
         new PrepareTask(new SqlParser()).execute(prepare, transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList());
         return stateMachine.getAddedPreparedStatements();

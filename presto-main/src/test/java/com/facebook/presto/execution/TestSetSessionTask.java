@@ -13,20 +13,13 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.metadata.AnalyzePropertyManager;
+import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
-import com.facebook.presto.metadata.ColumnPropertyManager;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.SchemaPropertyManager;
-import com.facebook.presto.metadata.SessionPropertyManager;
-import com.facebook.presto.metadata.TablePropertyManager;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.tree.Expression;
@@ -37,23 +30,22 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.transaction.TransactionManager;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.execution.TaskTestUtils.createQueryStateMachine;
+import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
@@ -77,17 +69,9 @@ public class TestSetSessionTask
         CatalogManager catalogManager = new CatalogManager();
         transactionManager = createTestTransactionManager(catalogManager);
         accessControl = new AllowAllAccessControl();
+        BlockEncodingManager blockEncodingManager = new BlockEncodingManager();
 
-        metadata = new MetadataManager(
-                new FeaturesConfig(),
-                new TypeRegistry(),
-                new BlockEncodingManager(new TypeRegistry()),
-                new SessionPropertyManager(),
-                new SchemaPropertyManager(),
-                new TablePropertyManager(),
-                new ColumnPropertyManager(),
-                new AnalyzePropertyManager(),
-                transactionManager);
+        metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
 
         metadata.getSessionPropertyManager().addSystemSessionProperty(stringProperty(
                 CATALOG_NAME,
@@ -181,18 +165,8 @@ public class TestSetSessionTask
     private void testSetSessionWithParameters(String property, Expression expression, String expectedValue, List<Expression> parameters)
     {
         QualifiedName qualifiedPropName = QualifiedName.of(CATALOG_NAME, property);
-        QueryStateMachine stateMachine = QueryStateMachine.begin(
-                format("set %s = 'old_value'", qualifiedPropName),
-                TEST_SESSION,
-                URI.create("fake://uri"),
-                new ResourceGroupId("test"),
-                Optional.empty(),
-                false,
-                transactionManager,
-                accessControl,
-                executor,
-                metadata,
-                WarningCollector.NOOP);
+        String sqlString = format("set %s = 'old_value'", qualifiedPropName);
+        QueryStateMachine stateMachine = createQueryStateMachine(sqlString, TEST_SESSION, false, transactionManager, executor, metadata);
         getFutureValue(new SetSessionTask().execute(new SetSession(qualifiedPropName, expression), transactionManager, metadata, accessControl, stateMachine, parameters));
 
         Map<String, String> sessionProperties = stateMachine.getSetSessionProperties();

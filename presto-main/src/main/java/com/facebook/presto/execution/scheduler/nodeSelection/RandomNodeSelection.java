@@ -62,13 +62,13 @@ public class RandomNodeSelection
     private ResettableRandomizedIterator<InternalNode> getRandomCandidates(int limit, NodeMap nodeMap, List<RemoteTask> existingTasks)
     {
         List<InternalNode> existingNodes = existingTasks.stream()
-                .map(remoteTask -> nodeMap.getNodesByNodeId().get(remoteTask.getNodeId()))
+                .map(remoteTask -> nodeMap.getActiveNodesByNodeId().get(remoteTask.getNodeId()))
                 // nodes may sporadically disappear from the nodeMap if the announcement is delayed
                 .filter(Objects::nonNull)
                 .collect(toList());
 
         int alreadySelectedNodeCount = existingNodes.size();
-        int nodeCount = nodeMap.getNodesByNodeId().size();
+        int nodeCount = nodeMap.getActiveNodesByNodeId().size();
 
         if (alreadySelectedNodeCount < limit && alreadySelectedNodeCount < nodeCount) {
             List<InternalNode> moreNodes = selectNodes(limit - alreadySelectedNodeCount, randomizedNodes(nodeMap, includeCoordinator, newHashSet(existingNodes)));

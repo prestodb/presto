@@ -4,7 +4,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.240-SNAPSHOT</version>
+        <version>0.252-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-geospatial-toolkit</artifactId>
@@ -28,6 +28,11 @@
         <dependency>
             <groupId>org.locationtech.jts</groupId>
             <artifactId>jts-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.locationtech.jts.io</groupId>
+            <artifactId>jts-io-common</artifactId>
         </dependency>
 
         <dependency>

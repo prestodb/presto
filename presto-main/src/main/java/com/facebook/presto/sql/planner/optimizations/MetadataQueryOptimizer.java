@@ -15,17 +15,18 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
-import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.predicate.TupleDomain.ColumnDomain;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.DiscretePredicates;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
@@ -58,10 +59,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.sql.planner.RowExpressionInterpreter.evaluateConstantRowExpression;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
@@ -72,15 +75,15 @@ import static java.util.Objects.requireNonNull;
 public class MetadataQueryOptimizer
         implements PlanOptimizer
 {
-    private static final Set<QualifiedFunctionName> ALLOWED_FUNCTIONS = ImmutableSet.of(
-            QualifiedFunctionName.of(DEFAULT_NAMESPACE, "max"),
-            QualifiedFunctionName.of(DEFAULT_NAMESPACE, "min"),
-            QualifiedFunctionName.of(DEFAULT_NAMESPACE, "approx_distinct"));
+    private static final Set<QualifiedObjectName> ALLOWED_FUNCTIONS = ImmutableSet.of(
+            QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "max"),
+            QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "min"),
+            QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "approx_distinct"));
 
     // Min/Max could be folded into LEAST/GREATEST
-    private static final Map<QualifiedFunctionName, QualifiedFunctionName> AGGREGATION_SCALAR_MAPPING = ImmutableMap.of(
-            QualifiedFunctionName.of(DEFAULT_NAMESPACE, "max"), QualifiedFunctionName.of(DEFAULT_NAMESPACE, "greatest"),
-            QualifiedFunctionName.of(DEFAULT_NAMESPACE, "min"), QualifiedFunctionName.of(DEFAULT_NAMESPACE, "least"));
+    private static final Map<QualifiedObjectName, QualifiedObjectName> AGGREGATION_SCALAR_MAPPING = ImmutableMap.of(
+            QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "max"), QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "greatest"),
+            QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "min"), QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "least"));
 
     private final Metadata metadata;
 
@@ -121,7 +124,7 @@ public class MetadataQueryOptimizer
         {
             // supported functions are only MIN/MAX/APPROX_DISTINCT or distinct aggregates
             for (Aggregation aggregation : node.getAggregations().values()) {
-                QualifiedFunctionName functionName = metadata.getFunctionManager().getFunctionMetadata(aggregation.getFunctionHandle()).getName();
+                QualifiedObjectName functionName = metadata.getFunctionAndTypeManager().getFunctionMetadata(aggregation.getFunctionHandle()).getName();
                 if (!ALLOWED_FUNCTIONS.contains(functionName) && !aggregation.isDistinct()) {
                     return context.defaultRewrite(node);
                 }
@@ -158,20 +161,31 @@ public class MetadataQueryOptimizer
             if (!layout.getDiscretePredicates().isPresent()) {
                 return context.defaultRewrite(node);
             }
-            DiscretePredicates predicates = layout.getDiscretePredicates().get();
+
+            DiscretePredicates discretePredicates = layout.getDiscretePredicates().get();
+
+            // the optimization is only valid if there is no filter on non-partition columns
+            if (layout.getPredicate().getColumnDomains().isPresent()) {
+                List<ColumnHandle> predicateColumns = layout.getPredicate().getColumnDomains().get().stream()
+                        .map(ColumnDomain::getColumn)
+                        .collect(toImmutableList());
+                if (!discretePredicates.getColumns().containsAll(predicateColumns)) {
+                    return context.defaultRewrite(node);
+                }
+            }
 
             // the optimization is only valid if the aggregation node only relies on partition keys
-            if (!predicates.getColumns().containsAll(columns.values())) {
+            if (!discretePredicates.getColumns().containsAll(columns.values())) {
                 return context.defaultRewrite(node);
             }
 
-            if (isReducible(node)) {
+            if (isReducible(node, inputs)) {
                 // Fold min/max aggregations to a constant value
-                return reduce(node, inputs, columns, context, predicates);
+                return reduce(node, inputs, columns, context, discretePredicates);
             }
 
             ImmutableList.Builder<List<RowExpression>> rowsBuilder = ImmutableList.builder();
-            for (TupleDomain<ColumnHandle> domain : predicates.getPredicates()) {
+            for (TupleDomain<ColumnHandle> domain : discretePredicates.getPredicates()) {
                 if (domain.isNone()) {
                     continue;
                 }
@@ -197,14 +211,17 @@ public class MetadataQueryOptimizer
             return SimplePlanRewriter.rewriteWith(new Replacer(new ValuesNode(idAllocator.getNextId(), inputs, rowsBuilder.build())), node);
         }
 
-        private boolean isReducible(AggregationNode node)
+        private boolean isReducible(AggregationNode node, List<VariableReferenceExpression> inputs)
         {
-            if (node.getAggregations().isEmpty() || !(node.getSource() instanceof TableScanNode)) {
+            // The aggregation is reducible when there is no group by key
+            if (node.getAggregations().isEmpty() || !node.getGroupingKeys().isEmpty() || !(node.getSource() instanceof TableScanNode)) {
                 return false;
             }
             for (Aggregation aggregation : node.getAggregations().values()) {
-                FunctionMetadata functionMetadata = metadata.getFunctionManager().getFunctionMetadata(aggregation.getFunctionHandle());
-                if (!AGGREGATION_SCALAR_MAPPING.containsKey(functionMetadata.getName()) || functionMetadata.getArgumentTypes().size() > 1) {
+                FunctionMetadata functionMetadata = metadata.getFunctionAndTypeManager().getFunctionMetadata(aggregation.getFunctionHandle());
+                if (!AGGREGATION_SCALAR_MAPPING.containsKey(functionMetadata.getName()) ||
+                        functionMetadata.getArgumentTypes().size() > 1 ||
+                        !inputs.containsAll(aggregation.getCall().getArguments())) {
                     return false;
                 }
             }
@@ -219,10 +236,10 @@ public class MetadataQueryOptimizer
                 DiscretePredicates predicates)
         {
             // Fold min/max aggregations to a constant value
-            ImmutableList.Builder<RowExpression> scalarsBuilder = ImmutableList.builder();
-            for (int i = 0; i < inputs.size(); i++) {
+            ImmutableMap.Builder<VariableReferenceExpression, List<RowExpression>> inputColumnValuesBuilder = ImmutableMap.builder();
+            for (VariableReferenceExpression input : inputs) {
                 ImmutableList.Builder<RowExpression> arguments = ImmutableList.builder();
-                ColumnHandle column = columns.get(inputs.get(i));
+                ColumnHandle column = columns.get(input);
                 // for each input column, add a literal expression using the entry value
                 for (TupleDomain<ColumnHandle> domain : predicates.getPredicates()) {
                     if (domain.isNone()) {
@@ -236,32 +253,36 @@ public class MetadataQueryOptimizer
                     }
                     // min/max ignores null value
                     else if (value.getValue() != null) {
-                        Type type = inputs.get(i).getType();
+                        Type type = input.getType();
                         arguments.add(constant(value.getValue(), type));
                     }
                 }
-                scalarsBuilder.add(evaluateMinMax(
-                        metadata.getFunctionManager().getFunctionMetadata(node.getAggregations().get(node.getOutputVariables().get(i)).getFunctionHandle()),
-                        arguments.build()));
+                inputColumnValuesBuilder.put(input, arguments.build());
             }
-            List<RowExpression> scalars = scalarsBuilder.build();
+            Map<VariableReferenceExpression, List<RowExpression>> inputColumnValues = inputColumnValuesBuilder.build();
 
-            Assignments.Builder assignments = Assignments.builder();
-            for (int i = 0; i < node.getOutputVariables().size(); i++) {
-                assignments.put(node.getOutputVariables().get(i), scalars.get(i));
+            Assignments.Builder assignmentsBuilder = Assignments.builder();
+            for (VariableReferenceExpression outputVariable : node.getOutputVariables()) {
+                Aggregation aggregation = node.getAggregations().get(outputVariable);
+                assignmentsBuilder.put(
+                        outputVariable,
+                        evaluateMinMax(
+                                metadata.getFunctionAndTypeManager().getFunctionMetadata(node.getAggregations().get(outputVariable).getFunctionHandle()),
+                                inputColumnValues.get(getOnlyElement(aggregation.getArguments()))));
             }
-            ValuesNode valuesNode = new ValuesNode(idAllocator.getNextId(), inputs, ImmutableList.of(scalars));
-            return new ProjectNode(idAllocator.getNextId(), valuesNode, assignments.build());
+            Assignments assignments = assignmentsBuilder.build();
+            ValuesNode valuesNode = new ValuesNode(idAllocator.getNextId(), node.getOutputVariables(), ImmutableList.of(new ArrayList<>(assignments.getExpressions())));
+            return new ProjectNode(idAllocator.getNextId(), valuesNode, assignments, LOCAL);
         }
 
         private RowExpression evaluateMinMax(FunctionMetadata aggregationFunctionMetadata, List<RowExpression> arguments)
         {
-            Type returnType = metadata.getTypeManager().getType(aggregationFunctionMetadata.getReturnType());
+            Type returnType = metadata.getFunctionAndTypeManager().getType(aggregationFunctionMetadata.getReturnType());
             if (arguments.isEmpty()) {
                 return constant(null, returnType);
             }
 
-            String scalarFunctionName = AGGREGATION_SCALAR_MAPPING.get(aggregationFunctionMetadata.getName()).getFunctionName();
+            String scalarFunctionName = AGGREGATION_SCALAR_MAPPING.get(aggregationFunctionMetadata.getName()).getObjectName();
             ConnectorSession connectorSession = session.toConnectorSession();
             while (arguments.size() > 1) {
                 List<RowExpression> reducedArguments = new ArrayList<>();
@@ -269,7 +290,7 @@ public class MetadataQueryOptimizer
                 for (List<RowExpression> partitionedArguments : Lists.partition(arguments, 100)) {
                     Object reducedValue = evaluateConstantRowExpression(
                             call(
-                                    metadata.getFunctionManager(),
+                                    metadata.getFunctionAndTypeManager(),
                                     scalarFunctionName,
                                     returnType,
                                     partitionedArguments),

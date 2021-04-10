@@ -109,7 +109,7 @@ class TaskList extends React.Component {
         const showPortNumbers = TaskList.showPortNumbers(tasks);
 
         const renderedTasks = tasks.map(task => {
-            let elapsedTime = parseDuration(task.stats.elapsedTime);
+            let elapsedTime = parseDuration(task.stats.elapsedTimeInNanos + "ns");
             if (elapsedTime === 0) {
                 elapsedTime = Date.now() - Date.parse(task.stats.createTime);
             }
@@ -117,12 +117,12 @@ class TaskList extends React.Component {
             return (
                 <Tr key={task.taskId}>
                     <Td column="id" value={task.taskId}>
-                        <a href={task.taskStatus.self + "?pretty"}>
+                        <a href={"/v1/taskInfo/" + task.taskId + "?pretty"}>
                             {getTaskIdSuffix(task.taskId)}
                         </a>
                     </Td>
                     <Td column="host" value={getHostname(task.taskStatus.self)}>
-                        <a href={"worker.html?" + task.taskStatus.nodeId} className="font-light" target="_blank">
+                        <a href={"worker.html?" + task.nodeId} className="font-light" target="_blank">
                             {showPortNumbers ? getHostAndPort(task.taskStatus.self) : getHostname(task.taskStatus.self)}
                         </a>
                     </Td>
@@ -135,11 +135,11 @@ class TaskList extends React.Component {
                     <Td column="rowsSec" value={computeRate(task.stats.rawInputPositions, elapsedTime)}>
                         {formatCount(computeRate(task.stats.rawInputPositions, elapsedTime))}
                     </Td>
-                    <Td column="bytes" value={parseDataSize(task.stats.rawInputDataSize)}>
-                        {formatDataSizeBytes(parseDataSize(task.stats.rawInputDataSize))}
+                    <Td column="bytes" value={task.stats.rawInputDataSizeInBytes}>
+                        {formatDataSizeBytes(task.stats.rawInputDataSizeInBytes)}
                     </Td>
-                    <Td column="bytesSec" value={computeRate(parseDataSize(task.stats.rawInputDataSize), elapsedTime)}>
-                        {formatDataSizeBytes(computeRate(parseDataSize(task.stats.rawInputDataSize), elapsedTime))}
+                    <Td column="bytesSec" value={computeRate(task.stats.rawInputDataSizeInBytes, elapsedTime)}>
+                        {formatDataSizeBytes(computeRate(task.stats.rawInputDataSizeInBytes, elapsedTime))}
                     </Td>
                     <Td column="splitsPending" value={task.stats.queuedDrivers}>
                         {task.stats.queuedDrivers}
@@ -153,11 +153,11 @@ class TaskList extends React.Component {
                     <Td column="splitsDone" value={task.stats.completedDrivers}>
                         {task.stats.completedDrivers}
                     </Td>
-                    <Td column="elapsedTime" value={parseDuration(task.stats.elapsedTime)}>
-                        {task.stats.elapsedTime}
+                    <Td column="elapsedTime" value={parseDuration(task.stats.elapsedTimeInNanos + "ns")}>
+                        {formatDuration(parseDuration(task.stats.elapsedTimeInNanos + "ns"))}
                     </Td>
-                    <Td column="cpuTime" value={parseDuration(task.stats.totalCpuTime)}>
-                        {task.stats.totalCpuTime}
+                    <Td column="cpuTime" value={parseDuration(task.stats.totalCpuTimeInNanos + "ns")}>
+                        {formatDuration(parseDuration(task.stats.totalCpuTimeInNanos + "ns"))}
                     </Td>
                     <Td column="bufferedBytes" value={task.outputBuffers.totalBufferedBytes}>
                         {formatDataSizeBytes(task.outputBuffers.totalBufferedBytes)}
@@ -310,8 +310,8 @@ class StageSummary extends React.Component {
         // sort the x-axis
         stage.latestAttemptExecutionInfo.tasks.sort((taskA, taskB) => getTaskNumber(taskA.taskId) - getTaskNumber(taskB.taskId));
 
-        const scheduledTimes = stage.latestAttemptExecutionInfo.tasks.map(task => parseDuration(task.stats.totalScheduledTime));
-        const cpuTimes = stage.latestAttemptExecutionInfo.tasks.map(task => parseDuration(task.stats.totalCpuTime));
+        const scheduledTimes = stage.latestAttemptExecutionInfo.tasks.map(task => parseDuration(task.stats.totalScheduledTimeInNanos + "ns"));
+        const cpuTimes = stage.latestAttemptExecutionInfo.tasks.map(task => parseDuration(task.stats.totalCpuTimeInNanos + "ns"));
 
         // prevent multiple calls to componentDidUpdate (resulting from calls to setState or otherwise) within the refresh interval from re-rendering sparklines/charts
         if (this.state.lastRender === null || (Date.now() - this.state.lastRender) >= 1000) {

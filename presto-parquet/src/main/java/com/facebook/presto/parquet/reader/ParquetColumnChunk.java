@@ -18,6 +18,7 @@ import com.facebook.presto.parquet.DataPageV1;
 import com.facebook.presto.parquet.DataPageV2;
 import com.facebook.presto.parquet.DictionaryPage;
 import com.facebook.presto.parquet.ParquetCorruptionException;
+import com.facebook.presto.parquet.cache.MetadataReader;
 import io.airlift.slice.Slice;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.format.DataPageHeader;

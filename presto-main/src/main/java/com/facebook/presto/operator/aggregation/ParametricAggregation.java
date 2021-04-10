@@ -15,10 +15,9 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlAggregationFunction;
 import com.facebook.presto.operator.ParametricImplementationsGroup;
 import com.facebook.presto.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
@@ -64,17 +63,17 @@ public class ParametricAggregation
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundVariables variables, int arity, TypeManager typeManager, FunctionManager functionManager)
+    public InternalAggregationFunction specialize(BoundVariables variables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
         // Bind variables
         Signature boundSignature = applyBoundVariables(getSignature(), variables, arity);
 
         // Find implementation matching arguments
-        AggregationImplementation concreteImplementation = findMatchingImplementation(boundSignature, variables, typeManager, functionManager);
+        AggregationImplementation concreteImplementation = findMatchingImplementation(boundSignature, variables, functionAndTypeManager);
 
         // Build argument and return Types from signatures
-        List<Type> inputTypes = boundSignature.getArgumentTypes().stream().map(typeManager::getType).collect(toImmutableList());
-        Type outputType = typeManager.getType(boundSignature.getReturnType());
+        List<Type> inputTypes = boundSignature.getArgumentTypes().stream().map(functionAndTypeManager::getType).collect(toImmutableList());
+        Type outputType = functionAndTypeManager.getType(boundSignature.getReturnType());
 
         // Create classloader for additional aggregation dependencies
         Class<?> definitionClass = concreteImplementation.getDefinitionClass();
@@ -82,13 +81,13 @@ public class ParametricAggregation
 
         // Build state factory and serializer
         Class<?> stateClass = concreteImplementation.getStateClass();
-        AccumulatorStateSerializer<?> stateSerializer = getAccumulatorStateSerializer(concreteImplementation, variables, typeManager, functionManager, stateClass, classLoader);
+        AccumulatorStateSerializer<?> stateSerializer = getAccumulatorStateSerializer(concreteImplementation, variables, functionAndTypeManager, stateClass, classLoader);
         AccumulatorStateFactory<?> stateFactory = StateCompiler.generateStateFactory(stateClass, classLoader);
 
         // Bind provided dependencies to aggregation method handlers
-        MethodHandle inputHandle = bindDependencies(concreteImplementation.getInputFunction(), concreteImplementation.getInputDependencies(), variables, typeManager, functionManager);
-        MethodHandle combineHandle = bindDependencies(concreteImplementation.getCombineFunction(), concreteImplementation.getCombineDependencies(), variables, typeManager, functionManager);
-        MethodHandle outputHandle = bindDependencies(concreteImplementation.getOutputFunction(), concreteImplementation.getOutputDependencies(), variables, typeManager, functionManager);
+        MethodHandle inputHandle = bindDependencies(concreteImplementation.getInputFunction(), concreteImplementation.getInputDependencies(), variables, functionAndTypeManager);
+        MethodHandle combineHandle = bindDependencies(concreteImplementation.getCombineFunction(), concreteImplementation.getCombineDependencies(), variables, functionAndTypeManager);
+        MethodHandle outputHandle = bindDependencies(concreteImplementation.getOutputFunction(), concreteImplementation.getOutputDependencies(), variables, functionAndTypeManager);
 
         // Build metadata of input parameters
         List<ParameterMetadata> parametersMetadata = buildParameterMetadata(concreteImplementation.getInputParameterMetadataTypes(), inputTypes);
@@ -131,7 +130,7 @@ public class ParametricAggregation
         return details.getDescription().orElse("");
     }
 
-    private AggregationImplementation findMatchingImplementation(Signature boundSignature, BoundVariables variables, TypeManager typeManager, FunctionManager functionManager)
+    private AggregationImplementation findMatchingImplementation(Signature boundSignature, BoundVariables variables, FunctionAndTypeManager functionAndTypeManager)
     {
         Optional<AggregationImplementation> foundImplementation = Optional.empty();
         if (implementations.getExactImplementations().containsKey(boundSignature)) {
@@ -139,7 +138,7 @@ public class ParametricAggregation
         }
         else {
             for (AggregationImplementation candidate : implementations.getGenericImplementations()) {
-                if (candidate.areTypesAssignable(boundSignature, variables, typeManager)) {
+                if (candidate.areTypesAssignable(boundSignature, variables, functionAndTypeManager)) {
                     if (foundImplementation.isPresent()) {
                         throw new PrestoException(AMBIGUOUS_FUNCTION_CALL, format("Ambiguous function call (%s) for %s", variables, getSignature()));
                     }
@@ -154,13 +153,13 @@ public class ParametricAggregation
         return foundImplementation.get();
     }
 
-    private static AccumulatorStateSerializer<?> getAccumulatorStateSerializer(AggregationImplementation implementation, BoundVariables variables, TypeManager typeManager, FunctionManager functionManager, Class<?> stateClass, DynamicClassLoader classLoader)
+    private static AccumulatorStateSerializer<?> getAccumulatorStateSerializer(AggregationImplementation implementation, BoundVariables variables, FunctionAndTypeManager functionAndTypeManager, Class<?> stateClass, DynamicClassLoader classLoader)
     {
         AccumulatorStateSerializer<?> stateSerializer;
         Optional<MethodHandle> stateSerializerFactory = implementation.getStateSerializerFactory();
         if (stateSerializerFactory.isPresent()) {
             try {
-                MethodHandle factoryHandle = bindDependencies(stateSerializerFactory.get(), implementation.getStateSerializerFactoryDependencies(), variables, typeManager, functionManager);
+                MethodHandle factoryHandle = bindDependencies(stateSerializerFactory.get(), implementation.getStateSerializerFactoryDependencies(), variables, functionAndTypeManager);
                 stateSerializer = (AccumulatorStateSerializer<?>) factoryHandle.invoke();
             }
             catch (Throwable t) {
@@ -172,11 +171,6 @@ public class ParametricAggregation
             stateSerializer = generateStateSerializer(stateClass, classLoader);
         }
         return stateSerializer;
-    }
-
-    public InternalAggregationFunction specialize(BoundVariables variables, int arity, TypeManager typeManager)
-    {
-        return specialize(variables, arity, typeManager, null);
     }
 
     private static List<TypeSignature> signaturesFromTypes(List<Type> types)

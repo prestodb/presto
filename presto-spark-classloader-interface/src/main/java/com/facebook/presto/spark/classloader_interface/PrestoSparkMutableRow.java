@@ -23,6 +23,8 @@ import java.io.ObjectInput;
 import java.io.ObjectOutput;
 import java.nio.ByteBuffer;
 
+import static org.spark_project.guava.base.Preconditions.checkState;
+
 public class PrestoSparkMutableRow
         implements Externalizable, KryoSerializable, PrestoSparkTaskOutput
 {
@@ -35,6 +37,8 @@ public class PrestoSparkMutableRow
     // offset and length are meaningful only when the row is backed by the "array"
     private int offset;
     private int length;
+
+    private int positionCount;
 
     public ByteBuffer getBuffer()
     {
@@ -79,6 +83,11 @@ public class PrestoSparkMutableRow
         return this;
     }
 
+    public void setPositionCount(int positionCount)
+    {
+        this.positionCount = positionCount;
+    }
+
     @Override
     public void write(Kryo kryo, Output output)
     {
@@ -108,5 +117,18 @@ public class PrestoSparkMutableRow
         // PrestoSparkMutableRow is expected to be serialized only during shuffle.
         // During shuffle rows are always serialized with PrestoSparkShuffleSerializer.
         return new UnsupportedOperationException("PrestoSparkUnsafeRow is not expected to be serialized with Kryo or standard Java serialization");
+    }
+
+    @Override
+    public long getPositionCount()
+    {
+        return positionCount;
+    }
+
+    @Override
+    public long getSize()
+    {
+        checkState(buffer != null, "buffer is expected to be not null");
+        return buffer.remaining();
     }
 }

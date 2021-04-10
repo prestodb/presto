@@ -21,7 +21,9 @@ import javax.validation.constraints.NotNull;
 public class NodeSpillConfig
 {
     private DataSize maxSpillPerNode = new DataSize(100, DataSize.Unit.GIGABYTE);
+    private DataSize maxRevocableMemoryPerNode = new DataSize(16, DataSize.Unit.GIGABYTE);
     private DataSize queryMaxSpillPerNode = new DataSize(100, DataSize.Unit.GIGABYTE);
+    private DataSize tempStorageBufferSize = new DataSize(4, DataSize.Unit.KILOBYTE);
 
     private boolean spillCompressionEnabled;
     private boolean spillEncryptionEnabled;
@@ -52,6 +54,19 @@ public class NodeSpillConfig
         return this;
     }
 
+    @NotNull
+    public DataSize getMaxRevocableMemoryPerNode()
+    {
+        return maxRevocableMemoryPerNode;
+    }
+
+    @Config("experimental.max-revocable-memory-per-node")
+    public NodeSpillConfig setMaxRevocableMemoryPerNode(DataSize maxRevocableMemoryPerNode)
+    {
+        this.maxRevocableMemoryPerNode = maxRevocableMemoryPerNode;
+        return this;
+    }
+
     public boolean isSpillCompressionEnabled()
     {
         return spillCompressionEnabled;
@@ -73,6 +88,19 @@ public class NodeSpillConfig
     public NodeSpillConfig setSpillEncryptionEnabled(boolean spillEncryptionEnabled)
     {
         this.spillEncryptionEnabled = spillEncryptionEnabled;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getTempStorageBufferSize()
+    {
+        return tempStorageBufferSize;
+    }
+
+    @Config("experimental.temp-storage-buffer-size")
+    public NodeSpillConfig setTempStorageBufferSize(DataSize tempStorageBufferSize)
+    {
+        this.tempStorageBufferSize = tempStorageBufferSize;
         return this;
     }
 }

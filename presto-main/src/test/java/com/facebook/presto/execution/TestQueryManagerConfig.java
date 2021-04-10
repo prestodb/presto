@@ -16,11 +16,15 @@ package com.facebook.presto.execution;
 import com.facebook.airlift.configuration.testing.ConfigAssertions;
 import com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.airlift.units.DataSize.Unit.PETABYTE;
 
 public class TestQueryManagerConfig
 {
@@ -52,8 +56,12 @@ public class TestQueryManagerConfig
                 .setQueryMaxRunTime(new Duration(100, TimeUnit.DAYS))
                 .setQueryMaxExecutionTime(new Duration(100, TimeUnit.DAYS))
                 .setQueryMaxCpuTime(new Duration(1_000_000_000, TimeUnit.DAYS))
+                .setQueryMaxScanRawInputBytes(new DataSize(1000, PETABYTE))
+                .setQueryMaxOutputSize(new DataSize(1000, PETABYTE))
                 .setRequiredWorkers(1)
                 .setRequiredWorkersMaxWait(new Duration(5, TimeUnit.MINUTES))
+                .setRequiredCoordinators(1)
+                .setRequiredCoordinatorsMaxWait(new Duration(5, TimeUnit.MINUTES))
                 .setQuerySubmissionMaxThreads(Runtime.getRuntime().availableProcessors() * 2)
                 .setUseStreamingExchangeForMarkDistinct(false));
     }
@@ -86,10 +94,14 @@ public class TestQueryManagerConfig
                 .put("query.max-run-time", "2h")
                 .put("query.max-execution-time", "3h")
                 .put("query.max-cpu-time", "2d")
+                .put("query.max-scan-raw-input-bytes", "1MB")
+                .put("query.max-output-size", "100MB")
                 .put("query.use-streaming-exchange-for-mark-distinct", "true")
                 .put("query-manager.required-workers", "333")
                 .put("query-manager.required-workers-max-wait", "33m")
-                .put("query-manager.query-submission-max-threads", "5")
+                .put("query-manager.experimental.required-coordinators", "999")
+                .put("query-manager.experimental.required-coordinators-max-wait", "99m")
+                .put("query-manager.experimental.query-submission-max-threads", "5")
                 .build();
 
         QueryManagerConfig expected = new QueryManagerConfig()
@@ -117,8 +129,12 @@ public class TestQueryManagerConfig
                 .setQueryMaxRunTime(new Duration(2, TimeUnit.HOURS))
                 .setQueryMaxExecutionTime(new Duration(3, TimeUnit.HOURS))
                 .setQueryMaxCpuTime(new Duration(2, TimeUnit.DAYS))
+                .setQueryMaxScanRawInputBytes(new DataSize(1, MEGABYTE))
+                .setQueryMaxOutputSize(new DataSize(100, MEGABYTE))
                 .setRequiredWorkers(333)
                 .setRequiredWorkersMaxWait(new Duration(33, TimeUnit.MINUTES))
+                .setRequiredCoordinators(999)
+                .setRequiredCoordinatorsMaxWait(new Duration(99, TimeUnit.MINUTES))
                 .setQuerySubmissionMaxThreads(5)
                 .setUseStreamingExchangeForMarkDistinct(true);
 

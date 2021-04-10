@@ -28,6 +28,7 @@ import javax.inject.Inject;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 
@@ -58,7 +59,8 @@ public class GenericHiveRecordCursorProvider
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
-            boolean s3SelectPushdownEnabled)
+            boolean s3SelectPushdownEnabled,
+            Map<String, String> customSplitInfo)
     {
         // make sure the FileSystem is created with the proper Configuration object
         try {
@@ -69,7 +71,7 @@ public class GenericHiveRecordCursorProvider
         }
 
         RecordReader<?, ?> recordReader = hdfsEnvironment.doAs(session.getUser(),
-                () -> HiveUtil.createRecordReader(configuration, path, start, length, schema, columns));
+                () -> HiveUtil.createRecordReader(configuration, path, start, length, schema, columns, customSplitInfo));
 
         return Optional.of(new GenericHiveRecordCursor<>(
                 configuration,

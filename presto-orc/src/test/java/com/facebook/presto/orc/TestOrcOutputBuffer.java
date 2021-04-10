@@ -14,11 +14,13 @@
 package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.metadata.CompressionKind;
+import com.facebook.presto.orc.metadata.CompressionParameters;
 import io.airlift.slice.DynamicSliceOutput;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static org.testng.Assert.assertEquals;
@@ -31,7 +33,8 @@ public class TestOrcOutputBuffer
         int size = 1024 * 1024;
         byte[] largeByteArray = new byte[size];
         Arrays.fill(largeByteArray, (byte) 0xA);
-        OrcOutputBuffer sliceOutput = new OrcOutputBuffer(CompressionKind.NONE, Optional.empty(), 256 * 1024);
+        CompressionParameters compressionParameters = new CompressionParameters(CompressionKind.NONE, OptionalInt.empty(), 256 * 1024);
+        OrcOutputBuffer sliceOutput = new OrcOutputBuffer(compressionParameters, Optional.empty());
 
         DynamicSliceOutput output = new DynamicSliceOutput(size);
         sliceOutput.writeBytes(largeByteArray, 10, size - 10);
@@ -49,7 +52,8 @@ public class TestOrcOutputBuffer
     public void testGrowCapacity()
     {
         byte[] largeByteArray = new byte[4096];
-        OrcOutputBuffer sliceOutput = new OrcOutputBuffer(CompressionKind.NONE, Optional.empty(), 3000);
+        CompressionParameters compressionParameters = new CompressionParameters(CompressionKind.NONE, OptionalInt.empty(), 3000);
+        OrcOutputBuffer sliceOutput = new OrcOutputBuffer(compressionParameters, Optional.empty());
 
         // write some data that can fit the initial capacity = 256
         sliceOutput.writeBytes(largeByteArray, 0, 200);

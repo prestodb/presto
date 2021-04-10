@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.pagefile;
 
 import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.common.io.DataSink;
 import com.facebook.presto.hive.EncryptionInformation;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveCompressionCodec;
@@ -21,9 +22,10 @@ import com.facebook.presto.hive.HiveFileWriter;
 import com.facebook.presto.hive.HiveFileWriterFactory;
 import com.facebook.presto.hive.datasink.DataSinkFactory;
 import com.facebook.presto.hive.metastore.StorageFormat;
-import com.facebook.presto.orc.DataSink;
 import com.facebook.presto.orc.zlib.DeflateCompressor;
 import com.facebook.presto.orc.zlib.InflateDecompressor;
+import com.facebook.presto.orc.zstd.ZstdJniCompressor;
+import com.facebook.presto.orc.zstd.ZstdJniDecompressor;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.page.PageCompressor;
@@ -43,6 +45,7 @@ import javax.inject.Inject;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.concurrent.Callable;
 
@@ -148,8 +151,12 @@ public class PageFileWriterFactory
                 pageDecompressor = new AirliftDecompressorAdapter(new Lz4Decompressor());
                 break;
             case GZIP:
-                pageCompressor = new AirliftCompressorAdapter(new DeflateCompressor());
+                pageCompressor = new AirliftCompressorAdapter(new DeflateCompressor(OptionalInt.empty()));
                 pageDecompressor = new AirliftDecompressorAdapter(new InflateDecompressor());
+                break;
+            case ZSTD:
+                pageCompressor = new AirliftCompressorAdapter(new ZstdJniCompressor(OptionalInt.empty()));
+                pageDecompressor = new AirliftDecompressorAdapter(new ZstdJniDecompressor());
                 break;
             default:
                 throw new PrestoException(

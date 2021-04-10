@@ -18,11 +18,11 @@ import com.facebook.presto.common.type.DateType;
 import com.facebook.presto.common.type.SqlDate;
 import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
-import org.joda.time.DateTime;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
@@ -93,16 +93,20 @@ public class TestTeradataDateFunctions
         assertVarchar("to_char(TIMESTAMP '1988-04-08','yy')", "88");
         assertTimestamp("to_timestamp('88/04/08','yy/mm/dd')", 2088, 4, 8, 0, 0, 0);
         assertDate("to_date('88/04/08','yy/mm/dd')", 2088, 4, 8);
+
+        assertTimestamp("to_timestamp('00/04/08','yy/mm/dd')", 2000, 4, 8, 0, 0, 0);
+        assertTimestamp("to_timestamp('50/04/08','yy/mm/dd')", 2050, 4, 8, 0, 0, 0);
+        assertTimestamp("to_timestamp('99/04/08','yy/mm/dd')", 2099, 4, 8, 0, 0, 0);
     }
 
     // TODO: implement this feature SWARM-355
     @Test(enabled = false)
     public void testDefaultValues()
     {
-        DateTime current = new DateTime();
-        assertDate("to_date('1988','yyyy')", 1988, current.getMonthOfYear(), 1);
+        LocalDateTime current = LocalDateTime.now();
+        assertDate("to_date('1988','yyyy')", 1988, current.getMonthValue(), 1);
         assertDate("to_date('04','mm')", current.getYear(), 4, 1);
-        assertDate("to_date('8','dd')", current.getYear(), current.getMonthOfYear(), 8);
+        assertDate("to_date('8','dd')", current.getYear(), current.getMonthValue(), 8);
     }
 
     // TODO: implement this feature SWARM-354

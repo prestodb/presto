@@ -100,6 +100,9 @@ public final class Use
     @Override
     public String toString()
     {
-        return toStringHelper(this).toString();
+        return toStringHelper(this)
+                .add("catalog", catalog)
+                .add("schema", schema)
+                .toString();
     }
 }

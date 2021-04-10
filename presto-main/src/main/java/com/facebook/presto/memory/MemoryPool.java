@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.memory;
 
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryAllocation;
 import com.facebook.presto.spi.memory.MemoryPoolId;
@@ -71,6 +72,8 @@ public class MemoryPool
 
     private final List<MemoryPoolListener> listeners = new CopyOnWriteArrayList<>();
 
+    private final List<TaskRevocableMemoryListener> taskRevocableMemoryListeners = new CopyOnWriteArrayList<>();
+
     public MemoryPool(MemoryPoolId id, DataSize size)
     {
         this.id = requireNonNull(id, "name is null");
@@ -106,6 +109,16 @@ public class MemoryPool
         listeners.remove(requireNonNull(listener, "listener cannot be null"));
     }
 
+    public void addTaskRevocableMemoryListener(TaskRevocableMemoryListener listener)
+    {
+        taskRevocableMemoryListeners.add(requireNonNull(listener, "listener cannot be null"));
+    }
+
+    public void removeTaskRevocableMemoryListener(TaskRevocableMemoryListener listener)
+    {
+        taskRevocableMemoryListeners.remove(requireNonNull(listener, "listener cannot be null"));
+    }
+
     /**
      * Reserves the given number of bytes. Caller should wait on the returned future, before allocating more memory.
      */
@@ -139,6 +152,11 @@ public class MemoryPool
     private void onMemoryReserved()
     {
         listeners.forEach(listener -> listener.onMemoryReserved(this));
+    }
+
+    public void onTaskMemoryReserved(TaskId taskId)
+    {
+        taskRevocableMemoryListeners.forEach(listener -> listener.onMemoryReserved(taskId, this));
     }
 
     public ListenableFuture<?> reserveRevocable(QueryId queryId, long bytes)
@@ -270,7 +288,7 @@ public class MemoryPool
     }
 
     @Managed
-    public synchronized long getMaxBytes()
+    public long getMaxBytes()
     {
         return maxBytes;
     }

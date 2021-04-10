@@ -33,10 +33,20 @@ public class RequestHelpers
     public static Builder setContentTypeHeaders(boolean isBinaryTransportEnabled, Builder requestBuilder)
     {
         if (isBinaryTransportEnabled) {
-            return requestBuilder
-                    .setHeader(CONTENT_TYPE, APPLICATION_JACKSON_SMILE)
-                    .setHeader(ACCEPT, APPLICATION_JACKSON_SMILE);
+            return getBinaryTransportBuilder(requestBuilder);
         }
+        return getJsonTransportBuilder(requestBuilder);
+    }
+
+    public static Builder getBinaryTransportBuilder(Builder requestBuilder)
+    {
+        return requestBuilder
+                .setHeader(CONTENT_TYPE, APPLICATION_JACKSON_SMILE)
+                .setHeader(ACCEPT, APPLICATION_JACKSON_SMILE);
+    }
+
+    public static Builder getJsonTransportBuilder(Builder requestBuilder)
+    {
         return requestBuilder
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
                 .setHeader(ACCEPT, JSON_UTF_8.toString());

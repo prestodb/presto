@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.druid;
 
-import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.BlockBuilder;
@@ -28,7 +28,6 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -50,7 +49,7 @@ import static java.util.Objects.requireNonNull;
 public class DruidBrokerPageSource
         implements ConnectorPageSource
 {
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
+    private static final ObjectMapper OBJECT_MAPPER = new JsonObjectMapperProvider().get();
 
     private final List<ColumnHandle> columnHandles;
 
@@ -112,6 +111,8 @@ public class DruidBrokerPageSource
         }
 
         long start = System.nanoTime();
+        boolean columnHandlesHasErrorMessageField = columnHandles.stream().anyMatch(
+                handle -> ((DruidColumnHandle) handle).getColumnName().equals("errorMessage"));
         try {
             String readLine;
             while ((readLine = responseStream.readLine()) != null) {
@@ -122,11 +123,13 @@ public class DruidBrokerPageSource
                 }
                 else {
                     JsonNode rootNode = OBJECT_MAPPER.readTree(readLine);
-                    ArrayNode arrayNode = (ArrayNode) rootNode;
+                    if (rootNode.has("errorMessage") && !columnHandlesHasErrorMessageField) {
+                        throw new PrestoException(DRUID_BROKER_RESULT_ERROR, rootNode.findValue("errorMessage").asText());
+                    }
                     for (int i = 0; i < columnHandles.size(); i++) {
                         Type type = columnTypes.get(i);
                         BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(i);
-                        JsonNode value = arrayNode.get(i);
+                        JsonNode value = rootNode.get(((DruidColumnHandle) columnHandles.get(i)).getColumnName());
                         if (value == null) {
                             blockBuilder.appendNull();
                             continue;

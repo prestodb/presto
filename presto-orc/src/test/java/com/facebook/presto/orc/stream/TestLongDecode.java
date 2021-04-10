@@ -96,7 +96,15 @@ public class TestLongDecode
         }
 
         // read using Presto's code
-        long readValueNew = readVInt(signed, new OrcInputStream(new OrcDataSourceId("test"), hiveBytes.getInput(), Optional.empty(), Optional.empty(), new TestingHiveOrcAggregatedMemoryContext(), hiveBytes.getRetainedSize()));
+        TestingHiveOrcAggregatedMemoryContext aggregatedMemoryContext = new TestingHiveOrcAggregatedMemoryContext();
+        long readValueNew = readVInt(signed, new OrcInputStream(
+                new OrcDataSourceId("test"),
+                new SharedBuffer(aggregatedMemoryContext.newOrcLocalMemoryContext("sharedDecompressionBuffer")),
+                hiveBytes.getInput(),
+                Optional.empty(),
+                Optional.empty(),
+                aggregatedMemoryContext,
+                hiveBytes.getRetainedSize()));
         assertEquals(readValueNew, value);
     }
 

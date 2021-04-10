@@ -35,8 +35,8 @@ public class TestClassificationPrecisionAggregation
         while (iterator.hasNext()) {
             final TestPrecisionRecallAggregation.BucketResult result = iterator.next();
             final double truePositive = result.remainingTrueWeight;
-            final double falseNegative = result.totalTrueWeight - result.remainingTrueWeight;
-            final double precision = truePositive / (truePositive + falseNegative);
+            final double falsePositive = result.remainingFalseWeight;
+            final double precision = truePositive / (truePositive + falsePositive);
             expected.add(precision);
         }
         return expected;

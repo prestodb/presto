@@ -20,7 +20,12 @@ public class TestSpilledAggregations
 {
     public TestSpilledAggregations()
     {
-        super(TestDistributedSpilledQueries::createQueryRunner);
+        this(TestDistributedSpilledQueries::createQueryRunner);
+    }
+
+    protected TestSpilledAggregations(QueryRunnerSupplier supplier)
+    {
+        super(supplier);
     }
 
     @Test
@@ -73,5 +78,11 @@ public class TestSpilledAggregations
     public void TestNonGroupedOrderBySpill()
     {
         assertQuery("SELECT array_agg(orderstatus ORDER BY orderstatus) FROM orders");
+    }
+
+    @Test
+    public void TestMultipleDistinctAggregations()
+    {
+        assertQuery("SELECT custkey, count(DISTINCT orderpriority), count(DISTINCT orderstatus), count(DISTINCT totalprice), count(DISTINCT clerk) FROM orders GROUP BY custkey");
     }
 }

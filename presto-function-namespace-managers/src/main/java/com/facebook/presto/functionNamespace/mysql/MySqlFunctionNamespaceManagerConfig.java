@@ -21,6 +21,7 @@ public class MySqlFunctionNamespaceManagerConfig
 {
     private String functionNamespacesTableName = "function_namespaces";
     private String functionsTableName = "sql_functions";
+    private String enumTypesTableName = "enum_types";
 
     @NotNull
     public String getFunctionNamespacesTableName()
@@ -45,6 +46,19 @@ public class MySqlFunctionNamespaceManagerConfig
     public MySqlFunctionNamespaceManagerConfig setFunctionsTableName(String functionsTableName)
     {
         this.functionsTableName = functionsTableName;
+        return this;
+    }
+
+    @NotNull
+    public String getEnumTypesTableName()
+    {
+        return enumTypesTableName;
+    }
+
+    @Config("enum-types-table-name")
+    public MySqlFunctionNamespaceManagerConfig setEnumTypesTableName(String enumTypesTableName)
+    {
+        this.enumTypesTableName = enumTypesTableName;
         return this;
     }
 }

@@ -30,6 +30,7 @@ import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.hive.metastore.MetastoreUtil;
 import com.facebook.presto.hive.metastore.Partition;
+import com.facebook.presto.hive.metastore.PartitionNameWithVersion;
 import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.hive.metastore.PartitionWithStatistics;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
@@ -86,6 +87,7 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.updateStatisticsP
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyCanDropColumn;
 import static com.facebook.presto.hive.metastore.PrestoTableType.EXTERNAL_TABLE;
 import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
+import static com.facebook.presto.hive.metastore.PrestoTableType.MATERIALIZED_VIEW;
 import static com.facebook.presto.hive.metastore.PrestoTableType.TEMPORARY_TABLE;
 import static com.facebook.presto.hive.metastore.PrestoTableType.VIRTUAL_VIEW;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
@@ -234,7 +236,7 @@ public class FileHiveMetastore
         if (table.getTableType().equals(VIRTUAL_VIEW)) {
             checkArgument(table.getStorage().getLocation().isEmpty(), "Storage location for view must be empty");
         }
-        else if (table.getTableType().equals(MANAGED_TABLE)) {
+        else if (table.getTableType().equals(MANAGED_TABLE) || table.getTableType().equals(MATERIALIZED_VIEW)) {
             if (!tableMetadataDirectory.equals(new Path(table.getStorage().getLocation()))) {
                 throw new PrestoException(HIVE_METASTORE_ERROR, "Table directory must be " + tableMetadataDirectory);
             }
@@ -411,7 +413,7 @@ public class FileHiveMetastore
         Path tableMetadataDirectory = getTableMetadataDirectory(databaseName, tableName);
 
         // It is safe to delete the whole meta directory for external tables and views
-        if (!table.getTableType().equals(MANAGED_TABLE) || deleteData) {
+        if ((!table.getTableType().equals(MANAGED_TABLE) && !table.getTableType().equals(MATERIALIZED_VIEW)) || deleteData) {
             deleteMetadataDirectory(tableMetadataDirectory);
         }
         else {
@@ -565,7 +567,7 @@ public class FileHiveMetastore
 
         Table table = getRequiredTable(databaseName, tableName);
 
-        checkArgument(EnumSet.of(MANAGED_TABLE, EXTERNAL_TABLE).contains(table.getTableType()), "Invalid table type: %s", table.getTableType());
+        checkArgument(EnumSet.of(MANAGED_TABLE, EXTERNAL_TABLE, MATERIALIZED_VIEW).contains(table.getTableType()), "Invalid table type: %s", table.getTableType());
 
         try {
             Map<Path, byte[]> schemaFiles = new LinkedHashMap<>();
@@ -613,7 +615,7 @@ public class FileHiveMetastore
     {
         Path partitionMetadataDirectory = getPartitionMetadataDirectory(table, partition.getValues());
 
-        if (table.getTableType().equals(MANAGED_TABLE)) {
+        if (table.getTableType().equals(MANAGED_TABLE) || table.getTableType().equals(MATERIALIZED_VIEW)) {
             if (!partitionMetadataDirectory.equals(new Path(partition.getStorage().getLocation()))) {
                 throw new PrestoException(HIVE_METASTORE_ERROR, "Partition directory must be " + partitionMetadataDirectory);
             }
@@ -907,6 +909,15 @@ public class FileHiveMetastore
                 .filter(partitionName -> partitionMatches(partitionName, parts))
                 .collect(toImmutableList()))
                 .orElse(ImmutableList.of());
+    }
+
+    @Override
+    public List<PartitionNameWithVersion> getPartitionNamesWithVersionByFilter(
+            String databaseName,
+            String tableName,
+            Map<Column, Domain> partitionPredicates)
+    {
+        throw new UnsupportedOperationException();
     }
 
     private static boolean partitionMatches(String partitionName, List<String> parts)

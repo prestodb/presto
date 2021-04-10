@@ -25,6 +25,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.verifier.framework.QueryConfigurationOverrides.SessionPropertiesOverrideStrategy.OVERRIDE;
 import static com.facebook.presto.verifier.framework.QueryConfigurationOverrides.SessionPropertiesOverrideStrategy.SUBSTITUTE;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class QueryConfiguration
@@ -117,5 +118,17 @@ public class QueryConfiguration
     public int hashCode()
     {
         return Objects.hash(catalog, schema, username, password, sessionProperties);
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("catalog", catalog)
+                .add("schema", schema)
+                .add("username", username)
+                .add("password", password)
+                .add("sessionProperties", sessionProperties)
+                .toString();
     }
 }

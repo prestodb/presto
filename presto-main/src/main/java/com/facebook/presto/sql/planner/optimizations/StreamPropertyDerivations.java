@@ -58,7 +58,6 @@ import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -77,14 +76,12 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.sql.planner.PlannerUtils.toVariableReference;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.optimizations.PropertyDerivations.extractFixedValuesToConstantExpressions;
 import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.FIXED;
 import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.MULTIPLE;
 import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.SINGLE;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_MATERIALIZED;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -302,6 +299,11 @@ public final class StreamPropertyDerivations
                 return StreamProperties.ordered();
             }
 
+            if (node.getScope() == REMOTE_MATERIALIZED) {
+                // remote materialized exchanges get converted to table scans. Return the properties that the table scan would have
+                return new StreamProperties(MULTIPLE, Optional.empty(), false);
+            }
+
             if (node.getScope().isRemote()) {
                 // TODO: correctly determine if stream is parallelised
                 // based on session properties
@@ -350,15 +352,8 @@ public final class StreamPropertyDerivations
             Map<VariableReferenceExpression, VariableReferenceExpression> inputToOutput = new HashMap<>();
             for (Map.Entry<VariableReferenceExpression, RowExpression> assignment : assignments.entrySet()) {
                 RowExpression expression = assignment.getValue();
-                if (isExpression(expression)) {
-                    if (castToExpression(expression) instanceof SymbolReference) {
-                        inputToOutput.put(toVariableReference(castToExpression(expression), types), assignment.getKey());
-                    }
-                }
-                else {
-                    if (expression instanceof VariableReferenceExpression) {
-                        inputToOutput.put((VariableReferenceExpression) expression, assignment.getKey());
-                    }
+                if (expression instanceof VariableReferenceExpression) {
+                    inputToOutput.put((VariableReferenceExpression) expression, assignment.getKey());
                 }
             }
             return inputToOutput;

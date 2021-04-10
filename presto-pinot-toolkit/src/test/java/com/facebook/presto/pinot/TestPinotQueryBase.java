@@ -15,12 +15,10 @@ package com.facebook.presto.pinot;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
@@ -29,6 +27,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
@@ -45,7 +44,6 @@ import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.ExpressionUtils;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.TypeProvider;
@@ -57,7 +55,6 @@ import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.testing.TestingSession;
 import com.facebook.presto.testing.TestingTransactionHandle;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -74,6 +71,7 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.pinot.PinotColumnHandle.PinotColumnType.REGULAR;
 import static com.facebook.presto.pinot.query.PinotQueryGeneratorContext.Origin.DERIVED;
 import static com.facebook.presto.pinot.query.PinotQueryGeneratorContext.Origin.TABLE_COLUMN;
@@ -87,9 +85,8 @@ import static java.util.stream.Collectors.toMap;
 
 public class TestPinotQueryBase
 {
-    protected static final TypeManager typeManager = new TypeRegistry();
-    protected static final FunctionManager functionMetadataManager = new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
-    protected static final StandardFunctionResolution standardFunctionResolution = new FunctionResolution(functionMetadataManager);
+    protected static final FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
+    protected static final StandardFunctionResolution standardFunctionResolution = new FunctionResolution(functionAndTypeManager);
 
     protected static ConnectorId pinotConnectorId = new ConnectorId("id");
     protected static PinotTableHandle realtimeOnlyTable = new PinotTableHandle(pinotConnectorId.getCatalogName(), "schema", "realtimeOnly");
@@ -97,6 +94,7 @@ public class TestPinotQueryBase
     protected static PinotColumnHandle regionId = new PinotColumnHandle("regionId", BIGINT, REGULAR);
     protected static PinotColumnHandle city = new PinotColumnHandle("city", VARCHAR, REGULAR);
     protected static final PinotColumnHandle fare = new PinotColumnHandle("fare", DOUBLE, REGULAR);
+    protected static final PinotColumnHandle scores = array(DOUBLE, "scores");
     protected static final PinotColumnHandle secondsSinceEpoch = new PinotColumnHandle("secondsSinceEpoch", BIGINT, REGULAR);
     protected static final PinotColumnHandle daysSinceEpoch = new PinotColumnHandle("daysSinceEpoch", DATE, REGULAR);
     protected static final PinotColumnHandle millisSinceEpoch = new PinotColumnHandle("millisSinceEpoch", TIMESTAMP, REGULAR);
@@ -110,10 +108,15 @@ public class TestPinotQueryBase
                     .put(new VariableReferenceExpression("regionid", BIGINT), new PinotQueryGeneratorContext.Selection("regionId", TABLE_COLUMN)) // direct column reference
                     .put(new VariableReferenceExpression("regionid$distinct", BIGINT), new PinotQueryGeneratorContext.Selection("regionId", TABLE_COLUMN)) // distinct column reference
                     .put(new VariableReferenceExpression("city", VARCHAR), new PinotQueryGeneratorContext.Selection("city", TABLE_COLUMN)) // direct column reference
+                    .put(new VariableReferenceExpression("scores", new ArrayType(DOUBLE)), new PinotQueryGeneratorContext.Selection("scores", TABLE_COLUMN)) // direct column reference
                     .put(new VariableReferenceExpression("fare", DOUBLE), new PinotQueryGeneratorContext.Selection("fare", TABLE_COLUMN)) // direct column reference
                     .put(new VariableReferenceExpression("totalfare", DOUBLE), new PinotQueryGeneratorContext.Selection("(fare + trip)", DERIVED)) // derived column
                     .put(new VariableReferenceExpression("count_regionid", BIGINT), new PinotQueryGeneratorContext.Selection("count(regionid)", DERIVED))// derived column
                     .put(new VariableReferenceExpression("sum_fare", BIGINT), new PinotQueryGeneratorContext.Selection("sum(fare)", DERIVED))// derived column
+                    .put(new VariableReferenceExpression("array_min_0", DOUBLE), new PinotQueryGeneratorContext.Selection("array_min(scores)", DERIVED)) // derived column
+                    .put(new VariableReferenceExpression("array_max_0", DOUBLE), new PinotQueryGeneratorContext.Selection("array_max(scores)", DERIVED)) // derived column
+                    .put(new VariableReferenceExpression("array_sum_0", DOUBLE), new PinotQueryGeneratorContext.Selection("reduce(scores, cast(0 as double), (s, x) -> s + x, s -> s)", DERIVED)) // derived column
+                    .put(new VariableReferenceExpression("array_average_0", DOUBLE), new PinotQueryGeneratorContext.Selection("reduce(scores, CAST(ROW(0.0, 0) AS ROW(sum DOUBLE, count INTEGER)), (s,x) -> CAST(ROW(x + s.sum, s.count + 1) AS ROW(sum DOUBLE, count INTEGER)), s -> IF(s.count = 0, NULL, s.sum / s.count))", DERIVED)) // derived column
                     .put(new VariableReferenceExpression("secondssinceepoch", BIGINT), new PinotQueryGeneratorContext.Selection("secondsSinceEpoch", TABLE_COLUMN)) // column for datetime functions
                     .put(new VariableReferenceExpression("dayssinceepoch", DATE), new PinotQueryGeneratorContext.Selection("daysSinceEpoch", TABLE_COLUMN)) // column for date functions
                     .put(new VariableReferenceExpression("millissinceepoch", TIMESTAMP), new PinotQueryGeneratorContext.Selection("millisSinceEpoch", TABLE_COLUMN)) // column for timestamp functions
@@ -218,7 +221,7 @@ public class TestPinotQueryBase
                 expression,
                 ImmutableList.of(),
                 WarningCollector.NOOP);
-        return SqlToRowExpressionTranslator.translate(expression, expressionTypes, ImmutableMap.of(), functionMetadataManager, typeManager, session);
+        return SqlToRowExpressionTranslator.translate(expression, expressionTypes, ImmutableMap.of(), functionAndTypeManager, session);
     }
 
     protected LimitNode limit(PlanBuilder pb, long count, PlanNode source)
@@ -270,5 +273,10 @@ public class TestPinotQueryBase
     protected static PinotColumnHandle varchar(String name)
     {
         return new PinotColumnHandle(name, VARCHAR, PinotColumnHandle.PinotColumnType.REGULAR);
+    }
+
+    protected static PinotColumnHandle array(Type type, String name)
+    {
+        return new PinotColumnHandle(name, new ArrayType(type), PinotColumnHandle.PinotColumnType.REGULAR);
     }
 }

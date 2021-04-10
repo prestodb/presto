@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.240-SNAPSHOT</version>
+        <version>0.252-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-main</artifactId>
@@ -187,11 +187,6 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>joda-to-java-time-bridge</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>com.facebook.drift</groupId>
             <artifactId>drift-server</artifactId>
         </dependency>
@@ -213,12 +208,22 @@
 
         <dependency>
             <groupId>com.facebook.drift</groupId>
+            <artifactId>drift-protocol</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.drift</groupId>
             <artifactId>drift-codec</artifactId>
         </dependency>
 
         <dependency>
             <groupId>com.facebook.drift</groupId>
             <artifactId>drift-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.drift</groupId>
+            <artifactId>drift-codec-utils</artifactId>
         </dependency>
 
         <dependency>
@@ -269,11 +274,6 @@
         <dependency>
             <groupId>com.fasterxml.jackson.module</groupId>
             <artifactId>jackson-module-afterburner</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.fasterxml.jackson.dataformat</groupId>
-            <artifactId>jackson-dataformat-smile</artifactId>
         </dependency>
 
         <dependency>
@@ -342,6 +342,17 @@
             <artifactId>lucene-analyzers-common</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>com.clearspring.analytics</groupId>
+            <artifactId>stream</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>it.unimi.dsi</groupId>
+                    <artifactId>fastutil</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
         <!-- for testing -->
         <dependency>
             <groupId>org.testng</groupId>
@@ -391,6 +402,12 @@
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-common</artifactId>
             <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-thrift-api</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -449,9 +466,6 @@
                     <excludes>
                         <exclude>**/TestLocalExecutionPlanner.java</exclude>
                     </excludes>
-                    <systemPropertyVariables>
-                        <org.joda.time.DateTimeZone.Provider>io.airlift.jodabridge.JdkBasedZoneInfoProvider</org.joda.time.DateTimeZone.Provider>
-                    </systemPropertyVariables>
                 </configuration>
             </plugin>
         </plugins>

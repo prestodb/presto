@@ -31,10 +31,6 @@ public interface SpatialPartitioningState
 
     void setCount(long count);
 
-    Rectangle getExtent();
-
-    void setExtent(Rectangle envelope);
-
     List<Rectangle> getSamples();
 
     void setSamples(List<Rectangle> samples);

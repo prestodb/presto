@@ -69,7 +69,7 @@ public class OrcCacheConfig
     }
 
     @Config("orc.file-tail-cache-ttl-since-last-access")
-    @ConfigDescription("Time-to-live for file tail cache entry after last access")
+    @ConfigDescription("Time-to-live for orc file tail cache entry after last access")
     public OrcCacheConfig setFileTailCacheTtlSinceLastAccess(Duration fileTailCacheTtlSinceLastAccess)
     {
         this.fileTailCacheTtlSinceLastAccess = fileTailCacheTtlSinceLastAccess;

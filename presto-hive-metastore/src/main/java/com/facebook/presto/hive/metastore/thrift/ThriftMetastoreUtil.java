@@ -15,6 +15,7 @@ package com.facebook.presto.hive.metastore.thrift;
 
 import com.facebook.presto.hive.HiveBucketProperty;
 import com.facebook.presto.hive.HiveType;
+import com.facebook.presto.hive.PartitionMutator;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.HiveColumnStatistics;
@@ -38,6 +39,8 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
+import com.google.common.primitives.Shorts;
+import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.api.BinaryColumnStatsData;
 import org.apache.hadoop.hive.metastore.api.BooleanColumnStatsData;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
@@ -83,6 +86,7 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveStorageFormat.AVRO;
+import static com.facebook.presto.hive.HiveStorageFormat.CSV;
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createBinaryColumnStatistics;
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createBooleanColumnStatistics;
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createDateColumnStatistics;
@@ -96,14 +100,17 @@ import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.UPDATE;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.AVRO_SCHEMA_URL_KEY;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_MATERIALIZED_VIEW_FLAG;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.fromMetastoreDistinctValuesCount;
 import static com.facebook.presto.hive.metastore.PrestoTableType.EXTERNAL_TABLE;
 import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
+import static com.facebook.presto.hive.metastore.PrestoTableType.MATERIALIZED_VIEW;
 import static com.facebook.presto.hive.metastore.PrestoTableType.OTHER;
 import static com.facebook.presto.hive.metastore.PrestoTableType.VIRTUAL_VIEW;
 import static com.facebook.presto.spi.security.PrincipalType.ROLE;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -143,11 +150,20 @@ public final class ThriftMetastoreUtil
     public static org.apache.hadoop.hive.metastore.api.Table toMetastoreApiTable(Table table, PrincipalPrivileges privileges)
     {
         org.apache.hadoop.hive.metastore.api.Table result = new org.apache.hadoop.hive.metastore.api.Table();
+
         result.setDbName(table.getDatabaseName());
         result.setTableName(table.getTableName());
         result.setOwner(table.getOwner());
-        checkArgument(EnumSet.of(MANAGED_TABLE, EXTERNAL_TABLE, VIRTUAL_VIEW).contains(table.getTableType()), "Invalid table type: %s", table.getTableType());
-        result.setTableType(table.getTableType().name());
+
+        PrestoTableType tableType = table.getTableType();
+        checkArgument(EnumSet.of(MANAGED_TABLE, EXTERNAL_TABLE, VIRTUAL_VIEW, MATERIALIZED_VIEW).contains(tableType), "Invalid table type: %s", table.getTableType());
+        // TODO: remove the table type change after Hive 3.0 upgrade.
+        // TableType.MATERIALIZED_VIEW is not supported by Hive metastore until Hive 3.0. Use MANAGED_TABLE for now.
+        if (MATERIALIZED_VIEW.equals(tableType)) {
+            tableType = MANAGED_TABLE;
+        }
+        result.setTableType(tableType.name());
+
         result.setParameters(table.getParameters());
         result.setPartitionKeys(table.getPartitionColumns().stream().map(ThriftMetastoreUtil::toMetastoreApiFieldSchema).collect(toList()));
         result.setSd(makeStorageDescriptor(table.getTableName(), table.getDataColumns(), table.getStorage()));
@@ -397,11 +413,19 @@ public final class ThriftMetastoreUtil
             throw new PrestoException(HIVE_INVALID_METADATA, "Table is missing storage descriptor");
         }
 
+        // TODO: remove the table type change after Hive 3.0 update.
+        // Materialized view fetched from Hive Metastore uses TableType.MANAGED_TABLE before Hive 3.0. Cast it back to MATERIALIZED_VIEW here.
+        PrestoTableType tableType = PrestoTableType.optionalValueOf(table.getTableType()).orElse(OTHER);
+        if (table.getParameters() != null && "true".equals(table.getParameters().get(PRESTO_MATERIALIZED_VIEW_FLAG))) {
+            checkState(TableType.MANAGED_TABLE.name().equals(table.getTableType()), "Materialized view %s has incorrect table type %s from Metastore.", table.getTableName(), table.getTableType());
+            tableType = MATERIALIZED_VIEW;
+        }
+
         Table.Builder tableBuilder = Table.builder()
                 .setDatabaseName(table.getDbName())
                 .setTableName(table.getTableName())
                 .setOwner(nullToEmpty(table.getOwner()))
-                .setTableType(PrestoTableType.optionalValueOf(table.getTableType()).orElse(OTHER))
+                .setTableType(tableType)
                 .setDataColumns(schema.stream()
                         .map(ThriftMetastoreUtil::fromMetastoreApiFieldSchema)
                         .collect(toList()))
@@ -422,6 +446,21 @@ public final class ThriftMetastoreUtil
         if (table.getParameters() == null) {
             return false;
         }
+        SerDeInfo serdeInfo = getSerdeInfo(table);
+
+        return serdeInfo.getSerializationLib() != null &&
+                (table.getParameters().get(AVRO_SCHEMA_URL_KEY) != null ||
+                        (serdeInfo.getParameters() != null && serdeInfo.getParameters().get(AVRO_SCHEMA_URL_KEY) != null)) &&
+                serdeInfo.getSerializationLib().equals(AVRO.getSerDe());
+    }
+
+    public static boolean isCsvTable(org.apache.hadoop.hive.metastore.api.Table table)
+    {
+        return CSV.getSerDe().equals(getSerdeInfo(table).getSerializationLib());
+    }
+
+    private static SerDeInfo getSerdeInfo(org.apache.hadoop.hive.metastore.api.Table table)
+    {
         StorageDescriptor storageDescriptor = table.getSd();
         if (storageDescriptor == null) {
             throw new PrestoException(HIVE_INVALID_METADATA, "Table does not contain a storage descriptor: " + table);
@@ -431,12 +470,9 @@ public final class ThriftMetastoreUtil
             throw new PrestoException(HIVE_INVALID_METADATA, "Table storage descriptor is missing SerDe info");
         }
 
-        return serdeInfo.getSerializationLib() != null &&
-                table.getParameters().get(AVRO_SCHEMA_URL_KEY) != null &&
-                serdeInfo.getSerializationLib().equals(AVRO.getSerDe());
+        return serdeInfo;
     }
-
-    public static Partition fromMetastoreApiPartition(org.apache.hadoop.hive.metastore.api.Partition partition)
+    public static Partition fromMetastoreApiPartition(org.apache.hadoop.hive.metastore.api.Partition partition, PartitionMutator partitionMutator)
     {
         StorageDescriptor storageDescriptor = partition.getSd();
         if (storageDescriptor == null) {
@@ -451,6 +487,9 @@ public final class ThriftMetastoreUtil
                         .map(ThriftMetastoreUtil::fromMetastoreApiFieldSchema)
                         .collect(toList()))
                 .setParameters(partition.getParameters());
+
+        // mutate apache partition to Presto partition
+        partitionMutator.mutate(partitionBuilder, partition);
 
         fromMetastoreApiStorageDescriptor(storageDescriptor, partitionBuilder.getStorageBuilder(), format("%s.%s", partition.getTableName(), partition.getValues()));
 
@@ -805,7 +844,7 @@ public final class ThriftMetastoreUtil
 
     public static Decimal toMetastoreDecimal(BigDecimal decimal)
     {
-        return new Decimal(ByteBuffer.wrap(decimal.unscaledValue().toByteArray()), (short) decimal.scale());
+        return new Decimal(Shorts.checkedCast(decimal.scale()), ByteBuffer.wrap(decimal.unscaledValue().toByteArray()));
     }
 
     private static OptionalLong toMetastoreDistinctValuesCount(OptionalLong distinctValuesCount, OptionalLong nullsCount)

@@ -31,21 +31,25 @@ import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
-import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.SplitSourceFactory;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
+import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import java.net.URI;
@@ -117,7 +121,7 @@ public class LegacySqlQueryScheduler
 
     // The following fields are required by adaptive optimization in runtime.
     private final Session session;
-    private final FunctionManager functionManager;
+    private final FunctionAndTypeManager functionAndTypeManager;
     private final List<PlanOptimizer> runtimePlanOptimizers;
     private final WarningCollector warningCollector;
     private final PlanNodeIdAllocator idAllocator;
@@ -126,6 +130,9 @@ public class LegacySqlQueryScheduler
     private final RemoteTaskFactory remoteTaskFactory;
     private final SplitSourceFactory splitSourceFactory;
     private final Set<StageId> runtimeOptimizedStages = Collections.synchronizedSet(new HashSet<>());
+    private final PlanChecker planChecker;
+    private final Metadata metadata;
+    private final SqlParser sqlParser;
 
     private final Map<StageId, StageExecutionAndScheduler> stageExecutions = new ConcurrentHashMap<>();
     private final ExecutorService executor;
@@ -141,7 +148,7 @@ public class LegacySqlQueryScheduler
             RemoteTaskFactory remoteTaskFactory,
             SplitSourceFactory splitSourceFactory,
             Session session,
-            FunctionManager functionManager,
+            FunctionAndTypeManager functionAndTypeManager,
             QueryStateMachine queryStateMachine,
             SubPlan plan,
             OutputBuffers rootOutputBuffers,
@@ -149,7 +156,10 @@ public class LegacySqlQueryScheduler
             List<PlanOptimizer> runtimePlanOptimizers,
             WarningCollector warningCollector,
             PlanNodeIdAllocator idAllocator,
-            PlanVariableAllocator variableAllocator)
+            PlanVariableAllocator variableAllocator,
+            PlanChecker planChecker,
+            Metadata metadata,
+            SqlParser sqlParser)
     {
         LegacySqlQueryScheduler sqlQueryScheduler = new LegacySqlQueryScheduler(
                 locationFactory,
@@ -160,7 +170,7 @@ public class LegacySqlQueryScheduler
                 remoteTaskFactory,
                 splitSourceFactory,
                 session,
-                functionManager,
+                functionAndTypeManager,
                 queryStateMachine,
                 plan,
                 summarizeTaskInfo,
@@ -168,7 +178,10 @@ public class LegacySqlQueryScheduler
                 runtimePlanOptimizers,
                 warningCollector,
                 idAllocator,
-                variableAllocator);
+                variableAllocator,
+                planChecker,
+                metadata,
+                sqlParser);
         sqlQueryScheduler.initialize();
         return sqlQueryScheduler;
     }
@@ -182,7 +195,7 @@ public class LegacySqlQueryScheduler
             RemoteTaskFactory remoteTaskFactory,
             SplitSourceFactory splitSourceFactory,
             Session session,
-            FunctionManager functionManager,
+            FunctionAndTypeManager functionAndTypeManager,
             QueryStateMachine queryStateMachine,
             SubPlan plan,
             boolean summarizeTaskInfo,
@@ -190,7 +203,10 @@ public class LegacySqlQueryScheduler
             List<PlanOptimizer> runtimePlanOptimizers,
             WarningCollector warningCollector,
             PlanNodeIdAllocator idAllocator,
-            PlanVariableAllocator variableAllocator)
+            PlanVariableAllocator variableAllocator,
+            PlanChecker planChecker,
+            Metadata metadata,
+            SqlParser sqlParser)
     {
         this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
         this.executionPolicy = requireNonNull(executionPolicy, "schedulerPolicyFactory is null");
@@ -199,11 +215,14 @@ public class LegacySqlQueryScheduler
         this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
         this.plan.compareAndSet(null, requireNonNull(plan, "plan is null"));
         this.session = requireNonNull(session, "session is null");
-        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
         this.runtimePlanOptimizers = requireNonNull(runtimePlanOptimizers, "runtimePlanOptimizers is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
+        this.planChecker = requireNonNull(planChecker, "planChecker is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.sectionExecutionFactory = requireNonNull(sectionExecutionFactory, "sectionExecutionFactory is null");
         this.remoteTaskFactory = requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
         this.splitSourceFactory = requireNonNull(splitSourceFactory, "splitSourceFactory is null");
@@ -537,6 +556,7 @@ public class LegacySqlQueryScheduler
                 .forEach(currentSubPlan -> {
                     Optional<PlanFragment> newPlanFragment = performRuntimeOptimizations(currentSubPlan);
                     if (newPlanFragment.isPresent()) {
+                        planChecker.validatePlanFragment(newPlanFragment.get().getRoot(), session, metadata, sqlParser, variableAllocator.getTypes(), warningCollector);
                         oldToNewFragment.put(currentSubPlan.getFragment(), newPlanFragment.get());
                     }
                 });
@@ -581,7 +601,7 @@ public class LegacySqlQueryScheduler
                             fragment.getStageExecutionDescriptor(),
                             fragment.isOutputTableWriterFragment(),
                             fragment.getStatsAndCosts(),
-                            Optional.of(jsonFragmentPlan(newRoot, fragment.getVariables(), functionManager, session))));
+                            Optional.of(jsonFragmentPlan(newRoot, fragment.getVariables(), functionAndTypeManager, session))));
         }
         return Optional.empty();
     }
@@ -771,6 +791,21 @@ public class LegacySqlQueryScheduler
                 .mapToLong(stage -> stage.getStageExecution().getTotalCpuTime().toMillis())
                 .sum();
         return new Duration(millis, MILLISECONDS);
+    }
+
+    @Override
+    public DataSize getRawInputDataSize()
+    {
+        long datasize = stageExecutions.values().stream()
+                .mapToLong(stage -> stage.getStageExecution().getRawInputDataSize().toBytes())
+                .sum();
+        return DataSize.succinctBytes(datasize);
+    }
+
+    @Override
+    public DataSize getOutputDataSize()
+    {
+        return stageExecutions.get(rootStageId).getStageExecution().getStageExecutionInfo().getStats().getOutputDataSize();
     }
 
     public BasicStageExecutionStats getBasicStageStats()

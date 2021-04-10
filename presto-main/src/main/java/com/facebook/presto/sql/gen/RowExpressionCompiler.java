@@ -19,9 +19,11 @@ import com.facebook.presto.bytecode.ClassDefinition;
 import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.common.function.SqlFunctionProperties;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.function.FunctionMetadata;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.function.SqlInvokedScalarFunctionImplementation;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
@@ -66,6 +68,7 @@ public class RowExpressionCompiler
     private final RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler;
     private final Metadata metadata;
     private final SqlFunctionProperties sqlFunctionProperties;
+    private final Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions;
     private final Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap;
 
     RowExpressionCompiler(
@@ -75,6 +78,7 @@ public class RowExpressionCompiler
             RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler,
             Metadata metadata,
             SqlFunctionProperties sqlFunctionProperties,
+            Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
             Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap)
     {
         this.classDefinition = classDefinition;
@@ -83,6 +87,7 @@ public class RowExpressionCompiler
         this.fieldReferenceCompiler = fieldReferenceCompiler;
         this.metadata = metadata;
         this.sqlFunctionProperties = sqlFunctionProperties;
+        this.sessionFunctions = sessionFunctions;
         this.compiledLambdaMap = new HashMap<>(compiledLambdaMap);
     }
 
@@ -104,8 +109,8 @@ public class RowExpressionCompiler
         @Override
         public BytecodeNode visitCall(CallExpression call, Context context)
         {
-            FunctionManager functionManager = metadata.getFunctionManager();
-            FunctionMetadata functionMetadata = functionManager.getFunctionMetadata(call.getFunctionHandle());
+            FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
+            FunctionMetadata functionMetadata = functionAndTypeManager.getFunctionMetadata(call.getFunctionHandle());
             BytecodeGeneratorContext generatorContext;
             switch (functionMetadata.getImplementationType()) {
                 case BUILTIN:
@@ -114,17 +119,40 @@ public class RowExpressionCompiler
                             context.getScope(),
                             callSiteBinder,
                             cachedInstanceBinder,
-                            functionManager);
+                            functionAndTypeManager);
                     return (new FunctionCallCodeGenerator()).generateCall(call.getFunctionHandle(), generatorContext, call.getType(), call.getArguments(), context.getOutputBlockVariable());
                 case SQL:
-                    SqlInvokedScalarFunctionImplementation functionImplementation = (SqlInvokedScalarFunctionImplementation) functionManager.getScalarFunctionImplementation(call.getFunctionHandle());
-                    RowExpression function = getSqlFunctionRowExpression(functionMetadata, functionImplementation, metadata, sqlFunctionProperties, call.getArguments());
+                    SqlInvokedScalarFunctionImplementation functionImplementation = (SqlInvokedScalarFunctionImplementation) functionAndTypeManager.getScalarFunctionImplementation(call.getFunctionHandle());
+                    RowExpression function = getSqlFunctionRowExpression(
+                            functionMetadata,
+                            functionImplementation,
+                            metadata,
+                            sqlFunctionProperties,
+                            sessionFunctions,
+                            call.getArguments());
 
                     // Pre-compile lambda bytecode and update compiled lambda map
-                    compiledLambdaMap.putAll(generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, function, metadata, sqlFunctionProperties, "sql", compiledLambdaMap.keySet()));
+                    compiledLambdaMap.putAll(generateMethodsForLambda(
+                            classDefinition,
+                            callSiteBinder,
+                            cachedInstanceBinder,
+                            function,
+                            metadata,
+                            sqlFunctionProperties,
+                            sessionFunctions,
+                            "sql",
+                            compiledLambdaMap.keySet()));
 
                     // generate bytecode for SQL function
-                    RowExpressionCompiler newRowExpressionCompiler = new RowExpressionCompiler(classDefinition, callSiteBinder, cachedInstanceBinder, fieldReferenceCompiler, metadata, sqlFunctionProperties, compiledLambdaMap);
+                    RowExpressionCompiler newRowExpressionCompiler = new RowExpressionCompiler(
+                            classDefinition,
+                            callSiteBinder,
+                            cachedInstanceBinder,
+                            fieldReferenceCompiler,
+                            metadata,
+                            sqlFunctionProperties,
+                            sessionFunctions,
+                            compiledLambdaMap);
                     // If called on null input, directly use the generated bytecode
                     if (functionMetadata.isCalledOnNullInput() || call.getArguments().isEmpty()) {
                         return newRowExpressionCompiler.compile(
@@ -140,7 +168,7 @@ public class RowExpressionCompiler
                             context.getScope(),
                             callSiteBinder,
                             cachedInstanceBinder,
-                            functionManager);
+                            functionAndTypeManager);
 
                     return (new IfCodeGenerator()).generateExpression(
                             generatorContext,
@@ -246,7 +274,7 @@ public class RowExpressionCompiler
                     context.getScope(),
                     callSiteBinder,
                     cachedInstanceBinder,
-                    metadata.getFunctionManager());
+                    metadata.getFunctionAndTypeManager());
 
             return generateLambda(
                     generatorContext,
@@ -298,7 +326,7 @@ public class RowExpressionCompiler
                     break;
                 // functions that require varargs and/or complex types (e.g., lists)
                 case IN:
-                    generator = new InCodeGenerator(metadata.getFunctionManager());
+                    generator = new InCodeGenerator(metadata.getFunctionAndTypeManager());
                     break;
                 // optimized implementations (shortcircuiting behavior)
                 case AND:
@@ -324,7 +352,7 @@ public class RowExpressionCompiler
                     context.getScope(),
                     callSiteBinder,
                     cachedInstanceBinder,
-                    metadata.getFunctionManager());
+                    metadata.getFunctionAndTypeManager());
 
             return generator.generateExpression(generatorContext, specialForm.getType(), specialForm.getArguments(), context.getOutputBlockVariable());
         }

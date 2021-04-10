@@ -14,10 +14,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.predicate.TupleDomain;
-import com.facebook.presto.common.type.Type;
-import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.metadata.TableLayout.TablePartitioning;
@@ -41,9 +38,6 @@ import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.ExpressionDomainTranslator;
-import com.facebook.presto.sql.planner.ExpressionInterpreter;
-import com.facebook.presto.sql.planner.NoOpVariableResolver;
 import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.planner.RowExpressionInterpreter;
 import com.facebook.presto.sql.planner.TypeProvider;
@@ -74,9 +68,6 @@ import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.NodeRef;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -92,13 +83,12 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.SystemSessionProperties.isOptimizeFullOuterJoinWithCoalesce;
+import static com.facebook.presto.SystemSessionProperties.isJoinSpillingEnabled;
+import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
 import static com.facebook.presto.SystemSessionProperties.planWithTableNodePartitioning;
 import static com.facebook.presto.common.predicate.TupleDomain.toLinkedMap;
 import static com.facebook.presto.spi.relation.DomainTranslator.BASIC_COLUMN_EXTRACTOR;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
-import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
-import static com.facebook.presto.sql.planner.PlannerUtils.toVariableReference;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.arbitraryPartition;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.coordinatorSingleStreamPartition;
@@ -106,16 +96,11 @@ import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Glo
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.partitionedOnCoalesce;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.singleStreamPartition;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.streamPartitionedOn;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static java.util.Collections.emptyList;
-import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 
 public class PropertyDerivations
@@ -450,8 +435,7 @@ public class PropertyDerivations
                                 .build();
                     }
 
-                    if (isOptimizeFullOuterJoinWithCoalesce(session) &&
-                            probeProperties.getNodePartitioning().isPresent() &&
+                    if (probeProperties.getNodePartitioning().isPresent() &&
                             buildProperties.getNodePartitioning().isPresent() &&
                             arePartitionHandlesCompatibleForCoalesce(
                                     probeProperties.getNodePartitioning().get().getHandle(),
@@ -620,18 +604,9 @@ public class PropertyDerivations
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 
             Map<VariableReferenceExpression, ConstantExpression> constants = new HashMap<>(properties.getConstants());
-            if (isExpression(node.getPredicate())) {
-                TupleDomain<String> tupleDomain = ExpressionDomainTranslator.fromPredicate(metadata, session, castToExpression(node.getPredicate()), types).getTupleDomain();
-                constants.putAll(extractFixedValuesToConstantExpressions(tupleDomain)
-                        .map(values -> values.entrySet().stream()
-                                .collect(toImmutableMap(entry -> toVariableReference(new SymbolReference(entry.getKey()), types), Map.Entry::getValue)))
-                        .orElse(ImmutableMap.of()));
-            }
-            else {
-                TupleDomain<VariableReferenceExpression> tupleDomain = new RowExpressionDomainTranslator(metadata).fromPredicate(session.toConnectorSession(), node.getPredicate(), BASIC_COLUMN_EXTRACTOR).getTupleDomain();
-                constants.putAll(extractFixedValuesToConstantExpressions(tupleDomain)
-                        .orElse(ImmutableMap.of()));
-            }
+            TupleDomain<VariableReferenceExpression> tupleDomain = new RowExpressionDomainTranslator(metadata).fromPredicate(session.toConnectorSession(), node.getPredicate(), BASIC_COLUMN_EXTRACTOR).getTupleDomain();
+            constants.putAll(extractFixedValuesToConstantExpressions(tupleDomain)
+                    .orElse(ImmutableMap.of()));
 
             return ActualProperties.builderFrom(properties)
                     .constants(constants)
@@ -656,35 +631,16 @@ public class PropertyDerivations
                 // to take advantage of constant-folding for complex expressions
                 // However, that currently causes errors when those expressions operate on arrays or row types
                 // ("ROW comparison not supported for fields with null elements", etc)
-                if (isExpression(expression)) {
-                    Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, parser, types, castToExpression(expression), emptyList(), WarningCollector.NOOP);
-                    Type type = requireNonNull(expressionTypes.get(NodeRef.of(castToExpression(expression))));
-                    ExpressionInterpreter optimizer = ExpressionInterpreter.expressionOptimizer(castToExpression(expression), metadata, session, expressionTypes);
-                    Object value = optimizer.optimize(NoOpVariableResolver.INSTANCE);
+                Object value = new RowExpressionInterpreter(expression, metadata, session.toConnectorSession(), OPTIMIZED).optimize();
 
-                    if (value instanceof SymbolReference) {
-                        VariableReferenceExpression variable = toVariableReference((SymbolReference) value, types);
-                        ConstantExpression existingConstantValue = constants.get(variable);
-                        if (existingConstantValue != null) {
-                            constants.put(output, new ConstantExpression(value, type));
-                        }
-                    }
-                    else if (!(value instanceof Expression)) {
-                        constants.put(output, new ConstantExpression(value, type));
-                    }
-                }
-                else {
-                    Object value = new RowExpressionInterpreter(expression, metadata, session.toConnectorSession(), OPTIMIZED).optimize();
-
-                    if (value instanceof VariableReferenceExpression) {
-                        ConstantExpression existingConstantValue = constants.get(value);
-                        if (existingConstantValue != null) {
-                            constants.put(output, new ConstantExpression(value, expression.getType()));
-                        }
-                    }
-                    else if (!(value instanceof RowExpression)) {
+                if (value instanceof VariableReferenceExpression) {
+                    ConstantExpression existingConstantValue = constants.get(value);
+                    if (existingConstantValue != null) {
                         constants.put(output, new ConstantExpression(value, expression.getType()));
                     }
+                }
+                else if (!(value instanceof RowExpression)) {
+                    constants.put(output, new ConstantExpression(value, expression.getType()));
                 }
             }
             constants.putAll(translatedProperties.getConstants());
@@ -827,7 +783,7 @@ public class PropertyDerivations
 
     static boolean spillPossible(Session session, JoinNode.Type joinType)
     {
-        if (!SystemSessionProperties.isSpillEnabled(session)) {
+        if (!isSpillEnabled(session) || !isJoinSpillingEnabled(session)) {
             return false;
         }
         switch (joinType) {

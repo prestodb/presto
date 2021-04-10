@@ -235,6 +235,18 @@ public final class TupleDomain<T>
             return none();
         }
 
+        if (this == other) {
+            return this;
+        }
+
+        if (this.isAll()) {
+            return other;
+        }
+
+        if (other.isAll()) {
+            return this;
+        }
+
         Map<T, Domain> intersected = new LinkedHashMap<>(this.getDomains().get());
         for (Map.Entry<T, Domain> entry : other.getDomains().get().entrySet()) {
             Domain intersectionDomain = intersected.get(entry.getKey());
@@ -406,8 +418,12 @@ public final class TupleDomain<T>
 
     public <U> TupleDomain<U> transform(Function<T, U> function)
     {
-        if (!domains.isPresent()) {
+        if (isNone()) {
             return TupleDomain.none();
+        }
+
+        if (isAll()) {
+            return all();
         }
 
         HashMap<U, Domain> result = new LinkedHashMap<>(domains.get().size());

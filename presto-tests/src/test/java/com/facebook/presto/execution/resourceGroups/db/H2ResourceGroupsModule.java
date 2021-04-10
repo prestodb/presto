@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.execution.resourceGroups.db;
 
+import com.facebook.presto.resourceGroups.db.DbManagerSpecProvider;
 import com.facebook.presto.resourceGroups.db.DbResourceGroupConfig;
-import com.facebook.presto.resourceGroups.db.DbResourceGroupConfigurationManager;
 import com.facebook.presto.resourceGroups.db.ForEnvironment;
 import com.facebook.presto.resourceGroups.db.H2DaoProvider;
 import com.facebook.presto.resourceGroups.db.ResourceGroupsDao;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
+import com.facebook.presto.resourceGroups.reloading.ManagerSpecProvider;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerContext;
 import com.google.inject.Binder;
 import com.google.inject.Module;
@@ -37,8 +37,7 @@ public class H2ResourceGroupsModule
     {
         configBinder(binder).bindConfig(DbResourceGroupConfig.class);
         binder.bind(ResourceGroupsDao.class).toProvider(H2DaoProvider.class).in(Scopes.SINGLETON);
-        binder.bind(DbResourceGroupConfigurationManager.class).in(Scopes.SINGLETON);
-        binder.bind(ResourceGroupConfigurationManager.class).to(DbResourceGroupConfigurationManager.class).in(Scopes.SINGLETON);
+        binder.bind(ManagerSpecProvider.class).to(DbManagerSpecProvider.class).in(Scopes.SINGLETON);
     }
 
     @Provides

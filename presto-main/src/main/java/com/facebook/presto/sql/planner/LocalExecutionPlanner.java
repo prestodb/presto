@@ -18,16 +18,19 @@ import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.function.OperatorType;
-import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.execution.ExplainAnalyzeContext;
+import com.facebook.presto.execution.FragmentResultCacheContext;
 import com.facebook.presto.execution.StageExecutionId;
 import com.facebook.presto.execution.TaskManagerConfig;
+import com.facebook.presto.execution.TaskMetadataContext;
 import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget;
@@ -36,18 +39,25 @@ import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.DeleteHandl
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.InsertHandle;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.execution.scheduler.TableWriteInfo.DeleteScanInfo;
+import com.facebook.presto.expressions.DynamicFilters;
+import com.facebook.presto.expressions.DynamicFilters.DynamicFilterExtractResult;
+import com.facebook.presto.expressions.DynamicFilters.DynamicFilterPlaceholder;
+import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.AnalyzeTableHandle;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.ConnectorMetadataUpdaterManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
 import com.facebook.presto.operator.AssignUniqueIdOperator;
 import com.facebook.presto.operator.DeleteOperator.DeleteOperatorFactory;
 import com.facebook.presto.operator.DevNullOperator.DevNullOperatorFactory;
 import com.facebook.presto.operator.DriverFactory;
+import com.facebook.presto.operator.DynamicFilterSourceOperator;
 import com.facebook.presto.operator.EnforceSingleRowOperator;
 import com.facebook.presto.operator.ExplainAnalyzeOperator.ExplainAnalyzeOperatorFactory;
-import com.facebook.presto.operator.FilterAndProjectOperator;
+import com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory;
+import com.facebook.presto.operator.FragmentResultCacheManager;
 import com.facebook.presto.operator.GroupIdOperator;
 import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
 import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
@@ -73,6 +83,7 @@ import com.facebook.presto.operator.PagesSpatialIndexFactory;
 import com.facebook.presto.operator.PartitionFunction;
 import com.facebook.presto.operator.PartitionedLookupSourceFactory;
 import com.facebook.presto.operator.PipelineExecutionStrategy;
+import com.facebook.presto.operator.RemoteProjectOperator.RemoteProjectOperatorFactory;
 import com.facebook.presto.operator.RowNumberOperator;
 import com.facebook.presto.operator.ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory;
 import com.facebook.presto.operator.SetBuilderOperator.SetBuilderOperatorFactory;
@@ -122,6 +133,8 @@ import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.AggregationNode.Step;
@@ -134,12 +147,14 @@ import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.ProjectNode.Locality;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -157,6 +172,7 @@ import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunction
 import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer;
+import com.facebook.presto.sql.planner.plan.AbstractJoinNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
@@ -184,8 +200,10 @@ import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.planner.plan.WindowNode.Frame;
+import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.VariableToChannelTranslator;
 import com.facebook.presto.sql.tree.SymbolReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ContiguousSet;
@@ -222,20 +240,27 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static com.facebook.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static com.facebook.presto.SystemSessionProperties.getAggregationOperatorUnspillMemoryLimit;
+import static com.facebook.presto.SystemSessionProperties.getDynamicFilteringMaxPerDriverRowCount;
+import static com.facebook.presto.SystemSessionProperties.getDynamicFilteringMaxPerDriverSize;
 import static com.facebook.presto.SystemSessionProperties.getFilterAndProjectMinOutputPageRowCount;
 import static com.facebook.presto.SystemSessionProperties.getFilterAndProjectMinOutputPageSize;
 import static com.facebook.presto.SystemSessionProperties.getIndexLoaderTimeout;
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
 import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
+import static com.facebook.presto.SystemSessionProperties.isEnableDynamicFiltering;
+import static com.facebook.presto.SystemSessionProperties.isExchangeChecksumEnabled;
 import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionEnabled;
+import static com.facebook.presto.SystemSessionProperties.isJoinSpillingEnabled;
 import static com.facebook.presto.SystemSessionProperties.isOptimizeCommonSubExpressions;
 import static com.facebook.presto.SystemSessionProperties.isOptimizedRepartitioningEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.TypeUtils.writeNativeValue;
+import static com.facebook.presto.execution.FragmentResultCacheContext.createFragmentResultCacheContext;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.expressions.RowExpressionNodeInliner.replaceExpression;
 import static com.facebook.presto.geospatial.SphericalGeographyUtils.sphericalDistance;
@@ -258,9 +283,12 @@ import static com.facebook.presto.operator.WindowFunctionDefinition.window;
 import static com.facebook.presto.operator.unnest.UnnestOperator.UnnestOperatorFactory;
 import static com.facebook.presto.spi.StandardErrorCode.COMPILER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.INTERMEDIATE;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
+import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
+import static com.facebook.presto.spi.plan.ProjectNode.Locality.REMOTE;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.sql.gen.LambdaBytecodeGenerator.compileLambdaProvider;
 import static com.facebook.presto.sql.planner.RowExpressionInterpreter.rowExpressionInterpreter;
@@ -308,6 +336,7 @@ public class LocalExecutionPlanner
     private final PartitioningProviderManager partitioningProviderManager;
     private final NodePartitioningManager nodePartitioningManager;
     private final PageSinkManager pageSinkManager;
+    private final ConnectorMetadataUpdaterManager metadataUpdaterManager;
     private final ExpressionCompiler expressionCompiler;
     private final PageFunctionCompiler pageFunctionCompiler;
     private final JoinFilterFunctionCompiler joinFilterFunctionCompiler;
@@ -325,6 +354,9 @@ public class LocalExecutionPlanner
     private final LookupJoinOperators lookupJoinOperators;
     private final OrderingCompiler orderingCompiler;
     private final JsonCodec<TableCommitContext> tableCommitContextCodec;
+    private final LogicalRowExpressions logicalRowExpressions;
+    private final FragmentResultCacheManager fragmentResultCacheManager;
+    private final ObjectMapper objectMapper;
 
     private static final TypeSignature SPHERICAL_GEOGRAPHY_TYPE_SIGNATURE = parseTypeSignature("SphericalGeography");
 
@@ -337,6 +369,7 @@ public class LocalExecutionPlanner
             PartitioningProviderManager partitioningProviderManager,
             NodePartitioningManager nodePartitioningManager,
             PageSinkManager pageSinkManager,
+            ConnectorMetadataUpdaterManager metadataUpdaterManager,
             ExpressionCompiler expressionCompiler,
             PageFunctionCompiler pageFunctionCompiler,
             JoinFilterFunctionCompiler joinFilterFunctionCompiler,
@@ -350,7 +383,10 @@ public class LocalExecutionPlanner
             JoinCompiler joinCompiler,
             LookupJoinOperators lookupJoinOperators,
             OrderingCompiler orderingCompiler,
-            JsonCodec<TableCommitContext> tableCommitContextCodec)
+            JsonCodec<TableCommitContext> tableCommitContextCodec,
+            DeterminismEvaluator determinismEvaluator,
+            FragmentResultCacheManager fragmentResultCacheManager,
+            ObjectMapper objectMapper)
     {
         this.explainAnalyzeContext = requireNonNull(explainAnalyzeContext, "explainAnalyzeContext is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
@@ -359,6 +395,7 @@ public class LocalExecutionPlanner
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.pageSinkManager = requireNonNull(pageSinkManager, "pageSinkManager is null");
+        this.metadataUpdaterManager = requireNonNull(metadataUpdaterManager, "metadataUpdaterManager is null");
         this.expressionCompiler = requireNonNull(expressionCompiler, "compiler is null");
         this.pageFunctionCompiler = requireNonNull(pageFunctionCompiler, "pageFunctionCompiler is null");
         this.joinFilterFunctionCompiler = requireNonNull(joinFilterFunctionCompiler, "compiler is null");
@@ -376,6 +413,12 @@ public class LocalExecutionPlanner
         this.lookupJoinOperators = requireNonNull(lookupJoinOperators, "lookupJoinOperators is null");
         this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
         this.tableCommitContextCodec = requireNonNull(tableCommitContextCodec, "tableCommitContextCodec is null");
+        this.logicalRowExpressions = new LogicalRowExpressions(
+                requireNonNull(determinismEvaluator, "determinismEvaluator is null"),
+                new FunctionResolution(metadata.getFunctionAndTypeManager()),
+                metadata.getFunctionAndTypeManager());
+        this.fragmentResultCacheManager = requireNonNull(fragmentResultCacheManager, "fragmentResultCacheManager is null");
+        this.objectMapper = requireNonNull(objectMapper, "objectMapper is null");
     }
 
     public LocalExecutionPlan plan(
@@ -415,7 +458,7 @@ public class LocalExecutionPlanner
                 taskContext,
                 stageExecutionDescriptor,
                 plan,
-                partitioningScheme.getOutputLayout(),
+                partitioningScheme,
                 partitionedSourceOrder,
                 outputFactory,
                 createOutputPartitioning(taskContext, partitioningScheme),
@@ -506,7 +549,7 @@ public class LocalExecutionPlanner
             TaskContext taskContext,
             StageExecutionDescriptor stageExecutionDescriptor,
             PlanNode plan,
-            List<VariableReferenceExpression> outputLayout,
+            PartitioningScheme partitioningScheme,
             List<PlanNodeId> partitionedSourceOrder,
             OutputFactory outputOperatorFactory,
             Optional<OutputPartitioning> outputPartitioning,
@@ -514,6 +557,7 @@ public class LocalExecutionPlanner
             TableWriteInfo tableWriteInfo,
             boolean pageSinkCommitRequired)
     {
+        List<VariableReferenceExpression> outputLayout = partitioningScheme.getOutputLayout();
         Session session = taskContext.getSession();
         LocalExecutionPlanContext context = new LocalExecutionPlanContext(taskContext, tableWriteInfo);
         PhysicalOperation physicalOperation = plan.accept(new Visitor(session, stageExecutionDescriptor, remoteSourceFactory, pageSinkCommitRequired), context);
@@ -535,10 +579,11 @@ public class LocalExecutionPlanner
                                 outputTypes,
                                 pagePreprocessor,
                                 outputPartitioning,
-                                new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session))))
+                                new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session), isExchangeChecksumEnabled(session))))
                         .build(),
                 context.getDriverInstanceCount(),
-                physicalOperation.getPipelineExecutionStrategy());
+                physicalOperation.getPipelineExecutionStrategy(),
+                createFragmentResultCacheContext(fragmentResultCacheManager, plan, partitioningScheme, session, objectMapper));
 
         addLookupOuterDrivers(context);
 
@@ -577,7 +622,7 @@ public class LocalExecutionPlanner
                             .map(OperatorFactory::duplicate)
                             .forEach(newOperators::add);
 
-                    context.addDriverFactory(false, factory.isOutputDriver(), newOperators.build(), OptionalInt.of(1), outerOperatorFactoryResult.get().getBuildExecutionStrategy());
+                    context.addDriverFactory(false, factory.isOutputDriver(), newOperators.build(), OptionalInt.of(1), outerOperatorFactoryResult.get().getBuildExecutionStrategy(), Optional.empty());
                 }
             }
         }
@@ -589,6 +634,10 @@ public class LocalExecutionPlanner
         private final List<DriverFactory> driverFactories;
         private final Optional<IndexSourceContext> indexSourceContext;
 
+        // the collector is shared with all subContexts to allow local dynamic filtering
+        // with multiple table scans (e.g. co-located joins).
+        private final LocalDynamicFiltersCollector dynamicFiltersCollector;
+
         // this is shared with all subContexts
         private final AtomicInteger nextPipelineId;
         private final TableWriteInfo tableWriteInfo;
@@ -599,24 +648,32 @@ public class LocalExecutionPlanner
 
         public LocalExecutionPlanContext(TaskContext taskContext, TableWriteInfo tableWriteInfo)
         {
-            this(taskContext, new ArrayList<>(), Optional.empty(), new AtomicInteger(0), tableWriteInfo);
+            this(taskContext, new ArrayList<>(), Optional.empty(), new LocalDynamicFiltersCollector(), new AtomicInteger(0), tableWriteInfo);
         }
 
         private LocalExecutionPlanContext(
                 TaskContext taskContext,
                 List<DriverFactory> driverFactories,
                 Optional<IndexSourceContext> indexSourceContext,
+                LocalDynamicFiltersCollector dynamicFiltersCollector,
                 AtomicInteger nextPipelineId,
                 TableWriteInfo tableWriteInfo)
         {
             this.taskContext = taskContext;
             this.driverFactories = driverFactories;
             this.indexSourceContext = indexSourceContext;
+            this.dynamicFiltersCollector = dynamicFiltersCollector;
             this.nextPipelineId = nextPipelineId;
             this.tableWriteInfo = tableWriteInfo;
         }
 
-        public void addDriverFactory(boolean inputDriver, boolean outputDriver, List<OperatorFactory> operatorFactories, OptionalInt driverInstances, PipelineExecutionStrategy pipelineExecutionStrategy)
+        public void addDriverFactory(
+                boolean inputDriver,
+                boolean outputDriver,
+                List<OperatorFactory> operatorFactories,
+                OptionalInt driverInstances,
+                PipelineExecutionStrategy pipelineExecutionStrategy,
+                Optional<FragmentResultCacheContext> fragmentResultCacheContext)
         {
             if (pipelineExecutionStrategy == GROUPED_EXECUTION) {
                 OperatorFactory firstOperatorFactory = operatorFactories.get(0);
@@ -627,7 +684,7 @@ public class LocalExecutionPlanner
                     checkArgument(firstOperatorFactory instanceof LocalExchangeSourceOperatorFactory || firstOperatorFactory instanceof LookupOuterOperatorFactory);
                 }
             }
-            driverFactories.add(new DriverFactory(getNextPipelineId(), inputDriver, outputDriver, operatorFactories, driverInstances, pipelineExecutionStrategy));
+            driverFactories.add(new DriverFactory(getNextPipelineId(), inputDriver, outputDriver, operatorFactories, driverInstances, pipelineExecutionStrategy, fragmentResultCacheContext));
         }
 
         private List<DriverFactory> getDriverFactories()
@@ -650,6 +707,11 @@ public class LocalExecutionPlanner
             return indexSourceContext;
         }
 
+        public LocalDynamicFiltersCollector getDynamicFiltersCollector()
+        {
+            return dynamicFiltersCollector;
+        }
+
         private int getNextPipelineId()
         {
             return nextPipelineId.getAndIncrement();
@@ -670,6 +732,11 @@ public class LocalExecutionPlanner
             this.inputDriver = inputDriver;
         }
 
+        public TaskMetadataContext getTaskMetadataContext()
+        {
+            return taskContext.getTaskMetadataContext();
+        }
+
         public TableWriteInfo getTableWriteInfo()
         {
             return tableWriteInfo;
@@ -678,12 +745,12 @@ public class LocalExecutionPlanner
         public LocalExecutionPlanContext createSubContext()
         {
             checkState(!indexSourceContext.isPresent(), "index build plan can not have sub-contexts");
-            return new LocalExecutionPlanContext(taskContext, driverFactories, indexSourceContext, nextPipelineId, tableWriteInfo);
+            return new LocalExecutionPlanContext(taskContext, driverFactories, indexSourceContext, dynamicFiltersCollector, nextPipelineId, tableWriteInfo);
         }
 
         public LocalExecutionPlanContext createIndexSourceSubContext(IndexSourceContext indexSourceContext)
         {
-            return new LocalExecutionPlanContext(taskContext, driverFactories, Optional.of(indexSourceContext), nextPipelineId, tableWriteInfo);
+            return new LocalExecutionPlanContext(taskContext, driverFactories, Optional.of(indexSourceContext), dynamicFiltersCollector, nextPipelineId, tableWriteInfo);
         }
 
         public OptionalInt getDriverInstanceCount()
@@ -828,7 +895,7 @@ public class LocalExecutionPlanner
                     context.getNextOperatorId(),
                     node.getId(),
                     analyzeContext.getQueryPerformanceFetcher(),
-                    metadata.getFunctionManager(),
+                    metadata.getFunctionAndTypeManager(),
                     node.isVerbose());
             return new PhysicalOperation(operatorFactory, makeLayout(node), context, source);
         }
@@ -975,9 +1042,9 @@ public class LocalExecutionPlanner
                     arguments.add(source.getLayout().get(argument));
                 }
                 VariableReferenceExpression variable = entry.getKey();
-                FunctionManager functionManager = metadata.getFunctionManager();
-                WindowFunctionSupplier windowFunctionSupplier = functionManager.getWindowFunctionImplementation(functionHandle);
-                Type type = metadata.getType(functionManager.getFunctionMetadata(functionHandle).getReturnType());
+                FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
+                WindowFunctionSupplier windowFunctionSupplier = functionAndTypeManager.getWindowFunctionImplementation(functionHandle);
+                Type type = metadata.getType(functionAndTypeManager.getFunctionMetadata(functionHandle).getReturnType());
                 windowFunctionsBuilder.add(window(windowFunctionSupplier, type, frameInfo, function.isIgnoreNulls(), arguments.build()));
                 windowFunctionOutputVariablesBuilder.add(variable);
             }
@@ -1009,7 +1076,10 @@ public class LocalExecutionPlanner
                     sortOrder,
                     node.getPreSortedOrderPrefix(),
                     10_000,
-                    pagesIndexFactory);
+                    pagesIndexFactory,
+                    isSpillEnabled(session),
+                    spillerFactory,
+                    orderingCompiler);
 
             return new PhysicalOperation(operatorFactory, outputMappings.build(), context, source);
         }
@@ -1199,7 +1269,7 @@ public class LocalExecutionPlanner
             RowExpression filterExpression = node.getPredicate();
             List<VariableReferenceExpression> outputVariables = node.getOutputVariables();
 
-            return visitScanFilterAndProject(context, node.getId(), sourceNode, Optional.of(filterExpression), identityAssignments(outputVariables), outputVariables);
+            return visitScanFilterAndProject(context, node.getId(), sourceNode, Optional.of(filterExpression), identityAssignments(outputVariables), outputVariables, LOCAL);
         }
 
         @Override
@@ -1207,7 +1277,7 @@ public class LocalExecutionPlanner
         {
             PlanNode sourceNode;
             Optional<RowExpression> filterExpression = Optional.empty();
-            if (node.getSource() instanceof FilterNode) {
+            if (node.getLocality().equals(LOCAL) && node.getSource() instanceof FilterNode) {
                 FilterNode filterNode = (FilterNode) node.getSource();
                 sourceNode = filterNode.getSource();
                 filterExpression = Optional.of(filterNode.getPredicate());
@@ -1216,7 +1286,7 @@ public class LocalExecutionPlanner
                 sourceNode = node.getSource();
             }
 
-            return visitScanFilterAndProject(context, node.getId(), sourceNode, filterExpression, node.getAssignments(), node.getOutputVariables());
+            return visitScanFilterAndProject(context, node.getId(), sourceNode, filterExpression, node.getAssignments(), node.getOutputVariables(), node.getLocality());
         }
 
         // TODO: This should be refactored, so that there's an optimizer that merges scan-filter-project into a single PlanNode
@@ -1226,15 +1296,16 @@ public class LocalExecutionPlanner
                 PlanNode sourceNode,
                 Optional<RowExpression> filterExpression,
                 Assignments assignments,
-                List<VariableReferenceExpression> outputVariables)
+                List<VariableReferenceExpression> outputVariables,
+                Locality locality)
         {
-            // if source is a table scan we fold it directly into the filter and project
+            // if source is a table scan and project is local we fold it directly into the filter and project
             // otherwise we plan it as a normal operator
             Map<VariableReferenceExpression, Integer> sourceLayout;
             TableHandle table = null;
             List<ColumnHandle> columns = null;
             PhysicalOperation source = null;
-            if (sourceNode instanceof TableScanNode) {
+            if (sourceNode instanceof TableScanNode && locality.equals(LOCAL)) {
                 TableScanNode tableScanNode = (TableScanNode) sourceNode;
                 Optional<DeleteScanInfo> deleteScanInfo = context.getTableWriteInfo().getDeleteScanInfo();
                 if (deleteScanInfo.isPresent() && deleteScanInfo.get().getId() == tableScanNode.getId()) {
@@ -1265,6 +1336,7 @@ public class LocalExecutionPlanner
 
             // filterExpression may contain large function calls; evaluate them before compiling.
             if (filterExpression.isPresent()) {
+                checkState(locality.equals(LOCAL), "Only local projection could be combined with filter");
                 // TODO: theoretically, filterExpression could be a constant value (true or false) after optimization; we could possibly optimize the execution.
                 filterExpression = Optional.of(bindChannels(filterExpression.get(), sourceLayout));
             }
@@ -1277,6 +1349,24 @@ public class LocalExecutionPlanner
             }
             Map<VariableReferenceExpression, Integer> outputMappings = outputMappingsBuilder.build();
 
+            Optional<DynamicFilterExtractResult> extractDynamicFilterResult = filterExpression.map(DynamicFilters::extractDynamicFilters);
+
+            // Extract the static ones
+            filterExpression = extractDynamicFilterResult
+                    .map(DynamicFilterExtractResult::getStaticConjuncts)
+                    .map(logicalRowExpressions::combineConjuncts);
+
+            Optional<List<DynamicFilterPlaceholder>> dynamicFilters = extractDynamicFilterResult.map(DynamicFilterExtractResult::getDynamicConjuncts);
+            Optional<Supplier<TupleDomain<ColumnHandle>>> dynamicFilterSupplier = Optional.empty();
+            if (dynamicFilters.isPresent() && !dynamicFilters.get().isEmpty() && sourceNode instanceof TableScanNode) {
+                TableScanNode tableScanNode = (TableScanNode) sourceNode;
+                LocalDynamicFiltersCollector collector = context.getDynamicFiltersCollector();
+                dynamicFilterSupplier = Optional.of(() -> {
+                    TupleDomain<VariableReferenceExpression> predicate = collector.getPredicate();
+                    return predicate.transform(tableScanNode.getAssignments()::get);
+                });
+            }
+
             // compiler uses inputs instead of variables, so rewrite the expressions first
             List<RowExpression> projections = outputVariables.stream()
                     .map(assignments::get)
@@ -1285,8 +1375,20 @@ public class LocalExecutionPlanner
 
             try {
                 if (columns != null) {
-                    Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(session.getSqlFunctionProperties(), filterExpression, projections, sourceNode.getId(), isOptimizeCommonSubExpressions(session));
-                    Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(session.getSqlFunctionProperties(), filterExpression, projections, isOptimizeCommonSubExpressions(session), Optional.of(context.getStageExecutionId() + "_" + planNodeId));
+                    Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(
+                            session.getSqlFunctionProperties(),
+                            filterExpression,
+                            projections,
+                            sourceNode.getId(),
+                            isOptimizeCommonSubExpressions(session),
+                            session.getSessionFunctions());
+                    Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(
+                            session.getSqlFunctionProperties(),
+                            filterExpression,
+                            projections,
+                            isOptimizeCommonSubExpressions(session),
+                            session.getSessionFunctions(),
+                            Optional.of(context.getStageExecutionId() + "_" + planNodeId));
 
                     SourceOperatorFactory operatorFactory = new ScanFilterAndProjectOperatorFactory(
                             context.getNextOperatorId(),
@@ -1298,15 +1400,22 @@ public class LocalExecutionPlanner
                             table,
                             columns,
                             projections.stream().map(RowExpression::getType).collect(toImmutableList()),
+                            dynamicFilterSupplier,
                             getFilterAndProjectMinOutputPageSize(session),
                             getFilterAndProjectMinOutputPageRowCount(session));
 
                     return new PhysicalOperation(operatorFactory, outputMappings, context, stageExecutionDescriptor.isScanGroupedExecution(sourceNode.getId()) ? GROUPED_EXECUTION : UNGROUPED_EXECUTION);
                 }
-                else {
-                    Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(session.getSqlFunctionProperties(), filterExpression, projections, isOptimizeCommonSubExpressions(session), Optional.of(context.getStageExecutionId() + "_" + planNodeId));
+                else if (locality.equals(LOCAL)) {
+                    Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(
+                            session.getSqlFunctionProperties(),
+                            filterExpression,
+                            projections,
+                            isOptimizeCommonSubExpressions(session),
+                            session.getSessionFunctions(),
+                            Optional.of(context.getStageExecutionId() + "_" + planNodeId));
 
-                    OperatorFactory operatorFactory = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
+                    OperatorFactory operatorFactory = new FilterAndProjectOperatorFactory(
                             context.getNextOperatorId(),
                             planNodeId,
                             pageProcessor,
@@ -1314,6 +1423,16 @@ public class LocalExecutionPlanner
                             getFilterAndProjectMinOutputPageSize(session),
                             getFilterAndProjectMinOutputPageRowCount(session));
 
+                    return new PhysicalOperation(operatorFactory, outputMappings, context, source);
+                }
+                else {
+                    // Remote projection
+                    checkArgument(locality.equals(REMOTE), format("Expect remote projection, get %s", locality));
+                    OperatorFactory operatorFactory = new RemoteProjectOperatorFactory(
+                            context.getNextOperatorId(),
+                            planNodeId,
+                            metadata.getFunctionAndTypeManager(),
+                            projections);
                     return new PhysicalOperation(operatorFactory, outputMappings, context, source);
                 }
             }
@@ -1480,7 +1599,7 @@ public class LocalExecutionPlanner
             List<Integer> remappedProbeKeyChannels = remappedProbeKeyChannelsBuilder.build();
             Function<RecordSet, RecordSet> probeKeyNormalizer = recordSet -> {
                 if (!overlappingFieldSets.isEmpty()) {
-                    recordSet = new FieldSetFilteringRecordSet(metadata.getFunctionManager(), recordSet, overlappingFieldSets);
+                    recordSet = new FieldSetFilteringRecordSet(metadata.getFunctionAndTypeManager(), recordSet, overlappingFieldSets);
                 }
                 return new MappedRecordSet(recordSet, remappedProbeKeyChannels);
             };
@@ -1587,6 +1706,7 @@ public class LocalExecutionPlanner
                         nonLookupOutputChannels,
                         indexSource.getTypes(),
                         session.getSqlFunctionProperties(),
+                        session.getSessionFunctions(),
                         pageFunctionCompiler));
             }
 
@@ -1619,7 +1739,7 @@ public class LocalExecutionPlanner
                     false,
                     UNGROUPED_EXECUTION,
                     UNGROUPED_EXECUTION,
-                    lifespan -> indexLookupSourceFactory,
+                    () -> indexLookupSourceFactory,
                     indexLookupSourceFactory.getOutputTypes());
 
             ImmutableMap.Builder<VariableReferenceExpression, Integer> outputMappings = ImmutableMap.builder();
@@ -1634,7 +1754,7 @@ public class LocalExecutionPlanner
             }
 
             OperatorFactory lookupJoinOperatorFactory;
-            OptionalInt totalOperatorsCount = getJoinOperatorsCountForSpill(context, session);
+            OptionalInt totalOperatorsCount = OptionalInt.empty(); // spill not supported for index joins
             switch (node.getType()) {
                 case INNER:
                     lookupJoinOperatorFactory = lookupJoinOperators.innerJoin(context.getNextOperatorId(), node.getId(), lookupSourceFactoryManager, probeSource.getTypes(), probeChannels, probeHashChannel, Optional.empty(), totalOperatorsCount, partitioningSpillerFactory);
@@ -1674,7 +1794,7 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitSpatialJoin(SpatialJoinNode node, LocalExecutionPlanContext context)
         {
             RowExpression filterExpression = node.getFilter();
-            List<CallExpression> spatialFunctions = extractSupportedSpatialFunctions(filterExpression, metadata.getFunctionManager());
+            List<CallExpression> spatialFunctions = extractSupportedSpatialFunctions(filterExpression, metadata.getFunctionAndTypeManager());
             for (CallExpression spatialFunction : spatialFunctions) {
                 Optional<PhysicalOperation> operation = tryCreateSpatialJoin(context, node, removeExpressionFromFilter(filterExpression, spatialFunction), spatialFunction, Optional.empty(), Optional.empty());
                 if (operation.isPresent()) {
@@ -1682,9 +1802,9 @@ public class LocalExecutionPlanner
                 }
             }
 
-            List<CallExpression> spatialComparisons = extractSupportedSpatialComparisons(filterExpression, metadata.getFunctionManager());
+            List<CallExpression> spatialComparisons = extractSupportedSpatialComparisons(filterExpression, metadata.getFunctionAndTypeManager());
             for (CallExpression spatialComparison : spatialComparisons) {
-                FunctionMetadata functionMetadata = metadata.getFunctionManager().getFunctionMetadata(spatialComparison.getFunctionHandle());
+                FunctionMetadata functionMetadata = metadata.getFunctionAndTypeManager().getFunctionMetadata(spatialComparison.getFunctionHandle());
                 checkArgument(functionMetadata.getOperatorType().isPresent() && functionMetadata.getOperatorType().get().isComparisonOperator());
                 if (functionMetadata.getOperatorType().get() == OperatorType.LESS_THAN || functionMetadata.getOperatorType().get() == OperatorType.LESS_THAN_OR_EQUAL) {
                     // ST_Distance(a, b) <= r
@@ -1767,8 +1887,8 @@ public class LocalExecutionPlanner
 
         private SpatialPredicate spatialTest(CallExpression functionCall, boolean probeFirst, Optional<OperatorType> comparisonOperator)
         {
-            FunctionMetadata functionMetadata = metadata.getFunctionManager().getFunctionMetadata(functionCall.getFunctionHandle());
-            QualifiedFunctionName functionName = functionMetadata.getName();
+            FunctionMetadata functionMetadata = metadata.getFunctionAndTypeManager().getFunctionMetadata(functionCall.getFunctionHandle());
+            QualifiedObjectName functionName = functionMetadata.getName();
             List<TypeSignature> argumentTypes = functionMetadata.getArgumentTypes();
             Predicate<TypeSignature> isSpherical = (typeSignature)
                     -> typeSignature.equals(SPHERICAL_GEOGRAPHY_TYPE_SIGNATURE);
@@ -1783,7 +1903,7 @@ public class LocalExecutionPlanner
             }
         }
 
-        private SpatialPredicate euclideanSpatialTest(QualifiedFunctionName functionName, Optional<OperatorType> comparisonOperator, boolean probeFirst)
+        private SpatialPredicate euclideanSpatialTest(QualifiedObjectName functionName, Optional<OperatorType> comparisonOperator, boolean probeFirst)
         {
             if (functionName.equals(ST_CONTAINS)) {
                 if (probeFirst) {
@@ -1830,7 +1950,7 @@ public class LocalExecutionPlanner
             throw new UnsupportedOperationException("Unsupported spatial function: " + functionName);
         }
 
-        private SpatialPredicate sphericalSpatialTest(QualifiedFunctionName functionName, Optional<OperatorType> comparisonOperator)
+        private SpatialPredicate sphericalSpatialTest(QualifiedObjectName functionName, Optional<OperatorType> comparisonOperator)
         {
             if (functionName.equals(ST_DISTANCE)) {
                 if (comparisonOperator.get() == OperatorType.LESS_THAN) {
@@ -1867,7 +1987,7 @@ public class LocalExecutionPlanner
                     false,
                     probeSource.getPipelineExecutionStrategy(),
                     buildSource.getPipelineExecutionStrategy(),
-                    lifespan -> new NestedLoopJoinPagesSupplier(),
+                    () -> new NestedLoopJoinPagesSupplier(),
                     buildSource.getTypes());
             NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(
                     buildContext.getNextOperatorId(),
@@ -1883,7 +2003,8 @@ public class LocalExecutionPlanner
                             .add(nestedLoopBuildOperatorFactory)
                             .build(),
                     buildContext.getDriverInstanceCount(),
-                    buildSource.getPipelineExecutionStrategy());
+                    buildSource.getPipelineExecutionStrategy(),
+                    Optional.empty());
 
             ImmutableMap.Builder<VariableReferenceExpression, Integer> outputMappings = ImmutableMap.builder();
             outputMappings.putAll(probeSource.getLayout());
@@ -1986,6 +2107,7 @@ public class LocalExecutionPlanner
             Optional<JoinFilterFunctionFactory> filterFunctionFactory = joinFilter
                     .map(filterExpression -> compileJoinFilterFunction(
                             session.getSqlFunctionProperties(),
+                            session.getSessionFunctions(),
                             filterExpression,
                             probeLayout,
                             buildLayout));
@@ -2014,7 +2136,8 @@ public class LocalExecutionPlanner
                             .add(builderOperatorFactory)
                             .build(),
                     buildContext.getDriverInstanceCount(),
-                    buildSource.getPipelineExecutionStrategy());
+                    buildSource.getPipelineExecutionStrategy(),
+                    Optional.empty());
 
             return builderOperatorFactory.getPagesSpatialIndexFactory();
         }
@@ -2075,18 +2198,19 @@ public class LocalExecutionPlanner
             OptionalInt buildHashChannel = buildHashVariable.map(variableChannelGetter(buildSource))
                     .map(OptionalInt::of).orElse(OptionalInt.empty());
 
-            boolean spillEnabled = isSpillEnabled(context.getSession());
+            boolean spillEnabled = isSpillEnabled(context.getSession()) && isJoinSpillingEnabled(context.getSession());
             boolean buildOuter = node.getType() == RIGHT || node.getType() == FULL;
             int partitionCount = buildContext.getDriverInstanceCount().orElse(1);
 
             Optional<JoinFilterFunctionFactory> filterFunctionFactory = node.getFilter()
                     .map(filterExpression -> compileJoinFilterFunction(
                             session.getSqlFunctionProperties(),
+                            session.getSessionFunctions(),
                             filterExpression,
                             probeSource.getLayout(),
                             buildSource.getLayout()));
 
-            Optional<SortExpressionContext> sortExpressionContext = node.getSortExpressionContext(metadata.getFunctionManager());
+            Optional<SortExpressionContext> sortExpressionContext = node.getSortExpressionContext(metadata.getFunctionAndTypeManager());
 
             Optional<Integer> sortChannel = sortExpressionContext
                     .map(SortExpressionContext::getSortExpression)
@@ -2100,6 +2224,7 @@ public class LocalExecutionPlanner
                     .map(searchExpressions -> searchExpressions.stream()
                             .map(searchExpression -> compileJoinFilterFunction(
                                     session.getSqlFunctionProperties(),
+                                    session.getSessionFunctions(),
                                     searchExpression,
                                     probeSource.getLayout(),
                                     buildSource.getLayout()))
@@ -2113,16 +2238,26 @@ public class LocalExecutionPlanner
                     buildOuter,
                     probeSource.getPipelineExecutionStrategy(),
                     buildSource.getPipelineExecutionStrategy(),
-                    lifespan -> new PartitionedLookupSourceFactory(
+                    () -> new PartitionedLookupSourceFactory(
                             buildSource.getTypes(),
                             buildOutputTypes,
                             buildChannels.stream()
                                     .map(buildSource.getTypes()::get)
                                     .collect(toImmutableList()),
-                            buildContext.getDriverInstanceCount().orElse(1),
+                            partitionCount,
                             buildSource.getLayout(),
                             buildOuter),
                     buildOutputTypes);
+
+            ImmutableList.Builder<OperatorFactory> factoriesBuilder = new ImmutableList.Builder<>();
+            factoriesBuilder.addAll(buildSource.getOperatorFactories());
+
+            createDynamicFilter(buildSource, node, context, partitionCount).ifPresent(
+                    filter -> factoriesBuilder.add(createDynamicFilterSourceOperatorFactory(filter, node.getId(), buildSource, buildContext)));
+
+            // spill does not work for probe only grouped execution because PartitionedLookupSourceFactory.finishProbe() expects a defined number of probe operators
+            boolean isProbeOnlyGroupedExecution = probeSource.getPipelineExecutionStrategy() == GROUPED_EXECUTION && buildSource.getPipelineExecutionStrategy() != GROUPED_EXECUTION;
+
             HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(
                     buildContext.getNextOperatorId(),
                     node.getId(),
@@ -2135,31 +2270,77 @@ public class LocalExecutionPlanner
                     searchFunctionFactories,
                     10_000,
                     pagesIndexFactory,
-                    spillEnabled && !buildOuter && partitionCount > 1,
+                    spillEnabled && !buildOuter && partitionCount > 1 && !isProbeOnlyGroupedExecution,
                     singleStreamSpillerFactory,
                     isBroadcastJoin);
+
+            factoriesBuilder.add(hashBuilderOperatorFactory);
 
             context.addDriverFactory(
                     buildContext.isInputDriver(),
                     false,
-                    ImmutableList.<OperatorFactory>builder()
-                            .addAll(buildSource.getOperatorFactories())
-                            .add(hashBuilderOperatorFactory)
-                            .build(),
+                    factoriesBuilder.build(),
                     buildContext.getDriverInstanceCount(),
-                    buildSource.getPipelineExecutionStrategy());
+                    buildSource.getPipelineExecutionStrategy(),
+                    Optional.empty());
 
             return lookupSourceFactoryManager;
         }
 
+        private DynamicFilterSourceOperator.DynamicFilterSourceOperatorFactory createDynamicFilterSourceOperatorFactory(
+                LocalDynamicFilter dynamicFilter,
+                PlanNodeId planNodeId,
+                PhysicalOperation buildSource,
+                LocalExecutionPlanContext context)
+        {
+            List<DynamicFilterSourceOperator.Channel> filterBuildChannels = dynamicFilter.getBuildChannels().entrySet().stream()
+                    .map(entry -> {
+                        String filterId = entry.getKey();
+                        int index = entry.getValue();
+                        Type type = buildSource.getTypes().get(index);
+                        return new DynamicFilterSourceOperator.Channel(filterId, type, index);
+                    })
+                    .collect(Collectors.toList());
+            return new DynamicFilterSourceOperator.DynamicFilterSourceOperatorFactory(
+                    context.getNextOperatorId(),
+                    planNodeId,
+                    dynamicFilter.getTupleDomainConsumer(),
+                    filterBuildChannels,
+                    getDynamicFilteringMaxPerDriverRowCount(context.getSession()),
+                    getDynamicFilteringMaxPerDriverSize(context.getSession()));
+        }
+
+        private Optional<LocalDynamicFilter> createDynamicFilter(PhysicalOperation buildSource, AbstractJoinNode node, LocalExecutionPlanContext context, int partitionCount)
+        {
+            if (!isEnableDynamicFiltering(context.getSession())) {
+                return Optional.empty();
+            }
+            if (node.getDynamicFilters().isEmpty()) {
+                return Optional.empty();
+            }
+            if (buildSource.getPipelineExecutionStrategy() == GROUPED_EXECUTION) {
+                throw new PrestoException(NOT_SUPPORTED, "Dynamic filtering cannot be used with grouped execution");
+            }
+            LocalDynamicFiltersCollector collector = context.getDynamicFiltersCollector();
+            return LocalDynamicFilter
+                    .create(node, partitionCount)
+                    .map(filter -> {
+                        // Intersect dynamic filters' predicates when they become ready,
+                        // in order to support multiple join nodes in the same plan fragment.
+                        addSuccessCallback(filter.getResultFuture(), collector::intersect);
+                        return filter;
+                    });
+        }
+
         private JoinFilterFunctionFactory compileJoinFilterFunction(
                 SqlFunctionProperties sqlFunctionProperties,
+                Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
                 RowExpression filterExpression,
                 Map<VariableReferenceExpression, Integer> probeLayout,
                 Map<VariableReferenceExpression, Integer> buildLayout)
         {
             Map<VariableReferenceExpression, Integer> joinSourcesLayout = createJoinSourcesLayout(buildLayout, probeLayout);
-            return joinFilterFunctionCompiler.compileJoinFilterFunction(sqlFunctionProperties, bindChannels(filterExpression, joinSourcesLayout), buildLayout.size());
+            return joinFilterFunctionCompiler.compileJoinFilterFunction(sqlFunctionProperties, sessionFunctions, bindChannels(filterExpression, joinSourcesLayout), buildLayout.size());
         }
 
         private int sortExpressionAsSortChannel(
@@ -2208,7 +2389,7 @@ public class LocalExecutionPlanner
         private OptionalInt getJoinOperatorsCountForSpill(LocalExecutionPlanContext context, Session session)
         {
             OptionalInt driverInstanceCount = context.getDriverInstanceCount();
-            if (isSpillEnabled(session)) {
+            if (isSpillEnabled(session) && isJoinSpillingEnabled(session)) {
                 checkState(driverInstanceCount.isPresent(), "A fixed distribution is required for JOIN when spilling is enabled");
             }
             return driverInstanceCount;
@@ -2249,16 +2430,25 @@ public class LocalExecutionPlanner
                     buildHashChannel,
                     10_000,
                     joinCompiler);
+
+            ImmutableList.Builder<OperatorFactory> factoriesBuilder = ImmutableList.builder();
+            factoriesBuilder.addAll(buildSource.getOperatorFactories());
+
+            // add collector to the source
+            int partitionCount = buildContext.getDriverInstanceCount().orElse(1);
+            Optional<LocalDynamicFilter> localDynamicFilter = createDynamicFilter(buildSource, node, context, partitionCount);
+            localDynamicFilter.ifPresent(filter -> factoriesBuilder.add(createDynamicFilterSourceOperatorFactory(filter, node.getId(), buildSource, buildContext)));
+
+            factoriesBuilder.add(setBuilderOperatorFactory);
+
             SetSupplier setProvider = setBuilderOperatorFactory.getSetProvider();
             context.addDriverFactory(
                     buildContext.isInputDriver(),
                     false,
-                    ImmutableList.<OperatorFactory>builder()
-                            .addAll(buildSource.getOperatorFactories())
-                            .add(setBuilderOperatorFactory)
-                            .build(),
+                    factoriesBuilder.build(),
                     buildContext.getDriverInstanceCount(),
-                    buildSource.getPipelineExecutionStrategy());
+                    buildSource.getPipelineExecutionStrategy(),
+                    Optional.empty());
 
             // Source channels are always laid out first, followed by the boolean output variable
             Map<VariableReferenceExpression, Integer> outputMappings = ImmutableMap.<VariableReferenceExpression, Integer>builder()
@@ -2332,12 +2522,19 @@ public class LocalExecutionPlanner
                     .map(source::variableToChannel)
                     .collect(toImmutableList());
 
+            List<String> notNullChannelColumnNames = node.getColumns().stream()
+                    .map(variable -> node.getNotNullColumnVariables().contains(variable) ? node.getColumnNames().get(source.variableToChannel(variable)) : null)
+                    .collect(Collectors.toList());
+
             OperatorFactory operatorFactory = new TableWriterOperatorFactory(
                     context.getNextOperatorId(),
                     node.getId(),
                     pageSinkManager,
+                    metadataUpdaterManager,
+                    context.getTaskMetadataContext(),
                     context.getTableWriteInfo().getWriterTarget().orElseThrow(() -> new VerifyException("writerTarget is absent")),
                     inputChannels,
+                    notNullChannelColumnNames,
                     session,
                     statisticsAggregation,
                     getVariableTypes(node.getOutputVariables()),
@@ -2588,7 +2785,13 @@ public class LocalExecutionPlanner
                     node.getId(),
                     exchangeFactory.newSinkFactoryId(),
                     pagePreprocessor));
-            context.addDriverFactory(subContext.isInputDriver(), false, operatorFactories, subContext.getDriverInstanceCount(), source.getPipelineExecutionStrategy());
+            context.addDriverFactory(
+                    subContext.isInputDriver(),
+                    false,
+                    operatorFactories,
+                    subContext.getDriverInstanceCount(),
+                    source.getPipelineExecutionStrategy(),
+                    createFragmentResultCacheContext(fragmentResultCacheManager, sourceNode, node.getPartitioningScheme(), session, objectMapper));
             // the main driver is not an input... the exchange sources are the input for the plan
             context.setInputDriver(false);
 
@@ -2676,7 +2879,8 @@ public class LocalExecutionPlanner
                         false,
                         operatorFactories,
                         subContext.getDriverInstanceCount(),
-                        exchangeSourcePipelineExecutionStrategy);
+                        source.getPipelineExecutionStrategy(),
+                        createFragmentResultCacheContext(fragmentResultCacheManager, node.getSources().get(i), node.getPartitioningScheme(), session, objectMapper));
             }
 
             // the main driver is not an input... the exchange sources are the input for the plan
@@ -2712,8 +2916,8 @@ public class LocalExecutionPlanner
                 Aggregation aggregation,
                 boolean spillEnabled)
         {
-            FunctionManager functionManager = metadata.getFunctionManager();
-            InternalAggregationFunction internalAggregationFunction = functionManager.getAggregateFunctionImplementation(aggregation.getFunctionHandle());
+            FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
+            InternalAggregationFunction internalAggregationFunction = functionAndTypeManager.getAggregateFunctionImplementation(aggregation.getFunctionHandle());
 
             List<Integer> valueChannels = new ArrayList<>();
             for (RowExpression argument : aggregation.getArguments()) {
@@ -2730,7 +2934,12 @@ public class LocalExecutionPlanner
                     .collect(toImmutableList());
             for (int i = 0; i < lambdas.size(); i++) {
                 List<Class> lambdaInterfaces = internalAggregationFunction.getLambdaInterfaces();
-                Class<? extends LambdaProvider> lambdaProviderClass = compileLambdaProvider(lambdas.get(i), metadata, session.getSqlFunctionProperties(), lambdaInterfaces.get(i));
+                Class<? extends LambdaProvider> lambdaProviderClass = compileLambdaProvider(
+                        lambdas.get(i),
+                        metadata,
+                        session.getSqlFunctionProperties(),
+                        session.getSessionFunctions(),
+                        lambdaInterfaces.get(i));
                 try {
                     lambdaProviders.add((LambdaProvider) constructorMethodHandle(lambdaProviderClass, SqlFunctionProperties.class).invoke(session.getSqlFunctionProperties()));
                 }

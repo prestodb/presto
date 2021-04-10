@@ -14,12 +14,13 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
+import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import com.facebook.presto.sql.planner.iterative.rule.TranslateExpressions;
@@ -161,7 +162,7 @@ public class BasePlanTest
     protected void assertMinimallyOptimizedPlan(@Language("SQL") String sql, PlanMatchPattern pattern)
     {
         List<PlanOptimizer> optimizers = ImmutableList.of(
-                new UnaliasSymbolReferences(queryRunner.getMetadata().getFunctionManager()),
+                new UnaliasSymbolReferences(queryRunner.getMetadata().getFunctionAndTypeManager()),
                 new PruneUnreferencedOutputs(),
                 new IterativeOptimizer(
                         new RuleStatsRecorder(),
@@ -206,6 +207,24 @@ public class BasePlanTest
     {
         try {
             return queryRunner.inTransaction(transactionSession -> queryRunner.createPlan(transactionSession, sql, stage, forceSingleNode, WarningCollector.NOOP));
+        }
+        catch (RuntimeException e) {
+            throw new AssertionError("Planning failed for SQL: " + sql, e);
+        }
+    }
+
+    protected SubPlan subplan(String sql, LogicalPlanner.Stage stage, boolean forceSingleNode)
+    {
+        return subplan(sql, stage, forceSingleNode, getQueryRunner().getDefaultSession());
+    }
+
+    protected SubPlan subplan(String sql, LogicalPlanner.Stage stage, boolean forceSingleNode, Session session)
+    {
+        try {
+            return queryRunner.inTransaction(session, transactionSession -> {
+                Plan plan = queryRunner.createPlan(transactionSession, sql, stage, forceSingleNode, WarningCollector.NOOP);
+                return queryRunner.createSubPlans(transactionSession, plan, forceSingleNode);
+            });
         }
         catch (RuntimeException e) {
             throw new AssertionError("Planning failed for SQL: " + sql, e);

@@ -18,7 +18,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.QueryExecution.QueryOutputInfo;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
@@ -27,6 +26,9 @@ import com.facebook.presto.server.BasicQueryStats;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.security.SelectedRole;
@@ -75,6 +77,7 @@ import static com.facebook.presto.execution.QueryState.TERMINAL_QUERY_STATES;
 import static com.facebook.presto.execution.QueryState.WAITING_FOR_RESOURCES;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
+import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.facebook.presto.util.Failures.toFailure;
@@ -83,6 +86,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -111,6 +115,7 @@ public class QueryStateMachine
 
     private final AtomicLong peakTaskUserMemory = new AtomicLong();
     private final AtomicLong peakTaskTotalMemory = new AtomicLong();
+    private final AtomicLong peakNodeTotalMemory = new AtomicLong();
 
     private final AtomicInteger currentRunningTaskCount = new AtomicInteger();
     private final AtomicInteger peakRunningTaskCount = new AtomicInteger();
@@ -140,6 +145,9 @@ public class QueryStateMachine
     private final AtomicReference<Set<Input>> inputs = new AtomicReference<>(ImmutableSet.of());
     private final AtomicReference<Optional<Output>> output = new AtomicReference<>(Optional.empty());
     private final StateMachine<Optional<QueryInfo>> finalQueryInfo;
+
+    private final Map<SqlFunctionId, SqlInvokedFunction> addedSessionFunctions = new ConcurrentHashMap<>();
+    private final Set<SqlFunctionId> removedSessionFunctions = Sets.newConcurrentHashSet();
 
     private final WarningCollector warningCollector;
 
@@ -275,6 +283,11 @@ public class QueryStateMachine
         return peakTaskUserMemory.get();
     }
 
+    public long getPeakNodeTotalMemory()
+    {
+        return peakNodeTotalMemory.get();
+    }
+
     public int getCurrentRunningTaskCount()
     {
         return currentRunningTaskCount.get();
@@ -302,7 +315,12 @@ public class QueryStateMachine
         return warningCollector;
     }
 
-    public void updateMemoryUsage(long deltaUserMemoryInBytes, long deltaTotalMemoryInBytes, long taskUserMemoryInBytes, long taskTotalMemoryInBytes)
+    public void updateMemoryUsage(
+            long deltaUserMemoryInBytes,
+            long deltaTotalMemoryInBytes,
+            long taskUserMemoryInBytes,
+            long taskTotalMemoryInBytes,
+            long peakNodeTotalMemoryInBytes)
     {
         currentUserMemory.addAndGet(deltaUserMemoryInBytes);
         currentTotalMemory.addAndGet(deltaTotalMemoryInBytes);
@@ -310,6 +328,7 @@ public class QueryStateMachine
         peakTotalMemory.updateAndGet(currentPeakValue -> Math.max(currentTotalMemory.get(), currentPeakValue));
         peakTaskUserMemory.accumulateAndGet(taskUserMemoryInBytes, Math::max);
         peakTaskTotalMemory.accumulateAndGet(taskTotalMemoryInBytes, Math::max);
+        peakNodeTotalMemory.accumulateAndGet(peakNodeTotalMemoryInBytes, Math::max);
     }
 
     public BasicQueryInfo getBasicQueryInfo(Optional<BasicStageExecutionStats> rootStage)
@@ -319,14 +338,6 @@ public class QueryStateMachine
         // information, the query could finish, and the task states would
         // never be visible.
         QueryState state = queryState.get();
-
-        ErrorCode errorCode = null;
-        if (state == QueryState.FAILED) {
-            ExecutionFailureInfo failureCause = this.failureCause.get();
-            if (failureCause != null) {
-                errorCode = failureCause.getErrorCode();
-            }
-        }
 
         BasicStageExecutionStats stageStats = rootStage.orElse(EMPTY_STAGE_STATS);
         BasicQueryStats queryStats = new BasicQueryStats(
@@ -352,6 +363,7 @@ public class QueryStateMachine
                 succinctBytes(getPeakUserMemoryInBytes()),
                 succinctBytes(getPeakTotalMemoryInBytes()),
                 succinctBytes(getPeakTaskTotalMemory()),
+                succinctBytes(getPeakNodeTotalMemory()),
 
                 stageStats.getTotalCpuTime(),
                 stageStats.getTotalScheduledTime(),
@@ -373,8 +385,7 @@ public class QueryStateMachine
                 self,
                 query,
                 queryStats,
-                errorCode == null ? null : errorCode.getType(),
-                errorCode,
+                failureCause.get(),
                 queryType,
                 warningCollector.getWarnings());
     }
@@ -443,7 +454,9 @@ public class QueryStateMachine
                 Optional.of(resourceGroup),
                 queryType,
                 failedTasks,
-                runtimeOptimizedStages.isEmpty() ? Optional.empty() : Optional.of(runtimeOptimizedStages));
+                runtimeOptimizedStages.isEmpty() ? Optional.empty() : Optional.of(runtimeOptimizedStages),
+                addedSessionFunctions,
+                removedSessionFunctions);
     }
 
     private QueryStats getQueryStats(Optional<StageInfo> rootStage)
@@ -455,7 +468,8 @@ public class QueryStateMachine
                 succinctBytes(getPeakUserMemoryInBytes()),
                 succinctBytes(getPeakTotalMemoryInBytes()),
                 succinctBytes(getPeakTaskUserMemory()),
-                succinctBytes(getPeakTaskTotalMemory()));
+                succinctBytes(getPeakTaskTotalMemory()),
+                succinctBytes(getPeakNodeTotalMemory()));
     }
 
     public VersionedMemoryPoolId getMemoryPool()
@@ -540,6 +554,16 @@ public class QueryStateMachine
         return deallocatedPreparedStatements;
     }
 
+    public Map<SqlFunctionId, SqlInvokedFunction> getAddedSessionFunctions()
+    {
+        return addedSessionFunctions;
+    }
+
+    public Set<SqlFunctionId> getRemovedSessionFunctions()
+    {
+        return removedSessionFunctions;
+    }
+
     public void addPreparedStatement(String key, String value)
     {
         requireNonNull(key, "key is null");
@@ -556,6 +580,30 @@ public class QueryStateMachine
             throw new PrestoException(NOT_FOUND, "Prepared statement not found: " + key);
         }
         deallocatedPreparedStatements.add(key);
+    }
+
+    public void addSessionFunction(SqlFunctionId signature, SqlInvokedFunction function)
+    {
+        requireNonNull(signature, "signature is null");
+        requireNonNull(function, "function is null");
+
+        if (session.getSessionFunctions().containsKey(signature) || addedSessionFunctions.putIfAbsent(signature, function) != null) {
+            throw new PrestoException(ALREADY_EXISTS, format("Session function %s has already been defined", signature));
+        }
+    }
+
+    public void removeSessionFunction(SqlFunctionId signature, boolean suppressNotFoundException)
+    {
+        requireNonNull(signature, "signature is null");
+
+        if (!session.getSessionFunctions().containsKey(signature)) {
+            if (!suppressNotFoundException) {
+                throw new PrestoException(NOT_FOUND, format("Session function %s not found", signature.getFunctionName()));
+            }
+        }
+        else {
+            removedSessionFunctions.add(signature);
+        }
     }
 
     public void setStartedTransactionId(TransactionId startedTransactionId)
@@ -871,7 +919,9 @@ public class QueryStateMachine
                 queryInfo.getResourceGroupId(),
                 queryInfo.getQueryType(),
                 queryInfo.getFailedTasks(),
-                queryInfo.getRuntimeOptimizedStages());
+                queryInfo.getRuntimeOptimizedStages(),
+                queryInfo.getAddedSessionFunctions(),
+                queryInfo.getRemovedSessionFunctions());
         finalQueryInfo.compareAndSet(finalInfo, Optional.of(prunedQueryInfo));
     }
 
@@ -916,6 +966,7 @@ public class QueryStateMachine
                 queryStats.getPeakTotalMemoryReservation(),
                 queryStats.getPeakTaskUserMemory(),
                 queryStats.getPeakTaskTotalMemory(),
+                queryStats.getPeakNodeTotalMemory(),
                 queryStats.isScheduled(),
                 queryStats.getTotalScheduledTime(),
                 queryStats.getTotalCpuTime(),

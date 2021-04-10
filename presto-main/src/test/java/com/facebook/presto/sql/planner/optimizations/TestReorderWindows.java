@@ -323,13 +323,13 @@ public class TestReorderWindows
     private void assertUnitPlan(@Language("SQL") String sql, PlanMatchPattern pattern)
     {
         List<PlanOptimizer> optimizers = ImmutableList.of(
-                new UnaliasSymbolReferences(getMetadata().getFunctionManager()),
-                new PredicatePushDown(getMetadata(), getQueryRunner().getSqlParser()),
+                new UnaliasSymbolReferences(getMetadata().getFunctionAndTypeManager()),
                 new IterativeOptimizer(
                         new RuleStatsRecorder(),
                         getQueryRunner().getStatsCalculator(),
                         getQueryRunner().getCostCalculator(),
                         new TranslateExpressions(getQueryRunner().getMetadata(), new SqlParser()).rules()),
+                new PredicatePushDown(getMetadata(), getQueryRunner().getSqlParser()),
                 new IterativeOptimizer(
                         new RuleStatsRecorder(),
                         getQueryRunner().getStatsCalculator(),

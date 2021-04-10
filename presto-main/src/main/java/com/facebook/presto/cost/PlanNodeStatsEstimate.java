@@ -39,9 +39,10 @@ import static java.util.Objects.requireNonNull;
 public class PlanNodeStatsEstimate
 {
     private static final double DEFAULT_DATA_SIZE_PER_COLUMN = 50;
-    private static final PlanNodeStatsEstimate UNKNOWN = new PlanNodeStatsEstimate(NaN, ImmutableMap.of());
+    private static final PlanNodeStatsEstimate UNKNOWN = new PlanNodeStatsEstimate(NaN, NaN, ImmutableMap.of());
 
     private final double outputRowCount;
+    private final double totalSize;
     private final PMap<VariableReferenceExpression, VariableStatsEstimate> variableStatistics;
 
     public static PlanNodeStatsEstimate unknown()
@@ -52,15 +53,17 @@ public class PlanNodeStatsEstimate
     @JsonCreator
     public PlanNodeStatsEstimate(
             @JsonProperty("outputRowCount") double outputRowCount,
+            @JsonProperty("totalSize") double totalSize,
             @JsonProperty("variableStatistics") Map<VariableReferenceExpression, VariableStatsEstimate> variableStatistics)
     {
-        this(outputRowCount, HashTreePMap.from(requireNonNull(variableStatistics, "variableStatistics is null")));
+        this(outputRowCount, totalSize, HashTreePMap.from(requireNonNull(variableStatistics, "variableStatistics is null")));
     }
 
-    private PlanNodeStatsEstimate(double outputRowCount, PMap<VariableReferenceExpression, VariableStatsEstimate> variableStatistics)
+    private PlanNodeStatsEstimate(double outputRowCount, double totalSize, PMap<VariableReferenceExpression, VariableStatsEstimate> variableStatistics)
     {
         checkArgument(isNaN(outputRowCount) || outputRowCount >= 0, "outputRowCount cannot be negative");
         this.outputRowCount = outputRowCount;
+        this.totalSize = totalSize;
         this.variableStatistics = variableStatistics;
     }
 
@@ -72,6 +75,21 @@ public class PlanNodeStatsEstimate
     public double getOutputRowCount()
     {
         return outputRowCount;
+    }
+
+    @JsonProperty
+    public double getTotalSize()
+    {
+        return totalSize;
+    }
+
+    /**
+     * Only use when getting all columns and meanwhile do not want to
+     * do per-column estimation.
+     */
+    public double getOutputSizeInBytes()
+    {
+        return totalSize;
     }
 
     /**
@@ -155,6 +173,7 @@ public class PlanNodeStatsEstimate
     {
         return toStringHelper(this)
                 .add("outputRowCount", outputRowCount)
+                .add("totalSize", totalSize)
                 .add("variableStatistics", variableStatistics)
                 .toString();
     }
@@ -170,13 +189,14 @@ public class PlanNodeStatsEstimate
         }
         PlanNodeStatsEstimate that = (PlanNodeStatsEstimate) o;
         return Double.compare(outputRowCount, that.outputRowCount) == 0 &&
+                Double.compare(totalSize, that.totalSize) == 0 &&
                 Objects.equals(variableStatistics, that.variableStatistics);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(outputRowCount, variableStatistics);
+        return Objects.hash(outputRowCount, totalSize, variableStatistics);
     }
 
     public static Builder builder()
@@ -184,30 +204,42 @@ public class PlanNodeStatsEstimate
         return new Builder();
     }
 
+    // Do not propagate the totalSize by default, because otherwise people have to explicitly set it to NaN or a not NaN but possibly wrong totalSize value is carried.
+    // Given that we are only using this field for "leaf" simple join plans for now, it is safer to set it NaN by default so that if "accidentally" fetch the totalSize
+    // at other places we can tell that it is not usable via isNaN(). Ideally, when we have implemented how to handle the totalSize field for all types of operator rules,
+    // we should propagate totalSize as default to simplify the relevant operations in rules that do not change this field.
     public static Builder buildFrom(PlanNodeStatsEstimate other)
     {
-        return new Builder(other.getOutputRowCount(), other.variableStatistics);
+        return new Builder(other.getOutputRowCount(), NaN, other.variableStatistics);
     }
 
     public static final class Builder
     {
         private double outputRowCount;
+        private double totalSize;
         private PMap<VariableReferenceExpression, VariableStatsEstimate> variableStatistics;
 
         public Builder()
         {
-            this(NaN, HashTreePMap.empty());
+            this(NaN, NaN, HashTreePMap.empty());
         }
 
-        private Builder(double outputRowCount, PMap<VariableReferenceExpression, VariableStatsEstimate> variableStatistics)
+        private Builder(double outputRowCount, double totalSize, PMap<VariableReferenceExpression, VariableStatsEstimate> variableStatistics)
         {
             this.outputRowCount = outputRowCount;
+            this.totalSize = totalSize;
             this.variableStatistics = variableStatistics;
         }
 
         public Builder setOutputRowCount(double outputRowCount)
         {
             this.outputRowCount = outputRowCount;
+            return this;
+        }
+
+        public Builder setTotalSize(double totalSize)
+        {
+            this.totalSize = totalSize;
             return this;
         }
 
@@ -231,7 +263,7 @@ public class PlanNodeStatsEstimate
 
         public PlanNodeStatsEstimate build()
         {
-            return new PlanNodeStatsEstimate(outputRowCount, variableStatistics);
+            return new PlanNodeStatsEstimate(outputRowCount, totalSize, variableStatistics);
         }
     }
 }

@@ -18,7 +18,7 @@ import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -45,7 +45,7 @@ import static com.facebook.presto.util.StructuralTestUtil.mapType;
 
 public class TestMapAggAggregation
 {
-    private static final FunctionManager functionManager = MetadataManager.createTestMetadataManager().getFunctionManager();
+    private static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = MetadataManager.createTestMetadataManager().getFunctionAndTypeManager();
 
     @Test
     public void testDuplicateKeysValues()
@@ -188,6 +188,6 @@ public class TestMapAggAggregation
 
     private InternalAggregationFunction getAggregation(Type... arguments)
     {
-        return functionManager.getAggregateFunctionImplementation(functionManager.lookupFunction(NAME, fromTypes(arguments)));
+        return FUNCTION_AND_TYPE_MANAGER.getAggregateFunctionImplementation(FUNCTION_AND_TYPE_MANAGER.lookupFunction(NAME, fromTypes(arguments)));
     }
 }

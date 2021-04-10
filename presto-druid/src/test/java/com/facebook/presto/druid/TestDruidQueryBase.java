@@ -15,12 +15,10 @@ package com.facebook.presto.druid;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
@@ -28,6 +26,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.FilterNode;
@@ -42,7 +41,6 @@ import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.ExpressionUtils;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.TypeProvider;
@@ -53,7 +51,6 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.testing.TestingSession;
 import com.facebook.presto.testing.TestingTransactionHandle;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -66,10 +63,12 @@ import java.util.stream.IntStream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.druid.DruidColumnHandle.DruidColumnType.REGULAR;
 import static com.facebook.presto.druid.DruidQueryGeneratorContext.Origin.DERIVED;
 import static com.facebook.presto.druid.DruidQueryGeneratorContext.Origin.TABLE_COLUMN;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.spi.plan.LimitNode.Step.FINAL;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
@@ -81,9 +80,8 @@ import static java.util.stream.Collectors.toMap;
 
 public class TestDruidQueryBase
 {
-    protected static final TypeManager typeManager = new TypeRegistry();
-    protected static final FunctionManager functionMetadataManager = new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
-    protected static final StandardFunctionResolution standardFunctionResolution = new FunctionResolution(functionMetadataManager);
+    protected static final FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
+    protected static final StandardFunctionResolution standardFunctionResolution = new FunctionResolution(functionAndTypeManager);
 
     protected static ConnectorId druidConnectorId = new ConnectorId("id");
     protected static DruidTableHandle realtimeOnlyTable = new DruidTableHandle("schema", "realtimeOnly", Optional.empty());
@@ -92,17 +90,21 @@ public class TestDruidQueryBase
     protected static DruidColumnHandle city = new DruidColumnHandle("city", VARCHAR, REGULAR);
     protected static final DruidColumnHandle fare = new DruidColumnHandle("fare", DOUBLE, REGULAR);
     protected static final DruidColumnHandle secondsSinceEpoch = new DruidColumnHandle("secondsSinceEpoch", BIGINT, REGULAR);
+    protected static final DruidColumnHandle datetime = new DruidColumnHandle("datetime", TIMESTAMP, REGULAR);
 
     protected static final Metadata metadata = MetadataManager.createTestMetadataManager();
 
     protected final DruidConfig druidConfig = new DruidConfig();
 
-    protected static final Map<VariableReferenceExpression, DruidQueryGeneratorContext.Selection> testInput = ImmutableMap.of(
-            new VariableReferenceExpression("region.id", BIGINT), new DruidQueryGeneratorContext.Selection("region.Id", TABLE_COLUMN),
-            new VariableReferenceExpression("city", VARCHAR), new DruidQueryGeneratorContext.Selection("city", TABLE_COLUMN),
-            new VariableReferenceExpression("fare", DOUBLE), new DruidQueryGeneratorContext.Selection("fare", TABLE_COLUMN),
-            new VariableReferenceExpression("totalfare", DOUBLE), new DruidQueryGeneratorContext.Selection("(fare + trip)", DERIVED),
-            new VariableReferenceExpression("secondssinceepoch", BIGINT), new DruidQueryGeneratorContext.Selection("secondsSinceEpoch", TABLE_COLUMN));
+    protected static final Map<VariableReferenceExpression, DruidQueryGeneratorContext.Selection> testInput =
+            new ImmutableMap.Builder<VariableReferenceExpression, DruidQueryGeneratorContext.Selection>()
+                    .put(new VariableReferenceExpression("region.id", BIGINT), new DruidQueryGeneratorContext.Selection("region.Id", TABLE_COLUMN))
+                    .put(new VariableReferenceExpression("city", VARCHAR), new DruidQueryGeneratorContext.Selection("city", TABLE_COLUMN))
+                    .put(new VariableReferenceExpression("fare", DOUBLE), new DruidQueryGeneratorContext.Selection("fare", TABLE_COLUMN))
+                    .put(new VariableReferenceExpression("totalfare", DOUBLE), new DruidQueryGeneratorContext.Selection("(fare + trip)", DERIVED))
+                    .put(new VariableReferenceExpression("secondssinceepoch", BIGINT), new DruidQueryGeneratorContext.Selection("secondsSinceEpoch", TABLE_COLUMN))
+                    .put(new VariableReferenceExpression("datetime", TIMESTAMP), new DruidQueryGeneratorContext.Selection("datetime", TABLE_COLUMN))
+                    .build();
 
     protected final TypeProvider typeProvider = TypeProvider.fromVariables(testInput.keySet());
 
@@ -145,10 +147,13 @@ public class TestDruidQueryBase
                 connectorTableHandle,
                 TestingTransactionHandle.create(),
                 Optional.empty());
-        return planBuilder.tableScan(
+        return new TableScanNode(
+                planBuilder.getIdAllocator().getNextId(),
                 tableHandle,
                 variables,
-                assignments.build());
+                assignments.build(),
+                TupleDomain.all(),
+                TupleDomain.all());
     }
 
     protected FilterNode filter(PlanBuilder planBuilder, PlanNode source, RowExpression predicate)
@@ -193,7 +198,7 @@ public class TestDruidQueryBase
                 expression,
                 ImmutableList.of(),
                 WarningCollector.NOOP);
-        return SqlToRowExpressionTranslator.translate(expression, expressionTypes, ImmutableMap.of(), functionMetadataManager, typeManager, session);
+        return SqlToRowExpressionTranslator.translate(expression, expressionTypes, ImmutableMap.of(), functionAndTypeManager, session);
     }
 
     protected LimitNode limit(PlanBuilder pb, long count, PlanNode source)

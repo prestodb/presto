@@ -56,6 +56,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 
+import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.AGGREGATED;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
@@ -110,6 +111,12 @@ public class RcFilePageSourceFactory
             HiveFileContext hiveFileContext,
             Optional<EncryptionInformation> encryptionInformation)
     {
+        if (!columns.isEmpty() && columns.stream().allMatch(hiveColumnHandle -> hiveColumnHandle.getColumnType() == AGGREGATED)) {
+            throw new UnsupportedOperationException("Partial aggregation pushdown only supported for ORC/Parquet files. " +
+                    "Table " + tableName.toString() + " has file (" + path.toString() + ") of format " + storage.getStorageFormat().getOutputFormat() +
+                    ". Set session property hive.pushdown_partial_aggregations_into_scan=false and execute query again");
+        }
+
         RcFileEncoding rcFileEncoding;
         if (LazyBinaryColumnarSerDe.class.getName().equals(storage.getStorageFormat().getSerDe())) {
             rcFileEncoding = new BinaryRcFileEncoding();
@@ -152,11 +159,7 @@ public class RcFilePageSourceFactory
                     length,
                     new DataSize(8, Unit.MEGABYTE));
 
-            return Optional.of(new RcFilePageSource(
-                    rcFileReader,
-                    columns,
-                    hiveStorageTimeZone,
-                    typeManager));
+            return Optional.of(new RcFilePageSource(rcFileReader, columns, typeManager));
         }
         catch (Throwable e) {
             try {
@@ -197,7 +200,9 @@ public class RcFilePageSourceFactory
 
         // the first three separators are set by old-old properties
         separators[0] = getByte(schema.getProperty(FIELD_DELIM, schema.getProperty(SERIALIZATION_FORMAT)), DEFAULT_SEPARATORS[0]);
-        separators[1] = getByte(schema.getProperty(COLLECTION_DELIM), DEFAULT_SEPARATORS[1]);
+        // for map field collection delimiter, Hive 1.x uses "colelction.delim" but Hive 3.x uses "collection.delim"
+        // https://issues.apache.org/jira/browse/HIVE-16922
+        separators[1] = getByte(schema.getProperty(COLLECTION_DELIM, schema.getProperty("colelction.delim")), DEFAULT_SEPARATORS[1]);
         separators[2] = getByte(schema.getProperty(MAPKEY_DELIM), DEFAULT_SEPARATORS[2]);
 
         // null sequence

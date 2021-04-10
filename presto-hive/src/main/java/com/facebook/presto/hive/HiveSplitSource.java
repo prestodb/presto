@@ -189,8 +189,8 @@ class HiveSplitSource
             String databaseName,
             String tableName,
             CacheQuotaRequirement cacheQuotaRequirement,
-            int estimatedOutstandingSplitsPerBucket,
             int maxInitialSplits,
+            int estimatedOutstandingSplitsPerBucket,
             DataSize maxOutstandingSplitsSize,
             HiveSplitLoader splitLoader,
             Executor executor,
@@ -503,7 +503,9 @@ class HiveSplitSource
                         internalSplit.isS3SelectPushdownEnabled(),
                         internalSplit.getExtraFileInfo(),
                         cacheQuotaRequirement,
-                        internalSplit.getEncryptionInformation()));
+                        internalSplit.getEncryptionInformation(),
+                        internalSplit.getCustomSplitInfo(),
+                        internalSplit.getPartitionInfo().getRedundantColumnDomains()));
 
                 internalSplit.increaseStart(splitBytes);
 

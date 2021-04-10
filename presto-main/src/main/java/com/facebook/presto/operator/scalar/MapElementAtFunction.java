@@ -15,14 +15,13 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.common.NotSupportedException;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.SingleMapBlock;
 import com.facebook.presto.common.function.OperatorType;
-import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionKind;
@@ -34,9 +33,11 @@ import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 
+import static com.facebook.presto.common.block.MethodHandleUtil.compose;
+import static com.facebook.presto.common.block.MethodHandleUtil.nativeValueGetter;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.TypeUtils.readNativeValue;
-import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -50,16 +51,16 @@ public class MapElementAtFunction
 {
     public static final MapElementAtFunction MAP_ELEMENT_AT = new MapElementAtFunction();
 
-    private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(MapElementAtFunction.class, "elementAt", MethodHandle.class, Type.class, Type.class, Block.class, boolean.class);
-    private static final MethodHandle METHOD_HANDLE_LONG = methodHandle(MapElementAtFunction.class, "elementAt", MethodHandle.class, Type.class, Type.class, Block.class, long.class);
-    private static final MethodHandle METHOD_HANDLE_DOUBLE = methodHandle(MapElementAtFunction.class, "elementAt", MethodHandle.class, Type.class, Type.class, Block.class, double.class);
-    private static final MethodHandle METHOD_HANDLE_SLICE = methodHandle(MapElementAtFunction.class, "elementAt", MethodHandle.class, Type.class, Type.class, Block.class, Slice.class);
-    private static final MethodHandle METHOD_HANDLE_OBJECT = methodHandle(MapElementAtFunction.class, "elementAt", MethodHandle.class, Type.class, Type.class, Block.class, Object.class);
+    private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(MapElementAtFunction.class, "elementAt", MethodHandle.class, MethodHandle.class, MethodHandle.class, Type.class, Block.class, boolean.class);
+    private static final MethodHandle METHOD_HANDLE_LONG = methodHandle(MapElementAtFunction.class, "elementAt", MethodHandle.class, MethodHandle.class, MethodHandle.class, Type.class, Block.class, long.class);
+    private static final MethodHandle METHOD_HANDLE_DOUBLE = methodHandle(MapElementAtFunction.class, "elementAt", MethodHandle.class, MethodHandle.class, MethodHandle.class, Type.class, Block.class, double.class);
+    private static final MethodHandle METHOD_HANDLE_SLICE = methodHandle(MapElementAtFunction.class, "elementAt", MethodHandle.class, MethodHandle.class, MethodHandle.class, Type.class, Block.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE_OBJECT = methodHandle(MapElementAtFunction.class, "elementAt", MethodHandle.class, MethodHandle.class, MethodHandle.class, Type.class, Block.class, Object.class);
 
     protected MapElementAtFunction()
     {
         super(new Signature(
-                QualifiedFunctionName.of(DEFAULT_NAMESPACE, "element_at"),
+                QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "element_at"),
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("K"), typeVariable("V")),
                 ImmutableList.of(),
@@ -87,13 +88,15 @@ public class MapElementAtFunction
     }
 
     @Override
-    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
+    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
         Type keyType = boundVariables.getTypeVariable("K");
         Type valueType = boundVariables.getTypeVariable("V");
 
-        MethodHandle keyEqualsMethod = functionManager.getBuiltInScalarFunctionImplementation(
-                functionManager.resolveOperator(OperatorType.EQUAL, fromTypes(keyType, keyType))).getMethodHandle();
+        MethodHandle keyNativeHashCode = functionAndTypeManager.getBuiltInScalarFunctionImplementation(functionAndTypeManager.resolveOperator(OperatorType.HASH_CODE, fromTypes(keyType))).getMethodHandle();
+        MethodHandle keyBlockHashCode = compose(keyNativeHashCode, nativeValueGetter(keyType));
+        MethodHandle keyNativeEquals = functionAndTypeManager.getBuiltInScalarFunctionImplementation(functionAndTypeManager.resolveOperator(OperatorType.EQUAL, fromTypes(keyType, keyType))).getMethodHandle();
+        MethodHandle keyBlockNativeEquals = compose(keyNativeEquals, nativeValueGetter(keyType));
 
         MethodHandle methodHandle;
         if (keyType.getJavaType() == boolean.class) {
@@ -111,7 +114,7 @@ public class MapElementAtFunction
         else {
             methodHandle = METHOD_HANDLE_OBJECT;
         }
-        methodHandle = methodHandle.bindTo(keyEqualsMethod).bindTo(keyType).bindTo(valueType);
+        methodHandle = methodHandle.bindTo(keyNativeHashCode).bindTo(keyBlockNativeEquals).bindTo(keyBlockHashCode).bindTo(valueType);
         methodHandle = methodHandle.asType(methodHandle.type().changeReturnType(Primitives.wrap(valueType.getJavaType())));
 
         return new BuiltInScalarFunctionImplementation(
@@ -123,12 +126,12 @@ public class MapElementAtFunction
     }
 
     @UsedByGeneratedCode
-    public static Object elementAt(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, boolean key)
+    public static Object elementAt(MethodHandle keyNativeHashCode, MethodHandle keyBlockNativeEquals, MethodHandle keyBlockHashCode, Type valueType, Block map, boolean key)
     {
         SingleMapBlock mapBlock = (SingleMapBlock) map;
         int valuePosition;
         try {
-            valuePosition = mapBlock.seekKeyExact(key);
+            valuePosition = mapBlock.seekKeyExact(key, keyNativeHashCode, keyBlockNativeEquals, keyBlockHashCode);
         }
         catch (NotSupportedException e) {
             throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
@@ -141,12 +144,12 @@ public class MapElementAtFunction
     }
 
     @UsedByGeneratedCode
-    public static Object elementAt(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, long key)
+    public static Object elementAt(MethodHandle keyNativeHashCode, MethodHandle keyBlockNativeEquals, MethodHandle keyBlockHashCode, Type valueType, Block map, long key)
     {
         SingleMapBlock mapBlock = (SingleMapBlock) map;
         int valuePosition;
         try {
-            valuePosition = mapBlock.seekKeyExact(key);
+            valuePosition = mapBlock.seekKeyExact(key, keyNativeHashCode, keyBlockNativeEquals, keyBlockHashCode);
         }
         catch (NotSupportedException e) {
             throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
@@ -159,12 +162,12 @@ public class MapElementAtFunction
     }
 
     @UsedByGeneratedCode
-    public static Object elementAt(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, double key)
+    public static Object elementAt(MethodHandle keyNativeHashCode, MethodHandle keyBlockNativeEquals, MethodHandle keyBlockHashCode, Type valueType, Block map, double key)
     {
         SingleMapBlock mapBlock = (SingleMapBlock) map;
         int valuePosition;
         try {
-            valuePosition = mapBlock.seekKeyExact(key);
+            valuePosition = mapBlock.seekKeyExact(key, keyNativeHashCode, keyBlockNativeEquals, keyBlockHashCode);
         }
         catch (NotSupportedException e) {
             throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
@@ -177,12 +180,12 @@ public class MapElementAtFunction
     }
 
     @UsedByGeneratedCode
-    public static Object elementAt(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, Slice key)
+    public static Object elementAt(MethodHandle keyNativeHashCode, MethodHandle keyBlockNativeEquals, MethodHandle keyBlockHashCode, Type valueType, Block map, Slice key)
     {
         SingleMapBlock mapBlock = (SingleMapBlock) map;
         int valuePosition;
         try {
-            valuePosition = mapBlock.seekKeyExact(key);
+            valuePosition = mapBlock.seekKeyExact(key, keyNativeHashCode, keyBlockNativeEquals, keyBlockHashCode);
         }
         catch (NotSupportedException e) {
             throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
@@ -195,12 +198,12 @@ public class MapElementAtFunction
     }
 
     @UsedByGeneratedCode
-    public static Object elementAt(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, Object key)
+    public static Object elementAt(MethodHandle keyNativeHashCode, MethodHandle keyBlockNativeEquals, MethodHandle keyBlockHashCode, Type valueType, Block map, Object key)
     {
         SingleMapBlock mapBlock = (SingleMapBlock) map;
         int valuePosition;
         try {
-            valuePosition = mapBlock.seekKeyExact((Block) key);
+            valuePosition = mapBlock.seekKeyExact((Block) key, keyNativeHashCode, keyBlockNativeEquals, keyBlockHashCode);
         }
         catch (NotSupportedException e) {
             throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);

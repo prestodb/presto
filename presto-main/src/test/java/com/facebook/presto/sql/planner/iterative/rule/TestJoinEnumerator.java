@@ -21,8 +21,8 @@ import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.CostProvider;
 import com.facebook.presto.cost.PlanCostEstimate;
 import com.facebook.presto.cost.StatsProvider;
-import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -67,7 +67,7 @@ public class TestJoinEnumerator
         queryRunner = new LocalQueryRunner(testSessionBuilder().build());
         metadata = queryRunner.getMetadata();
         determinismEvaluator = new RowExpressionDeterminismEvaluator(metadata);
-        functionResolution = new FunctionResolution(metadata.getFunctionManager());
+        functionResolution = new FunctionResolution(metadata.getFunctionAndTypeManager());
     }
 
     @AfterClass(alwaysRun = true)

@@ -16,21 +16,23 @@ package com.facebook.presto.server;
 import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.airlift.http.server.TheServlet;
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.airlift.stats.GcMonitor;
 import com.facebook.airlift.stats.JmxGcMonitor;
 import com.facebook.airlift.stats.PauseMeter;
 import com.facebook.drift.client.address.AddressSelector;
+import com.facebook.drift.codec.utils.DefaultThriftCodecsModule;
 import com.facebook.drift.transport.netty.client.DriftNettyClientModule;
 import com.facebook.drift.transport.netty.server.DriftNettyServerModule;
 import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.PagesIndexPageSorter;
 import com.facebook.presto.SystemSessionProperties;
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.block.BlockJsonSerde;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncoding;
+import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
@@ -53,6 +55,8 @@ import com.facebook.presto.execution.TaskManagementExecutor;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.TaskStatus;
+import com.facebook.presto.execution.TaskThresholdMemoryRevokingScheduler;
+import com.facebook.presto.execution.buffer.SpoolingOutputBufferFactory;
 import com.facebook.presto.execution.executor.MultilevelSplitQueue;
 import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.execution.scheduler.FlatNetworkTopology;
@@ -74,13 +78,15 @@ import com.facebook.presto.memory.ReservedSystemMemoryConfig;
 import com.facebook.presto.metadata.AnalyzePropertyManager;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.ColumnPropertyManager;
+import com.facebook.presto.metadata.ConnectorMetadataUpdaterManager;
 import com.facebook.presto.metadata.DiscoveryNodeManager;
 import com.facebook.presto.metadata.ForNodeManager;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.metadata.SchemaPropertyManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.metadata.StaticCatalogStore;
@@ -92,8 +98,13 @@ import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.operator.ExchangeClientConfig;
 import com.facebook.presto.operator.ExchangeClientFactory;
 import com.facebook.presto.operator.ExchangeClientSupplier;
+import com.facebook.presto.operator.FileFragmentResultCacheConfig;
+import com.facebook.presto.operator.FileFragmentResultCacheManager;
 import com.facebook.presto.operator.ForExchange;
+import com.facebook.presto.operator.FragmentCacheStats;
+import com.facebook.presto.operator.FragmentResultCacheManager;
 import com.facebook.presto.operator.LookupJoinOperators;
+import com.facebook.presto.operator.NoOpFragmentResultCacheManager;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.TableCommitContext;
@@ -120,6 +131,7 @@ import com.facebook.presto.spiller.PartitioningSpillerFactory;
 import com.facebook.presto.spiller.SingleStreamSpillerFactory;
 import com.facebook.presto.spiller.SpillerFactory;
 import com.facebook.presto.spiller.SpillerStats;
+import com.facebook.presto.spiller.TempStorageSingleStreamSpillerFactory;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSinkProvider;
 import com.facebook.presto.split.PageSourceManager;
@@ -132,6 +144,7 @@ import com.facebook.presto.sql.Serialization.VariableReferenceExpressionDeserial
 import com.facebook.presto.sql.Serialization.VariableReferenceExpressionSerializer;
 import com.facebook.presto.sql.SqlEnvironmentConfig;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.SingleStreamSpillerChoice;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
@@ -154,10 +167,10 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.statusservice.NodeStatusService;
 import com.facebook.presto.transaction.TransactionManagerConfig;
 import com.facebook.presto.type.TypeDeserializer;
-import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.util.FinalizerService;
 import com.facebook.presto.util.GcStatusMonitor;
 import com.facebook.presto.version.EmbedVersion;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Key;
@@ -185,11 +198,14 @@ import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder
 import static com.facebook.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static com.facebook.airlift.json.smile.SmileCodecBinder.smileCodecBinder;
 import static com.facebook.drift.client.guice.DriftClientBinder.driftClientBinder;
+import static com.facebook.drift.codec.guice.ThriftCodecBinder.thriftCodecBinder;
 import static com.facebook.drift.server.guice.DriftServerBinder.driftServerBinder;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.FLAT;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.LEGACY;
-import static com.facebook.presto.server.smile.SmileCodecBinder.smileCodecBinder;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.TaskSpillingStrategy.PER_TASK_MEMORY_THRESHOLD;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
@@ -197,6 +213,7 @@ import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
@@ -217,7 +234,10 @@ public class ServerMainModule
     {
         ServerConfig serverConfig = buildConfigObject(ServerConfig.class);
 
-        if (serverConfig.isCoordinator()) {
+        if (serverConfig.isResourceManager()) {
+            install(new ResourceManagerModule());
+        }
+        else if (serverConfig.isCoordinator()) {
             install(new CoordinatorModule());
         }
         else {
@@ -307,9 +327,16 @@ public class ServerMainModule
         binder.bind(TaskManagementExecutor.class).in(Scopes.SINGLETON);
         binder.bind(SqlTaskManager.class).in(Scopes.SINGLETON);
         binder.bind(TaskManager.class).to(Key.get(SqlTaskManager.class));
+        binder.bind(SpoolingOutputBufferFactory.class).in(Scopes.SINGLETON);
+
+        install(new DefaultThriftCodecsModule());
 
         // memory revoking scheduler
-        binder.bind(MemoryRevokingScheduler.class).in(Scopes.SINGLETON);
+        install(installModuleIf(
+                FeaturesConfig.class,
+                config -> config.getTaskSpillingStrategy() == PER_TASK_MEMORY_THRESHOLD,
+                moduleBinder -> moduleBinder.bind(TaskThresholdMemoryRevokingScheduler.class).in(Scopes.SINGLETON),
+                moduleBinder -> moduleBinder.bind(MemoryRevokingScheduler.class).in(Scopes.SINGLETON)));
 
         // Add monitoring for JVM pauses
         binder.bind(PauseMeter.class).in(Scopes.SINGLETON);
@@ -328,6 +355,9 @@ public class ServerMainModule
         binder.bind(MultilevelSplitQueue.class).in(Scopes.SINGLETON);
         newExporter(binder).export(MultilevelSplitQueue.class).withGeneratedName();
         binder.bind(LocalExecutionPlanner.class).in(Scopes.SINGLETON);
+        configBinder(binder).bindConfig(FileFragmentResultCacheConfig.class);
+        binder.bind(FragmentCacheStats.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(FragmentCacheStats.class).withGeneratedName();
         configBinder(binder).bindConfig(CompilerConfig.class);
         binder.bind(ExpressionCompiler.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ExpressionCompiler.class).withGeneratedName();
@@ -355,6 +385,7 @@ public class ServerMainModule
         jsonCodecBinder(binder).bindJsonCodec(TableCommitContext.class);
         smileCodecBinder(binder).bindSmileCodec(TaskStatus.class);
         smileCodecBinder(binder).bindSmileCodec(TaskInfo.class);
+        thriftCodecBinder(binder).bindThriftCodec(TaskStatus.class);
         jaxrsBinder(binder).bind(PagesResponseWriter.class);
 
         // exchange client
@@ -394,6 +425,9 @@ public class ServerMainModule
         binder.bind(PageSourceManager.class).in(Scopes.SINGLETON);
         binder.bind(PageSourceProvider.class).to(PageSourceManager.class).in(Scopes.SINGLETON);
 
+        // connector distributed metadata manager
+        binder.bind(ConnectorMetadataUpdaterManager.class).in(Scopes.SINGLETON);
+
         // page sink provider
         binder.bind(PageSinkManager.class).in(Scopes.SINGLETON);
         binder.bind(PageSinkProvider.class).to(PageSinkManager.class).in(Scopes.SINGLETON);
@@ -403,7 +437,7 @@ public class ServerMainModule
         configBinder(binder).bindConfig(StaticCatalogStoreConfig.class);
         binder.bind(StaticFunctionNamespaceStore.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(StaticFunctionNamespaceStoreConfig.class);
-        binder.bind(FunctionManager.class).in(Scopes.SINGLETON);
+        binder.bind(FunctionAndTypeManager.class).in(Scopes.SINGLETON);
         binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
         binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
 
@@ -413,8 +447,7 @@ public class ServerMainModule
         binder.bind(DeterminismEvaluator.class).to(RowExpressionDeterminismEvaluator.class).in(Scopes.SINGLETON);
 
         // type
-        binder.bind(TypeRegistry.class).in(Scopes.SINGLETON);
-        binder.bind(TypeManager.class).to(TypeRegistry.class).in(Scopes.SINGLETON);
+        binder.bind(TypeManager.class).to(FunctionAndTypeManager.class).in(Scopes.SINGLETON);
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
         newSetBinder(binder, Type.class);
 
@@ -439,6 +472,7 @@ public class ServerMainModule
 
         // handle resolver
         binder.install(new HandleJsonModule());
+        binder.bind(ObjectMapper.class).toProvider(JsonObjectMapperProvider.class);
 
         // connector
         binder.bind(ScalarStatsCalculator.class).in(Scopes.SINGLETON);
@@ -462,6 +496,10 @@ public class ServerMainModule
         jsonBinder(binder).addDeserializerBinding(Expression.class).to(ExpressionDeserializer.class);
         jsonBinder(binder).addDeserializerBinding(FunctionCall.class).to(FunctionCallDeserializer.class);
 
+        // metadata updates
+        jsonCodecBinder(binder).bindJsonCodec(MetadataUpdates.class);
+        smileCodecBinder(binder).bindSmileCodec(MetadataUpdates.class);
+
         // split monitor
         binder.bind(SplitMonitor.class).in(Scopes.SINGLETON);
 
@@ -470,9 +508,12 @@ public class ServerMainModule
         binder.bind(NodeVersion.class).toInstance(nodeVersion);
 
         // presto announcement
+        checkArgument(!(serverConfig.isResourceManager() && serverConfig.isCoordinator()),
+                "Server cannot be configured as both resource manager and coordinator");
         discoveryBinder(binder).bindHttpAnnouncement("presto")
                 .addProperty("node_version", nodeVersion.toString())
                 .addProperty("coordinator", String.valueOf(serverConfig.isCoordinator()))
+                .addProperty("resource_manager", String.valueOf(serverConfig.isResourceManager()))
                 .addProperty("connectorIds", nullToEmpty(serverConfig.getDataSources()));
 
         // server info resource
@@ -510,12 +551,26 @@ public class ServerMainModule
 
         // Spiller
         binder.bind(SpillerFactory.class).to(GenericSpillerFactory.class).in(Scopes.SINGLETON);
-        binder.bind(SingleStreamSpillerFactory.class).to(FileSingleStreamSpillerFactory.class).in(Scopes.SINGLETON);
         binder.bind(PartitioningSpillerFactory.class).to(GenericPartitioningSpillerFactory.class).in(Scopes.SINGLETON);
         binder.bind(SpillerStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(SpillerFactory.class).withGeneratedName();
         binder.bind(LocalSpillManager.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(NodeSpillConfig.class);
+
+        install(installModuleIf(
+                FeaturesConfig.class,
+                config -> config.getSingleStreamSpillerChoice() == SingleStreamSpillerChoice.LOCAL_FILE,
+                moduleBinder -> moduleBinder
+                        .bind(SingleStreamSpillerFactory.class)
+                        .to(FileSingleStreamSpillerFactory.class)
+                        .in(Scopes.SINGLETON)));
+        install(installModuleIf(
+                FeaturesConfig.class,
+                config -> config.getSingleStreamSpillerChoice() == SingleStreamSpillerChoice.TEMP_STORAGE,
+                moduleBinder -> moduleBinder
+                        .bind(SingleStreamSpillerFactory.class)
+                        .to(TempStorageSingleStreamSpillerFactory.class)
+                        .in(Scopes.SINGLETON)));
 
         // Thrift RPC
         binder.install(new DriftNettyServerModule());
@@ -565,6 +620,21 @@ public class ServerMainModule
     public static ScheduledExecutorService createAsyncHttpTimeoutExecutor(TaskManagerConfig config)
     {
         return createConcurrentScheduledExecutor("async-http-timeout", config.getHttpTimeoutConcurrency(), config.getHttpTimeoutThreads());
+    }
+
+    @Provides
+    @Singleton
+    public static FragmentResultCacheManager createFragmentResultCacheManager(FileFragmentResultCacheConfig config, BlockEncodingSerde blockEncodingSerde, FragmentCacheStats fragmentCacheStats)
+    {
+        if (config.isCachingEnabled()) {
+            return new FileFragmentResultCacheManager(
+                    config,
+                    blockEncodingSerde,
+                    fragmentCacheStats,
+                    newFixedThreadPool(5, daemonThreadsNamed("fragment-result-cache-writer-%s")),
+                    newFixedThreadPool(1, daemonThreadsNamed("fragment-result-cache-remover-%s")));
+        }
+        return new NoOpFragmentResultCacheManager();
     }
 
     public static class ExecutorCleanup

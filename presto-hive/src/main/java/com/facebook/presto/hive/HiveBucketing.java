@@ -39,6 +39,7 @@ import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -305,7 +306,11 @@ public final class HiveBucketing
 
     public static Optional<HiveBucketFilter> getHiveBucketFilter(Table table, TupleDomain<ColumnHandle> effectivePredicate)
     {
-        Optional<HiveBucketProperty> hiveBucketProperty = table.getStorage().getBucketProperty();
+        return getHiveBucketFilter(table.getStorage().getBucketProperty(), table.getDataColumns(), effectivePredicate);
+    }
+
+    public static Optional<HiveBucketFilter> getHiveBucketFilter(Optional<HiveBucketProperty> hiveBucketProperty, List<Column> dataColumns, TupleDomain<ColumnHandle> effectivePredicate)
+    {
         if (!hiveBucketProperty.isPresent()) {
             return Optional.empty();
         }
@@ -320,7 +325,7 @@ public final class HiveBucketing
             return Optional.empty();
         }
 
-        Optional<Set<Integer>> buckets = getHiveBuckets(table, bindings.get());
+        Optional<Set<Integer>> buckets = getHiveBuckets(hiveBucketProperty, dataColumns, bindings.get());
         if (buckets.isPresent()) {
             return Optional.of(new HiveBucketFilter(buckets.get()));
         }
@@ -337,7 +342,7 @@ public final class HiveBucketing
         }
         ValueSet values = domain.get().getValues();
         ImmutableSet.Builder<Integer> builder = ImmutableSet.builder();
-        int bucketCount = table.getStorage().getBucketProperty().get().getBucketCount();
+        int bucketCount = hiveBucketProperty.get().getBucketCount();
         for (int i = 0; i < bucketCount; i++) {
             if (values.containsValue((long) i)) {
                 builder.add(i);
@@ -346,12 +351,13 @@ public final class HiveBucketing
         return Optional.of(new HiveBucketFilter(builder.build()));
     }
 
-    private static Optional<Set<Integer>> getHiveBuckets(Table table, Map<ColumnHandle, Set<NullableValue>> bindings)
+    private static Optional<Set<Integer>> getHiveBuckets(Optional<HiveBucketProperty> hiveBucketPropertyOptional, List<Column> dataColumns, Map<ColumnHandle, Set<NullableValue>> bindings)
     {
-        if (bindings.isEmpty()) {
+        if (bindings.isEmpty() || !hiveBucketPropertyOptional.isPresent()) {
             return Optional.empty();
         }
-        HiveBucketProperty hiveBucketProperty = table.getStorage().getBucketProperty().get();
+
+        HiveBucketProperty hiveBucketProperty = hiveBucketPropertyOptional.get();
         checkArgument(hiveBucketProperty.getBucketFunctionType().equals(HIVE_COMPATIBLE),
                 "bucketFunctionType is expected to be HIVE_COMPATIBLE, got: %s",
                 hiveBucketProperty.getBucketFunctionType());
@@ -360,7 +366,7 @@ public final class HiveBucketing
             return Optional.empty();
         }
 
-        Map<String, HiveType> hiveTypes = table.getDataColumns().stream()
+        Map<String, HiveType> hiveTypes = dataColumns.stream()
                 .collect(toImmutableMap(Column::getName, Column::getType));
 
         // Verify the bucket column types are supported
@@ -382,7 +388,7 @@ public final class HiveBucketing
         }
 
         List<Set<NullableValue>> orderedBindings = orderedBindingsBuilder.build();
-        int bucketCount = table.getStorage().getBucketProperty().get().getBucketCount();
+        int bucketCount = hiveBucketProperty.getBucketCount();
         List<TypeInfo> types = bucketColumns.stream()
                 .map(hiveTypes::get)
                 .map(HiveType::getTypeInfo)
@@ -425,6 +431,25 @@ public final class HiveBucketing
         public Set<Integer> getBucketsToKeep()
         {
             return bucketsToKeep;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            HiveBucketFilter that = (HiveBucketFilter) o;
+            return Objects.equals(bucketsToKeep, that.bucketsToKeep);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(bucketsToKeep);
         }
     }
 }

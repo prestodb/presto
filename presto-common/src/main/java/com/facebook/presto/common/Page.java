@@ -33,12 +33,13 @@ import static java.util.Objects.requireNonNull;
 public final class Page
 {
     public static final int INSTANCE_SIZE = ClassLayout.parseClass(Page.class).instanceSize();
+    private static final Block[] EMPTY_BLOCKS = new Block[0];
 
     /**
      * Visible to give trusted classes like {@link PageBuilder} access to a constructor that doesn't
      * defensively copy the blocks
      */
-    static Page wrapBlocksWithoutCopy(int positionCount, Block[] blocks)
+    public static Page wrapBlocksWithoutCopy(int positionCount, Block[] blocks)
     {
         return new Page(false, positionCount, blocks);
     }
@@ -52,6 +53,11 @@ public final class Page
     public Page(Block... blocks)
     {
         this(true, determinePositionCount(blocks), blocks);
+    }
+
+    public Page(int positionCount)
+    {
+        this(false, positionCount, EMPTY_BLOCKS);
     }
 
     public Page(int positionCount, Block... blocks)
@@ -99,6 +105,22 @@ public final class Page
             }
             this.logicalSizeInBytes = logicalSizeInBytes;
         }
+        return logicalSizeInBytes;
+    }
+
+    /**
+     * Returns the approximate logical size of the page if logicalSizeInBytes was not calculated before.
+     */
+    public long getApproximateLogicalSizeInBytes()
+    {
+        if (logicalSizeInBytes < 0) {
+            long approximateLogicalSizeInBytes = 0;
+            for (Block block : blocks) {
+                approximateLogicalSizeInBytes += block.getApproximateRegionLogicalSizeInBytes(0, block.getPositionCount());
+            }
+            return approximateLogicalSizeInBytes;
+        }
+
         return logicalSizeInBytes;
     }
 
@@ -316,6 +338,33 @@ public final class Page
             blocks[i] = this.blocks[i].getPositions(retainedPositions, offset, length);
         }
         return wrapBlocksWithoutCopy(length, blocks);
+    }
+
+    public Page copyPositions(int[] retainedPositions, int offset, int length)
+    {
+        requireNonNull(retainedPositions, "retainedPositions is null");
+
+        Block[] blocks = new Block[this.blocks.length];
+        for (int i = 0; i < blocks.length; i++) {
+            blocks[i] = this.blocks[i].copyPositions(retainedPositions, offset, length);
+        }
+        return wrapBlocksWithoutCopy(length, blocks);
+    }
+
+    public Page extractChannel(int channel)
+    {
+        return wrapBlocksWithoutCopy(positionCount, new Block[]{this.blocks[channel]});
+    }
+
+    public Page extractChannels(int[] channels)
+    {
+        requireNonNull(channels, "channels is null");
+
+        Block[] blocks = new Block[channels.length];
+        for (int i = 0; i < channels.length; i++) {
+            blocks[i] = this.blocks[channels[i]];
+        }
+        return wrapBlocksWithoutCopy(positionCount, blocks);
     }
 
     public Page prependColumn(Block column)

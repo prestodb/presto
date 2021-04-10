@@ -29,7 +29,7 @@ public class TestDeterminismAnalyzerConfig
     {
         assertRecordedDefaults(recordDefaults(DeterminismAnalyzerConfig.class)
                 .setRunTeardown(false)
-                .setMaxAnalysisRuns(2)
+                .setMaxAnalysisRuns(6)
                 .setHandleLimitQuery(true)
                 .setNonDeterministicCatalogs(null));
     }

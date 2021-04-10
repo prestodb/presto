@@ -22,10 +22,10 @@ import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.cost.StatsProvider;
-import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.matching.Match;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
@@ -134,7 +134,7 @@ public class RuleAssert
             fail(String.format(
                     "Expected %s to not fire for:\n%s",
                     rule.getClass().getName(),
-                    inTransaction(session -> textLogicalPlan(plan, ruleApplication.types, metadata.getFunctionManager(), StatsAndCosts.empty(), session, 2))));
+                    inTransaction(session -> textLogicalPlan(plan, ruleApplication.types, metadata.getFunctionAndTypeManager(), StatsAndCosts.empty(), session, 2))));
         }
     }
 
@@ -206,7 +206,7 @@ public class RuleAssert
     {
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types);
         CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, session);
-        return inTransaction(session -> textLogicalPlan(translateExpressions(plan, types), types, metadata.getFunctionManager(), StatsAndCosts.create(plan, statsProvider, costProvider), session, 2, false));
+        return inTransaction(session -> textLogicalPlan(translateExpressions(plan, types), types, metadata.getFunctionAndTypeManager(), StatsAndCosts.create(plan, statsProvider, costProvider), session, 2, false));
     }
 
     private <T> T inTransaction(Function<Session, T> transactionSessionConsumer)

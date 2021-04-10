@@ -14,6 +14,7 @@
 package com.facebook.presto.verifier.framework;
 
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.Query;
@@ -39,7 +40,6 @@ import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
 import static com.facebook.presto.verifier.framework.DataVerificationUtil.getColumns;
 import static com.facebook.presto.verifier.framework.DataVerificationUtil.match;
 import static com.facebook.presto.verifier.framework.DataVerificationUtil.teardownSafely;
-import static com.facebook.presto.verifier.framework.DeterminismAnalysis.ANALYSIS_FAILED;
 import static com.facebook.presto.verifier.framework.DeterminismAnalysis.ANALYSIS_FAILED_DATA_CHANGED;
 import static com.facebook.presto.verifier.framework.DeterminismAnalysis.ANALYSIS_FAILED_INCONSISTENT_SCHEMA;
 import static com.facebook.presto.verifier.framework.DeterminismAnalysis.ANALYSIS_FAILED_QUERY_FAILURE;
@@ -64,12 +64,11 @@ public class DeterminismAnalyzer
     private final QueryRewriter queryRewriter;
     private final ChecksumValidator checksumValidator;
     private final TypeManager typeManager;
-    private final VerificationContext verificationContext;
 
-    private boolean runTeardown;
-    private int maxAnalysisRuns;
-    private Set<String> nonDeterministicCatalogs;
-    private boolean handleLimitQuery;
+    private final boolean runTeardown;
+    private final int maxAnalysisRuns;
+    private final Set<String> nonDeterministicCatalogs;
+    private final boolean handleLimitQuery;
 
     public DeterminismAnalyzer(
             SourceQuery sourceQuery,
@@ -77,7 +76,6 @@ public class DeterminismAnalyzer
             QueryRewriter queryRewriter,
             ChecksumValidator checksumValidator,
             TypeManager typeManager,
-            VerificationContext verificationContext,
             DeterminismAnalyzerConfig config)
     {
         this.sourceQuery = requireNonNull(sourceQuery, "sourceQuery is null");
@@ -85,7 +83,6 @@ public class DeterminismAnalyzer
         this.queryRewriter = requireNonNull(queryRewriter, "queryRewriter is null");
         this.checksumValidator = requireNonNull(checksumValidator, "checksumValidator is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.verificationContext = requireNonNull(verificationContext, "verificationContext is null");
 
         this.runTeardown = config.isRunTeardown();
         this.maxAnalysisRuns = config.getMaxAnalysisRuns();
@@ -93,36 +90,64 @@ public class DeterminismAnalyzer
         this.handleLimitQuery = config.isHandleLimitQuery();
     }
 
-    protected DeterminismAnalysis analyze(QueryBundle control, ChecksumResult controlChecksum, DeterminismAnalysisDetails.Builder determinismAnalysisDetails)
+    protected DeterminismAnalysisDetails analyze(QueryObjectBundle control, ChecksumResult controlChecksum)
+    {
+        DeterminismAnalysisDetails.Builder determinismAnalysisDetails = DeterminismAnalysisDetails.builder();
+        DeterminismAnalysis analysis = analyze(control, controlChecksum, determinismAnalysisDetails);
+        return determinismAnalysisDetails.build(analysis);
+    }
+
+    private DeterminismAnalysis analyze(QueryObjectBundle control, ChecksumResult controlChecksum, DeterminismAnalysisDetails.Builder determinismAnalysisDetails)
     {
         // Handle mutable catalogs
         if (isNonDeterministicCatalogReferenced(control.getQuery())) {
             return NON_DETERMINISTIC_CATALOG;
         }
 
-        List<Column> columns = getColumns(prestoAction, typeManager, control.getTableName());
-        Map<QueryBundle, DeterminismAnalysisRun.Builder> queryRuns = new HashMap<>();
+        // Handle limit query
+        LimitQueryDeterminismAnalysis limitQueryAnalysis = new LimitQueryDeterminismAnalyzer(
+                prestoAction,
+                handleLimitQuery,
+                control.getQuery(),
+                controlChecksum.getRowCount(),
+                determinismAnalysisDetails).analyze();
 
+        switch (limitQueryAnalysis) {
+            case NOT_RUN:
+            case FAILED_QUERY_FAILURE:
+            case DETERMINISTIC:
+                // try the next analysis
+                break;
+            case NON_DETERMINISTIC:
+                return NON_DETERMINISTIC_LIMIT_CLAUSE;
+            case FAILED_DATA_CHANGED:
+                return ANALYSIS_FAILED_DATA_CHANGED;
+            default:
+                throw new IllegalArgumentException(format("Invalid limitQueryAnalysis: %s", limitQueryAnalysis));
+        }
+
+        // Rerun control query multiple times
+        List<Column> columns = getColumns(prestoAction, typeManager, control.getObjectName());
+        Map<QueryBundle, DeterminismAnalysisRun.Builder> queryRuns = new HashMap<>();
         try {
-            // Rerun control query
             for (int i = 0; i < maxAnalysisRuns; i++) {
-                QueryBundle queryBundle = queryRewriter.rewriteQuery(sourceQuery.getControlQuery(), CONTROL);
-                DeterminismAnalysisRun.Builder run = determinismAnalysisDetails.addRun().setTableName(queryBundle.getTableName().toString());
+                QueryObjectBundle queryBundle = queryRewriter.rewriteQuery(sourceQuery.getQuery(CONTROL), CONTROL);
+                DeterminismAnalysisRun.Builder run = determinismAnalysisDetails.addRun().setTableName(queryBundle.getObjectName().toString());
                 queryRuns.put(queryBundle, run);
 
                 // Rerun setup and main query
                 queryBundle.getSetupQueries().forEach(query -> runAndConsume(
                         () -> prestoAction.execute(query, DETERMINISM_ANALYSIS_SETUP),
-                        queryStats -> run.addSetupQueryId(queryStats.getQueryId())));
+                        stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(run::addSetupQueryId)));
                 runAndConsume(
                         () -> prestoAction.execute(queryBundle.getQuery(), DETERMINISM_ANALYSIS_MAIN),
-                        stats -> run.setQueryId(stats.getQueryId()));
+                        stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(run::setQueryId));
 
                 // Run checksum query
-                Query checksumQuery = checksumValidator.generateChecksumQuery(queryBundle.getTableName(), columns);
+                Query checksumQuery = checksumValidator.generateChecksumQuery(queryBundle.getObjectName(), columns);
                 ChecksumResult testChecksum = getOnlyElement(callAndConsume(
                         () -> prestoAction.execute(checksumQuery, DETERMINISM_ANALYSIS_CHECKSUM, ChecksumResult::fromResultSet),
-                        stats -> run.setChecksumQueryId(stats.getQueryId())).getResults());
+                        stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(run::setChecksumQueryId)).getResults());
 
                 DeterminismAnalysis analysis = matchResultToDeterminism(match(checksumValidator, columns, columns, controlChecksum, testChecksum));
                 if (analysis != DETERMINISTIC) {
@@ -130,43 +155,22 @@ public class DeterminismAnalyzer
                 }
             }
 
-            // Handle limit query
-            LimitQueryDeterminismAnalysis limitQueryAnalysis = new LimitQueryDeterminismAnalyzer(
-                    prestoAction,
-                    handleLimitQuery,
-                    control.getQuery(),
-                    controlChecksum.getRowCount(),
-                    determinismAnalysisDetails).analyze();
-
-            switch (limitQueryAnalysis) {
-                case NON_DETERMINISTIC:
-                    return NON_DETERMINISTIC_LIMIT_CLAUSE;
-                case NOT_RUN:
-                case DETERMINISTIC:
-                    return DETERMINISTIC;
-                case FAILED_DATA_CHANGED:
-                    return ANALYSIS_FAILED_DATA_CHANGED;
-                default:
-                    throw new IllegalArgumentException(format("Invalid limitQueryAnalysis: %s", limitQueryAnalysis));
-            }
+            return DETERMINISTIC;
         }
         catch (QueryException qe) {
             return ANALYSIS_FAILED_QUERY_FAILURE;
-        }
-        catch (Throwable t) {
-            return ANALYSIS_FAILED;
         }
         finally {
             if (runTeardown) {
                 queryRuns.forEach((queryBundle, run) -> teardownSafely(
                         prestoAction,
                         Optional.of(queryBundle),
-                        queryStats -> run.addTeardownQueryId(queryStats.getQueryId())));
+                        queryStats -> queryStats.getQueryStats().map(QueryStats::getQueryId).ifPresent(run::addTeardownQueryId)));
             }
         }
     }
 
-    private DeterminismAnalysis matchResultToDeterminism(MatchResult matchResult)
+    private DeterminismAnalysis matchResultToDeterminism(DataMatchResult matchResult)
     {
         switch (matchResult.getMatchType()) {
             case MATCH:

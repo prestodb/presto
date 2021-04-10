@@ -16,6 +16,7 @@ package com.facebook.presto.server;
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.configuration.ConfigSecuritySensitive;
+import com.facebook.drift.transport.netty.codec.Protocol;
 import io.airlift.units.DataSize;
 
 import java.util.Optional;
@@ -30,14 +31,18 @@ public class InternalCommunicationConfig
     private String keyStorePath;
     private String keyStorePassword;
     private String trustStorePath;
+    private String trustStorePassword;
     private Optional<String> excludeCipherSuites = Optional.empty();
     private Optional<String> includedCipherSuites = Optional.empty();
     private boolean kerberosEnabled;
     private boolean kerberosUseCanonicalHostname = true;
     private boolean binaryTransportEnabled;
+    private boolean thriftTransportEnabled;
+    private Protocol thriftProtocol = Protocol.BINARY;
     private DataSize maxTaskUpdateSize = new DataSize(16, MEGABYTE);
     private CommunicationProtocol taskCommunicationProtocol = CommunicationProtocol.HTTP;
     private CommunicationProtocol serverInfoCommunicationProtocol = CommunicationProtocol.HTTP;
+    private boolean memoizeDeadNodesEnabled;
 
     public boolean isHttpsRequired()
     {
@@ -85,6 +90,18 @@ public class InternalCommunicationConfig
     public InternalCommunicationConfig setTrustStorePath(String trustStorePath)
     {
         this.trustStorePath = trustStorePath;
+        return this;
+    }
+
+    public String getTrustStorePassword()
+    {
+        return trustStorePassword;
+    }
+
+    @Config("internal-communication.https.trust-store-password")
+    public InternalCommunicationConfig setTrustStorePassword(String trustStorePassword)
+    {
+        this.trustStorePassword = trustStorePassword;
         return this;
     }
 
@@ -149,6 +166,32 @@ public class InternalCommunicationConfig
         return this;
     }
 
+    public boolean isThriftTransportEnabled()
+    {
+        return thriftTransportEnabled;
+    }
+
+    @Config("experimental.internal-communication.thrift-transport-enabled")
+    @ConfigDescription("Enables thrift encoding support for internal communication")
+    public InternalCommunicationConfig setThriftTransportEnabled(boolean thriftTransportEnabled)
+    {
+        this.thriftTransportEnabled = thriftTransportEnabled;
+        return this;
+    }
+
+    public Protocol getThriftProtocol()
+    {
+        return thriftProtocol;
+    }
+
+    @Config("experimental.internal-communication.thrift-transport-protocol")
+    @ConfigDescription("Thrift encoding type for internal communication")
+    public InternalCommunicationConfig setThriftProtocol(Protocol thriftProtocol)
+    {
+        this.thriftProtocol = thriftProtocol;
+        return this;
+    }
+
     public DataSize getMaxTaskUpdateSize()
     {
         return maxTaskUpdateSize;
@@ -191,6 +234,19 @@ public class InternalCommunicationConfig
     public InternalCommunicationConfig setServerInfoCommunicationProtocol(CommunicationProtocol serverInfoCommunicationProtocol)
     {
         this.serverInfoCommunicationProtocol = serverInfoCommunicationProtocol;
+        return this;
+    }
+
+    public boolean isMemoizeDeadNodesEnabled()
+    {
+        return memoizeDeadNodesEnabled;
+    }
+
+    @Config("internal-communication.memoize-dead-nodes-enabled")
+    @ConfigDescription("Enables memoizing dead nodes in discovery node manger")
+    public InternalCommunicationConfig setMemoizeDeadNodesEnabled(boolean memoizeDeadNodesEnabled)
+    {
+        this.memoizeDeadNodesEnabled = memoizeDeadNodesEnabled;
         return this;
     }
 }

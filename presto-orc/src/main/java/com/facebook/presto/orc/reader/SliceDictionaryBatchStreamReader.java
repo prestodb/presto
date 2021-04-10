@@ -403,6 +403,11 @@ public class SliceDictionaryBatchStreamReader
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + sizeOf(stripeDictionaryLength);
+        return INSTANCE_SIZE +
+                sizeOf(stripeDictionaryData) +
+                sizeOf(stripeDictionaryLength) +
+                sizeOf(stripeDictionaryOffsetVector) +
+                sizeOf(rowGroupDictionaryLength) +
+                (dictionaryBlock == null ? 0 : dictionaryBlock.getRetainedSizeInBytes());
     }
 }

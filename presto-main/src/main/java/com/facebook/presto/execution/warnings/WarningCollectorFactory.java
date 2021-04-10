@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.execution.warnings;
 
+import com.facebook.presto.spi.WarningCollector;
+
 public interface WarningCollectorFactory
 {
     WarningCollector create(WarningHandlingLevel warningHandlingLevel);

@@ -20,7 +20,8 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.operator.UpdateMemory;
 import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationTestInput;
 import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationTestInputBuilder;
 import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationTestOutput;
@@ -51,7 +52,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestMultimapAggAggregation
 {
-    private static final FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
+    private static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = createTestMetadataManager().getFunctionAndTypeManager();
 
     @Test
     public void testSingleValueMap()
@@ -166,7 +167,7 @@ public class TestMultimapAggAggregation
     public void testEmptyStateOutputIsNull()
     {
         InternalAggregationFunction aggregationFunction = getInternalAggregationFunction(BIGINT, BIGINT);
-        GroupedAccumulator groupedAccumulator = aggregationFunction.bind(Ints.asList(), Optional.empty()).createGroupedAccumulator();
+        GroupedAccumulator groupedAccumulator = aggregationFunction.bind(Ints.asList(), Optional.empty()).createGroupedAccumulator(UpdateMemory.NOOP);
         BlockBuilder blockBuilder = groupedAccumulator.getFinalType().createBlockBuilder(null, 1);
         groupedAccumulator.evaluateFinal(0, blockBuilder);
         assertTrue(blockBuilder.isNull(0));
@@ -181,7 +182,7 @@ public class TestMultimapAggAggregation
 
     private static InternalAggregationFunction getInternalAggregationFunction(Type keyType, Type valueType)
     {
-        return functionManager.getAggregateFunctionImplementation(functionManager.lookupFunction(NAME, fromTypes(keyType, valueType)));
+        return FUNCTION_AND_TYPE_MANAGER.getAggregateFunctionImplementation(FUNCTION_AND_TYPE_MANAGER.lookupFunction(NAME, fromTypes(keyType, valueType)));
     }
 
     private static <K, V> void testMultimapAgg(InternalAggregationFunction aggFunc, Type keyType, List<K> expectedKeys, Type valueType, List<V> expectedValues)
@@ -229,6 +230,6 @@ public class TestMultimapAggAggregation
 
     private GroupedAccumulator getGroupedAccumulator(InternalAggregationFunction aggFunction)
     {
-        return aggFunction.bind(Ints.asList(GroupByAggregationTestUtils.createArgs(aggFunction)), Optional.empty()).createGroupedAccumulator();
+        return aggFunction.bind(Ints.asList(GroupByAggregationTestUtils.createArgs(aggFunction)), Optional.empty()).createGroupedAccumulator(UpdateMemory.NOOP);
     }
 }

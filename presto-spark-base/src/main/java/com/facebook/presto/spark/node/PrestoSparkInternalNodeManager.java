@@ -55,6 +55,12 @@ public class PrestoSparkInternalNodeManager
     }
 
     @Override
+    public Set<InternalNode> getAllConnectorNodes(ConnectorId connectorId)
+    {
+        return getActiveConnectorNodes(connectorId);
+    }
+
+    @Override
     public InternalNode getCurrentNode()
     {
         // TODO: Hack to make TPCH connector work
@@ -66,6 +72,12 @@ public class PrestoSparkInternalNodeManager
     {
         // TODO: Hack to make System connector work
         return ImmutableSet.of(CURRENT_NODE);
+    }
+
+    @Override
+    public Set<InternalNode> getResourceManagers()
+    {
+        throw new UnsupportedOperationException();
     }
 
     @Override

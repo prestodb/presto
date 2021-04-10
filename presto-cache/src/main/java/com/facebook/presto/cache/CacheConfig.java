@@ -18,6 +18,8 @@ import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.presto.hive.CacheQuotaScope;
 import io.airlift.units.DataSize;
 
+import javax.annotation.Nullable;
+
 import java.net.URI;
 import java.util.Optional;
 
@@ -32,6 +34,7 @@ public class CacheConfig
     private CacheQuotaScope cacheQuotaScope = GLOBAL;
     private Optional<DataSize> defaultCacheQuota = Optional.empty();
 
+    @Nullable
     public URI getBaseDirectory()
     {
         return baseDirectory;

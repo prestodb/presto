@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.airlift.stats.Distribution;
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.FragmentResultCacheContext;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.memory.QueryContextVisitor;
@@ -35,6 +36,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
@@ -49,8 +51,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.transform;
-import static io.airlift.units.DataSize.succinctBytes;
-import static io.airlift.units.Duration.succinctNanos;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.stream.Collectors.toList;
@@ -141,17 +141,18 @@ public class PipelineContext
 
     public DriverContext addDriverContext()
     {
-        return addDriverContext(Lifespan.taskWide());
+        return addDriverContext(Lifespan.taskWide(), Optional.empty());
     }
 
-    public DriverContext addDriverContext(Lifespan lifespan)
+    public DriverContext addDriverContext(Lifespan lifespan, Optional<FragmentResultCacheContext> fragmentResultCacheContext)
     {
         DriverContext driverContext = new DriverContext(
                 this,
                 notificationExecutor,
                 yieldExecutor,
                 pipelineMemoryContext.newMemoryTrackingContext(),
-                lifespan);
+                lifespan,
+                fragmentResultCacheContext);
         drivers.add(driverContext);
         return driverContext;
     }
@@ -433,31 +434,31 @@ public class PipelineContext
                 pipelineStatus.getBlockedDrivers(),
                 completedDrivers,
 
-                succinctBytes(pipelineMemoryContext.getUserMemory()),
-                succinctBytes(pipelineMemoryContext.getRevocableMemory()),
-                succinctBytes(pipelineMemoryContext.getSystemMemory()),
+                pipelineMemoryContext.getUserMemory(),
+                pipelineMemoryContext.getRevocableMemory(),
+                pipelineMemoryContext.getSystemMemory(),
 
                 queuedTime.snapshot(),
                 elapsedTime.snapshot(),
 
-                succinctNanos(totalScheduledTime),
-                succinctNanos(totalCpuTime),
-                succinctNanos(totalBlockedTime),
+                totalScheduledTime,
+                totalCpuTime,
+                totalBlockedTime,
                 fullyBlocked,
                 blockedReasons,
 
-                succinctBytes(totalAllocation),
+                totalAllocation,
 
-                succinctBytes(rawInputDataSize),
+                rawInputDataSize,
                 rawInputPositions,
 
-                succinctBytes(processedInputDataSize),
+                processedInputDataSize,
                 processedInputPositions,
 
-                succinctBytes(outputDataSize),
+                outputDataSize,
                 outputPositions,
 
-                succinctBytes(physicalWrittenDataSize),
+                physicalWrittenDataSize,
 
                 ImmutableList.copyOf(operatorSummaries.values()),
                 drivers);

@@ -16,15 +16,25 @@ package com.facebook.presto.orc.zlib;
 import io.airlift.compress.Compressor;
 
 import java.nio.ByteBuffer;
+import java.util.OptionalInt;
 import java.util.zip.Deflater;
 
+import static java.util.Objects.requireNonNull;
 import static java.util.zip.Deflater.FULL_FLUSH;
 
 public class DeflateCompressor
         implements Compressor
 {
     private static final int EXTRA_COMPRESSION_SPACE = 16;
-    private static final int COMPRESSION_LEVEL = 4;
+    private static final int DEFAULT_COMPRESSION_LEVEL = 4;
+
+    private final int compressionLevel;
+
+    public DeflateCompressor(OptionalInt compressionLevel)
+    {
+        requireNonNull(compressionLevel, "compressionLevel is null");
+        this.compressionLevel = compressionLevel.orElse(DEFAULT_COMPRESSION_LEVEL);
+    }
 
     @Override
     public int maxCompressedLength(int uncompressedSize)
@@ -41,7 +51,7 @@ public class DeflateCompressor
             throw new IllegalArgumentException("Output buffer must be at least " + maxCompressedLength + " bytes");
         }
 
-        Deflater deflater = new Deflater(COMPRESSION_LEVEL, true);
+        Deflater deflater = new Deflater(compressionLevel, true);
         try {
             deflater.setInput(input, inputOffset, inputLength);
             deflater.finish();

@@ -13,6 +13,12 @@
  */
 package com.facebook.presto.spi;
 
+import java.util.Optional;
+
 public interface ConnectorTableLayoutHandle
 {
+    default Object getIdentifier(Optional<ConnectorSplit> split)
+    {
+        return this;
+    }
 }

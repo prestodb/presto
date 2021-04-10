@@ -15,20 +15,20 @@ package com.facebook.presto.sql.rewrite;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.CatalogSchemaName;
-import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.TypeSignature;
-import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.SessionPropertyManager.SessionPropertyValue;
 import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
@@ -46,6 +46,7 @@ import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.CreateFunction;
+import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.DoubleLiteral;
@@ -98,13 +99,14 @@ import static com.facebook.presto.connector.informationSchema.InformationSchemaM
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_SCHEMATA;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLE_PRIVILEGES;
-import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
-import static com.facebook.presto.metadata.FunctionManager.qualifyFunctionName;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
 import static com.facebook.presto.metadata.MetadataListing.listCatalogs;
 import static com.facebook.presto.metadata.MetadataListing.listSchemas;
 import static com.facebook.presto.metadata.MetadataUtil.createCatalogSchemaName;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedName;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
+import static com.facebook.presto.metadata.SessionFunctionHandle.SESSION_NAMESPACE;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
@@ -139,6 +141,7 @@ import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.Determinism;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.Language;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause;
+import static com.facebook.presto.sql.tree.ShowCreate.Type.MATERIALIZED_VIEW;
 import static com.facebook.presto.sql.tree.ShowCreate.Type.TABLE;
 import static com.facebook.presto.sql.tree.ShowCreate.Type.VIEW;
 import static com.google.common.base.Strings.nullToEmpty;
@@ -441,9 +444,13 @@ final class ShowQueriesRewrite
         {
             QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName());
             Optional<ViewDefinition> viewDefinition = metadata.getView(session, objectName);
+            Optional<ConnectorMaterializedViewDefinition> materializedViewDefinition = metadata.getMaterializedView(session, objectName);
 
             if (node.getType() == VIEW) {
                 if (!viewDefinition.isPresent()) {
+                    if (materializedViewDefinition.isPresent()) {
+                        throw new SemanticException(NOT_SUPPORTED, node, "Relation '%s' is a materialized view, not a view", objectName);
+                    }
                     if (metadata.getTableHandle(session, objectName).isPresent()) {
                         throw new SemanticException(NOT_SUPPORTED, node, "Relation '%s' is a table, not a view", objectName);
                     }
@@ -455,9 +462,42 @@ final class ShowQueriesRewrite
                 return singleValueQuery("Create View", sql);
             }
 
+            if (node.getType() == MATERIALIZED_VIEW) {
+                Optional<TableHandle> tableHandle = metadata.getTableHandle(session, objectName);
+
+                if (!materializedViewDefinition.isPresent()) {
+                    if (viewDefinition.isPresent()) {
+                        throw new SemanticException(NOT_SUPPORTED, node, "Relation '%s' is a view, not a materialized view", objectName);
+                    }
+                    if (tableHandle.isPresent()) {
+                        throw new SemanticException(NOT_SUPPORTED, node, "Relation '%s' is a table, not a materialized view", objectName);
+                    }
+                    throw new SemanticException(MISSING_TABLE, node, "Materialized view '%s' does not exist", objectName);
+                }
+
+                Query query = parseView(materializedViewDefinition.get().getOriginalSql(), objectName, node);
+
+                ConnectorTableMetadata connectorTableMetadata = metadata.getTableMetadata(session, tableHandle.get()).getMetadata();
+                Map<String, Object> properties = connectorTableMetadata.getProperties();
+                Map<String, PropertyMetadata<?>> allTableProperties = metadata.getTablePropertyManager().getAllProperties().get(tableHandle.get().getConnectorId());
+                List<Property> propertyNodes = buildProperties(objectName, Optional.empty(), INVALID_TABLE_PROPERTY, properties, allTableProperties);
+
+                CreateMaterializedView createMaterializedView = new CreateMaterializedView(
+                        Optional.empty(),
+                        createQualifiedName(objectName),
+                        query,
+                        false,
+                        propertyNodes,
+                        connectorTableMetadata.getComment());
+                return singleValueQuery("Create Materialized View", formatSql(createMaterializedView, Optional.of(parameters)).trim());
+            }
+
             if (node.getType() == TABLE) {
                 if (viewDefinition.isPresent()) {
                     throw new SemanticException(NOT_SUPPORTED, node, "Relation '%s' is a view, not a table", objectName);
+                }
+                if (materializedViewDefinition.isPresent()) {
+                    throw new SemanticException(NOT_SUPPORTED, node, "Relation '%s' is a materialized view, not a table", objectName);
                 }
 
                 Optional<TableHandle> tableHandle = metadata.getTableHandle(session, objectName);
@@ -496,8 +536,8 @@ final class ShowQueriesRewrite
         @Override
         protected Node visitShowCreateFunction(ShowCreateFunction node, Void context)
         {
-            QualifiedFunctionName functionName = qualifyFunctionName(node.getName());
-            Collection<? extends SqlFunction> functions = metadata.getFunctionManager().getFunctions(session.getTransactionId(), functionName);
+            QualifiedObjectName functionName = qualifyObjectName(node.getName());
+            Collection<? extends SqlFunction> functions = metadata.getFunctionAndTypeManager().getFunctions(session, functionName);
             if (node.getParameterTypes().isPresent()) {
                 List<TypeSignature> parameterTypes = node.getParameterTypes().get().stream()
                         .map(TypeSignature::parseTypeSignature)
@@ -518,9 +558,11 @@ final class ShowQueriesRewrite
                 }
 
                 SqlInvokedFunction sqlFunction = (SqlInvokedFunction) function;
+                boolean temporary = sqlFunction.getFunctionId().getFunctionName().getCatalogSchemaName().equals(SESSION_NAMESPACE);
                 CreateFunction createFunction = new CreateFunction(
                         node.getName(),
                         false,
+                        temporary,
                         sqlFunction.getParameters().stream()
                                 .map(parameter -> new SqlParameterDeclaration(new Identifier(parameter.getName()), parameter.getType().toString()))
                                 .collect(toImmutableList()),
@@ -602,9 +644,11 @@ final class ShowQueriesRewrite
             ImmutableList.Builder<Expression> rows = ImmutableList.builder();
             for (SqlFunction function : metadata.listFunctions(session)) {
                 Signature signature = function.getSignature();
-                boolean builtIn = signature.getName().getFunctionNamespace().equals(DEFAULT_NAMESPACE);
+
+                boolean builtIn = signature.getName().getCatalogSchemaName().equals(DEFAULT_NAMESPACE);
+                boolean temporary = signature.getName().getCatalogSchemaName().equals(SESSION_NAMESPACE);
                 rows.add(row(
-                        builtIn ? new StringLiteral(signature.getNameSuffix()) : new StringLiteral(signature.getName().toString()),
+                        builtIn || temporary ? new StringLiteral(signature.getNameSuffix()) : new StringLiteral(signature.getName().toString()),
                         new StringLiteral(signature.getReturnType().toString()),
                         new StringLiteral(Joiner.on(", ").join(signature.getArgumentTypes())),
                         new StringLiteral(getFunctionType(function)),
@@ -612,6 +656,7 @@ final class ShowQueriesRewrite
                         new StringLiteral(nullToEmpty(function.getDescription())),
                         signature.isVariableArity() ? TRUE_LITERAL : FALSE_LITERAL,
                         builtIn ? TRUE_LITERAL : FALSE_LITERAL,
+                        temporary ? TRUE_LITERAL : FALSE_LITERAL,
                         function instanceof SqlInvokedFunction
                                 ? new StringLiteral(((SqlInvokedFunction) function).getRoutineCharacteristics().getLanguage().getLanguage().toLowerCase(ENGLISH))
                                 : new StringLiteral("")));
@@ -626,6 +671,7 @@ final class ShowQueriesRewrite
                     .put("description", "Description")
                     .put("variable_arity", "Variable Arity")
                     .put("built_in", "Built In")
+                    .put("temporary", "Temporary")
                     .put("language", "Language")
                     .build();
 

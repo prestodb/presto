@@ -27,14 +27,15 @@ import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.RowType.Field;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeUtils;
-import com.facebook.presto.execution.warnings.WarningCollector;
+import com.facebook.presto.expressions.DynamicFilters;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.scalar.ArraySubscriptOperator;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.SqlInvokedScalarFunctionImplementation;
@@ -120,11 +121,12 @@ import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.metadata.CastType.CAST;
-import static com.facebook.presto.metadata.FunctionManager.qualifyFunctionName;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.ConstantExpressionVerifier.verifyExpressionIsConstant;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.tryResolveEnumLiteral;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.gen.VarArgsToMapAdapterGenerator.generateVarArgsToMapAdapter;
 import static com.facebook.presto.sql.planner.ExpressionDeterminismEvaluator.isDeterministic;
@@ -192,7 +194,7 @@ public class ExpressionInterpreter
         analyzer.analyze(expression, Scope.create());
 
         Type actualType = analyzer.getExpressionTypes().get(NodeRef.of(expression));
-        if (!metadata.getTypeManager().canCoerce(actualType, expectedType)) {
+        if (!metadata.getFunctionAndTypeManager().canCoerce(actualType, expectedType)) {
             throw new SemanticException(SemanticErrorCode.TYPE_MISMATCH, expression, format("Cannot cast type %s to %s",
                     actualType.getTypeSignature(),
                     expectedType.getTypeSignature()));
@@ -253,7 +255,7 @@ public class ExpressionInterpreter
         this.expressionTypes = ImmutableMap.copyOf(requireNonNull(expressionTypes, "expressionTypes is null"));
         verify((expressionTypes.containsKey(NodeRef.of(expression))));
         this.optimize = optimize;
-        this.functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionManager());
+        this.functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionAndTypeManager());
         this.legacyRowFieldOrdinalAccess = isLegacyRowFieldOrdinalAccessEnabled(session);
 
         this.visitor = new Visitor();
@@ -297,6 +299,12 @@ public class ExpressionInterpreter
         @Override
         protected Object visitDereferenceExpression(DereferenceExpression node, Object context)
         {
+            Type returnType = type(node);
+            Optional<Object> maybeEnumValue = tryResolveEnumLiteral(node, returnType);
+            if (maybeEnumValue.isPresent()) {
+                return maybeEnumValue.get();
+            }
+
             Type type = type(node.getBase());
             // if there is no type for the base of Dereference, it must be QualifiedName
             if (type == null) {
@@ -314,7 +322,6 @@ public class ExpressionInterpreter
             }
 
             RowType rowType = (RowType) type;
-            Type returnType = type(node);
             String fieldName = node.getField().getValue();
             List<Field> fields = rowType.getFields();
             int index = -1;
@@ -587,7 +594,7 @@ public class ExpressionInterpreter
                 if (valueList.getValues().stream().allMatch(Literal.class::isInstance) &&
                         valueList.getValues().stream().noneMatch(NullLiteral.class::isInstance)) {
                     Set objectSet = valueList.getValues().stream().map(expression -> process(expression, context)).collect(Collectors.toSet());
-                    set = FastutilSetHelper.toFastutilHashSet(objectSet, type(node.getValue()), metadata.getFunctionManager());
+                    set = FastutilSetHelper.toFastutilHashSet(objectSet, type(node.getValue()), metadata.getFunctionAndTypeManager());
                 }
                 inListCache.put(valueList, set);
             }
@@ -683,8 +690,8 @@ public class ExpressionInterpreter
                 case PLUS:
                     return value;
                 case MINUS:
-                    FunctionHandle operatorHandle = metadata.getFunctionManager().resolveOperator(OperatorType.NEGATION, fromTypes(types(node.getValue())));
-                    MethodHandle handle = metadata.getFunctionManager().getBuiltInScalarFunctionImplementation(operatorHandle).getMethodHandle();
+                    FunctionHandle operatorHandle = metadata.getFunctionAndTypeManager().resolveOperator(OperatorType.NEGATION, fromTypes(types(node.getValue())));
+                    MethodHandle handle = metadata.getFunctionAndTypeManager().getBuiltInScalarFunctionImplementation(operatorHandle).getMethodHandle();
 
                     if (handle.type().parameterCount() > 0 && handle.type().parameterType(0) == SqlFunctionProperties.class) {
                         handle = handle.bindTo(connectorSession.getSqlFunctionProperties());
@@ -736,7 +743,10 @@ public class ExpressionInterpreter
                 if (left == null && right == null) {
                     return false;
                 }
-                else if (left == null || right == null) {
+                else if (left == null && !hasUnresolvedValue(right)) {
+                    return true;
+                }
+                else if (right == null && !hasUnresolvedValue(left)) {
                     return true;
                 }
             }
@@ -796,10 +806,11 @@ public class ExpressionInterpreter
                 return new NullIfExpression(toExpression(first, firstType), toExpression(second, secondType));
             }
 
-            Type commonType = metadata.getTypeManager().getCommonSuperType(firstType, secondType).get();
+            FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
+            Type commonType = functionAndTypeManager.getCommonSuperType(firstType, secondType).get();
 
-            FunctionHandle firstCast = metadata.getFunctionManager().lookupCast(CAST, firstType.getTypeSignature(), commonType.getTypeSignature());
-            FunctionHandle secondCast = metadata.getFunctionManager().lookupCast(CAST, secondType.getTypeSignature(), commonType.getTypeSignature());
+            FunctionHandle firstCast = functionAndTypeManager.lookupCast(CAST, firstType.getTypeSignature(), commonType.getTypeSignature());
+            FunctionHandle secondCast = functionAndTypeManager.lookupCast(CAST, secondType.getTypeSignature(), commonType.getTypeSignature());
 
             // cast(first as <common type>) == cast(second as <common type>)
             boolean equal = Boolean.TRUE.equals(invokeOperator(
@@ -901,11 +912,12 @@ public class ExpressionInterpreter
                 argumentValues.add(value);
                 argumentTypes.add(type);
             }
-            FunctionHandle functionHandle = metadata.getFunctionManager().resolveFunction(
+            FunctionHandle functionHandle = metadata.getFunctionAndTypeManager().resolveFunction(
+                    Optional.of(session.getSessionFunctions()),
                     session.getTransactionId(),
-                    qualifyFunctionName(node.getName()),
+                    qualifyObjectName(node.getName()),
                     fromTypes(argumentTypes));
-            FunctionMetadata functionMetadata = metadata.getFunctionManager().getFunctionMetadata(functionHandle);
+            FunctionMetadata functionMetadata = metadata.getFunctionAndTypeManager().getFunctionMetadata(functionHandle);
             if (!functionMetadata.isCalledOnNullInput()) {
                 for (int i = 0; i < argumentValues.size(); i++) {
                     Object value = argumentValues.get(i);
@@ -916,7 +928,11 @@ public class ExpressionInterpreter
             }
 
             // do not optimize non-deterministic functions
-            if (optimize && (!functionMetadata.isDeterministic() || hasUnresolvedValue(argumentValues) || node.getName().equals(QualifiedName.of("fail")))) {
+            if (optimize &&
+                    (!functionMetadata.isDeterministic() ||
+                            hasUnresolvedValue(argumentValues) ||
+                            node.getName().equals(QualifiedName.of(DynamicFilters.DynamicFilterPlaceholderFunction.NAME)) ||
+                            node.getName().equals(QualifiedName.of("fail")))) {
                 return new FunctionCall(node.getName(), node.getWindow(), node.isDistinct(), node.isIgnoreNulls(), toExpressions(argumentValues, argumentTypes));
             }
 
@@ -927,7 +943,7 @@ public class ExpressionInterpreter
                     result = functionInvoker.invoke(functionHandle, session.getSqlFunctionProperties(), argumentValues);
                     break;
                 case SQL:
-                    Expression function = getSqlFunctionExpression(functionMetadata, (SqlInvokedScalarFunctionImplementation) metadata.getFunctionManager().getScalarFunctionImplementation(functionHandle), session.getSqlFunctionProperties(), node.getArguments());
+                    Expression function = getSqlFunctionExpression(functionMetadata, (SqlInvokedScalarFunctionImplementation) metadata.getFunctionAndTypeManager().getScalarFunctionImplementation(functionHandle), metadata, session.getSqlFunctionProperties(), node.getArguments());
                     ExpressionInterpreter functionInterpreter = new ExpressionInterpreter(
                             function,
                             metadata,
@@ -936,6 +952,9 @@ public class ExpressionInterpreter
                             optimize);
                     result = functionInterpreter.visitor.process(function, context);
                     break;
+                case THRIFT:
+                    // do not interpret remote functions on coordinator
+                    return new FunctionCall(node.getName(), node.getWindow(), node.isDistinct(), node.isIgnoreNulls(), toExpressions(argumentValues, argumentTypes));
                 default:
                     throw new IllegalArgumentException(format("Unsupported function implementation type: %s", functionMetadata.getImplementationType()));
             }
@@ -1045,17 +1064,17 @@ public class ExpressionInterpreter
                 Slice unescapedPattern = unescapeLiteralLikePattern((Slice) pattern, (Slice) escape);
                 Type valueType = type(node.getValue());
                 Type patternType = createVarcharType(unescapedPattern.length());
-                TypeManager typeManager = metadata.getTypeManager();
-                Optional<Type> commonSuperType = typeManager.getCommonSuperType(valueType, patternType);
+                FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
+                Optional<Type> commonSuperType = functionAndTypeManager.getCommonSuperType(valueType, patternType);
                 checkArgument(commonSuperType.isPresent(), "Missing super type when optimizing %s", node);
                 Expression valueExpression = toExpression(value, valueType);
                 Expression patternExpression = toExpression(unescapedPattern, patternType);
                 Type superType = commonSuperType.get();
                 if (!valueType.equals(superType)) {
-                    valueExpression = new Cast(valueExpression, superType.getTypeSignature().toString(), false, typeManager.isTypeOnlyCoercion(valueType, superType));
+                    valueExpression = new Cast(valueExpression, superType.getTypeSignature().toString(), false, functionAndTypeManager.isTypeOnlyCoercion(valueType, superType));
                 }
                 if (!patternType.equals(superType)) {
-                    patternExpression = new Cast(patternExpression, superType.getTypeSignature().toString(), false, typeManager.isTypeOnlyCoercion(patternType, superType));
+                    patternExpression = new Cast(patternExpression, superType.getTypeSignature().toString(), false, functionAndTypeManager.isTypeOnlyCoercion(patternType, superType));
                 }
                 return new ComparisonExpression(ComparisonExpression.Operator.EQUAL, valueExpression, patternExpression);
             }
@@ -1123,7 +1142,7 @@ public class ExpressionInterpreter
                 return new Cast(toExpression(value, sourceType), node.getType(), node.isSafe(), node.isTypeOnly());
             }
 
-            FunctionHandle operator = metadata.getFunctionManager().lookupCast(CAST, sourceType.getTypeSignature(), targetType.getTypeSignature());
+            FunctionHandle operator = metadata.getFunctionAndTypeManager().lookupCast(CAST, sourceType.getTypeSignature(), targetType.getTypeSignature());
 
             try {
                 Object castedValue = functionInvoker.invoke(operator, session.getSqlFunctionProperties(), ImmutableList.of(value));
@@ -1258,7 +1277,13 @@ public class ExpressionInterpreter
 
         private boolean hasUnresolvedValue(Object... values)
         {
-            return hasUnresolvedValue(ImmutableList.copyOf(values));
+            ArrayList<Object> valuesList = new ArrayList<>(values.length);
+            for (Object value : values) {
+                if (value != null) {
+                    valuesList.add(value);
+                }
+            }
+            return !valuesList.isEmpty() && hasUnresolvedValue(valuesList);
         }
 
         private boolean hasUnresolvedValue(List<Object> values)
@@ -1268,7 +1293,7 @@ public class ExpressionInterpreter
 
         private Object invokeOperator(OperatorType operatorType, List<? extends Type> argumentTypes, List<Object> argumentValues)
         {
-            FunctionHandle operatorHandle = metadata.getFunctionManager().resolveOperator(operatorType, fromTypes(argumentTypes));
+            FunctionHandle operatorHandle = metadata.getFunctionAndTypeManager().resolveOperator(operatorType, fromTypes(argumentTypes));
             return functionInvoker.invoke(operatorHandle, session.getSqlFunctionProperties(), argumentValues);
         }
 

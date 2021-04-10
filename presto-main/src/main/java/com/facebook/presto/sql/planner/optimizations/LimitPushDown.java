@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.warnings.WarningCollector;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.LimitNode;
@@ -235,7 +235,8 @@ public class LimitPushDown
                         node.getSemiJoinOutput(),
                         node.getSourceHashVariable(),
                         node.getFilteringSourceHashVariable(),
-                        node.getDistributionType());
+                        node.getDistributionType(),
+                        node.getDynamicFilters());
             }
             return node;
         }

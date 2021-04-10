@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -49,7 +49,7 @@ public class TestJsonHiveHandles
             .put("requiredSubfields", ImmutableList.of())
             .build();
 
-    private final ObjectMapper objectMapper = new ObjectMapperProvider().get();
+    private final ObjectMapper objectMapper = new JsonObjectMapperProvider().get();
 
     @Test
     public void testTableHandleSerialize()
@@ -79,7 +79,7 @@ public class TestJsonHiveHandles
     public void testColumnHandleSerialize()
             throws Exception
     {
-        HiveColumnHandle columnHandle = new HiveColumnHandle("column", HiveType.HIVE_FLOAT, parseTypeSignature(StandardTypes.DOUBLE), -1, PARTITION_KEY, Optional.of("comment"));
+        HiveColumnHandle columnHandle = new HiveColumnHandle("column", HiveType.HIVE_FLOAT, parseTypeSignature(StandardTypes.DOUBLE), -1, PARTITION_KEY, Optional.of("comment"), Optional.empty());
 
         assertTrue(objectMapper.canSerialize(HiveColumnHandle.class));
         String json = objectMapper.writeValueAsString(columnHandle);

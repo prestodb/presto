@@ -21,7 +21,6 @@ import scala.collection.Iterator;
 
 import java.io.Serializable;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import static java.util.Collections.emptyMap;
@@ -33,20 +32,23 @@ public class PrestoSparkTaskProcessor<T extends PrestoSparkTaskOutput>
     private final PrestoSparkTaskExecutorFactoryProvider taskExecutorFactoryProvider;
     private final SerializedPrestoSparkTaskDescriptor serializedTaskDescriptor;
     private final CollectionAccumulator<SerializedTaskInfo> taskInfoCollector;
+    private final CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector;
     // fragmentId -> Broadcast
-    private final Map<String, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs;
+    private final Map<String, Broadcast<?>> broadcastInputs;
     private final Class<T> outputType;
 
     public PrestoSparkTaskProcessor(
             PrestoSparkTaskExecutorFactoryProvider taskExecutorFactoryProvider,
             SerializedPrestoSparkTaskDescriptor serializedTaskDescriptor,
             CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
-            Map<String, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs,
+            CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector,
+            Map<String, Broadcast<?>> broadcastInputs,
             Class<T> outputType)
     {
         this.taskExecutorFactoryProvider = requireNonNull(taskExecutorFactoryProvider, "taskExecutorFactoryProvider is null");
         this.serializedTaskDescriptor = requireNonNull(serializedTaskDescriptor, "serializedTaskDescriptor is null");
         this.taskInfoCollector = requireNonNull(taskInfoCollector, "taskInfoCollector is null");
+        this.shuffleStatsCollector = requireNonNull(shuffleStatsCollector, "shuffleStatsCollector is null");
         this.broadcastInputs = new HashMap<>(requireNonNull(broadcastInputs, "broadcastInputs is null"));
         this.outputType = requireNonNull(outputType, "outputType is null");
     }
@@ -65,6 +67,7 @@ public class PrestoSparkTaskProcessor<T extends PrestoSparkTaskOutput>
                 serializedTaskSources,
                 new PrestoSparkTaskInputs(shuffleInputs, broadcastInputs, emptyMap()),
                 taskInfoCollector,
+                shuffleStatsCollector,
                 outputType);
     }
 }

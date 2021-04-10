@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.cost.CachingCostProvider;
@@ -23,10 +24,8 @@ import com.facebook.presto.cost.CostProvider;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.cost.StatsProvider;
-import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NewTableLayout;
-import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -34,6 +33,7 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.LimitNode;
@@ -89,10 +89,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.isPrintStatsForNonJoinQuery;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
@@ -107,6 +109,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Streams.zip;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -334,6 +337,7 @@ public class LogicalPlanner
                 plan,
                 new CreateName(new ConnectorId(destination.getCatalogName()), tableMetadata, newTableLayout),
                 columnNames,
+                tableMetadata.getColumns(),
                 newTableLayout,
                 preferredShuffleLayout,
                 statisticsMetadata);
@@ -371,7 +375,7 @@ public class LogicalPlanner
                 Type tableType = column.getType();
                 Type queryType = input.getType();
 
-                if (queryType.equals(tableType) || metadata.getTypeManager().isTypeOnlyCoercion(queryType, tableType)) {
+                if (queryType.equals(tableType) || metadata.getFunctionAndTypeManager().isTypeOnlyCoercion(queryType, tableType)) {
                     assignments.put(output, castToRowExpression(new SymbolReference(input.getName())));
                 }
                 else {
@@ -400,6 +404,7 @@ public class LogicalPlanner
                 plan,
                 new InsertReference(insert.getTarget(), metadata.getTableMetadata(session, insert.getTarget()).getTable()),
                 visibleTableColumnNames,
+                visibleTableColumns,
                 newTableLayout,
                 preferredShuffleLayout,
                 statisticsMetadata);
@@ -410,6 +415,7 @@ public class LogicalPlanner
             RelationPlan plan,
             WriterTarget target,
             List<String> columnNames,
+            List<ColumnMetadata> columnMetadataList,
             Optional<NewTableLayout> writeTableLayout,
             Optional<NewTableLayout> preferredShuffleLayout,
             TableStatisticsMetadata statisticsMetadata)
@@ -426,14 +432,20 @@ public class LogicalPlanner
         Optional<PartitioningScheme> tablePartitioningScheme = getPartitioningSchemeForTableWrite(writeTableLayout, columnNames, variables);
         Optional<PartitioningScheme> preferredShufflePartitioningScheme = getPartitioningSchemeForTableWrite(preferredShuffleLayout, columnNames, variables);
 
-        if (!statisticsMetadata.isEmpty()) {
-            verify(columnNames.size() == variables.size(), "columnNames.size() != variables.size(): %s and %s", columnNames, variables);
-            Map<String, VariableReferenceExpression> columnToVariableMap = zip(columnNames.stream(), plan.getFieldMappings().stream(), SimpleImmutableEntry::new)
-                    .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+        verify(columnNames.size() == variables.size(), "columnNames.size() != variables.size(): %s and %s", columnNames, variables);
+        Map<String, VariableReferenceExpression> columnToVariableMap = zip(columnNames.stream(), plan.getFieldMappings().stream(), SimpleImmutableEntry::new)
+                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
 
+        Set<VariableReferenceExpression> notNullColumnVariables = columnMetadataList.stream()
+                .filter(column -> !column.isNullable())
+                .map(ColumnMetadata::getName)
+                .map(columnToVariableMap::get)
+                .collect(toImmutableSet());
+
+        if (!statisticsMetadata.isEmpty()) {
             TableStatisticAggregation result = statisticsAggregationPlanner.createStatisticsAggregation(statisticsMetadata, columnToVariableMap, true);
 
-            StatisticAggregations.Parts aggregations = result.getAggregations().splitIntoPartialAndFinal(variableAllocator, metadata.getFunctionManager());
+            StatisticAggregations.Parts aggregations = result.getAggregations().splitIntoPartialAndFinal(variableAllocator, metadata.getFunctionAndTypeManager());
 
             TableFinishNode commitNode = new TableFinishNode(
                     idAllocator.getNextId(),
@@ -446,6 +458,7 @@ public class LogicalPlanner
                             variableAllocator.newVariable("commitcontext", VARBINARY),
                             plan.getFieldMappings(),
                             columnNames,
+                            notNullColumnVariables,
                             tablePartitioningScheme,
                             preferredShufflePartitioningScheme,
                             // partial aggregation is run within the TableWriteOperator to calculate the statistics for
@@ -472,6 +485,7 @@ public class LogicalPlanner
                         variableAllocator.newVariable("commitcontext", VARBINARY),
                         plan.getFieldMappings(),
                         columnNames,
+                        notNullColumnVariables,
                         tablePartitioningScheme,
                         preferredShufflePartitioningScheme,
                         Optional.empty()),
@@ -540,7 +554,7 @@ public class LogicalPlanner
                 metadata,
                 parameters);
 
-        return new ConnectorTableMetadata(table.asSchemaTableName(), columns, properties, comment);
+        return new ConnectorTableMetadata(toSchemaTableName(table), columns, properties, comment);
     }
 
     private static List<ColumnMetadata> getOutputTableColumns(RelationPlan plan, Optional<List<Identifier>> columnAliases)

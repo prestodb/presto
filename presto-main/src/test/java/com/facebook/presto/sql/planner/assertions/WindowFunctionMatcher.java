@@ -74,7 +74,7 @@ public class WindowFunctionMatcher
 
         List<VariableReferenceExpression> matchedOutputs = windowNode.getWindowFunctions().entrySet().stream()
                 .filter(assignment -> {
-                    if (!expectedCall.getName().equals(QualifiedName.of(metadata.getFunctionManager().getFunctionMetadata(assignment.getValue().getFunctionCall().getFunctionHandle()).getName().getFunctionName()))) {
+                    if (!expectedCall.getName().equals(QualifiedName.of(metadata.getFunctionAndTypeManager().getFunctionMetadata(assignment.getValue().getFunctionCall().getFunctionHandle()).getName().getObjectName()))) {
                         return false;
                     }
                     if (!functionHandle.map(assignment.getValue().getFunctionHandle()::equals).orElse(true)) {

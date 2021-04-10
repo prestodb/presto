@@ -15,8 +15,8 @@
 package com.facebook.presto.connector.system;
 
 import com.facebook.presto.FullConnectorSession;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;

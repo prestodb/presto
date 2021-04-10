@@ -28,16 +28,19 @@ import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.hadoop.TextLineLengthLimitExceededException;
 import com.facebook.presto.hive.avro.PrestoAvroSerDe;
 import com.facebook.presto.hive.metastore.Column;
+import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.pagefile.PageInputFormat;
 import com.facebook.presto.hive.util.FooterAwareRecordReader;
-import com.facebook.presto.orc.OrcReader;
+import com.facebook.presto.hive.util.HudiRealtimeSplitConverter;
+import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.base.Joiner;
+import com.google.common.base.Predicate;
 import com.google.common.base.Splitter;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
@@ -72,6 +75,7 @@ import org.apache.hadoop.mapred.RecordReader;
 import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.mapred.TextInputFormat;
 import org.apache.hadoop.util.ReflectionUtils;
+import org.apache.hudi.hadoop.realtime.HoodieRealtimeFileSplit;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
@@ -83,11 +87,13 @@ import org.joda.time.format.ISODateTimeFormat;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
@@ -133,6 +139,7 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.HIVE_DEFAULT_DYNA
 import static com.facebook.presto.hive.metastore.MetastoreUtil.checkCondition;
 import static com.facebook.presto.hive.util.ConfigurationUtils.copy;
 import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
+import static com.facebook.presto.hive.util.CustomSplitConversionUtils.recreateSplitWithCustomInfo;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -154,10 +161,12 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
+import static org.apache.hadoop.hive.serde.serdeConstants.COLLECTION_DELIM;
 import static org.apache.hadoop.hive.serde.serdeConstants.DECIMAL_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_ALL_COLUMNS;
 import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_COLUMN_IDS_CONF_STR;
+import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_COLUMN_NAMES_CONF_STR;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
 
 public final class HiveUtil
@@ -166,6 +175,8 @@ public final class HiveUtil
 
     private static final String VIEW_PREFIX = "/* Presto View: ";
     private static final String VIEW_SUFFIX = " */";
+    private static final String MATERIALIZED_VIEW_PREFIX = "/* Presto Materialized View: ";
+    private static final String MATERIALIZED_VIEW_SUFFIX = " */";
 
     private static final DateTimeFormatter HIVE_DATE_PARSER = ISODateTimeFormat.date().withZoneUTC();
     private static final DateTimeFormatter HIVE_TIMESTAMP_PARSER;
@@ -202,7 +213,7 @@ public final class HiveUtil
     {
     }
 
-    public static RecordReader<?, ?> createRecordReader(Configuration configuration, Path path, long start, long length, Properties schema, List<HiveColumnHandle> columns)
+    public static RecordReader<?, ?> createRecordReader(Configuration configuration, Path path, long start, long length, Properties schema, List<HiveColumnHandle> columns, Map<String, String> customSplitInfo)
     {
         // determine which hive columns we will read
         List<HiveColumnHandle> readColumns = ImmutableList.copyOf(filter(columns, column -> column.getColumnType() == REGULAR));
@@ -211,14 +222,26 @@ public final class HiveUtil
         // Tell hive the columns we would like to read, this lets hive optimize reading column oriented files
         setReadColumns(configuration, readHiveColumnIndexes);
 
+        // Only propagate serialization schema configs by default
+        Predicate<String> schemaFilter = schemaProperty -> schemaProperty.startsWith("serialization.");
+
         InputFormat<?, ?> inputFormat = getInputFormat(configuration, getInputFormatName(schema), true);
         JobConf jobConf = toJobConf(configuration);
         FileSplit fileSplit = new FileSplit(path, start, length, (String[]) null);
+        if (!customSplitInfo.isEmpty() && isHudiRealtimeSplit(customSplitInfo)) {
+            fileSplit = recreateSplitWithCustomInfo(fileSplit, customSplitInfo);
 
-        // propagate serialization configuration to getRecordReader
+            // Add additional column information for record reader
+            List<String> readHiveColumnNames = ImmutableList.copyOf(transform(readColumns, HiveColumnHandle::getName));
+            jobConf.set(READ_COLUMN_NAMES_CONF_STR, Joiner.on(',').join(readHiveColumnNames));
+
+            // Remove filter when using customSplitInfo as the record reader requires complete schema configs
+            schemaFilter = schemaProperty -> true;
+        }
+
         schema.stringPropertyNames().stream()
-                .filter(name -> name.startsWith("serialization."))
-                .forEach(name -> jobConf.set(name, schema.getProperty(name)));
+            .filter(schemaFilter)
+            .forEach(name -> jobConf.set(name, schema.getProperty(name)));
 
         // add Airlift LZO and LZOP to head of codecs list so as to not override existing entries
         List<String> codecs = newArrayList(Splitter.on(",").trimResults().omitEmptyStrings().split(jobConf.get("io.compression.codecs", "")));
@@ -234,7 +257,8 @@ public final class HiveUtil
             RecordReader<WritableComparable, Writable> recordReader = (RecordReader<WritableComparable, Writable>) inputFormat.getRecordReader(fileSplit, jobConf, Reporter.NULL);
 
             int headerCount = getHeaderCount(schema);
-            if (headerCount > 0) {
+            //  Only skip header rows when the split is at the beginning of the file
+            if (start == 0 && headerCount > 0) {
                 Utilities.skipHeader(recordReader, headerCount, recordReader.createKey(), recordReader.createValue());
             }
 
@@ -258,6 +282,12 @@ public final class HiveUtil
                     firstNonNull(e.getMessage(), e.getClass().getName())),
                     e);
         }
+    }
+
+    private static boolean isHudiRealtimeSplit(Map<String, String> customSplitInfo)
+    {
+        String customSplitClass = customSplitInfo.get(HudiRealtimeSplitConverter.CUSTOM_SPLIT_CLASS_KEY);
+        return HoodieRealtimeFileSplit.class.getName().equals(customSplitClass);
     }
 
     public static void setReadColumns(Configuration configuration, List<Integer> readHiveColumnIndexes)
@@ -284,7 +314,7 @@ public final class HiveUtil
         return Optional.ofNullable(compressionCodecFactory.getCodec(file));
     }
 
-    static InputFormat<?, ?> getInputFormat(Configuration configuration, String inputFormatName, boolean symlinkTarget)
+    public static InputFormat<?, ?> getInputFormat(Configuration configuration, String inputFormatName, boolean symlinkTarget)
     {
         try {
             JobConf jobConf = toJobConf(configuration);
@@ -325,6 +355,15 @@ public final class HiveUtil
         String name = schema.getProperty(FILE_INPUT_FORMAT);
         checkCondition(name != null, HIVE_INVALID_METADATA, "Table or partition is missing Hive input format property: %s", FILE_INPUT_FORMAT);
         return name;
+    }
+
+    public static boolean shouldUseRecordReaderFromInputFormat(Configuration configuration, Storage storage)
+    {
+        InputFormat<?, ?> inputFormat = HiveUtil.getInputFormat(configuration, storage.getStorageFormat().getInputFormat(), false);
+        return Arrays.stream(inputFormat.getClass().getAnnotations())
+            .map(Annotation::annotationType)
+            .map(Class::getSimpleName)
+            .anyMatch(name -> name.equals("UseRecordReaderFromInputFormat"));
     }
 
     public static long parseHiveDate(String value)
@@ -368,7 +407,7 @@ public final class HiveUtil
         }
     }
 
-    public static StructObjectInspector getTableObjectInspector(@SuppressWarnings("deprecation") Deserializer deserializer)
+    public static StructObjectInspector getTableObjectInspector(Deserializer deserializer)
     {
         try {
             ObjectInspector inspector = deserializer.getObjectInspector();
@@ -392,17 +431,23 @@ public final class HiveUtil
         return name;
     }
 
-    @SuppressWarnings("deprecation")
     public static Deserializer getDeserializer(Configuration configuration, Properties schema)
     {
         String name = getDeserializerClassName(schema);
+
+        // for collection delimiter, Hive 1.x, 2.x uses "colelction.delim" but Hive 3.x uses "collection.delim"
+        // see also https://issues.apache.org/jira/browse/HIVE-16922
+        if (name.equals("org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe")) {
+            if (schema.containsKey("colelction.delim") && !schema.containsKey(COLLECTION_DELIM)) {
+                schema.put(COLLECTION_DELIM, schema.getProperty("colelction.delim"));
+            }
+        }
 
         Deserializer deserializer = createDeserializer(getDeserializerClass(name));
         initializeDeserializer(configuration, deserializer, schema);
         return deserializer;
     }
 
-    @SuppressWarnings("deprecation")
     private static Class<? extends Deserializer> getDeserializerClass(String name)
     {
         // CDH uses different names for Parquet
@@ -425,7 +470,6 @@ public final class HiveUtil
         }
     }
 
-    @SuppressWarnings("deprecation")
     private static Deserializer createDeserializer(Class<? extends Deserializer> clazz)
     {
         try {
@@ -436,7 +480,6 @@ public final class HiveUtil
         }
     }
 
-    @SuppressWarnings("deprecation")
     private static void initializeDeserializer(Configuration configuration, Deserializer deserializer, Properties schema)
     {
         try {
@@ -449,7 +492,6 @@ public final class HiveUtil
         }
     }
 
-    @SuppressWarnings("deprecation")
     private static void validate(Deserializer deserializer)
     {
         if (deserializer instanceof AbstractSerDe && !((AbstractSerDe) deserializer).getConfigurationErrors().isEmpty()) {
@@ -488,8 +530,7 @@ public final class HiveUtil
     public static NullableValue parsePartitionValue(String partitionName, String value, Type type, DateTimeZone timeZone)
     {
         verifyPartitionTypeSupported(partitionName, type);
-
-        boolean isNull = HIVE_DEFAULT_DYNAMIC_PARTITION.equals(value);
+        boolean isNull = HIVE_DEFAULT_DYNAMIC_PARTITION.equals(value) || isHiveNull(value.getBytes(UTF_8));
 
         if (type instanceof DecimalType) {
             DecimalType decimalType = (DecimalType) type;
@@ -613,15 +654,35 @@ public final class HiveUtil
 
     public static String encodeViewData(String data)
     {
-        return VIEW_PREFIX + Base64.getEncoder().encodeToString(data.getBytes(UTF_8)) + VIEW_SUFFIX;
+        return encodeView(data, VIEW_PREFIX, VIEW_SUFFIX);
     }
 
     public static String decodeViewData(String data)
     {
-        checkCondition(data.startsWith(VIEW_PREFIX), HIVE_INVALID_VIEW_DATA, "View data missing prefix: %s", data);
-        checkCondition(data.endsWith(VIEW_SUFFIX), HIVE_INVALID_VIEW_DATA, "View data missing suffix: %s", data);
-        data = data.substring(VIEW_PREFIX.length());
-        data = data.substring(0, data.length() - VIEW_SUFFIX.length());
+        return decodeView(data, VIEW_PREFIX, VIEW_SUFFIX);
+    }
+
+    public static String encodeMaterializedViewData(String data)
+    {
+        return encodeView(data, MATERIALIZED_VIEW_PREFIX, MATERIALIZED_VIEW_SUFFIX);
+    }
+
+    public static String decodeMaterializedViewData(String data)
+    {
+        return decodeView(data, MATERIALIZED_VIEW_PREFIX, MATERIALIZED_VIEW_SUFFIX);
+    }
+
+    private static String encodeView(String data, String prefix, String suffix)
+    {
+        return prefix + Base64.getEncoder().encodeToString(data.getBytes(UTF_8)) + suffix;
+    }
+
+    private static String decodeView(String data, String prefix, String suffix)
+    {
+        checkCondition(data.startsWith(prefix), HIVE_INVALID_VIEW_DATA, "View data missing prefix: %s", data);
+        checkCondition(data.endsWith(suffix), HIVE_INVALID_VIEW_DATA, "View data missing suffix: %s", data);
+        data = data.substring(prefix.length());
+        data = data.substring(0, data.length() - suffix.length());
         return new String(Base64.getDecoder().decode(data), UTF_8);
     }
 
@@ -827,7 +888,7 @@ public final class HiveUtil
             // ignore unsupported types rather than failing
             HiveType hiveType = field.getType();
             if (hiveType.isSupportedType()) {
-                columns.add(new HiveColumnHandle(field.getName(), hiveType, hiveType.getTypeSignature(), hiveColumnIndex, REGULAR, field.getComment()));
+                columns.add(new HiveColumnHandle(field.getName(), hiveType, hiveType.getTypeSignature(), hiveColumnIndex, REGULAR, field.getComment(), Optional.empty()));
             }
             hiveColumnIndex++;
         }
@@ -846,7 +907,7 @@ public final class HiveUtil
             if (!hiveType.isSupportedType()) {
                 throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type %s found in partition keys of table %s.%s", hiveType, table.getDatabaseName(), table.getTableName()));
             }
-            columns.add(new HiveColumnHandle(field.getName(), hiveType, hiveType.getTypeSignature(), partitionColumnIndex--, PARTITION_KEY, field.getComment()));
+            columns.add(new HiveColumnHandle(field.getName(), hiveType, hiveType.getTypeSignature(), partitionColumnIndex--, PARTITION_KEY, field.getComment(), Optional.empty()));
         }
 
         return columns.build();
@@ -978,15 +1039,16 @@ public final class HiveUtil
         }
     }
 
-    public static List<HiveColumnHandle> getPhysicalHiveColumnHandles(List<HiveColumnHandle> columns, boolean useOrcColumnNames, OrcReader reader, Path path)
+    public static List<HiveColumnHandle> getPhysicalHiveColumnHandles(List<HiveColumnHandle> columns, boolean useOrcColumnNames, List<OrcType> types, Path path)
     {
         if (!useOrcColumnNames) {
             return columns;
         }
 
-        verifyFileHasColumnNames(reader.getColumnNames(), path);
+        List<String> columnNames = getColumnNames(types);
+        verifyFileHasColumnNames(columnNames, path);
 
-        Map<String, Integer> physicalNameOrdinalMap = buildPhysicalNameOrdinalMap(reader);
+        Map<String, Integer> physicalNameOrdinalMap = buildPhysicalNameOrdinalMap(columnNames);
         int nextMissingColumnIndex = physicalNameOrdinalMap.size();
 
         ImmutableList.Builder<HiveColumnHandle> physicalColumns = ImmutableList.builder();
@@ -1004,9 +1066,14 @@ public final class HiveUtil
                     nextMissingColumnIndex++;
                 }
             }
-            physicalColumns.add(new HiveColumnHandle(column.getName(), column.getHiveType(), column.getTypeSignature(), physicalOrdinal, column.getColumnType(), column.getComment(), column.getRequiredSubfields()));
+            physicalColumns.add(new HiveColumnHandle(column.getName(), column.getHiveType(), column.getTypeSignature(), physicalOrdinal, column.getColumnType(), column.getComment(), column.getRequiredSubfields(), column.getPartialAggregation()));
         }
         return physicalColumns.build();
+    }
+
+    private static List<String> getColumnNames(List<OrcType> types)
+    {
+        return types.get(0).getFieldNames();
     }
 
     private static void verifyFileHasColumnNames(List<String> physicalColumnNames, Path path)
@@ -1018,12 +1085,12 @@ public final class HiveUtil
         }
     }
 
-    private static Map<String, Integer> buildPhysicalNameOrdinalMap(OrcReader reader)
+    private static Map<String, Integer> buildPhysicalNameOrdinalMap(List<String> columnNames)
     {
         ImmutableMap.Builder<String, Integer> physicalNameOrdinalMap = ImmutableMap.builder();
 
         int ordinal = 0;
-        for (String physicalColumnName : reader.getColumnNames()) {
+        for (String physicalColumnName : columnNames) {
             physicalNameOrdinalMap.put(physicalColumnName, ordinal);
             ordinal++;
         }

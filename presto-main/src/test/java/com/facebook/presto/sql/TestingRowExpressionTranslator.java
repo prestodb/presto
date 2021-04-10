@@ -14,9 +14,9 @@
 package com.facebook.presto.sql;
 
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
 import com.facebook.presto.sql.analyzer.Scope;
@@ -74,14 +74,13 @@ public class TestingRowExpressionTranslator
                 expression,
                 getExpressionTypes(expression, typeProvider),
                 ImmutableMap.of(),
-                metadata.getFunctionManager(),
-                metadata.getTypeManager(),
+                metadata.getFunctionAndTypeManager(),
                 TEST_SESSION);
     }
 
     public RowExpression translateAndOptimize(Expression expression, Map<NodeRef<Expression>, Type> types)
     {
-        RowExpression rowExpression = SqlToRowExpressionTranslator.translate(expression, types, ImmutableMap.of(), metadata.getFunctionManager(), metadata.getTypeManager(), TEST_SESSION);
+        RowExpression rowExpression = SqlToRowExpressionTranslator.translate(expression, types, ImmutableMap.of(), metadata.getFunctionAndTypeManager(), TEST_SESSION);
         RowExpressionOptimizer optimizer = new RowExpressionOptimizer(metadata);
         return optimizer.optimize(rowExpression, OPTIMIZED, TEST_SESSION.toConnectorSession());
     }
@@ -99,8 +98,7 @@ public class TestingRowExpressionTranslator
     private Map<NodeRef<Expression>, Type> getExpressionTypes(Expression expression, TypeProvider typeProvider)
     {
         ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                metadata.getFunctionManager(),
-                metadata.getTypeManager(),
+                metadata.getFunctionAndTypeManager(),
                 TEST_SESSION,
                 typeProvider,
                 emptyList(),

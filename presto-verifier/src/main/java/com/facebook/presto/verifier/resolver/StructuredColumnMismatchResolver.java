@@ -23,14 +23,14 @@ import com.facebook.presto.verifier.checksum.ArrayColumnChecksum;
 import com.facebook.presto.verifier.checksum.ColumnMatchResult;
 import com.facebook.presto.verifier.checksum.MapColumnChecksum;
 import com.facebook.presto.verifier.checksum.StructureColumnChecksum;
-import com.facebook.presto.verifier.framework.MatchResult;
+import com.facebook.presto.verifier.framework.DataMatchResult;
 import com.facebook.presto.verifier.framework.QueryBundle;
 
 import java.util.Objects;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.RowType.Field;
-import static com.facebook.presto.verifier.framework.MatchResult.MatchType.COLUMN_MISMATCH;
+import static com.facebook.presto.verifier.framework.DataMatchResult.MatchType.COLUMN_MISMATCH;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class StructuredColumnMismatchResolver
@@ -39,7 +39,7 @@ public class StructuredColumnMismatchResolver
     public static final String NAME = "structured-column";
 
     @Override
-    public Optional<String> resolveResultMismatch(MatchResult matchResult, QueryBundle control)
+    public Optional<String> resolveResultMismatch(DataMatchResult matchResult, QueryBundle control)
     {
         checkArgument(!matchResult.isMatched(), "Expect not matched");
         if (matchResult.getMatchType() != COLUMN_MISMATCH) {

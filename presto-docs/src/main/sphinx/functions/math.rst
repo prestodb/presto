@@ -163,6 +163,16 @@ Mathematical Functions
 
     Returns ``x`` rounded to integer by dropping digits after decimal point.
 
+.. function:: truncate(x, n) -> double
+
+    Returns ``x`` truncated to ``n`` decimal places.
+    ``n`` can be negative to truncate ``n`` digits left of the decimal point. 
+
+    Example:
+    ``truncate(REAL '12.333', -1)`` -> result is 10.0
+    ``truncate(REAL '12.333', 0)``  -> result is 12.0
+    ``truncate(REAL '12.333', 1)``  -> result is 12.3
+
 .. function:: width_bucket(x, bound1, bound2, n) -> bigint
 
     Returns the bin number of ``x`` in an equi-width histogram with the

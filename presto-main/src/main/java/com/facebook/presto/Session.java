@@ -21,10 +21,13 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.spi.session.ResourceEstimates;
+import com.facebook.presto.spi.session.SessionPropertyConfigurationManager.SystemSessionPropertyConfiguration;
 import com.facebook.presto.sql.tree.Execute;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
@@ -48,6 +51,7 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.SystemSessionProperties.isLegacyMapSubscript;
 import static com.facebook.presto.SystemSessionProperties.isLegacyRowFieldOrdinalAccessEnabled;
 import static com.facebook.presto.SystemSessionProperties.isLegacyTimestamp;
+import static com.facebook.presto.SystemSessionProperties.isLegacyTypeCoercionWarningEnabled;
 import static com.facebook.presto.SystemSessionProperties.isParseDecimalLiteralsAsDouble;
 import static com.facebook.presto.spi.ConnectorId.createInformationSchemaConnectorId;
 import static com.facebook.presto.spi.ConnectorId.createSystemTablesConnectorId;
@@ -81,6 +85,7 @@ public final class Session
     private final Map<String, Map<String, String>> unprocessedCatalogProperties;
     private final SessionPropertyManager sessionPropertyManager;
     private final Map<String, String> preparedStatements;
+    private final Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions;
     private final AccessControlContext context;
 
     public Session(
@@ -104,7 +109,8 @@ public final class Session
             Map<ConnectorId, Map<String, String>> connectorProperties,
             Map<String, Map<String, String>> unprocessedCatalogProperties,
             SessionPropertyManager sessionPropertyManager,
-            Map<String, String> preparedStatements)
+            Map<String, String> preparedStatements,
+            Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
@@ -125,6 +131,7 @@ public final class Session
         this.systemProperties = ImmutableMap.copyOf(requireNonNull(systemProperties, "systemProperties is null"));
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.preparedStatements = requireNonNull(preparedStatements, "preparedStatements is null");
+        this.sessionFunctions = requireNonNull(sessionFunctions, "sessionFunctions is null");
 
         ImmutableMap.Builder<ConnectorId, Map<String, String>> catalogPropertiesBuilder = ImmutableMap.builder();
         connectorProperties.entrySet().stream()
@@ -277,6 +284,11 @@ public final class Session
         return sql;
     }
 
+    public Map<SqlFunctionId, SqlInvokedFunction> getSessionFunctions()
+    {
+        return sessionFunctions;
+    }
+
     public AccessControlContext getAccessControlContext()
     {
         return context;
@@ -370,12 +382,15 @@ public final class Session
                 connectorProperties.build(),
                 ImmutableMap.of(),
                 sessionPropertyManager,
-                preparedStatements);
+                preparedStatements,
+                sessionFunctions);
     }
 
-    public Session withDefaultProperties(Map<String, String> systemPropertyDefaults, Map<String, Map<String, String>> catalogPropertyDefaults)
+    public Session withDefaultProperties(
+            SystemSessionPropertyConfiguration systemPropertyConfiguration,
+            Map<String, Map<String, String>> catalogPropertyDefaults)
     {
-        requireNonNull(systemPropertyDefaults, "systemPropertyDefaults is null");
+        requireNonNull(systemPropertyConfiguration, "systemPropertyConfiguration is null");
         requireNonNull(catalogPropertyDefaults, "catalogPropertyDefaults is null");
 
         // to remove this check properties must be authenticated and validated as in beginTransactionId
@@ -384,8 +399,9 @@ public final class Session
                 "Session properties cannot be overridden once a transaction is active");
 
         Map<String, String> systemProperties = new HashMap<>();
-        systemProperties.putAll(systemPropertyDefaults);
+        systemProperties.putAll(systemPropertyConfiguration.systemPropertyDefaults);
         systemProperties.putAll(this.systemProperties);
+        systemProperties.putAll(systemPropertyConfiguration.systemPropertyOverrides);
 
         Map<String, Map<String, String>> connectorProperties = catalogPropertyDefaults.entrySet().stream()
                 .map(entry -> Maps.immutableEntry(entry.getKey(), new HashMap<>(entry.getValue())))
@@ -419,7 +435,8 @@ public final class Session
                 ImmutableMap.of(),
                 connectorProperties,
                 sessionPropertyManager,
-                preparedStatements);
+                preparedStatements,
+                sessionFunctions);
     }
 
     public ConnectorSession toConnectorSession()
@@ -432,6 +449,7 @@ public final class Session
         return SqlFunctionProperties.builder()
                 .setTimeZoneKey(timeZoneKey)
                 .setLegacyRowFieldOrdinalAccessEnabled(isLegacyRowFieldOrdinalAccessEnabled(this))
+                .setLegacyTypeCoercionWarningEnabled(isLegacyTypeCoercionWarningEnabled(this))
                 .setLegacyTimestamp(isLegacyTimestamp(this))
                 .setLegacyMapSubscript(isLegacyMapSubscript(this))
                 .setParseDecimalLiteralAsDouble(isParseDecimalLiteralsAsDouble(this))
@@ -478,7 +496,8 @@ public final class Session
                 connectorProperties,
                 unprocessedCatalogProperties,
                 identity.getRoles(),
-                preparedStatements);
+                preparedStatements,
+                sessionFunctions);
     }
 
     @Override
@@ -538,6 +557,7 @@ public final class Session
         private final Map<String, Map<String, String>> catalogSessionProperties = new HashMap<>();
         private final SessionPropertyManager sessionPropertyManager;
         private final Map<String, String> preparedStatements = new HashMap<>();
+        private final Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions = new HashMap<>();
 
         private SessionBuilder(SessionPropertyManager sessionPropertyManager)
         {
@@ -567,6 +587,7 @@ public final class Session
             this.systemProperties.putAll(session.systemProperties);
             session.unprocessedCatalogProperties.forEach((key, value) -> this.catalogSessionProperties.put(key, new HashMap<>(value)));
             this.preparedStatements.putAll(session.preparedStatements);
+            this.sessionFunctions.putAll(session.sessionFunctions);
         }
 
         public SessionBuilder setQueryId(QueryId queryId)
@@ -693,6 +714,12 @@ public final class Session
             return this;
         }
 
+        public SessionBuilder addSessionFunction(SqlFunctionId functionSignature, SqlInvokedFunction functionDefinition)
+        {
+            this.sessionFunctions.put(functionSignature, functionDefinition);
+            return this;
+        }
+
         public Session build()
         {
             return new Session(
@@ -716,7 +743,8 @@ public final class Session
                     ImmutableMap.of(),
                     catalogSessionProperties,
                     sessionPropertyManager,
-                    preparedStatements);
+                    preparedStatements,
+                    sessionFunctions);
         }
     }
 

@@ -190,10 +190,7 @@ public class ArrayBlock
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder("ArrayBlock{");
-        sb.append("positionCount=").append(getPositionCount());
-        sb.append('}');
-        return sb.toString();
+        return format("ArrayBlock(%d){positionCount=%d}", hashCode(), getPositionCount());
     }
 
     @Override

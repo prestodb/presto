@@ -13,8 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.common.function.QualifiedFunctionName;
-import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.operator.aggregation.AggregationFromAnnotationsParser;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
@@ -27,7 +26,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -95,7 +94,7 @@ public abstract class SqlAggregationFunction
         requireNonNull(argumentTypes, "argumentTypes is null");
         checkArgument(kind == AGGREGATE, "kind must be an aggregate");
         return new Signature(
-                QualifiedFunctionName.of(DEFAULT_NAMESPACE, name),
+                QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, name),
                 kind,
                 ImmutableList.copyOf(typeVariableConstraints),
                 ImmutableList.copyOf(longVariableConstraints),
@@ -122,5 +121,5 @@ public abstract class SqlAggregationFunction
         return true;
     }
 
-    public abstract InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager);
+    public abstract InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager);
 }

@@ -42,9 +42,15 @@ public class TestParquetDistributedQueries
                 .put("hive.storage-format", "PARQUET")
                 .put("hive.parquet.use-column-names", "true")
                 .put("hive.compression-codec", "GZIP")
+                .put("hive.enable-parquet-dereference-pushdown", "true")
+                .put("hive.partial_aggregation_pushdown_enabled", "true")
+                .put("hive.partial_aggregation_pushdown_for_variable_length_datatypes_enabled", "true")
                 .build();
-        return HiveQueryRunner.createQueryRunner(getTables(),
-                ImmutableMap.of("experimental.pushdown-subfields-enabled", "true"),
+        return HiveQueryRunner.createQueryRunner(
+                getTables(),
+                ImmutableMap.of(
+                        "experimental.pushdown-subfields-enabled", "true",
+                        "experimental.pushdown-dereference-enabled", "true"),
                 "sql-standard",
                 parquetProperties,
                 Optional.empty());

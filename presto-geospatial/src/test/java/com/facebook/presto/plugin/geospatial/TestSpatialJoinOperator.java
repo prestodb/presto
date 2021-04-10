@@ -15,6 +15,7 @@ package com.facebook.presto.plugin.geospatial;
 
 import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.geospatial.KdbTree;
 import com.facebook.presto.geospatial.KdbTreeUtils;
 import com.facebook.presto.geospatial.Rectangle;
@@ -61,9 +62,8 @@ import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.facebook.presto.geospatial.KdbTree.Node.newInternal;
-import static com.facebook.presto.geospatial.KdbTree.Node.newLeaf;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEqualsIgnoreOrder;
+import static com.facebook.presto.plugin.geospatial.GeoFunctions.spatialPartitions;
 import static com.facebook.presto.plugin.geospatial.GeoFunctions.stGeometryFromText;
 import static com.facebook.presto.plugin.geospatial.GeoFunctions.stPoint;
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY;
@@ -80,22 +80,34 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestSpatialJoinOperator
 {
-    private static final String KDB_TREE_JSON = KdbTreeUtils.toJson(
-            new KdbTree(newInternal(new Rectangle(-2, -2, 15, 15),
-                newInternal(new Rectangle(-2, -2, 6, 15),
-                        newLeaf(new Rectangle(-2, -2, 6, 1), 1),
-                        newLeaf(new Rectangle(-2, 1, 6, 15), 2)),
-                newLeaf(new Rectangle(6, -2, 15, 15), 0))));
+    private static final KdbTree KDB_TREE = KdbTree.buildKdbTree(
+            2,
+            ImmutableList.of(
+                    new Rectangle(-2, -2, -2, -2),
+                    new Rectangle(0, 0, 0, 0),
+                    new Rectangle(-1, -2, 4, 3),
+                    new Rectangle(6, 1, 6, 1),
+                    new Rectangle(3, 9, 3, 9),
+                    new Rectangle(15, 15, 15, 15)));
+    private static final String KDB_TREE_JSON = KdbTreeUtils.toJson(KDB_TREE);
 
     //  2 intersecting polygons: A and B
     private static final Slice POLYGON_A = stGeometryFromText(Slices.utf8Slice("POLYGON ((0 0, -0.5 2.5, 0 5, 2.5 5.5, 5 5, 5.5 2.5, 5 0, 2.5 -0.5, 0 0))"));
     private static final Slice POLYGON_B = stGeometryFromText(Slices.utf8Slice("POLYGON ((4 4, 3.5 7, 4 10, 7 10.5, 10 10, 10.5 7, 10 4, 7 3.5, 4 4))"));
+    private static final Slice POLYGON_C = stGeometryFromText(Slices.utf8Slice("POLYGON ((15 15, 15 14, 14 14, 14 15, 15 15))"));
+    private static final Slice POLYGON_D = stGeometryFromText(Slices.utf8Slice("POLYGON ((18 18, 18 19, 19 19, 19 18, 18 18))"));
 
     // A set of points: X in A, Y in A and B, Z in B, W outside of A and B
     private static final Slice POINT_X = stPoint(1, 1);
     private static final Slice POINT_Y = stPoint(4.5, 4.5);
     private static final Slice POINT_Z = stPoint(6, 6);
     private static final Slice POINT_W = stPoint(20, 20);
+    private static final Slice POINT_V = stPoint(15, 15);
+    private static final Slice MULTIPOINT_U = stGeometryFromText(Slices.utf8Slice("MULTIPOINT (15 15)"));
+    private static final Slice MULTIPOINT_T = stGeometryFromText(Slices.utf8Slice("MULTIPOINT (14.5 14.5, 16 16)"));
+    private static final Slice POINT_S = stPoint(18, 18);
+    private static final Slice MULTIPOINT_R = stGeometryFromText(Slices.utf8Slice("MULTIPOINT (15 15, 19 19)"));
+    private static final Slice POINT_Q = stPoint(28, 28);
 
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
@@ -135,7 +147,9 @@ public class TestSpatialJoinOperator
                 .row(POLYGON_A, "A")
                 .row(null, "null")
                 .pageBreak()
-                .row(POLYGON_B, "B");
+                .row(POLYGON_B, "B")
+                .row(POLYGON_C, "C")
+                .row(POLYGON_D, "D");
 
         RowPagesBuilder probePages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR))
                 .row(POINT_X, "x")
@@ -144,13 +158,26 @@ public class TestSpatialJoinOperator
                 .pageBreak()
                 .row(POINT_Z, "z")
                 .pageBreak()
-                .row(POINT_W, "w");
+                .row(POINT_W, "w")
+                .row(POINT_V, "v")
+                .row(MULTIPOINT_U, "u")
+                .pageBreak()
+                .row(MULTIPOINT_T, "t")
+                .row(POINT_S, "s")
+                .row(MULTIPOINT_R, "r")
+                .row(POINT_Q, "q");
 
         MaterializedResult expected = resultBuilder(taskContext.getSession(), ImmutableList.of(VARCHAR, VARCHAR))
                 .row("x", "A")
                 .row("y", "A")
                 .row("y", "B")
                 .row("z", "B")
+                .row("v", "C")
+                .row("u", "C")
+                .row("t", "C")
+                .row("s", "D")
+                .row("r", "C")
+                .row("r", "D")
                 .build();
 
         assertSpatialJoin(taskContext, INNER, buildPages, probePages, expected);
@@ -164,7 +191,9 @@ public class TestSpatialJoinOperator
                 .row(POLYGON_A, "A")
                 .row(null, "null")
                 .pageBreak()
-                .row(POLYGON_B, "B");
+                .row(POLYGON_B, "B")
+                .row(POLYGON_C, "C")
+                .row(POLYGON_D, "D");
 
         RowPagesBuilder probePages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR))
                 .row(POINT_X, "x")
@@ -173,7 +202,15 @@ public class TestSpatialJoinOperator
                 .pageBreak()
                 .row(POINT_Z, "z")
                 .pageBreak()
-                .row(POINT_W, "w");
+                .row(POINT_W, "w")
+                .row(POINT_V, "v")
+                .row(MULTIPOINT_U, "u")
+                .pageBreak()
+                .row(MULTIPOINT_T, "t")
+                .row(POINT_S, "s")
+                .row(MULTIPOINT_R, "r")
+                .row(POINT_Q, "q");
+
         MaterializedResult expected = resultBuilder(taskContext.getSession(), ImmutableList.of(VARCHAR, VARCHAR))
                 .row("x", "A")
                 .row("null", null)
@@ -181,6 +218,13 @@ public class TestSpatialJoinOperator
                 .row("y", "B")
                 .row("z", "B")
                 .row("w", null)
+                .row("v", "C")
+                .row("u", "C")
+                .row("t", "C")
+                .row("s", "D")
+                .row("r", "C")
+                .row("r", "D")
+                .row("q", null)
                 .build();
 
         assertSpatialJoin(taskContext, LEFT, buildPages, probePages, expected);
@@ -189,7 +233,7 @@ public class TestSpatialJoinOperator
     private void assertSpatialJoin(TaskContext taskContext, Type joinType, RowPagesBuilder buildPages, RowPagesBuilder probePages, MaterializedResult expected)
     {
         DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
-        PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(driverContext, (build, probe, r) -> build.contains(probe), Optional.empty(), Optional.empty(), buildPages);
+        PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(driverContext, (build, probe, r) -> build.intersects(probe), Optional.empty(), Optional.empty(), buildPages);
         OperatorFactory joinOperatorFactory = new SpatialJoinOperatorFactory(2, new PlanNodeId("test"), joinType, probePages.getTypes(), Ints.asList(1), 0, Optional.empty(), pagesSpatialIndexFactory);
         assertOperatorEqualsIgnoreOrder(joinOperatorFactory, driverContext, probePages.build(), expected);
     }
@@ -367,29 +411,43 @@ public class TestSpatialJoinOperator
         TaskContext taskContext = createTaskContext();
         DriverContext driverContext = taskContext.addPipelineContext(0, true, true, true).addDriverContext();
 
-        RowPagesBuilder buildPages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR, INTEGER))
-                .row(POLYGON_A, "A", 1)
-                .row(POLYGON_A, "A", 2)
-                .row(null, "null", null)
-                .pageBreak()
-                .row(POLYGON_B, "B", 0)
-                .row(POLYGON_B, "B", 2);
+        RowPagesBuilder buildPages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR, INTEGER));
+        addGeometryPartitionRows(buildPages, POLYGON_A, "A");
+        buildPages.row(null, "null", null);
+        buildPages.pageBreak();
+        addGeometryPartitionRows(buildPages, POLYGON_B, "B");
+        addGeometryPartitionRows(buildPages, POLYGON_C, "C");
+        addGeometryPartitionRows(buildPages, POLYGON_D, "D");
 
-        RowPagesBuilder probePages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR, INTEGER))
-                .row(POINT_X, "x", 2)
-                .row(null, "null", null)
-                .row(POINT_Y, "y", 2)
-                .pageBreak()
-                .row(POINT_Z, "z", 0);
+        RowPagesBuilder probePages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR, INTEGER));
+        addGeometryPartitionRows(probePages, POINT_X, "x");
+        probePages.row(null, "null", null);
+        addGeometryPartitionRows(probePages, POINT_Y, "y");
+        probePages.pageBreak();
+        addGeometryPartitionRows(probePages, POINT_Z, "z");
+        addGeometryPartitionRows(probePages, POINT_W, "w");
+        addGeometryPartitionRows(probePages, POINT_V, "v");
+        addGeometryPartitionRows(probePages, MULTIPOINT_U, "u");
+        probePages.pageBreak();
+        addGeometryPartitionRows(probePages, MULTIPOINT_T, "t");
+        addGeometryPartitionRows(probePages, POINT_S, "s");
+        addGeometryPartitionRows(probePages, MULTIPOINT_R, "r");
+        addGeometryPartitionRows(probePages, POINT_Q, "q");
 
         MaterializedResult expected = resultBuilder(taskContext.getSession(), ImmutableList.of(VARCHAR, VARCHAR))
                 .row("x", "A")
                 .row("y", "A")
                 .row("y", "B")
                 .row("z", "B")
+                .row("v", "C")
+                .row("u", "C")
+                .row("t", "C")
+                .row("s", "D")
+                .row("r", "C")
+                .row("r", "D")
                 .build();
 
-        PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(driverContext, (build, probe, r) -> build.contains(probe), Optional.empty(), Optional.of(2), Optional.of(KDB_TREE_JSON), Optional.empty(), buildPages);
+        PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(driverContext, (build, probe, r) -> build.intersects(probe), Optional.empty(), Optional.of(2), Optional.of(KDB_TREE_JSON), Optional.empty(), buildPages);
         OperatorFactory joinOperatorFactory = new SpatialJoinOperatorFactory(2, new PlanNodeId("test"), INNER, probePages.getTypes(), Ints.asList(1), 0, Optional.of(2), pagesSpatialIndexFactory);
         assertOperatorEqualsIgnoreOrder(joinOperatorFactory, driverContext, probePages.build(), expected);
     }
@@ -400,13 +458,11 @@ public class TestSpatialJoinOperator
         TaskContext taskContext = createTaskContext();
         DriverContext driverContext = taskContext.addPipelineContext(0, true, true, true).addDriverContext();
 
-        RowPagesBuilder pages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR, INTEGER))
-                .row(POLYGON_A, "A", 1)
-                .row(POLYGON_A, "A", 2)
-                .row(null, "null", null)
-                .pageBreak()
-                .row(POLYGON_B, "B", 0)
-                .row(POLYGON_B, "B", 2);
+        RowPagesBuilder pages = rowPagesBuilder(ImmutableList.of(GEOMETRY, VARCHAR, INTEGER));
+        addGeometryPartitionRows(pages, POLYGON_A, "A");
+        pages.row(null, "null", null);
+        pages.pageBreak();
+        addGeometryPartitionRows(pages, POLYGON_B, "B");
 
         MaterializedResult expected = resultBuilder(taskContext.getSession(), ImmutableList.of(VARCHAR, VARCHAR))
                 .row("A", "A")
@@ -418,6 +474,15 @@ public class TestSpatialJoinOperator
         PagesSpatialIndexFactory pagesSpatialIndexFactory = buildIndex(driverContext, (build, probe, r) -> build.intersects(probe), Optional.empty(), Optional.of(2), Optional.of(KDB_TREE_JSON), Optional.empty(), pages);
         OperatorFactory joinOperatorFactory = new SpatialJoinOperatorFactory(2, new PlanNodeId("test"), INNER, pages.getTypes(), Ints.asList(1), 0, Optional.of(2), pagesSpatialIndexFactory);
         assertOperatorEqualsIgnoreOrder(joinOperatorFactory, driverContext, pages.build(), expected);
+    }
+
+    private void addGeometryPartitionRows(RowPagesBuilder pageBuilder, Slice geometry, String geometryName)
+    {
+        Block partitionIndices = spatialPartitions(KDB_TREE, geometry);
+        for (int position = 0; position < partitionIndices.getPositionCount(); position++) {
+            int partitionIndex = partitionIndices.getInt(position);
+            pageBuilder.row(geometry, geometryName, partitionIndex);
+        }
     }
 
     private PagesSpatialIndexFactory buildIndex(DriverContext driverContext, SpatialPredicate spatialRelationshipTest, Optional<Integer> radiusChannel, Optional<InternalJoinFilterFunction> filterFunction, RowPagesBuilder buildPages)
@@ -445,7 +510,8 @@ public class TestSpatialJoinOperator
                 10_000,
                 new TestingFactory(false));
 
-        Driver driver = Driver.createDriver(driverContext,
+        Driver driver = Driver.createDriver(
+                driverContext,
                 valuesOperatorFactory.createOperator(driverContext),
                 buildOperatorFactory.createOperator(driverContext));
 

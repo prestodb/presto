@@ -14,10 +14,11 @@
 package com.facebook.presto.sql.planner.sanity;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.ActualProperties;
@@ -104,6 +105,10 @@ public class ValidateAggregationsWithDefaultValues
                 return Optional.empty();
             }
 
+            // When partial aggregation is pushed down we do not have an intermediate aggregation step
+            if (isPartialAggregationPusheddown(node)) {
+                return Optional.empty();
+            }
             checkState(seenExchangesOptional.isPresent(), "No partial aggregation below final aggregation");
             SeenExchanges seenExchanges = seenExchangesOptional.get();
 
@@ -127,6 +132,19 @@ public class ValidateAggregationsWithDefaultValues
             }
 
             return Optional.empty();
+        }
+
+        private boolean isPartialAggregationPusheddown(AggregationNode node)
+        {
+            if (node.getStep().equals(FINAL)) {
+                if (node.getSource() instanceof ExchangeNode
+                        && node.getSource().getSources().get(0) instanceof ExchangeNode) {
+                    if (node.getSource().getSources().get(0).getSources().get(0) instanceof TableScanNode) {
+                        return true;
+                    }
+                }
+            }
+            return false;
         }
 
         @Override

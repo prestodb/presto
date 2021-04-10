@@ -33,6 +33,7 @@ import io.airlift.slice.Slice;
 import org.apache.commons.math3.distribution.BetaDistribution;
 import org.apache.commons.math3.special.Erf;
 
+import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -325,6 +326,49 @@ public final class MathFunctions
     {
         float numInFloat = intBitsToFloat((int) num);
         return floatToRawIntBits((float) (Math.signum(numInFloat) * Math.floor(Math.abs(numInFloat))));
+    }
+
+    @Description("truncate to double by dropping digits after decimal point")
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double truncate(@SqlType(StandardTypes.DOUBLE) double num, @SqlType(StandardTypes.INTEGER) long decimals)
+    {
+        if (Double.isNaN(num) || Double.isInfinite(num)) {
+            // compatible with truncate(DOUBLE)
+            return num;
+        }
+        if (decimals == 0) {
+            if (num >= 0) {
+                return Math.floor(num);
+            }
+            else {
+                return Math.ceil(num);
+            }
+        }
+
+        return BigDecimal.valueOf(num).setScale((int) decimals, BigDecimal.ROUND_DOWN).doubleValue();
+    }
+
+    @Description("truncate to float by dropping digits after decimal point")
+    @ScalarFunction
+    @SqlType(StandardTypes.REAL)
+    public static long truncate(@SqlType(StandardTypes.REAL) long num, @SqlType(StandardTypes.INTEGER) long decimals)
+    {
+        float numBitsToFloats = intBitsToFloat((int) num);
+        if (Float.isNaN(numBitsToFloats) || Float.isInfinite(numBitsToFloats)) {
+            // compatible with truncate(REAL)
+            return num;
+        }
+        if (decimals == 0) {
+            if (numBitsToFloats >= 0) {
+                return floatToRawIntBits((float) Math.floor(numBitsToFloats));
+            }
+            else {
+                return floatToRawIntBits((float) Math.ceil(numBitsToFloats));
+            }
+        }
+
+        return floatToRawIntBits(new BigDecimal(Float.toString(numBitsToFloats)).setScale((int) decimals, BigDecimal.ROUND_DOWN).floatValue());
     }
 
     @Description("cosine")

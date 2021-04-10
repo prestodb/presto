@@ -15,6 +15,7 @@ package com.facebook.presto.spark.launcher;
 
 import com.facebook.presto.spark.classloader_interface.PrestoSparkConfInitializer;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.airline.Command;
 import io.airlift.airline.HelpOption;
 import org.apache.spark.SparkConf;
@@ -28,7 +29,6 @@ import java.util.Optional;
 import static com.facebook.presto.spark.launcher.LauncherUtils.checkFile;
 import static com.facebook.presto.spark.launcher.LauncherUtils.loadCatalogProperties;
 import static com.facebook.presto.spark.launcher.LauncherUtils.loadProperties;
-import static com.facebook.presto.spark.launcher.LauncherUtils.readFileUtf8;
 
 @Command(name = "presto-spark-launcher", description = "Presto on Spark launcher")
 public class PrestoSparkLauncherCommand
@@ -57,18 +57,30 @@ public class PrestoSparkLauncherCommand
                 packageSupplier,
                 loadProperties(checkFile(new File(clientOptions.config))),
                 loadCatalogProperties(new File(clientOptions.catalogs)),
+                "LOCAL",
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
-
-        String query = readFileUtf8(checkFile(new File(clientOptions.file)));
 
         try (PrestoSparkRunner runner = new PrestoSparkRunner(distribution)) {
             runner.run(
+                    "test",
+                    Optional.empty(),
+                    ImmutableMap.of(),
                     clientOptions.catalog,
                     clientOptions.schema,
-                    "test",
-                    query,
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    ImmutableSet.of(),
                     ImmutableMap.of(),
                     ImmutableMap.of(),
+                    Optional.empty(),
+                    Optional.of(clientOptions.file),
+                    Optional.empty(),
+                    Optional.empty(),
                     Optional.empty(),
                     Optional.empty(),
                     Optional.empty(),

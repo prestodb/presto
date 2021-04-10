@@ -74,6 +74,7 @@ public class StageExecutionStateMachine
     private final Distribution getSplitDistribution = new Distribution();
 
     private final AtomicLong peakUserMemory = new AtomicLong();
+    private final AtomicLong peakNodeTotalMemory = new AtomicLong();
     private final AtomicLong currentUserMemory = new AtomicLong();
     private final AtomicLong currentTotalMemory = new AtomicLong();
 
@@ -205,11 +206,12 @@ public class StageExecutionStateMachine
         return currentTotalMemory.get();
     }
 
-    public void updateMemoryUsage(long deltaUserMemoryInBytes, long deltaTotalMemoryInBytes)
+    public void updateMemoryUsage(long deltaUserMemoryInBytes, long deltaTotalMemoryInBytes, long peakNodeTotalMemoryReservationInBytes)
     {
         currentTotalMemory.addAndGet(deltaTotalMemoryInBytes);
         currentUserMemory.addAndGet(deltaUserMemoryInBytes);
         peakUserMemory.updateAndGet(currentPeakValue -> max(currentUserMemory.get(), currentPeakValue));
+        peakNodeTotalMemory.accumulateAndGet(peakNodeTotalMemoryReservationInBytes, Math::max);
     }
 
     public BasicStageExecutionStats getBasicStageStats(Supplier<Iterable<TaskInfo>> taskInfosSupplier)
@@ -261,22 +263,22 @@ public class StageExecutionStateMachine
 
             cumulativeUserMemory += taskStats.getCumulativeUserMemory();
 
-            long taskUserMemory = taskStats.getUserMemoryReservation().toBytes();
-            long taskSystemMemory = taskStats.getSystemMemoryReservation().toBytes();
+            long taskUserMemory = taskStats.getUserMemoryReservationInBytes();
+            long taskSystemMemory = taskStats.getSystemMemoryReservationInBytes();
             userMemoryReservation += taskUserMemory;
             totalMemoryReservation += taskUserMemory + taskSystemMemory;
 
-            totalScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
-            totalCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
+            totalScheduledTime += taskStats.getTotalScheduledTimeInNanos();
+            totalCpuTime += taskStats.getTotalCpuTimeInNanos();
             if (!taskState.isDone()) {
                 fullyBlocked &= taskStats.isFullyBlocked();
                 blockedReasons.addAll(taskStats.getBlockedReasons());
             }
 
-            totalAllocation += taskStats.getTotalAllocation().toBytes();
+            totalAllocation += taskStats.getTotalAllocationInBytes();
 
             if (containsTableScans) {
-                rawInputDataSize += taskStats.getRawInputDataSize().toBytes();
+                rawInputDataSize += taskStats.getRawInputDataSizeInBytes();
                 rawInputPositions += taskStats.getRawInputPositions();
             }
         }
@@ -338,6 +340,7 @@ public class StageExecutionStateMachine
                 schedulingComplete.get(),
                 getSplitDistribution.snapshot(),
                 succinctBytes(peakUserMemory.get()),
+                succinctBytes(peakNodeTotalMemory.get()),
                 finishedLifespans,
                 totalLifespans);
     }

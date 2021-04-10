@@ -16,13 +16,13 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.QueryPreparer.PreparedQuery;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.tree.Expression;
@@ -146,6 +146,18 @@ public class DataDefinitionExecution<T extends Statement>
     public Duration getTotalCpuTime()
     {
         return new Duration(0, NANOSECONDS);
+    }
+
+    @Override
+    public DataSize getRawInputDataSize()
+    {
+        return DataSize.succinctBytes(0);
+    }
+
+    @Override
+    public DataSize getOutputDataSize()
+    {
+        return DataSize.succinctBytes(0);
     }
 
     @Override

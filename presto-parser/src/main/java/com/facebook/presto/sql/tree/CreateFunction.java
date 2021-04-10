@@ -27,27 +27,29 @@ public class CreateFunction
 {
     private final QualifiedName functionName;
     private final boolean replace;
+    private final boolean temporary;
     private final List<SqlParameterDeclaration> parameters;
     private final String returnType;
     private final Optional<String> comment;
     private final RoutineCharacteristics characteristics;
     private final RoutineBody body;
 
-    public CreateFunction(QualifiedName functionName, boolean replace, List<SqlParameterDeclaration> parameters, String returnType, Optional<String> comment, RoutineCharacteristics characteristics, RoutineBody body)
+    public CreateFunction(QualifiedName functionName, boolean replace, boolean temporary, List<SqlParameterDeclaration> parameters, String returnType, Optional<String> comment, RoutineCharacteristics characteristics, RoutineBody body)
     {
-        this(Optional.empty(), replace, functionName, parameters, returnType, comment, characteristics, body);
+        this(Optional.empty(), replace, temporary, functionName, parameters, returnType, comment, characteristics, body);
     }
 
-    public CreateFunction(NodeLocation location, boolean replace, QualifiedName functionName, List<SqlParameterDeclaration> parameters, String returnType, Optional<String> comment, RoutineCharacteristics characteristics, RoutineBody body)
+    public CreateFunction(NodeLocation location, boolean replace, boolean temporary, QualifiedName functionName, List<SqlParameterDeclaration> parameters, String returnType, Optional<String> comment, RoutineCharacteristics characteristics, RoutineBody body)
     {
-        this(Optional.of(location), replace, functionName, parameters, returnType, comment, characteristics, body);
+        this(Optional.of(location), replace, temporary, functionName, parameters, returnType, comment, characteristics, body);
     }
 
-    private CreateFunction(Optional<NodeLocation> location, boolean replace, QualifiedName functionName, List<SqlParameterDeclaration> parameters, String returnType, Optional<String> comment, RoutineCharacteristics characteristics, RoutineBody body)
+    private CreateFunction(Optional<NodeLocation> location, boolean replace, boolean temporary, QualifiedName functionName, List<SqlParameterDeclaration> parameters, String returnType, Optional<String> comment, RoutineCharacteristics characteristics, RoutineBody body)
     {
         super(location);
         this.functionName = requireNonNull(functionName, "functionName is null");
         this.replace = replace;
+        this.temporary = temporary;
         this.parameters = ImmutableList.copyOf(requireNonNull(parameters, "parameters is null"));
         this.returnType = requireNonNull(returnType, "returnType is null");
         this.comment = requireNonNull(comment, "comment is null");
@@ -63,6 +65,11 @@ public class CreateFunction
     public boolean isReplace()
     {
         return replace;
+    }
+
+    public boolean isTemporary()
+    {
+        return temporary;
     }
 
     public List<SqlParameterDeclaration> getParameters()
@@ -107,7 +114,7 @@ public class CreateFunction
     @Override
     public int hashCode()
     {
-        return Objects.hash(functionName, parameters, returnType, comment, characteristics, body);
+        return Objects.hash(functionName, temporary, parameters, returnType, comment, characteristics, body);
     }
 
     @Override
@@ -121,6 +128,7 @@ public class CreateFunction
         }
         CreateFunction o = (CreateFunction) obj;
         return Objects.equals(functionName, o.functionName) &&
+                Objects.equals(temporary, o.temporary) &&
                 Objects.equals(parameters, o.parameters) &&
                 Objects.equals(returnType, o.returnType) &&
                 Objects.equals(comment, o.comment) &&
@@ -133,6 +141,7 @@ public class CreateFunction
     {
         return toStringHelper(this)
                 .add("functionName", functionName)
+                .add("temporary", temporary)
                 .add("parameters", parameters)
                 .add("returnType", returnType)
                 .add("comment", comment)

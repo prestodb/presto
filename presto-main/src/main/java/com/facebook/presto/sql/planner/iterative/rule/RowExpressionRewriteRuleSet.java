@@ -227,7 +227,8 @@ public class RowExpressionRewriteRuleSet
                     Optional.of(rewritten),
                     joinNode.getLeftHashVariable(),
                     joinNode.getRightHashVariable(),
-                    joinNode.getDistributionType()));
+                    joinNode.getDistributionType(),
+                    joinNode.getDynamicFilters()));
         }
     }
 
@@ -497,6 +498,7 @@ public class RowExpressionRewriteRuleSet
                         node.getTableCommitContextVariable(),
                         node.getColumns(),
                         node.getColumnNames(),
+                        node.getNotNullColumnVariables(),
                         node.getTablePartitioningScheme(),
                         node.getPreferredShufflePartitioningScheme(),
                         rewrittenStatisticsAggregation));

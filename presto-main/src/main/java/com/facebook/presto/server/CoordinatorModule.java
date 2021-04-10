@@ -37,6 +37,7 @@ import com.facebook.presto.execution.CallTask;
 import com.facebook.presto.execution.ClusterSizeMonitor;
 import com.facebook.presto.execution.CommitTask;
 import com.facebook.presto.execution.CreateFunctionTask;
+import com.facebook.presto.execution.CreateMaterializedViewTask;
 import com.facebook.presto.execution.CreateRoleTask;
 import com.facebook.presto.execution.CreateSchemaTask;
 import com.facebook.presto.execution.CreateTableTask;
@@ -45,6 +46,7 @@ import com.facebook.presto.execution.DataDefinitionTask;
 import com.facebook.presto.execution.DeallocateTask;
 import com.facebook.presto.execution.DropColumnTask;
 import com.facebook.presto.execution.DropFunctionTask;
+import com.facebook.presto.execution.DropMaterializedViewTask;
 import com.facebook.presto.execution.DropRoleTask;
 import com.facebook.presto.execution.DropSchemaTask;
 import com.facebook.presto.execution.DropTableTask;
@@ -95,6 +97,7 @@ import com.facebook.presto.memory.TotalReservationLowMemoryKiller;
 import com.facebook.presto.memory.TotalReservationOnBlockedNodesLowMemoryKiller;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.operator.ForScheduler;
+import com.facebook.presto.operator.OperatorInfo;
 import com.facebook.presto.server.protocol.ExecutingStatementResource;
 import com.facebook.presto.server.protocol.LocalQueryProvider;
 import com.facebook.presto.server.protocol.QueuedStatementResource;
@@ -111,6 +114,7 @@ import com.facebook.presto.sql.tree.AlterFunction;
 import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.CreateFunction;
+import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.CreateRole;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
@@ -118,6 +122,7 @@ import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.DropColumn;
 import com.facebook.presto.sql.tree.DropFunction;
+import com.facebook.presto.sql.tree.DropMaterializedView;
 import com.facebook.presto.sql.tree.DropRole;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
@@ -214,6 +219,7 @@ public class CoordinatorModule
         httpClientBinder(binder).bindHttpClient("workerInfo", ForWorkerInfo.class);
 
         // query monitor
+        jsonCodecBinder(binder).bindJsonCodec(OperatorInfo.class);
         configBinder(binder).bindConfig(QueryMonitorConfig.class);
         binder.bind(QueryMonitor.class).in(Scopes.SINGLETON);
 
@@ -233,6 +239,8 @@ public class CoordinatorModule
         binder.bind(LegacyResourceGroupConfigurationManager.class).in(Scopes.SINGLETON);
 
         binder.bind(LocalQueryProvider.class).in(Scopes.SINGLETON);
+
+        jaxrsBinder(binder).bind(TaskInfoResource.class);
 
         // dispatcher
         binder.bind(DispatchManager.class).in(Scopes.SINGLETON);
@@ -327,6 +335,8 @@ public class CoordinatorModule
         bindDataDefinitionTask(binder, executionBinder, DropTable.class, DropTableTask.class);
         bindDataDefinitionTask(binder, executionBinder, CreateView.class, CreateViewTask.class);
         bindDataDefinitionTask(binder, executionBinder, DropView.class, DropViewTask.class);
+        bindDataDefinitionTask(binder, executionBinder, CreateMaterializedView.class, CreateMaterializedViewTask.class);
+        bindDataDefinitionTask(binder, executionBinder, DropMaterializedView.class, DropMaterializedViewTask.class);
         bindDataDefinitionTask(binder, executionBinder, CreateFunction.class, CreateFunctionTask.class);
         bindDataDefinitionTask(binder, executionBinder, AlterFunction.class, AlterFunctionTask.class);
         bindDataDefinitionTask(binder, executionBinder, DropFunction.class, DropFunctionTask.class);

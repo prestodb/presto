@@ -15,6 +15,8 @@ package com.facebook.presto.operator.project;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.DictionaryBlock;
+import com.facebook.presto.common.block.DictionaryId;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.operator.CompletedWork;
 import com.facebook.presto.operator.DriverYieldSignal;
@@ -55,7 +57,13 @@ public class InputPageProjection
 
         Block result;
         if (selectedPositions.isList()) {
-            result = block.copyPositions(selectedPositions.getPositions(), selectedPositions.getOffset(), selectedPositions.size());
+            result = new DictionaryBlock(
+                    selectedPositions.getOffset(),
+                    selectedPositions.size(),
+                    block.getLoadedBlock(),
+                    selectedPositions.getPositions(),
+                    false,
+                    DictionaryId.randomDictionaryId());
         }
         else if (selectedPositions.getOffset() == 0 && selectedPositions.size() == page.getPositionCount()) {
             result = block.getLoadedBlock();

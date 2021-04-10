@@ -17,18 +17,15 @@ import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.orc.metadata.DwrfEncryption;
-import com.facebook.presto.orc.metadata.DwrfMetadataReader;
 import com.facebook.presto.orc.metadata.EncryptionGroup;
 import com.facebook.presto.orc.metadata.Footer;
-import com.facebook.presto.orc.metadata.OrcFileTail;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.StripeInformation;
-import com.facebook.presto.orc.proto.DwrfProto;
-import com.facebook.presto.orc.protobuf.CodedInputStream;
-import com.facebook.presto.orc.stream.OrcInputStream;
+import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Sets;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
@@ -36,11 +33,13 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -49,9 +48,11 @@ import static com.facebook.presto.orc.AbstractOrcRecordReader.getDecryptionKeyMe
 import static com.facebook.presto.orc.AbstractTestOrcReader.intsBetween;
 import static com.facebook.presto.orc.DwrfEncryptionInfo.createNodeToGroupMap;
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
-import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
+import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcReader.validateEncryption;
+import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
+import static com.facebook.presto.orc.OrcTester.MAX_BLOCK_SIZE;
 import static com.facebook.presto.orc.OrcTester.assertFileContentsPresto;
 import static com.facebook.presto.orc.OrcTester.rowType;
 import static com.facebook.presto.orc.OrcTester.writeOrcColumnsPresto;
@@ -66,11 +67,12 @@ import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.STRUCT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_INDEX;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.io.Resources.getResource;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 public class TestDecryption
@@ -312,6 +314,72 @@ public class TestDecryption
     }
 
     @Test
+    public void testEncryptionGroupWithMultipleTypes()
+            throws Exception
+    {
+        Slice iek1 = Slices.utf8Slice("iek1");
+        DwrfWriterEncryption dwrfWriterEncryption = new DwrfWriterEncryption(
+                UNKNOWN,
+                ImmutableList.of(
+                        new WriterEncryptionGroup(ImmutableList.of(1, 2), iek1)));
+        List<Type> types = ImmutableList.of(BIGINT, VARCHAR);
+        List<Long> intValues = ImmutableList.copyOf(intsBetween(0, 31_234)).stream()
+                .map(Number::longValue)
+                .collect(toImmutableList());
+        List<String> varcharValues = ImmutableList.copyOf(intsBetween(0, 31_234)).stream()
+                .map(String::valueOf)
+                .collect(toImmutableList());
+
+        List<List<?>> values = ImmutableList.of(intValues, varcharValues);
+        List<Integer> outputColumns = IntStream.range(0, types.size())
+                .boxed()
+                .collect(toImmutableList());
+
+        testDecryptionRoundTrip(
+                types,
+                values,
+                values,
+                Optional.of(dwrfWriterEncryption),
+                ImmutableMap.of(1, iek1, 2, iek1),
+                ImmutableMap.of(0, BIGINT, 1, VARCHAR),
+                ImmutableMap.of(),
+                outputColumns);
+    }
+
+    @Test
+    public void testEncryptionGroupWithReversedOrderNodes()
+            throws Exception
+    {
+        Slice iek1 = Slices.utf8Slice("iek1");
+        DwrfWriterEncryption dwrfWriterEncryption = new DwrfWriterEncryption(
+                UNKNOWN,
+                ImmutableList.of(
+                        new WriterEncryptionGroup(ImmutableList.of(2, 1), iek1)));
+        List<Type> types = ImmutableList.of(BIGINT, VARCHAR);
+        List<Long> intValues = ImmutableList.copyOf(intsBetween(0, 31_234)).stream()
+                .map(Number::longValue)
+                .collect(toImmutableList());
+        List<String> varcharValues = ImmutableList.copyOf(intsBetween(0, 31_234)).stream()
+                .map(String::valueOf)
+                .collect(toImmutableList());
+
+        List<List<?>> values = ImmutableList.of(intValues, varcharValues);
+        List<Integer> outputColumns = IntStream.range(0, types.size())
+                .boxed()
+                .collect(toImmutableList());
+
+        testDecryptionRoundTrip(
+                types,
+                values,
+                values,
+                Optional.of(dwrfWriterEncryption),
+                ImmutableMap.of(1, iek1, 2, iek1),
+                ImmutableMap.of(0, BIGINT, 1, VARCHAR),
+                ImmutableMap.of(),
+                outputColumns);
+    }
+
+    @Test
     public void testMultipleEncryptionGroupsMultipleColumns()
             throws Exception
     {
@@ -397,6 +465,43 @@ public class TestDecryption
                 ImmutableMap.of(0, BIGINT, 1, BIGINT),
                 ImmutableMap.of(),
                 outputColumns);
+    }
+
+    @Test
+    public void testSkipFirstStripe()
+            throws Exception
+    {
+        OrcDataSource orcDataSource = new FileOrcDataSource(
+                new File(getResource("encrypted_2splits.dwrf").getFile()),
+                new DataSize(1, MEGABYTE),
+                new DataSize(1, MEGABYTE),
+                new DataSize(1, MEGABYTE),
+                true);
+        OrcReader orcReader = new OrcReader(
+                orcDataSource,
+                DWRF,
+                new StorageOrcFileTailSource(),
+                new StorageStripeMetadataSource(),
+                NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
+                new OrcReaderOptions(
+                        new DataSize(1, MEGABYTE),
+                        new DataSize(1, MEGABYTE),
+                        MAX_BLOCK_SIZE,
+                        false,
+                        false,
+                        false),
+                false,
+                new DwrfEncryptionProvider(new UnsupportedEncryptionLibrary(), new TestingPlainKeyEncryptionLibrary()),
+                DwrfKeyProvider.of(ImmutableMap.of(0, Slices.utf8Slice("key"))));
+
+        int offset = 10;
+        try (OrcSelectiveRecordReader recordReader = getSelectiveRecordReader(orcDataSource, orcReader, offset)) {
+            assertFileContentsPresto(
+                    ImmutableList.of(BIGINT),
+                    recordReader,
+                    ImmutableList.of(ImmutableList.of(1L)),
+                    ImmutableList.of(0));
+        }
     }
 
     @Test(expectedExceptions = OrcPermissionsException.class)
@@ -525,53 +630,136 @@ public class TestDecryption
                     includedColumns,
                     outputColumns);
 
-            validateFileStatistics(tempFile.getFile(), dwrfWriterEncryption);
+            validateFileStatistics(tempFile, dwrfWriterEncryption, readerIntermediateKeys);
         }
     }
 
-    private static void validateFileStatistics(File file, Optional<DwrfWriterEncryption> dwrfWriterEncryption)
+    private static void validateFileStatistics(TempFile tempFile, Optional<DwrfWriterEncryption> dwrfWriterEncryption, Map<Integer, Slice> readerIntermediateKeys)
             throws IOException
     {
-        OrcDataSource orcDataSource = new FileOrcDataSource(file, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
-        DwrfMetadataReader metadataReader = new DwrfMetadataReader();
-        OrcFileTail orcFileTail = new StorageOrcFileTailSource().getOrcFileTail(orcDataSource, metadataReader, Optional.empty(), false);
-        Optional<OrcDecompressor> decompressor = createOrcDecompressor(orcDataSource.getId(), orcFileTail.getCompressionKind(), orcFileTail.getBufferSize(), false);
-        try (InputStream inputStream = new OrcInputStream(
-                orcDataSource.getId(),
-                orcFileTail.getFooterSlice().getInput(),
-                decompressor,
-                Optional.empty(),
-                NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
-                orcFileTail.getFooterSize())) {
-            CodedInputStream input = CodedInputStream.newInstance(inputStream);
-            DwrfProto.Footer footer = DwrfProto.Footer.parseFrom(input);
-            List<DwrfProto.ColumnStatistics> fileStats = footer.getStatisticsList();
+        OrcReader readerNoKeys = OrcTester.createCustomOrcReader(tempFile, DWRF, false, ImmutableMap.of());
+        if (readerNoKeys.getFooter().getStripes().isEmpty()) {
+            // files w/o stripes don't have stats
+            assertEquals(readerNoKeys.getFooter().getFileStats().size(), 0);
+            return;
+        }
 
-            if (footer.getStripesList().isEmpty()) {
-                assertEquals(fileStats.size(), 0);
-            }
-            else {
-                assertEquals(fileStats.size(), footer.getTypesCount());
-            }
+        if (dwrfWriterEncryption.isPresent()) {
+            List<OrcType> types = readerNoKeys.getTypes();
+            List<ColumnStatistics> fileStatsNoKey = readerNoKeys.getFooter().getFileStats();
+            assertEquals(fileStatsNoKey.size(), types.size());
 
-            if (dwrfWriterEncryption.isPresent()) {
-                dwrfWriterEncryption.get().getWriterEncryptionGroups()
-                        .stream()
-                        .map(WriterEncryptionGroup::getNodes)
-                        .flatMap(Collection::stream)
-                        .forEach(node -> assertTrue(hasNoTypeStats(fileStats.get(node)), format("file stats for node %s had type stats %s", node, fileStats.get(node))));
-                footer.getEncryption().getEncryptionGroupsList()
-                        .forEach(group -> assertEquals(group.getNodesCount(), group.getStatisticsCount()));
+            Set<Integer> allEncryptedNodes = dwrfWriterEncryption.get().getWriterEncryptionGroups().stream()
+                    .flatMap(group -> group.getNodes().stream())
+                    .flatMap(node -> collectNodeTree(types, node).stream())
+                    .collect(Collectors.toSet());
+
+            for (Set<Integer> readerKeyNodes : Sets.powerSet(readerIntermediateKeys.keySet())) {
+                Map<Integer, Slice> readerKeys = new HashMap<>();
+                readerKeyNodes.forEach(node -> readerKeys.put(node, readerIntermediateKeys.get(node)));
+
+                // nodes that are supposed to be decrypted by the reader
+                Set<Integer> decryptedNodes = readerKeys.keySet().stream()
+                        .flatMap(node -> collectNodeTree(types, node).stream())
+                        .collect(Collectors.toSet());
+
+                // decryptedNodes should be a subset of encrypted nodes
+                assertTrue(allEncryptedNodes.containsAll(decryptedNodes));
+
+                OrcReader readerWithKeys = OrcTester.createCustomOrcReader(tempFile, DWRF, false, readerIntermediateKeys);
+                List<ColumnStatistics> fileStatsWithKey = readerWithKeys.getFooter().getFileStats();
+                assertEquals(fileStatsWithKey.size(), types.size());
+
+                for (int node = 0; node < types.size(); node++) {
+                    ColumnStatistics statsWithKey = fileStatsWithKey.get(node);
+                    ColumnStatistics statsNoKey = fileStatsNoKey.get(node);
+                    OrcType type = types.get(node);
+
+                    // encrypted nodes should have no type info
+                    if (allEncryptedNodes.contains(node)) {
+                        assertTrue(hasNoTypeStats(statsNoKey));
+                    }
+                    else {
+                        assertStatsTypeMatch(statsNoKey, type);
+                        assertStatsTypeMatch(statsWithKey, type);
+                        assertEquals(statsNoKey, statsWithKey);
+                    }
+
+                    if (decryptedNodes.contains(node)) {
+                        assertStatsTypeMatch(statsWithKey, type);
+                    }
+                }
             }
         }
     }
 
-    private static boolean hasNoTypeStats(DwrfProto.ColumnStatistics columnStatistics)
+    private static void assertStatsTypeMatch(ColumnStatistics stats, OrcType type)
     {
-        return !columnStatistics.hasBinaryStatistics()
-                && !columnStatistics.hasBucketStatistics()
-                && !columnStatistics.hasDoubleStatistics()
-                && !columnStatistics.hasIntStatistics()
-                && !columnStatistics.hasStringStatistics();
+        OrcType.OrcTypeKind kind = type.getOrcTypeKind();
+        if (kind == OrcType.OrcTypeKind.BINARY) {
+            assertNotNull(stats.getBinaryStatistics());
+        }
+        else if (kind == OrcType.OrcTypeKind.BOOLEAN) {
+            assertNotNull(stats.getBooleanStatistics());
+        }
+        else if (kind == OrcType.OrcTypeKind.BYTE || kind == OrcType.OrcTypeKind.SHORT || kind == OrcType.OrcTypeKind.INT || kind == OrcType.OrcTypeKind.LONG) {
+            assertNotNull(stats.getIntegerStatistics());
+        }
+        else if (kind == OrcType.OrcTypeKind.FLOAT || kind == OrcType.OrcTypeKind.DOUBLE) {
+            assertNotNull(stats.getDoubleStatistics());
+        }
+        else if (kind == OrcType.OrcTypeKind.STRING) {
+            assertNotNull(stats.getStringStatistics());
+        }
+        else {
+            assertTrue(hasNoTypeStats(stats));
+        }
+    }
+
+    private static boolean hasNoTypeStats(ColumnStatistics columnStatistics)
+    {
+        return columnStatistics.getBooleanStatistics() == null
+                && columnStatistics.getIntegerStatistics() == null
+                && columnStatistics.getDoubleStatistics() == null
+                && columnStatistics.getStringStatistics() == null
+                && columnStatistics.getDateStatistics() == null
+                && columnStatistics.getDecimalStatistics() == null
+                && columnStatistics.getBinaryStatistics() == null;
+    }
+
+    private static Set<Integer> collectNodeTree(List<OrcType> types, int node)
+    {
+        Set<Integer> nodes = new HashSet<>();
+        collectNodeTree(nodes, types, node);
+        return nodes;
+    }
+
+    private static void collectNodeTree(Set<Integer> nodes, List<OrcType> types, int node)
+    {
+        nodes.add(node);
+        for (Integer subNode : types.get(node).getFieldTypeIndexes()) {
+            collectNodeTree(nodes, types, subNode);
+        }
+    }
+
+    private static OrcSelectiveRecordReader getSelectiveRecordReader(OrcDataSource orcDataSource, OrcReader orcReader, int offset)
+    {
+        return orcReader.createSelectiveRecordReader(
+                ImmutableMap.of(0, BIGINT),
+                ImmutableList.of(0),
+                ImmutableMap.of(),
+                ImmutableList.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                OrcPredicate.TRUE,
+                offset,
+                orcDataSource.getSize(),
+                HIVE_STORAGE_TIME_ZONE,
+                false,
+                new TestingHiveOrcAggregatedMemoryContext(),
+                Optional.empty(),
+                MAX_BATCH_SIZE);
     }
 }

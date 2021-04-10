@@ -17,8 +17,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
@@ -28,9 +26,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class TaskStats
 {
@@ -40,8 +36,8 @@ public class TaskStats
     private final DateTime lastEndTime;
     private final DateTime endTime;
 
-    private final Duration elapsedTime;
-    private final Duration queuedTime;
+    private final long elapsedTimeInNanos;
+    private final long queuedTimeInNanos;
 
     private final int totalDrivers;
     private final int queuedDrivers;
@@ -52,44 +48,48 @@ public class TaskStats
     private final int completedDrivers;
 
     private final double cumulativeUserMemory;
-    private final DataSize userMemoryReservation;
-    private final DataSize revocableMemoryReservation;
-    private final DataSize systemMemoryReservation;
-    private final long peakTotalMemoryInBytes;
+    private final long userMemoryReservationInBytes;
+    private final long revocableMemoryReservationInBytes;
+    private final long systemMemoryReservationInBytes;
 
-    private final Duration totalScheduledTime;
-    private final Duration totalCpuTime;
-    private final Duration totalBlockedTime;
+    private final long peakUserMemoryInBytes;
+    private final long peakTotalMemoryInBytes;
+    private final long peakNodeTotalMemoryInBytes;
+
+    private final long totalScheduledTimeInNanos;
+    private final long totalCpuTimeInNanos;
+    private final long totalBlockedTimeInNanos;
     private final boolean fullyBlocked;
     private final Set<BlockedReason> blockedReasons;
 
-    private final DataSize totalAllocation;
+    private final long totalAllocationInBytes;
 
-    private final DataSize rawInputDataSize;
+    private final long rawInputDataSizeInBytes;
     private final long rawInputPositions;
 
-    private final DataSize processedInputDataSize;
+    private final long processedInputDataSizeInBytes;
     private final long processedInputPositions;
 
-    private final DataSize outputDataSize;
+    private final long outputDataSizeInBytes;
     private final long outputPositions;
 
-    private final DataSize physicalWrittenDataSize;
+    private final long physicalWrittenDataSizeInBytes;
 
     private final int fullGcCount;
-    private final Duration fullGcTime;
+    private final long fullGcTimeInMillis;
 
     private final List<PipelineStats> pipelines;
 
     public TaskStats(DateTime createTime, DateTime endTime)
     {
-        this(createTime,
+        this(
+                createTime,
                 null,
                 null,
                 null,
                 endTime,
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
+                0L,
+                0L,
                 0,
                 0,
                 0,
@@ -98,25 +98,27 @@ public class TaskStats
                 0,
                 0,
                 0.0,
-                new DataSize(0, BYTE),
-                new DataSize(0, BYTE),
-                new DataSize(0, BYTE),
-                0,
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
+                0L,
+                0L,
+                0L,
+                0L,
+                0L,
+                0L,
+                0L,
+                0L,
+                0L,
                 false,
                 ImmutableSet.of(),
-                new DataSize(0, BYTE),
-                new DataSize(0, BYTE),
+                0L,
+                0L,
                 0,
-                new DataSize(0, BYTE),
+                0L,
                 0,
-                new DataSize(0, BYTE),
+                0L,
                 0,
-                new DataSize(0, BYTE),
+                0L,
                 0,
-                new Duration(0, MILLISECONDS),
+                0L,
                 ImmutableList.of());
     }
 
@@ -127,8 +129,8 @@ public class TaskStats
             @JsonProperty("lastStartTime") DateTime lastStartTime,
             @JsonProperty("lastEndTime") DateTime lastEndTime,
             @JsonProperty("endTime") DateTime endTime,
-            @JsonProperty("elapsedTime") Duration elapsedTime,
-            @JsonProperty("queuedTime") Duration queuedTime,
+            @JsonProperty("elapsedTimeInNanos") long elapsedTimeInNanos,
+            @JsonProperty("queuedTimeInNanos") long queuedTimeInNanos,
 
             @JsonProperty("totalDrivers") int totalDrivers,
             @JsonProperty("queuedDrivers") int queuedDrivers,
@@ -139,32 +141,35 @@ public class TaskStats
             @JsonProperty("completedDrivers") int completedDrivers,
 
             @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
-            @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
-            @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
-            @JsonProperty("systemMemoryReservation") DataSize systemMemoryReservation,
-            @JsonProperty("peakTotalMemoryInBytes") long peakTotalMemoryInBytes,
+            @JsonProperty("userMemoryReservation") long userMemoryReservationInBytes,
+            @JsonProperty("revocableMemoryReservationInBytes") long revocableMemoryReservationInBytes,
+            @JsonProperty("systemMemoryReservationInBytes") long systemMemoryReservationInBytes,
 
-            @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
-            @JsonProperty("totalCpuTime") Duration totalCpuTime,
-            @JsonProperty("totalBlockedTime") Duration totalBlockedTime,
+            @JsonProperty("peakTotalMemoryInBytes") long peakTotalMemoryInBytes,
+            @JsonProperty("peakUserMemoryInBytes") long peakUserMemoryInBytes,
+            @JsonProperty("peakNodeTotalMemoryInbytes") long peakNodeTotalMemoryInBytes,
+
+            @JsonProperty("totalScheduledTimeInNanos") long totalScheduledTimeInNanos,
+            @JsonProperty("totalCpuTimeInNanos") long totalCpuTimeInNanos,
+            @JsonProperty("totalBlockedTimeInNanos") long totalBlockedTimeInNanos,
             @JsonProperty("fullyBlocked") boolean fullyBlocked,
             @JsonProperty("blockedReasons") Set<BlockedReason> blockedReasons,
 
-            @JsonProperty("totalAllocation") DataSize totalAllocation,
+            @JsonProperty("totalAllocationInBytes") long totalAllocationInBytes,
 
-            @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
+            @JsonProperty("rawInputDataSizeInBytes") long rawInputDataSizeInBytes,
             @JsonProperty("rawInputPositions") long rawInputPositions,
 
-            @JsonProperty("processedInputDataSize") DataSize processedInputDataSize,
+            @JsonProperty("processedInputDataSizeInBytes") long processedInputDataSizeInBytes,
             @JsonProperty("processedInputPositions") long processedInputPositions,
 
-            @JsonProperty("outputDataSize") DataSize outputDataSize,
+            @JsonProperty("outputDataSizeInBytes") long outputDataSizeInBytes,
             @JsonProperty("outputPositions") long outputPositions,
 
-            @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
+            @JsonProperty("physicalWrittenDataSizeInBytes") long physicalWrittenDataSizeInBytes,
 
             @JsonProperty("fullGcCount") int fullGcCount,
-            @JsonProperty("fullGcTime") Duration fullGcTime,
+            @JsonProperty("fullGcTimeInMillis") long fullGcTimeInMillis,
 
             @JsonProperty("pipelines") List<PipelineStats> pipelines)
     {
@@ -173,8 +178,8 @@ public class TaskStats
         this.lastStartTime = lastStartTime;
         this.lastEndTime = lastEndTime;
         this.endTime = endTime;
-        this.elapsedTime = requireNonNull(elapsedTime, "elapsedTime is null");
-        this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
+        this.elapsedTimeInNanos = elapsedTimeInNanos;
+        this.queuedTimeInNanos = queuedTimeInNanos;
 
         checkArgument(totalDrivers >= 0, "totalDrivers is negative");
         this.totalDrivers = totalDrivers;
@@ -195,36 +200,39 @@ public class TaskStats
         this.completedDrivers = completedDrivers;
 
         this.cumulativeUserMemory = cumulativeUserMemory;
-        this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
-        this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
-        this.systemMemoryReservation = requireNonNull(systemMemoryReservation, "systemMemoryReservation is null");
-        this.peakTotalMemoryInBytes = peakTotalMemoryInBytes;
+        this.userMemoryReservationInBytes = userMemoryReservationInBytes;
+        this.revocableMemoryReservationInBytes = revocableMemoryReservationInBytes;
+        this.systemMemoryReservationInBytes = systemMemoryReservationInBytes;
 
-        this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
-        this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
-        this.totalBlockedTime = requireNonNull(totalBlockedTime, "totalBlockedTime is null");
+        this.peakTotalMemoryInBytes = peakTotalMemoryInBytes;
+        this.peakUserMemoryInBytes = peakUserMemoryInBytes;
+        this.peakNodeTotalMemoryInBytes = peakNodeTotalMemoryInBytes;
+
+        this.totalScheduledTimeInNanos = totalScheduledTimeInNanos;
+        this.totalCpuTimeInNanos = totalCpuTimeInNanos;
+        this.totalBlockedTimeInNanos = totalBlockedTimeInNanos;
         this.fullyBlocked = fullyBlocked;
         this.blockedReasons = ImmutableSet.copyOf(requireNonNull(blockedReasons, "blockedReasons is null"));
 
-        this.totalAllocation = requireNonNull(totalAllocation, "totalAllocation is null");
+        this.totalAllocationInBytes = totalAllocationInBytes;
 
-        this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
+        this.rawInputDataSizeInBytes = rawInputDataSizeInBytes;
         checkArgument(rawInputPositions >= 0, "rawInputPositions is negative");
         this.rawInputPositions = rawInputPositions;
 
-        this.processedInputDataSize = requireNonNull(processedInputDataSize, "processedInputDataSize is null");
+        this.processedInputDataSizeInBytes = processedInputDataSizeInBytes;
         checkArgument(processedInputPositions >= 0, "processedInputPositions is negative");
         this.processedInputPositions = processedInputPositions;
 
-        this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
+        this.outputDataSizeInBytes = outputDataSizeInBytes;
         checkArgument(outputPositions >= 0, "outputPositions is negative");
         this.outputPositions = outputPositions;
 
-        this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "writtenDataSize is null");
+        this.physicalWrittenDataSizeInBytes = physicalWrittenDataSizeInBytes;
 
         checkArgument(fullGcCount >= 0, "fullGcCount is negative");
         this.fullGcCount = fullGcCount;
-        this.fullGcTime = requireNonNull(fullGcTime, "fullGcTime is null");
+        this.fullGcTimeInMillis = fullGcTimeInMillis;
 
         this.pipelines = ImmutableList.copyOf(requireNonNull(pipelines, "pipelines is null"));
     }
@@ -264,15 +272,15 @@ public class TaskStats
     }
 
     @JsonProperty
-    public Duration getElapsedTime()
+    public long getElapsedTimeInNanos()
     {
-        return elapsedTime;
+        return elapsedTimeInNanos;
     }
 
     @JsonProperty
-    public Duration getQueuedTime()
+    public long getQueuedTimeInNanos()
     {
-        return queuedTime;
+        return queuedTimeInNanos;
     }
 
     @JsonProperty
@@ -312,21 +320,27 @@ public class TaskStats
     }
 
     @JsonProperty
-    public DataSize getUserMemoryReservation()
+    public long getUserMemoryReservationInBytes()
     {
-        return userMemoryReservation;
+        return userMemoryReservationInBytes;
     }
 
     @JsonProperty
-    public DataSize getRevocableMemoryReservation()
+    public long getRevocableMemoryReservationInBytes()
     {
-        return revocableMemoryReservation;
+        return revocableMemoryReservationInBytes;
     }
 
     @JsonProperty
-    public DataSize getSystemMemoryReservation()
+    public long getSystemMemoryReservationInBytes()
     {
-        return systemMemoryReservation;
+        return systemMemoryReservationInBytes;
+    }
+
+    @JsonProperty
+    public long getPeakUserMemoryInBytes()
+    {
+        return peakUserMemoryInBytes;
     }
 
     @JsonProperty
@@ -336,21 +350,27 @@ public class TaskStats
     }
 
     @JsonProperty
-    public Duration getTotalScheduledTime()
+    public long getPeakNodeTotalMemoryInBytes()
     {
-        return totalScheduledTime;
+        return peakNodeTotalMemoryInBytes;
     }
 
     @JsonProperty
-    public Duration getTotalCpuTime()
+    public long getTotalScheduledTimeInNanos()
     {
-        return totalCpuTime;
+        return totalScheduledTimeInNanos;
     }
 
     @JsonProperty
-    public Duration getTotalBlockedTime()
+    public long getTotalCpuTimeInNanos()
     {
-        return totalBlockedTime;
+        return totalCpuTimeInNanos;
+    }
+
+    @JsonProperty
+    public long getTotalBlockedTimeInNanos()
+    {
+        return totalBlockedTimeInNanos;
     }
 
     @JsonProperty
@@ -366,15 +386,15 @@ public class TaskStats
     }
 
     @JsonProperty
-    public DataSize getTotalAllocation()
+    public long getTotalAllocationInBytes()
     {
-        return totalAllocation;
+        return totalAllocationInBytes;
     }
 
     @JsonProperty
-    public DataSize getRawInputDataSize()
+    public long getRawInputDataSizeInBytes()
     {
-        return rawInputDataSize;
+        return rawInputDataSizeInBytes;
     }
 
     @JsonProperty
@@ -384,9 +404,9 @@ public class TaskStats
     }
 
     @JsonProperty
-    public DataSize getProcessedInputDataSize()
+    public long getProcessedInputDataSizeInBytes()
     {
-        return processedInputDataSize;
+        return processedInputDataSizeInBytes;
     }
 
     @JsonProperty
@@ -396,9 +416,9 @@ public class TaskStats
     }
 
     @JsonProperty
-    public DataSize getOutputDataSize()
+    public long getOutputDataSizeInBytes()
     {
-        return outputDataSize;
+        return outputDataSizeInBytes;
     }
 
     @JsonProperty
@@ -408,9 +428,9 @@ public class TaskStats
     }
 
     @JsonProperty
-    public DataSize getPhysicalWrittenDataSize()
+    public long getPhysicalWrittenDataSizeInBytes()
     {
-        return physicalWrittenDataSize;
+        return physicalWrittenDataSizeInBytes;
     }
 
     @JsonProperty
@@ -438,9 +458,9 @@ public class TaskStats
     }
 
     @JsonProperty
-    public Duration getFullGcTime()
+    public long getFullGcTimeInMillis()
     {
-        return fullGcTime;
+        return fullGcTimeInMillis;
     }
 
     public TaskStats summarize()
@@ -451,8 +471,8 @@ public class TaskStats
                 lastStartTime,
                 lastEndTime,
                 endTime,
-                elapsedTime,
-                queuedTime,
+                elapsedTimeInNanos,
+                queuedTimeInNanos,
                 totalDrivers,
                 queuedDrivers,
                 queuedPartitionedDrivers,
@@ -461,25 +481,27 @@ public class TaskStats
                 blockedDrivers,
                 completedDrivers,
                 cumulativeUserMemory,
-                userMemoryReservation,
-                revocableMemoryReservation,
-                systemMemoryReservation,
+                userMemoryReservationInBytes,
+                revocableMemoryReservationInBytes,
+                systemMemoryReservationInBytes,
                 peakTotalMemoryInBytes,
-                totalScheduledTime,
-                totalCpuTime,
-                totalBlockedTime,
+                peakUserMemoryInBytes,
+                peakNodeTotalMemoryInBytes,
+                totalScheduledTimeInNanos,
+                totalCpuTimeInNanos,
+                totalBlockedTimeInNanos,
                 fullyBlocked,
                 blockedReasons,
-                totalAllocation,
-                rawInputDataSize,
+                totalAllocationInBytes,
+                rawInputDataSizeInBytes,
                 rawInputPositions,
-                processedInputDataSize,
+                processedInputDataSizeInBytes,
                 processedInputPositions,
-                outputDataSize,
+                outputDataSizeInBytes,
                 outputPositions,
-                physicalWrittenDataSize,
+                physicalWrittenDataSizeInBytes,
                 fullGcCount,
-                fullGcTime,
+                fullGcTimeInMillis,
                 ImmutableList.of());
     }
 
@@ -491,8 +513,8 @@ public class TaskStats
                 lastStartTime,
                 lastEndTime,
                 endTime,
-                elapsedTime,
-                queuedTime,
+                elapsedTimeInNanos,
+                queuedTimeInNanos,
                 totalDrivers,
                 queuedDrivers,
                 queuedPartitionedDrivers,
@@ -501,25 +523,27 @@ public class TaskStats
                 blockedDrivers,
                 completedDrivers,
                 cumulativeUserMemory,
-                userMemoryReservation,
-                revocableMemoryReservation,
-                systemMemoryReservation,
+                userMemoryReservationInBytes,
+                revocableMemoryReservationInBytes,
+                systemMemoryReservationInBytes,
                 peakTotalMemoryInBytes,
-                totalScheduledTime,
-                totalCpuTime,
-                totalBlockedTime,
+                peakUserMemoryInBytes,
+                peakNodeTotalMemoryInBytes,
+                totalScheduledTimeInNanos,
+                totalCpuTimeInNanos,
+                totalBlockedTimeInNanos,
                 fullyBlocked,
                 blockedReasons,
-                totalAllocation,
-                rawInputDataSize,
+                totalAllocationInBytes,
+                rawInputDataSizeInBytes,
                 rawInputPositions,
-                processedInputDataSize,
+                processedInputDataSizeInBytes,
                 processedInputPositions,
-                outputDataSize,
+                outputDataSizeInBytes,
                 outputPositions,
-                physicalWrittenDataSize,
+                physicalWrittenDataSizeInBytes,
                 fullGcCount,
-                fullGcTime,
+                fullGcTimeInMillis,
                 pipelines.stream()
                         .map(PipelineStats::summarize)
                         .collect(Collectors.toList()));

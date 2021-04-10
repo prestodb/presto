@@ -15,13 +15,13 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.DefaultWarningCollector;
-import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.execution.warnings.WarningHandlingLevel;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.WarningCode;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.planner.LogicalPlanner;

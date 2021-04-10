@@ -16,41 +16,46 @@ package com.facebook.presto.hive;
 import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonModule;
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.block.BlockJsonSerde;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncoding;
+import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.hive.HiveColumnHandle.ColumnType;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.StorageFormat;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.HandleResolver;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeDeserializer;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import org.testng.annotations.Test;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Set;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.hive.CacheQuotaRequirement.NO_CACHE_REQUIREMENT;
+import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static org.testng.Assert.assertEquals;
@@ -63,6 +68,16 @@ public class TestHiveSplit
     {
         ImmutableList<HivePartitionKey> partitionKeys = ImmutableList.of(new HivePartitionKey("a", "apple"), new HivePartitionKey("b", "42"));
         ImmutableList<HostAddress> addresses = ImmutableList.of(HostAddress.fromParts("127.0.0.1", 44), HostAddress.fromParts("127.0.0.1", 45));
+        Map<String, String> customSplitInfo = ImmutableMap.of("key", "value");
+        Set<ColumnHandle> redundantColumnDomains = ImmutableSet.of(new HiveColumnHandle(
+                "test_column",
+                HIVE_LONG,
+                HIVE_LONG.getTypeSignature(),
+                5,
+                REGULAR,
+                Optional.empty(),
+                ImmutableList.of(),
+                Optional.empty()));
         HiveSplit expected = new HiveSplit(
                 "db",
                 "table",
@@ -88,7 +103,7 @@ public class TestHiveSplit
                 Optional.of(new HiveSplit.BucketConversion(
                         32,
                         16,
-                        ImmutableList.of(new HiveColumnHandle("col", HIVE_LONG, BIGINT.getTypeSignature(), 5, ColumnType.REGULAR, Optional.of("comment"))))),
+                        ImmutableList.of(new HiveColumnHandle("col", HIVE_LONG, BIGINT.getTypeSignature(), 5, REGULAR, Optional.of("comment"), Optional.empty())))),
                 false,
                 Optional.empty(),
                 NO_CACHE_REQUIREMENT,
@@ -96,7 +111,9 @@ public class TestHiveSplit
                         ImmutableMap.of("field1", "test1".getBytes()),
                         ImmutableMap.of(),
                         "test_algo",
-                        "test_provider"))));
+                        "test_provider"))),
+                customSplitInfo,
+                redundantColumnDomains);
 
         JsonCodec<HiveSplit> codec = getJsonCodec();
         String json = codec.toJson(expected);
@@ -119,6 +136,7 @@ public class TestHiveSplit
         assertEquals(actual.isS3SelectPushdownEnabled(), expected.isS3SelectPushdownEnabled());
         assertEquals(actual.getCacheQuotaRequirement(), expected.getCacheQuotaRequirement());
         assertEquals(actual.getEncryptionInformation(), expected.getEncryptionInformation());
+        assertEquals(actual.getCustomSplitInfo(), expected.getCustomSplitInfo());
     }
 
     private JsonCodec<HiveSplit> getJsonCodec()
@@ -128,8 +146,8 @@ public class TestHiveSplit
             binder.install(new JsonModule());
             binder.install(new HandleJsonModule());
             configBinder(binder).bindConfig(FeaturesConfig.class);
-
-            binder.bind(TypeManager.class).to(TypeRegistry.class).in(Scopes.SINGLETON);
+            FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
+            binder.bind(TypeManager.class).toInstance(functionAndTypeManager);
             jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
             newSetBinder(binder, Type.class);
 
@@ -141,7 +159,6 @@ public class TestHiveSplit
         };
         Bootstrap app = new Bootstrap(ImmutableList.of(module));
         Injector injector = app
-                .strictConfig()
                 .doNotInitializeLogging()
                 .quiet()
                 .initialize();

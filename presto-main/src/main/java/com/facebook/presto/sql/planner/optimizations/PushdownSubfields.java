@@ -14,17 +14,17 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.Subfield.NestedField;
-import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.RowType;
-import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.expressions.DefaultRowExpressionTraversalVisitor;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
@@ -78,7 +78,7 @@ import static com.facebook.presto.SystemSessionProperties.isLegacyUnnest;
 import static com.facebook.presto.SystemSessionProperties.isPushdownSubfieldsEnabled;
 import static com.facebook.presto.common.Subfield.allSubscripts;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
-import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.DEREFERENCE;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -117,13 +117,13 @@ public class PushdownSubfields
         private final StandardFunctionResolution functionResolution;
         private final ExpressionOptimizer expressionOptimizer;
         private final SubfieldExtractor subfieldExtractor;
-        private static final QualifiedFunctionName ARBITRARY_AGGREGATE_FUNCTION = QualifiedFunctionName.of(DEFAULT_NAMESPACE, "arbitrary");
+        private static final QualifiedObjectName ARBITRARY_AGGREGATE_FUNCTION = QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "arbitrary");
 
         public Rewriter(Session session, Metadata metadata)
         {
             this.session = requireNonNull(session, "session is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
-            this.functionResolution = new FunctionResolution(metadata.getFunctionManager());
+            this.functionResolution = new FunctionResolution(metadata.getFunctionAndTypeManager());
             this.expressionOptimizer = new RowExpressionOptimizer(metadata);
             this.subfieldExtractor = new SubfieldExtractor(functionResolution, expressionOptimizer, session.toConnectorSession());
         }
@@ -138,7 +138,7 @@ public class PushdownSubfields
                 AggregationNode.Aggregation aggregation = entry.getValue();
 
                 // Allow sub-field pruning to pass through the arbitrary() aggregation
-                QualifiedFunctionName aggregateName = metadata.getFunctionManager().getFunctionMetadata(aggregation.getCall().getFunctionHandle()).getName();
+                QualifiedObjectName aggregateName = metadata.getFunctionAndTypeManager().getFunctionMetadata(aggregation.getCall().getFunctionHandle()).getName();
                 if (ARBITRARY_AGGREGATE_FUNCTION.equals(aggregateName)) {
                     checkState(aggregation.getArguments().get(0) instanceof VariableReferenceExpression);
                     context.get().addAssignment(variable, (VariableReferenceExpression) aggregation.getArguments().get(0));

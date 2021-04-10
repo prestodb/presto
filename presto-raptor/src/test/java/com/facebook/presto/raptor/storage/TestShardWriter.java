@@ -15,7 +15,6 @@ package com.facebook.presto.raptor.storage;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.RowPagesBuilder;
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.RowType;
@@ -23,16 +22,13 @@ import com.facebook.presto.common.type.SqlDate;
 import com.facebook.presto.common.type.SqlTime;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.joda.time.DateTime;
@@ -57,6 +53,7 @@ import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.raptor.storage.OrcTestingUtil.createFileWriter;
 import static com.facebook.presto.raptor.storage.OrcTestingUtil.createReader;
 import static com.facebook.presto.raptor.storage.OrcTestingUtil.fileOrcDataSource;
@@ -109,14 +106,12 @@ public class TestShardWriter
     public void testWriter(boolean useOptimizedOrcWriter)
             throws Exception
     {
-        TypeManager typeManager = new TypeRegistry();
-        // associate typeManager with a function manager
-        new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
 
         List<Long> columnIds = ImmutableList.of(1L, 2L, 4L, 6L, 7L, 8L, 9L, 10L, 11L, 12L, 13L);
         ArrayType arrayType = new ArrayType(BIGINT);
         ArrayType arrayOfArrayType = new ArrayType(arrayType);
-        Type mapType = typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+        Type mapType = functionAndTypeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
                 TypeSignatureParameter.of(createVarcharType(10).getTypeSignature()),
                 TypeSignatureParameter.of(BOOLEAN.getTypeSignature())));
         List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(10), VARBINARY, DOUBLE, BOOLEAN, arrayType, mapType, arrayOfArrayType, TIMESTAMP, TIME, DATE);

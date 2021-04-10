@@ -36,7 +36,9 @@ class RootAggregatedMemoryContext
         checkState(!isClosed(), "RootAggregatedMemoryContext is already closed");
         ListenableFuture<?> future = reservationHandler.reserveMemory(allocationTag, bytes, enforceBroadcastMemoryLimit);
         addBytes(bytes);
-        addBroadcastBytes(bytes);
+        if (enforceBroadcastMemoryLimit) {
+            addBroadcastBytes(bytes);
+        }
         // make sure we never block queries below guaranteedMemory
         if (getBytes() < guaranteedMemory) {
             future = NOT_BLOCKED;
@@ -49,7 +51,9 @@ class RootAggregatedMemoryContext
     {
         if (reservationHandler.tryReserveMemory(allocationTag, delta, enforceBroadcastMemoryLimit)) {
             addBytes(delta);
-            addBroadcastBytes(delta);
+            if (enforceBroadcastMemoryLimit) {
+                addBroadcastBytes(delta);
+            }
             return true;
         }
         return false;

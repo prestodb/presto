@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.facebook.presto.common.io.DataSink;
 import com.facebook.presto.hive.HdfsContext;
-import com.facebook.presto.orc.DataSink;
 import com.facebook.presto.orc.OrcDataSource;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;

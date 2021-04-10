@@ -19,7 +19,7 @@ import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryPerformanceFetcher;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.StageInfo;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 
@@ -40,7 +40,7 @@ public class ExplainAnalyzeOperator
         private final int operatorId;
         private final PlanNodeId planNodeId;
         private final QueryPerformanceFetcher queryPerformanceFetcher;
-        private final FunctionManager functionManager;
+        private final FunctionAndTypeManager functionAndTypeManager;
         private final boolean verbose;
         private boolean closed;
 
@@ -48,13 +48,13 @@ public class ExplainAnalyzeOperator
                 int operatorId,
                 PlanNodeId planNodeId,
                 QueryPerformanceFetcher queryPerformanceFetcher,
-                FunctionManager functionManager,
+                FunctionAndTypeManager functionAndTypeManager,
                 boolean verbose)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.queryPerformanceFetcher = requireNonNull(queryPerformanceFetcher, "queryPerformanceFetcher is null");
-            this.functionManager = requireNonNull(functionManager, "functionManager is null");
+            this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
             this.verbose = verbose;
         }
 
@@ -63,7 +63,7 @@ public class ExplainAnalyzeOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, ExplainAnalyzeOperator.class.getSimpleName());
-            return new ExplainAnalyzeOperator(operatorContext, queryPerformanceFetcher, functionManager, verbose);
+            return new ExplainAnalyzeOperator(operatorContext, queryPerformanceFetcher, functionAndTypeManager, verbose);
         }
 
         @Override
@@ -75,13 +75,13 @@ public class ExplainAnalyzeOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new ExplainAnalyzeOperatorFactory(operatorId, planNodeId, queryPerformanceFetcher, functionManager, verbose);
+            return new ExplainAnalyzeOperatorFactory(operatorId, planNodeId, queryPerformanceFetcher, functionAndTypeManager, verbose);
         }
     }
 
     private final OperatorContext operatorContext;
     private final QueryPerformanceFetcher queryPerformanceFetcher;
-    private final FunctionManager functionManager;
+    private final FunctionAndTypeManager functionAndTypeManager;
     private final boolean verbose;
     private boolean finishing;
     private boolean outputConsumed;
@@ -89,12 +89,12 @@ public class ExplainAnalyzeOperator
     public ExplainAnalyzeOperator(
             OperatorContext operatorContext,
             QueryPerformanceFetcher queryPerformanceFetcher,
-            FunctionManager functionManager,
+            FunctionAndTypeManager functionAndTypeManager,
             boolean verbose)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.queryPerformanceFetcher = requireNonNull(queryPerformanceFetcher, "queryPerformanceFetcher is null");
-        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
         this.verbose = verbose;
     }
 
@@ -145,7 +145,7 @@ public class ExplainAnalyzeOperator
             return null;
         }
 
-        String plan = textDistributedPlan(queryInfo.getOutputStage().get().getSubStages().get(0), functionManager, operatorContext.getSession(), verbose);
+        String plan = textDistributedPlan(queryInfo.getOutputStage().get().getSubStages().get(0), functionAndTypeManager, operatorContext.getSession(), verbose);
         BlockBuilder builder = VARCHAR.createBlockBuilder(null, 1);
         VARCHAR.writeString(builder, plan);
 

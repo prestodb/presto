@@ -28,6 +28,8 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.joda.time.DateTimeZone;
 
+import javax.annotation.Nullable;
+
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
@@ -129,18 +131,10 @@ public class HivePageSource
             }
 
             if (bucketAdapter.isPresent()) {
-                IntArrayList rowsToKeep = bucketAdapter.get().computeEligibleRowIds(dataPage);
-                Block[] adaptedBlocks = new Block[dataPage.getChannelCount()];
-                for (int i = 0; i < adaptedBlocks.length; i++) {
-                    Block block = dataPage.getBlock(i);
-                    if (block instanceof LazyBlock && !((LazyBlock) block).isLoaded()) {
-                        adaptedBlocks[i] = new LazyBlock(rowsToKeep.size(), new RowFilterLazyBlockLoader(dataPage.getBlock(i), rowsToKeep));
-                    }
-                    else {
-                        adaptedBlocks[i] = block.getPositions(rowsToKeep.elements(), 0, rowsToKeep.size());
-                    }
+                dataPage = bucketAdapter.get().filterPageToEligibleRowsOrDiscard(dataPage);
+                if (dataPage == null) {
+                    return null;
                 }
-                dataPage = new Page(rowsToKeep.size(), adaptedBlocks);
             }
 
             int batchSize = dataPage.getPositionCount();
@@ -160,6 +154,10 @@ public class HivePageSource
                         break;
                     case INTERIM:
                         // interim columns don't show up in output
+                        break;
+                    case AGGREGATED:
+                        // aggregated columns only produce one page with the required value from header/footer
+                        // do not require data read and do not show up in output
                         break;
                     default:
                         throw new UnsupportedOperationException();
@@ -272,16 +270,6 @@ public class HivePageSource
         }
     }
 
-    private static Page extractColumns(Page page, int[] columns)
-    {
-        Block[] blocks = new Block[columns.length];
-        for (int i = 0; i < columns.length; i++) {
-            int dataColumn = columns[i];
-            blocks[i] = page.getBlock(dataColumn);
-        }
-        return new Page(page.getPositionCount(), blocks);
-    }
-
     private static class BucketAdapter
     {
         public final int[] bucketColumns;
@@ -301,10 +289,11 @@ public class HivePageSource
             this.partitionBucketCount = bucketAdaptation.getPartitionBucketCount();
         }
 
-        public IntArrayList computeEligibleRowIds(Page page)
+        @Nullable
+        public Page filterPageToEligibleRowsOrDiscard(Page page)
         {
             IntArrayList ids = new IntArrayList(page.getPositionCount());
-            Page bucketColumnsPage = extractColumns(page, bucketColumns);
+            Page bucketColumnsPage = page.extractChannels(bucketColumns);
             for (int position = 0; position < page.getPositionCount(); position++) {
                 int bucket = getHiveBucket(tableBucketCount, typeInfoList, bucketColumnsPage, position);
                 if ((bucket - bucketToKeep) % partitionBucketCount != 0) {
@@ -316,7 +305,24 @@ public class HivePageSource
                     ids.add(position);
                 }
             }
-            return ids;
+            int retainedRowCount = ids.size();
+            if (retainedRowCount == 0) {
+                return null; // Empty page after filtering
+            }
+            if (retainedRowCount == page.getPositionCount()) {
+                return page; // Unchanged after filtering
+            }
+            Block[] adaptedBlocks = new Block[page.getChannelCount()];
+            for (int i = 0; i < adaptedBlocks.length; i++) {
+                Block block = page.getBlock(i);
+                if (block instanceof LazyBlock && !((LazyBlock) block).isLoaded()) {
+                    adaptedBlocks[i] = new LazyBlock(retainedRowCount, new RowFilterLazyBlockLoader(block, ids));
+                }
+                else {
+                    adaptedBlocks[i] = block.getPositions(ids.elements(), 0, retainedRowCount);
+                }
+            }
+            return new Page(retainedRowCount, adaptedBlocks);
         }
     }
 }

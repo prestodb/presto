@@ -16,8 +16,8 @@ package com.facebook.presto.redis;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.redis.util.CodecSupplier;
 import com.facebook.presto.redis.util.EmbeddedRedis;
 import com.facebook.presto.redis.util.RedisTestUtils;
@@ -71,7 +71,7 @@ public final class RedisQueryRunner
 
             installRedisPlugin(embeddedRedis, queryRunner, tableDescriptions);
 
-            TestingPrestoClient prestoClient = queryRunner.getClient();
+            TestingPrestoClient prestoClient = queryRunner.getRandomClient();
 
             log.info("Loading data...");
             long startTime = System.nanoTime();

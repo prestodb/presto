@@ -14,9 +14,10 @@
 package com.facebook.presto.operator.exchange;
 
 import com.facebook.presto.common.Page;
-import com.facebook.presto.common.block.Block;
 import com.facebook.presto.operator.PartitionFunction;
+import com.facebook.presto.operator.exchange.PageReference.PageReleasedListener;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
@@ -33,9 +34,10 @@ class PartitioningExchanger
     private final List<Consumer<PageReference>> buffers;
     private final LocalExchangeMemoryManager memoryManager;
     private final PartitionFunction partitionFunction;
-    private final List<Integer> partitioningChannels;
+    private final int[] partitioningChannels;
     private final Optional<Integer> hashChannel;
     private final IntArrayList[] partitionAssignments;
+    private final PageReleasedListener onPageReleased;
 
     public PartitioningExchanger(
             List<Consumer<PageReference>> partitions,
@@ -47,8 +49,9 @@ class PartitioningExchanger
         this.buffers = ImmutableList.copyOf(requireNonNull(partitions, "partitions is null"));
         this.memoryManager = requireNonNull(memoryManager, "memoryManager is null");
         this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");
-        this.partitioningChannels = ImmutableList.copyOf(requireNonNull(partitioningChannels, "partitioningChannels is null"));
+        this.partitioningChannels = Ints.toArray(requireNonNull(partitioningChannels, "partitioningChannels is null"));
         this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
+        this.onPageReleased = PageReleasedListener.forLocalExchangeMemoryManager(memoryManager);
 
         partitionAssignments = new IntArrayList[partitions.size()];
         for (int i = 0; i < partitionAssignments.length; i++) {
@@ -72,17 +75,12 @@ class PartitioningExchanger
         }
 
         // build a page for each partition
-        Block[] outputBlocks = new Block[page.getChannelCount()];
         for (int partition = 0; partition < buffers.size(); partition++) {
             IntArrayList positions = partitionAssignments[partition];
             if (!positions.isEmpty()) {
-                for (int i = 0; i < page.getChannelCount(); i++) {
-                    outputBlocks[i] = page.getBlock(i).copyPositions(positions.elements(), 0, positions.size());
-                }
-
-                Page pageSplit = new Page(positions.size(), outputBlocks);
+                Page pageSplit = page.copyPositions(positions.elements(), 0, positions.size());
                 memoryManager.updateMemoryUsage(pageSplit.getRetainedSizeInBytes());
-                buffers.get(partition).accept(new PageReference(pageSplit, 1, () -> memoryManager.updateMemoryUsage(-pageSplit.getRetainedSizeInBytes())));
+                buffers.get(partition).accept(new PageReference(pageSplit, 1, onPageReleased));
             }
         }
     }
@@ -95,11 +93,7 @@ class PartitioningExchanger
         }
 
         // extract partitioning channels
-        Block[] blocks = new Block[partitioningChannels.size()];
-        for (int i = 0; i < partitioningChannels.size(); i++) {
-            blocks[i] = inputPage.getBlock(partitioningChannels.get(i));
-        }
-        return new Page(inputPage.getPositionCount(), blocks);
+        return inputPage.extractChannels(partitioningChannels);
     }
 
     @Override

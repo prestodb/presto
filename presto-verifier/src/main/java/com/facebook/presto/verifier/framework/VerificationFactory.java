@@ -15,11 +15,9 @@ package com.facebook.presto.verifier.framework;
 
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.verifier.annotation.ForTest;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
-import com.facebook.presto.verifier.prestoaction.NodeResourceClient;
-import com.facebook.presto.verifier.prestoaction.PrestoAction;
-import com.facebook.presto.verifier.prestoaction.PrestoActionFactory;
+import com.facebook.presto.verifier.prestoaction.QueryActions;
+import com.facebook.presto.verifier.prestoaction.QueryActionsFactory;
 import com.facebook.presto.verifier.prestoaction.SqlExceptionClassifier;
 import com.facebook.presto.verifier.resolver.FailureResolverFactoryContext;
 import com.facebook.presto.verifier.resolver.FailureResolverManager;
@@ -31,6 +29,7 @@ import javax.inject.Inject;
 
 import java.util.Optional;
 
+import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
 import static com.facebook.presto.verifier.framework.VerifierUtil.PARSING_OPTIONS;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -38,10 +37,9 @@ import static java.util.Objects.requireNonNull;
 public class VerificationFactory
 {
     private final SqlParser sqlParser;
-    private final PrestoActionFactory prestoActionFactory;
+    private final QueryActionsFactory queryActionsFactory;
     private final QueryRewriterFactory queryRewriterFactory;
     private final FailureResolverManagerFactory failureResolverManagerFactory;
-    private final NodeResourceClient testResourceClient;
     private final ChecksumValidator checksumValidator;
     private final SqlExceptionClassifier exceptionClassifier;
     private final VerifierConfig verifierConfig;
@@ -51,10 +49,9 @@ public class VerificationFactory
     @Inject
     public VerificationFactory(
             SqlParser sqlParser,
-            PrestoActionFactory prestoActionFactory,
+            QueryActionsFactory queryActionsFactory,
             QueryRewriterFactory queryRewriterFactory,
             FailureResolverManagerFactory failureResolverManagerFactory,
-            @ForTest NodeResourceClient testResourceClient,
             ChecksumValidator checksumValidator,
             SqlExceptionClassifier exceptionClassifier,
             VerifierConfig verifierConfig,
@@ -62,10 +59,9 @@ public class VerificationFactory
             DeterminismAnalyzerConfig determinismAnalyzerConfig)
     {
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
-        this.prestoActionFactory = requireNonNull(prestoActionFactory, "prestoActionFactory is null");
+        this.queryActionsFactory = requireNonNull(queryActionsFactory, "queryActionsFactory is null");
         this.queryRewriterFactory = requireNonNull(queryRewriterFactory, "queryRewriterFactory is null");
         this.failureResolverManagerFactory = requireNonNull(failureResolverManagerFactory, "failureResolverManagerFactory is null");
-        this.testResourceClient = requireNonNull(testResourceClient, "testResourceClient is null");
         this.checksumValidator = requireNonNull(checksumValidator, "checksumValidator is null");
         this.exceptionClassifier = requireNonNull(exceptionClassifier, "exceptionClassifier is null");
         this.verifierConfig = requireNonNull(verifierConfig, "config is null");
@@ -75,26 +71,36 @@ public class VerificationFactory
 
     public Verification get(SourceQuery sourceQuery, Optional<VerificationContext> existingContext)
     {
-        QueryType queryType = QueryType.of(sqlParser.createStatement(sourceQuery.getControlQuery(), PARSING_OPTIONS));
-        switch (queryType.getCategory()) {
-            case DATA_PRODUCING:
-                VerificationContext verificationContext = existingContext.map(VerificationContext::createForResubmission).orElseGet(VerificationContext::create);
-                PrestoAction prestoAction = prestoActionFactory.create(sourceQuery, verificationContext);
-                QueryRewriter queryRewriter = queryRewriterFactory.create(prestoAction);
+        QueryType queryType = QueryType.of(sqlParser.createStatement(sourceQuery.getQuery(CONTROL), PARSING_OPTIONS));
+        VerificationContext verificationContext = existingContext.map(VerificationContext::createForResubmission)
+                .orElseGet(() -> VerificationContext.create(sourceQuery.getName(), sourceQuery.getSuite()));
+        QueryActions queryActions = queryActionsFactory.create(sourceQuery, verificationContext);
+
+        if (verifierConfig.isExplain()) {
+            return new ExplainVerification(
+                    queryActions,
+                    sourceQuery,
+                    exceptionClassifier,
+                    verificationContext,
+                    verifierConfig,
+                    sqlParser);
+        }
+
+        QueryRewriter queryRewriter = queryRewriterFactory.create(queryActions.getHelperAction());
+        switch (queryType) {
+            case CREATE_TABLE_AS_SELECT:
+            case INSERT:
+            case QUERY:
                 DeterminismAnalyzer determinismAnalyzer = new DeterminismAnalyzer(
                         sourceQuery,
-                        prestoAction,
+                        queryActions.getHelperAction(),
                         queryRewriter,
                         checksumValidator,
                         typeManager,
-                        verificationContext,
                         determinismAnalyzerConfig);
-                FailureResolverManager failureResolverManager = failureResolverManagerFactory.create(new FailureResolverFactoryContext(
-                        sqlParser,
-                        prestoAction,
-                        testResourceClient));
+                FailureResolverManager failureResolverManager = failureResolverManagerFactory.create(new FailureResolverFactoryContext(sqlParser, queryActions.getHelperAction()));
                 return new DataVerification(
-                        prestoAction,
+                        queryActions,
                         sourceQuery,
                         queryRewriter,
                         determinismAnalyzer,
@@ -104,6 +110,24 @@ public class VerificationFactory
                         verifierConfig,
                         typeManager,
                         checksumValidator);
+            case CREATE_VIEW:
+                return new CreateViewVerification(
+                        sqlParser,
+                        queryActions,
+                        sourceQuery,
+                        queryRewriter,
+                        exceptionClassifier,
+                        verificationContext,
+                        verifierConfig);
+            case CREATE_TABLE:
+                return new CreateTableVerification(
+                        sqlParser,
+                        queryActions,
+                        sourceQuery,
+                        queryRewriter,
+                        exceptionClassifier,
+                        verificationContext,
+                        verifierConfig);
             default:
                 throw new IllegalStateException(format("Unsupported query type: %s", queryType));
         }

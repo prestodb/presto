@@ -559,6 +559,8 @@ public class RaptorMetadata
             throw new PrestoException(ALREADY_EXISTS, "View already exists: " + tableMetadata.getTable());
         }
 
+        runExtraEligibilityCheck(session, tableMetadata);
+
         Optional<RaptorPartitioningHandle> partitioning = layout
                 .map(ConnectorNewTableLayout::getPartitioning)
                 .map(RaptorPartitioningHandle.class::cast);
@@ -664,6 +666,11 @@ public class RaptorMetadata
             columnHandles.add(columnHandleMap.get(column));
         }
         return columnHandles.build();
+    }
+
+    protected void runExtraEligibilityCheck(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        // no-op
     }
 
     @Override

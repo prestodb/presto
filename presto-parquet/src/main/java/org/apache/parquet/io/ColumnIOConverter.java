@@ -21,6 +21,7 @@ import com.facebook.presto.parquet.Field;
 import com.facebook.presto.parquet.GroupField;
 import com.facebook.presto.parquet.PrimitiveField;
 import com.facebook.presto.parquet.RichColumnDescriptor;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -33,6 +34,8 @@ import static com.facebook.presto.common.type.StandardTypes.ROW;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getArrayElementColumn;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getMapKeyValueColumn;
 import static com.facebook.presto.parquet.ParquetTypeUtils.lookupColumnByName;
+import static org.apache.parquet.io.ColumnIOUtil.columnDefinitionLevel;
+import static org.apache.parquet.io.ColumnIOUtil.columnRepetitionLevel;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 
 /**
@@ -50,8 +53,8 @@ public class ColumnIOConverter
             return Optional.empty();
         }
         boolean required = columnIO.getType().getRepetition() != OPTIONAL;
-        int repetitionLevel = columnIO.getRepetitionLevel();
-        int definitionLevel = columnIO.getDefinitionLevel();
+        int repetitionLevel = columnRepetitionLevel(columnIO);
+        int definitionLevel = columnDefinitionLevel(columnIO);
         if (ROW.equals(type.getTypeSignature().getBase())) {
             GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
             List<Type> parameters = type.getTypeParameters();
@@ -93,5 +96,27 @@ public class ColumnIOConverter
         PrimitiveColumnIO primitiveColumnIO = (PrimitiveColumnIO) columnIO;
         RichColumnDescriptor column = new RichColumnDescriptor(primitiveColumnIO.getColumnDescriptor(), columnIO.getType().asPrimitiveType());
         return Optional.of(new PrimitiveField(type, repetitionLevel, definitionLevel, required, column, primitiveColumnIO.getId()));
+    }
+
+    public static Optional<ColumnIO> findNestedColumnIO(ColumnIO columnIO, List<String> path)
+    {
+        if (columnIO == null) {
+            return Optional.empty();
+        }
+
+        for (String pathElement : path) {
+            if (columnIO instanceof GroupColumnIO) {
+                GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
+                columnIO = lookupColumnByName(groupColumnIO, pathElement);
+                if (columnIO == null) {
+                    return Optional.empty();
+                }
+                continue;
+            }
+            throw new IllegalArgumentException("Invalid ColumnIO received. Expected a GroupColumnIO, but got " + columnIO.getClass().getSimpleName() +
+                    ", path=" + Joiner.on(".").join(path));
+        }
+
+        return Optional.of(columnIO);
     }
 }

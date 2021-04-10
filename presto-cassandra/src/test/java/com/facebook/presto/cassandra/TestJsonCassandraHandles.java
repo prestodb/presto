@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -58,7 +58,7 @@ public class TestJsonCassandraHandles
             .put("hidden", false)
             .build();
 
-    private final ObjectMapper objectMapper = new ObjectMapperProvider().get();
+    private final ObjectMapper objectMapper = new JsonObjectMapperProvider().get();
 
     @Test
     public void testTableHandleSerialize()

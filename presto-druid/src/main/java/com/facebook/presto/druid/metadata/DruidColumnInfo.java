@@ -22,12 +22,12 @@ import static java.util.Objects.requireNonNull;
 public class DruidColumnInfo
 {
     private final String columnName;
-    private final String dataType;
+    private final DruidColumnType dataType;
 
     @JsonCreator
     public DruidColumnInfo(
             @JsonProperty("COLUMN_NAME") String columnName,
-            @JsonProperty("DATA_TYPE") String dataType)
+            @JsonProperty("DATA_TYPE") DruidColumnType dataType)
     {
         this.columnName = requireNonNull(columnName, "columnName is null");
         this.dataType = requireNonNull(dataType, "dataType is null");
@@ -40,7 +40,7 @@ public class DruidColumnInfo
     }
 
     @JsonProperty
-    public String getDataType()
+    public DruidColumnType getDataType()
     {
         return dataType;
     }

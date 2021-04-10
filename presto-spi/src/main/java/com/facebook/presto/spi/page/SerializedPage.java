@@ -31,12 +31,14 @@ public class SerializedPage
     private final int positionCount;
     private final int uncompressedSizeInBytes;
     private final byte pageCodecMarkers;
+    private final long checksum;
 
     public SerializedPage(
             Slice slice,
             byte pageCodecMarkers,
             int positionCount,
-            int uncompressedSizeInBytes)
+            int uncompressedSizeInBytes,
+            long checksum)
     {
         this.slice = requireNonNull(slice, "slice is null");
         this.positionCount = positionCount;
@@ -52,6 +54,7 @@ public class SerializedPage
                 checkArgument(uncompressedSizeInBytes == slice.length(), "uncompressed size must be equal to slice length when uncompressed");
             }
         }
+        this.checksum = checksum;
     }
 
     public byte getPageCodecMarkers()
@@ -84,6 +87,11 @@ public class SerializedPage
         return slice;
     }
 
+    public long getChecksum()
+    {
+        return checksum;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -97,13 +105,14 @@ public class SerializedPage
         return Objects.equals(slice, that.slice) &&
                 Objects.equals(positionCount, that.positionCount) &&
                 Objects.equals(uncompressedSizeInBytes, that.uncompressedSizeInBytes) &&
-                Objects.equals(pageCodecMarkers, that.pageCodecMarkers);
+                Objects.equals(pageCodecMarkers, that.pageCodecMarkers) &&
+                Objects.equals(checksum, that.checksum);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(slice, positionCount, uncompressedSizeInBytes, pageCodecMarkers);
+        return Objects.hash(slice, positionCount, uncompressedSizeInBytes, pageCodecMarkers, checksum);
     }
 
     private static void checkArgument(boolean condition, String message, Object... messageArgs)

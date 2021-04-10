@@ -29,7 +29,11 @@ public final class SemanticExceptions
 
     public static SemanticException missingAttributeException(Expression node, QualifiedName name)
     {
-        throw new SemanticException(MISSING_ATTRIBUTE, node, "Column '%s' cannot be resolved", name);
+        throw new SemanticException(
+                MISSING_ATTRIBUTE,
+                node,
+                name.getPrefix().isPresent() ? "'%s' cannot be resolved" : "Column '%s' cannot be resolved",
+                name);
     }
 
     /**

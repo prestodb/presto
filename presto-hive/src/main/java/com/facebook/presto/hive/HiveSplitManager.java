@@ -17,43 +17,65 @@ import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.Range;
+import com.facebook.presto.common.predicate.SortedRangeSet;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.predicate.ValueSet;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.HiveBucketing.HiveBucketFilter;
 import com.facebook.presto.hive.metastore.Column;
+import com.facebook.presto.hive.metastore.DateStatistics;
+import com.facebook.presto.hive.metastore.DecimalStatistics;
+import com.facebook.presto.hive.metastore.DoubleStatistics;
+import com.facebook.presto.hive.metastore.HiveColumnStatistics;
+import com.facebook.presto.hive.metastore.IntegerStatistics;
 import com.facebook.presto.hive.metastore.Partition;
+import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.metastore.Table;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import io.airlift.units.DataSize;
+import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 import javax.inject.Inject;
 
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.stream.Stream;
 
-import static com.facebook.presto.hive.BackgroundHiveSplitLoader.BucketSplitInfo.createBucketSplitInfo;
+import static com.facebook.presto.common.type.Decimals.encodeScaledValue;
+import static com.facebook.presto.common.type.Decimals.isShortDecimal;
+import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveColumnHandle.isPathColumnHandle;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
@@ -61,6 +83,11 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMA
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TRANSACTION_NOT_FOUND;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HiveSessionProperties.isOfflineDataDebugModeEnabled;
+import static com.facebook.presto.hive.HiveSessionProperties.isPartitionStatisticsBasedOptimizationEnabled;
+import static com.facebook.presto.hive.HiveSessionProperties.shouldIgnoreUnreadablePartition;
+import static com.facebook.presto.hive.HiveType.getPrimitiveType;
+import static com.facebook.presto.hive.HiveWarningCode.PARTITION_NOT_READABLE;
+import static com.facebook.presto.hive.StoragePartitionLoader.BucketSplitInfo.createBucketSplitInfo;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getProtectMode;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.makePartName;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyOnline;
@@ -70,12 +97,18 @@ import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSched
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
+import static java.lang.Float.floatToIntBits;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.reducing;
+import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category.PRIMITIVE;
 
 public class HiveSplitManager
         implements ConnectorSplitManager
@@ -223,7 +256,17 @@ public class HiveSplitManager
         // sort partitions
         partitions = Ordering.natural().onResultOf(HivePartition::getPartitionId).reverse().sortedCopy(partitions);
 
-        Iterable<HivePartitionMetadata> hivePartitions = getPartitionMetadata(metastore, table, tableName, partitions, bucketHandle, session, layout.getRequestedColumns());
+        Iterable<HivePartitionMetadata> hivePartitions = getPartitionMetadata(
+                metastore,
+                table,
+                tableName,
+                partitions,
+                bucketHandle,
+                session,
+                splitSchedulingContext.getWarningCollector(),
+                layout.getRequestedColumns(),
+                layout.getPredicateColumns(),
+                layout.getDomainPredicate().getDomains());
 
         HiveSplitLoader hiveSplitLoader = new BackgroundHiveSplitLoader(
                 table,
@@ -235,9 +278,10 @@ public class HiveSplitManager
                 namenodeStats,
                 directoryLister,
                 executor,
-                splitLoaderConcurrency,
+                min(splitLoaderConcurrency, partitions.size()), // Avoid over-committing split loader concurrency
                 recursiveDfsWalkerEnabled,
-                splitSchedulingContext.schedulerUsesHostAddresses());
+                splitSchedulingContext.schedulerUsesHostAddresses(),
+                layout.isPartialAggregationsPushedDown());
 
         HiveSplitSource splitSource;
         CacheQuotaRequirement cacheQuotaRequirement = cacheQuotaRequirementProvider.getCacheQuotaRequirement(table.getDatabaseName(), table.getTableName());
@@ -312,11 +356,16 @@ public class HiveSplitManager
             List<HivePartition> hivePartitions,
             Optional<HiveBucketHandle> hiveBucketHandle,
             ConnectorSession session,
-            Optional<Set<HiveColumnHandle>> requestedColumns)
+            WarningCollector warningCollector,
+            Optional<Set<HiveColumnHandle>> requestedColumns,
+            Map<String, HiveColumnHandle> predicateColumns,
+            Optional<Map<Subfield, Domain>> domains)
     {
         if (hivePartitions.isEmpty()) {
             return ImmutableList.of();
         }
+
+        Optional<Set<HiveColumnHandle>> allRequestedColumns = mergeRequestedAndPredicateColumns(requestedColumns, ImmutableSet.copyOf(predicateColumns.values()));
 
         if (hivePartitions.size() == 1) {
             HivePartition firstPartition = getOnlyElement(hivePartitions);
@@ -325,51 +374,59 @@ public class HiveSplitManager
                         firstPartition,
                         Optional.empty(),
                         ImmutableMap.of(),
-                        encryptionInformationProvider.getReadEncryptionInformation(session, table, requestedColumns)));
+                        encryptionInformationProvider.getReadEncryptionInformation(session, table, allRequestedColumns),
+                        ImmutableSet.of()));
             }
         }
 
         Iterable<List<HivePartition>> partitionNameBatches = partitionExponentially(hivePartitions, minPartitionBatchSize, maxPartitionBatchSize);
         Iterable<List<HivePartitionMetadata>> partitionBatches = transform(partitionNameBatches, partitionBatch -> {
-            Map<String, Optional<Partition>> batch = metastore.getPartitionsByNames(
-                    tableName.getSchemaName(),
-                    tableName.getTableName(),
-                    Lists.transform(partitionBatch, HivePartition::getPartitionId));
-            ImmutableMap.Builder<String, Partition> partitionBuilder = ImmutableMap.builder();
-            for (Map.Entry<String, Optional<Partition>> entry : batch.entrySet()) {
-                if (!entry.getValue().isPresent()) {
-                    throw new PrestoException(HIVE_PARTITION_DROPPED_DURING_QUERY, "Partition no longer exists: " + entry.getKey());
-                }
-                partitionBuilder.put(entry.getKey(), entry.getValue().get());
-            }
-            Map<String, Partition> partitions = partitionBuilder.build();
-            if (partitionBatch.size() != partitions.size()) {
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Expected %s partitions but found %s", partitionBatch.size(), partitions.size()));
+            Map<String, PartitionSplitInfo> partitionSplitInfo = getPartitionSplitInfo(session, metastore, tableName, partitionBatch, predicateColumns, domains);
+            if (partitionBatch.size() != partitionSplitInfo.size()) {
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Expected %s partitions but found %s", partitionBatch.size(), partitionSplitInfo.size()));
             }
 
+            Map<String, Partition> partitions = partitionSplitInfo.entrySet().stream()
+                    .collect(toImmutableMap(Entry::getKey, entry -> entry.getValue().getPartition()));
             Optional<Map<String, EncryptionInformation>> encryptionInformationForPartitions = encryptionInformationProvider.getReadEncryptionInformation(
                     session,
                     table,
-                    requestedColumns,
+                    allRequestedColumns,
                     partitions);
 
             ImmutableList.Builder<HivePartitionMetadata> results = ImmutableList.builder();
+            Map<String, Set<String>> partitionsNotReadable = new HashMap<>();
+            int unreadablePartitionsSkipped = 0;
             for (HivePartition hivePartition : partitionBatch) {
                 Partition partition = partitions.get(hivePartition.getPartitionId());
+                if (partitionSplitInfo.get(hivePartition.getPartitionId()).isPruned()) {
+                    continue;
+                }
+
                 if (partition == null) {
                     throw new PrestoException(GENERIC_INTERNAL_ERROR, "Partition not loaded: " + hivePartition);
                 }
-                String partName = makePartName(table.getPartitionColumns(), partition.getValues());
+                String partitionName = makePartName(table.getPartitionColumns(), partition.getValues());
                 Optional<EncryptionInformation> encryptionInformation = encryptionInformationForPartitions.map(metadata -> metadata.get(hivePartition.getPartitionId()));
 
                 if (!isOfflineDataDebugModeEnabled(session)) {
                     // verify partition is online
-                    verifyOnline(tableName, Optional.of(partName), getProtectMode(partition), partition.getParameters());
+                    verifyOnline(tableName, Optional.of(partitionName), getProtectMode(partition), partition.getParameters());
 
                     // verify partition is not marked as non-readable
-                    String partitionNotReadable = partition.getParameters().get(OBJECT_NOT_READABLE);
-                    if (!isNullOrEmpty(partitionNotReadable)) {
-                        throw new HiveNotReadableException(tableName, Optional.of(partName), partitionNotReadable);
+                    String reason = partition.getParameters().get(OBJECT_NOT_READABLE);
+                    if (!isNullOrEmpty(reason)) {
+                        if (!shouldIgnoreUnreadablePartition(session) || !partition.isEligibleToIgnore()) {
+                            throw new HiveNotReadableException(tableName, Optional.of(partitionName), reason);
+                        }
+                        unreadablePartitionsSkipped++;
+                        if (partitionsNotReadable.size() <= 3) {
+                            partitionsNotReadable.putIfAbsent(reason, new HashSet<>(ImmutableSet.of(partitionName)));
+                            if (partitionsNotReadable.get(reason).size() <= 3) {
+                                partitionsNotReadable.get(reason).add(partitionName);
+                            }
+                        }
+                        continue;
                     }
                 }
 
@@ -381,7 +438,7 @@ public class HiveSplitManager
                 List<Column> tableColumns = table.getDataColumns();
                 List<Column> partitionColumns = partition.getColumns();
                 if ((tableColumns == null) || (partitionColumns == null)) {
-                    throw new PrestoException(HIVE_INVALID_METADATA, format("Table '%s' or partition '%s' has null columns", tableName, partName));
+                    throw new PrestoException(HIVE_INVALID_METADATA, format("Table '%s' or partition '%s' has null columns", tableName, partitionName));
                 }
                 ImmutableMap.Builder<Integer, Column> partitionSchemaDifference = ImmutableMap.builder();
                 for (int i = 0; i < partitionColumns.size(); i++) {
@@ -403,7 +460,7 @@ public class HiveSplitManager
                                     tableColumns.get(i).getName(),
                                     tableName,
                                     tableType,
-                                    partName,
+                                    partitionName,
                                     partitionColumns.get(i).getName(),
                                     partitionColumn.getType()));
                         }
@@ -442,12 +499,257 @@ public class HiveSplitManager
                     }
                 }
 
-                results.add(new HivePartitionMetadata(hivePartition, Optional.of(partition), partitionSchemaDifference.build(), encryptionInformation));
+                results.add(
+                        new HivePartitionMetadata(
+                                hivePartition,
+                                Optional.of(partition),
+                                partitionSchemaDifference.build(),
+                                encryptionInformation,
+                                partitionSplitInfo.get(partitionName).getRedundantColumnDomains()));
             }
-
+            if (unreadablePartitionsSkipped > 0) {
+                StringBuilder warningMessage = new StringBuilder(format("Table '%s' has %s out of %s partitions unreadable: ", tableName, unreadablePartitionsSkipped, partitionBatch.size()));
+                for (Entry<String, Set<String>> entry : partitionsNotReadable.entrySet()) {
+                    warningMessage.append(String.join(", ", entry.getValue())).append("... are due to ").append(entry.getKey()).append(". ");
+                }
+                warningCollector.add(new PrestoWarning(PARTITION_NOT_READABLE, warningMessage.toString()));
+            }
             return results.build();
         });
         return concat(partitionBatches);
+    }
+
+    private Map<String, PartitionSplitInfo> getPartitionSplitInfo(
+            ConnectorSession session,
+            SemiTransactionalHiveMetastore metastore,
+            SchemaTableName tableName,
+            List<HivePartition> partitionBatch,
+            Map<String, HiveColumnHandle> predicateColumns,
+            Optional<Map<Subfield, Domain>> domains)
+    {
+        Map<String, Optional<Partition>> partitions = metastore.getPartitionsByNames(
+                tableName.getSchemaName(),
+                tableName.getTableName(),
+                Lists.transform(partitionBatch, HivePartition::getPartitionId));
+        Map<String, PartitionStatistics> partitionStatistics = ImmutableMap.of();
+        if (domains.isPresent() && isPartitionStatisticsBasedOptimizationEnabled(session)) {
+            partitionStatistics = metastore.getPartitionStatistics(
+                    tableName.getSchemaName(),
+                    tableName.getTableName(),
+                    partitionBatch.stream()
+                            .map(HivePartition::getPartitionId)
+                            .collect(toImmutableSet()));
+        }
+
+        ImmutableMap.Builder<String, PartitionSplitInfo> partitionSplitInfoBuilder = ImmutableMap.builder();
+        for (Map.Entry<String, Optional<Partition>> entry : partitions.entrySet()) {
+            ImmutableSet.Builder<ColumnHandle> redundantColumnDomainsBuilder = ImmutableSet.builder();
+            if (!entry.getValue().isPresent()) {
+                throw new PrestoException(HIVE_PARTITION_DROPPED_DURING_QUERY, "Partition no longer exists: " + entry.getKey());
+            }
+            boolean pruned = false;
+            if (partitionStatistics.containsKey(entry.getKey())) {
+                Map<String, HiveColumnStatistics> columnStatistics = partitionStatistics.get(entry.getKey()).getColumnStatistics();
+                for (Map.Entry<String, HiveColumnHandle> predicateColumnEntry : predicateColumns.entrySet()) {
+                    if (columnStatistics.containsKey(predicateColumnEntry.getKey())) {
+                        Optional<ValueSet> columnsStatisticsValueSet = getColumnStatisticsValueSet(columnStatistics.get(predicateColumnEntry.getKey()), predicateColumnEntry.getValue().getHiveType());
+                        Subfield subfield = new Subfield(predicateColumnEntry.getKey());
+                        if (columnsStatisticsValueSet.isPresent() && domains.get().containsKey(subfield)) {
+                            ValueSet columnPredicateValueSet = domains.get().get(subfield).getValues();
+                            if (!columnPredicateValueSet.overlaps(columnsStatisticsValueSet.get())) {
+                                pruned = true;
+                                break;
+                            }
+                            if (columnPredicateValueSet.contains(columnsStatisticsValueSet.get())) {
+                                redundantColumnDomainsBuilder.add(predicateColumnEntry.getValue());
+                            }
+                        }
+                    }
+                }
+            }
+
+            partitionSplitInfoBuilder.put(entry.getKey(), new PartitionSplitInfo(entry.getValue().get(), pruned, redundantColumnDomainsBuilder.build()));
+        }
+        return partitionSplitInfoBuilder.build();
+    }
+
+    private Optional<ValueSet> getColumnStatisticsValueSet(HiveColumnStatistics statistics, HiveType hiveType)
+    {
+        if (hiveType.getCategory() != PRIMITIVE) {
+            return Optional.empty();
+        }
+
+        PrimitiveTypeInfo typeInfo = (PrimitiveTypeInfo) hiveType.getTypeInfo();
+        switch (typeInfo.getPrimitiveCategory()) {
+            case BYTE:
+            case SHORT:
+            case INT:
+            case LONG:
+                return getIntegerColumnStatisticsValueSet(statistics, getPrimitiveType(typeInfo));
+            case FLOAT:
+                return getFloatColumnStatisticsValueSet(statistics, getPrimitiveType(typeInfo));
+            case DOUBLE:
+                return getDoubleColumnStatisticsValueSet(statistics, getPrimitiveType(typeInfo));
+            case DECIMAL:
+                return getDecimalColumnStatisticsValueSet(statistics, getPrimitiveType(typeInfo));
+            case DATE:
+                return getDateColumnStatisticsValueSet(statistics, getPrimitiveType(typeInfo));
+            default:
+                return Optional.empty();
+        }
+    }
+
+    private Optional<ValueSet> getIntegerColumnStatisticsValueSet(HiveColumnStatistics statistics, Type type)
+    {
+        if (!statistics.getIntegerStatistics().isPresent()) {
+            return Optional.empty();
+        }
+
+        IntegerStatistics hiveColumnStatistics = statistics.getIntegerStatistics().get();
+        ValueSet result = ValueSet.all(type);
+        if (hiveColumnStatistics.getMin().isPresent()) {
+            result = result.intersect(SortedRangeSet.copyOf(type, ImmutableList.of(Range.greaterThanOrEqual(type, hiveColumnStatistics.getMin().getAsLong()))));
+        }
+        if (hiveColumnStatistics.getMax().isPresent()) {
+            result = result.intersect(SortedRangeSet.copyOf(type, ImmutableList.of(Range.lessThanOrEqual(type, hiveColumnStatistics.getMax().getAsLong()))));
+        }
+        return Optional.of(result);
+    }
+
+    private Optional<ValueSet> getFloatColumnStatisticsValueSet(HiveColumnStatistics statistics, Type type)
+    {
+        if (!statistics.getDoubleStatistics().isPresent()) {
+            return Optional.empty();
+        }
+
+        DoubleStatistics hiveColumnStatistics = statistics.getDoubleStatistics().get();
+        ValueSet result = ValueSet.all(type);
+        if (hiveColumnStatistics.getMin().isPresent()) {
+            result = result.intersect(
+                    SortedRangeSet.copyOf(
+                            type,
+                            ImmutableList.of(Range.greaterThanOrEqual(type, (long) floatToIntBits((float) hiveColumnStatistics.getMin().getAsDouble())))));
+        }
+        if (hiveColumnStatistics.getMax().isPresent()) {
+            result = result.intersect(
+                    SortedRangeSet.copyOf(
+                            type,
+                            ImmutableList.of(Range.lessThanOrEqual(type, (long) floatToIntBits((float) hiveColumnStatistics.getMax().getAsDouble())))));
+        }
+        return Optional.of(result);
+    }
+
+    private Optional<ValueSet> getDoubleColumnStatisticsValueSet(HiveColumnStatistics statistics, Type type)
+    {
+        if (!statistics.getDoubleStatistics().isPresent()) {
+            return Optional.empty();
+        }
+
+        DoubleStatistics hiveColumnStatistics = statistics.getDoubleStatistics().get();
+        ValueSet result = ValueSet.all(type);
+        if (hiveColumnStatistics.getMin().isPresent()) {
+            result = result.intersect(SortedRangeSet.copyOf(type, ImmutableList.of(Range.greaterThanOrEqual(type, hiveColumnStatistics.getMin().getAsDouble()))));
+        }
+        if (hiveColumnStatistics.getMax().isPresent()) {
+            result = result.intersect(SortedRangeSet.copyOf(type, ImmutableList.of(Range.lessThanOrEqual(type, hiveColumnStatistics.getMax().getAsDouble()))));
+        }
+        return Optional.of(result);
+    }
+
+    private Optional<ValueSet> getDecimalColumnStatisticsValueSet(HiveColumnStatistics statistics, Type type)
+    {
+        if (!statistics.getDecimalStatistics().isPresent()) {
+            return Optional.empty();
+        }
+
+        DecimalStatistics hiveColumnStatistics = statistics.getDecimalStatistics().get();
+        ValueSet result = ValueSet.all(type);
+        if (hiveColumnStatistics.getMin().isPresent()) {
+            Object min = isShortDecimal(type) ? hiveColumnStatistics.getMin().get().longValue() : encodeScaledValue(hiveColumnStatistics.getMin().get());
+            result = result.intersect(SortedRangeSet.copyOf(type, ImmutableList.of(Range.greaterThanOrEqual(type, min))));
+        }
+        if (hiveColumnStatistics.getMax().isPresent()) {
+            Object max = isShortDecimal(type) ? hiveColumnStatistics.getMax().get().longValue() : encodeScaledValue(hiveColumnStatistics.getMax().get());
+            result = result.intersect(SortedRangeSet.copyOf(type, ImmutableList.of(Range.lessThanOrEqual(type, max))));
+        }
+        return Optional.of(result);
+    }
+
+    private Optional<ValueSet> getDateColumnStatisticsValueSet(HiveColumnStatistics statistics, Type type)
+    {
+        if (!statistics.getDateStatistics().isPresent()) {
+            return Optional.empty();
+        }
+
+        DateStatistics hiveColumnStatistics = statistics.getDateStatistics().get();
+        ValueSet result = ValueSet.all(type);
+        if (hiveColumnStatistics.getMin().isPresent()) {
+            result = result.intersect(SortedRangeSet.copyOf(type, ImmutableList.of(Range.greaterThanOrEqual(type, hiveColumnStatistics.getMin().get().toEpochDay()))));
+        }
+        if (hiveColumnStatistics.getMax().isPresent()) {
+            result = result.intersect(SortedRangeSet.copyOf(type, ImmutableList.of(Range.lessThanOrEqual(type, hiveColumnStatistics.getMax().get().toEpochDay()))));
+        }
+        return Optional.of(result);
+    }
+
+    private static class PartitionSplitInfo
+    {
+        private final Partition partition;
+        private final boolean pruned;
+        private final Set<ColumnHandle> redundantColumnDomains;
+
+        public PartitionSplitInfo(Partition partition, boolean pruned, Set<ColumnHandle> redundantColumnDomains)
+        {
+            this.partition = requireNonNull(partition, "partition is null");
+            this.pruned = pruned;
+            this.redundantColumnDomains = ImmutableSet.copyOf(requireNonNull(redundantColumnDomains, "redundantColumnDomains is null"));
+        }
+
+        public Partition getPartition()
+        {
+            return partition;
+        }
+
+        public boolean isPruned()
+        {
+            return pruned;
+        }
+
+        public Set<ColumnHandle> getRedundantColumnDomains()
+        {
+            return redundantColumnDomains;
+        }
+    }
+
+    @VisibleForTesting
+    static Optional<Set<HiveColumnHandle>> mergeRequestedAndPredicateColumns(Optional<Set<HiveColumnHandle>> requestedColumns, Set<HiveColumnHandle> predicateColumns)
+    {
+        if (!requestedColumns.isPresent() || predicateColumns.isEmpty()) {
+            return requestedColumns;
+        }
+
+        return Optional.of(
+                Stream.concat(requestedColumns.get().stream(), predicateColumns.stream())
+                        .filter(column -> column.getColumnType() == REGULAR)
+                        .collect(groupingBy(
+                                HiveColumnHandle::getName,
+                                reducing((handle1, handle2) -> {
+                                    if (handle1.getRequiredSubfields().isEmpty()) {
+                                        return handle1;
+                                    }
+
+                                    if (handle2.getRequiredSubfields().isEmpty()) {
+                                        return handle2;
+                                    }
+
+                                    return (HiveColumnHandle) handle1.withRequiredSubfields(ImmutableList.copyOf(ImmutableSet.copyOf(
+                                            ImmutableList.<Subfield>builder().addAll(handle1.getRequiredSubfields()).addAll(handle2.getRequiredSubfields()).build())));
+                                })))
+                        .values()
+                        .stream()
+                        .filter(Optional::isPresent)
+                        .map(Optional::get)
+                        .collect(toImmutableSet()));
     }
 
     static boolean isBucketCountCompatible(int tableBucketCount, int partitionBucketCount)

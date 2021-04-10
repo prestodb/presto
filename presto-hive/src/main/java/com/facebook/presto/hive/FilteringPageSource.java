@@ -23,6 +23,7 @@ import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.expressions.DynamicFilters;
 import com.facebook.presto.orc.FilterFunction;
 import com.facebook.presto.orc.TupleDomainFilter;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -51,7 +52,9 @@ import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
+import static com.facebook.presto.expressions.DynamicFilters.extractDynamicFilters;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
+import static com.facebook.presto.expressions.LogicalRowExpressions.and;
 import static com.facebook.presto.expressions.RowExpressionNodeInliner.replaceExpression;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NOT_NULL;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NULL;
@@ -119,10 +122,16 @@ public class FilteringPageSource
         }
         else {
             RowExpression expression = replaceExpression(optimizedRemainingPredicate, variableToInput);
+
+            DynamicFilters.DynamicFilterExtractResult extractDynamicFilterResult = extractDynamicFilters(expression);
+
+            // dynamic filter will be added through subfield pushdown
+            expression = and(extractDynamicFilterResult.getStaticConjuncts());
+
             this.filterFunction = new FilterFunction(
                     session.getSqlFunctionProperties(),
                     rowExpressionService.getDeterminismEvaluator().isDeterministic(expression),
-                    rowExpressionService.getPredicateCompiler().compilePredicate(session.getSqlFunctionProperties(), expression).get());
+                    rowExpressionService.getPredicateCompiler().compilePredicate(session.getSqlFunctionProperties(), session.getSessionFunctions(), expression).get());
         }
 
         this.outputBlockCount = requireNonNull(originalIndices, "originalIndices is null").size();

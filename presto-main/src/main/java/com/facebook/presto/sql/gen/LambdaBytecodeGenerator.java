@@ -28,6 +28,8 @@ import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.aggregation.AccumulatorCompiler;
 import com.facebook.presto.operator.aggregation.LambdaProvider;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
@@ -85,9 +87,10 @@ public class LambdaBytecodeGenerator
             CachedInstanceBinder cachedInstanceBinder,
             RowExpression expression,
             Metadata metadata,
-            SqlFunctionProperties sqlFunctionProperties)
+            SqlFunctionProperties sqlFunctionProperties,
+            Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions)
     {
-        return generateMethodsForLambda(containerClassDefinition, callSiteBinder, cachedInstanceBinder, expression, metadata, sqlFunctionProperties, "");
+        return generateMethodsForLambda(containerClassDefinition, callSiteBinder, cachedInstanceBinder, expression, metadata, sqlFunctionProperties, sessionFunctions, "");
     }
 
     public static Map<LambdaDefinitionExpression, CompiledLambda> generateMethodsForLambda(
@@ -97,9 +100,17 @@ public class LambdaBytecodeGenerator
             RowExpression expression,
             Metadata metadata,
             SqlFunctionProperties sqlFunctionProperties,
+            Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
             String methodNamePrefix)
     {
-        return generateMethodsForLambda(containerClassDefinition, callSiteBinder, cachedInstanceBinder, ImmutableList.of(expression), metadata, sqlFunctionProperties, methodNamePrefix);
+        return generateMethodsForLambda(containerClassDefinition,
+                callSiteBinder,
+                cachedInstanceBinder,
+                ImmutableList.of(expression),
+                metadata,
+                sqlFunctionProperties,
+                sessionFunctions,
+                methodNamePrefix);
     }
 
     public static Map<LambdaDefinitionExpression, CompiledLambda> generateMethodsForLambda(
@@ -109,10 +120,19 @@ public class LambdaBytecodeGenerator
             RowExpression expression,
             Metadata metadata,
             SqlFunctionProperties sqlFunctionProperties,
+            Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
             String methodNamePrefix,
             Set<LambdaDefinitionExpression> existingCompiledLambdas)
     {
-        return generateMethodsForLambda(containerClassDefinition, callSiteBinder, cachedInstanceBinder, ImmutableList.of(expression), metadata, sqlFunctionProperties, methodNamePrefix, existingCompiledLambdas);
+        return generateMethodsForLambda(containerClassDefinition,
+                callSiteBinder,
+                cachedInstanceBinder,
+                ImmutableList.of(expression),
+                metadata,
+                sqlFunctionProperties,
+                sessionFunctions,
+                methodNamePrefix,
+                existingCompiledLambdas);
     }
 
     public static Map<LambdaDefinitionExpression, CompiledLambda> generateMethodsForLambda(
@@ -122,9 +142,19 @@ public class LambdaBytecodeGenerator
             List<RowExpression> expressions,
             Metadata metadata,
             SqlFunctionProperties sqlFunctionProperties,
+            Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
             String methodNamePrefix)
     {
-        return generateMethodsForLambda(containerClassDefinition, callSiteBinder, cachedInstanceBinder, expressions, metadata, sqlFunctionProperties, methodNamePrefix, ImmutableSet.of());
+        return generateMethodsForLambda(
+                containerClassDefinition,
+                callSiteBinder,
+                cachedInstanceBinder,
+                expressions,
+                metadata,
+                sqlFunctionProperties,
+                sessionFunctions,
+                methodNamePrefix,
+                ImmutableSet.of());
     }
 
     private static Map<LambdaDefinitionExpression, CompiledLambda> generateMethodsForLambda(
@@ -134,6 +164,7 @@ public class LambdaBytecodeGenerator
             List<RowExpression> expressions,
             Metadata metadata,
             SqlFunctionProperties sqlFunctionProperties,
+            Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
             String methodNamePrefix,
             Set<LambdaDefinitionExpression> existingCompiledLambdas)
     {
@@ -144,7 +175,7 @@ public class LambdaBytecodeGenerator
                 .collect(toImmutableSet());
         ImmutableMap.Builder<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = ImmutableMap.builder();
 
-        int counter = 0;
+        int counter = existingCompiledLambdas.size();
         for (LambdaDefinitionExpression lambdaExpression : lambdaExpressions) {
             CompiledLambda compiledLambda = LambdaBytecodeGenerator.preGenerateLambdaExpression(
                     lambdaExpression,
@@ -154,7 +185,8 @@ public class LambdaBytecodeGenerator
                     callSiteBinder,
                     cachedInstanceBinder,
                     metadata,
-                    sqlFunctionProperties);
+                    sqlFunctionProperties,
+                    sessionFunctions);
             compiledLambdaMap.put(lambdaExpression, compiledLambda);
             counter++;
         }
@@ -173,7 +205,8 @@ public class LambdaBytecodeGenerator
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
             Metadata metadata,
-            SqlFunctionProperties sqlFunctionProperties)
+            SqlFunctionProperties sqlFunctionProperties,
+            Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions)
     {
         ImmutableList.Builder<Parameter> parameters = ImmutableList.builder();
         ImmutableMap.Builder<String, ParameterAndType> parameterMapBuilder = ImmutableMap.builder();
@@ -194,6 +227,7 @@ public class LambdaBytecodeGenerator
                 variableReferenceCompiler(parameterMapBuilder.build()),
                 metadata,
                 sqlFunctionProperties,
+                sessionFunctions,
                 compiledLambdaMap);
 
         return defineLambdaMethod(
@@ -290,7 +324,11 @@ public class LambdaBytecodeGenerator
         return block;
     }
 
-    public static Class<? extends LambdaProvider> compileLambdaProvider(LambdaDefinitionExpression lambdaExpression, Metadata metadata, SqlFunctionProperties sqlFunctionProperties, Class lambdaInterface)
+    public static Class<? extends LambdaProvider> compileLambdaProvider(LambdaDefinitionExpression lambdaExpression,
+            Metadata metadata,
+            SqlFunctionProperties sqlFunctionProperties,
+            Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
+            Class lambdaInterface)
     {
         ClassDefinition lambdaProviderClassDefinition = new ClassDefinition(
                 a(PUBLIC, Access.FINAL),
@@ -309,7 +347,8 @@ public class LambdaBytecodeGenerator
                 cachedInstanceBinder,
                 lambdaExpression,
                 metadata,
-                sqlFunctionProperties);
+                sqlFunctionProperties,
+                sessionFunctions);
 
         MethodDefinition method = lambdaProviderClassDefinition.declareMethod(
                 a(PUBLIC),
@@ -329,6 +368,7 @@ public class LambdaBytecodeGenerator
                 variableReferenceCompiler(ImmutableMap.of()),
                 metadata,
                 sqlFunctionProperties,
+                sessionFunctions,
                 compiledLambdaMap);
 
         BytecodeGeneratorContext generatorContext = new BytecodeGeneratorContext(
@@ -336,7 +376,7 @@ public class LambdaBytecodeGenerator
                 scope,
                 callSiteBinder,
                 cachedInstanceBinder,
-                metadata.getFunctionManager());
+                metadata.getFunctionAndTypeManager());
 
         body.append(
                 generateLambda(

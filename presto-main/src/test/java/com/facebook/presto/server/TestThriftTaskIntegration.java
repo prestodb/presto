@@ -39,6 +39,7 @@ import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.execution.buffer.ThriftBufferResult;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.memory.MemoryPoolAssignmentsRequest;
+import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.server.thrift.ThriftTaskClient;
 import com.facebook.presto.server.thrift.ThriftTaskService;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -88,7 +89,6 @@ public class TestThriftTaskIntegration
                 new TestingTaskThriftModule());
 
         Injector injector = app
-                .strictConfig()
                 .doNotInitializeLogging()
                 .initialize();
 
@@ -177,7 +177,8 @@ public class TestThriftTaskIntegration
         @Singleton
         public static TaskManager createTaskManager()
         {
-            return new TaskManager() {
+            return new TaskManager()
+            {
                 @Override
                 public List<TaskInfo> getAllTaskInfo()
                 {
@@ -270,6 +271,12 @@ public class TestThriftTaskIntegration
 
                 @Override
                 public void removeRemoteSource(TaskId taskId, TaskId remoteSourceTaskId)
+                {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public void updateMetadataResults(TaskId taskId, MetadataUpdates metadataUpdates)
                 {
                     throw new UnsupportedOperationException();
                 }

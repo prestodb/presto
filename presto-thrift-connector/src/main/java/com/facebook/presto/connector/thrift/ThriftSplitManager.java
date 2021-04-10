@@ -14,15 +14,6 @@
 package com.facebook.presto.connector.thrift;
 
 import com.facebook.drift.client.DriftClient;
-import com.facebook.presto.connector.thrift.api.PrestoThriftHostAddress;
-import com.facebook.presto.connector.thrift.api.PrestoThriftId;
-import com.facebook.presto.connector.thrift.api.PrestoThriftNullableColumnSet;
-import com.facebook.presto.connector.thrift.api.PrestoThriftNullableToken;
-import com.facebook.presto.connector.thrift.api.PrestoThriftSchemaTableName;
-import com.facebook.presto.connector.thrift.api.PrestoThriftService;
-import com.facebook.presto.connector.thrift.api.PrestoThriftSplit;
-import com.facebook.presto.connector.thrift.api.PrestoThriftSplitBatch;
-import com.facebook.presto.connector.thrift.api.PrestoThriftTupleDomain;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -32,6 +23,15 @@ import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.thrift.api.connector.PrestoThriftHostAddress;
+import com.facebook.presto.thrift.api.connector.PrestoThriftId;
+import com.facebook.presto.thrift.api.connector.PrestoThriftNullableColumnSet;
+import com.facebook.presto.thrift.api.connector.PrestoThriftNullableToken;
+import com.facebook.presto.thrift.api.connector.PrestoThriftSchemaTableName;
+import com.facebook.presto.thrift.api.connector.PrestoThriftService;
+import com.facebook.presto.thrift.api.connector.PrestoThriftSplit;
+import com.facebook.presto.thrift.api.connector.PrestoThriftSplitBatch;
+import com.facebook.presto.thrift.api.connector.PrestoThriftTupleDomain;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 

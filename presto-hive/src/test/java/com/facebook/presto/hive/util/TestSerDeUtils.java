@@ -13,14 +13,13 @@
  */
 package com.facebook.presto.hive.util;
 
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.block.BlockSerdeUtil;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.RowType;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
@@ -68,7 +67,7 @@ import static org.testng.Assert.assertEquals;
 @SuppressWarnings("PackageVisibleField")
 public class TestSerDeUtils
 {
-    private final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(new TypeRegistry());
+    private final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager();
 
     private static class ListHolder
     {

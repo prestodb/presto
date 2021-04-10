@@ -29,6 +29,7 @@ import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcLocalMemoryContext;
+import com.facebook.presto.orc.OrcRecordReaderOptions;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.TupleDomainFilter;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
@@ -131,6 +132,7 @@ public class MapFlatSelectiveStreamReader
 
     private final OrcAggregatedMemoryContext systemMemoryContext;
     private final OrcLocalMemoryContext localMemoryContext;
+    private final OrcRecordReaderOptions options;
 
     public MapFlatSelectiveStreamReader(
             StreamDescriptor streamDescriptor,
@@ -138,9 +140,11 @@ public class MapFlatSelectiveStreamReader
             List<Subfield> requiredSubfields,
             Optional<Type> outputType,
             DateTimeZone hiveStorageTimeZone,
+            OrcRecordReaderOptions options,
             boolean legacyMapSubscript,
             OrcAggregatedMemoryContext systemMemoryContext)
     {
+        this.options = requireNonNull(options);
         checkArgument(filters.keySet().stream().map(Subfield::getPath).allMatch(List::isEmpty), "filters on nested columns are not supported yet");
         checkArgument(streamDescriptor.getNestedStreams().size() == 2, "there must be exactly 2 nested stream descriptor");
 
@@ -633,9 +637,11 @@ public class MapFlatSelectiveStreamReader
         valueStreamReaders.clear();
 
         ColumnEncoding encoding = encodings.get(baseValueStreamDescriptor.getStreamId());
-        // encoding.getAdditionalSequenceEncodings() may not be present when every map is empty or null
-        SortedMap<Integer, DwrfSequenceEncoding> additionalSequenceEncodings = encoding.getAdditionalSequenceEncodings().orElse(Collections.emptySortedMap());
-
+        SortedMap<Integer, DwrfSequenceEncoding> additionalSequenceEncodings = Collections.emptySortedMap();
+        // encoding or encoding.getAdditionalSequenceEncodings() may not be present when every map is empty or null
+        if (encoding != null && encoding.getAdditionalSequenceEncodings().isPresent()) {
+            additionalSequenceEncodings = encoding.getAdditionalSequenceEncodings().get();
+        }
         keyIndices = ensureCapacity(keyIndices, additionalSequenceEncodings.size());
         keyCount = 0;
 
@@ -658,7 +664,15 @@ public class MapFlatSelectiveStreamReader
             StreamDescriptor valueStreamDescriptor = copyStreamDescriptorWithSequence(baseValueStreamDescriptor, sequence);
             valueStreamDescriptors.add(valueStreamDescriptor);
 
-            SelectiveStreamReader valueStreamReader = SelectiveStreamReaders.createStreamReader(valueStreamDescriptor, ImmutableBiMap.of(), Optional.ofNullable(outputType).map(MapType::getValueType), ImmutableList.of(), hiveStorageTimeZone, legacyMapSubscript, systemMemoryContext.newOrcAggregatedMemoryContext());
+            SelectiveStreamReader valueStreamReader = SelectiveStreamReaders.createStreamReader(
+                    valueStreamDescriptor,
+                    ImmutableBiMap.of(),
+                    Optional.ofNullable(outputType).map(MapType::getValueType),
+                    ImmutableList.of(),
+                    hiveStorageTimeZone,
+                    options,
+                    legacyMapSubscript,
+                    systemMemoryContext.newOrcAggregatedMemoryContext());
             valueStreamReader.startStripe(dictionaryStreamSources, encodings);
             valueStreamReaders.add(valueStreamReader);
         }

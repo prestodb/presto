@@ -16,8 +16,8 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
@@ -110,11 +110,11 @@ import static java.util.stream.Collectors.toList;
 public class ImplementIntersectAndExceptAsUnion
         implements PlanOptimizer
 {
-    private final FunctionManager functionManager;
+    private final FunctionAndTypeManager functionAndTypeManager;
 
-    public ImplementIntersectAndExceptAsUnion(FunctionManager functionManager)
+    public ImplementIntersectAndExceptAsUnion(FunctionAndTypeManager functionAndTypeManager)
     {
-        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
     }
 
     @Override
@@ -126,7 +126,7 @@ public class ImplementIntersectAndExceptAsUnion
         requireNonNull(variableAllocator, "variableAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        return SimplePlanRewriter.rewriteWith(new Rewriter(session, functionManager, idAllocator, variableAllocator), plan);
+        return SimplePlanRewriter.rewriteWith(new Rewriter(session, functionAndTypeManager, idAllocator, variableAllocator), plan);
     }
 
     private static class Rewriter
@@ -139,11 +139,11 @@ public class ImplementIntersectAndExceptAsUnion
         private final PlanNodeIdAllocator idAllocator;
         private final PlanVariableAllocator variableAllocator;
 
-        private Rewriter(Session session, FunctionManager functionManager, PlanNodeIdAllocator idAllocator, PlanVariableAllocator variableAllocator)
+        private Rewriter(Session session, FunctionAndTypeManager functionAndTypeManager, PlanNodeIdAllocator idAllocator, PlanVariableAllocator variableAllocator)
         {
-            requireNonNull(functionManager, "functionManager is null");
+            requireNonNull(functionAndTypeManager, "functionManager is null");
             this.session = requireNonNull(session, "session is null");
-            this.functionResolution = new FunctionResolution(functionManager);
+            this.functionResolution = new FunctionResolution(functionAndTypeManager);
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
         }

@@ -29,4 +29,17 @@
         <version>1.8</version>
         <comment>Use com.facebook.presto.testing.assertions.Assert.assertEquals due to TestNG #543</comment>
     </violation>
+
+    <violation>
+        <name>java/util/TimeZone.getTimeZone:(Ljava/lang/String;)Ljava/util/TimeZone;</name>
+        <version>1.8</version>
+        <comment>Avoid TimeZone.getTimeZone as it returns GMT for a zone not supported by the JVM. Use TimeZone.getTimeZone(ZoneId.of(..)) instead, or TimeZone.getTimeZone(..., false).</comment>
+    </violation>
+
+    <violation>
+        <name>org/joda/time/DateTimeZone.toTimeZone:()Ljava/util/TimeZone;</name>
+        <version>1.8</version>
+        <comment>Avoid DateTimeZone.toTimeZone as it returns GMT for a zone not supported by the JVM. Use TimeZone.getTimeZone(ZoneId.of(dtz.getId())) instead.</comment>
+    </violation>
+
 </modernizer>

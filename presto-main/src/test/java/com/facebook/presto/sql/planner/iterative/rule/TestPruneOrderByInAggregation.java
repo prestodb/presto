@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -38,7 +38,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values
 public class TestPruneOrderByInAggregation
         extends BaseRuleTest
 {
-    private static final FunctionManager FUNCTION_MANAGER = MetadataManager.createTestMetadataManager().getFunctionManager();
+    private static final FunctionAndTypeManager FUNCTION_MANAGER = MetadataManager.createTestMetadataManager().getFunctionAndTypeManager();
 
     @Test
     public void testBasics()

@@ -23,11 +23,15 @@ import com.facebook.presto.tests.StandaloneQueryRunner;
 import com.facebook.presto.verifier.framework.ClusterType;
 import com.facebook.presto.verifier.framework.QueryBundle;
 import com.facebook.presto.verifier.framework.QueryConfiguration;
+import com.facebook.presto.verifier.framework.QueryObjectBundle;
 import com.facebook.presto.verifier.framework.VerificationContext;
+import com.facebook.presto.verifier.framework.VerifierConfig;
 import com.facebook.presto.verifier.prestoaction.JdbcPrestoAction;
+import com.facebook.presto.verifier.prestoaction.JdbcUrlSelector;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
-import com.facebook.presto.verifier.prestoaction.PrestoClusterConfig;
+import com.facebook.presto.verifier.prestoaction.PrestoActionConfig;
 import com.facebook.presto.verifier.prestoaction.PrestoExceptionClassifier;
+import com.facebook.presto.verifier.prestoaction.QueryActionsConfig;
 import com.facebook.presto.verifier.retry.RetryConfig;
 import com.google.common.collect.ImmutableList;
 import org.intellij.lang.annotations.Language;
@@ -55,6 +59,8 @@ import static org.testng.Assert.assertTrue;
 @Test
 public class TestQueryRewriter
 {
+    private static final String SUITE = "test-suite";
+    private static final String NAME = "test-query";
     private static final QueryConfiguration CONFIGURATION = new QueryConfiguration(CATALOG, SCHEMA, Optional.of("user"), Optional.empty(), Optional.empty());
     private static final ParsingOptions PARSING_OPTIONS = ParsingOptions.builder().setDecimalLiteralTreatment(AS_DOUBLE).build();
     private static final QueryRewriteConfig QUERY_REWRITE_CONFIG = new QueryRewriteConfig()
@@ -71,15 +77,20 @@ public class TestQueryRewriter
     {
         queryRunner = setupPresto();
         queryRunner.execute("CREATE TABLE test_table (a bigint, b varchar)");
+        PrestoActionConfig prestoActionConfig = new PrestoActionConfig()
+                .setHosts(queryRunner.getServer().getAddress().getHost())
+                .setJdbcPort(queryRunner.getServer().getAddress().getPort());
         prestoAction = new JdbcPrestoAction(
                 PrestoExceptionClassifier.defaultBuilder().build(),
                 CONFIGURATION,
-                VerificationContext.create(),
-                new PrestoClusterConfig()
-                        .setHost(queryRunner.getServer().getAddress().getHost())
-                        .setJdbcPort(queryRunner.getServer().getAddress().getPort()),
+                VerificationContext.create(SUITE, NAME),
+                new JdbcUrlSelector(prestoActionConfig.getJdbcUrls()),
+                prestoActionConfig,
+                new QueryActionsConfig().getMetadataTimeout(),
+                new QueryActionsConfig().getChecksumTimeout(),
                 new RetryConfig(),
-                new RetryConfig());
+                new RetryConfig(),
+                new VerifierConfig().setTestId("test"));
     }
 
     @AfterClass
@@ -292,9 +303,9 @@ public class TestQueryRewriter
             List<String> expectedTeardownTemplates)
     {
         for (ClusterType cluster : ClusterType.values()) {
-            QueryBundle bundle = queryRewriter.rewriteQuery(query, cluster);
+            QueryObjectBundle bundle = queryRewriter.rewriteQuery(query, cluster);
 
-            String tableName = bundle.getTableName().toString();
+            String tableName = bundle.getObjectName().toString();
             assertTrue(tableName.startsWith(prefix + "_"));
 
             assertStatements(bundle.getSetupQueries(), templateToStatements(expectedSetupTemplates, tableName));
@@ -305,8 +316,8 @@ public class TestQueryRewriter
 
     private static void assertTableName(QueryRewriter queryRewriter, @Language("SQL") String query, String expectedPrefix)
     {
-        QueryBundle bundle = queryRewriter.rewriteQuery(query, CONTROL);
-        assertTrue(bundle.getTableName().toString().startsWith(expectedPrefix));
+        QueryObjectBundle bundle = queryRewriter.rewriteQuery(query, CONTROL);
+        assertTrue(bundle.getObjectName().toString().startsWith(expectedPrefix));
     }
 
     private static void assertCreateTableAs(Statement statement, String selectQuery)

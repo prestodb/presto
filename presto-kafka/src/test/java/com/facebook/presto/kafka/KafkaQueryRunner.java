@@ -17,11 +17,11 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.log.Logging;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.kafka.util.CodecSupplier;
 import com.facebook.presto.kafka.util.EmbeddedKafka;
 import com.facebook.presto.kafka.util.TestUtils;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tests.TestingPrestoClient;
@@ -81,7 +81,7 @@ public final class KafkaQueryRunner
 
             installKafkaPlugin(embeddedKafka, queryRunner, topicDescriptions);
 
-            TestingPrestoClient prestoClient = queryRunner.getClient();
+            TestingPrestoClient prestoClient = queryRunner.getRandomClient();
 
             log.info("Loading data...");
             long startTime = System.nanoTime();
@@ -127,6 +127,7 @@ public final class KafkaQueryRunner
         List<String> tableNames = new ArrayList<>(4);
         tableNames.add("all_datatypes_avro");
         tableNames.add("all_datatypes_csv");
+        tableNames.add("all_datatypes_json");
 
         JsonCodec<KafkaTopicDescription> testDescriptionJsonCodec = new CodecSupplier<>(KafkaTopicDescription.class, metadata).get();
 

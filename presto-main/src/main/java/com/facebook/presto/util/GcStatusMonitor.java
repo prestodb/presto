@@ -24,7 +24,6 @@ import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spi.QueryId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ListMultimap;
-import io.airlift.units.DataSize;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -135,7 +134,7 @@ public class GcStatusMonitor
                         new SimpleEntry<>(entry.getKey(), entry.getValue().stream()
                                 .map(SqlTask::getTaskInfo)
                                 .map(TaskInfo::getStats)
-                                .mapToLong(stats -> stats.getUserMemoryReservation().toBytes() + stats.getSystemMemoryReservation().toBytes())
+                                .mapToLong(stats -> stats.getUserMemoryReservationInBytes() + stats.getSystemMemoryReservationInBytes())
                                 .sum())
                 ).sorted(comparator.reversed())
                 .map(Entry::getKey)
@@ -147,7 +146,7 @@ public class GcStatusMonitor
     private List<SqlTask> getActiveSqlTasks()
     {
         return sqlTaskManager.getAllTasks().stream()
-                .filter(task -> !task.getTaskInfo().getTaskStatus().getState().isDone())
+                .filter(task -> !task.getTaskState().isDone())
                 .collect(toImmutableList());
     }
 
@@ -158,14 +157,12 @@ public class GcStatusMonitor
             long userMemoryReservation = sqlTasks.stream()
                     .map(SqlTask::getTaskInfo)
                     .map(TaskInfo::getStats)
-                    .map(TaskStats::getUserMemoryReservation)
-                    .mapToLong(DataSize::toBytes)
+                    .mapToLong(TaskStats::getUserMemoryReservationInBytes)
                     .sum();
             long systemMemoryReservation = sqlTasks.stream()
                     .map(SqlTask::getTaskInfo)
                     .map(TaskInfo::getStats)
-                    .map(TaskStats::getSystemMemoryReservation)
-                    .mapToLong(DataSize::toBytes)
+                    .mapToLong(TaskStats::getSystemMemoryReservationInBytes)
                     .sum();
             return ImmutableList.of(
                     queryId.toString(),
@@ -192,8 +189,8 @@ public class GcStatusMonitor
             Comparator<SqlTask> comparator = (first, second) -> {
                 TaskStats aTaskStats = first.getTaskInfo().getStats();
                 TaskStats bTaskStats = second.getTaskInfo().getStats();
-                return Long.compare(aTaskStats.getUserMemoryReservation().toBytes() + aTaskStats.getSystemMemoryReservation().toBytes(),
-                        bTaskStats.getUserMemoryReservation().toBytes() + bTaskStats.getSystemMemoryReservation().toBytes());
+                return Long.compare(aTaskStats.getUserMemoryReservationInBytes() + aTaskStats.getSystemMemoryReservationInBytes(),
+                        bTaskStats.getUserMemoryReservationInBytes() + bTaskStats.getSystemMemoryReservationInBytes());
             };
             return sqlTasks.stream()
                     .sorted(comparator.reversed())
@@ -207,8 +204,8 @@ public class GcStatusMonitor
                                 task.getTaskId().toString(),
                                 taskStatus.getState().toString(),
                                 taskStats.getCreateTime().toString(),
-                                taskStats.getUserMemoryReservation().toString(),
-                                taskStats.getSystemMemoryReservation().toString(),
+                                Long.toString(taskStats.getUserMemoryReservationInBytes()),
+                                Long.toString(taskStats.getSystemMemoryReservationInBytes()),
                                 Long.toString(taskIOStats.getInputDataSize().getTotalCount()),
                                 Long.toString(taskIOStats.getOutputDataSize().getTotalCount()),
                                 Long.toString(taskIOStats.getInputPositions().getTotalCount()),

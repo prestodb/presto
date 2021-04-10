@@ -25,6 +25,7 @@ import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
+import com.facebook.presto.execution.buffer.SpoolingOutputBufferFactory;
 import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.memory.LocalMemoryManager;
@@ -33,14 +34,18 @@ import com.facebook.presto.memory.MemoryPoolAssignment;
 import com.facebook.presto.memory.MemoryPoolAssignmentsRequest;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.memory.QueryContext;
+import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.operator.ExchangeClientSupplier;
+import com.facebook.presto.operator.FragmentResultCacheManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.connector.ConnectorMetadataUpdater;
 import com.facebook.presto.spiller.LocalSpillManager;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -49,6 +54,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import org.joda.time.DateTime;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
@@ -61,6 +67,7 @@ import javax.inject.Inject;
 
 import java.io.Closeable;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -108,9 +115,7 @@ public class SqlTaskManager
     private final SqlTaskIoStats finishedTaskStats = new SqlTaskIoStats();
 
     @GuardedBy("this")
-    private long currentMemoryPoolAssignmentVersion;
-    @GuardedBy("this")
-    private String coordinatorId;
+    private final Map<String, Long> currentMemoryPoolAssignmentVersions = new Object2LongOpenHashMap<>();
 
     private final CounterStat failedTasks = new CounterStat();
 
@@ -130,7 +135,10 @@ public class SqlTaskManager
             NodeSpillConfig nodeSpillConfig,
             GcMonitor gcMonitor,
             BlockEncodingSerde blockEncodingSerde,
-            OrderingCompiler orderingCompiler)
+            OrderingCompiler orderingCompiler,
+            FragmentResultCacheManager fragmentResultCacheManager,
+            ObjectMapper objectMapper,
+            SpoolingOutputBufferFactory spoolingOutputBufferFactory)
     {
         requireNonNull(nodeInfo, "nodeInfo is null");
         requireNonNull(config, "config is null");
@@ -158,10 +166,13 @@ public class SqlTaskManager
         DataSize maxQueryUserMemoryPerNode = nodeMemoryConfig.getMaxQueryMemoryPerNode();
         DataSize maxQueryTotalMemoryPerNode = nodeMemoryConfig.getMaxQueryTotalMemoryPerNode();
         DataSize maxQuerySpillPerNode = nodeSpillConfig.getQueryMaxSpillPerNode();
+        DataSize maxRevocableMemoryPerNode = nodeSpillConfig.getMaxRevocableMemoryPerNode();
         DataSize maxQueryBroadcastMemory = nodeMemoryConfig.getMaxQueryBroadcastMemory();
 
         queryContexts = CacheBuilder.newBuilder().weakValues().build(CacheLoader.from(
-                queryId -> createQueryContext(queryId, localMemoryManager, localSpillManager, gcMonitor, maxQueryUserMemoryPerNode, maxQueryTotalMemoryPerNode, maxQuerySpillPerNode, maxQueryBroadcastMemory)));
+                queryId -> createQueryContext(queryId, localMemoryManager, localSpillManager, gcMonitor, maxQueryUserMemoryPerNode, maxQueryTotalMemoryPerNode, maxRevocableMemoryPerNode, maxQuerySpillPerNode, maxQueryBroadcastMemory)));
+
+        requireNonNull(spoolingOutputBufferFactory, "spoolingOutputBufferFactory is null");
 
         tasks = CacheBuilder.newBuilder().build(CacheLoader.from(
                 taskId -> createSqlTask(
@@ -177,7 +188,8 @@ public class SqlTaskManager
                             return null;
                         },
                         maxBufferSize,
-                        failedTasks)));
+                        failedTasks,
+                        spoolingOutputBufferFactory)));
     }
 
     private QueryContext createQueryContext(
@@ -187,6 +199,7 @@ public class SqlTaskManager
             GcMonitor gcMonitor,
             DataSize maxQueryUserMemoryPerNode,
             DataSize maxQueryTotalMemoryPerNode,
+            DataSize maxRevocableMemoryPerNode,
             DataSize maxQuerySpillPerNode,
             DataSize maxQueryBroadcastMemory)
     {
@@ -195,6 +208,7 @@ public class SqlTaskManager
                 maxQueryUserMemoryPerNode,
                 maxQueryTotalMemoryPerNode,
                 maxQueryBroadcastMemory,
+                maxRevocableMemoryPerNode,
                 localMemoryManager.getGeneralPool(),
                 gcMonitor,
                 taskNotificationExecutor,
@@ -206,14 +220,12 @@ public class SqlTaskManager
     @Override
     public synchronized void updateMemoryPoolAssignments(MemoryPoolAssignmentsRequest assignments)
     {
-        if (coordinatorId != null && coordinatorId.equals(assignments.getCoordinatorId()) && assignments.getVersion() <= currentMemoryPoolAssignmentVersion) {
+        String assignmentCoordinatorId = assignments.getCoordinatorId();
+        long assignmentVersion = assignments.getVersion();
+        if (assignmentVersion <= currentMemoryPoolAssignmentVersions.getOrDefault(assignmentCoordinatorId, Long.MIN_VALUE)) {
             return;
         }
-        currentMemoryPoolAssignmentVersion = assignments.getVersion();
-        if (coordinatorId != null && !coordinatorId.equals(assignments.getCoordinatorId())) {
-            log.warn("Switching coordinator affinity from " + coordinatorId + " to " + assignments.getCoordinatorId());
-        }
-        coordinatorId = assignments.getCoordinatorId();
+        currentMemoryPoolAssignmentVersions.put(assignmentCoordinatorId, assignmentVersion);
 
         for (MemoryPoolAssignment assignment : assignments.getAssignments()) {
             if (assignment.getPoolId().equals(GENERAL_POOL)) {
@@ -238,13 +250,13 @@ public class SqlTaskManager
                 removeOldTasks();
             }
             catch (Throwable e) {
-                log.warn(e, "Error removing old tasks");
+                log.error(e, "Error removing old tasks");
             }
             try {
                 failAbandonedTasks();
             }
             catch (Throwable e) {
-                log.warn(e, "Error canceling abandoned tasks");
+                log.error(e, "Error canceling abandoned tasks");
             }
         }, 200, 200, TimeUnit.MILLISECONDS);
 
@@ -253,7 +265,7 @@ public class SqlTaskManager
                 updateStats();
             }
             catch (Throwable e) {
-                log.warn(e, "Error updating stats");
+                log.error(e, "Error updating stats");
             }
         }, 0, 1, TimeUnit.SECONDS);
     }
@@ -305,6 +317,11 @@ public class SqlTaskManager
     public List<SqlTask> getAllTasks()
     {
         return ImmutableList.copyOf(tasks.asMap().values());
+    }
+
+    public SqlTask getTask(TaskId taskId)
+    {
+        return tasks.getUnchecked(taskId);
     }
 
     @Override
@@ -378,21 +395,32 @@ public class SqlTaskManager
         requireNonNull(sources, "sources is null");
         requireNonNull(outputBuffers, "outputBuffers is null");
 
-        if (resourceOvercommit(session)) {
-            // TODO: This should have been done when the QueryContext was created. However, the session isn't available at that point.
-            queryContexts.getUnchecked(taskId.getQueryId()).setResourceOvercommit();
-        }
-        else {
-            queryContexts.getUnchecked(
-                    taskId.getQueryId()).setMemoryLimits(
-                    getQueryMaxMemoryPerNode(session),
-                    getQueryMaxTotalMemoryPerNode(session),
-                    getQueryMaxBroadcastMemory(session));
+        SqlTask sqlTask = tasks.getUnchecked(taskId);
+        QueryContext queryContext = sqlTask.getQueryContext();
+        if (!queryContext.isMemoryLimitsInitialized()) {
+            if (resourceOvercommit(session)) {
+                // TODO: This should have been done when the QueryContext was created. However, the session isn't available at that point.
+                queryContext.setResourceOvercommit();
+            }
+            else {
+                queryContext.setMemoryLimits(
+                        getQueryMaxMemoryPerNode(session),
+                        getQueryMaxTotalMemoryPerNode(session),
+                        getQueryMaxBroadcastMemory(session));
+            }
         }
 
-        SqlTask sqlTask = tasks.getUnchecked(taskId);
         sqlTask.recordHeartbeat();
         return sqlTask.updateTask(session, fragment, sources, outputBuffers, tableWriteInfo);
+    }
+
+    @Override
+    public void updateMetadataResults(TaskId taskId, MetadataUpdates metadataUpdates)
+    {
+        TaskMetadataContext metadataContext = tasks.getUnchecked(taskId).getTaskMetadataContext();
+        for (ConnectorMetadataUpdater metadataUpdater : metadataContext.getMetadataUpdaters()) {
+            metadataUpdater.setMetadataUpdateResults(metadataUpdates.getMetadataUpdates());
+        }
     }
 
     @Override
@@ -504,7 +532,7 @@ public class SqlTaskManager
         // already merged the final stats, we could miss the stats from this task
         // which would result in an under-count, but we will not get an over-count.
         tasks.asMap().values().stream()
-                .filter(task -> !task.getTaskStatus().getState().isDone())
+                .filter(task -> !task.getTaskState().isDone())
                 .forEach(task -> tempIoStats.merge(task.getIoStats()));
 
         cachedStats.resetTo(tempIoStats);

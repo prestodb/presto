@@ -15,6 +15,7 @@ package com.facebook.presto.verifier.event;
 
 import com.facebook.airlift.event.client.EventField;
 import com.facebook.airlift.event.client.EventType;
+import com.facebook.presto.verifier.framework.DeterminismAnalysis;
 import com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.google.common.collect.ImmutableList;
@@ -28,24 +29,39 @@ import java.util.Optional;
 import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.NOT_RUN;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 @EventType("DeterminismAnalysisDetails")
 public class DeterminismAnalysisDetails
 {
+    private final DeterminismAnalysis determinismAnalysis;
     private final List<DeterminismAnalysisRun> runs;
     private final String limitQueryAnalysis;
     private final String limitQueryAnalysisQueryId;
 
     @JsonCreator
     public DeterminismAnalysisDetails(
+            DeterminismAnalysis determinismAnalysis,
             List<DeterminismAnalysisRun> runs,
             LimitQueryDeterminismAnalysis limitQueryAnalysis,
             Optional<String> limitQueryAnalysisQueryId)
     {
+        this.determinismAnalysis = requireNonNull(determinismAnalysis, "determinismAnalysis is null");
         this.runs = ImmutableList.copyOf(runs);
         this.limitQueryAnalysis = limitQueryAnalysis.name();
         this.limitQueryAnalysisQueryId = limitQueryAnalysisQueryId.orElse(null);
+    }
+
+    public DeterminismAnalysis getDeterminismAnalysis()
+    {
+        return determinismAnalysis;
+    }
+
+    @EventField
+    public String getResult()
+    {
+        return determinismAnalysis.name();
     }
 
     @EventField
@@ -77,6 +93,10 @@ public class DeterminismAnalysisDetails
         private Optional<LimitQueryDeterminismAnalysis> limitQueryAnalysis = Optional.empty();
         private Optional<String> limitQueryAnalysisQueryId = Optional.empty();
 
+        private Builder()
+        {
+        }
+
         public DeterminismAnalysisRun.Builder addRun()
         {
             DeterminismAnalysisRun.Builder run = DeterminismAnalysisRun.builder();
@@ -96,9 +116,10 @@ public class DeterminismAnalysisDetails
             this.limitQueryAnalysisQueryId = Optional.of(limitQueryAnalysisQueryId);
         }
 
-        public DeterminismAnalysisDetails build()
+        public DeterminismAnalysisDetails build(DeterminismAnalysis analysis)
         {
             return new DeterminismAnalysisDetails(
+                    analysis,
                     runs.stream()
                             .map(DeterminismAnalysisRun.Builder::build)
                             .collect(toImmutableList()),

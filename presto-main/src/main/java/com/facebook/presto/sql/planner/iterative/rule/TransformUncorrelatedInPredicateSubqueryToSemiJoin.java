@@ -21,6 +21,7 @@ import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.InPredicate;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.Optional;
 
@@ -88,7 +89,8 @@ public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
                 semiJoinVariable,
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                ImmutableMap.of());
 
         return Result.ofPlanNode(replacement);
     }

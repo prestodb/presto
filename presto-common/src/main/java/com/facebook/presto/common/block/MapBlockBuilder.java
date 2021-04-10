@@ -29,6 +29,7 @@ import java.util.function.BiConsumer;
 import static com.facebook.presto.common.block.BlockUtil.calculateBlockResetSize;
 import static com.facebook.presto.common.block.MapBlock.createMapBlockInternal;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -39,6 +40,7 @@ public class MapBlockBuilder
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapBlockBuilder.class).instanceSize();
 
     private final MethodHandle keyBlockEquals;
+    private final MethodHandle keyBlockHashCode;
 
     @Nullable
     private final BlockBuilderStatus blockBuilderStatus;
@@ -55,18 +57,13 @@ public class MapBlockBuilder
     public MapBlockBuilder(
             Type keyType,
             Type valueType,
-            MethodHandle keyBlockNativeEquals,
             MethodHandle keyBlockEquals,
-            MethodHandle keyNativeHashCode,
             MethodHandle keyBlockHashCode,
             BlockBuilderStatus blockBuilderStatus,
             int expectedEntries)
     {
         this(
-                keyType,
-                keyBlockNativeEquals,
                 keyBlockEquals,
-                keyNativeHashCode,
                 keyBlockHashCode,
                 blockBuilderStatus,
                 keyType.createBlockBuilder(blockBuilderStatus, expectedEntries),
@@ -77,10 +74,7 @@ public class MapBlockBuilder
     }
 
     private MapBlockBuilder(
-            Type keyType,
-            MethodHandle keyBlockNativeEquals,
             MethodHandle keyBlockEquals,
-            MethodHandle keyNativeHashCode,
             MethodHandle keyBlockHashCode,
             @Nullable BlockBuilderStatus blockBuilderStatus,
             BlockBuilder keyBlockBuilder,
@@ -89,9 +83,8 @@ public class MapBlockBuilder
             boolean[] mapIsNull,
             int[] rawHashTables)
     {
-        super(keyType, keyNativeHashCode, keyBlockNativeEquals, keyBlockHashCode);
-
         this.keyBlockEquals = requireNonNull(keyBlockEquals, "keyBlockEquals is null");
+        this.keyBlockHashCode = requireNonNull(keyBlockHashCode, "keyBlockHashCode is null");
         this.blockBuilderStatus = blockBuilderStatus;
 
         this.positionCount = 0;
@@ -224,7 +217,7 @@ public class MapBlockBuilder
      * a consistent state before {@link DuplicateMapKeyException} is thrown.
      * In other words, one can continue to use this BlockBuilder.
      */
-    public BlockBuilder closeEntryStrict()
+    public BlockBuilder closeEntryStrict(MethodHandle keyBlockEquals, MethodHandle keyBlockHashCode)
             throws DuplicateMapKeyException, NotSupportedException
     {
         if (!currentEntryOpened) {
@@ -369,19 +362,13 @@ public class MapBlockBuilder
                 offsets,
                 keyBlockBuilder.build(),
                 valueBlockBuilder.build(),
-                new HashTables(Optional.of(Arrays.copyOf(rawHashTables, hashTablesEntries)), positionCount, hashTablesEntries),
-                keyType,
-                keyBlockNativeEquals,
-                keyNativeHashCode,
-                keyBlockHashCode);
+                new HashTables(Optional.of(Arrays.copyOf(rawHashTables, hashTablesEntries)), positionCount, hashTablesEntries));
     }
 
     @Override
     public String toString()
     {
-        return "MapBlockBuilder{" +
-                "positionCount=" + getPositionCount() +
-                '}';
+        return format("MapBlockBuilder(%d){positionCount=%d}", hashCode(), getPositionCount());
     }
 
     @Override
@@ -457,10 +444,7 @@ public class MapBlockBuilder
     {
         int newSize = calculateBlockResetSize(getPositionCount());
         return new MapBlockBuilder(
-                keyType,
-                keyBlockNativeEquals,
                 keyBlockEquals,
-                keyNativeHashCode,
                 keyBlockHashCode,
                 blockBuilderStatus,
                 keyBlockBuilder.newBlockBuilderLike(blockBuilderStatus),
@@ -471,7 +455,23 @@ public class MapBlockBuilder
     }
 
     @Override
-    protected void ensureHashTableLoaded() {}
+    public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    {
+        int newSize = max(calculateBlockResetSize(getPositionCount()), expectedEntries);
+        int nestedExpectedEntries = BlockUtil.calculateNestedStructureResetSize(offsets[positionCount], positionCount, expectedEntries);
+        return new MapBlockBuilder(
+                keyBlockEquals,
+                keyBlockHashCode,
+                blockBuilderStatus,
+                keyBlockBuilder.newBlockBuilderLike(blockBuilderStatus, nestedExpectedEntries),
+                valueBlockBuilder.newBlockBuilderLike(blockBuilderStatus, nestedExpectedEntries),
+                new int[newSize + 1],
+                new boolean[newSize],
+                newNegativeOneFilledArray(newSize * HASH_MULTIPLIER));
+    }
+
+    @Override
+    protected void ensureHashTableLoaded(MethodHandle keyBlockHashCode) {}
 
     private static int[] newNegativeOneFilledArray(int size)
     {

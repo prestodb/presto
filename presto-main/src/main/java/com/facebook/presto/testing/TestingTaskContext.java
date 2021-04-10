@@ -91,6 +91,7 @@ public final class TestingTaskContext
         private DataSize queryMaxTotalMemory = new DataSize(512, MEGABYTE);
         private DataSize memoryPoolSize = new DataSize(1, GIGABYTE);
         private DataSize maxSpillSize = new DataSize(1, GIGABYTE);
+        private DataSize maxRevocableMemory = new DataSize(1, GIGABYTE);
         private DataSize queryMaxSpillSize = new DataSize(1, GIGABYTE);
 
         private Builder(Executor notificationExecutor, ScheduledExecutorService yieldExecutor, Session session)
@@ -152,6 +153,7 @@ public final class TestingTaskContext
                     queryMaxMemory,
                     queryMaxTotalMemory,
                     queryMaxMemory,
+                    maxRevocableMemory,
                     memoryPool,
                     GC_MONITOR,
                     notificationExecutor,

@@ -29,6 +29,13 @@ public abstract class QueryException
     private final boolean retryable;
     private final QueryStage queryStage;
 
+    public QueryException(String message, boolean retryable, QueryStage queryStage)
+    {
+        super(message);
+        this.retryable = retryable;
+        this.queryStage = requireNonNull(queryStage, "queryStage is null");
+    }
+
     public QueryException(Throwable cause, boolean retryable, QueryStage queryStage)
     {
         super(cause);
@@ -58,7 +65,7 @@ public abstract class QueryException
                         : Optional.empty(),
                 retryable,
                 this instanceof PrestoQueryException
-                        ? ((PrestoQueryException) this).getQueryStats().map(QueryStats::getQueryId)
+                        ? ((PrestoQueryException) this).getQueryActionStats().getQueryStats().map(QueryStats::getQueryId)
                         : Optional.empty(),
                 getStackTraceAsString(this));
     }

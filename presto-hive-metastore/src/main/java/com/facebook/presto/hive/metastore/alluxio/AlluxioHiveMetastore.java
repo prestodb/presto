@@ -29,6 +29,7 @@ import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.hive.metastore.MetastoreUtil;
 import com.facebook.presto.hive.metastore.Partition;
+import com.facebook.presto.hive.metastore.PartitionNameWithVersion;
 import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.hive.metastore.PartitionWithStatistics;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
@@ -296,6 +297,15 @@ public class AlluxioHiveMetastore
     {
         List<String> parts = convertPredicateToParts(partitionPredicates);
         return getPartitionNamesByParts(databaseName, tableName, parts).orElse(ImmutableList.of());
+    }
+
+    @Override
+    public List<PartitionNameWithVersion> getPartitionNamesWithVersionByFilter(
+            String databaseName,
+            String tableName,
+            Map<Column, Domain> partitionPredicates)
+    {
+        throw new UnsupportedOperationException();
     }
 
     /**

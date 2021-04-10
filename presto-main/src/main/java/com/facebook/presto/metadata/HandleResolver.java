@@ -19,6 +19,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorIndexHandle;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
+import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -58,6 +59,7 @@ public class HandleResolver
         handleResolvers.put("$empty", new MaterializedHandleResolver(new EmptySplitHandleResolver()));
 
         functionHandleResolvers.put("$static", new MaterializedFunctionHandleResolver(new BuiltInFunctionNamespaceHandleResolver()));
+        functionHandleResolvers.put("$session", new MaterializedFunctionHandleResolver(new SessionFunctionHandleResolver()));
     }
 
     public void addConnectorName(String name, ConnectorHandleResolver resolver)
@@ -127,6 +129,11 @@ public class HandleResolver
         return getFunctionNamespaceId(functionHandle, MaterializedFunctionHandleResolver::getFunctionHandleClass);
     }
 
+    public String getId(ConnectorMetadataUpdateHandle metadataUpdateHandle)
+    {
+        return getId(metadataUpdateHandle, MaterializedHandleResolver::getMetadataUpdateHandleClass);
+    }
+
     public Class<? extends ConnectorTableHandle> getTableHandleClass(String id)
     {
         return resolverFor(id).getTableHandleClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
@@ -175,6 +182,11 @@ public class HandleResolver
     public Class<? extends FunctionHandle> getFunctionHandleClass(String id)
     {
         return resolverForFunctionNamespace(id).getFunctionHandleClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
+    }
+
+    public Class<? extends ConnectorMetadataUpdateHandle> getMetadataUpdateHandleClass(String id)
+    {
+        return resolverFor(id).getMetadataUpdateHandleClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
     }
 
     private MaterializedHandleResolver resolverFor(String id)
@@ -230,6 +242,7 @@ public class HandleResolver
         private final Optional<Class<? extends ConnectorInsertTableHandle>> insertTableHandle;
         private final Optional<Class<? extends ConnectorPartitioningHandle>> partitioningHandle;
         private final Optional<Class<? extends ConnectorTransactionHandle>> transactionHandle;
+        private final Optional<Class<? extends ConnectorMetadataUpdateHandle>> metadataUpdateHandle;
 
         public MaterializedHandleResolver(ConnectorHandleResolver resolver)
         {
@@ -242,6 +255,7 @@ public class HandleResolver
             insertTableHandle = getHandleClass(resolver::getInsertTableHandleClass);
             partitioningHandle = getHandleClass(resolver::getPartitioningHandleClass);
             transactionHandle = getHandleClass(resolver::getTransactionHandleClass);
+            metadataUpdateHandle = getHandleClass(resolver::getMetadataUpdateHandleClass);
         }
 
         private static <T> Optional<Class<? extends T>> getHandleClass(Supplier<Class<? extends T>> callable)
@@ -299,6 +313,11 @@ public class HandleResolver
             return transactionHandle;
         }
 
+        public Optional<Class<? extends ConnectorMetadataUpdateHandle>> getMetadataUpdateHandleClass()
+        {
+            return metadataUpdateHandle;
+        }
+
         @Override
         public boolean equals(Object o)
         {
@@ -317,13 +336,14 @@ public class HandleResolver
                     Objects.equals(outputTableHandle, that.outputTableHandle) &&
                     Objects.equals(insertTableHandle, that.insertTableHandle) &&
                     Objects.equals(partitioningHandle, that.partitioningHandle) &&
-                    Objects.equals(transactionHandle, that.transactionHandle);
+                    Objects.equals(transactionHandle, that.transactionHandle) &&
+                    Objects.equals(metadataUpdateHandle, that.metadataUpdateHandle);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(tableHandle, layoutHandle, columnHandle, split, indexHandle, outputTableHandle, insertTableHandle, partitioningHandle, transactionHandle);
+            return Objects.hash(tableHandle, layoutHandle, columnHandle, split, indexHandle, outputTableHandle, insertTableHandle, partitioningHandle, transactionHandle, metadataUpdateHandle);
         }
     }
 

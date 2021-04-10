@@ -17,7 +17,7 @@ import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.FieldDefinition;
 import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.bytecode.Variable;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.gen.BytecodeUtils.OutputBlockVariableAndType;
@@ -34,7 +34,7 @@ public class BytecodeGeneratorContext
     private final Scope scope;
     private final CallSiteBinder callSiteBinder;
     private final CachedInstanceBinder cachedInstanceBinder;
-    private final FunctionManager manager;
+    private final FunctionAndTypeManager manager;
     private final Variable wasNull;
 
     public BytecodeGeneratorContext(
@@ -42,7 +42,7 @@ public class BytecodeGeneratorContext
             Scope scope,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
-            FunctionManager manager)
+            FunctionAndTypeManager manager)
     {
         requireNonNull(rowExpressionCompiler, "bytecodeGenerator is null");
         requireNonNull(cachedInstanceBinder, "cachedInstanceBinder is null");
@@ -78,7 +78,7 @@ public class BytecodeGeneratorContext
         return rowExpressionCompiler.compile(expression, scope, outputBlockVariable, lambdaInterface);
     }
 
-    public FunctionManager getFunctionManager()
+    public FunctionAndTypeManager getFunctionManager()
     {
         return manager;
     }

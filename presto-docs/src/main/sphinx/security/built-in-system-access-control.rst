@@ -93,16 +93,23 @@ following fields:
 
 * ``user`` (optional): regex to match against user name. Defaults to ``.*``.
 * ``catalog`` (optional): regex to match against catalog name. Defaults to ``.*``.
-* ``allow`` (required): boolean indicating whether a user has access to the catalog
+* ``allow`` (required): string indicating whether a user has access to the catalog.
+  This value can be ``all``, ``read-only`` or ``none``, and defaults to ``none``.
+  Setting this value to ``read-only`` has the same behavior as the ``read-only``
+  system access control plugin.
 
 .. note::
 
     By default, all users have access to the ``system`` catalog. You can
     override this behavior by adding a rule.
 
+    Boolean ``true`` and ``false`` are also supported as legacy values for ``allow``,
+    to support backwards compatibility.  ``true`` maps to ``all``, and ``false`` maps to ``none``.
+
 For example, if you want to allow only the user ``admin`` to access the
 ``mysql`` and the ``system`` catalog, allow all users to access the ``hive``
-catalog, and deny all other access, you can use the following rules:
+catalog, allow the user ``alice`` read-only access to the ``postgresql`` catalog,
+and deny all other access, you can use the following rules:
 
 .. code-block:: json
 
@@ -111,15 +118,20 @@ catalog, and deny all other access, you can use the following rules:
         {
           "user": "admin",
           "catalog": "(mysql|system)",
-          "allow": true
+          "allow": "all"
         },
         {
           "catalog": "hive",
-          "allow": true
+          "allow": "all"
+        },
+        {
+          "user": "alice",
+          "catalog": "postgresql",
+          "allow": "read-only"
         },
         {
           "catalog": "system",
-          "allow": false
+          "allow": "none"
         }
       ]
     }

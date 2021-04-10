@@ -33,6 +33,7 @@ import static com.facebook.presto.common.block.BlockUtil.compactOffsets;
 import static com.facebook.presto.common.block.BlockUtil.compactSlice;
 import static com.facebook.presto.common.block.BlockUtil.internalPositionInRange;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static java.lang.String.format;
 
 public class VariableWidthBlock
         extends AbstractVariableWidthBlock
@@ -220,11 +221,7 @@ public class VariableWidthBlock
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder("VariableWidthBlock{");
-        sb.append("positionCount=").append(getPositionCount());
-        sb.append(", slice=").append(slice);
-        sb.append('}');
-        return sb.toString();
+        return format("VariableWidthBlock(%d){positionCount=%d,slice=%s}", hashCode(), getPositionCount(), slice);
     }
 
     @Override

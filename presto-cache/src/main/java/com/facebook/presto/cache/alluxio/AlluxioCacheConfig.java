@@ -16,8 +16,10 @@ package com.facebook.presto.cache.alluxio;
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class AlluxioCacheConfig
 {
@@ -27,6 +29,12 @@ public class AlluxioCacheConfig
     private String metricsDomain = "com.facebook.alluxio";
     private DataSize maxCacheSize = new DataSize(2, GIGABYTE);
     private boolean configValidationEnabled;
+    private boolean timeoutEnabled;
+    private boolean cacheQuotaEnabled;
+    private Duration timeoutDuration = new Duration(60, SECONDS);
+    private int timeoutThreads = 64;
+    private int evictionRetries = 10;
+    private EvictionPolicy evictionPolicy = EvictionPolicy.LRU;
 
     public boolean isMetricsCollectionEnabled()
     {
@@ -104,5 +112,83 @@ public class AlluxioCacheConfig
     public boolean isConfigValidationEnabled()
     {
         return configValidationEnabled;
+    }
+
+    public int getTimeoutThreads()
+    {
+        return timeoutThreads;
+    }
+
+    @Config("cache.alluxio.timeout-threads")
+    @ConfigDescription("Number of threads used to handle timeouts in alluxio caching")
+    public AlluxioCacheConfig setTimeoutThreads(int timeoutThreads)
+    {
+        this.timeoutThreads = timeoutThreads;
+        return this;
+    }
+
+    public Duration getTimeoutDuration()
+    {
+        return timeoutDuration;
+    }
+
+    @Config("cache.alluxio.timeout-duration")
+    @ConfigDescription("Timeout duration for alluxio caching operations")
+    public AlluxioCacheConfig setTimeoutDuration(Duration timeoutDuration)
+    {
+        this.timeoutDuration = timeoutDuration;
+        return this;
+    }
+
+    public boolean getTimeoutEnabled()
+    {
+        return timeoutEnabled;
+    }
+
+    @Config("cache.alluxio.timeout-enabled")
+    @ConfigDescription("Whether to enable timeout for alluxio caching operations")
+    public AlluxioCacheConfig setTimeoutEnabled(boolean timeoutEnabled)
+    {
+        this.timeoutEnabled = timeoutEnabled;
+        return this;
+    }
+
+    public int getEvictionRetries()
+    {
+        return evictionRetries;
+    }
+
+    @Config("cache.alluxio.eviction-retries")
+    @ConfigDescription("The maximum number of eviction retries")
+    public AlluxioCacheConfig setEvictionRetries(int evictionRetries)
+    {
+        this.evictionRetries = evictionRetries;
+        return this;
+    }
+
+    public EvictionPolicy getEvictionPolicy()
+    {
+        return evictionPolicy;
+    }
+
+    @Config("cache.alluxio.eviction-policy")
+    @ConfigDescription("The cache eviction policy")
+    public AlluxioCacheConfig setEvictionPolicy(EvictionPolicy evictionPolicy)
+    {
+        this.evictionPolicy = evictionPolicy;
+        return this;
+    }
+
+    public boolean isCacheQuotaEnabled()
+    {
+        return cacheQuotaEnabled;
+    }
+
+    @Config("cache.alluxio.quota-enabled")
+    @ConfigDescription("Whether to enable quota for alluxio caching operations")
+    public AlluxioCacheConfig setCacheQuotaEnabled(boolean cacheQuotaEnabled)
+    {
+        this.cacheQuotaEnabled = cacheQuotaEnabled;
+        return this;
     }
 }

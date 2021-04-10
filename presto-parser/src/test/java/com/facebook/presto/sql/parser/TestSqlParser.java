@@ -34,6 +34,7 @@ import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CreateFunction;
+import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.CreateRole;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
@@ -50,6 +51,7 @@ import com.facebook.presto.sql.tree.DescribeOutput;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.DropColumn;
 import com.facebook.presto.sql.tree.DropFunction;
+import com.facebook.presto.sql.tree.DropMaterializedView;
 import com.facebook.presto.sql.tree.DropRole;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
@@ -140,6 +142,7 @@ import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.TransactionAccessMode;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Unnest;
+import com.facebook.presto.sql.tree.Use;
 import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.With;
@@ -486,9 +489,9 @@ public class TestSqlParser
                 new Query(
                         Optional.empty(),
                         new Intersect(ImmutableList.of(
-                                new Intersect(ImmutableList.of(createSelect123(), createSelect123()), true),
+                                new Intersect(ImmutableList.of(createSelect123(), createSelect123()), Optional.of(true)),
                                 createSelect123()
-                        ), false),
+                        ), Optional.of(false)),
                         Optional.empty(),
                         Optional.empty()));
     }
@@ -500,9 +503,9 @@ public class TestSqlParser
                 new Query(
                         Optional.empty(),
                         new Union(ImmutableList.of(
-                                new Union(ImmutableList.of(createSelect123(), createSelect123()), true),
+                                new Union(ImmutableList.of(createSelect123(), createSelect123()), Optional.of(true)),
                                 createSelect123()
-                        ), false),
+                        ), Optional.of(false)),
                         Optional.empty(),
                         Optional.empty()));
     }
@@ -1363,19 +1366,31 @@ public class TestSqlParser
     }
 
     @Test
+    public void testDropMaterializedView()
+    {
+        assertStatement("DROP MATERIALIZED VIEW a", new DropMaterializedView(Optional.empty(), QualifiedName.of("a"), false));
+        assertStatement("DROP MATERIALIZED VIEW a.b", new DropMaterializedView(Optional.empty(), QualifiedName.of("a", "b"), false));
+        assertStatement("DROP MATERIALIZED VIEW a.b.c", new DropMaterializedView(Optional.empty(), QualifiedName.of("a", "b", "c"), false));
+
+        assertStatement("DROP MATERIALIZED VIEW IF EXISTS a", new DropMaterializedView(Optional.empty(), QualifiedName.of("a"), true));
+        assertStatement("DROP MATERIALIZED VIEW IF EXISTS a.b", new DropMaterializedView(Optional.empty(), QualifiedName.of("a", "b"), true));
+        assertStatement("DROP MATERIALIZED VIEW IF EXISTS a.b.c", new DropMaterializedView(Optional.empty(), QualifiedName.of("a", "b", "c"), true));
+    }
+
+    @Test
     public void testDropFunction()
     {
-        assertStatement("DROP FUNCTION a", new DropFunction(QualifiedName.of("a"), Optional.empty(), false));
-        assertStatement("DROP FUNCTION a.b", new DropFunction(QualifiedName.of("a", "b"), Optional.empty(), false));
-        assertStatement("DROP FUNCTION a.b.c", new DropFunction(QualifiedName.of("a", "b", "c"), Optional.empty(), false));
+        assertStatement("DROP FUNCTION a", new DropFunction(QualifiedName.of("a"), Optional.empty(), false, false));
+        assertStatement("DROP FUNCTION a.b", new DropFunction(QualifiedName.of("a", "b"), Optional.empty(), false, false));
+        assertStatement("DROP FUNCTION a.b.c", new DropFunction(QualifiedName.of("a", "b", "c"), Optional.empty(), false, false));
 
-        assertStatement("DROP FUNCTION a()", new DropFunction(QualifiedName.of("a"), Optional.of(ImmutableList.of()), false));
-        assertStatement("DROP FUNCTION a.b()", new DropFunction(QualifiedName.of("a", "b"), Optional.of(ImmutableList.of()), false));
-        assertStatement("DROP FUNCTION a.b.c()", new DropFunction(QualifiedName.of("a", "b", "c"), Optional.of(ImmutableList.of()), false));
+        assertStatement("DROP FUNCTION a()", new DropFunction(QualifiedName.of("a"), Optional.of(ImmutableList.of()), false, false));
+        assertStatement("DROP FUNCTION a.b()", new DropFunction(QualifiedName.of("a", "b"), Optional.of(ImmutableList.of()), false, false));
+        assertStatement("DROP FUNCTION a.b.c()", new DropFunction(QualifiedName.of("a", "b", "c"), Optional.of(ImmutableList.of()), false, false));
 
-        assertStatement("DROP FUNCTION IF EXISTS a.b.c(int)", new DropFunction(QualifiedName.of("a", "b", "c"), Optional.of(ImmutableList.of("int")), true));
-        assertStatement("DROP FUNCTION IF EXISTS a.b.c(bigint, double)", new DropFunction(QualifiedName.of("a", "b", "c"), Optional.of(ImmutableList.of("bigint", "double")), true));
-        assertStatement("DROP FUNCTION IF EXISTS a.b.c(ARRAY(string), MAP(int,double))", new DropFunction(QualifiedName.of("a", "b", "c"), Optional.of(ImmutableList.of("ARRAY(string)", "MAP(int,double)")), true));
+        assertStatement("DROP FUNCTION IF EXISTS a.b.c(int)", new DropFunction(QualifiedName.of("a", "b", "c"), Optional.of(ImmutableList.of("int")), false, true));
+        assertStatement("DROP FUNCTION IF EXISTS a.b.c(bigint, double)", new DropFunction(QualifiedName.of("a", "b", "c"), Optional.of(ImmutableList.of("bigint", "double")), false, true));
+        assertStatement("DROP FUNCTION IF EXISTS a.b.c(ARRAY(string), MAP(int,double))", new DropFunction(QualifiedName.of("a", "b", "c"), Optional.of(ImmutableList.of("ARRAY(string)", "MAP(int,double)")), false, true));
     }
 
     @Test
@@ -1406,13 +1421,17 @@ public class TestSqlParser
     @Test
     public void testRenameTable()
     {
-        assertStatement("ALTER TABLE a RENAME TO b", new RenameTable(QualifiedName.of("a"), QualifiedName.of("b")));
+        assertStatement("ALTER TABLE a RENAME TO b", new RenameTable(QualifiedName.of("a"), QualifiedName.of("b"), false));
+        assertStatement("ALTER TABLE IF EXISTS a RENAME TO b", new RenameTable(QualifiedName.of("a"), QualifiedName.of("b"), true));
     }
 
     @Test
     public void testRenameColumn()
     {
-        assertStatement("ALTER TABLE foo.t RENAME COLUMN a TO b", new RenameColumn(QualifiedName.of("foo", "t"), identifier("a"), identifier("b")));
+        assertStatement("ALTER TABLE foo.t RENAME COLUMN a TO b", new RenameColumn(QualifiedName.of("foo", "t"), identifier("a"), identifier("b"), false, false));
+        assertStatement("ALTER TABLE IF EXISTS foo.t RENAME COLUMN a TO b", new RenameColumn(QualifiedName.of("foo", "t"), identifier("a"), identifier("b"), true, false));
+        assertStatement("ALTER TABLE foo.t RENAME COLUMN IF EXISTS a TO b", new RenameColumn(QualifiedName.of("foo", "t"), identifier("a"), identifier("b"), false, true));
+        assertStatement("ALTER TABLE IF EXISTS foo.t RENAME COLUMN IF EXISTS a TO b", new RenameColumn(QualifiedName.of("foo", "t"), identifier("a"), identifier("b"), true, true));
     }
 
     @Test
@@ -1438,16 +1457,31 @@ public class TestSqlParser
     public void testAddColumn()
     {
         assertStatement("ALTER TABLE foo.t ADD COLUMN c bigint", new AddColumn(QualifiedName.of("foo", "t"),
-                new ColumnDefinition(identifier("c"), "bigint", true, emptyList(), Optional.empty())));
+                new ColumnDefinition(identifier("c"), "bigint", true, emptyList(), Optional.empty()), false, false));
         assertStatement("ALTER TABLE foo.t ADD COLUMN d double NOT NULL", new AddColumn(QualifiedName.of("foo", "t"),
-                new ColumnDefinition(identifier("d"), "double", false, emptyList(), Optional.empty())));
+                new ColumnDefinition(identifier("d"), "double", false, emptyList(), Optional.empty()), false, false));
+
+        assertStatement("ALTER TABLE IF EXISTS foo.t ADD COLUMN d double NOT NULL",
+                new AddColumn(QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(identifier("d"), "double", false, emptyList(), Optional.empty()), true, false));
+
+        assertStatement("ALTER TABLE foo.t ADD COLUMN IF NOT EXISTS d double NOT NULL",
+                new AddColumn(QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(identifier("d"), "double", false, emptyList(), Optional.empty()), false, true));
+
+        assertStatement("ALTER TABLE IF EXISTS foo.t ADD COLUMN IF NOT EXISTS d double NOT NULL",
+                new AddColumn(QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(identifier("d"), "double", false, emptyList(), Optional.empty()), true, true));
     }
 
     @Test
     public void testDropColumn()
     {
-        assertStatement("ALTER TABLE foo.t DROP COLUMN c", new DropColumn(QualifiedName.of("foo", "t"), identifier("c")));
-        assertStatement("ALTER TABLE \"t x\" DROP COLUMN \"c d\"", new DropColumn(QualifiedName.of("t x"), quotedIdentifier("c d")));
+        assertStatement("ALTER TABLE foo.t DROP COLUMN c", new DropColumn(QualifiedName.of("foo", "t"), identifier("c"), false, false));
+        assertStatement("ALTER TABLE \"t x\" DROP COLUMN \"c d\"", new DropColumn(QualifiedName.of("t x"), quotedIdentifier("c d"), false, false));
+        assertStatement("ALTER TABLE IF EXISTS foo.t DROP COLUMN c", new DropColumn(QualifiedName.of("foo", "t"), identifier("c"), true, false));
+        assertStatement("ALTER TABLE foo.t DROP COLUMN IF EXISTS c", new DropColumn(QualifiedName.of("foo", "t"), identifier("c"), false, true));
+        assertStatement("ALTER TABLE IF EXISTS foo.t DROP COLUMN IF EXISTS c", new DropColumn(QualifiedName.of("foo", "t"), identifier("c"), true, true));
     }
 
     @Test
@@ -1467,6 +1501,43 @@ public class TestSqlParser
     }
 
     @Test
+    public void testCreateMaterializedView()
+    {
+        Query query = simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t")));
+        assertStatement(
+                "CREATE MATERIALIZED VIEW mv" +
+                        " AS SELECT * FROM t",
+                new CreateMaterializedView(Optional.empty(), QualifiedName.of("mv"), query, false, ImmutableList.of(), Optional.empty()));
+
+        assertStatement(
+                "CREATE MATERIALIZED VIEW mv COMMENT 'A simple materialized view'" +
+                        " AS SELECT * FROM t",
+                new CreateMaterializedView(Optional.empty(), QualifiedName.of("mv"), query, false, ImmutableList.of(), Optional.of("A simple materialized view")));
+
+        assertStatement(
+                "CREATE MATERIALIZED VIEW IF NOT EXISTS mv COMMENT 'A simple materialized view'" +
+                        " AS SELECT * FROM t",
+                new CreateMaterializedView(Optional.empty(), QualifiedName.of("mv"), query, true, ImmutableList.of(), Optional.of("A simple materialized view")));
+
+        List<Property> properties = ImmutableList.of(
+                new Property(new Identifier("partitioned_by"), new ArrayConstructor(ImmutableList.of(new StringLiteral("ds")))));
+        assertStatement(
+                "CREATE MATERIALIZED VIEW IF NOT EXISTS mv COMMENT 'A simple materialized view'" +
+                        " WITH (partitioned_by = ARRAY ['ds'])" +
+                        " AS SELECT * FROM t",
+                new CreateMaterializedView(Optional.empty(), QualifiedName.of("mv"), query, true, properties, Optional.of("A simple materialized view")));
+
+        List<Property> properties1 = ImmutableList.of(
+                new Property(new Identifier("partitioned_by"), new ArrayConstructor(ImmutableList.of(new StringLiteral("ds")))),
+                new Property(new Identifier("retention_days"), new LongLiteral("90")));
+        assertStatement(
+                "CREATE MATERIALIZED VIEW IF NOT EXISTS mv COMMENT 'A simple materialized view'" +
+                        " WITH (partitioned_by = ARRAY ['ds'], retention_days = 90)" +
+                        " AS SELECT * FROM t",
+                new CreateMaterializedView(Optional.empty(), QualifiedName.of("mv"), query, true, properties1, Optional.of("A simple materialized view")));
+    }
+
+    @Test
     public void testCreateFunction()
     {
         assertStatement(
@@ -1480,6 +1551,7 @@ public class TestSqlParser
                 new CreateFunction(
                         QualifiedName.of("tan"),
                         false,
+                        false,
                         ImmutableList.of(new SqlParameterDeclaration(identifier("x"), "double")),
                         "double",
                         Optional.of("tangent trigonometric function"),
@@ -1492,6 +1564,7 @@ public class TestSqlParser
         CreateFunction createFunctionRand = new CreateFunction(
                 QualifiedName.of("dev", "testing", "rand"),
                 true,
+                false,
                 ImmutableList.of(),
                 "double",
                 Optional.empty(),
@@ -1510,6 +1583,21 @@ public class TestSqlParser
                         "RETURNS double\n" +
                         "RETURN rand()",
                 createFunctionRand);
+
+        CreateFunction createTemporaryFunctionFoo = new CreateFunction(
+                QualifiedName.of("foo"),
+                false,
+                true,
+                ImmutableList.of(),
+                "boolean",
+                Optional.empty(),
+                new RoutineCharacteristics(SQL, NOT_DETERMINISTIC, CALLED_ON_NULL_INPUT),
+                new Return(new BooleanLiteral("true")));
+        assertStatement(
+                "CREATE TEMPORARY FUNCTION foo() \n" +
+                        "RETURNS boolean \n" +
+                        "RETURN true",
+                createTemporaryFunctionFoo);
 
         assertInvalidStatement(
                 "CREATE FUNCTION dev.testing.rand () RETURNS double LANGUAGE SQL LANGUAGE SQL RETURN rand()",
@@ -2420,6 +2508,16 @@ public class TestSqlParser
                         false,
                         false,
                         ImmutableList.of(new Identifier("x"), new LongLiteral("1"))));
+    }
+
+    @Test
+    public void testUse()
+    {
+        assertStatement("Use test_schema", new Use(Optional.empty(), identifier("test_schema")));
+        assertStatement("Use test_catalog.test_schema", new Use(Optional.of(identifier("test_catalog")), new Identifier("test_schema")));
+
+        assertStatement("Use \"test_schema\"", new Use(Optional.empty(), quotedIdentifier("test_schema")));
+        assertStatement("Use \"test_catalog\".\"test_schema\"", new Use(Optional.of(quotedIdentifier("test_catalog")), quotedIdentifier("test_schema")));
     }
 
     private static void assertCast(String type)

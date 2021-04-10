@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.pinot;
 
-import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.pinot.query.PinotQueryGenerator;
@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -43,7 +44,7 @@ public class TestPinotBrokerPageSourcePql
         extends TestPinotQueryBase
 {
     private static PinotTableHandle pinotTable = new PinotTableHandle("connId", "schema", "tbl");
-    private final ObjectMapper objectMapper = new ObjectMapperProvider().get();
+    private final ObjectMapper objectMapper = new JsonObjectMapperProvider().get();
     private static PinotColumnHandle jobState = new PinotColumnHandle("jobState", VARCHAR, PinotColumnHandle.PinotColumnType.REGULAR);
 
     private static class PqlParsedInfo
@@ -173,7 +174,19 @@ public class TestPinotBrokerPageSourcePql
                     ImmutableList.of(bigint("activeTrips"), bigint("numDrivers"), varchar("region"), bigint("rowtime"), secondsSinceEpoch, fraction("utilization"), bigint("utilizedDrivers"), bigint("vehicleViewId"), bigint("windowEnd"), bigint("windowStart")),
                     ImmutableList.of(0, 1, 2, 3, 4, 5, 6, 7, 8, 9),
                     ImmutableList.of(bigint("activeTrips"), bigint("numDrivers"), varchar("region"), bigint("rowtime"), secondsSinceEpoch, fraction("utilization"), bigint("utilizedDrivers"), bigint("vehicleViewId"), bigint("windowEnd"), bigint("windowStart")),
-                    Optional.empty()}
+                    Optional.empty()},
+                {"SELECT tag_value FROM eats_job_state LIMIT 10",
+                        "{\"selectionResults\":{\"columns\":[\"tag_value\"],\"results\":[[[\"tag1\"]],[[\"tag1\", \"tag2\"]],[[\"tag2\", \"tag3\"]],[[\"null\"]],[[\"tag4\", \"tag2\", \"tag1\", \"tag5\"]],[[\"tag2\"]],[[\"null\"]],[[\"null\"]],[[\"tag1\", \"tag6\"]],[[\"null\"]]]},\"exceptions\":[],\"numServersQueried\":7,\"numServersResponded\":7,\"numDocsScanned\":380,\"numEntriesScannedInFilter\":0,\"numEntriesScannedPostFilter\":760,\"totalDocs\":55988817,\"numGroupsLimitReached\":false,\"timeUsedMs\":2,\"segmentStatistics\":[],\"traceInfo\":{}}",
+                        ImmutableList.of(array(VARCHAR, "tag_value")),
+                        ImmutableList.of(0),
+                        ImmutableList.of(array(VARCHAR, "tag_value")),
+                        Optional.empty()},
+                {"SELECT num_values FROM eats_job_state LIMIT 10",
+                        "{\"selectionResults\":{\"columns\":[\"tag_value\"],\"results\":[[[\"123\"]],[[\"456\", \"567\"]],[[\"2345\", \"8907\"]],[[\"0\"]],[[\"123\", \"1234\", \"987\", \"1678\"]],[[\"98\"]],[[\"0\"]],[[\"0\"]],[[\"1\", \"0\"]],[[\"0\"]]]},\"exceptions\":[],\"numServersQueried\":7,\"numServersResponded\":7,\"numDocsScanned\":380,\"numEntriesScannedInFilter\":0,\"numEntriesScannedPostFilter\":760,\"totalDocs\":55988817,\"numGroupsLimitReached\":false,\"timeUsedMs\":2,\"segmentStatistics\":[],\"traceInfo\":{}}",
+                        ImmutableList.of(array(BIGINT, "num_values")),
+                        ImmutableList.of(0),
+                        ImmutableList.of(array(BIGINT, "num_values")),
+                        Optional.empty()},
         };
     }
 

@@ -46,8 +46,10 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 import org.openjdk.jmh.runner.options.WarmupMode;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
@@ -71,7 +73,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 @BenchmarkMode(Mode.AverageTime)
 public class BenchmarkMapConcat
 {
-    private static final int POSITIONS = 10_000;
+    private static final int POSITIONS = 1000;
 
     @Benchmark
     @OperationsPerInvocation(POSITIONS)
@@ -92,7 +94,10 @@ public class BenchmarkMapConcat
         private String name = "map_concat";
 
         @Param({"left_empty", "right_empty", "both_empty", "non_empty"})
-        private String mapConfig = "left_empty";
+        private String mapConfig = "non_empty";
+
+        @Param({"10", "100", "1000"})
+        private int keyCount = 100;
 
         private Page page;
         private PageProcessor pageProcessor;
@@ -103,15 +108,18 @@ public class BenchmarkMapConcat
             MetadataManager metadata = createTestMetadataManager();
             ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
 
+            List<String> keyList1 = createRandomStringListFromSet(keyCount);
+            List<String> keyList2 = createRandomStringListFromSet(keyCount);
+
             List<String> leftKeys;
             List<String> rightKeys;
             switch (mapConfig) {
                 case "left_empty":
                     leftKeys = ImmutableList.of();
-                    rightKeys = ImmutableList.of("a", "b", "c");
+                    rightKeys = keyList1;
                     break;
                 case "right_empty":
-                    leftKeys = ImmutableList.of("a", "b", "c");
+                    leftKeys = keyList1;
                     rightKeys = ImmutableList.of();
                     break;
                 case "both_empty":
@@ -119,8 +127,8 @@ public class BenchmarkMapConcat
                     rightKeys = ImmutableList.of();
                     break;
                 case "non_empty":
-                    leftKeys = ImmutableList.of("a", "b", "c");
-                    rightKeys = ImmutableList.of("d", "b", "c");
+                    leftKeys = keyList1;
+                    rightKeys = keyList2;
                     break;
                 default:
                     throw new UnsupportedOperationException();
@@ -138,7 +146,7 @@ public class BenchmarkMapConcat
 
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
 
-            FunctionHandle functionHandle = metadata.getFunctionManager().lookupFunction(name, fromTypes(mapType, mapType));
+            FunctionHandle functionHandle = metadata.getFunctionAndTypeManager().lookupFunction(name, fromTypes(mapType, mapType));
             projectionsBuilder.add(new CallExpression(
                     name,
                     functionHandle,
@@ -197,6 +205,16 @@ public class BenchmarkMapConcat
                 sliceArray[i] = utf8Slice(keys.get(i));
             }
             return createSlicesBlock(sliceArray);
+        }
+
+        private static List<String> createRandomStringListFromSet(int keyCount)
+        {
+            Random random = new Random(0);
+            List<String> keyList = new ArrayList<>();
+            for (int i = 0; i < keyCount; i++) {
+                keyList.add(Integer.toString(random.nextInt(keyCount)));
+            }
+            return keyList;
         }
     }
 

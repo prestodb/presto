@@ -18,6 +18,8 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
+import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
+import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorResolvedIndex;
@@ -30,6 +32,7 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.SystemTable;
@@ -559,6 +562,30 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Gets the materialized view data for the specified materialized view name.
+     */
+    default Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
+    {
+        return Optional.empty();
+    }
+
+    /**
+     * Create the specified materialized view. The data for the materialized view is opaque to the connector.
+     */
+    default void createMaterializedView(ConnectorSession session, ConnectorTableMetadata viewMetadata, ConnectorMaterializedViewDefinition viewDefinition, boolean ignoreExisting)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating materialized views");
+    }
+
+    /**
+     * Drop the specified materialized view.
+     */
+    default void dropMaterializedView(ConnectorSession session, SchemaTableName viewName)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping materialized views");
+    }
+
+    /**
      * @return whether delete without table scan is supported
      */
     default boolean supportsMetadataDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<ConnectorTableLayoutHandle> tableLayoutHandle)
@@ -698,6 +725,19 @@ public interface ConnectorMetadata
     default CompletableFuture<Void> commitPageSinkAsync(ConnectorSession session, ConnectorInsertTableHandle tableHandle, Collection<Slice> fragments)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support page sink commit");
+    }
+
+    /**
+     * Handles metadata update requests and sends the results back to worker
+     */
+    default List<ConnectorMetadataUpdateHandle> getMetadataUpdateResults(List<ConnectorMetadataUpdateHandle> metadataUpdateRequests, QueryId queryId)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support metadata update requests");
+    }
+
+    default void doMetadataUpdateCleanup(QueryId queryId)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support metadata update cleanup");
     }
 
     default TableLayoutFilterCoverage getTableLayoutFilterCoverage(ConnectorTableLayoutHandle tableHandle, Set<String> relevantPartitionColumns)

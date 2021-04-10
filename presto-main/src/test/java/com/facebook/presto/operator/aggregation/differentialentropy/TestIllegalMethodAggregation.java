@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation.differentialentropy;
 
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.PrestoException;
@@ -35,9 +35,9 @@ public class TestIllegalMethodAggregation
             expectedExceptionsMessageRegExp = "In differential_entropy UDF, invalid method: no_such_method")
     public void testIllegalMethod()
     {
-        FunctionManager functionManager = MetadataManager.createTestMetadataManager().getFunctionManager();
-        InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(
-                functionManager.lookupFunction(
+        FunctionAndTypeManager functionAndTypeManager = MetadataManager.createTestMetadataManager().getFunctionAndTypeManager();
+        InternalAggregationFunction function = functionAndTypeManager.getAggregateFunctionImplementation(
+                functionAndTypeManager.lookupFunction(
                         "differential_entropy",
                         fromTypes(BIGINT, DOUBLE, DOUBLE, VARCHAR, DOUBLE, DOUBLE)));
         aggregation(
@@ -53,9 +53,9 @@ public class TestIllegalMethodAggregation
     @Test
     public void testNullMethod()
     {
-        FunctionManager functionManager = MetadataManager.createTestMetadataManager().getFunctionManager();
-        InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(
-                functionManager.lookupFunction(
+        FunctionAndTypeManager functionAndTypeManager = MetadataManager.createTestMetadataManager().getFunctionAndTypeManager();
+        InternalAggregationFunction function = functionAndTypeManager.getAggregateFunctionImplementation(
+                functionAndTypeManager.lookupFunction(
                         "differential_entropy",
                         fromTypes(BIGINT, DOUBLE, DOUBLE, VARCHAR, DOUBLE, DOUBLE)));
         createStringsBlock((String) null);

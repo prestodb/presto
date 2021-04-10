@@ -58,6 +58,7 @@ public class TestMemoryTracking
 {
     private static final DataSize queryMaxMemory = new DataSize(1, GIGABYTE);
     private static final DataSize queryMaxTotalMemory = new DataSize(1, GIGABYTE);
+    private static final DataSize queryMaxRevocableMemory = new DataSize(2, GIGABYTE);
     private static final DataSize memoryPoolSize = new DataSize(1, GIGABYTE);
     private static final DataSize maxSpillSize = new DataSize(1, GIGABYTE);
     private static final DataSize queryMaxSpillSize = new DataSize(1, GIGABYTE);
@@ -101,6 +102,7 @@ public class TestMemoryTracking
                 queryMaxMemory,
                 queryMaxTotalMemory,
                 queryMaxMemory,
+                queryMaxRevocableMemory,
                 memoryPool,
                 new TestingGcMonitor(),
                 notificationExecutor,
@@ -162,6 +164,23 @@ public class TestMemoryTracking
     }
 
     @Test
+    public void testLocalRevocableMemoryLimitExceeded()
+    {
+        LocalMemoryContext revocableMemoryContext = operatorContext.localRevocableMemoryContext();
+        revocableMemoryContext.setBytes(100);
+        assertOperatorMemoryAllocations(operatorContext.getOperatorMemoryContext(), 0, 0, 100);
+        revocableMemoryContext.setBytes(queryMaxRevocableMemory.toBytes());
+        assertOperatorMemoryAllocations(operatorContext.getOperatorMemoryContext(), 0, 0, queryMaxRevocableMemory.toBytes());
+        try {
+            revocableMemoryContext.setBytes(queryMaxRevocableMemory.toBytes() + 1);
+            fail("allocation should hit the per-node revocable memory limit");
+        }
+        catch (ExceededMemoryLimitException e) {
+            assertEquals(e.getMessage(), format("Query exceeded per-node revocable memory limit of %1$s [Allocated: %1$s, Delta: 1B]", queryMaxRevocableMemory));
+        }
+    }
+
+    @Test
     public void testLocalSystemAllocations()
     {
         long pipelineLocalAllocation = 1_000_000;
@@ -179,7 +198,7 @@ public class TestMemoryTracking
                 pipelineLocalAllocation + taskLocalAllocation,
                 0,
                 taskLocalAllocation);
-        assertEquals(pipelineContext.getPipelineStats().getSystemMemoryReservation().toBytes(),
+        assertEquals(pipelineContext.getPipelineStats().getSystemMemoryReservationInBytes(),
                 pipelineLocalAllocation,
                 "task level allocations should not be visible at the pipeline level");
         pipelineLocalSystemMemoryContext.setBytes(pipelineLocalSystemMemoryContext.getBytes() - pipelineLocalAllocation);
@@ -366,18 +385,18 @@ public class TestMemoryTracking
     {
         assertEquals(operatorStats.getUserMemoryReservation().toBytes(), expectedUserMemory);
         assertEquals(driverStats.getUserMemoryReservation().toBytes(), expectedUserMemory);
-        assertEquals(pipelineStats.getUserMemoryReservation().toBytes(), expectedUserMemory);
-        assertEquals(taskStats.getUserMemoryReservation().toBytes(), expectedUserMemory);
+        assertEquals(pipelineStats.getUserMemoryReservationInBytes(), expectedUserMemory);
+        assertEquals(taskStats.getUserMemoryReservationInBytes(), expectedUserMemory);
 
         assertEquals(operatorStats.getSystemMemoryReservation().toBytes(), expectedSystemMemory);
         assertEquals(driverStats.getSystemMemoryReservation().toBytes(), expectedSystemMemory);
-        assertEquals(pipelineStats.getSystemMemoryReservation().toBytes(), expectedSystemMemory);
-        assertEquals(taskStats.getSystemMemoryReservation().toBytes(), expectedSystemMemory);
+        assertEquals(pipelineStats.getSystemMemoryReservationInBytes(), expectedSystemMemory);
+        assertEquals(taskStats.getSystemMemoryReservationInBytes(), expectedSystemMemory);
 
         assertEquals(operatorStats.getRevocableMemoryReservation().toBytes(), expectedRevocableMemory);
         assertEquals(driverStats.getRevocableMemoryReservation().toBytes(), expectedRevocableMemory);
-        assertEquals(pipelineStats.getRevocableMemoryReservation().toBytes(), expectedRevocableMemory);
-        assertEquals(taskStats.getRevocableMemoryReservation().toBytes(), expectedRevocableMemory);
+        assertEquals(pipelineStats.getRevocableMemoryReservationInBytes(), expectedRevocableMemory);
+        assertEquals(taskStats.getRevocableMemoryReservationInBytes(), expectedRevocableMemory);
     }
 
     private void assertAllocationFails(Consumer<Void> allocationFunction, String expectedPattern)

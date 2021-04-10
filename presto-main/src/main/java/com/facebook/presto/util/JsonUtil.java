@@ -25,11 +25,12 @@ import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.RowType.Field;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.UnknownType;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.type.BigintOperators;
 import com.facebook.presto.type.BooleanOperators;
 import com.facebook.presto.type.DoubleOperators;
-import com.facebook.presto.type.UnknownType;
 import com.facebook.presto.type.VarcharOperators;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
@@ -132,7 +133,7 @@ public final class JsonUtil
 
     public static boolean canCastToJson(Type type)
     {
-        String baseType = type.getTypeSignature().getBase();
+        String baseType = type.getTypeSignature().getStandardTypeSignature().getBase();
         if (baseType.equals(UnknownType.NAME) ||
                 baseType.equals(StandardTypes.BOOLEAN) ||
                 baseType.equals(StandardTypes.TINYINT) ||
@@ -145,7 +146,9 @@ public final class JsonUtil
                 baseType.equals(StandardTypes.VARCHAR) ||
                 baseType.equals(StandardTypes.JSON) ||
                 baseType.equals(StandardTypes.TIMESTAMP) ||
-                baseType.equals(StandardTypes.DATE)) {
+                baseType.equals(StandardTypes.DATE) ||
+                baseType.equals(StandardTypes.VARCHAR_ENUM) ||
+                baseType.equals(StandardTypes.BIGINT_ENUM)) {
             return true;
         }
         if (type instanceof ArrayType) {
@@ -165,7 +168,11 @@ public final class JsonUtil
 
     public static boolean canCastFromJson(Type type)
     {
-        String baseType = type.getTypeSignature().getBase();
+        TypeSignature signature = type.getTypeSignature();
+        String baseType = signature.getBase();
+        if (signature.isEnum()) {
+            return true;
+        }
         if (baseType.equals(StandardTypes.BOOLEAN) ||
                 baseType.equals(StandardTypes.TINYINT) ||
                 baseType.equals(StandardTypes.SMALLINT) ||
@@ -201,7 +208,8 @@ public final class JsonUtil
                 baseType.equals(StandardTypes.REAL) ||
                 baseType.equals(StandardTypes.DOUBLE) ||
                 baseType.equals(StandardTypes.DECIMAL) ||
-                baseType.equals(StandardTypes.VARCHAR);
+                baseType.equals(StandardTypes.VARCHAR) ||
+                type.getTypeSignature().isEnum();
     }
 
     // transform the map key into string for use as JSON object key
@@ -211,7 +219,14 @@ public final class JsonUtil
 
         static ObjectKeyProvider createObjectKeyProvider(Type type)
         {
-            String baseType = type.getTypeSignature().getBase();
+            TypeSignature signature = type.getTypeSignature();
+            String baseType = signature.getBase();
+            if (signature.isBigintEnum()) {
+                return (block, position) -> String.valueOf(type.getLong(block, position));
+            }
+            if (signature.isVarcharEnum()) {
+                return (block, position) -> type.getSlice(block, position).toStringUtf8();
+            }
             switch (baseType) {
                 case UnknownType.NAME:
                     return (block, position) -> null;
@@ -253,7 +268,14 @@ public final class JsonUtil
 
         static JsonGeneratorWriter createJsonGeneratorWriter(Type type)
         {
-            String baseType = type.getTypeSignature().getBase();
+            TypeSignature signature = type.getTypeSignature();
+            String baseType = signature.getBase();
+            if (signature.isBigintEnum()) {
+                return new LongJsonGeneratorWriter(type);
+            }
+            if (signature.isVarcharEnum()) {
+                return new VarcharJsonGeneratorWriter(type);
+            }
             switch (baseType) {
                 case UnknownType.NAME:
                     return new UnknownJsonGeneratorWriter();
@@ -864,7 +886,14 @@ public final class JsonUtil
 
         static BlockBuilderAppender createBlockBuilderAppender(Type type)
         {
-            String baseType = type.getTypeSignature().getBase();
+            TypeSignature signature = type.getTypeSignature();
+            String baseType = signature.getBase();
+            if (signature.isBigintEnum()) {
+                return new BigintBlockBuilderAppender();
+            }
+            if (signature.isVarcharEnum()) {
+                return new VarcharBlockBuilderAppender(type);
+            }
             switch (baseType) {
                 case StandardTypes.BOOLEAN:
                     return new BooleanBlockBuilderAppender();

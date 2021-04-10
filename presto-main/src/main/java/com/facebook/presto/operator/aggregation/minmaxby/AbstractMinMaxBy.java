@@ -26,9 +26,8 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlAggregationFunction;
 import com.facebook.presto.operator.aggregation.AccumulatorCompiler;
 import com.facebook.presto.operator.aggregation.AggregationMetadata;
@@ -95,14 +94,14 @@ public abstract class AbstractMinMaxBy
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
+    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
         Type keyType = boundVariables.getTypeVariable("K");
         Type valueType = boundVariables.getTypeVariable("V");
-        return generateAggregation(valueType, keyType, functionManager);
+        return generateAggregation(valueType, keyType, functionAndTypeManager);
     }
 
-    private InternalAggregationFunction generateAggregation(Type valueType, Type keyType, FunctionManager functionManager)
+    private InternalAggregationFunction generateAggregation(Type valueType, Type keyType, FunctionAndTypeManager functionAndTypeManager)
     {
         Class<?> stateClazz = getStateClass(keyType.getJavaType(), valueType.getJavaType());
         DynamicClassLoader classLoader = new DynamicClassLoader(getClass().getClassLoader());
@@ -136,7 +135,7 @@ public abstract class AbstractMinMaxBy
 
         CallSiteBinder binder = new CallSiteBinder();
         OperatorType operator = min ? LESS_THAN : GREATER_THAN;
-        MethodHandle compareMethod = functionManager.getBuiltInScalarFunctionImplementation(functionManager.resolveOperator(operator, fromTypes(keyType, keyType))).getMethodHandle();
+        MethodHandle compareMethod = functionAndTypeManager.getBuiltInScalarFunctionImplementation(functionAndTypeManager.resolveOperator(operator, fromTypes(keyType, keyType))).getMethodHandle();
 
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),

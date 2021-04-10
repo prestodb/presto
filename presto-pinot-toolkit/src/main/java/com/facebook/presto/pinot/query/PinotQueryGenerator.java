@@ -15,7 +15,9 @@ package com.facebook.presto.pinot.query;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.type.BigintType;
+import com.facebook.presto.common.type.FixedWidthType;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.pinot.PinotColumnHandle;
 import com.facebook.presto.pinot.PinotConfig;
 import com.facebook.presto.pinot.PinotException;
@@ -77,6 +79,8 @@ import static java.util.Objects.requireNonNull;
 public class PinotQueryGenerator
 {
     private static final Logger log = Logger.get(PinotQueryGenerator.class);
+    private static final double LOWEST_APPROX_DISTINCT_MAX_STANDARD_ERROR = 0.0040625;
+    private static final double HIGHEST_APPROX_DISTINCT_MAX_STANDARD_ERROR = 0.26000;
     private static final Map<String, String> UNARY_AGGREGATION_MAP =
             ImmutableMap.<String, String>builder()
                     .put("min", "min")
@@ -84,7 +88,6 @@ public class PinotQueryGenerator
                     .put("avg", "avg")
                     .put("sum", "sum")
                     .put("distinctcount", "DISTINCTCOUNT")
-                    .put("approx_distinct", "DISTINCTCOUNTHLL")
                     .build();
 
     private final PinotConfig pinotConfig;
@@ -245,12 +248,14 @@ public class PinotQueryGenerator
         private final ConnectorSession session;
         private final boolean forbidBrokerQueries;
         private final boolean useSqlSyntax;
+        private final boolean pushdownTopnBrokerQueries;
 
         protected PinotQueryPlanVisitor(ConnectorSession session)
         {
             this.session = session;
             this.forbidBrokerQueries = PinotSessionProperties.isForbidBrokerQueries(session);
             this.useSqlSyntax = PinotSessionProperties.isUsePinotSqlForBrokerQueries(session);
+            this.pushdownTopnBrokerQueries = PinotSessionProperties.getPushdownTopnBrokerQueries(session);
         }
 
         @Override
@@ -295,7 +300,7 @@ public class PinotQueryGenerator
                 RowExpression expression = node.getAssignments().get(variable);
                 PinotExpression pinotExpression = expression.accept(
                         contextIn.getVariablesInAggregation().contains(variable) ?
-                                new PinotAggregationProjectConverter(typeManager, functionMetadataManager, standardFunctionResolution, session) :
+                                new PinotAggregationProjectConverter(typeManager, functionMetadataManager, standardFunctionResolution, session, variable) :
                                 pinotProjectExpressionConverter,
                         context.getSelections());
                 newSelections.put(
@@ -346,6 +351,8 @@ public class PinotQueryGenerator
                     break;
                 case "approx_percentile":
                     return handleApproxPercentile(aggregation, inputSelections);
+                case "approx_distinct":
+                    return handleApproxDistinct(aggregation, inputSelections);
                 default:
                     if (UNARY_AGGREGATION_MAP.containsKey(prestoAggregation) && aggregation.getArguments().size() == 1) {
                         return format("%s(%s)", UNARY_AGGREGATION_MAP.get(prestoAggregation), inputSelections.get(getVariableReference(parameters.get(0))));
@@ -388,6 +395,76 @@ public class PinotQueryGenerator
             return format("PERCENTILEEST%d(%s)", percentile, inputSelections.get(getVariableReference(inputs.get(0))));
         }
 
+        private String handleApproxDistinct(CallExpression aggregation, Map<VariableReferenceExpression, Selection> inputSelections)
+        {
+            List<RowExpression> inputs = aggregation.getArguments();
+            if (inputs.isEmpty() || inputs.size() > 2) {
+                throw new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), "Cannot handle approx_distinct function " + aggregation);
+            }
+            Selection selection = inputSelections.get(getVariableReference(inputs.get(0)));
+            if (inputs.size() == 1) {
+                return format("DISTINCTCOUNTHLL(%s)", selection);
+            }
+            RowExpression standardErrorInput = inputs.get(1);
+            String standardErrorString;
+            if (standardErrorInput instanceof ConstantExpression) {
+                standardErrorString = getLiteralAsString((ConstantExpression) standardErrorInput);
+            }
+            else if (standardErrorInput instanceof VariableReferenceExpression) {
+                Selection fraction = inputSelections.get(standardErrorInput);
+                if (fraction.getOrigin() != LITERAL) {
+                    throw new PinotException(
+                            PINOT_UNSUPPORTED_EXPRESSION,
+                            Optional.empty(),
+                            "Cannot handle approx_distinct standard error argument be a non literal " + aggregation);
+                }
+                standardErrorString = fraction.getDefinition();
+            }
+            else {
+                throw new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), "Expected the standard error to be a constant or a variable " + standardErrorInput);
+            }
+
+            double standardError;
+            try {
+                standardError = Double.parseDouble(standardErrorString);
+                if (standardError <= LOWEST_APPROX_DISTINCT_MAX_STANDARD_ERROR || standardError >= HIGHEST_APPROX_DISTINCT_MAX_STANDARD_ERROR) {
+                    throw new PinotException(
+                            PINOT_UNSUPPORTED_EXPRESSION,
+                            Optional.empty(),
+                            format("Cannot handle approx_distinct parsed as %f from input %s (function %s)", standardError, standardErrorString, aggregation));
+                }
+            }
+            catch (Exception e) {
+                throw new PinotException(
+                        PINOT_UNSUPPORTED_EXPRESSION,
+                        Optional.empty(),
+                        format("Cannot handle approx_distinct parsing to numerical value from input %s (function %s)", standardErrorString, aggregation));
+            }
+            // Pinot uses DISTINCTCOUNTHLL to do distinct count estimation, with hyperloglog algorithm.
+            //
+            // The HyperLogLog (HLL) data structure is a probabilistic data structure used to estimate the cardinality
+            // of a data set.
+            // In order to construct HLL data structure, the parameter log2m is used which represents the number of
+            // registers used internally by HLL.
+            //
+            // If we want a higher accuracy, we need to set these to higher values. Such a configuration
+            // will have additional overhead because our HLL will occupy more memory. If we're fine with lower accuracy,
+            // we can lower those parameters, and our HLL will occupy less memory.
+            //
+            // The relative standard deviation of HyperLoglog is:
+            //     rsd = 1.106 / sqrt(2^(log2m))
+            // So:
+            //     log2m = 2 * log(1.106 / rsd) / log(2)
+            int log2m = (int) (2 * Math.log(1.106 / standardError) / Math.log(2));
+            if (log2m < 1) {
+                throw new PinotException(
+                        PINOT_UNSUPPORTED_EXPRESSION,
+                        Optional.empty(),
+                        format("Cannot handle approx_distinct, the log2m generated from error is %d from input %s (function %s)", log2m, standardErrorString, aggregation));
+            }
+            return format("DISTINCTCOUNTHLL(%s, %d)", selection, log2m);
+        }
+
         private int getValidPercentile(String fraction)
         {
             try {
@@ -422,6 +499,7 @@ public class PinotQueryGenerator
                     case GROUP_BY: {
                         GroupByColumnNode groupByColumn = (GroupByColumnNode) expression;
                         VariableReferenceExpression groupByInputColumn = getVariableReference(groupByColumn.getInputColumn());
+                        checkState(groupByInputColumn.getType() instanceof FixedWidthType || groupByInputColumn.getType() instanceof VarcharType);
                         variablesInAggregation.add(groupByInputColumn);
                         break;
                     }
@@ -512,7 +590,11 @@ public class PinotQueryGenerator
             requireNonNull(context, "context is null");
             checkSupported(!forbidBrokerQueries, "Cannot push topn in segment mode");
             checkSupported(node.getStep().equals(TopNNode.Step.SINGLE), "Can only push single logical topn in");
-            return context.withTopN(getOrderingScheme(node), node.getCount()).withOutputColumns(node.getOutputVariables());
+
+            if (pushdownTopnBrokerQueries) {
+                return context.withTopN(getOrderingScheme(node), node.getCount()).withOutputColumns(node.getOutputVariables());
+            }
+            throw new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), "TopN query is not allowed to push down. Please refer to config: 'pinot.pushdown-topn-broker-queries'");
         }
 
         @Override

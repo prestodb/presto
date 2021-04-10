@@ -22,7 +22,7 @@ import com.facebook.presto.bytecode.instruction.LabelNode;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.CastType;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
@@ -65,9 +65,9 @@ public class NullIfCodeGenerator
         Type secondType = second.getType();
 
         // if (equal(cast(first as <common type>), cast(second as <common type>))
-        FunctionManager functionManager = generatorContext.getFunctionManager();
-        FunctionHandle equalFunction = functionManager.resolveOperator(EQUAL, fromTypes(firstType, secondType));
-        FunctionMetadata equalFunctionMetadata = functionManager.getFunctionMetadata(equalFunction);
+        FunctionAndTypeManager functionAndTypeManager = generatorContext.getFunctionManager();
+        FunctionHandle equalFunction = functionAndTypeManager.resolveOperator(EQUAL, fromTypes(firstType, secondType));
+        FunctionMetadata equalFunctionMetadata = functionAndTypeManager.getFunctionMetadata(equalFunction);
         BuiltInScalarFunctionImplementation equalsFunction = generatorContext.getFunctionManager().getBuiltInScalarFunctionImplementation(equalFunction);
         BytecodeNode equalsCall = generatorContext.generateCall(
                 EQUAL.name(),

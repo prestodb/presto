@@ -15,10 +15,10 @@ package com.facebook.presto.sql.planner.sanity;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
-import com.facebook.presto.execution.warnings.WarningCollector;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.plan.AggregationNode;
@@ -40,10 +40,10 @@ import com.facebook.presto.sql.tree.SymbolReference;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
-import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Collections.emptyList;
@@ -158,7 +158,7 @@ public final class TypeValidator
                 FunctionHandle functionHandle = entry.getValue().getFunctionHandle();
                 CallExpression call = entry.getValue().getFunctionCall();
 
-                verifyTypeSignature(entry.getKey(), metadata.getFunctionManager().getFunctionMetadata(functionHandle).getReturnType());
+                verifyTypeSignature(entry.getKey(), metadata.getFunctionAndTypeManager().getFunctionMetadata(functionHandle).getReturnType());
                 checkCall(entry.getKey(), call);
             }
         }
@@ -172,7 +172,7 @@ public final class TypeValidator
         private void checkFunctionSignature(Map<VariableReferenceExpression, Aggregation> aggregations)
         {
             for (Map.Entry<VariableReferenceExpression, Aggregation> entry : aggregations.entrySet()) {
-                verifyTypeSignature(entry.getKey(), metadata.getFunctionManager().getFunctionMetadata(entry.getValue().getFunctionHandle()).getReturnType());
+                verifyTypeSignature(entry.getKey(), metadata.getFunctionAndTypeManager().getFunctionMetadata(entry.getValue().getFunctionHandle()).getReturnType());
             }
         }
 
@@ -181,7 +181,7 @@ public final class TypeValidator
             for (Map.Entry<VariableReferenceExpression, Aggregation> entry : aggregations.entrySet()) {
                 VariableReferenceExpression variable = entry.getKey();
                 Aggregation aggregation = entry.getValue();
-                FunctionMetadata functionMetadata = metadata.getFunctionManager().getFunctionMetadata(aggregation.getFunctionHandle());
+                FunctionMetadata functionMetadata = metadata.getFunctionAndTypeManager().getFunctionMetadata(aggregation.getFunctionHandle());
                 verifyTypeSignature(
                         variable,
                         functionMetadata.getReturnType());
@@ -200,7 +200,7 @@ public final class TypeValidator
                 for (int i = 0; i < functionMetadata.getArgumentTypes().size(); i++) {
                     TypeSignature expected = functionMetadata.getArgumentTypes().get(i);
                     TypeSignature actual = argumentTypes.get(i);
-                    TypeManager typeManager = metadata.getTypeManager();
+                    FunctionAndTypeManager typeManager = metadata.getFunctionAndTypeManager();
                     if (!actual.equals(UNKNOWN.getTypeSignature()) && !typeManager.isTypeOnlyCoercion(typeManager.getType(actual), typeManager.getType(expected))) {
                         checkArgument(expected.equals(actual),
                                 "Expected input types are %s but getting %s", functionMetadata.getArgumentTypes(), argumentTypes);
@@ -212,8 +212,8 @@ public final class TypeValidator
         private void verifyTypeSignature(VariableReferenceExpression variable, TypeSignature actual)
         {
             // UNKNOWN should be considered as a wildcard type, which matches all the other types
-            TypeManager typeManager = metadata.getTypeManager();
-            if (!actual.equals(UNKNOWN.getTypeSignature()) && !typeManager.isTypeOnlyCoercion(typeManager.getType(actual), variable.getType())) {
+            FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
+            if (!actual.equals(UNKNOWN.getTypeSignature()) && !functionAndTypeManager.isTypeOnlyCoercion(functionAndTypeManager.getType(actual), variable.getType())) {
                 checkArgument(variable.getType().getTypeSignature().equals(actual), "type of variable '%s' is expected to be %s, but the actual type is %s", variable.getName(), variable.getType(), actual);
             }
         }

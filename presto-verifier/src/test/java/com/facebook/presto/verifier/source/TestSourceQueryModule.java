@@ -40,7 +40,7 @@ public class TestSourceQueryModule
                 ImmutableList.<Module>builder()
                         .add(new SourceQueryModule(ImmutableSet.of()))
                         .build());
-        Injector injector = app.strictConfig()
+        Injector injector = app
                 .setRequiredConfigurationProperties(ImmutableMap.<String, String>builder()
                         .putAll(DEFAULT_CONFIGURATION_PROPERTIES)
                         .put("source-query.database", "jdbc://localhost:1080")
@@ -59,12 +59,11 @@ public class TestSourceQueryModule
                 ImmutableList.<Module>builder()
                         .add(new SourceQueryModule(ImmutableSet.of("test-supplier")))
                         .build());
-        app.strictConfig()
-                .setRequiredConfigurationProperties(ImmutableMap.<String, String>builder()
+        app.setRequiredConfigurationProperties(
+                ImmutableMap.<String, String>builder()
                         .putAll(DEFAULT_CONFIGURATION_PROPERTIES)
                         .put("source-query.supplier", "test-supplier")
-                        .build())
-                .initialize();
+                        .build()).initialize();
     }
 
     @Test(expectedExceptions = CreationException.class, expectedExceptionsMessageRegExp = "Unable to create injector.*")
@@ -75,11 +74,10 @@ public class TestSourceQueryModule
                 ImmutableList.<Module>builder()
                         .add(new SourceQueryModule(ImmutableSet.of("test-supplier")))
                         .build());
-        app.strictConfig()
-                .setRequiredConfigurationProperties(ImmutableMap.<String, String>builder()
+        app.setRequiredConfigurationProperties(
+                ImmutableMap.<String, String>builder()
                         .putAll(DEFAULT_CONFIGURATION_PROPERTIES)
                         .put("source-query.supplier", "unknown-supplier")
-                        .build())
-                .initialize();
+                        .build()).initialize();
     }
 }

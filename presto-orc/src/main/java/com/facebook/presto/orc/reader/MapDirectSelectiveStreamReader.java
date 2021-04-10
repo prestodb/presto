@@ -22,6 +22,7 @@ import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcLocalMemoryContext;
+import com.facebook.presto.orc.OrcRecordReaderOptions;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.TupleDomainFilter;
 import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
@@ -113,6 +114,7 @@ public class MapDirectSelectiveStreamReader
             List<Subfield> requiredSubfields,
             Optional<Type> outputType,
             DateTimeZone hiveStorageTimeZone,
+            OrcRecordReaderOptions options,
             boolean legacyMapSubscript,
             OrcAggregatedMemoryContext systemMemoryContext)
     {
@@ -134,7 +136,9 @@ public class MapDirectSelectiveStreamReader
         Optional<Type> valueOutputType = outputType.map(MapType.class::cast).map(MapType::getValueType);
 
         if (outputRequired) {
-            Map<Subfield, TupleDomainFilter> keyFilter = ImmutableMap.of(new Subfield("c"), makeKeyFilter(nestedStreams.get(0).getOrcTypeKind(), requiredSubfields));
+            Map<Subfield, TupleDomainFilter> keyFilter = makeKeyFilter(nestedStreams.get(0).getOrcTypeKind(), requiredSubfields, options.mapNullKeysEnabled())
+                    .map(x -> ImmutableMap.of(new Subfield("c"), x))
+                    .orElseGet(ImmutableMap::of);
 
             List<Subfield> elementRequiredSubfields = ImmutableList.of();
             if (requiredSubfields.stream().map(Subfield::getPath).allMatch(path -> path.size() > 1)) {
@@ -144,8 +148,8 @@ public class MapDirectSelectiveStreamReader
                         .collect(toImmutableList());
             }
 
-            this.keyReader = SelectiveStreamReaders.createStreamReader(nestedStreams.get(0), keyFilter, keyOutputType, ImmutableList.of(), hiveStorageTimeZone, legacyMapSubscript, systemMemoryContext.newOrcAggregatedMemoryContext());
-            this.valueReader = SelectiveStreamReaders.createStreamReader(nestedStreams.get(1), ImmutableMap.of(), valueOutputType, elementRequiredSubfields, hiveStorageTimeZone, legacyMapSubscript, systemMemoryContext.newOrcAggregatedMemoryContext());
+            this.keyReader = SelectiveStreamReaders.createStreamReader(nestedStreams.get(0), keyFilter, keyOutputType, ImmutableList.of(), hiveStorageTimeZone, options, legacyMapSubscript, systemMemoryContext.newOrcAggregatedMemoryContext());
+            this.valueReader = SelectiveStreamReaders.createStreamReader(nestedStreams.get(1), ImmutableMap.of(), valueOutputType, elementRequiredSubfields, hiveStorageTimeZone, options, legacyMapSubscript, systemMemoryContext.newOrcAggregatedMemoryContext());
         }
         else {
             this.keyReader = null;
@@ -153,19 +157,20 @@ public class MapDirectSelectiveStreamReader
         }
     }
 
-    private static TupleDomainFilter makeKeyFilter(OrcType.OrcTypeKind orcType, List<Subfield> requiredSubfields)
+    private static Optional<TupleDomainFilter> makeKeyFilter(OrcType.OrcTypeKind orcType, List<Subfield> requiredSubfields, boolean mapNullKeysEnabled)
     {
         // Map entries with a null key are skipped in the Hive ORC reader, so skip them here also
 
+        Optional<TupleDomainFilter> defaultFilter = mapNullKeysEnabled ? Optional.empty() : Optional.of(IS_NOT_NULL);
         if (requiredSubfields.isEmpty()) {
-            return IS_NOT_NULL;
+            return defaultFilter;
         }
 
         if (requiredSubfields.stream()
                 .map(Subfield::getPath)
                 .map(path -> path.get(0))
                 .anyMatch(Subfield.AllSubscripts.class::isInstance)) {
-            return IS_NOT_NULL;
+            return defaultFilter;
         }
 
         switch (orcType) {
@@ -182,14 +187,14 @@ public class MapDirectSelectiveStreamReader
                         .toArray();
 
                 if (requiredIndices.length == 0) {
-                    return IS_NOT_NULL;
+                    return defaultFilter;
                 }
 
                 if (requiredIndices.length == 1) {
-                    return BigintRange.of(requiredIndices[0], requiredIndices[0], false);
+                    return Optional.of(BigintRange.of(requiredIndices[0], requiredIndices[0], mapNullKeysEnabled));
                 }
 
-                return toBigintValues(requiredIndices, false);
+                return Optional.of(toBigintValues(requiredIndices, mapNullKeysEnabled));
             }
             case STRING:
             case CHAR:
@@ -203,17 +208,17 @@ public class MapDirectSelectiveStreamReader
                         .toArray(byte[][]::new);
 
                 if (requiredIndices.length == 0) {
-                    return IS_NOT_NULL;
+                    return defaultFilter;
                 }
 
                 if (requiredIndices.length == 1) {
-                    return BytesRange.of(requiredIndices[0], false, requiredIndices[0], false, false);
+                    return Optional.of(BytesRange.of(requiredIndices[0], false, requiredIndices[0], false, mapNullKeysEnabled));
                 }
 
-                return BytesValues.of(requiredIndices, false);
+                return Optional.of(BytesValues.of(requiredIndices, mapNullKeysEnabled));
             }
             default:
-                return IS_NOT_NULL;
+                return defaultFilter;
         }
     }
 

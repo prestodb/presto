@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.warnings.WarningCollector;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
@@ -56,7 +56,8 @@ public class ReplicateSemiJoinInDelete
                     node.getSemiJoinOutput(),
                     node.getSourceHashVariable(),
                     node.getFilteringSourceHashVariable(),
-                    node.getDistributionType());
+                    node.getDistributionType(),
+                    node.getDynamicFilters());
 
             if (isDeleteQuery) {
                 return rewrittenNode.withDistributionType(REPLICATED);

@@ -19,6 +19,8 @@ import com.facebook.presto.expressions.RowExpressionRewriter;
 import com.facebook.presto.expressions.RowExpressionTreeRewriter;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.function.FunctionMetadata;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.function.SqlInvokedScalarFunctionImplementation;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -55,22 +57,33 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
-import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
 public final class SqlFunctionUtils
 {
     private SqlFunctionUtils() {}
 
-    public static Expression getSqlFunctionExpression(FunctionMetadata functionMetadata, SqlInvokedScalarFunctionImplementation implementation, SqlFunctionProperties sqlFunctionProperties, List<Expression> arguments)
+    public static Expression getSqlFunctionExpression(
+            FunctionMetadata functionMetadata,
+            SqlInvokedScalarFunctionImplementation implementation,
+            Metadata metadata,
+            SqlFunctionProperties sqlFunctionProperties,
+            List<Expression> arguments)
     {
         checkArgument(functionMetadata.getImplementationType().equals(SQL), format("Expect SQL function, get %s", functionMetadata.getImplementationType()));
         checkArgument(functionMetadata.getArgumentNames().isPresent(), "ArgumentNames is missing");
         Expression expression = normalizeParameters(functionMetadata.getArgumentNames().get(), parseSqlFunctionExpression(implementation, sqlFunctionProperties));
+        expression = coerceIfNecessary(functionMetadata, expression, sqlFunctionProperties, metadata);
         return SqlFunctionArgumentBinder.bindFunctionArguments(expression, functionMetadata.getArgumentNames().get(), arguments);
     }
 
-    public static RowExpression getSqlFunctionRowExpression(FunctionMetadata functionMetadata, SqlInvokedScalarFunctionImplementation functionImplementation, Metadata metadata, SqlFunctionProperties sqlFunctionProperties, List<RowExpression> arguments)
+    public static RowExpression getSqlFunctionRowExpression(
+            FunctionMetadata functionMetadata,
+            SqlInvokedScalarFunctionImplementation functionImplementation,
+            Metadata metadata,
+            SqlFunctionProperties sqlFunctionProperties,
+            Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
+            List<RowExpression> arguments)
     {
         checkArgument(functionMetadata.getImplementationType().equals(SQL), format("Expect SQL function, get %s", functionMetadata.getImplementationType()));
         checkArgument(functionMetadata.getArgumentNames().isPresent(), "ArgumentNames is missing");
@@ -93,11 +106,11 @@ public final class SqlFunctionUtils
                         lambdaCaptureDesugaredExpression,
                         analyzeSqlFunctionExpression(metadata, sqlFunctionProperties, lambdaCaptureDesugaredExpression, variableAllocator.getTypes().allTypes()).getExpressionTypes(),
                         ImmutableMap.of(),
-                        metadata.getFunctionManager(),
-                        metadata.getTypeManager(),
+                        metadata.getFunctionAndTypeManager(),
                         Optional.empty(),
                         Optional.empty(),
-                        sqlFunctionProperties),
+                        sqlFunctionProperties,
+                        sessionFunctions),
                 functionMetadata.getArgumentNames().get().stream()
                         .map(Identifier::new)
                         .map(variables::get)
@@ -186,7 +199,10 @@ public final class SqlFunctionUtils
             @Override
             public Expression rewriteIdentifier(Identifier node, Map<Identifier, VariableReferenceExpression> context, ExpressionTreeRewriter<Map<Identifier, VariableReferenceExpression>> treeRewriter)
             {
-                return new SymbolReference(context.get(node).getName());
+                if (context.containsKey(node)) {
+                    return new SymbolReference(context.get(node).getName());
+                }
+                return node;
             }
         }, sqlFunction, variableMap);
     }
@@ -226,7 +242,7 @@ public final class SqlFunctionUtils
             for (int i = 0; i < argumentNames.size(); i++) {
                 argumentBindings.put(argumentNames.get(i), argumentValues.get(i));
             }
-            return ExpressionTreeRewriter.rewriteWith(new ExpressionFunctionVisitor(argumentBindings.build()), function);
+            return ExpressionTreeRewriter.rewriteWith(new ExpressionFunctionVisitor(), function, argumentBindings.build());
         }
 
         public static RowExpression bindFunctionArguments(RowExpression function, List<Optional<String>> argumentNames, List<RowExpression> argumentValues)
@@ -262,20 +278,26 @@ public final class SqlFunctionUtils
         }
 
         private static class ExpressionFunctionVisitor
-                extends ExpressionRewriter<Void>
+                extends ExpressionRewriter<Map<String, Expression>>
         {
-            private final Map<String, Expression> argumentBindings;
-
-            public ExpressionFunctionVisitor(Map<String, Expression> argumentBindings)
+            @Override
+            public Expression rewriteLambdaExpression(LambdaExpression lambda, Map<String, Expression> context, ExpressionTreeRewriter<Map<String, Expression>> treeRewriter)
             {
-                this.argumentBindings = requireNonNull(argumentBindings, "argumentBindings is null");
+                ImmutableList<String> lambdaStringArguments = lambda.getArguments().stream()
+                        .map(x -> x.getName().getValue())
+                        .collect(toImmutableList());
+                ImmutableMap<String, Expression> lambdaContext = context.entrySet().stream()
+                        .filter(entry -> !lambdaStringArguments.contains(entry.getKey()))
+                        .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+                Expression rewrittenBody = treeRewriter.rewrite(lambda.getBody(), lambdaContext);
+                return new LambdaExpression(lambda.getArguments(), rewrittenBody);
             }
 
             @Override
-            public Expression rewriteIdentifier(Identifier node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            public Expression rewriteIdentifier(Identifier node, Map<String, Expression> context, ExpressionTreeRewriter<Map<String, Expression>> treeRewriter)
             {
-                if (argumentBindings.containsKey(node.getValue())) {
-                    return argumentBindings.get(node.getValue());
+                if (context.containsKey(node.getValue())) {
+                    return context.get(node.getValue());
                 }
                 return node;
             }

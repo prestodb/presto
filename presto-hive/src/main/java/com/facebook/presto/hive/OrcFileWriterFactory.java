@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.io.DataSink;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.datasink.DataSinkFactory;
 import com.facebook.presto.hive.metastore.MetastoreUtil;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.orc.HdfsOrcDataSource;
-import com.facebook.presto.orc.DataSink;
 import com.facebook.presto.orc.DwrfEncryptionProvider;
 import com.facebook.presto.orc.DwrfWriterEncryption;
 import com.facebook.presto.orc.OrcDataSource;
@@ -39,9 +39,9 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.ql.io.orc.OrcFile.OrcTableProperties;
 import org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat;
 import org.apache.hadoop.mapred.JobConf;
+import org.apache.orc.OrcConf;
 import org.joda.time.DateTimeZone;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
@@ -292,10 +292,7 @@ public class OrcFileWriterFactory
 
     private static CompressionKind getCompression(Properties schema, JobConf configuration, OrcEncoding orcEncoding)
     {
-        String compressionName = schema.getProperty(OrcTableProperties.COMPRESSION.getPropName());
-        if (compressionName == null) {
-            compressionName = configuration.get("hive.exec.orc.default.compress");
-        }
+        String compressionName = OrcConf.COMPRESS.getString(schema, configuration);
         if (compressionName == null) {
             return CompressionKind.ZLIB;
         }

@@ -47,6 +47,8 @@ import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.google.common.base.CharMatcher;
+import com.google.common.base.Joiner;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -82,17 +84,12 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.Chars.isCharType;
 import static com.facebook.presto.common.type.Chars.padSpaces;
 import static com.facebook.presto.common.type.DateType.DATE;
-import static com.facebook.presto.common.type.DoubleType.DOUBLE;
-import static com.facebook.presto.common.type.IntegerType.INTEGER;
-import static com.facebook.presto.common.type.RealType.REAL;
-import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.common.type.TypeUtils.isNumericType;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
@@ -106,6 +103,7 @@ import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_N
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_TRUE_VALUES;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.TOTAL_SIZE_IN_BYTES;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Strings.padEnd;
 import static com.google.common.io.BaseEncoding.base16;
@@ -114,7 +112,7 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.common.FileUtils.unescapePathName;
-import static org.apache.hadoop.hive.metastore.MetaStoreUtils.typeToThriftType;
+import static org.apache.hadoop.hive.metastore.ColumnType.typeToThriftType;
 import static org.apache.hadoop.hive.metastore.ProtectMode.getProtectModeFromString;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.BUCKET_COUNT;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.BUCKET_FIELD_NAME;
@@ -135,6 +133,7 @@ public class MetastoreUtil
     public static final String PRESTO_OFFLINE = "presto_offline";
     public static final String AVRO_SCHEMA_URL_KEY = "avro.schema.url";
     public static final String PRESTO_VIEW_FLAG = "presto_view";
+    public static final String PRESTO_MATERIALIZED_VIEW_FLAG = "presto_materialized_view";
     public static final String PRESTO_QUERY_ID_NAME = "presto_query_id";
     public static final String HIVE_DEFAULT_DYNAMIC_PARTITION = "__HIVE_DEFAULT_PARTITION__";
     @SuppressWarnings("OctalInteger")
@@ -222,7 +221,7 @@ public class MetastoreUtil
         if (storage.getBucketProperty().isPresent()) {
             List<String> bucketedBy = storage.getBucketProperty().get().getBucketedBy();
             if (!bucketedBy.isEmpty()) {
-                schema.setProperty(BUCKET_FIELD_NAME, bucketedBy.get(0));
+                schema.setProperty(BUCKET_FIELD_NAME, Joiner.on(",").join(bucketedBy));
             }
             schema.setProperty(BUCKET_COUNT, Integer.toString(storage.getBucketProperty().get().getBucketCount()));
         }
@@ -658,6 +657,17 @@ public class MetastoreUtil
         return "true".equals(table.getParameters().get(PRESTO_VIEW_FLAG));
     }
 
+    public static boolean isPrestoMaterializedView(Table table)
+    {
+        if ("true".equals(table.getParameters().get(PRESTO_MATERIALIZED_VIEW_FLAG))) {
+            checkState(
+                    !table.getViewOriginalText().map(Strings::isNullOrEmpty).orElse(true),
+                    "viewOriginalText field is not set for the Table metadata of materialized view %s.", table.getTableName());
+            return true;
+        }
+        return false;
+    }
+
     private static String getRenameErrorMessage(Path source, Path target)
     {
         return format("Error moving data files from %s to final location %s", source, target);
@@ -759,13 +769,6 @@ public class MetastoreUtil
             return nonNullsCount;
         }
         return distinctValuesCount;
-    }
-
-    public static boolean isNumericType(Type type)
-    {
-        return type.equals(BIGINT) || type.equals(INTEGER) || type.equals(SMALLINT) || type.equals(TINYINT) ||
-                type.equals(DOUBLE) || type.equals(REAL) ||
-                type instanceof DecimalType;
     }
 
     public static Set<ColumnStatisticType> getSupportedColumnStatistics(Type type)

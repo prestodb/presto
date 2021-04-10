@@ -17,9 +17,9 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
-import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
@@ -105,7 +105,7 @@ public class ScalarStatsCalculator
     {
         private final PlanNodeStatsEstimate input;
         private final ConnectorSession session;
-        private final FunctionResolution resolution = new FunctionResolution(metadata.getFunctionManager());
+        private final FunctionResolution resolution = new FunctionResolution(metadata.getFunctionAndTypeManager());
 
         public RowExpressionStatsVisitor(PlanNodeStatsEstimate input, ConnectorSession session)
         {
@@ -120,7 +120,7 @@ public class ScalarStatsCalculator
                 return computeNegationStatistics(call, context);
             }
 
-            FunctionMetadata functionMetadata = metadata.getFunctionManager().getFunctionMetadata(call.getFunctionHandle());
+            FunctionMetadata functionMetadata = metadata.getFunctionAndTypeManager().getFunctionMetadata(call.getFunctionHandle());
             if (functionMetadata.getOperatorType().map(OperatorType::isArithmeticOperator).orElse(false)) {
                 return computeArithmeticBinaryStatistics(call, context);
             }
@@ -155,7 +155,7 @@ public class ScalarStatsCalculator
                 return nullStatsEstimate();
             }
 
-            OptionalDouble doubleValue = toStatsRepresentation(metadata.getFunctionManager(), session, literal.getType(), literal.getValue());
+            OptionalDouble doubleValue = toStatsRepresentation(metadata.getFunctionAndTypeManager(), session, literal.getType(), literal.getValue());
             VariableStatsEstimate.Builder estimate = VariableStatsEstimate.builder()
                     .setNullsFraction(0)
                     .setDistinctValuesCount(1);
@@ -208,7 +208,7 @@ public class ScalarStatsCalculator
             double lowValue = sourceStats.getLowValue();
             double highValue = sourceStats.getHighValue();
 
-            if (TypeUtils.isIntegralType(call.getType().getTypeSignature(), metadata.getTypeManager())) {
+            if (TypeUtils.isIntegralType(call.getType().getTypeSignature(), metadata.getFunctionAndTypeManager())) {
                 // todo handle low/high value changes if range gets narrower due to cast (e.g. BIGINT -> SMALLINT)
                 if (isFinite(lowValue)) {
                     lowValue = Math.round(lowValue);
@@ -256,7 +256,7 @@ public class ScalarStatsCalculator
                     .setNullsFraction(left.getNullsFraction() + right.getNullsFraction() - left.getNullsFraction() * right.getNullsFraction())
                     .setDistinctValuesCount(min(left.getDistinctValuesCount() * right.getDistinctValuesCount(), input.getOutputRowCount()));
 
-            FunctionMetadata functionMetadata = metadata.getFunctionManager().getFunctionMetadata(call.getFunctionHandle());
+            FunctionMetadata functionMetadata = metadata.getFunctionAndTypeManager().getFunctionMetadata(call.getFunctionHandle());
             checkState(functionMetadata.getOperatorType().isPresent());
             OperatorType operatorType = functionMetadata.getOperatorType().get();
             double leftLow = left.getLowValue();
@@ -394,8 +394,7 @@ public class ScalarStatsCalculator
         private Map<NodeRef<Expression>, Type> getExpressionTypes(Session session, Expression expression, TypeProvider types)
         {
             ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                    metadata.getFunctionManager(),
-                    metadata.getTypeManager(),
+                    metadata.getFunctionAndTypeManager(),
                     session,
                     types,
                     emptyList(),
@@ -417,7 +416,7 @@ public class ScalarStatsCalculator
             double lowValue = sourceStats.getLowValue();
             double highValue = sourceStats.getHighValue();
 
-            if (TypeUtils.isIntegralType(targetType, metadata.getTypeManager())) {
+            if (TypeUtils.isIntegralType(targetType, metadata.getFunctionAndTypeManager())) {
                 // todo handle low/high value changes if range gets narrower due to cast (e.g. BIGINT -> SMALLINT)
                 if (isFinite(lowValue)) {
                     lowValue = Math.round(lowValue);

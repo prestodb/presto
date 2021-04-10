@@ -56,6 +56,7 @@ import org.locationtech.jts.geom.MultiLineString;
 import org.locationtech.jts.geom.TopologyException;
 import org.locationtech.jts.geom.impl.PackedCoordinateSequenceFactory;
 import org.locationtech.jts.linearref.LengthIndexedLine;
+import org.locationtech.jts.operation.distance.DistanceOp;
 
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -64,6 +65,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.esri.core.geometry.NonSimpleResult.Reason.Clustering;
@@ -96,6 +98,8 @@ import static com.facebook.presto.geospatial.GeometryUtils.createJtsPoint;
 import static com.facebook.presto.geospatial.GeometryUtils.flattenCollection;
 import static com.facebook.presto.geospatial.GeometryUtils.getGeometryInvalidReason;
 import static com.facebook.presto.geospatial.GeometryUtils.getPointCount;
+import static com.facebook.presto.geospatial.GeometryUtils.jsonFromJtsGeometry;
+import static com.facebook.presto.geospatial.GeometryUtils.jtsGeometryFromJson;
 import static com.facebook.presto.geospatial.GeometryUtils.jtsGeometryFromWkt;
 import static com.facebook.presto.geospatial.GeometryUtils.wktFromJtsGeometry;
 import static com.facebook.presto.geospatial.serde.EsriGeometrySerde.deserializeEnvelope;
@@ -943,6 +947,29 @@ public final class GeoFunctions
     }
 
     @SqlNullable
+    @Description("Return the closest points on the two geometries")
+    @ScalarFunction("geometry_nearest_points")
+    @SqlType("array(" + GEOMETRY_TYPE_NAME + ")")
+    public static Block geometryNearestPoints(@SqlType(GEOMETRY_TYPE_NAME) Slice left, @SqlType(GEOMETRY_TYPE_NAME) Slice right)
+    {
+        Geometry leftGeometry = deserialize(left);
+        Geometry rightGeometry = deserialize(right);
+        if (leftGeometry.isEmpty() || rightGeometry.isEmpty()) {
+            return null;
+        }
+        try {
+            Coordinate[] nearestCoordinates = DistanceOp.nearestPoints(leftGeometry, rightGeometry);
+            BlockBuilder blockBuilder = GEOMETRY.createBlockBuilder(null, 2);
+            GEOMETRY.writeSlice(blockBuilder, serialize(createJtsPoint(nearestCoordinates[0])));
+            GEOMETRY.writeSlice(blockBuilder, serialize(createJtsPoint(nearestCoordinates[1])));
+            return blockBuilder.build();
+        }
+        catch (TopologyException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e.getMessage(), e);
+        }
+    }
+
+    @SqlNullable
     @Description("Returns a line string representing the exterior ring of the POLYGON")
     @ScalarFunction("ST_ExteriorRing")
     @SqlType(GEOMETRY_TYPE_NAME)
@@ -974,15 +1001,11 @@ public final class GeoFunctions
             }
 
             Envelope intersection = leftEnvelope;
-            if (intersection.getXMin() == intersection.getXMax()) {
-                if (intersection.getYMin() == intersection.getYMax()) {
-                    return EsriGeometrySerde.serialize(createFromEsriGeometry(new Point(intersection.getXMin(), intersection.getXMax()), null));
+            if (intersection.getXMin() == intersection.getXMax() || intersection.getYMin() == intersection.getYMax()) {
+                if (intersection.getXMin() == intersection.getXMax() && intersection.getYMin() == intersection.getYMax()) {
+                    return EsriGeometrySerde.serialize(createFromEsriGeometry(new Point(intersection.getXMin(), intersection.getYMin()), null));
                 }
-                return EsriGeometrySerde.serialize(createFromEsriGeometry(new Polyline(new Point(intersection.getXMin(), intersection.getYMin()), new Point(intersection.getXMin(), intersection.getYMax())), null));
-            }
-
-            if (intersection.getYMin() == intersection.getYMax()) {
-                return EsriGeometrySerde.serialize(createFromEsriGeometry(new Polyline(new Point(intersection.getXMin(), intersection.getYMin()), new Point(intersection.getXMax(), intersection.getYMin())), null));
+                return EsriGeometrySerde.serialize(createFromEsriGeometry(new Polyline(new Point(intersection.getXMin(), intersection.getYMin()), new Point(intersection.getXMax(), intersection.getYMax())), null));
             }
 
             return EsriGeometrySerde.serialize(intersection);
@@ -1208,6 +1231,29 @@ public final class GeoFunctions
 
         Rectangle expandedEnvelope2D = new Rectangle(envelope.getXMin() - distance, envelope.getYMin() - distance, envelope.getXMax() + distance, envelope.getYMax() + distance);
         return spatialPartitions((KdbTree) kdbTree, expandedEnvelope2D);
+    }
+
+    @ScalarFunction("geometry_from_geojson")
+    @Description("Returns a geometry from a geo JSON string")
+    @SqlType(GEOMETRY_TYPE_NAME)
+    public static Slice geometryFromGeoJson(@SqlType(VARCHAR) Slice input)
+    {
+        return serialize(jtsGeometryFromJson(input.toStringUtf8()));
+    }
+
+    @SqlNullable
+    @ScalarFunction("geometry_as_geojson")
+    @Description("Returns geo JSON string based on the input geometry")
+    @SqlType(VARCHAR)
+    public static Slice geometryAsGeoJson(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
+    {
+        Optional<String> geoJson = jsonFromJtsGeometry(deserialize(input));
+        if (geoJson.isPresent()) {
+            return utf8Slice(geoJson.get());
+        }
+        else {
+            return null;
+        }
     }
 
     // Package visible for SphericalGeoFunctions

@@ -61,7 +61,7 @@ public class PinotQueryGeneratorContext
     // Outputs/groupByColumns/topNColumnOrderingMap should be part of the keys of selections.
     private final LinkedHashSet<VariableReferenceExpression> outputs;
     private final LinkedHashSet<VariableReferenceExpression> groupByColumns;
-    private final LinkedHashMap<VariableReferenceExpression, SortOrder> topNColumnOrderingMap;
+    private final LinkedHashMap<VariableReferenceExpression, OrderingColumnInformation> topNColumnInformationMap;
     private final Set<VariableReferenceExpression> hiddenColumnSet;
     private final Set<VariableReferenceExpression> variablesInAggregation;
     private final Optional<String> from;
@@ -77,7 +77,7 @@ public class PinotQueryGeneratorContext
                 .add("selections", selections)
                 .add("outputs", outputs)
                 .add("groupByColumns", groupByColumns)
-                .add("topNColumnOrderingMap", topNColumnOrderingMap)
+                .add("topNColumnInformationMap", topNColumnInformationMap)
                 .add("hiddenColumnSet", hiddenColumnSet)
                 .add("variablesInAggregation", variablesInAggregation)
                 .add("from", from)
@@ -120,7 +120,7 @@ public class PinotQueryGeneratorContext
             Optional<String> filter,
             int aggregations,
             LinkedHashSet<VariableReferenceExpression> groupByColumns,
-            LinkedHashMap<VariableReferenceExpression, SortOrder> topNColumnOrderingMap,
+            LinkedHashMap<VariableReferenceExpression, OrderingColumnInformation> topNColumnInformationMap,
             OptionalInt limit,
             Set<VariableReferenceExpression> variablesInAggregation,
             Set<VariableReferenceExpression> hiddenColumnSet,
@@ -131,7 +131,7 @@ public class PinotQueryGeneratorContext
         this.from = requireNonNull(from, "source can't be null");
         this.aggregations = aggregations;
         this.groupByColumns = new LinkedHashSet<>(requireNonNull(groupByColumns, "groupByColumns can't be null. It could be empty if not available"));
-        this.topNColumnOrderingMap = new LinkedHashMap<>(requireNonNull(topNColumnOrderingMap, "topNColumnOrderingMap can't be null. It could be empty if not available"));
+        this.topNColumnInformationMap = new LinkedHashMap<>(requireNonNull(topNColumnInformationMap, "topNColumnInformationMap can't be null. It could be empty if not available"));
         this.filter = requireNonNull(filter, "filter is null");
         this.limit = requireNonNull(limit, "limit is null");
         this.hiddenColumnSet = requireNonNull(hiddenColumnSet, "hidden column set is null");
@@ -154,7 +154,7 @@ public class PinotQueryGeneratorContext
                 Optional.of(filter),
                 aggregations,
                 groupByColumns,
-                topNColumnOrderingMap,
+                topNColumnInformationMap,
                 limit,
                 variablesInAggregation,
                 hiddenColumnSet,
@@ -187,10 +187,11 @@ public class PinotQueryGeneratorContext
             checkSupported(!hasAggregation(), "Pinot doesn't support aggregation on top of the aggregated data");
         }
         checkSupported(!hasLimit(), "Pinot doesn't support aggregation on top of the limit");
+
         if (!useSqlSyntax) {
             checkSupported(aggregations > 0, "Invalid number of aggregations");
         }
-        return new PinotQueryGeneratorContext(newSelections, newOutputs, from, filter, aggregations, groupByColumns, topNColumnOrderingMap, limit, variablesInAggregation, hiddenColumnSet, useSqlSyntax);
+        return new PinotQueryGeneratorContext(newSelections, newOutputs, from, filter, aggregations, groupByColumns, topNColumnInformationMap, limit, variablesInAggregation, hiddenColumnSet, useSqlSyntax);
     }
 
     /**
@@ -208,7 +209,7 @@ public class PinotQueryGeneratorContext
                 filter,
                 aggregations,
                 groupByColumns,
-                topNColumnOrderingMap,
+                topNColumnInformationMap,
                 limit,
                 variablesInAggregation,
                 hiddenColumnSet,
@@ -237,7 +238,7 @@ public class PinotQueryGeneratorContext
                 filter,
                 aggregations,
                 groupByColumns,
-                topNColumnOrderingMap,
+                topNColumnInformationMap,
                 OptionalInt.of(intLimit),
                 variablesInAggregation,
                 hiddenColumnSet,
@@ -254,6 +255,10 @@ public class PinotQueryGeneratorContext
             checkSupported(!hasAggregation(), "Pinot doesn't support ordering on top of the aggregated data");
         }
         int intLimit = checkForValidLimit(limit);
+
+        LinkedHashMap<VariableReferenceExpression, OrderingColumnInformation> orderByColumnInformation = new LinkedHashMap<>();
+        orderByColumnOrderingMap.entrySet().stream().forEach(entry -> orderByColumnInformation.put(entry.getKey(), new OrderingColumnInformation(entry.getValue(), selections.get(entry.getKey()))));
+
         return new PinotQueryGeneratorContext(
                 selections,
                 outputs,
@@ -261,7 +266,7 @@ public class PinotQueryGeneratorContext
                 filter,
                 aggregations,
                 groupByColumns,
-                orderByColumnOrderingMap,
+                orderByColumnInformation,
                 OptionalInt.of(intLimit),
                 variablesInAggregation,
                 hiddenColumnSet,
@@ -290,7 +295,7 @@ public class PinotQueryGeneratorContext
 
     private boolean hasOrderBy()
     {
-        return !topNColumnOrderingMap.isEmpty();
+        return !topNColumnInformationMap.isEmpty();
     }
 
     public Map<VariableReferenceExpression, Selection> getSelections()
@@ -405,7 +410,7 @@ public class PinotQueryGeneratorContext
         }
 
         if (hasOrderBy()) {
-            String orderByExpressions = topNColumnOrderingMap.entrySet().stream().map(entry -> (selections.get(entry.getKey()).getDefinition()) + (entry.getValue().isAscending() ? "" : " DESC")).collect(Collectors.joining(", "));
+            String orderByExpressions = topNColumnInformationMap.entrySet().stream().map(entry -> (entry.getValue().getSelection().getDefinition()) + (entry.getValue().getSortOrder().isAscending() ? "" : " DESC")).collect(Collectors.joining(", "));
             query = query + " ORDER BY " + orderByExpressions;
         }
         query = query + limitClause;
@@ -539,7 +544,7 @@ public class PinotQueryGeneratorContext
         outputColumns.forEach(o -> requireNonNull(selections.get(o), String.format("Cannot find the selection %s in the original context %s", o, this)));
         // Hidden columns flow as is from the previous
         selections.entrySet().stream().filter(e -> hiddenColumnSet.contains(e.getKey())).forEach(e -> newOutputs.add(e.getKey()));
-        return new PinotQueryGeneratorContext(selections, newOutputs, from, filter, aggregations, groupByColumns, topNColumnOrderingMap, limit, variablesInAggregation, hiddenColumnSet, useSqlSyntax);
+        return new PinotQueryGeneratorContext(selections, newOutputs, from, filter, aggregations, groupByColumns, topNColumnInformationMap, limit, variablesInAggregation, hiddenColumnSet, useSqlSyntax);
     }
 
     public PinotQueryGeneratorContext withVariablesInAggregation(Set<VariableReferenceExpression> newVariablesInAggregation)
@@ -551,7 +556,7 @@ public class PinotQueryGeneratorContext
                 filter,
                 aggregations,
                 groupByColumns,
-                topNColumnOrderingMap,
+                topNColumnInformationMap,
                 limit,
                 newVariablesInAggregation,
                 hiddenColumnSet,
@@ -572,7 +577,7 @@ public class PinotQueryGeneratorContext
                 filter,
                 aggregations,
                 newGroupByColumns,
-                topNColumnOrderingMap,
+                topNColumnInformationMap,
                 OptionalInt.of(intLimit),
                 variablesInAggregation,
                 hiddenColumnSet,
@@ -615,6 +620,38 @@ public class PinotQueryGeneratorContext
         public String toString()
         {
             return definition;
+        }
+    }
+
+    // Columns definitions and ordering information for OrderBy Columns
+    private static class OrderingColumnInformation
+    {
+        private final SortOrder sortOrder;
+        private final Selection selection;
+
+        public OrderingColumnInformation(SortOrder sortOrder, Selection selection)
+        {
+            this.sortOrder = requireNonNull(sortOrder, "sortOrder is null");
+            this.selection = requireNonNull(selection, "selection is null");
+        }
+
+        public SortOrder getSortOrder()
+        {
+            return sortOrder;
+        }
+
+        public Selection getSelection()
+        {
+            return selection;
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("sortOrder", sortOrder.isAscending() ? "ASC" : "DESC")
+                    .add("selection", selection)
+                    .toString();
         }
     }
 }

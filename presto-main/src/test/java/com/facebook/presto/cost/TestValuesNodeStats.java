@@ -20,6 +20,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.constantExpressions;
@@ -27,7 +28,6 @@ import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.constantNull;
 import static com.facebook.presto.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
-import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static io.airlift.slice.Slices.utf8Slice;
 
 public class TestValuesNodeStats
@@ -36,7 +36,7 @@ public class TestValuesNodeStats
     @Test
     public void testStatsForValuesNode()
     {
-        FunctionResolution resolution = new FunctionResolution(tester().getMetadata().getFunctionManager());
+        FunctionResolution resolution = new FunctionResolution(tester().getMetadata().getFunctionAndTypeManager());
         tester().assertStatsFor(pb -> pb
                 .values(
                         ImmutableList.of(pb.variable("a", BIGINT), pb.variable("b", DOUBLE)),
@@ -89,7 +89,7 @@ public class TestValuesNodeStats
     @Test
     public void testStatsForValuesNodeWithJustNulls()
     {
-        FunctionResolution resolution = new FunctionResolution(tester().getMetadata().getFunctionManager());
+        FunctionResolution resolution = new FunctionResolution(tester().getMetadata().getFunctionAndTypeManager());
         PlanNodeStatsEstimate bigintNullAStats = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(1)
                 .addVariableStatistics(new VariableReferenceExpression("a", BIGINT), VariableStatsEstimate.zero())

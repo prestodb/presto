@@ -25,9 +25,13 @@ public interface InternalNodeManager
 
     Set<InternalNode> getActiveConnectorNodes(ConnectorId connectorId);
 
+    Set<InternalNode> getAllConnectorNodes(ConnectorId connectorId);
+
     InternalNode getCurrentNode();
 
     Set<InternalNode> getCoordinators();
+
+    Set<InternalNode> getResourceManagers();
 
     AllNodes getAllNodes();
 

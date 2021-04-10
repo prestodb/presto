@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
@@ -66,14 +66,14 @@ public final class Expressions
         return new CallExpression(displayName, functionHandle, returnType, arguments);
     }
 
-    public static CallExpression call(FunctionManager functionManager, String name, Type returnType, RowExpression... arguments)
+    public static CallExpression call(FunctionAndTypeManager functionAndTypeManager, String name, Type returnType, RowExpression... arguments)
     {
-        return call(functionManager, name, returnType, ImmutableList.copyOf(arguments));
+        return call(functionAndTypeManager, name, returnType, ImmutableList.copyOf(arguments));
     }
 
-    public static CallExpression call(FunctionManager functionManager, String name, Type returnType, List<RowExpression> arguments)
+    public static CallExpression call(FunctionAndTypeManager functionAndTypeManager, String name, Type returnType, List<RowExpression> arguments)
     {
-        FunctionHandle functionHandle = functionManager.lookupFunction(name, fromTypes(arguments.stream().map(RowExpression::getType).collect(toImmutableList())));
+        FunctionHandle functionHandle = functionAndTypeManager.lookupFunction(name, fromTypes(arguments.stream().map(RowExpression::getType).collect(toImmutableList())));
         return call(name, functionHandle, returnType, arguments);
     }
 

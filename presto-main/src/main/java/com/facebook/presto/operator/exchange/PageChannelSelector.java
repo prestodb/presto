@@ -14,7 +14,6 @@
 package com.facebook.presto.operator.exchange;
 
 import com.facebook.presto.common.Page;
-import com.facebook.presto.common.block.Block;
 
 import java.util.function.Function;
 import java.util.stream.IntStream;
@@ -29,20 +28,13 @@ public class PageChannelSelector
 
     public PageChannelSelector(int... channels)
     {
-        checkArgument(IntStream.of(channels).allMatch(channel -> channel >= 0), "channels must be positive");
         this.channels = requireNonNull(channels, "channels is null").clone();
+        checkArgument(IntStream.of(channels).allMatch(channel -> channel >= 0), "channels must be positive");
     }
 
     @Override
     public Page apply(Page page)
     {
-        requireNonNull(page, "page is null");
-
-        Block[] blocks = new Block[channels.length];
-        for (int i = 0; i < channels.length; i++) {
-            int channel = channels[i];
-            blocks[i] = page.getBlock(channel);
-        }
-        return new Page(page.getPositionCount(), blocks);
+        return requireNonNull(page, "page is null").extractChannels(channels);
     }
 }

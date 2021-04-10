@@ -18,7 +18,7 @@ import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.geospatial.serde.EsriGeometrySerde;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.plugin.geospatial.GeoPlugin;
@@ -46,12 +46,12 @@ public abstract class AbstractTestGeoAggregationFunctions
     {
         GeoPlugin plugin = new GeoPlugin();
         for (Type type : plugin.getTypes()) {
-            functionAssertions.getTypeRegistry().addType(type);
+            functionAssertions.getFunctionAndTypeManager().addType(type);
         }
         functionAssertions.getMetadata().registerBuiltInFunctions(extractFunctions(plugin.getFunctions()));
-        FunctionManager functionManager = functionAssertions.getMetadata().getFunctionManager();
-        function = functionManager.getAggregateFunctionImplementation(
-                functionManager.lookupFunction(getFunctionName(), fromTypes(GEOMETRY)));
+        FunctionAndTypeManager functionAndTypeManager = functionAssertions.getMetadata().getFunctionAndTypeManager();
+        function = functionAndTypeManager.getAggregateFunctionImplementation(
+                functionAndTypeManager.lookupFunction(getFunctionName(), fromTypes(GEOMETRY)));
     }
 
     protected void assertAggregatedGeometries(String testDescription, String expectedWkt, String... wkts)

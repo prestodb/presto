@@ -17,7 +17,7 @@ import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.PageSinkProperties;
+import com.facebook.presto.spi.PageSinkContext;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
@@ -36,17 +36,17 @@ public class BlackHolePageSinkProvider
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, PageSinkProperties pageSinkProperties)
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, PageSinkContext pageSinkContext)
     {
-        checkArgument(!pageSinkProperties.isCommitRequired(), "Black hole connector does not support page sink commit");
+        checkArgument(!pageSinkContext.isCommitRequired(), "Black hole connector does not support page sink commit");
         BlackHoleOutputTableHandle handle = (BlackHoleOutputTableHandle) outputTableHandle;
         return new BlackHolePageSink(executorService, handle.getPageProcessingDelay());
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, PageSinkProperties pageSinkProperties)
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, PageSinkContext pageSinkContext)
     {
-        checkArgument(!pageSinkProperties.isCommitRequired(), "Black hole connector does not support page sink commit");
+        checkArgument(!pageSinkContext.isCommitRequired(), "Black hole connector does not support page sink commit");
         BlackHoleInsertTableHandle handle = (BlackHoleInsertTableHandle) insertTableHandle;
         return new BlackHolePageSink(executorService, handle.getPageProcessingDelay());
     }

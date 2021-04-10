@@ -17,6 +17,12 @@ import org.jdbi.v3.core.mapper.Nested;
 import org.jdbi.v3.core.mapper.reflect.ColumnName;
 import org.jdbi.v3.core.mapper.reflect.JdbiConstructor;
 
+import java.util.Objects;
+
+import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
+import static com.facebook.presto.verifier.framework.ClusterType.TEST;
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class SourceQuery
@@ -55,14 +61,10 @@ public class SourceQuery
         return name;
     }
 
-    public String getControlQuery()
+    public String getQuery(ClusterType clusterType)
     {
-        return controlQuery;
-    }
-
-    public String getTestQuery()
-    {
-        return testQuery;
+        checkArgument(clusterType == CONTROL || clusterType == TEST, "Invalid ClusterType: %s", clusterType);
+        return clusterType == CONTROL ? controlQuery : testQuery;
     }
 
     public QueryConfiguration getControlConfiguration()
@@ -84,5 +86,42 @@ public class SourceQuery
             sql = sql.substring(0, sql.length() - 1).trim();
         }
         return sql;
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if ((obj == null) || (getClass() != obj.getClass())) {
+            return false;
+        }
+        SourceQuery o = (SourceQuery) obj;
+        return Objects.equals(suite, o.suite) &&
+                Objects.equals(name, o.name) &&
+                Objects.equals(controlQuery, o.controlQuery) &&
+                Objects.equals(testQuery, o.testQuery) &&
+                Objects.equals(controlConfiguration, o.controlConfiguration) &&
+                Objects.equals(testConfiguration, o.testConfiguration);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(suite, name, controlQuery, testQuery, controlConfiguration, testConfiguration);
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("suite", suite)
+                .add("name", name)
+                .add("controlQuery", controlQuery)
+                .add("testQuery", testQuery)
+                .add("controlConfiguration", controlConfiguration)
+                .add("testConfiguration", testConfiguration)
+                .toString();
     }
 }

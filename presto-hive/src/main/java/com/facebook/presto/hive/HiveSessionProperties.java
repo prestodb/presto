@@ -24,6 +24,7 @@ import io.airlift.units.DataSize;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
@@ -86,6 +87,7 @@ public final class HiveSessionProperties
     private static final String PARTITION_STATISTICS_SAMPLE_SIZE = "partition_statistics_sample_size";
     private static final String IGNORE_CORRUPTED_STATISTICS = "ignore_corrupted_statistics";
     public static final String COLLECT_COLUMN_STATISTICS_ON_WRITE = "collect_column_statistics_on_write";
+    public static final String PARTITION_STATISTICS_BASED_OPTIMIZATION_ENABLED = "partition_stats_based_optimization_enabled";
     private static final String OPTIMIZE_MISMATCHED_BUCKET_COUNT = "optimize_mismatched_bucket_count";
     private static final String S3_SELECT_PUSHDOWN_ENABLED = "s3_select_pushdown_enabled";
     public static final String SHUFFLE_PARTITIONED_COLUMNS_FOR_TABLE_WRITE = "shuffle_partitioned_columns_for_table_write";
@@ -94,6 +96,8 @@ public final class HiveSessionProperties
     private static final String TEMPORARY_TABLE_SCHEMA = "temporary_table_schema";
     private static final String TEMPORARY_TABLE_STORAGE_FORMAT = "temporary_table_storage_format";
     private static final String TEMPORARY_TABLE_COMPRESSION_CODEC = "temporary_table_compression_codec";
+    private static final String TEMPORARY_TABLE_CREATE_EMPTY_BUCKET_FILES = "temporary_table_create_empty_bucket_files";
+    private static final String USE_PAGEFILE_FOR_HIVE_UNSUPPORTED_TYPE = "use_pagefile_for_hive_unsupported_type";
     public static final String PUSHDOWN_FILTER_ENABLED = "pushdown_filter_enabled";
     public static final String RANGE_FILTERS_ON_SUBSCRIPTS_ENABLED = "range_filters_on_subscripts_enabled";
     public static final String ADAPTIVE_FILTER_REORDERING_ENABLED = "adaptive_filter_reordering_enabled";
@@ -105,6 +109,14 @@ public final class HiveSessionProperties
     private static final String PARQUET_BATCH_READ_OPTIMIZATION_ENABLED = "parquet_batch_read_optimization_enabled";
     private static final String PARQUET_BATCH_READER_VERIFICATION_ENABLED = "parquet_batch_reader_verification_enabled";
     private static final String BUCKET_FUNCTION_TYPE_FOR_EXCHANGE = "bucket_function_type_for_exchange";
+    public static final String PARQUET_DEREFERENCE_PUSHDOWN_ENABLED = "parquet_dereference_pushdown_enabled";
+    public static final String IGNORE_UNREADABLE_PARTITION = "ignore_unreadable_partition";
+    public static final String PARTIAL_AGGREGATION_PUSHDOWN_ENABLED = "partial_aggregation_pushdown_enabled";
+    public static final String PARTIAL_AGGREGATION_PUSHDOWN_FOR_VARIABLE_LENGTH_DATATYPES_ENABLED = "partial_aggregation_pushdown_for_variable_length_datatypes_enabled";
+    public static final String FILE_RENAMING_ENABLED = "file_renaming_enabled";
+    public static final String PREFER_MANIFESTS_TO_LIST_FILES = "prefer_manifests_to_list_files";
+    public static final String MANIFEST_VERIFICATION_ENABLED = "manifest_verification_enabled";
+    public static final String NEW_PARTITION_USER_SUPPLIED_PARAMETER = "new_partition_user_supplied_parameter";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -369,6 +381,11 @@ public final class HiveSessionProperties
                         hiveClientConfig.isCollectColumnStatisticsOnWrite(),
                         false),
                 booleanProperty(
+                        PARTITION_STATISTICS_BASED_OPTIMIZATION_ENABLED,
+                        "Enables partition stats based optimization, including partition pruning and predicate stripping",
+                        hiveClientConfig.isPartitionStatisticsBasedOptimizationEnabled(),
+                        false),
+                booleanProperty(
                         OPTIMIZE_MISMATCHED_BUCKET_COUNT,
                         "Experimental: Enable optimization to avoid shuffle when bucket count is compatible but not the same",
                         hiveClientConfig.isOptimizeMismatchedBucketCount(),
@@ -411,6 +428,16 @@ public final class HiveSessionProperties
                         false,
                         value -> HiveCompressionCodec.valueOf(((String) value).toUpperCase()),
                         HiveCompressionCodec::name),
+                booleanProperty(
+                        TEMPORARY_TABLE_CREATE_EMPTY_BUCKET_FILES,
+                        "Create empty files when there is no data for temporary table buckets",
+                        hiveClientConfig.isCreateEmptyBucketFilesForTemporaryTable(),
+                        false),
+                booleanProperty(
+                        USE_PAGEFILE_FOR_HIVE_UNSUPPORTED_TYPE,
+                        "Automatically switch to PAGEFILE format for materialized exchange when encountering unsupported types",
+                        hiveClientConfig.getUsePageFileForHiveUnsupportedType(),
+                        true),
                 booleanProperty(
                         PUSHDOWN_FILTER_ENABLED,
                         "Experimental: enable complex filter pushdown",
@@ -476,6 +503,11 @@ public final class HiveSessionProperties
                         "Is Parquet batch reader verification enabled? This is for testing purposes only, not to be used in production",
                         hiveClientConfig.isParquetBatchReaderVerificationEnabled(),
                         false),
+                booleanProperty(
+                        IGNORE_UNREADABLE_PARTITION,
+                        "Ignore unreadable partitions and report as warnings instead of failing the query",
+                        hiveClientConfig.isIgnoreUnreadablePartition(),
+                        false),
                 new PropertyMetadata<>(
                         BUCKET_FUNCTION_TYPE_FOR_EXCHANGE,
                         "hash function type for bucketed table exchange",
@@ -484,7 +516,42 @@ public final class HiveSessionProperties
                         hiveClientConfig.getBucketFunctionTypeForExchange(),
                         false,
                         value -> BucketFunctionType.valueOf((String) value),
-                        BucketFunctionType::toString));
+                        BucketFunctionType::toString),
+                booleanProperty(
+                        PARQUET_DEREFERENCE_PUSHDOWN_ENABLED,
+                        "Is dereference pushdown expression pushdown into Parquet reader enabled?",
+                        hiveClientConfig.isParquetDereferencePushdownEnabled(),
+                        false),
+                booleanProperty(
+                        PARTIAL_AGGREGATION_PUSHDOWN_ENABLED,
+                        "Is partial aggregation pushdown enabled for Hive file formats",
+                        hiveClientConfig.isPartialAggregationPushdownEnabled(),
+                        false),
+                booleanProperty(
+                        PARTIAL_AGGREGATION_PUSHDOWN_FOR_VARIABLE_LENGTH_DATATYPES_ENABLED,
+                        "Is partial aggregation pushdown enabled for variable length datatypes",
+                        hiveClientConfig.isPartialAggregationPushdownForVariableLengthDatatypesEnabled(),
+                        false),
+                booleanProperty(
+                        FILE_RENAMING_ENABLED,
+                        "Enable renaming the files written by writers",
+                        hiveClientConfig.isFileRenamingEnabled(),
+                        false),
+                booleanProperty(
+                        PREFER_MANIFESTS_TO_LIST_FILES,
+                        "Prefer to fetch the list of file names and sizes from manifest",
+                        hiveClientConfig.isPreferManifestsToListFiles(),
+                        false),
+                booleanProperty(
+                        MANIFEST_VERIFICATION_ENABLED,
+                        "Enable manifest verification",
+                        hiveClientConfig.isManifestVerificationEnabled(),
+                        false),
+                stringProperty(
+                        NEW_PARTITION_USER_SUPPLIED_PARAMETER,
+                        "\"user_supplied\" parameter added to all newly created partitions",
+                        null,
+                        true));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -728,6 +795,11 @@ public final class HiveSessionProperties
         return session.getProperty(COLLECT_COLUMN_STATISTICS_ON_WRITE, Boolean.class);
     }
 
+    public static boolean isPartitionStatisticsBasedOptimizationEnabled(ConnectorSession session)
+    {
+        return session.getProperty(PARTITION_STATISTICS_BASED_OPTIMIZATION_ENABLED, Boolean.class);
+    }
+
     @Deprecated
     public static boolean isOptimizedMismatchedBucketCount(ConnectorSession session)
     {
@@ -759,6 +831,16 @@ public final class HiveSessionProperties
         return session.getProperty(TEMPORARY_TABLE_COMPRESSION_CODEC, HiveCompressionCodec.class);
     }
 
+    public static boolean shouldCreateEmptyBucketFilesForTemporaryTable(ConnectorSession session)
+    {
+        return session.getProperty(TEMPORARY_TABLE_CREATE_EMPTY_BUCKET_FILES, Boolean.class);
+    }
+
+    public static boolean isUsePageFileForHiveUnsupportedType(ConnectorSession session)
+    {
+        return session.getProperty(USE_PAGEFILE_FOR_HIVE_UNSUPPORTED_TYPE, Boolean.class);
+    }
+
     public static boolean isPushdownFilterEnabled(ConnectorSession session)
     {
         return session.getProperty(PUSHDOWN_FILTER_ENABLED, Boolean.class);
@@ -786,6 +868,11 @@ public final class HiveSessionProperties
     public static boolean isOfflineDataDebugModeEnabled(ConnectorSession session)
     {
         return session.getProperty(OFFLINE_DATA_DEBUG_MODE_ENABLED, Boolean.class);
+    }
+
+    public static boolean shouldIgnoreUnreadablePartition(ConnectorSession session)
+    {
+        return session.getProperty(IGNORE_UNREADABLE_PARTITION, Boolean.class);
     }
 
     public static boolean isShufflePartitionedColumnsForTableWriteEnabled(ConnectorSession session)
@@ -843,5 +930,40 @@ public final class HiveSessionProperties
     public static BucketFunctionType getBucketFunctionTypeForExchange(ConnectorSession session)
     {
         return session.getProperty(BUCKET_FUNCTION_TYPE_FOR_EXCHANGE, BucketFunctionType.class);
+    }
+
+    public static boolean isParquetDereferencePushdownEnabled(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_DEREFERENCE_PUSHDOWN_ENABLED, Boolean.class);
+    }
+
+    public static boolean isPartialAggregationPushdownEnabled(ConnectorSession session)
+    {
+        return session.getProperty(PARTIAL_AGGREGATION_PUSHDOWN_ENABLED, Boolean.class);
+    }
+
+    public static boolean isPartialAggregationPushdownForVariableLengthDatatypesEnabled(ConnectorSession session)
+    {
+        return session.getProperty(PARTIAL_AGGREGATION_PUSHDOWN_FOR_VARIABLE_LENGTH_DATATYPES_ENABLED, Boolean.class);
+    }
+
+    public static boolean isFileRenamingEnabled(ConnectorSession session)
+    {
+        return session.getProperty(FILE_RENAMING_ENABLED, Boolean.class);
+    }
+
+    public static boolean isPreferManifestsToListFiles(ConnectorSession session)
+    {
+        return session.getProperty(PREFER_MANIFESTS_TO_LIST_FILES, Boolean.class);
+    }
+
+    public static boolean isManifestVerificationEnabled(ConnectorSession session)
+    {
+        return session.getProperty(MANIFEST_VERIFICATION_ENABLED, Boolean.class);
+    }
+
+    public static Optional<String> getNewPartitionUserSuppliedParameter(ConnectorSession session)
+    {
+        return Optional.ofNullable(session.getProperty(NEW_PARTITION_USER_SUPPLIED_PARAMETER, String.class));
     }
 }

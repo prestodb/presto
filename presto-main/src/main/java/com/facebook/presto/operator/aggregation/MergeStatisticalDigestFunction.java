@@ -14,13 +14,12 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.bytecode.DynamicClassLoader;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.BlockBuilder;
-import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlAggregationFunction;
 import com.facebook.presto.operator.aggregation.state.StatisticalDigestState;
 import com.facebook.presto.operator.aggregation.state.StatisticalDigestStateFactory;
@@ -33,7 +32,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
@@ -66,7 +65,7 @@ public abstract class MergeStatisticalDigestFunction
     MergeStatisticalDigestFunction(String name, String type, StatisticalDigestStateFactory factory, SqlFunctionVisibility visibility)
     {
         super(new Signature(
-                        QualifiedFunctionName.of(DEFAULT_NAMESPACE, name),
+                        QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, name),
                         AGGREGATE,
                         ImmutableList.of(comparableTypeParameter("T")),
                         ImmutableList.of(),
@@ -80,10 +79,10 @@ public abstract class MergeStatisticalDigestFunction
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
+    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
         Type valueType = boundVariables.getTypeVariable("T");
-        Type outputType = typeManager.getParameterizedType(type,
+        Type outputType = functionAndTypeManager.getParameterizedType(type,
                 ImmutableList.of(TypeSignatureParameter.of(valueType.getTypeSignature())));
         return generateAggregation(outputType);
     }

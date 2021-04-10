@@ -22,7 +22,7 @@ import com.facebook.presto.common.predicate.Utils;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.execution.warnings.WarningCollector;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Split;
@@ -51,6 +51,7 @@ import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -78,7 +79,6 @@ import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.TestingTransactionHandle;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -124,6 +124,7 @@ import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZ
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -139,7 +140,6 @@ import static com.facebook.presto.sql.planner.iterative.rule.CanonicalizeExpress
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.SqlToRowExpressionTranslator.translate;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
-import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.String.format;
@@ -223,9 +223,9 @@ public final class FunctionAssertions
         compiler = runner.getExpressionCompiler();
     }
 
-    public TypeRegistry getTypeRegistry()
+    public FunctionAndTypeManager getFunctionAndTypeManager()
     {
-        return runner.getTypeManager();
+        return runner.getFunctionAndTypeManager();
     }
 
     public Metadata getMetadata()
@@ -974,6 +974,7 @@ public final class FunctionAssertions
                             Optional.empty()),
                     ImmutableList.of(),
                     ImmutableList.of(projection.getType()),
+                    Optional.empty(),
                     new DataSize(0, BYTE),
                     0);
         }
@@ -987,7 +988,7 @@ public final class FunctionAssertions
 
     private RowExpression toRowExpression(Expression projection, Map<NodeRef<Expression>, Type> expressionTypes, Map<VariableReferenceExpression, Integer> layout)
     {
-        return translate(projection, expressionTypes, layout, metadata.getFunctionManager(), metadata.getTypeManager(), session);
+        return translate(projection, expressionTypes, layout, metadata.getFunctionAndTypeManager(), session);
     }
 
     private static Page getAtMostOnePage(Operator operator, Page sourcePage)

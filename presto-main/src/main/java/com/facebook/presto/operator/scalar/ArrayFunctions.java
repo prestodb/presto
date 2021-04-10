@@ -19,8 +19,8 @@ import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 
+import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
-import static com.facebook.presto.type.UnknownType.UNKNOWN;
 
 public final class ArrayFunctions
 {

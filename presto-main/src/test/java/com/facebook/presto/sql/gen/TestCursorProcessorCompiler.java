@@ -19,7 +19,7 @@ import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.index.PageRecordSet;
@@ -60,6 +60,7 @@ import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.facebook.presto.util.CompilerUtils.makeClassName;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.util.Collections.emptyMap;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -67,7 +68,7 @@ import static org.testng.Assert.assertTrue;
 public class TestCursorProcessorCompiler
 {
     private static final Metadata METADATA = createTestMetadataManager();
-    private static final FunctionManager FUNCTION_MANAGER = METADATA.getFunctionManager();
+    private static final FunctionAndTypeManager FUNCTION_MANAGER = METADATA.getFunctionAndTypeManager();
 
     private static final CallExpression ADD_X_Y = call(
             ADD.name(),
@@ -105,7 +106,7 @@ public class TestCursorProcessorCompiler
     @Test
     public void testRewriteRowExpressionWithCSE()
     {
-        CursorProcessorCompiler cseCursorCompiler = new CursorProcessorCompiler(METADATA, true);
+        CursorProcessorCompiler cseCursorCompiler = new CursorProcessorCompiler(METADATA, true, emptyMap());
 
         ClassDefinition cursorProcessorClassDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),

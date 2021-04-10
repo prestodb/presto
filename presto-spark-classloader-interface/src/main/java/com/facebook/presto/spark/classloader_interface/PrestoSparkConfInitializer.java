@@ -38,7 +38,10 @@ public class PrestoSparkConfInitializer
                 PrestoSparkMutableRow.class,
                 PrestoSparkSerializedPage.class,
                 SerializedPrestoSparkTaskDescriptor.class,
-                SerializedTaskInfo.class
+                SerializedTaskInfo.class,
+                PrestoSparkShuffleStats.class,
+                PrestoSparkStorageHandle.class,
+                SerializedPrestoSparkTaskSource.class
         });
     }
 

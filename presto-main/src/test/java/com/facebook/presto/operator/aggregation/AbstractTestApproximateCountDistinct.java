@@ -17,7 +17,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -47,7 +47,7 @@ public abstract class AbstractTestApproximateCountDistinct
 
     public abstract Object randomValue();
 
-    protected static final FunctionManager functionManager = MetadataManager.createTestMetadataManager().getFunctionManager();
+    protected static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = MetadataManager.createTestMetadataManager().getFunctionAndTypeManager();
 
     protected int getUniqueValuesCount()
     {

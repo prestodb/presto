@@ -15,12 +15,13 @@ package com.facebook.presto.execution;
 
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.airlift.stats.TestingGcMonitor;
-import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.execution.TestSqlTaskManager.MockExchangeClientSupplier;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.BufferState;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
+import com.facebook.presto.execution.buffer.SpoolingOutputBufferFactory;
 import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.memory.MemoryPool;
@@ -28,9 +29,9 @@ import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spiller.SpillSpaceTracker;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Functions;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
@@ -96,7 +97,7 @@ public class TestSqlTask
                 taskNotificationExecutor,
                 taskExecutor,
                 planner,
-                new BlockEncodingManager(new TypeRegistry()),
+                new BlockEncodingManager(),
                 new OrderingCompiler(),
                 createTestSplitMonitor(),
                 new TaskManagerConfig());
@@ -312,6 +313,7 @@ public class TestSqlTask
                 new DataSize(1, MEGABYTE),
                 new DataSize(2, MEGABYTE),
                 new DataSize(1, MEGABYTE),
+                new DataSize(1, GIGABYTE),
                 new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE)),
                 new TestingGcMonitor(),
                 taskNotificationExecutor,
@@ -331,6 +333,7 @@ public class TestSqlTask
                 taskNotificationExecutor,
                 Functions.identity(),
                 new DataSize(32, MEGABYTE),
-                new CounterStat());
+                new CounterStat(),
+                new SpoolingOutputBufferFactory(new FeaturesConfig()));
     }
 }

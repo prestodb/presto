@@ -19,12 +19,46 @@ import com.facebook.presto.common.block.BlockBuilder;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
+
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static java.util.Locale.ENGLISH;
+import static java.util.stream.Collectors.toMap;
+import static java.util.stream.Collectors.toSet;
+
 public final class TypeUtils
 {
     public static final int NULL_HASH_CODE = 0;
 
     private TypeUtils()
     {
+    }
+
+    public static boolean isNumericType(Type type)
+    {
+        return isNonDecimalNumericType(type) || type instanceof DecimalType;
+    }
+
+    public static boolean isNonDecimalNumericType(Type type)
+    {
+        return isExactNumericType(type) || isApproximateNumericType(type);
+    }
+
+    public static boolean isExactNumericType(Type type)
+    {
+        return type.equals(BIGINT) || type.equals(INTEGER) || type.equals(SMALLINT) || type.equals(TINYINT);
+    }
+
+    public static boolean isApproximateNumericType(Type type)
+    {
+        return type.equals(DOUBLE) || type.equals(REAL);
     }
 
     /**
@@ -100,5 +134,27 @@ public final class TypeUtils
         if (isNull) {
             throw new NotSupportedException(errorMsg);
         }
+    }
+
+    static void validateEnumMap(Map<String, ?> enumMap)
+    {
+        if (enumMap.containsKey(null)) {
+            throw new IllegalArgumentException("Enum cannot contain null key");
+        }
+        int nUniqueAndNotNullValues = enumMap.values().stream()
+                .filter(Objects::nonNull).collect(toSet()).size();
+        if (nUniqueAndNotNullValues != enumMap.size()) {
+            throw new IllegalArgumentException("Enum cannot contain null or duplicate values");
+        }
+        int nCaseInsensitiveKeys = enumMap.keySet().stream().map(k -> k.toUpperCase(ENGLISH)).collect(Collectors.toSet()).size();
+        if (nCaseInsensitiveKeys != enumMap.size()) {
+            throw new IllegalArgumentException("Enum cannot contain case-insensitive duplicate keys");
+        }
+    }
+
+    static <V> Map<String, V> normalizeEnumMap(Map<String, V> entries)
+    {
+        return entries.entrySet().stream()
+                .collect(toMap(e -> e.getKey().toUpperCase(ENGLISH), Map.Entry::getValue));
     }
 }

@@ -19,7 +19,6 @@ import com.facebook.presto.common.block.ClosingBlockLease;
 import com.facebook.presto.common.block.DictionaryBlock;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.block.VariableWidthBlock;
-import com.facebook.presto.common.type.Chars;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcLocalMemoryContext;
@@ -33,6 +32,7 @@ import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.LongInputStream;
 import com.facebook.presto.orc.stream.RowGroupDictionaryLengthInputStream;
+import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -43,6 +43,8 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.orc.array.Arrays.ExpansionFactor.MEDIUM;
+import static com.facebook.presto.orc.array.Arrays.ExpansionOption.PRESERVE;
 import static com.facebook.presto.orc.array.Arrays.ensureCapacity;
 import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.CHAR;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
@@ -78,6 +80,11 @@ public class SliceDictionarySelectiveReader
     // add one extra entry for null after stripe/rowGroup dictionary
     private static final int[] EMPTY_DICTIONARY_OFFSETS = new int[2];
 
+    // Each rowgroup has roughly 10K rows, and each batch reads 1K rows. So there're about 10 batches in a rowgroup.
+    private static final int BATCHES_PER_ROWGROUP = 10;
+    // MATERIALIZATION_RATIO should be greater than or equal to 1.0f to compensate the extra CPU to materialize blocks.
+    private static final float MATERIALIZATION_RATIO = 2.0f;
+
     private final TupleDomainFilter filter;
     private final boolean nonDeterministicFilter;
     private final boolean nullsAllowed;
@@ -87,12 +94,12 @@ public class SliceDictionarySelectiveReader
     private final int maxCodePointCount;
     private final boolean isCharType;
 
-    private byte[] stripeDictionaryData = EMPTY_DICTIONARY_DATA;
-    private int[] stripeDictionaryOffsetVector = EMPTY_DICTIONARY_OFFSETS;
-    private byte[] currentDictionaryData = EMPTY_DICTIONARY_DATA;
+    private byte[] dictionaryData = EMPTY_DICTIONARY_DATA;
+    private int[] dictionaryOffsetVector = EMPTY_DICTIONARY_OFFSETS;
     private int[] stripeDictionaryLength = new int[0];
     private int[] rowGroupDictionaryLength = new int[0];
     private byte[] evaluationStatus;
+    private byte[] valueWithPadding;
 
     private int readOffset;
 
@@ -106,7 +113,13 @@ public class SliceDictionarySelectiveReader
     private InputStreamSource<ByteArrayInputStream> stripeDictionaryDataStreamSource = missingStreamSource(ByteArrayInputStream.class);
     private InputStreamSource<LongInputStream> stripeDictionaryLengthStreamSource = missingStreamSource(LongInputStream.class);
     private boolean stripeDictionaryOpen;
+    // The dictionaries will be wrapped in getBlock(). It's set to false when opening a new dictionary (be it stripe dictionary or rowgroup dictionary). When there is only stripe
+    // dictionary but no rowgroup dictionaries, we shall set it to false only when opening the stripe dictionary while not for every rowgroup. It is set to true when the dictionary
+    // is wrapped up in wrapDictionaryIfNecessary().
+    private boolean dictionaryWrapped;
+
     private int stripeDictionarySize;
+    private int currentDictionarySize;
 
     private InputStreamSource<ByteArrayInputStream> rowGroupDictionaryDataStreamSource = missingStreamSource(ByteArrayInputStream.class);
     private InputStreamSource<BooleanInputStream> inDictionaryStreamSource = missingStreamSource(BooleanInputStream.class);
@@ -134,6 +147,7 @@ public class SliceDictionarySelectiveReader
         this.outputType = requireNonNull(outputType, "outputType is null").orElse(null);
         OrcType orcType = streamDescriptor.getOrcType();
         this.maxCodePointCount = orcType == null ? 0 : orcType.getLength().orElse(-1);
+        this.valueWithPadding = maxCodePointCount < 0 ? null : new byte[maxCodePointCount];
         this.isCharType = orcType.getOrcTypeKind() == CHAR;
         this.outputRequired = outputType.isPresent();
         checkArgument(filter.isPresent() || outputRequired, "filter must be present if outputRequired is false");
@@ -193,7 +207,7 @@ public class SliceDictionarySelectiveReader
             }
 
             if (presentStream != null && !presentStream.nextBit()) {
-                values[i] = dictionary.getPositionCount() - 1;
+                values[i] = currentDictionarySize - 1;
             }
             else {
                 boolean isInRowDictionary = inDictionaryStream != null && !inDictionaryStream.nextBit();
@@ -220,7 +234,7 @@ public class SliceDictionarySelectiveReader
             if (presentStream != null && !presentStream.nextBit()) {
                 if ((nonDeterministicFilter && filter.testNull()) || nullsAllowed) {
                     if (outputRequired) {
-                        values[outputPositionCount] = dictionary.getPositionCount() - 1;
+                        values[outputPositionCount] = currentDictionarySize - 1;
                     }
                     outputPositions[outputPositionCount] = position;
                     outputPositionCount++;
@@ -285,22 +299,28 @@ public class SliceDictionarySelectiveReader
 
     private byte evaluateFilter(int position, int index, int length)
     {
-        if (filter.testLength(length)) {
-            int currentLength = dictionary.getSliceLength(index);
-            Slice data = dictionary.getSlice(index, 0, currentLength);
-            if (isCharType && length != currentLength) {
-                data = Chars.padSpaces(data, maxCodePointCount);
-            }
-            if (filter.testBytes(data.getBytes(), 0, length)) {
-                if (outputRequired) {
-                    values[outputPositionCount] = index;
-                }
-                outputPositions[outputPositionCount] = position;
-                outputPositionCount++;
-                return FILTER_PASSED;
+        if (!filter.testLength(length)) {
+            return FILTER_FAILED;
+        }
+
+        int currentLength = dictionaryOffsetVector[index + 1] - dictionaryOffsetVector[index];
+        if (isCharType && length != currentLength) {
+            System.arraycopy(dictionaryData, dictionaryOffsetVector[index], valueWithPadding, 0, currentLength);
+            Arrays.fill(valueWithPadding, currentLength, length, (byte) ' ');
+            if (!filter.testBytes(valueWithPadding, 0, length)) {
+                return FILTER_FAILED;
             }
         }
-        return FILTER_FAILED;
+        else if (!filter.testBytes(dictionaryData, dictionaryOffsetVector[index], length)) {
+            return FILTER_FAILED;
+        }
+
+        if (outputRequired) {
+            values[outputPositionCount] = index;
+        }
+        outputPositions[outputPositionCount] = position;
+        outputPositionCount++;
+        return FILTER_PASSED;
     }
 
     private int readAllNulls(int[] positions, int positionCount)
@@ -369,29 +389,33 @@ public class SliceDictionarySelectiveReader
             return new RunLengthEncodedBlock(outputType.createBlockBuilder(null, 1).appendNull().build(), positionCount);
         }
 
-        if (positionCount == outputPositionCount) {
-            DictionaryBlock block = new DictionaryBlock(positionCount, dictionary, values);
-            values = null;
-            return block;
+        // compact values(ids) array, and calculate 1) the slice sizeInBytes if materialized, and 2) number of nulls
+        compactValues(positions, positionCount);
+
+        long blockSizeInBytes = 0;
+        int nullCount = 0;
+        for (int i = 0; i < positionCount; i++) {
+            int id = values[i];
+            blockSizeInBytes += dictionaryOffsetVector[id + 1] - dictionaryOffsetVector[id];
+            if (id == currentDictionarySize - 1) {
+                nullCount++;
+            }
         }
 
-        int[] valuesCopy = new int[positionCount];
-
-        int positionIndex = 0;
-        int nextPosition = positions[positionIndex];
-        for (int i = 0; i < outputPositionCount; i++) {
-            if (outputPositions[i] < nextPosition) {
-                continue;
-            }
-            assert outputPositions[i] == nextPosition;
-            valuesCopy[positionIndex] = this.values[i];
-            positionIndex++;
-            if (positionIndex >= positionCount) {
-                break;
-            }
-            nextPosition = positions[positionIndex];
+        // If all selected positions are null, just return RLE block.
+        if (nullCount == positionCount) {
+            return new RunLengthEncodedBlock(outputType.createBlockBuilder(null, 1).appendNull().build(), positionCount);
         }
 
+        // If the expected materialized size of the output block is smaller than a certain ratio of the dictionary size, we will materialize the values
+        int dictionarySizeInBytes = dictionaryOffsetVector[currentDictionarySize - 1];
+        if (blockSizeInBytes * BATCHES_PER_ROWGROUP < dictionarySizeInBytes / MATERIALIZATION_RATIO) {
+            return getMaterializedBlock(positionCount, blockSizeInBytes, nullCount);
+        }
+
+        wrapDictionaryIfNecessary();
+
+        int[] valuesCopy = Arrays.copyOf(values, positionCount);
         return new DictionaryBlock(positionCount, dictionary, valuesCopy);
     }
 
@@ -409,7 +433,24 @@ public class SliceDictionarySelectiveReader
         if (positionCount < outputPositionCount) {
             compactValues(positions, positionCount);
         }
+        wrapDictionaryIfNecessary();
         return newLease(new DictionaryBlock(positionCount, dictionary, values));
+    }
+
+    private void wrapDictionaryIfNecessary()
+    {
+        if (dictionaryWrapped) {
+            return;
+        }
+
+        boolean[] isNullVector = new boolean[currentDictionarySize];
+        isNullVector[currentDictionarySize - 1] = true;
+
+        byte[] dictionaryDataCopy = Arrays.copyOf(dictionaryData, dictionaryOffsetVector[currentDictionarySize]);
+        int[] dictionaryOffsetVectorCopy = Arrays.copyOf(dictionaryOffsetVector, currentDictionarySize + 1);
+        dictionary = new VariableWidthBlock(currentDictionarySize, wrappedBuffer(dictionaryDataCopy), dictionaryOffsetVectorCopy, Optional.of(isNullVector));
+
+        dictionaryWrapped = true;
     }
 
     private void compactValues(int[] positions, int positionCount)
@@ -464,31 +505,28 @@ public class SliceDictionarySelectiveReader
                     dataLength += stripeDictionaryLength[i];
                 }
 
-                // we must always create a new dictionary array because the previous dictionary may still be referenced
-                stripeDictionaryData = new byte[toIntExact(dataLength)];
-                // add one extra entry for null
-                stripeDictionaryOffsetVector = new int[stripeDictionarySize + 2];
+                dictionaryData = ensureCapacity(dictionaryData, toIntExact(dataLength));
+                dictionaryOffsetVector = ensureCapacity(dictionaryOffsetVector, stripeDictionarySize + 2);
 
                 // read dictionary values
                 ByteArrayInputStream dictionaryDataStream = stripeDictionaryDataStreamSource.openStream();
-                readDictionary(dictionaryDataStream, stripeDictionarySize, stripeDictionaryLength, 0, stripeDictionaryData, stripeDictionaryOffsetVector, maxCodePointCount, isCharType);
+                readDictionary(dictionaryDataStream, stripeDictionarySize, stripeDictionaryLength, 0, dictionaryData, dictionaryOffsetVector, maxCodePointCount, isCharType);
             }
             else {
-                stripeDictionaryData = EMPTY_DICTIONARY_DATA;
-                stripeDictionaryOffsetVector = EMPTY_DICTIONARY_OFFSETS;
+                dictionaryData = EMPTY_DICTIONARY_DATA;
+                dictionaryOffsetVector = EMPTY_DICTIONARY_OFFSETS;
             }
+
+            // If there is no rowgroup dictionary, we only need to wrap the stripe dictionary once per stripe because wrapping dictionary is very expensive.
+            dictionaryWrapped = false;
         }
-        stripeDictionaryOpen = true;
 
         // read row group dictionary
         RowGroupDictionaryLengthInputStream dictionaryLengthStream = rowGroupDictionaryLengthStreamSource.openStream();
         if (dictionaryLengthStream != null) {
             int rowGroupDictionarySize = dictionaryLengthStream.getEntryCount();
 
-            // resize the dictionary lengths array if necessary
-            if (rowGroupDictionaryLength.length < rowGroupDictionarySize) {
-                rowGroupDictionaryLength = new int[rowGroupDictionarySize];
-            }
+            rowGroupDictionaryLength = ensureCapacity(rowGroupDictionaryLength, rowGroupDictionarySize);
 
             // read the lengths
             dictionaryLengthStream.nextIntVector(rowGroupDictionarySize, rowGroupDictionaryLength, 0);
@@ -497,21 +535,34 @@ public class SliceDictionarySelectiveReader
                 dataLength += rowGroupDictionaryLength[i];
             }
 
-            // We must always create a new dictionary array because the previous dictionary may still be referenced
-            // The first elements of the dictionary are from the stripe dictionary, then the row group dictionary elements, and then a null
-            byte[] rowGroupDictionaryData = java.util.Arrays.copyOf(stripeDictionaryData, stripeDictionaryOffsetVector[stripeDictionarySize] + toIntExact(dataLength));
-            int[] rowGroupDictionaryOffsetVector = Arrays.copyOf(stripeDictionaryOffsetVector, stripeDictionarySize + rowGroupDictionarySize + 2);
+            dictionaryData = ensureCapacity(
+                    dictionaryData,
+                    dictionaryOffsetVector[stripeDictionarySize] + toIntExact(dataLength),
+                    MEDIUM,
+                    PRESERVE);
+
+            dictionaryOffsetVector = ensureCapacity(dictionaryOffsetVector,
+                    stripeDictionarySize + rowGroupDictionarySize + 2,
+                    MEDIUM,
+                    PRESERVE);
+
+            dictionaryWrapped = false;
 
             // read dictionary values
             ByteArrayInputStream dictionaryDataStream = rowGroupDictionaryDataStreamSource.openStream();
-            readDictionary(dictionaryDataStream, rowGroupDictionarySize, rowGroupDictionaryLength, stripeDictionarySize, rowGroupDictionaryData, rowGroupDictionaryOffsetVector, maxCodePointCount, isCharType);
-            setDictionaryBlockData(rowGroupDictionaryData, rowGroupDictionaryOffsetVector, stripeDictionarySize + rowGroupDictionarySize + 1);
+            readDictionary(dictionaryDataStream, rowGroupDictionarySize, rowGroupDictionaryLength, stripeDictionarySize, dictionaryData, dictionaryOffsetVector, maxCodePointCount, isCharType);
+            currentDictionarySize = stripeDictionarySize + rowGroupDictionarySize + 1;
+
+            initiateEvaluationStatus(stripeDictionarySize + rowGroupDictionarySize + 1);
         }
         else {
             // there is no row group dictionary so use the stripe dictionary
-            setDictionaryBlockData(stripeDictionaryData, stripeDictionaryOffsetVector, stripeDictionarySize + 1);
+            currentDictionarySize = stripeDictionarySize + 1;
+            initiateEvaluationStatus(stripeDictionarySize + 1);
         }
 
+        dictionaryOffsetVector[currentDictionarySize] = dictionaryOffsetVector[currentDictionarySize - 1];
+        stripeDictionaryOpen = true;
         presentStream = presentStreamSource.openStream();
         inDictionaryStream = inDictionaryStreamSource.openStream();
         dataStream = dataStreamSource.openStream();
@@ -610,9 +661,9 @@ public class SliceDictionarySelectiveReader
     public void close()
     {
         dictionary = null;
-        currentDictionaryData = null;
+        dictionaryData = null;
+        dictionaryOffsetVector = null;
         rowGroupDictionaryLength = null;
-        stripeDictionaryData = null;
         stripeDictionaryLength = null;
         values = null;
         outputPositions = null;
@@ -622,28 +673,63 @@ public class SliceDictionarySelectiveReader
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + sizeOf(currentDictionaryData) + sizeOf(values) + sizeOf(outputPositions);
+        return INSTANCE_SIZE +
+                sizeOf(values) +
+                sizeOf(dictionaryData) +
+                sizeOf(dictionaryOffsetVector) +
+                sizeOf(stripeDictionaryLength) +
+                sizeOf(rowGroupDictionaryLength) +
+                sizeOf(evaluationStatus) +
+                sizeOf(valueWithPadding) +
+                dictionary.getRetainedSizeInBytes();
     }
 
-    private void setDictionaryBlockData(byte[] dictionaryData, int[] dictionaryOffsets, int positionCount)
+    @VisibleForTesting
+    public void resetDataStream()
+    {
+        dataStream = null;
+    }
+
+    private void initiateEvaluationStatus(int positionCount)
     {
         verify(positionCount > 0);
-        // only update the block if the array changed to prevent creation of new Block objects, since
-        // the engine currently uses identity equality to test if dictionaries are the same
-        if (currentDictionaryData != dictionaryData) {
-            boolean[] isNullVector = new boolean[positionCount];
-            isNullVector[positionCount - 1] = true;
-            dictionaryOffsets[positionCount] = dictionaryOffsets[positionCount - 1];
-            dictionary = new VariableWidthBlock(positionCount, wrappedBuffer(dictionaryData), dictionaryOffsets, Optional.of(isNullVector));
-            currentDictionaryData = dictionaryData;
-            evaluationStatus = ensureCapacity(evaluationStatus, positionCount - 1);
-            fill(evaluationStatus, 0, evaluationStatus.length, FILTER_NOT_EVALUATED);
-        }
+
+        evaluationStatus = ensureCapacity(evaluationStatus, positionCount - 1);
+        fill(evaluationStatus, 0, evaluationStatus.length, FILTER_NOT_EVALUATED);
     }
 
     private BlockLease newLease(Block block)
     {
         valuesInUse = true;
         return ClosingBlockLease.newLease(block, () -> valuesInUse = false);
+    }
+
+    private Block getMaterializedBlock(int positionCount, long blockSizeInBytes, int nullCount)
+    {
+        byte[] sliceData = new byte[toIntExact(blockSizeInBytes)];
+        int[] offsetVector = new int[positionCount + 1];
+        int currentOffset = 0;
+        for (int i = 0; i < positionCount; i++) {
+            int id = values[i];
+            int offset = dictionaryOffsetVector[id];
+            int length = dictionaryOffsetVector[id + 1] - offset;
+            System.arraycopy(dictionaryData, offset, sliceData, currentOffset, length);
+
+            currentOffset += length;
+            offsetVector[i + 1] = currentOffset;
+        }
+
+        if (nullCount > 0) {
+            boolean[] isNullVector = new boolean[positionCount];
+            for (int i = 0; i < positionCount; i++) {
+                if (values[i] == currentDictionarySize - 1) {
+                    isNullVector[i] = true;
+                }
+            }
+            return new VariableWidthBlock(positionCount, wrappedBuffer(sliceData), offsetVector, Optional.of(isNullVector));
+        }
+        else {
+            return new VariableWidthBlock(positionCount, wrappedBuffer(sliceData), offsetVector, Optional.empty());
+        }
     }
 }

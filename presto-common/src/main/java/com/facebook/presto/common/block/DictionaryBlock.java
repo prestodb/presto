@@ -32,6 +32,7 @@ import static com.facebook.presto.common.block.BlockUtil.internalPositionInRange
 import static com.facebook.presto.common.block.DictionaryId.randomDictionaryId;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.min;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class DictionaryBlock
@@ -263,14 +264,25 @@ public class DictionaryBlock
         }
 
         long sizeInBytes = 0;
-        long[] seenSizes = new long[dictionary.getPositionCount()];
-        Arrays.fill(seenSizes, -1L);
-        for (int i = positionOffset; i < positionOffset + length; i++) {
-            int position = getId(i);
-            if (seenSizes[position] < 0) {
-                seenSizes[position] = dictionary.getRegionLogicalSizeInBytes(position, 1);
+        // Dictionary Block may contain large number of keys and small region length may be requested.
+        // If the length is less than keys the cache is likely to be not used.
+        if (length > dictionary.getPositionCount()) {
+            // Cache code path.
+            long[] seenSizes = new long[dictionary.getPositionCount()];
+            Arrays.fill(seenSizes, -1L);
+            for (int i = positionOffset; i < positionOffset + length; i++) {
+                int position = getId(i);
+                if (seenSizes[position] < 0) {
+                    seenSizes[position] = dictionary.getRegionLogicalSizeInBytes(position, 1);
+                }
+                sizeInBytes += seenSizes[position];
             }
-            sizeInBytes += seenSizes[position];
+        }
+        else {
+            // In-place code path.
+            for (int i = positionOffset; i < positionOffset + length; i++) {
+                sizeInBytes += dictionary.getRegionLogicalSizeInBytes(getId(i), 1);
+            }
         }
 
         if (positionOffset == 0 && length == getPositionCount()) {
@@ -278,6 +290,13 @@ public class DictionaryBlock
         }
 
         return sizeInBytes;
+    }
+
+    @Override
+    public long getApproximateRegionLogicalSizeInBytes(int position, int length)
+    {
+        int dictionaryPositionCount = dictionary.getPositionCount();
+        return dictionaryPositionCount == 0 ? 0 : dictionary.getApproximateRegionLogicalSizeInBytes(0, dictionaryPositionCount) * length / dictionaryPositionCount;
     }
 
     @Override
@@ -389,11 +408,7 @@ public class DictionaryBlock
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder("DictionaryBlock{");
-        sb.append("positionCount=").append(getPositionCount()).append(",");
-        sb.append("dictionary=").append(dictionary.toString());
-        sb.append('}');
-        return sb.toString();
+        return format("DictionaryBlock(%d){positionCount=%d,dictionary=%s}", hashCode(), getPositionCount(), dictionary.toString());
     }
 
     @Override

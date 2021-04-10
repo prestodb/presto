@@ -28,7 +28,7 @@ public class TestColorArrayType
 {
     public TestColorArrayType()
     {
-        super(new TypeRegistry().getType(parseTypeSignature("array(color)")), List.class, createTestBlock(new TypeRegistry().getType(parseTypeSignature("array(color)"))));
+        super(functionAndTypeManager.getType(parseTypeSignature("array(color)")), List.class, createTestBlock(functionAndTypeManager.getType(parseTypeSignature("array(color)"))));
     }
 
     public static Block createTestBlock(Type arrayType)

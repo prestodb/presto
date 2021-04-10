@@ -30,6 +30,11 @@ public final class Rectangle
         implements HasExtent
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(Rectangle.class).instanceSize();
+    private static final Rectangle UNIVERSE_RECTANGLE = new Rectangle(
+            Double.NEGATIVE_INFINITY,
+            Double.NEGATIVE_INFINITY,
+            Double.POSITIVE_INFINITY,
+            Double.POSITIVE_INFINITY);
 
     private final double xMin;
     private final double yMin;
@@ -49,6 +54,11 @@ public final class Rectangle
         this.yMin = yMin;
         this.xMax = xMax;
         this.yMax = yMax;
+    }
+
+    public static Rectangle getUniverseRectangle()
+    {
+        return UNIVERSE_RECTANGLE;
     }
 
     @JsonProperty

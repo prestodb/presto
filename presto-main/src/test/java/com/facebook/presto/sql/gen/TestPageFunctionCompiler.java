@@ -16,7 +16,7 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.Work;
 import com.facebook.presto.operator.project.PageFilter;
@@ -58,7 +58,7 @@ import static org.testng.Assert.fail;
 
 public class TestPageFunctionCompiler
 {
-    private static final FunctionManager FUNCTION_MANAGER = createTestMetadataManager().getFunctionManager();
+    private static final FunctionAndTypeManager FUNCTION_MANAGER = createTestMetadataManager().getFunctionAndTypeManager();
 
     private static final CallExpression ADD_10_EXPRESSION = call(
             ADD.name(),

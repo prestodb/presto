@@ -15,8 +15,8 @@ package com.facebook.presto.spiller;
 
 import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.SequencePageBuilder;
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
@@ -25,7 +25,6 @@ import com.facebook.presto.operator.SpillContext;
 import com.facebook.presto.operator.TestingOperatorContext;
 import com.facebook.presto.spiller.PartitioningSpiller.PartitioningSpillResult;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Closer;
@@ -62,7 +61,7 @@ public class TestGenericPartitioningSpiller
     private static final int FOURTH_PARTITION_START = 20;
 
     private static final List<Type> TYPES = ImmutableList.of(BIGINT, VARCHAR, DOUBLE, BIGINT);
-    private final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(new TypeRegistry());
+    private final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager();
 
     private Path tempDirectory;
     private SingleStreamSpillerFactory singleStreamSpillerFactory;
@@ -224,7 +223,7 @@ public class TestGenericPartitioningSpiller
 
     private static SpillContext mockSpillContext()
     {
-        return bytes -> {};
+        return new TestingSpillContext();
     }
 
     private static class FourFixedPartitionsPartitionFunction

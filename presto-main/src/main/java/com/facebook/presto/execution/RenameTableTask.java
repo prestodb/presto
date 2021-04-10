@@ -14,9 +14,10 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.Expression;
@@ -50,7 +51,18 @@ public class RenameTableTask
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getSource());
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
         if (!tableHandle.isPresent()) {
-            throw new SemanticException(MISSING_TABLE, statement, "Table '%s' does not exist", tableName);
+            if (!statement.isExists()) {
+                throw new SemanticException(MISSING_TABLE, statement, "Table '%s' does not exist", tableName);
+            }
+            return immediateFuture(null);
+        }
+
+        Optional<ConnectorMaterializedViewDefinition> optionalMaterializedView = metadata.getMaterializedView(session, tableName);
+        if (optionalMaterializedView.isPresent()) {
+            if (!statement.isExists()) {
+                throw new SemanticException(NOT_SUPPORTED, statement, "'%s' is a materialized view, and rename is not supported", tableName);
+            }
+            return immediateFuture(null);
         }
 
         QualifiedObjectName target = createQualifiedObjectName(session, statement, statement.getTarget());

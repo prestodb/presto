@@ -31,5 +31,5 @@ public interface DigestAndPercentileArrayState
 
     List<Double> getPercentiles();
 
-    void addMemoryUsage(int value);
+    void addMemoryUsage(long value);
 }

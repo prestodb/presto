@@ -21,3 +21,6 @@ which is configured with a carefully selected set of options. This behavior
 can be overridden by setting the environment variable ``PRESTO_PAGER`` to the
 name of a different program such as ``more``, or set it to an empty value
 to completely disable pagination.
+
+Documentation on the HTTP protocol between the Presto CLI and the Presto
+engine can be found :doc:`here </develop/client-protocol>`.

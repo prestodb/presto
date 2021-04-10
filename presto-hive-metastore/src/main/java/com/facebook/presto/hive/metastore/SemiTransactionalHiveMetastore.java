@@ -77,6 +77,7 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.pathExists;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.renameFile;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.toPartitionValues;
 import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
+import static com.facebook.presto.hive.metastore.PrestoTableType.MATERIALIZED_VIEW;
 import static com.facebook.presto.hive.metastore.PrestoTableType.TEMPORARY_TABLE;
 import static com.facebook.presto.hive.metastore.PrestoTableType.VIRTUAL_VIEW;
 import static com.facebook.presto.hive.metastore.Statistics.ReduceOperator.SUBTRACT;
@@ -108,6 +109,7 @@ public class SemiTransactionalHiveMetastore
     private final ListeningExecutorService renameExecutor;
     private final boolean skipDeletionForAlter;
     private final boolean skipTargetCleanupOnRollback;
+    private final boolean undoMetastoreOperationsEnabled;
 
     @GuardedBy("this")
     private final Map<SchemaTableName, Action<TableAndMore>> tableActions = new HashMap<>();
@@ -126,13 +128,15 @@ public class SemiTransactionalHiveMetastore
             ExtendedHiveMetastore delegate,
             ListeningExecutorService renameExecutor,
             boolean skipDeletionForAlter,
-            boolean skipTargetCleanupOnRollback)
+            boolean skipTargetCleanupOnRollback,
+            boolean undoMetastoreOperationsEnabled)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.renameExecutor = requireNonNull(renameExecutor, "renameExecutor is null");
         this.skipDeletionForAlter = skipDeletionForAlter;
         this.skipTargetCleanupOnRollback = skipTargetCleanupOnRollback;
+        this.undoMetastoreOperationsEnabled = undoMetastoreOperationsEnabled;
     }
 
     public synchronized List<String> getAllDatabases()
@@ -373,7 +377,7 @@ public class SemiTransactionalHiveMetastore
         Action<TableAndMore> oldTableAction = tableActions.get(schemaTableName);
         TableAndMore tableAndMore = new TableAndMore(table, Optional.of(principalPrivileges), currentPath, Optional.empty(), ignoreExisting, statistics, statistics);
         if (oldTableAction == null) {
-            HdfsContext context = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
+            HdfsContext context = new HdfsContext(session, table.getDatabaseName(), table.getTableName(), table.getStorage().getLocation(), true);
             tableActions.put(schemaTableName, new Action<>(ActionType.ADD, tableAndMore, context));
             return;
         }
@@ -389,7 +393,7 @@ public class SemiTransactionalHiveMetastore
         }
     }
 
-    public synchronized void dropTable(ConnectorSession session, String databaseName, String tableName)
+    public synchronized void dropTable(HdfsContext context, String databaseName, String tableName)
     {
         setShared();
         // Dropping table with partition actions requires cleaning up staging data, which is not implemented yet.
@@ -397,7 +401,6 @@ public class SemiTransactionalHiveMetastore
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
         Action<TableAndMore> oldTableAction = tableActions.get(schemaTableName);
         if (oldTableAction == null || oldTableAction.getType() == ActionType.ALTER) {
-            HdfsContext context = new HdfsContext(session, databaseName, tableName);
             tableActions.put(schemaTableName, new Action<>(ActionType.DROP, null, context));
             return;
         }
@@ -455,7 +458,7 @@ public class SemiTransactionalHiveMetastore
             Table table = getTable(databaseName, tableName)
                     .orElseThrow(() -> new TableNotFoundException(schemaTableName));
             PartitionStatistics currentStatistics = getTableStatistics(databaseName, tableName);
-            HdfsContext context = new HdfsContext(session, databaseName, tableName);
+            HdfsContext context = new HdfsContext(session, databaseName, tableName, table.getStorage().getLocation(), false);
             tableActions.put(
                     schemaTableName,
                     new Action<>(
@@ -492,7 +495,7 @@ public class SemiTransactionalHiveMetastore
         if (!table.isPresent()) {
             throw new TableNotFoundException(schemaTableName);
         }
-        if (!table.get().getTableType().equals(MANAGED_TABLE)) {
+        if (!table.get().getTableType().equals(MANAGED_TABLE) && !table.get().getTableType().equals(MATERIALIZED_VIEW)) {
             throw new PrestoException(NOT_SUPPORTED, "Cannot delete from non-managed Hive table");
         }
         if (!table.get().getPartitionColumns().isEmpty()) {
@@ -500,7 +503,7 @@ public class SemiTransactionalHiveMetastore
         }
 
         Path path = new Path(table.get().getStorage().getLocation());
-        HdfsContext context = new HdfsContext(session, databaseName, tableName);
+        HdfsContext context = new HdfsContext(session, databaseName, tableName, table.get().getStorage().getLocation(), false);
         setExclusive((delegate, hdfsEnvironment) -> {
             RecursiveDeleteResult recursiveDeleteResult = recursiveDeleteFiles(hdfsEnvironment, context, path, ImmutableList.of(""), false);
             if (!recursiveDeleteResult.getNotDeletedEligibleItems().isEmpty()) {
@@ -683,6 +686,8 @@ public class SemiTransactionalHiveMetastore
             ConnectorSession session,
             String databaseName,
             String tableName,
+            String tablePath,
+            boolean isNewTable,
             Partition partition,
             Path currentLocation,
             PartitionStatistics statistics)
@@ -691,7 +696,7 @@ public class SemiTransactionalHiveMetastore
         checkArgument(getPrestoQueryId(partition).isPresent());
         Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.computeIfAbsent(new SchemaTableName(databaseName, tableName), k -> new HashMap<>());
         Action<PartitionAndMore> oldPartitionAction = partitionActionsOfTable.get(partition.getValues());
-        HdfsContext context = new HdfsContext(session, databaseName, tableName);
+        HdfsContext context = new HdfsContext(session, databaseName, tableName, tablePath, isNewTable);
         if (oldPartitionAction == null) {
             partitionActionsOfTable.put(
                     partition.getValues(),
@@ -717,13 +722,18 @@ public class SemiTransactionalHiveMetastore
         }
     }
 
-    public synchronized void dropPartition(ConnectorSession session, String databaseName, String tableName, List<String> partitionValues)
+    public synchronized void dropPartition(
+            ConnectorSession session,
+            String databaseName,
+            String tableName,
+            String tablePath,
+            List<String> partitionValues)
     {
         setShared();
         Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.computeIfAbsent(new SchemaTableName(databaseName, tableName), k -> new HashMap<>());
         Action<PartitionAndMore> oldPartitionAction = partitionActionsOfTable.get(partitionValues);
         if (oldPartitionAction == null) {
-            HdfsContext context = new HdfsContext(session, databaseName, tableName);
+            HdfsContext context = new HdfsContext(session, databaseName, tableName, tablePath, false);
             partitionActionsOfTable.put(partitionValues, new Action<>(ActionType.DROP, null, context));
             return;
         }
@@ -745,6 +755,7 @@ public class SemiTransactionalHiveMetastore
             ConnectorSession session,
             String databaseName,
             String tableName,
+            String tablePath,
             List<String> partitionValues,
             Path currentLocation,
             List<String> fileNames,
@@ -762,7 +773,7 @@ public class SemiTransactionalHiveMetastore
             if (currentStatistics == null) {
                 throw new PrestoException(HIVE_METASTORE_ERROR, "currentStatistics is null");
             }
-            HdfsContext context = new HdfsContext(session, databaseName, tableName);
+            HdfsContext context = new HdfsContext(session, databaseName, tableName, tablePath, false);
             partitionActionsOfTable.put(
                     partitionValues,
                     new Action<>(
@@ -879,7 +890,7 @@ public class SemiTransactionalHiveMetastore
     }
 
     public synchronized void declareIntentionToWrite(
-            ConnectorSession session,
+            HdfsContext context,
             WriteMode writeMode,
             Path stagingPathRoot,
             Optional<Path> tempPathRoot,
@@ -894,7 +905,6 @@ public class SemiTransactionalHiveMetastore
                 throw new PrestoException(NOT_SUPPORTED, "Can not insert into a table with a partition that has been modified in the same transaction when Presto is configured to skip temporary directories.");
             }
         }
-        HdfsContext context = new HdfsContext(session, schemaTableName.getSchemaName(), schemaTableName.getTableName());
         declaredIntentionsToWrite.add(new DeclaredIntentionToWrite(writeMode, context, stagingPathRoot, tempPathRoot, filePrefix, schemaTableName, temporaryTable));
     }
 
@@ -975,18 +985,19 @@ public class SemiTransactionalHiveMetastore
                 for (Map.Entry<List<String>, Action<PartitionAndMore>> partitionEntry : tableEntry.getValue().entrySet()) {
                     List<String> partitionValues = partitionEntry.getKey();
                     Action<PartitionAndMore> action = partitionEntry.getValue();
+                    HdfsContext context = action.getContext();
                     switch (action.getType()) {
                         case DROP:
                             committer.prepareDropPartition(schemaTableName, partitionValues);
                             break;
                         case ALTER:
-                            committer.prepareAlterPartition(action.getContext(), action.getData());
+                            committer.prepareAlterPartition(context, action.getData());
                             break;
                         case ADD:
-                            committer.prepareAddPartition(action.getContext(), action.getData());
+                            committer.prepareAddPartition(context, action.getData());
                             break;
                         case INSERT_EXISTING:
-                            committer.prepareInsertExistingPartition(action.getContext(), action.getData());
+                            committer.prepareInsertExistingPartition(context, action.getData());
                             break;
                         default:
                             throw new IllegalStateException("Unknown action type");
@@ -1125,7 +1136,7 @@ public class SemiTransactionalHiveMetastore
                 return;
             }
 
-            if (table.getTableType().equals(MANAGED_TABLE)) {
+            if (table.getTableType().equals(MANAGED_TABLE) || table.getTableType().equals(MATERIALIZED_VIEW)) {
                 String targetLocation = table.getStorage().getLocation();
                 checkArgument(!targetLocation.isEmpty(), "target location is empty");
                 Optional<Path> currentPath = tableAndMore.getCurrentLocation();
@@ -1435,6 +1446,9 @@ public class SemiTransactionalHiveMetastore
 
         private void undoAddPartitionOperations()
         {
+            if (!undoMetastoreOperationsEnabled) {
+                return;
+            }
             for (PartitionAdder partitionAdder : partitionAdders.values()) {
                 List<List<String>> partitionsFailedToRollback = partitionAdder.rollback();
                 if (!partitionsFailedToRollback.isEmpty()) {
@@ -1448,6 +1462,9 @@ public class SemiTransactionalHiveMetastore
 
         private void undoAddTableOperations()
         {
+            if (!undoMetastoreOperationsEnabled) {
+                return;
+            }
             for (CreateTableOperation addTableOperation : addTableOperations) {
                 try {
                     addTableOperation.undo(delegate);
@@ -1460,6 +1477,9 @@ public class SemiTransactionalHiveMetastore
 
         private void undoAlterPartitionOperations()
         {
+            if (!undoMetastoreOperationsEnabled) {
+                return;
+            }
             for (AlterPartitionOperation alterPartitionOperation : alterPartitionOperations) {
                 try {
                     alterPartitionOperation.undo(delegate);
@@ -1472,6 +1492,9 @@ public class SemiTransactionalHiveMetastore
 
         private void undoUpdateStatisticsOperations()
         {
+            if (!undoMetastoreOperationsEnabled) {
+                return;
+            }
             for (UpdateStatisticsOperation operation : updateStatisticsOperations) {
                 try {
                     operation.undo(delegate);

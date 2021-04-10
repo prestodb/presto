@@ -23,6 +23,7 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerF
 import com.facebook.presto.spi.security.PasswordAuthenticatorFactory;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
+import com.facebook.presto.spi.storage.TempStorageFactory;
 
 import java.util.Set;
 
@@ -82,6 +83,11 @@ public interface Plugin
     }
 
     default Iterable<FunctionNamespaceManagerFactory> getFunctionNamespaceManagerFactories()
+    {
+        return emptyList();
+    }
+
+    default Iterable<TempStorageFactory> getTempStorageFactories()
     {
         return emptyList();
     }

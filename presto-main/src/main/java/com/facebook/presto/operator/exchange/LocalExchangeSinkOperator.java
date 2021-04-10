@@ -99,6 +99,7 @@ public class LocalExchangeSinkOperator
     private final OperatorContext operatorContext;
     private final LocalExchangeSink sink;
     private final Function<Page, Page> pagePreprocessor;
+    private ListenableFuture<?> isBlocked = NOT_BLOCKED;
 
     LocalExchangeSinkOperator(OperatorContext operatorContext, LocalExchangeSink sink, Function<Page, Page> pagePreprocessor)
     {
@@ -128,7 +129,13 @@ public class LocalExchangeSinkOperator
     @Override
     public ListenableFuture<?> isBlocked()
     {
-        return sink.waitForWriting();
+        if (isBlocked.isDone()) {
+            isBlocked = sink.waitForWriting();
+            if (isBlocked.isDone()) {
+                isBlocked = NOT_BLOCKED;
+            }
+        }
+        return isBlocked;
     }
 
     @Override

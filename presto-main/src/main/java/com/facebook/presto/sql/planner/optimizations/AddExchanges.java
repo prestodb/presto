@@ -17,12 +17,12 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.connector.system.GlobalSystemConnector;
 import com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy;
-import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.GroupingProperty;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SortingProperty;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
@@ -243,7 +243,7 @@ public class AddExchanges
         {
             Set<VariableReferenceExpression> partitioningRequirement = ImmutableSet.copyOf(node.getGroupingKeys());
 
-            boolean preferSingleNode = hasSingleNodeExecutionPreference(node, metadata.getFunctionManager());
+            boolean preferSingleNode = hasSingleNodeExecutionPreference(node, metadata.getFunctionAndTypeManager());
             boolean hasMixedGroupingSets = node.hasEmptyGroupingSet() && node.hasNonEmptyGroupingSet();
             PreferredProperties preferredProperties = preferSingleNode ? PreferredProperties.undistributed() : PreferredProperties.any();
 
@@ -852,7 +852,8 @@ public class AddExchanges
                     node.getFilter(),
                     node.getLeftHashVariable(),
                     node.getRightHashVariable(),
-                    Optional.of(newDistributionType));
+                    Optional.of(newDistributionType),
+                    node.getDynamicFilters());
 
             return new PlanWithProperties(result, deriveProperties(result, ImmutableList.of(newLeft.getProperties(), newRight.getProperties())));
         }

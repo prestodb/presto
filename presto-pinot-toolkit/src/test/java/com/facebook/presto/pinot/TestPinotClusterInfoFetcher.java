@@ -73,8 +73,38 @@ public class TestPinotClusterInfoFetcher
         PinotConfig pinotConfig = new PinotConfig()
                 .setMetadataCacheExpiry(new Duration(0, TimeUnit.MILLISECONDS))
                 .setControllerUrls("localhost:7900");
-        PinotClusterInfoFetcher pinotClusterInfoFetcher = new PinotClusterInfoFetcher(pinotConfig, new PinotMetrics(), httpClient, MetadataUtil.TABLES_JSON_CODEC, MetadataUtil.BROKERS_FOR_TABLE_JSON_CODEC, MetadataUtil.ROUTING_TABLES_JSON_CODEC, MetadataUtil.ROUTING_TABLES_V2_JSON_CODEC, MetadataUtil.TIME_BOUNDARY_JSON_CODEC);
+        PinotClusterInfoFetcher pinotClusterInfoFetcher = new PinotClusterInfoFetcher(pinotConfig, new PinotMetrics(), httpClient, MetadataUtil.TABLES_JSON_CODEC, MetadataUtil.BROKERS_FOR_TABLE_JSON_CODEC, MetadataUtil.ROUTING_TABLES_JSON_CODEC, MetadataUtil.ROUTING_TABLES_V2_JSON_CODEC, MetadataUtil.TIME_BOUNDARY_JSON_CODEC, MetadataUtil.INSTANCE_JSON_CODEC);
         ImmutableSet<String> brokers = ImmutableSet.copyOf(pinotClusterInfoFetcher.getAllBrokersForTable("dummy"));
         Assert.assertEquals(ImmutableSet.of("dummy-broker-host1-datacenter1:6513", "dummy-broker-host2-datacenter1:6513", "dummy-broker-host3-datacenter1:6513", "dummy-broker-host4-datacenter1:6513"), brokers);
+    }
+
+    @Test
+    public void testInstanceParsed()
+    {
+        HttpClient httpClient = new TestingHttpClient((request) -> TestingResponse.mockResponse(HttpStatus.OK, MediaType.JSON_UTF_8,
+                "{\n" +
+                "  \"instanceName\": \"Server_192.168.1.19_8098\",\n" +
+                "  \"hostName\": \"192.168.1.19\",\n" +
+                "  \"enabled\": true,\n" +
+                "  \"port\": \"8098\",\n" +
+                "  \"tags\": [\n" +
+                "    \"DefaultTenant_OFFLINE\",\n" +
+                "    \"DefaultTenant_REALTIME\"\n" +
+                "  ],\n" +
+                "  \"pools\": null,\n" +
+                "  \"grpcPort\": 8090\n" +
+                "}"));
+        PinotConfig pinotConfig = new PinotConfig().setMetadataCacheExpiry(new Duration(0, TimeUnit.MILLISECONDS)).setControllerUrls("localhost:7900");
+        PinotClusterInfoFetcher pinotClusterInfoFetcher = new PinotClusterInfoFetcher(pinotConfig, new PinotMetrics(), httpClient, MetadataUtil.TABLES_JSON_CODEC, MetadataUtil.BROKERS_FOR_TABLE_JSON_CODEC, MetadataUtil.ROUTING_TABLES_JSON_CODEC, MetadataUtil.ROUTING_TABLES_V2_JSON_CODEC, MetadataUtil.TIME_BOUNDARY_JSON_CODEC, MetadataUtil.INSTANCE_JSON_CODEC);
+        final PinotClusterInfoFetcher.Instance instance = pinotClusterInfoFetcher.getInstance("Server_192.168.1.19_8098");
+        Assert.assertEquals(instance.getInstanceName(), "Server_192.168.1.19_8098");
+        Assert.assertEquals(instance.getHostName(), "192.168.1.19");
+        Assert.assertEquals(instance.isEnabled(), true);
+        Assert.assertEquals(instance.getPort(), 8098);
+        Assert.assertEquals(instance.getGrpcPort(), 8090);
+        Assert.assertEquals(instance.getPools(), null);
+        Assert.assertEquals(instance.getTags().size(), 2);
+        Assert.assertEquals(instance.getTags().get(0), "DefaultTenant_OFFLINE");
+        Assert.assertEquals(instance.getTags().get(1), "DefaultTenant_REALTIME");
     }
 }

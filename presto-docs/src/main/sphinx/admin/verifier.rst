@@ -36,10 +36,16 @@ Next, create a ``config.properties`` file:
 
 .. code-block:: none
 
-    source-query.suite=my_suite
-    source-query.database=jdbc:mysql://localhost:3306/my_database?user=my_username&password=my_password
-    control.gateway=jdbc:presto://localhost:8080
-    test.gateway=jdbc:presto://localhost:8081
+    source-query.suites=suite
+    source-query.database=jdbc:mysql://localhost:3306/mydb?user=my_username&password=my_password
+    control.hosts=127.0.0.1
+    control.http-port=8080
+    control.jdbc-port=8080
+    control.application-name=verifier-test
+    test.hosts=127.0.0.1
+    test.http-port=8081
+    test.jdbc-port=8081
+    test.application-name=verifier-test
     test-id=1
 
 Download :maven_download:`verifier` and rename it to ``verifier``. To run the Verifier:
@@ -182,6 +188,17 @@ automatically resolve certain mismatches.
 * **Resolved Functions**: In the case of a results mismatch, if the query uses a function in a
     specified list, the test case is marked as resolved.
 
+Explain Mode
+------------
+In explain mode, Verifier checks whether source queries can be explained instead of whether
+they produces the same results. Verification is marked as succeeded when both control query
+and test query can be explained.
+
+The field ``matchType`` in the output event can be used as an indicator whether there are
+plan differences between the control run and the test run.
+
+For non-DML queries, the control query and the plan comparison are skipped.
+
 Extending Verifier
 ------------------
 
@@ -256,13 +273,14 @@ Counterparts are also available for test clusters with prefix ``control`` being 
 =========================================== ===============================================================================
 Name                                        Description
 =========================================== ===============================================================================
-``control.host``                            Host of the control cluster.
+``control.hosts``                           Comma-separated list of the control cluster hostnames or IP addresses.
 ``control.jdbc-port``                       JDBC port of the control cluster.
 ``control.http-host``                       HTTP port of the control cluster.
 ``control.jdbc-url-parameters``             A ``JSON`` map representing the additional URL parameters for control JDBC.
 ``control.query-timeout``                   The execution time limit of the control and the test queries.
 ``control.metadata-timeout``                The execution time limit of ``DESC`` queries and ``LIMIT 0`` queries.
 ``control.checksum-timeout``                The execution time limit of checksum queries.
+``control.application-name``                ApplicationName to be passed in ClientInfo. Can be used to set source.
 =========================================== ===============================================================================
 
 Determinism Analyzer Configuration

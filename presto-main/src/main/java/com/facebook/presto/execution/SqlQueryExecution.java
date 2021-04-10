@@ -28,7 +28,6 @@ import com.facebook.presto.execution.scheduler.SectionExecutionFactory;
 import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
 import com.facebook.presto.execution.scheduler.SqlQueryScheduler;
 import com.facebook.presto.execution.scheduler.SqlQuerySchedulerInterface;
-import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
@@ -38,6 +37,7 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.split.CloseableSplitSourceProvider;
@@ -77,9 +77,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
+import static com.facebook.presto.SystemSessionProperties.isSpoolingOutputBufferEnabled;
 import static com.facebook.presto.SystemSessionProperties.isUseLegacyScheduler;
 import static com.facebook.presto.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
+import static com.facebook.presto.execution.buffer.OutputBuffers.createSpoolingOutputBuffers;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -173,13 +175,7 @@ public class SqlQueryExecution
                     preparedQuery.getParameters(),
                     warningCollector);
 
-            try {
-                this.analysis = analyzer.analyze(preparedQuery.getStatement());
-            }
-            catch (RuntimeException e) {
-                stateMachine.transitionToFailed(e);
-                throw e;
-            }
+            this.analysis = analyzer.analyze(preparedQuery.getStatement());
 
             stateMachine.setUpdateType(analysis.getUpdateType());
 
@@ -289,6 +285,34 @@ public class SqlQueryExecution
             return new Duration(0, SECONDS);
         }
         return scheduler.getTotalCpuTime();
+    }
+
+    @Override
+    public DataSize getRawInputDataSize()
+    {
+        SqlQuerySchedulerInterface scheduler = queryScheduler.get();
+        Optional<QueryInfo> finalQueryInfo = stateMachine.getFinalQueryInfo();
+        if (finalQueryInfo.isPresent()) {
+            return finalQueryInfo.get().getQueryStats().getRawInputDataSize();
+        }
+        if (scheduler == null) {
+            return new DataSize(0, BYTE);
+        }
+        return scheduler.getRawInputDataSize();
+    }
+
+    @Override
+    public DataSize getOutputDataSize()
+    {
+        SqlQuerySchedulerInterface scheduler = queryScheduler.get();
+        Optional<QueryInfo> finalQueryInfo = stateMachine.getFinalQueryInfo();
+        if (finalQueryInfo.isPresent()) {
+            return finalQueryInfo.get().getQueryStats().getOutputDataSize();
+        }
+        if (scheduler == null) {
+            return new DataSize(0, BYTE);
+        }
+        return scheduler.getOutputDataSize();
     }
 
     @Override
@@ -442,11 +466,17 @@ public class SqlQueryExecution
         stateMachine.setColumns(((OutputNode) outputStagePlan.getFragment().getRoot()).getColumnNames(), outputStagePlan.getFragment().getTypes());
 
         PartitioningHandle partitioningHandle = outputStagePlan.getFragment().getPartitioningScheme().getPartitioning().getHandle();
-        OutputBuffers rootOutputBuffers = createInitialEmptyOutputBuffers(partitioningHandle)
-                .withBuffer(OUTPUT_BUFFER_ID, BROADCAST_PARTITION_ID)
-                .withNoMoreBufferIds();
+        OutputBuffers rootOutputBuffers;
+        if (isSpoolingOutputBufferEnabled(getSession())) {
+            rootOutputBuffers = createSpoolingOutputBuffers();
+        }
+        else {
+            rootOutputBuffers = createInitialEmptyOutputBuffers(partitioningHandle)
+                    .withBuffer(OUTPUT_BUFFER_ID, BROADCAST_PARTITION_ID)
+                    .withNoMoreBufferIds();
+        }
 
-        SplitSourceFactory splitSourceFactory = new SplitSourceFactory(splitSourceProvider);
+        SplitSourceFactory splitSourceFactory = new SplitSourceFactory(splitSourceProvider, stateMachine.getWarningCollector());
         // build the stage execution objects (this doesn't schedule execution)
         SqlQuerySchedulerInterface scheduler = isUseLegacyScheduler(getSession()) ?
                 LegacySqlQueryScheduler.createSqlQueryScheduler(
@@ -458,7 +488,7 @@ public class SqlQueryExecution
                         remoteTaskFactory,
                         splitSourceFactory,
                         stateMachine.getSession(),
-                        metadata.getFunctionManager(),
+                        metadata.getFunctionAndTypeManager(),
                         stateMachine,
                         outputStagePlan,
                         rootOutputBuffers,
@@ -466,7 +496,10 @@ public class SqlQueryExecution
                         runtimePlanOptimizers,
                         stateMachine.getWarningCollector(),
                         idAllocator,
-                        variableAllocator.get()) :
+                        variableAllocator.get(),
+                        planChecker,
+                        metadata,
+                        sqlParser) :
                 SqlQueryScheduler.createSqlQueryScheduler(
                         locationFactory,
                         executionPolicy,
@@ -480,11 +513,14 @@ public class SqlQueryExecution
                         stateMachine,
                         outputStagePlan,
                         plan.isSummarizeTaskInfos(),
-                        metadata.getFunctionManager(),
+                        metadata.getFunctionAndTypeManager(),
                         runtimePlanOptimizers,
                         stateMachine.getWarningCollector(),
                         idAllocator,
-                        variableAllocator.get());
+                        variableAllocator.get(),
+                        planChecker,
+                        metadata,
+                        sqlParser);
 
         queryScheduler.set(scheduler);
 

@@ -20,7 +20,6 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.util.DateTimeUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -47,6 +46,7 @@ import static com.facebook.presto.hive.HiveType.HIVE_DOUBLE;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveType.HIVE_TIMESTAMP;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static org.testng.Assert.assertEquals;
 
 public class TestIonSqlQueryBuilder
@@ -54,11 +54,11 @@ public class TestIonSqlQueryBuilder
     @Test
     public void testBuildSQL()
     {
-        IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(new TypeRegistry());
+        IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(createTestFunctionAndTypeManager());
         List<HiveColumnHandle> columns = ImmutableList.of(
-                new HiveColumnHandle("n_nationkey", HIVE_INT, parseTypeSignature(INTEGER), 0, REGULAR, Optional.empty()),
-                new HiveColumnHandle("n_name", HIVE_STRING, parseTypeSignature(VARCHAR), 1, REGULAR, Optional.empty()),
-                new HiveColumnHandle("n_regionkey", HIVE_INT, parseTypeSignature(INTEGER), 2, REGULAR, Optional.empty()));
+                new HiveColumnHandle("n_nationkey", HIVE_INT, parseTypeSignature(INTEGER), 0, REGULAR, Optional.empty(), Optional.empty()),
+                new HiveColumnHandle("n_name", HIVE_STRING, parseTypeSignature(VARCHAR), 1, REGULAR, Optional.empty(), Optional.empty()),
+                new HiveColumnHandle("n_regionkey", HIVE_INT, parseTypeSignature(INTEGER), 2, REGULAR, Optional.empty(), Optional.empty()));
 
         assertEquals("SELECT s._1, s._2, s._3 FROM S3Object s",
                 queryBuilder.buildSql(columns, TupleDomain.all()));
@@ -71,19 +71,19 @@ public class TestIonSqlQueryBuilder
     @Test
     public void testEmptyColumns()
     {
-        IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(new TypeRegistry());
+        IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(createTestFunctionAndTypeManager());
         assertEquals("SELECT ' ' FROM S3Object s", queryBuilder.buildSql(ImmutableList.of(), TupleDomain.all()));
     }
 
     @Test
     public void testDecimalColumns()
     {
-        TypeManager typeManager = new TypeRegistry();
+        TypeManager typeManager = createTestFunctionAndTypeManager();
         IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(typeManager);
         List<HiveColumnHandle> columns = ImmutableList.of(
-                new HiveColumnHandle("quantity", HiveType.valueOf("decimal(20,0)"), parseTypeSignature(DECIMAL), 0, REGULAR, Optional.empty()),
-                new HiveColumnHandle("extendedprice", HiveType.valueOf("decimal(20,2)"), parseTypeSignature(DECIMAL), 1, REGULAR, Optional.empty()),
-                new HiveColumnHandle("discount", HiveType.valueOf("decimal(10,2)"), parseTypeSignature(DECIMAL), 2, REGULAR, Optional.empty()));
+                new HiveColumnHandle("quantity", HiveType.valueOf("decimal(20,0)"), parseTypeSignature(DECIMAL), 0, REGULAR, Optional.empty(), Optional.empty()),
+                new HiveColumnHandle("extendedprice", HiveType.valueOf("decimal(20,2)"), parseTypeSignature(DECIMAL), 1, REGULAR, Optional.empty(), Optional.empty()),
+                new HiveColumnHandle("discount", HiveType.valueOf("decimal(10,2)"), parseTypeSignature(DECIMAL), 2, REGULAR, Optional.empty(), Optional.empty()));
         DecimalType decimalType = DecimalType.createDecimalType(10, 2);
         TupleDomain<HiveColumnHandle> tupleDomain = withColumnDomains(
                 ImmutableMap.of(
@@ -99,10 +99,10 @@ public class TestIonSqlQueryBuilder
     @Test
     public void testDateColumn()
     {
-        IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(new TypeRegistry());
+        IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(createTestFunctionAndTypeManager());
         List<HiveColumnHandle> columns = ImmutableList.of(
-                new HiveColumnHandle("t1", HIVE_TIMESTAMP, parseTypeSignature(TIMESTAMP), 0, REGULAR, Optional.empty()),
-                new HiveColumnHandle("t2", HIVE_DATE, parseTypeSignature(StandardTypes.DATE), 1, REGULAR, Optional.empty()));
+                new HiveColumnHandle("t1", HIVE_TIMESTAMP, parseTypeSignature(TIMESTAMP), 0, REGULAR, Optional.empty(), Optional.empty()),
+                new HiveColumnHandle("t2", HIVE_DATE, parseTypeSignature(StandardTypes.DATE), 1, REGULAR, Optional.empty(), Optional.empty()));
         TupleDomain<HiveColumnHandle> tupleDomain = withColumnDomains(ImmutableMap.of(
                 columns.get(1), Domain.create(SortedRangeSet.copyOf(DATE, ImmutableList.of(Range.equal(DATE, (long) DateTimeUtils.parseDate("2001-08-22")))), false)));
 
@@ -112,11 +112,11 @@ public class TestIonSqlQueryBuilder
     @Test
     public void testNotPushDoublePredicates()
     {
-        IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(new TypeRegistry());
+        IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(createTestFunctionAndTypeManager());
         List<HiveColumnHandle> columns = ImmutableList.of(
-                new HiveColumnHandle("quantity", HIVE_INT, parseTypeSignature(INTEGER), 0, REGULAR, Optional.empty()),
-                new HiveColumnHandle("extendedprice", HIVE_DOUBLE, parseTypeSignature(StandardTypes.DOUBLE), 1, REGULAR, Optional.empty()),
-                new HiveColumnHandle("discount", HIVE_DOUBLE, parseTypeSignature(StandardTypes.DOUBLE), 2, REGULAR, Optional.empty()));
+                new HiveColumnHandle("quantity", HIVE_INT, parseTypeSignature(INTEGER), 0, REGULAR, Optional.empty(), Optional.empty()),
+                new HiveColumnHandle("extendedprice", HIVE_DOUBLE, parseTypeSignature(StandardTypes.DOUBLE), 1, REGULAR, Optional.empty(), Optional.empty()),
+                new HiveColumnHandle("discount", HIVE_DOUBLE, parseTypeSignature(StandardTypes.DOUBLE), 2, REGULAR, Optional.empty(), Optional.empty()));
         TupleDomain<HiveColumnHandle> tupleDomain = withColumnDomains(
                 ImmutableMap.of(
                         columns.get(0), Domain.create(ofRanges(Range.lessThan(BIGINT, 50L)), false),

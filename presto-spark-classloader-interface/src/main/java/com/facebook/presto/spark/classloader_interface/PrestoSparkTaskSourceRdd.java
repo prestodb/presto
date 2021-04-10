@@ -40,7 +40,7 @@ public class PrestoSparkTaskSourceRdd
      * When input tables are bucketed, each bucket in task sources will be assigned to one Spark partition (task),
      * and the assignment is compatible to potential shuffle inputs.
      */
-    private List<List<SerializedPrestoSparkTaskSource>> taskSourcesByPartitionId;
+    private transient List<List<SerializedPrestoSparkTaskSource>> taskSourcesByPartitionId;
 
     public PrestoSparkTaskSourceRdd(SparkContext sparkContext, List<List<SerializedPrestoSparkTaskSource>> taskSourcesByPartitionId)
     {

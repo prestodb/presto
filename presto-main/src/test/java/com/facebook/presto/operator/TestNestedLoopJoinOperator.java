@@ -18,7 +18,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.NestedLoopBuildOperator.NestedLoopBuildOperatorFactory;
 import com.facebook.presto.operator.NestedLoopJoinOperator.NestedLoopJoinOperatorFactory;
-import com.facebook.presto.operator.NestedLoopJoinOperator.NestedLoopPageBuilder;
+import com.facebook.presto.operator.NestedLoopJoinOperator.NestedLoopOutputIterator;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.TestingTaskContext;
@@ -36,6 +36,7 @@ import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.operator.NestedLoopJoinOperator.createNestedLoopOutputIterator;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
 import static com.facebook.presto.operator.ValuesOperator.ValuesOperatorFactory;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
@@ -444,7 +445,7 @@ public class TestNestedLoopJoinOperator
         Page buildPage = new Page(100);
         Page probePage = new Page(45);
 
-        NestedLoopPageBuilder resultPageBuilder = new NestedLoopPageBuilder(probePage, buildPage);
+        NestedLoopOutputIterator resultPageBuilder = createNestedLoopOutputIterator(probePage, buildPage);
         assertTrue(resultPageBuilder.hasNext(), "There should be at least one page.");
 
         long result = 0;
@@ -455,7 +456,7 @@ public class TestNestedLoopJoinOperator
 
         // force the product to be bigger than Integer.MAX_VALUE
         buildPage = new Page(Integer.MAX_VALUE - 10);
-        resultPageBuilder = new NestedLoopPageBuilder(probePage, buildPage);
+        resultPageBuilder = createNestedLoopOutputIterator(probePage, buildPage);
 
         result = 0;
         while (resultPageBuilder.hasNext()) {
@@ -479,14 +480,15 @@ public class TestNestedLoopJoinOperator
                 false,
                 PipelineExecutionStrategy.UNGROUPED_EXECUTION,
                 PipelineExecutionStrategy.UNGROUPED_EXECUTION,
-                lifespan -> new NestedLoopJoinPagesSupplier(),
+                NestedLoopJoinPagesSupplier::new,
                 buildPages.getTypes());
         NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(1, new PlanNodeId("test"), nestedLoopJoinBridgeManager);
         NestedLoopJoinOperatorFactory joinOperatorFactory = new NestedLoopJoinOperatorFactory(3, new PlanNodeId("test"), nestedLoopJoinBridgeManager);
 
         Operator valuesOperator = valuesOperatorFactory.createOperator(driverContext);
         Operator nestedLoopBuildOperator = nestedLoopBuildOperatorFactory.createOperator(driverContext);
-        Driver driver = Driver.createDriver(driverContext,
+        Driver driver = Driver.createDriver(
+                driverContext,
                 valuesOperator,
                 nestedLoopBuildOperator);
 

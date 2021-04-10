@@ -27,8 +27,8 @@ import static java.lang.String.format;
 // TODO: remove this when we upgrade to Java 9 (replace with java.lang.Runtime.getVersion())
 public class JavaVersion
 {
-    // As described in JEP-223
-    private static final String VERSION_NUMBER = "(?<MAJOR>[1-9][0-9]*)(\\.(?<MINOR>(0|[1-9][0-9]*))(\\.(?:(0|[1-9][0-9]*)))?)?";
+    // As described in JEP-223 and JEP-322
+    private static final String VERSION_NUMBER = "(?<MAJOR>[1-9][0-9]*)(\\.(?<MINOR>(0|[1-9][0-9]*))(\\.(?:(0|[1-9][0-9]*)))?)*";
     private static final String PRE = "(?:-(?:[a-zA-Z0-9]+))?";
     private static final String BUILD = "(?:(?:\\+)(?:0|[1-9][0-9]*)?)?";
     private static final String OPT = "(?:-(?:[-a-zA-Z0-9.]+))?";

@@ -19,11 +19,16 @@ import com.facebook.airlift.http.client.HttpUriBuilder;
 import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.http.client.ResponseHandler;
 import com.facebook.airlift.http.client.StatusResponseHandler.StatusResponse;
+import com.facebook.airlift.json.Codec;
+import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.json.smile.SmileCodec;
 import com.facebook.airlift.log.Logger;
+import com.facebook.drift.transport.netty.codec.Protocol;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.FutureStateChange;
 import com.facebook.presto.execution.Lifespan;
-import com.facebook.presto.execution.NodeTaskMap.PartitionedSplitCountTracker;
+import com.facebook.presto.execution.NodeTaskMap.NodeStatsTracker;
+import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
@@ -36,12 +41,15 @@ import com.facebook.presto.execution.buffer.BufferInfo;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.PageBufferInfo;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
+import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.TaskStats;
+import com.facebook.presto.server.RequestErrorTracker;
+import com.facebook.presto.server.SimpleHttpResponseCallback;
+import com.facebook.presto.server.SimpleHttpResponseHandler;
 import com.facebook.presto.server.TaskUpdateRequest;
 import com.facebook.presto.server.smile.BaseResponse;
-import com.facebook.presto.server.smile.Codec;
-import com.facebook.presto.server.smile.SmileCodec;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -51,6 +59,7 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.ObjectArrays;
 import com.google.common.collect.SetMultimap;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -90,17 +99,19 @@ import static com.facebook.airlift.http.client.Request.Builder.prepareDelete;
 import static com.facebook.airlift.http.client.Request.Builder.preparePost;
 import static com.facebook.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static com.facebook.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
+import static com.facebook.presto.SystemSessionProperties.getMaxUnacknowledgedSplitsPerTask;
 import static com.facebook.presto.execution.TaskInfo.createInitialTask;
 import static com.facebook.presto.execution.TaskState.ABORTED;
 import static com.facebook.presto.execution.TaskState.FAILED;
 import static com.facebook.presto.execution.TaskStatus.failWith;
+import static com.facebook.presto.server.RequestErrorTracker.isExpectedError;
+import static com.facebook.presto.server.RequestErrorTracker.taskRequestErrorTracker;
 import static com.facebook.presto.server.RequestHelpers.setContentTypeHeaders;
-import static com.facebook.presto.server.remotetask.RequestErrorTracker.logError;
 import static com.facebook.presto.server.smile.AdaptingJsonResponseHandler.createAdaptingJsonResponseHandler;
 import static com.facebook.presto.server.smile.FullSmileResponseHandler.createFullSmileResponseHandler;
-import static com.facebook.presto.server.smile.JsonCodecWrapper.unwrapJsonCodec;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TASK_UPDATE_SIZE_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -178,12 +189,15 @@ public final class HttpRemoteTask
     private final AtomicBoolean needsUpdate = new AtomicBoolean(true);
     private final AtomicBoolean sendPlan = new AtomicBoolean(true);
 
-    private final PartitionedSplitCountTracker partitionedSplitCountTracker;
+    private final NodeStatsTracker nodeStatsTracker;
 
     private final AtomicBoolean aborting = new AtomicBoolean(false);
 
-    private final boolean isBinaryTransportEnabled;
+    private final boolean binaryTransportEnabled;
+    private final boolean thriftTransportEnabled;
+    private final Protocol thriftProtocol;
     private final int maxTaskUpdateSizeInBytes;
+    private final int maxUnacknowledgedSplits;
 
     private final TableWriteInfo tableWriteInfo;
 
@@ -209,11 +223,16 @@ public final class HttpRemoteTask
             Codec<TaskInfo> taskInfoCodec,
             Codec<TaskUpdateRequest> taskUpdateRequestCodec,
             Codec<PlanFragment> planFragmentCodec,
-            PartitionedSplitCountTracker partitionedSplitCountTracker,
+            Codec<MetadataUpdates> metadataUpdatesCodec,
+            NodeStatsTracker nodeStatsTracker,
             RemoteTaskStats stats,
-            boolean isBinaryTransportEnabled,
+            boolean binaryTransportEnabled,
+            boolean thriftTransportEnabled,
+            Protocol thriftProtocol,
             TableWriteInfo tableWriteInfo,
-            int maxTaskUpdateSizeInBytes)
+            int maxTaskUpdateSizeInBytes,
+            MetadataManager metadataManager,
+            QueryManager queryManager)
     {
         requireNonNull(session, "session is null");
         requireNonNull(taskId, "taskId is null");
@@ -228,11 +247,14 @@ public final class HttpRemoteTask
         requireNonNull(taskInfoCodec, "taskInfoCodec is null");
         requireNonNull(taskUpdateRequestCodec, "taskUpdateRequestCodec is null");
         requireNonNull(planFragmentCodec, "planFragmentCodec is null");
-        requireNonNull(partitionedSplitCountTracker, "partitionedSplitCountTracker is null");
+        requireNonNull(nodeStatsTracker, "nodeStatsTracker is null");
         requireNonNull(maxErrorDuration, "maxErrorDuration is null");
         requireNonNull(stats, "stats is null");
         requireNonNull(taskInfoRefreshMaxWait, "taskInfoRefreshMaxWait is null");
         requireNonNull(tableWriteInfo, "tableWriteInfo is null");
+        requireNonNull(metadataManager, "metadataManager is null");
+        requireNonNull(queryManager, "queryManager is null");
+        requireNonNull(thriftProtocol, "thriftProtocol is null");
 
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             this.taskId = taskId;
@@ -249,13 +271,17 @@ public final class HttpRemoteTask
             this.taskInfoCodec = taskInfoCodec;
             this.taskUpdateRequestCodec = taskUpdateRequestCodec;
             this.planFragmentCodec = planFragmentCodec;
-            this.updateErrorTracker = new RequestErrorTracker(taskId, location, maxErrorDuration, errorScheduledExecutor, "updating task");
-            this.partitionedSplitCountTracker = requireNonNull(partitionedSplitCountTracker, "partitionedSplitCountTracker is null");
+            this.updateErrorTracker = taskRequestErrorTracker(taskId, location, maxErrorDuration, errorScheduledExecutor, "updating task");
+            this.nodeStatsTracker = requireNonNull(nodeStatsTracker, "nodeStatsTracker is null");
             this.maxErrorDuration = maxErrorDuration;
             this.stats = stats;
-            this.isBinaryTransportEnabled = isBinaryTransportEnabled;
+            this.binaryTransportEnabled = binaryTransportEnabled;
+            this.thriftTransportEnabled = thriftTransportEnabled;
+            this.thriftProtocol = thriftProtocol;
             this.tableWriteInfo = tableWriteInfo;
             this.maxTaskUpdateSizeInBytes = maxTaskUpdateSizeInBytes;
+            this.maxUnacknowledgedSplits = getMaxUnacknowledgedSplitsPerTask(session);
+            checkArgument(maxUnacknowledgedSplits > 0, "maxUnacknowledgedSplits must be > 0, found: %s", maxUnacknowledgedSplits);
 
             this.tableScanPlanNodeIds = ImmutableSet.copyOf(planFragment.getTableScanSchedulingOrder());
             this.remoteSourcePlanNodeIds = planFragment.getRemoteSourceNodes().stream()
@@ -276,7 +302,7 @@ public final class HttpRemoteTask
                     .map(outputId -> new BufferInfo(outputId, false, 0, 0, PageBufferInfo.empty()))
                     .collect(toImmutableList());
 
-            TaskInfo initialTask = createInitialTask(taskId, location, bufferStates, new TaskStats(DateTime.now(), null));
+            TaskInfo initialTask = createInitialTask(taskId, location, bufferStates, new TaskStats(DateTime.now(), null), nodeId);
 
             this.taskStatusFetcher = new ContinuousTaskStatusFetcher(
                     this::failTask,
@@ -289,7 +315,9 @@ public final class HttpRemoteTask
                     maxErrorDuration,
                     errorScheduledExecutor,
                     stats,
-                    isBinaryTransportEnabled);
+                    binaryTransportEnabled,
+                    thriftTransportEnabled,
+                    thriftProtocol);
 
             this.taskInfoFetcher = new TaskInfoFetcher(
                     this::failTask,
@@ -298,13 +326,17 @@ public final class HttpRemoteTask
                     taskInfoUpdateInterval,
                     taskInfoRefreshMaxWait,
                     taskInfoCodec,
+                    metadataUpdatesCodec,
                     maxErrorDuration,
                     summarizeTaskInfo,
                     executor,
                     updateScheduledExecutor,
                     errorScheduledExecutor,
                     stats,
-                    isBinaryTransportEnabled);
+                    binaryTransportEnabled,
+                    session,
+                    metadataManager,
+                    queryManager);
 
             taskStatusFetcher.addStateChangeListener(newStatus -> {
                 TaskState state = newStatus.getState();
@@ -312,12 +344,12 @@ public final class HttpRemoteTask
                     cleanUpTask();
                 }
                 else {
-                    partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
+                    updateTaskStats();
                     updateSplitQueueSpace();
                 }
             });
 
-            partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
+            updateTaskStats();
             updateSplitQueueSpace();
         }
     }
@@ -388,7 +420,7 @@ public final class HttpRemoteTask
             }
             if (tableScanPlanNodeIds.contains(sourceId)) {
                 pendingSourceSplitCount += added;
-                partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
+                updateTaskStats();
             }
             needsUpdate = true;
         }
@@ -446,7 +478,7 @@ public final class HttpRemoteTask
         Request request = prepareDelete()
                 .setUri(remoteSourceUri)
                 .build();
-        RequestErrorTracker errorTracker = new RequestErrorTracker(
+        RequestErrorTracker errorTracker = taskRequestErrorTracker(
                 taskId,
                 remoteSourceUri,
                 maxErrorDuration,
@@ -527,6 +559,12 @@ public final class HttpRemoteTask
         return getPendingSourceSplitCount() + taskStatus.getQueuedPartitionedDrivers();
     }
 
+    @Override
+    public int getUnacknowledgedPartitionedSplitCount()
+    {
+        return getPendingSourceSplitCount();
+    }
+
     @SuppressWarnings("FieldAccessNotGuarded")
     private int getPendingSourceSplitCount()
     {
@@ -565,12 +603,27 @@ public final class HttpRemoteTask
 
     private synchronized void updateSplitQueueSpace()
     {
-        if (!whenSplitQueueHasSpaceThreshold.isPresent()) {
-            return;
-        }
-        splitQueueHasSpace = getQueuedPartitionedSplitCount() < whenSplitQueueHasSpaceThreshold.getAsInt();
-        if (splitQueueHasSpace) {
+        // Must check whether the unacknowledged split count threshold is reached even without listeners registered yet
+        splitQueueHasSpace = getUnacknowledgedPartitionedSplitCount() < maxUnacknowledgedSplits &&
+                (!whenSplitQueueHasSpaceThreshold.isPresent() || getQueuedPartitionedSplitCount() < whenSplitQueueHasSpaceThreshold.getAsInt());
+        // Only trigger notifications if a listener might be registered
+        if (splitQueueHasSpace && whenSplitQueueHasSpaceThreshold.isPresent()) {
             whenSplitQueueHasSpace.complete(null, executor);
+        }
+    }
+
+    private void updateTaskStats()
+    {
+        TaskStatus taskStatus = getTaskStatus();
+        if (taskStatus.getState().isDone()) {
+            nodeStatsTracker.setPartitionedSplitCount(0);
+            nodeStatsTracker.setMemoryUsage(0);
+            nodeStatsTracker.setCpuUsage(taskStatus.getTaskAgeInMillis(), 0);
+        }
+        else {
+            nodeStatsTracker.setPartitionedSplitCount(getPartitionedSplitCount());
+            nodeStatsTracker.setMemoryUsage(taskStatus.getMemoryReservationInBytes() + taskStatus.getSystemMemoryReservationInBytes());
+            nodeStatsTracker.setCpuUsage(taskStatus.getTaskAgeInMillis(), taskStatus.getTotalCpuTimeInNanos());
         }
     }
 
@@ -599,7 +652,7 @@ public final class HttpRemoteTask
         }
         updateSplitQueueSpace();
 
-        partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
+        updateTaskStats();
     }
 
     private void updateTaskInfo(TaskInfo taskInfo)
@@ -661,17 +714,17 @@ public final class HttpRemoteTask
         }
 
         HttpUriBuilder uriBuilder = getHttpUriBuilder(taskStatus);
-        Request request = setContentTypeHeaders(isBinaryTransportEnabled, preparePost())
+        Request request = setContentTypeHeaders(binaryTransportEnabled, preparePost())
                 .setUri(uriBuilder.build())
                 .setBodyGenerator(createStaticBodyGenerator(taskUpdateRequestJson))
                 .build();
 
         ResponseHandler responseHandler;
-        if (isBinaryTransportEnabled) {
+        if (binaryTransportEnabled) {
             responseHandler = createFullSmileResponseHandler((SmileCodec<TaskInfo>) taskInfoCodec);
         }
         else {
-            responseHandler = createAdaptingJsonResponseHandler(unwrapJsonCodec(taskInfoCodec));
+            responseHandler = createAdaptingJsonResponseHandler((JsonCodec<TaskInfo>) taskInfoCodec);
         }
 
         updateErrorTracker.startRequest();
@@ -684,7 +737,10 @@ public final class HttpRemoteTask
         // and does so without grabbing the instance lock.
         needsUpdate.set(false);
 
-        Futures.addCallback(future, new SimpleHttpResponseHandler<>(new UpdateResponseHandler(sources), request.getUri(), stats), executor);
+        Futures.addCallback(
+                future,
+                new SimpleHttpResponseHandler<>(new UpdateResponseHandler(sources), request.getUri(), stats.getHttpResponseStats(), REMOTE_TASK_ERROR),
+                executor);
     }
 
     private synchronized List<TaskSource> getSources()
@@ -720,7 +776,7 @@ public final class HttpRemoteTask
 
             // send cancel to task and ignore response
             HttpUriBuilder uriBuilder = getHttpUriBuilder(taskStatus).addParameter("abort", "false");
-            Request request = setContentTypeHeaders(isBinaryTransportEnabled, prepareDelete())
+            Request request = setContentTypeHeaders(binaryTransportEnabled, prepareDelete())
                     .setUri(uriBuilder.build())
                     .build();
             scheduleAsyncCleanupRequest(createCleanupBackoff(), request, "cancel");
@@ -734,7 +790,7 @@ public final class HttpRemoteTask
         // clear pending splits to free memory
         pendingSplits.clear();
         pendingSourceSplitCount = 0;
-        partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
+        updateTaskStats();
         splitQueueHasSpace = true;
         whenSplitQueueHasSpace.complete(null, executor);
 
@@ -751,7 +807,7 @@ public final class HttpRemoteTask
         // The remote task is likely to get a delete from the PageBufferClient first.
         // We send an additional delete anyway to get the final TaskInfo
         HttpUriBuilder uriBuilder = getHttpUriBuilder(getTaskStatus());
-        Request request = setContentTypeHeaders(isBinaryTransportEnabled, prepareDelete())
+        Request request = setContentTypeHeaders(binaryTransportEnabled, prepareDelete())
                 .setUri(uriBuilder.build())
                 .build();
 
@@ -777,7 +833,7 @@ public final class HttpRemoteTask
 
             // send abort to task
             HttpUriBuilder uriBuilder = getHttpUriBuilder(getTaskStatus());
-            Request request = setContentTypeHeaders(isBinaryTransportEnabled, prepareDelete())
+            Request request = setContentTypeHeaders(binaryTransportEnabled, prepareDelete())
                     .setUri(uriBuilder.build())
                     .build();
             scheduleAsyncCleanupRequest(createCleanupBackoff(), request, "abort");
@@ -797,11 +853,11 @@ public final class HttpRemoteTask
     private void doScheduleAsyncCleanupRequest(Backoff cleanupBackoff, Request request, String action)
     {
         ResponseHandler responseHandler;
-        if (isBinaryTransportEnabled) {
+        if (binaryTransportEnabled) {
             responseHandler = createFullSmileResponseHandler((SmileCodec<TaskInfo>) taskInfoCodec);
         }
         else {
-            responseHandler = createAdaptingJsonResponseHandler(unwrapJsonCodec(taskInfoCodec));
+            responseHandler = createAdaptingJsonResponseHandler((JsonCodec<TaskInfo>) taskInfoCodec);
         }
 
         Futures.addCallback(httpClient.executeAsync(request, responseHandler), new FutureCallback<BaseResponse<TaskInfo>>()
@@ -994,6 +1050,16 @@ public final class HttpRemoteTask
         {
             Duration requestRoundTrip = Duration.nanosSince(currentRequestStartNanos);
             stats.updateRoundTripMillis(requestRoundTrip.toMillis());
+        }
+    }
+
+    private static void logError(Throwable t, String format, Object... args)
+    {
+        if (isExpectedError(t)) {
+            log.error(format + ": %s", ObjectArrays.concat(args, t));
+        }
+        else {
+            log.error(t, format, args);
         }
     }
 }

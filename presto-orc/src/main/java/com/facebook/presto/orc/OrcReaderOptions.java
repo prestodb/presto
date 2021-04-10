@@ -23,13 +23,28 @@ public class OrcReaderOptions
     private final DataSize tinyStripeThreshold;
     private final DataSize maxBlockSize;
     private final boolean zstdJniDecompressionEnabled;
+    private final boolean mapNullKeysEnabled;
+    private final boolean enableTimestampMicroPrecision;
 
     public OrcReaderOptions(DataSize maxMergeDistance, DataSize tinyStripeThreshold, DataSize maxBlockSize, boolean zstdJniDecompressionEnabled)
+    {
+        this(maxMergeDistance, tinyStripeThreshold, maxBlockSize, zstdJniDecompressionEnabled, false, false);
+    }
+
+    public OrcReaderOptions(
+            DataSize maxMergeDistance,
+            DataSize tinyStripeThreshold,
+            DataSize maxBlockSize,
+            boolean zstdJniDecompressionEnabled,
+            boolean mapNullKeysEnabled,
+            boolean enableTimestampMicroPrecision)
     {
         this.maxMergeDistance = requireNonNull(maxMergeDistance, "maxMergeDistance is null");
         this.maxBlockSize = requireNonNull(maxBlockSize, "maxBlockSize is null");
         this.tinyStripeThreshold = requireNonNull(tinyStripeThreshold, "tinyStripeThreshold is null");
         this.zstdJniDecompressionEnabled = zstdJniDecompressionEnabled;
+        this.mapNullKeysEnabled = mapNullKeysEnabled;
+        this.enableTimestampMicroPrecision = enableTimestampMicroPrecision;
     }
 
     public DataSize getMaxMergeDistance()
@@ -50,5 +65,15 @@ public class OrcReaderOptions
     public DataSize getTinyStripeThreshold()
     {
         return tinyStripeThreshold;
+    }
+
+    public boolean mapNullKeysEnabled()
+    {
+        return mapNullKeysEnabled;
+    }
+
+    public boolean enableTimestampMicroPrecision()
+    {
+        return enableTimestampMicroPrecision;
     }
 }

@@ -15,7 +15,7 @@ package com.facebook.presto.connector.jmx;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonCodecFactory;
-import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.fasterxml.jackson.databind.DeserializationContext;
@@ -38,7 +38,7 @@ public final class MetadataUtil
     public static final JsonCodec<JmxSplit> SPLIT_CODEC;
 
     static {
-        ObjectMapperProvider provider = new ObjectMapperProvider();
+        JsonObjectMapperProvider provider = new JsonObjectMapperProvider();
         provider.setJsonDeserializers(ImmutableMap.of(Type.class, new TestingTypeDeserializer()));
         JsonCodecFactory codecFactory = new JsonCodecFactory(provider);
         TABLE_CODEC = codecFactory.jsonCodec(JmxTableHandle.class);

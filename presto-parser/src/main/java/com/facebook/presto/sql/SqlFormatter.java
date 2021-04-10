@@ -25,6 +25,7 @@ import com.facebook.presto.sql.tree.CallArgument;
 import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.CreateFunction;
+import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.CreateRole;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
@@ -36,6 +37,7 @@ import com.facebook.presto.sql.tree.DescribeInput;
 import com.facebook.presto.sql.tree.DescribeOutput;
 import com.facebook.presto.sql.tree.DropColumn;
 import com.facebook.presto.sql.tree.DropFunction;
+import com.facebook.presto.sql.tree.DropMaterializedView;
 import com.facebook.presto.sql.tree.DropRole;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
@@ -107,6 +109,7 @@ import com.facebook.presto.sql.tree.TransactionAccessMode;
 import com.facebook.presto.sql.tree.TransactionMode;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Unnest;
+import com.facebook.presto.sql.tree.Use;
 import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
@@ -499,9 +502,7 @@ public final class SqlFormatter
 
                 if (relations.hasNext()) {
                     builder.append("UNION ");
-                    if (!node.isDistinct()) {
-                        builder.append("ALL ");
-                    }
+                    node.isDistinct().map(distinct -> distinct ? builder.append("DISTINCT ") : builder.append("ALL "));
                 }
             }
 
@@ -514,9 +515,7 @@ public final class SqlFormatter
             processRelation(node.getLeft(), indent);
 
             builder.append("EXCEPT ");
-            if (!node.isDistinct()) {
-                builder.append("ALL ");
-            }
+            node.isDistinct().map(distinct -> distinct ? builder.append("DISTINCT ") : builder.append("ALL "));
 
             processRelation(node.getRight(), indent);
 
@@ -533,9 +532,7 @@ public final class SqlFormatter
 
                 if (relations.hasNext()) {
                     builder.append("INTERSECT ");
-                    if (!node.isDistinct()) {
-                        builder.append("ALL ");
-                    }
+                    node.isDistinct().map(distinct -> distinct ? builder.append("DISTINCT ") : builder.append("ALL "));
                 }
             }
 
@@ -565,9 +562,34 @@ public final class SqlFormatter
         }
 
         @Override
+        protected Void visitCreateMaterializedView(CreateMaterializedView node, Integer indent)
+        {
+            builder.append("CREATE MATERIALIZED VIEW ");
+            if (node.isNotExists()) {
+                builder.append("IF NOT EXISTS ");
+            }
+            builder.append(formatName(node.getName()));
+
+            if (node.getComment().isPresent()) {
+                builder.append("\nCOMMENT " + formatStringLiteral(node.getComment().get()));
+            }
+
+            builder.append(formatPropertiesMultiLine(node.getProperties()));
+
+            builder.append(" AS ");
+            process(node.getQuery(), indent);
+
+            return null;
+        }
+
+        @Override
         protected Void visitCreateFunction(CreateFunction node, Integer indent)
         {
-            builder.append("CREATE FUNCTION ")
+            builder.append("CREATE ");
+            if (node.isTemporary()) {
+                builder.append("TEMPORARY ");
+            }
+            builder.append("FUNCTION ")
                     .append(formatName(node.getFunctionName()))
                     .append(" ")
                     .append(formatSqlParameterDeclarations(node.getParameters()))
@@ -601,7 +623,11 @@ public final class SqlFormatter
         @Override
         protected Void visitDropFunction(DropFunction node, Integer indent)
         {
-            builder.append("DROP FUNCTION ");
+            builder.append("DROP ");
+            if (node.isTemporary()) {
+                builder.append("TEMPORARY ");
+            }
+            builder.append("FUNCTION ");
             if (node.isExists()) {
                 builder.append("IF EXISTS ");
             }
@@ -636,6 +662,18 @@ public final class SqlFormatter
         protected Void visitDropView(DropView node, Integer context)
         {
             builder.append("DROP VIEW ");
+            if (node.isExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(node.getName());
+
+            return null;
+        }
+
+        @Override
+        protected Void visitDropMaterializedView(DropMaterializedView node, Integer context)
+        {
+            builder.append("DROP MATERIALIZED VIEW ");
             if (node.isExists()) {
                 builder.append("IF EXISTS ");
             }
@@ -743,6 +781,10 @@ public final class SqlFormatter
                 builder.append("SHOW CREATE VIEW ")
                         .append(formatName(node.getName()));
             }
+            else if (node.getType() == ShowCreate.Type.MATERIALIZED_VIEW) {
+                builder.append("SHOW CREATE MATERIALIZED VIEW ")
+                        .append(formatName(node.getName()));
+            }
 
             return null;
         }
@@ -787,6 +829,19 @@ public final class SqlFormatter
             node.getEscape().ifPresent(value ->
                     builder.append(" ESCAPE ")
                             .append(formatStringLiteral(value)));
+
+            return null;
+        }
+
+        @Override
+        protected Void visitUse(Use node, Integer context)
+        {
+            builder.append("USE ");
+            if (node.getCatalog().isPresent()) {
+                builder.append(formatExpression(node.getCatalog().get(), Optional.empty()))
+                        .append(".");
+            }
+            builder.append(formatExpression(node.getSchema(), Optional.empty()));
 
             return null;
         }
@@ -1067,8 +1122,11 @@ public final class SqlFormatter
         @Override
         protected Void visitRenameTable(RenameTable node, Integer context)
         {
-            builder.append("ALTER TABLE ")
-                    .append(node.getSource())
+            builder.append("ALTER TABLE ");
+            if (node.isExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(node.getSource())
                     .append(" RENAME TO ")
                     .append(node.getTarget());
 
@@ -1078,10 +1136,16 @@ public final class SqlFormatter
         @Override
         protected Void visitRenameColumn(RenameColumn node, Integer context)
         {
-            builder.append("ALTER TABLE ")
-                    .append(node.getTable())
-                    .append(" RENAME COLUMN ")
-                    .append(node.getSource())
+            builder.append("ALTER TABLE ");
+            if (node.isTableExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(node.getTable())
+                    .append(" RENAME COLUMN ");
+            if (node.isColumnExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(node.getSource())
                     .append(" TO ")
                     .append(node.getTarget());
 
@@ -1091,10 +1155,16 @@ public final class SqlFormatter
         @Override
         protected Void visitDropColumn(DropColumn node, Integer context)
         {
-            builder.append("ALTER TABLE ")
-                    .append(formatName(node.getTable()))
-                    .append(" DROP COLUMN ")
-                    .append(formatExpression(node.getColumn(), parameters));
+            builder.append("ALTER TABLE ");
+            if (node.isTableExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(formatName(node.getTable()))
+                    .append(" DROP COLUMN ");
+            if (node.isColumnExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(formatExpression(node.getColumn(), parameters));
 
             return null;
         }
@@ -1111,10 +1181,16 @@ public final class SqlFormatter
         @Override
         protected Void visitAddColumn(AddColumn node, Integer indent)
         {
-            builder.append("ALTER TABLE ")
-                    .append(node.getName())
-                    .append(" ADD COLUMN ")
-                    .append(formatColumnDefinition(node.getColumn()));
+            builder.append("ALTER TABLE ");
+            if (node.isTableExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(node.getName())
+                    .append(" ADD COLUMN ");
+            if (node.isColumnNotExists()) {
+                builder.append("IF NOT EXISTS ");
+            }
+            builder.append(formatColumnDefinition(node.getColumn()));
 
             return null;
         }

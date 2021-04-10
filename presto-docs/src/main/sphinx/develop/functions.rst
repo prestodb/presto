@@ -116,8 +116,11 @@ To make our previous example work with any type we need the following:
   The ``@TypeParameter`` annotation is used to declare a type parameter which can
   be used in the argument types ``@SqlType`` annotation, or return type of the function.
   It can also be used to annotate a parameter of type ``Type``. At runtime, the engine
-  will bind the concrete type to this parameter. ``@OperatorDependency`` may be used
-  to declare that an additional function for operating on the given type parameter is needed.
+  will bind the concrete type to this parameter. Optionally, the type parameter
+  can be constrained to descendants of a particular type by providing a ``boundedBy``
+  type class to ``@TypeParameter``.
+  ``@OperatorDependency`` may be used to declare that an additional function
+  for operating on the given type parameter is needed.
   For example, the following function will only bind to types which have an equals function
   defined:
 

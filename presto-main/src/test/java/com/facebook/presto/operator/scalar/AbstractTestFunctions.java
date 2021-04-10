@@ -109,7 +109,7 @@ public abstract class AbstractTestFunctions
 
     protected void assertOperator(OperatorType operator, String value, Type expectedType, Object expected)
     {
-        functionAssertions.assertFunction(format("\"%s\"(%s)", operator.getFunctionName().getFunctionName(), value), expectedType, expected);
+        functionAssertions.assertFunction(format("\"%s\"(%s)", operator.getFunctionName().getObjectName(), value), expectedType, expected);
     }
 
     protected void assertDecimalFunction(String statement, SqlDecimal expectedResult)
@@ -198,7 +198,7 @@ public abstract class AbstractTestFunctions
     protected void registerScalarFunction(SqlScalarFunction sqlScalarFunction)
     {
         Metadata metadata = functionAssertions.getMetadata();
-        metadata.getFunctionManager().registerBuiltInFunctions(ImmutableList.of(sqlScalarFunction));
+        metadata.getFunctionAndTypeManager().registerBuiltInFunctions(ImmutableList.of(sqlScalarFunction));
     }
 
     protected void registerScalar(Class<?> clazz)
@@ -207,7 +207,7 @@ public abstract class AbstractTestFunctions
         List<SqlFunction> functions = new FunctionListBuilder()
                 .scalars(clazz)
                 .getFunctions();
-        metadata.getFunctionManager().registerBuiltInFunctions(functions);
+        metadata.getFunctionAndTypeManager().registerBuiltInFunctions(functions);
     }
 
     protected void registerParametricScalar(Class<?> clazz)
@@ -216,7 +216,7 @@ public abstract class AbstractTestFunctions
         List<SqlFunction> functions = new FunctionListBuilder()
                 .scalar(clazz)
                 .getFunctions();
-        metadata.getFunctionManager().registerBuiltInFunctions(functions);
+        metadata.getFunctionAndTypeManager().registerBuiltInFunctions(functions);
     }
 
     protected void registerFunctions(Plugin plugin)
@@ -227,7 +227,7 @@ public abstract class AbstractTestFunctions
     protected void registerTypes(Plugin plugin)
     {
         for (Type type : plugin.getTypes()) {
-            functionAssertions.getTypeRegistry().addType(type);
+            functionAssertions.getFunctionAndTypeManager().addType(type);
         }
     }
 

@@ -16,12 +16,14 @@ package com.facebook.presto.hive.metastore.thrift;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.HiveType;
+import com.facebook.presto.hive.PartitionMutator;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.hive.metastore.MetastoreUtil;
 import com.facebook.presto.hive.metastore.Partition;
+import com.facebook.presto.hive.metastore.PartitionNameWithVersion;
 import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.hive.metastore.PartitionWithStatistics;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
@@ -47,8 +49,10 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyCanDropColumn;
 import static com.facebook.presto.hive.metastore.PrestoTableType.TEMPORARY_TABLE;
+import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiPartition;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiTable;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.isAvroTableWithSchemaSet;
+import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.isCsvTable;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiDatabase;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiTable;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -60,11 +64,13 @@ public class BridgingHiveMetastore
         implements ExtendedHiveMetastore
 {
     private final HiveMetastore delegate;
+    private final PartitionMutator partitionMutator;
 
     @Inject
-    public BridgingHiveMetastore(HiveMetastore delegate)
+    public BridgingHiveMetastore(HiveMetastore delegate, PartitionMutator partitionMutator)
     {
         this.delegate = delegate;
+        this.partitionMutator = partitionMutator;
     }
 
     @Override
@@ -83,7 +89,7 @@ public class BridgingHiveMetastore
     public Optional<Table> getTable(String databaseName, String tableName)
     {
         return delegate.getTable(databaseName, tableName).map(table -> {
-            if (isAvroTableWithSchemaSet(table)) {
+            if (isAvroTableWithSchemaSet(table) || isCsvTable(table)) {
                 return fromMetastoreApiTable(table, delegate.getFields(databaseName, tableName).get());
             }
             return fromMetastoreApiTable(table);
@@ -244,7 +250,7 @@ public class BridgingHiveMetastore
     @Override
     public Optional<Partition> getPartition(String databaseName, String tableName, List<String> partitionValues)
     {
-        return delegate.getPartition(databaseName, tableName, partitionValues).map(ThriftMetastoreUtil::fromMetastoreApiPartition);
+        return delegate.getPartition(databaseName, tableName, partitionValues).map(partition -> fromMetastoreApiPartition(partition, partitionMutator));
     }
 
     @Override
@@ -263,6 +269,15 @@ public class BridgingHiveMetastore
     }
 
     @Override
+    public List<PartitionNameWithVersion> getPartitionNamesWithVersionByFilter(
+            String databaseName,
+            String tableName,
+            Map<Column, Domain> partitionPredicates)
+    {
+        return delegate.getPartitionNamesWithVersionByFilter(databaseName, tableName, partitionPredicates);
+    }
+
+    @Override
     public Map<String, Optional<Partition>> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames)
     {
         requireNonNull(partitionNames, "partitionNames is null");
@@ -272,7 +287,7 @@ public class BridgingHiveMetastore
         Map<String, List<String>> partitionNameToPartitionValuesMap = partitionNames.stream()
                 .collect(Collectors.toMap(identity(), MetastoreUtil::toPartitionValues));
         Map<List<String>, Partition> partitionValuesToPartitionMap = delegate.getPartitionsByNames(databaseName, tableName, partitionNames).stream()
-                .map(ThriftMetastoreUtil::fromMetastoreApiPartition)
+                .map(partition -> fromMetastoreApiPartition(partition, partitionMutator))
                 .collect(Collectors.toMap(Partition::getValues, identity()));
         ImmutableMap.Builder<String, Optional<Partition>> resultBuilder = ImmutableMap.builder();
         for (Map.Entry<String, List<String>> entry : partitionNameToPartitionValuesMap.entrySet()) {

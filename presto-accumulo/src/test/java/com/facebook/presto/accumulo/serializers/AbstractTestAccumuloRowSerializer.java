@@ -13,15 +13,11 @@
  */
 package com.facebook.presto.accumulo.serializers;
 
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignatureParameter;
-import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.type.TypeRegistry;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.accumulo.core.data.Key;
@@ -51,6 +47,7 @@ import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
@@ -188,12 +185,10 @@ public abstract class AbstractTestAccumuloRowSerializer
     public void testMap()
             throws Exception
     {
-        TypeManager typeManager = new TypeRegistry();
-        // associate typeManager with a function manager
-        new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
 
         AccumuloRowSerializer serializer = serializerClass.getConstructor().newInstance();
-        Type type = typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+        Type type = functionAndTypeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
                 TypeSignatureParameter.of(VARCHAR.getTypeSignature()),
                 TypeSignatureParameter.of(BIGINT.getTypeSignature())));
         Map<Object, Object> expected = ImmutableMap.of("a", 1L, "b", 2L, "3", 3L);

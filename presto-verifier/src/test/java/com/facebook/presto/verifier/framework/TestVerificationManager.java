@@ -14,17 +14,16 @@
 package com.facebook.presto.verifier.framework;
 
 import com.facebook.airlift.event.client.AbstractEventClient;
-import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Statement;
-import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.verifier.event.VerifierQueryEvent;
-import com.facebook.presto.verifier.prestoaction.NodeResourceClient;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
 import com.facebook.presto.verifier.prestoaction.PrestoExceptionClassifier;
+import com.facebook.presto.verifier.prestoaction.QueryActionStats;
+import com.facebook.presto.verifier.prestoaction.QueryActions;
 import com.facebook.presto.verifier.resolver.FailureResolverManagerFactory;
 import com.facebook.presto.verifier.rewrite.QueryRewriter;
 import com.google.common.collect.ImmutableList;
@@ -39,6 +38,7 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.AT_SIGN;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
@@ -51,6 +51,7 @@ import static com.facebook.presto.verifier.framework.SkippedReason.MISMATCHED_QU
 import static com.facebook.presto.verifier.framework.SkippedReason.SYNTAX_ERROR;
 import static com.facebook.presto.verifier.framework.SkippedReason.UNSUPPORTED_QUERY_TYPE;
 import static com.facebook.presto.verifier.framework.SkippedReason.VERIFIER_INTERNAL_ERROR;
+import static com.facebook.presto.verifier.prestoaction.QueryActionStats.EMPTY_STATS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static org.testng.Assert.assertEquals;
 
@@ -63,7 +64,7 @@ public class TestVerificationManager
 
         public MockPrestoAction(ErrorCodeSupplier errorCode)
         {
-            this.exceptionGenerator = queryStage -> new PrestoQueryException(new RuntimeException(), false, queryStage, Optional.of(errorCode), Optional.empty());
+            this.exceptionGenerator = queryStage -> new PrestoQueryException(new RuntimeException(), false, queryStage, Optional.of(errorCode), EMPTY_STATS);
         }
 
         public MockPrestoAction(RuntimeException exception)
@@ -72,7 +73,7 @@ public class TestVerificationManager
         }
 
         @Override
-        public QueryStats execute(Statement statement, QueryStage queryStage)
+        public QueryActionStats execute(Statement statement, QueryStage queryStage)
         {
             throw exceptionGenerator.apply(queryStage);
         }
@@ -84,16 +85,6 @@ public class TestVerificationManager
                 ResultSetConverter<R> converter)
         {
             throw exceptionGenerator.apply(queryStage);
-        }
-    }
-
-    private static class MockNodeResourceClient
-            implements NodeResourceClient
-    {
-        @Override
-        public int getClusterSize(String path)
-        {
-            throw new UnsupportedOperationException();
         }
     }
 
@@ -143,9 +134,9 @@ public class TestVerificationManager
     {
         VerificationManager manager = getVerificationManager(ImmutableList.of(SOURCE_QUERY), new MockPrestoAction(HIVE_PARTITION_DROPPED_DURING_QUERY), VERIFIER_CONFIG);
         manager.start();
-        assertEquals(manager.getQueriesSubmitted().get(), 3);
+        assertEquals(manager.getQueriesSubmitted().get(), 7);
         assertEquals(eventClient.getEvents().size(), 1);
-        assertEquals(eventClient.getEvents().get(0).getResubmissionCount(), 2);
+        assertEquals(eventClient.getEvents().get(0).getResubmissionCount(), 6);
     }
 
     @Test
@@ -164,7 +155,7 @@ public class TestVerificationManager
         List<SourceQuery> queries = ImmutableList.of(
                 createSourceQuery("q1", "CREATE TABLE t1 (x int)", "CREATE TABLE t1 (x int)"),
                 createSourceQuery("q2", "CREATE TABLE t1 (x int)", "CREATE TABLE t1 (x int)"),
-                createSourceQuery("q3", "CREATE TABLE t1 (x int)", "CREATE TABLE t1 (x int)"),
+                createSourceQuery("q3", "SHOW TABLES", "SHOW TABLES"),
                 createSourceQuery("q4", "SHOW FUNCTIONS", "SHOW FUNCTIONS"),
                 createSourceQuery("q5", "SELECT * FROM t1", "INSERT INTO t2 SELECT * FROM t1"),
                 createSourceQuery("q6", "SELECT * FROM t1", "SELECT FROM t1"));
@@ -217,14 +208,13 @@ public class TestVerificationManager
                 () -> sourceQueries,
                 new VerificationFactory(
                         SQL_PARSER,
-                        (sourceQuery, verificationContext) -> prestoAction,
+                        (sourceQuery, verificationContext) -> new QueryActions(prestoAction, prestoAction, prestoAction),
                         presto -> new QueryRewriter(SQL_PARSER, createTypeManager(), presto, ImmutableMap.of(CONTROL, TABLE_PREFIX, TEST, TABLE_PREFIX), ImmutableMap.of()),
                         new FailureResolverManagerFactory(ImmutableSet.of(), ImmutableSet.of()),
-                        new MockNodeResourceClient(),
                         createChecksumValidator(verifierConfig),
                         PrestoExceptionClassifier.defaultBuilder().build(),
                         verifierConfig,
-                        new TypeRegistry(),
+                        createTestFunctionAndTypeManager(),
                         new DeterminismAnalyzerConfig()),
                 SQL_PARSER,
                 ImmutableSet.of(eventClient),

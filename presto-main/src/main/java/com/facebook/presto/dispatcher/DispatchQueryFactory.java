@@ -15,7 +15,7 @@ package com.facebook.presto.dispatcher;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.QueryPreparer.PreparedQuery;
-import com.facebook.presto.execution.warnings.WarningCollector;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 

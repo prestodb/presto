@@ -512,7 +512,12 @@ public class InMemoryTransactionManager
                 throw new PrestoException(READ_ONLY_VIOLATION, "Cannot execute write in a read-only transaction");
             }
             if (!writtenConnectorId.compareAndSet(null, connectorId) && !writtenConnectorId.get().equals(connectorId)) {
-                throw new PrestoException(MULTI_CATALOG_WRITE_CONFLICT, "Multi-catalog writes not supported in a single transaction. Already wrote to catalog " + writtenConnectorId.get());
+                throw new PrestoException(
+                        MULTI_CATALOG_WRITE_CONFLICT,
+                        format(
+                                "Multi-catalog writes not supported in a single transaction. Attempt write to catalog %s, but already wrote to catalog %s",
+                                connectorId,
+                                writtenConnectorId.get()));
             }
             if (transactionMetadata.isSingleStatementWritesOnly() && !autoCommitContext) {
                 throw new PrestoException(AUTOCOMMIT_WRITE_CONFLICT, "Catalog " + connectorId + " only supports writes using autocommit");
@@ -584,12 +589,13 @@ public class InMemoryTransactionManager
         private synchronized ListenableFuture<?> abortInternal()
         {
             // the callbacks in statement performed on another thread so are safe
-            return nonCancellationPropagating(Futures.allAsList(Stream.concat(
+            List<ListenableFuture<?>> abortFutures = Stream.concat(
                     functionNamespaceTransactions.values().stream()
                             .map(transactionMetadata -> finishingExecutor.submit(() -> safeAbort(transactionMetadata))),
                     connectorIdToMetadata.values().stream()
                             .map(connection -> finishingExecutor.submit(() -> safeAbort(connection))))
-                    .collect(toList())));
+                    .collect(toList());
+            return nonCancellationPropagating(Futures.allAsList(abortFutures));
         }
 
         private static void safeAbort(ConnectorTransactionMetadata connection)

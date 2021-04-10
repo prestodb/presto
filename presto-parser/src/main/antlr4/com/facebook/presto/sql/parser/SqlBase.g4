@@ -49,25 +49,30 @@ statement
     | DROP TABLE (IF EXISTS)? qualifiedName                            #dropTable
     | INSERT INTO qualifiedName columnAliases? query                   #insertInto
     | DELETE FROM qualifiedName (WHERE booleanExpression)?             #delete
-    | ALTER TABLE from=qualifiedName RENAME TO to=qualifiedName        #renameTable
-    | ALTER TABLE tableName=qualifiedName
-        RENAME COLUMN from=identifier TO to=identifier                 #renameColumn
-    | ALTER TABLE tableName=qualifiedName
-        DROP COLUMN column=qualifiedName                               #dropColumn
-    | ALTER TABLE tableName=qualifiedName
-        ADD COLUMN column=columnDefinition                             #addColumn
+    | ALTER TABLE (IF EXISTS)? from=qualifiedName
+        RENAME TO to=qualifiedName                                     #renameTable
+    | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
+        RENAME COLUMN (IF EXISTS)? from=identifier TO to=identifier    #renameColumn
+    | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
+        DROP COLUMN (IF EXISTS)? column=qualifiedName                  #dropColumn
+    | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
+        ADD COLUMN (IF NOT EXISTS)? column=columnDefinition            #addColumn
     | ANALYZE qualifiedName (WITH properties)?                         #analyze
     | CREATE (OR REPLACE)? VIEW qualifiedName
-            (SECURITY (DEFINER | INVOKER))? AS query                       #createView
+            (SECURITY (DEFINER | INVOKER))? AS query                   #createView
     | DROP VIEW (IF EXISTS)? qualifiedName                             #dropView
-    | CREATE (OR REPLACE)? FUNCTION functionName=qualifiedName
+    | CREATE MATERIALIZED VIEW (IF NOT EXISTS)? qualifiedName
+        (COMMENT string)?
+        (WITH properties)? AS (query | '('query')')                    #createMaterializedView
+    | DROP MATERIALIZED VIEW (IF EXISTS)? qualifiedName                #dropMaterializedView
+    | CREATE (OR REPLACE)? TEMPORARY? FUNCTION functionName=qualifiedName
         '(' (sqlParameterDeclaration (',' sqlParameterDeclaration)*)? ')'
         RETURNS returnType=type
         (COMMENT string)?
         routineCharacteristics routineBody                             #createFunction
     | ALTER FUNCTION qualifiedName types?
       alterRoutineCharacteristics                                      #alterFunction
-    | DROP FUNCTION (IF EXISTS)? qualifiedName types?                  #dropFunction
+    | DROP TEMPORARY? FUNCTION (IF EXISTS)? qualifiedName types?       #dropFunction
     | CALL qualifiedName '(' (callArgument (',' callArgument)*)? ')'   #call
     | CREATE ROLE name=identifier
         (WITH ADMIN grantor)?                                          #createRole
@@ -97,6 +102,7 @@ statement
         ('(' explainOption (',' explainOption)* ')')? statement        #explain
     | SHOW CREATE TABLE qualifiedName                                  #showCreateTable
     | SHOW CREATE VIEW qualifiedName                                   #showCreateView
+    | SHOW CREATE MATERIALIZED VIEW qualifiedName                      #showCreateMaterializedView
     | SHOW CREATE FUNCTION qualifiedName types?                        #showCreateFunction
     | SHOW TABLES ((FROM | IN) qualifiedName)?
         (LIKE pattern=string (ESCAPE escape=string)?)?                 #showTables
@@ -451,7 +457,7 @@ baseType
     : TIME_WITH_TIME_ZONE
     | TIMESTAMP_WITH_TIME_ZONE
     | DOUBLE_PRECISION
-    | identifier
+    | qualifiedName
     ;
 
 whenClause
@@ -558,14 +564,14 @@ nonReserved
     | IF | IGNORE | INCLUDING | INPUT | INTERVAL | INVOKER | IO | ISOLATION
     | JSON
     | LANGUAGE | LAST | LATERAL | LEVEL | LIMIT | LOGICAL
-    | MAP | MINUTE | MONTH
+    | MAP | MATERIALIZED | MINUTE | MONTH
     | NAME | NFC | NFD | NFKC | NFKD | NO | NONE | NULLIF | NULLS
     | ONLY | OPTION | ORDINALITY | OUTPUT | OVER
     | PARTITION | PARTITIONS | POSITION | PRECEDING | PRIVILEGES | PROPERTIES
     | RANGE | READ | RENAME | REPEATABLE | REPLACE | RESET | RESPECT | RESTRICT | RETURN | RETURNS | REVOKE | ROLE | ROLES | ROLLBACK | ROW | ROWS
     | SCHEMA | SCHEMAS | SECOND | SECURITY | SERIALIZABLE | SESSION | SET | SETS | SQL
     | SHOW | SOME | START | STATS | SUBSTRING | SYSTEM
-    | TABLES | TABLESAMPLE | TEXT | TIME | TIMESTAMP | TO | TRANSACTION | TRY_CAST | TYPE
+    | TABLES | TABLESAMPLE | TEMPORARY | TEXT | TIME | TIMESTAMP | TO | TRANSACTION | TRY_CAST | TYPE
     | UNBOUNDED | UNCOMMITTED | USE | USER
     | VALIDATE | VERBOSE | VIEW
     | WORK | WRITE
@@ -675,6 +681,7 @@ LOCALTIME: 'LOCALTIME';
 LOCALTIMESTAMP: 'LOCALTIMESTAMP';
 LOGICAL: 'LOGICAL';
 MAP: 'MAP';
+MATERIALIZED: 'MATERIALIZED';
 MINUTE: 'MINUTE';
 MONTH: 'MONTH';
 NAME: 'NAME';
@@ -744,6 +751,7 @@ SYSTEM: 'SYSTEM';
 TABLE: 'TABLE';
 TABLES: 'TABLES';
 TABLESAMPLE: 'TABLESAMPLE';
+TEMPORARY: 'TEMPORARY';
 TEXT: 'TEXT';
 THEN: 'THEN';
 TIME: 'TIME';

@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.orc.metadata;
 
+import com.facebook.presto.orc.DwrfEncryptionProvider;
+import com.facebook.presto.orc.DwrfKeyProvider;
+import com.facebook.presto.orc.OrcDataSource;
+import com.facebook.presto.orc.OrcDecompressor;
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
 import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
@@ -123,7 +127,12 @@ public class OrcMetadataReader
     }
 
     @Override
-    public Footer readFooter(HiveWriterVersion hiveWriterVersion, InputStream inputStream)
+    public Footer readFooter(HiveWriterVersion hiveWriterVersion,
+            InputStream inputStream,
+            DwrfEncryptionProvider dwrfEncryptionProvider,
+            DwrfKeyProvider dwrfKeyProvider,
+            OrcDataSource orcDataSource,
+            Optional<OrcDecompressor> decompressor)
             throws IOException
     {
         CodedInputStream input = CodedInputStream.newInstance(inputStream);

@@ -32,24 +32,28 @@ import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
-import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.InternalNodeManager;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.SplitSourceFactory;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
+import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import java.net.URI;
@@ -126,12 +130,15 @@ public class SqlQueryScheduler
     private final AtomicReference<SubPlan> plan = new AtomicReference<>();
 
     // The following fields are required for adaptive optimization in runtime.
-    private final FunctionManager functionManager;
+    private final FunctionAndTypeManager functionAndTypeManager;
     private final List<PlanOptimizer> runtimePlanOptimizers;
     private final WarningCollector warningCollector;
     private final PlanNodeIdAllocator idAllocator;
     private final PlanVariableAllocator variableAllocator;
     private final Set<StageId> runtimeOptimizedStages = Collections.synchronizedSet(new HashSet<>());
+    private final PlanChecker planChecker;
+    private final Metadata metadata;
+    private final SqlParser sqlParser;
 
     private final StreamingPlanSection sectionedPlan;
     private final boolean summarizeTaskInfo;
@@ -156,11 +163,14 @@ public class SqlQueryScheduler
             QueryStateMachine queryStateMachine,
             SubPlan plan,
             boolean summarizeTaskInfo,
-            FunctionManager functionManager,
+            FunctionAndTypeManager functionAndTypeManager,
             List<PlanOptimizer> runtimePlanOptimizers,
             WarningCollector warningCollector,
             PlanNodeIdAllocator idAllocator,
-            PlanVariableAllocator variableAllocator)
+            PlanVariableAllocator variableAllocator,
+            PlanChecker planChecker,
+            Metadata metadata,
+            SqlParser sqlParser)
     {
         SqlQueryScheduler sqlQueryScheduler = new SqlQueryScheduler(
                 locationFactory,
@@ -175,11 +185,14 @@ public class SqlQueryScheduler
                 queryStateMachine,
                 plan,
                 summarizeTaskInfo,
-                functionManager,
+                functionAndTypeManager,
                 runtimePlanOptimizers,
                 warningCollector,
                 idAllocator,
-                variableAllocator);
+                variableAllocator,
+                planChecker,
+                metadata,
+                sqlParser);
         sqlQueryScheduler.initialize();
         return sqlQueryScheduler;
     }
@@ -197,11 +210,14 @@ public class SqlQueryScheduler
             QueryStateMachine queryStateMachine,
             SubPlan plan,
             boolean summarizeTaskInfo,
-            FunctionManager functionManager,
+            FunctionAndTypeManager functionAndTypeManager,
             List<PlanOptimizer> runtimePlanOptimizers,
             WarningCollector warningCollector,
             PlanNodeIdAllocator idAllocator,
-            PlanVariableAllocator variableAllocator)
+            PlanVariableAllocator variableAllocator,
+            PlanChecker planChecker,
+            Metadata metadata,
+            SqlParser sqlParser)
     {
         this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
         this.executionPolicy = requireNonNull(executionPolicy, "schedulerPolicyFactory is null");
@@ -213,11 +229,14 @@ public class SqlQueryScheduler
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.session = requireNonNull(session, "session is null");
         this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
-        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
         this.runtimePlanOptimizers = requireNonNull(runtimePlanOptimizers, "runtimePlanOptimizers is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
+        this.planChecker = requireNonNull(planChecker, "planChecker is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.plan.compareAndSet(null, requireNonNull(plan, "plan is null"));
         this.sectionedPlan = extractStreamingSections(plan);
         this.summarizeTaskInfo = summarizeTaskInfo;
@@ -427,6 +446,7 @@ public class SqlQueryScheduler
                 .forEach(currentSubPlan -> {
                     Optional<PlanFragment> newPlanFragment = performRuntimeOptimizations(currentSubPlan);
                     if (newPlanFragment.isPresent()) {
+                        planChecker.validatePlanFragment(newPlanFragment.get().getRoot(), session, metadata, sqlParser, variableAllocator.getTypes(), warningCollector);
                         oldToNewFragment.put(currentSubPlan.getFragment(), newPlanFragment.get());
                     }
                 });
@@ -469,7 +489,7 @@ public class SqlQueryScheduler
                             fragment.getStageExecutionDescriptor(),
                             fragment.isOutputTableWriterFragment(),
                             fragment.getStatsAndCosts(),
-                            Optional.of(jsonFragmentPlan(newRoot, fragment.getVariables(), functionManager, session))));
+                            Optional.of(jsonFragmentPlan(newRoot, fragment.getVariables(), functionAndTypeManager, session))));
         }
         return Optional.empty();
     }
@@ -714,6 +734,22 @@ public class SqlQueryScheduler
                 .mapToLong(Duration::toMillis)
                 .sum();
         return new Duration(millis, MILLISECONDS);
+    }
+
+    @Override
+    public DataSize getRawInputDataSize()
+    {
+        long rawInputDataSize = getAllStagesExecutions()
+                .map(SqlStageExecution::getRawInputDataSize)
+                .mapToLong(DataSize::toBytes)
+                .sum();
+        return DataSize.succinctBytes(rawInputDataSize);
+    }
+
+    @Override
+    public DataSize getOutputDataSize()
+    {
+        return getStageInfo().getLatestAttemptExecutionInfo().getStats().getOutputDataSize();
     }
 
     @Override

@@ -16,7 +16,7 @@ package com.facebook.presto.operator.annotations;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.InvocationConvention;
 import com.google.common.collect.ImmutableList;
@@ -53,9 +53,9 @@ public final class OperatorImplementationDependency
     }
 
     @Override
-    protected FunctionHandle getFunctionHandle(BoundVariables boundVariables, FunctionManager functionManager)
+    protected FunctionHandle getFunctionHandle(BoundVariables boundVariables, FunctionAndTypeManager functionAndTypeManager)
     {
-        return functionManager.resolveOperator(operator, fromTypeSignatures(applyBoundVariables(argumentTypes, boundVariables)));
+        return functionAndTypeManager.resolveOperator(operator, fromTypeSignatures(applyBoundVariables(argumentTypes, boundVariables)));
     }
 
     @Override

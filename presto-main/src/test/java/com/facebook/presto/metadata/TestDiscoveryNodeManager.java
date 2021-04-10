@@ -60,6 +60,7 @@ public class TestDiscoveryNodeManager
     private Set<InternalNode> activeNodes;
     private Set<InternalNode> inactiveNodes;
     private InternalNode coordinator;
+    private InternalNode resourceManager;
     private InternalNode currentNode;
     private final PrestoNodeServiceSelector selector = new PrestoNodeServiceSelector();
     private HttpClient testHttpClient;
@@ -71,13 +72,15 @@ public class TestDiscoveryNodeManager
 
         expectedVersion = new NodeVersion("1");
         coordinator = new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.2.8"), expectedVersion, true);
+        resourceManager = new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.2.9"), expectedVersion, false, true);
         currentNode = new InternalNode(nodeInfo.getNodeId(), URI.create("http://192.0.1.1"), expectedVersion, false);
 
         activeNodes = ImmutableSet.of(
                 currentNode,
                 new InternalNode(UUID.randomUUID().toString(), URI.create("http://192.0.2.1:8080"), expectedVersion, false),
                 new InternalNode(UUID.randomUUID().toString(), URI.create("http://192.0.2.3"), expectedVersion, false),
-                coordinator);
+                coordinator,
+                resourceManager);
         inactiveNodes = ImmutableSet.of(
                 new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.3.9"), NodeVersion.UNKNOWN, false),
                 new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.4.9"), new NodeVersion("2"), false));
@@ -147,6 +150,18 @@ public class TestDiscoveryNodeManager
         }
     }
 
+    @Test
+    public void testGetResourceManagers()
+    {
+        DiscoveryNodeManager manager = new DiscoveryNodeManager(selector, nodeInfo, new NoOpFailureDetector(), Optional.empty(), expectedVersion, testHttpClient, new TestingDriftClient<>(), internalCommunicationConfig);
+        try {
+            assertEquals(manager.getResourceManagers(), ImmutableSet.of(resourceManager));
+        }
+        finally {
+            manager.stop();
+        }
+    }
+
     @SuppressWarnings("ResultOfObjectAllocationIgnored")
     @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = ".* current node not returned .*")
     public void testGetCurrentNodeRequired()
@@ -198,6 +213,7 @@ public class TestDiscoveryNodeManager
                         .addProperty("http", node.getInternalUri().toString())
                         .addProperty("node_version", node.getNodeVersion().toString())
                         .addProperty("coordinator", String.valueOf(node.isCoordinator()))
+                        .addProperty("resource_manager", String.valueOf(node.isResourceManager()))
                         .build());
             }
 

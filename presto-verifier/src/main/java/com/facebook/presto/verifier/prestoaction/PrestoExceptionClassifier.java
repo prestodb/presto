@@ -15,14 +15,15 @@ package com.facebook.presto.verifier.prestoaction;
 
 import com.facebook.presto.connector.thrift.ThriftErrorCode;
 import com.facebook.presto.hive.HiveErrorCode;
-import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.plugin.jdbc.JdbcErrorCode;
+import com.facebook.presto.spark.SparkErrorCode;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.verifier.framework.ClusterConnectionException;
 import com.facebook.presto.verifier.framework.PrestoQueryException;
 import com.facebook.presto.verifier.framework.QueryException;
 import com.facebook.presto.verifier.framework.QueryStage;
+import com.facebook.presto.verifier.framework.ThrottlingException;
 import com.google.common.collect.ImmutableSet;
 
 import java.io.EOFException;
@@ -44,6 +45,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_OFFLINE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TABLE_DROPPED_DURING_QUERY;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TOO_MANY_OPEN_PARTITIONS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
@@ -65,6 +67,7 @@ import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
 import static com.facebook.presto.verifier.framework.QueryStage.CONTROL_SETUP;
 import static com.facebook.presto.verifier.framework.QueryStage.DESCRIBE;
+import static com.facebook.presto.verifier.framework.QueryStage.TEST_MAIN;
 import static com.facebook.presto.verifier.framework.QueryStage.TEST_SETUP;
 import static com.google.common.base.Functions.identity;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -107,6 +110,7 @@ public class PrestoExceptionClassifier
                 .addRecognizedErrors(asList(HiveErrorCode.values()))
                 .addRecognizedErrors(asList(JdbcErrorCode.values()))
                 .addRecognizedErrors(asList(ThriftErrorCode.values()))
+                .addRecognizedErrors(asList(SparkErrorCode.values()))
                 // From StandardErrorCode
                 .addRetryableError(NO_NODES_AVAILABLE)
                 .addRetryableError(REMOTE_TASK_ERROR)
@@ -140,21 +144,38 @@ public class PrestoExceptionClassifier
                 .addResubmittedError(ADMINISTRATIVELY_PREEMPTED)
                 // Conditional Resubmitted Errors
                 .addResubmittedError(SYNTAX_ERROR, Optional.of(CONTROL_SETUP), Optional.of(TABLE_ALREADY_EXISTS_PATTERN))
-                .addResubmittedError(SYNTAX_ERROR, Optional.of(TEST_SETUP), Optional.of(TABLE_ALREADY_EXISTS_PATTERN));
+                .addResubmittedError(SYNTAX_ERROR, Optional.of(TEST_SETUP), Optional.of(TABLE_ALREADY_EXISTS_PATTERN))
+                .addResubmittedError(HIVE_PARTITION_OFFLINE, Optional.of(TEST_MAIN), Optional.empty());
     }
 
-    public QueryException createException(QueryStage queryStage, Optional<QueryStats> queryStats, SQLException cause)
+    public QueryException createException(QueryStage queryStage, QueryActionStats queryActionStats, SQLException cause)
     {
         Optional<Throwable> clusterConnectionExceptionCause = getClusterConnectionExceptionCause(cause);
         if (clusterConnectionExceptionCause.isPresent()) {
             return new ClusterConnectionException(clusterConnectionExceptionCause.get(), queryStage);
         }
 
-        Optional<ErrorCodeSupplier> errorCode = Optional.ofNullable(errorByCode.get(cause.getErrorCode()));
-        boolean retryable = errorCode.isPresent()
-                && (retryableErrors.contains(errorCode.get())
-                || conditionalRetryableErrors.stream().anyMatch(matcher -> matcher.matches(errorCode.get(), queryStage, cause.getMessage())));
-        return new PrestoQueryException(cause, retryable, queryStage, errorCode, queryStats);
+        Optional<Throwable> requestThrottledExceptionCause = getRequestThrottleExceptionCause(cause);
+        if (requestThrottledExceptionCause.isPresent()) {
+            return new ThrottlingException(cause, queryStage);
+        }
+
+        Optional<ErrorCodeSupplier> errorCode = getErrorCode(cause.getErrorCode());
+        boolean retryable = errorCode.isPresent() && isRetryable(errorCode.get(), queryStage, cause.getMessage());
+        return new PrestoQueryException(cause, retryable, queryStage, errorCode, queryActionStats);
+    }
+
+    @Override
+    public Optional<ErrorCodeSupplier> getErrorCode(int code)
+    {
+        return Optional.ofNullable(errorByCode.get(code));
+    }
+
+    @Override
+    public boolean isRetryable(ErrorCodeSupplier errorCode, QueryStage queryStage, String message)
+    {
+        return retryableErrors.contains(errorCode)
+                || conditionalRetryableErrors.stream().anyMatch(matcher -> matcher.matches(errorCode, queryStage, message));
     }
 
     public boolean shouldResubmit(Throwable throwable)
@@ -183,6 +204,17 @@ public class PrestoExceptionClassifier
                     t instanceof UncheckedIOException ||
                     t instanceof TimeoutException ||
                     (t.getClass().equals(RuntimeException.class) && t.getMessage() != null && t.getMessage().contains("Error fetching next at"))) {
+                return Optional.of(t);
+            }
+            t = t.getCause();
+        }
+        return Optional.empty();
+    }
+
+    private static Optional<Throwable> getRequestThrottleExceptionCause(Throwable t)
+    {
+        while (t != null) {
+            if (t instanceof RuntimeException && t.getMessage() != null && t.getMessage().contains("Request throttled")) {
                 return Optional.of(t);
             }
             t = t.getCause();

@@ -16,8 +16,8 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.function.OperatorType;
-import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
@@ -93,13 +93,13 @@ public class HashGenerationOptimizer
         implements PlanOptimizer
 {
     public static final long INITIAL_HASH_VALUE = 0;
-    private static final String HASH_CODE = OperatorType.HASH_CODE.getFunctionName().getFunctionName();
+    private static final String HASH_CODE = OperatorType.HASH_CODE.getFunctionName().getObjectName();
 
-    private final FunctionManager functionManager;
+    private final FunctionAndTypeManager functionAndTypeManager;
 
-    public HashGenerationOptimizer(FunctionManager functionManager)
+    public HashGenerationOptimizer(FunctionAndTypeManager functionAndTypeManager)
     {
-        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
     }
 
     @Override
@@ -111,7 +111,7 @@ public class HashGenerationOptimizer
         requireNonNull(variableAllocator, "variableAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
         if (SystemSessionProperties.isOptimizeHashGenerationEnabled(session)) {
-            PlanWithProperties result = plan.accept(new Rewriter(idAllocator, variableAllocator, functionManager), new HashComputationSet());
+            PlanWithProperties result = plan.accept(new Rewriter(idAllocator, variableAllocator, functionAndTypeManager), new HashComputationSet());
             return result.getNode();
         }
         return plan;
@@ -122,13 +122,13 @@ public class HashGenerationOptimizer
     {
         private final PlanNodeIdAllocator idAllocator;
         private final PlanVariableAllocator variableAllocator;
-        private final FunctionManager functionManager;
+        private final FunctionAndTypeManager functionAndTypeManager;
 
-        private Rewriter(PlanNodeIdAllocator idAllocator, PlanVariableAllocator variableAllocator, FunctionManager functionManager)
+        private Rewriter(PlanNodeIdAllocator idAllocator, PlanVariableAllocator variableAllocator, FunctionAndTypeManager functionAndTypeManager)
         {
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
-            this.functionManager = requireNonNull(functionManager, "functionManager is null");
+            this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
         }
 
         @Override
@@ -166,7 +166,7 @@ public class HashGenerationOptimizer
             Optional<HashComputation> groupByHash = Optional.empty();
             List<VariableReferenceExpression> groupingKeys = node.getGroupingKeys();
             if (!node.isStreamable() && !canSkipHashGeneration(node.getGroupingKeys())) {
-                groupByHash = computeHash(groupingKeys, functionManager);
+                groupByHash = computeHash(groupingKeys, functionAndTypeManager);
             }
 
             // aggregation does not pass through preferred hash variables
@@ -209,7 +209,7 @@ public class HashGenerationOptimizer
                 return planSimpleNodeWithProperties(node, parentPreference);
             }
 
-            Optional<HashComputation> hashComputation = computeHash(node.getDistinctVariables(), functionManager);
+            Optional<HashComputation> hashComputation = computeHash(node.getDistinctVariables(), functionAndTypeManager);
             PlanWithProperties child = planAndEnforce(
                     node.getSource(),
                     new HashComputationSet(hashComputation),
@@ -233,7 +233,7 @@ public class HashGenerationOptimizer
                 return planSimpleNodeWithProperties(node, parentPreference);
             }
 
-            Optional<HashComputation> hashComputation = computeHash(node.getDistinctVariables(), functionManager);
+            Optional<HashComputation> hashComputation = computeHash(node.getDistinctVariables(), functionAndTypeManager);
             PlanWithProperties child = planAndEnforce(
                     node.getSource(),
                     new HashComputationSet(hashComputation),
@@ -253,7 +253,7 @@ public class HashGenerationOptimizer
                 return planSimpleNodeWithProperties(node, parentPreference);
             }
 
-            Optional<HashComputation> hashComputation = computeHash(node.getPartitionBy(), functionManager);
+            Optional<HashComputation> hashComputation = computeHash(node.getPartitionBy(), functionAndTypeManager);
             PlanWithProperties child = planAndEnforce(
                     node.getSource(),
                     new HashComputationSet(hashComputation),
@@ -279,7 +279,7 @@ public class HashGenerationOptimizer
                 return planSimpleNodeWithProperties(node, parentPreference);
             }
 
-            Optional<HashComputation> hashComputation = computeHash(node.getPartitionBy(), functionManager);
+            Optional<HashComputation> hashComputation = computeHash(node.getPartitionBy(), functionAndTypeManager);
             PlanWithProperties child = planAndEnforce(
                     node.getSource(),
                     new HashComputationSet(hashComputation),
@@ -316,11 +316,11 @@ public class HashGenerationOptimizer
 
             // join does not pass through preferred hash variables since they take more memory and since
             // the join node filters, may take more compute
-            Optional<HashComputation> leftHashComputation = computeHash(Lists.transform(clauses, JoinNode.EquiJoinClause::getLeft), functionManager);
+            Optional<HashComputation> leftHashComputation = computeHash(Lists.transform(clauses, JoinNode.EquiJoinClause::getLeft), functionAndTypeManager);
             PlanWithProperties left = planAndEnforce(node.getLeft(), new HashComputationSet(leftHashComputation), true, new HashComputationSet(leftHashComputation));
             VariableReferenceExpression leftHashVariable = left.getRequiredHashVariable(leftHashComputation.get());
 
-            Optional<HashComputation> rightHashComputation = computeHash(Lists.transform(clauses, JoinNode.EquiJoinClause::getRight), functionManager);
+            Optional<HashComputation> rightHashComputation = computeHash(Lists.transform(clauses, JoinNode.EquiJoinClause::getRight), functionAndTypeManager);
             // drop undesired hash variables from build to save memory
             PlanWithProperties right = planAndEnforce(node.getRight(), new HashComputationSet(rightHashComputation), true, new HashComputationSet(rightHashComputation));
             VariableReferenceExpression rightHashVariable = right.getRequiredHashVariable(rightHashComputation.get());
@@ -370,14 +370,15 @@ public class HashGenerationOptimizer
                             node.getFilter(),
                             leftHashVariable,
                             rightHashVariable,
-                            node.getDistributionType()),
+                            node.getDistributionType(),
+                            node.getDynamicFilters()),
                     hashVariablesWithParentPreferences);
         }
 
         @Override
         public PlanWithProperties visitSemiJoin(SemiJoinNode node, HashComputationSet parentPreference)
         {
-            Optional<HashComputation> sourceHashComputation = computeHash(ImmutableList.of(node.getSourceJoinVariable()), functionManager);
+            Optional<HashComputation> sourceHashComputation = computeHash(ImmutableList.of(node.getSourceJoinVariable()), functionAndTypeManager);
             PlanWithProperties source = planAndEnforce(
                     node.getSource(),
                     new HashComputationSet(sourceHashComputation),
@@ -385,7 +386,7 @@ public class HashGenerationOptimizer
                     new HashComputationSet(sourceHashComputation));
             VariableReferenceExpression sourceHashVariable = source.getRequiredHashVariable(sourceHashComputation.get());
 
-            Optional<HashComputation> filterHashComputation = computeHash(ImmutableList.of(node.getFilteringSourceJoinVariable()), functionManager);
+            Optional<HashComputation> filterHashComputation = computeHash(ImmutableList.of(node.getFilteringSourceJoinVariable()), functionAndTypeManager);
             HashComputationSet requiredHashes = new HashComputationSet(filterHashComputation);
             PlanWithProperties filteringSource = planAndEnforce(node.getFilteringSource(), requiredHashes, true, requiredHashes);
             VariableReferenceExpression filteringSourceHashVariable = filteringSource.getRequiredHashVariable(filterHashComputation.get());
@@ -400,7 +401,8 @@ public class HashGenerationOptimizer
                             node.getSemiJoinOutput(),
                             Optional.of(sourceHashVariable),
                             Optional.of(filteringSourceHashVariable),
-                            node.getDistributionType()),
+                            node.getDistributionType(),
+                            node.getDynamicFilters()),
                     source.getHashVariables());
         }
 
@@ -423,7 +425,7 @@ public class HashGenerationOptimizer
 
             // join does not pass through preferred hash variables since they take more memory and since
             // the join node filters, may take more compute
-            Optional<HashComputation> probeHashComputation = computeHash(Lists.transform(clauses, IndexJoinNode.EquiJoinClause::getProbe), functionManager);
+            Optional<HashComputation> probeHashComputation = computeHash(Lists.transform(clauses, IndexJoinNode.EquiJoinClause::getProbe), functionAndTypeManager);
             PlanWithProperties probe = planAndEnforce(
                     node.getProbeSource(),
                     new HashComputationSet(probeHashComputation),
@@ -431,7 +433,7 @@ public class HashGenerationOptimizer
                     new HashComputationSet(probeHashComputation));
             VariableReferenceExpression probeHashVariable = probe.getRequiredHashVariable(probeHashComputation.get());
 
-            Optional<HashComputation> indexHashComputation = computeHash(Lists.transform(clauses, IndexJoinNode.EquiJoinClause::getIndex), functionManager);
+            Optional<HashComputation> indexHashComputation = computeHash(Lists.transform(clauses, IndexJoinNode.EquiJoinClause::getIndex), functionAndTypeManager);
             HashComputationSet requiredHashes = new HashComputationSet(indexHashComputation);
             PlanWithProperties index = planAndEnforce(node.getIndexSource(), requiredHashes, true, requiredHashes);
             VariableReferenceExpression indexHashVariable = index.getRequiredHashVariable(indexHashComputation.get());
@@ -462,7 +464,7 @@ public class HashGenerationOptimizer
                 return planSimpleNodeWithProperties(node, parentPreference, true);
             }
 
-            Optional<HashComputation> hashComputation = computeHash(node.getPartitionBy(), functionManager);
+            Optional<HashComputation> hashComputation = computeHash(node.getPartitionBy(), functionAndTypeManager);
             PlanWithProperties child = planAndEnforce(
                     node.getSource(),
                     new HashComputationSet(hashComputation),
@@ -499,7 +501,7 @@ public class HashGenerationOptimizer
                         partitioningScheme.getPartitioning().getArguments().stream()
                                 .map(VariableReferenceExpression.class::cast)
                                 .collect(toImmutableList()),
-                        functionManager);
+                        functionAndTypeManager);
                 preference = preference.withHashComputation(partitionVariables);
             }
 
@@ -843,17 +845,17 @@ public class HashGenerationOptimizer
         }
     }
 
-    private static Optional<HashComputation> computeHash(Iterable<VariableReferenceExpression> fields, FunctionManager functionManager)
+    private static Optional<HashComputation> computeHash(Iterable<VariableReferenceExpression> fields, FunctionAndTypeManager functionAndTypeManager)
     {
         requireNonNull(fields, "fields is null");
         List<VariableReferenceExpression> variables = ImmutableList.copyOf(fields);
         if (variables.isEmpty()) {
             return Optional.empty();
         }
-        return Optional.of(new HashComputation(fields, functionManager));
+        return Optional.of(new HashComputation(fields, functionAndTypeManager));
     }
 
-    public static Optional<RowExpression> getHashExpression(FunctionManager functionManager, List<VariableReferenceExpression> variables)
+    public static Optional<RowExpression> getHashExpression(FunctionAndTypeManager functionAndTypeManager, List<VariableReferenceExpression> variables)
     {
         if (variables.isEmpty()) {
             return Optional.empty();
@@ -861,9 +863,9 @@ public class HashGenerationOptimizer
 
         RowExpression result = constant(INITIAL_HASH_VALUE, BIGINT);
         for (VariableReferenceExpression variable : variables) {
-            RowExpression hashField = call(functionManager, HASH_CODE, BIGINT, variable);
+            RowExpression hashField = call(functionAndTypeManager, HASH_CODE, BIGINT, variable);
             hashField = orNullHashCode(hashField);
-            result = call(functionManager, "combine_hash", BIGINT, result, hashField);
+            result = call(functionAndTypeManager, "combine_hash", BIGINT, result, hashField);
         }
         return Optional.of(result);
     }
@@ -877,13 +879,13 @@ public class HashGenerationOptimizer
     private static class HashComputation
     {
         private final List<VariableReferenceExpression> fields;
-        private final FunctionManager functionManager;
+        private final FunctionAndTypeManager functionAndTypeManager;
 
-        private HashComputation(Iterable<VariableReferenceExpression> fields, FunctionManager functionManager)
+        private HashComputation(Iterable<VariableReferenceExpression> fields, FunctionAndTypeManager functionAndTypeManager)
         {
             requireNonNull(fields, "fields is null");
             this.fields = ImmutableList.copyOf(fields);
-            this.functionManager = requireNonNull(functionManager, "functionManager is null");
+            this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
             checkArgument(!this.fields.isEmpty(), "fields can not be empty");
         }
 
@@ -897,7 +899,7 @@ public class HashGenerationOptimizer
                 }
                 newVariables.add(newVariable.get());
             }
-            return computeHash(newVariables.build(), functionManager);
+            return computeHash(newVariables.build(), functionAndTypeManager);
         }
 
         public boolean canComputeWith(Set<VariableReferenceExpression> availableFields)
@@ -916,8 +918,8 @@ public class HashGenerationOptimizer
 
         private RowExpression getHashFunctionCall(RowExpression previousHashValue, VariableReferenceExpression variable)
         {
-            CallExpression functionCall = call(functionManager, HASH_CODE, BIGINT, variable);
-            return call(functionManager, "combine_hash", BIGINT, previousHashValue, orNullHashCode(functionCall));
+            CallExpression functionCall = call(functionAndTypeManager, HASH_CODE, BIGINT, variable);
+            return call(functionAndTypeManager, "combine_hash", BIGINT, previousHashValue, orNullHashCode(functionCall));
         }
 
         @Override

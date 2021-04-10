@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Storage;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
@@ -23,6 +24,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
 import java.util.Map;
@@ -30,6 +32,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
+import java.util.Set;
 
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.SOFT_AFFINITY;
@@ -60,6 +63,8 @@ public class HiveSplit
     private final Optional<byte[]> extraFileInfo;
     private final CacheQuotaRequirement cacheQuotaRequirement;
     private final Optional<EncryptionInformation> encryptionInformation;
+    private final Map<String, String> customSplitInfo;
+    private final Set<ColumnHandle> redundantColumnDomains;
 
     @JsonCreator
     public HiveSplit(
@@ -82,7 +87,9 @@ public class HiveSplit
             @JsonProperty("s3SelectPushdownEnabled") boolean s3SelectPushdownEnabled,
             @JsonProperty("extraFileInfo") Optional<byte[]> extraFileInfo,
             @JsonProperty("cacheQuota") CacheQuotaRequirement cacheQuotaRequirement,
-            @JsonProperty("encryptionMetadata") Optional<EncryptionInformation> encryptionInformation)
+            @JsonProperty("encryptionMetadata") Optional<EncryptionInformation> encryptionInformation,
+            @JsonProperty("customSplitInfo") Map<String, String> customSplitInfo,
+            @JsonProperty("redundantColumnDomains") Set<ColumnHandle> redundantColumnDomains)
     {
         checkArgument(start >= 0, "start must be positive");
         checkArgument(length >= 0, "length must be positive");
@@ -102,6 +109,7 @@ public class HiveSplit
         requireNonNull(extraFileInfo, "extraFileInfo is null");
         requireNonNull(cacheQuotaRequirement, "cacheQuotaRequirement is null");
         requireNonNull(encryptionInformation, "encryptionMetadata is null");
+        requireNonNull(redundantColumnDomains, "redundantColumnDomains is null");
 
         this.database = database;
         this.table = table;
@@ -123,6 +131,8 @@ public class HiveSplit
         this.extraFileInfo = extraFileInfo;
         this.cacheQuotaRequirement = cacheQuotaRequirement;
         this.encryptionInformation = encryptionInformation;
+        this.customSplitInfo = ImmutableMap.copyOf(requireNonNull(customSplitInfo, "customSplitInfo is null"));
+        this.redundantColumnDomains = ImmutableSet.copyOf(redundantColumnDomains);
     }
 
     @JsonProperty
@@ -265,6 +275,18 @@ public class HiveSplit
         return encryptionInformation;
     }
 
+    @JsonProperty
+    public Map<String, String> getCustomSplitInfo()
+    {
+        return customSplitInfo;
+    }
+
+    @JsonProperty
+    public Set<ColumnHandle> getRedundantColumnDomains()
+    {
+        return redundantColumnDomains;
+    }
+
     @Override
     public Object getInfo()
     {
@@ -280,6 +302,16 @@ public class HiveSplit
                 .put("partitionName", partitionName)
                 .put("s3SelectPushdownEnabled", s3SelectPushdownEnabled)
                 .put("cacheQuotaRequirement", cacheQuotaRequirement)
+                .build();
+    }
+
+    @Override
+    public Object getSplitIdentifier()
+    {
+        return ImmutableMap.builder()
+                .put("path", path)
+                .put("start", start)
+                .put("length", length)
                 .build();
     }
 

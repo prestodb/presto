@@ -14,8 +14,6 @@
 
 package com.facebook.presto.common.block;
 
-import com.facebook.presto.common.type.MapType;
-import com.facebook.presto.common.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -53,22 +51,15 @@ public class MapBlock
      * Create a map block directly from columnar nulls, keys, values, and offsets into the keys and values.
      * A null map must have no entries.
      *
-     * @param mapType key type K
-     * @param keyBlockNativeEquals equality between key stack type and a block+position; signature is (K, Block, int)boolean
-     * @param keyNativeHashCode hash of a key stack type; signature is (K)long
      */
     public static MapBlock fromKeyValueBlock(
             int positionCount,
             Optional<boolean[]> mapIsNull,
             int[] offsets,
             Block keyBlock,
-            Block valueBlock,
-            MapType mapType,
-            MethodHandle keyBlockNativeEquals,
-            MethodHandle keyNativeHashCode,
-            MethodHandle keyBlockHashCode)
+            Block valueBlock)
     {
-        validateConstructorArguments(0, positionCount, mapIsNull.orElse(null), offsets, keyBlock, valueBlock, mapType.getKeyType(), keyBlockNativeEquals, keyNativeHashCode);
+        validateConstructorArguments(0, positionCount, mapIsNull.orElse(null), offsets, keyBlock, valueBlock);
 
         return createMapBlockInternal(
                 0,
@@ -77,11 +68,7 @@ public class MapBlock
                 offsets,
                 keyBlock,
                 valueBlock,
-                new HashTables(Optional.empty(), positionCount, keyBlock.getPositionCount() * HASH_MULTIPLIER),
-                mapType.getKeyType(),
-                keyBlockNativeEquals,
-                keyNativeHashCode,
-                keyBlockHashCode);
+                new HashTables(Optional.empty(), positionCount, keyBlock.getPositionCount() * HASH_MULTIPLIER));
     }
 
     /**
@@ -89,9 +76,6 @@ public class MapBlock
      * <p>
      * Internal use by this package and com.facebook.presto.spi.Type only.
      *
-     * @param keyType key type K
-     * @param keyBlockNativeEquals equality between key stack type and a block+position; signature is (K, Block, int)boolean
-     * @param keyNativeHashCode hash of a key stack type; signature is (K)long
      */
     public static MapBlock createMapBlockInternal(
             int startOffset,
@@ -100,13 +84,9 @@ public class MapBlock
             int[] offsets,
             Block keyBlock,
             Block valueBlock,
-            HashTables hashTables,
-            Type keyType,
-            MethodHandle keyBlockNativeEquals,
-            MethodHandle keyNativeHashCode,
-            MethodHandle keyBlockHashCode)
+            HashTables hashTables)
     {
-        validateConstructorArguments(startOffset, positionCount, mapIsNull.orElse(null), offsets, keyBlock, valueBlock, keyType, keyBlockNativeEquals, keyNativeHashCode);
+        validateConstructorArguments(startOffset, positionCount, mapIsNull.orElse(null), offsets, keyBlock, valueBlock);
         requireNonNull(hashTables, "hashTables is null");
         return new MapBlock(
                 startOffset,
@@ -115,11 +95,7 @@ public class MapBlock
                 offsets,
                 keyBlock,
                 valueBlock,
-                hashTables,
-                keyType,
-                keyBlockNativeEquals,
-                keyNativeHashCode,
-                keyBlockHashCode);
+                hashTables);
     }
 
     private static void validateConstructorArguments(
@@ -128,10 +104,7 @@ public class MapBlock
             @Nullable boolean[] mapIsNull,
             int[] offsets,
             Block keyBlock,
-            Block valueBlock,
-            Type keyType,
-            MethodHandle keyBlockNativeEquals,
-            MethodHandle keyNativeHashCode)
+            Block valueBlock)
     {
         if (startOffset < 0) {
             throw new IllegalArgumentException("startOffset is negative");
@@ -155,10 +128,6 @@ public class MapBlock
         if (keyBlock.getPositionCount() != valueBlock.getPositionCount()) {
             throw new IllegalArgumentException(format("keyBlock and valueBlock has different size: %s %s", keyBlock.getPositionCount(), valueBlock.getPositionCount()));
         }
-
-        requireNonNull(keyType, "keyType is null");
-        requireNonNull(keyBlockNativeEquals, "keyBlockNativeEquals is null");
-        requireNonNull(keyNativeHashCode, "keyNativeHashCode is null");
     }
 
     /**
@@ -172,14 +141,8 @@ public class MapBlock
             int[] offsets,
             Block keyBlock,
             Block valueBlock,
-            HashTables hashTables,
-            Type keyType,
-            MethodHandle keyBlockNativeEquals,
-            MethodHandle keyNativeHashCode,
-            MethodHandle keyBlockHashCode)
+            HashTables hashTables)
     {
-        super(keyType, keyNativeHashCode, keyBlockNativeEquals, keyBlockHashCode);
-
         int[] rawHashTables = hashTables.get();
         if (rawHashTables != null && rawHashTables.length < keyBlock.getPositionCount() * HASH_MULTIPLIER) {
             throw new IllegalArgumentException(format("keyBlock/valueBlock size does not match hash table size: %s %s", keyBlock.getPositionCount(), rawHashTables.length));
@@ -290,10 +253,7 @@ public class MapBlock
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder("MapBlock{");
-        sb.append("positionCount=").append(getPositionCount());
-        sb.append('}');
-        return sb.toString();
+        return format("MapBlock(%d){positionCount=%d}", hashCode(), getPositionCount());
     }
 
     @Override
@@ -315,15 +275,11 @@ public class MapBlock
                 offsets,
                 keyBlock,
                 loadedValueBlock,
-                hashTables,
-                keyType,
-                keyBlockNativeEquals,
-                keyNativeHashCode,
-                keyBlockHashCode);
+                hashTables);
     }
 
     @Override
-    protected void ensureHashTableLoaded()
+    protected void ensureHashTableLoaded(MethodHandle keyBlockHashCode)
     {
         if (isHashTablesPresent()) {
             return;

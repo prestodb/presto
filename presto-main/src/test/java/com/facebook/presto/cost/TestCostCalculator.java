@@ -22,7 +22,6 @@ import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionStats;
-import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
@@ -30,6 +29,7 @@ import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -172,7 +172,7 @@ public class TestCostCalculator
                 .memory(0)
                 .network(0);
 
-        assertCostFragmentedPlan(tableScan, ImmutableMap.of(), ImmutableMap.of("ts", statsEstimate(tableScan, 1000)), types)
+        assertCostSingleStageFragmentedPlan(tableScan, ImmutableMap.of(), ImmutableMap.of("ts", statsEstimate(tableScan, 1000)), types)
                 .cpu(1000 * IS_NULL_OVERHEAD)
                 .memory(0)
                 .network(0);
@@ -203,7 +203,7 @@ public class TestCostCalculator
                 .memory(0)
                 .network(0);
 
-        assertCostFragmentedPlan(project, costs, stats, types)
+        assertCostSingleStageFragmentedPlan(project, costs, stats, types)
                 .cpu(1000 + 4000 * OFFSET_AND_IS_NULL_OVERHEAD)
                 .memory(0)
                 .network(0);
@@ -245,7 +245,7 @@ public class TestCostCalculator
                 .memory(1000 * IS_NULL_OVERHEAD)
                 .network((6000 + 1000) * IS_NULL_OVERHEAD);
 
-        assertCostFragmentedPlan(join, costs, stats, types)
+        assertCostSingleStageFragmentedPlan(join, costs, stats, types)
                 .cpu(6000 + 1000 + (12000 + 6000 + 1000) * IS_NULL_OVERHEAD)
                 .memory(1000 * IS_NULL_OVERHEAD)
                 .network(0);
@@ -288,7 +288,7 @@ public class TestCostCalculator
                 .memory(1000 * NUMBER_OF_NODES * IS_NULL_OVERHEAD)
                 .network(1000 * NUMBER_OF_NODES * IS_NULL_OVERHEAD);
 
-        assertCostFragmentedPlan(join, costs, stats, types)
+        assertCostSingleStageFragmentedPlan(join, costs, stats, types)
                 .cpu(1000 + 6000 + (12000 + 6000 + 10000 + 1000 * (NUMBER_OF_NODES - 1)) * IS_NULL_OVERHEAD)
                 .memory(1000 * NUMBER_OF_NODES * IS_NULL_OVERHEAD)
                 .network(0);
@@ -371,7 +371,7 @@ public class TestCostCalculator
                         2000 * IS_NULL_OVERHEAD // join memory footprint
                                 + 128); // ts1 memory footprint
 
-        assertCostFragmentedPlan(join23, costs, stats, types)
+        assertCostSingleStageFragmentedPlan(join23, costs, stats, types)
                 .memory(
                         100 * IS_NULL_OVERHEAD // join23 memory footprint
                                 + 64 + 32) // ts2, ts3 memory footprint
@@ -379,7 +379,7 @@ public class TestCostCalculator
                         100 * IS_NULL_OVERHEAD // join23 memory footprint
                                 + 64); // ts2 memory footprint
 
-        assertCostFragmentedPlan(join, costs, stats, types)
+        assertCostSingleStageFragmentedPlan(join, costs, stats, types)
                 .memory(
                         2000 * IS_NULL_OVERHEAD // join memory footprint
                                 + 100 * IS_NULL_OVERHEAD + 64 // join23 total memory when outputting
@@ -413,7 +413,7 @@ public class TestCostCalculator
                 .memory(13 * IS_NULL_OVERHEAD)
                 .network(6000 * IS_NULL_OVERHEAD);
 
-        assertCostFragmentedPlan(aggregation, costs, stats, types)
+        assertCostSingleStageFragmentedPlan(aggregation, costs, stats, types)
                 .cpu(6000 + 6000 * IS_NULL_OVERHEAD)
                 .memory(13 * IS_NULL_OVERHEAD)
                 .network(0 * IS_NULL_OVERHEAD);
@@ -553,7 +553,7 @@ public class TestCostCalculator
         return assertCost(costCalculatorWithEstimatedExchanges, node, costs, stats);
     }
 
-    private CostAssertionBuilder assertCostFragmentedPlan(
+    private CostAssertionBuilder assertCostSingleStageFragmentedPlan(
             PlanNode node,
             Map<String, PlanCostEstimate> costs,
             Map<String, PlanNodeStatsEstimate> stats,
@@ -562,9 +562,9 @@ public class TestCostCalculator
         TypeProvider typeProvider = TypeProvider.copyOf(types);
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator(stats), session, typeProvider);
         CostProvider costProvider = new TestingCostProvider(costs, costCalculatorUsingExchanges, statsProvider, session);
-        PlanNode plan = translateExpression(node, statsCalculator(stats), typeProvider);
-        SubPlan subPlan = fragment(new Plan(plan, typeProvider, StatsAndCosts.create(node, statsProvider, costProvider)));
-        return new CostAssertionBuilder(subPlan.getFragment().getStatsAndCosts().getCosts().getOrDefault(node.getId(), PlanCostEstimate.unknown()));
+        // Explicitly generate the statsAndCosts, bypass fragment generation and sanity checks for mock plans.
+        StatsAndCosts statsAndCosts = StatsAndCosts.create(node, statsProvider, costProvider).getForSubplan(node);
+        return new CostAssertionBuilder(statsAndCosts.getCosts().getOrDefault(node.getId(), PlanCostEstimate.unknown()));
     }
 
     private PlanNode translateExpression(PlanNode node, StatsCalculator statsCalculator, TypeProvider typeProvider)
@@ -798,7 +798,7 @@ public class TestCostCalculator
 
     private AggregationNode aggregation(String id, PlanNode source)
     {
-        AggregationNode.Aggregation aggregation = count(metadata.getFunctionManager());
+        AggregationNode.Aggregation aggregation = count(metadata.getFunctionAndTypeManager());
 
         return new AggregationNode(
                 new PlanNodeId(id),
@@ -837,7 +837,8 @@ public class TestCostCalculator
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.of(distributionType));
+                Optional.of(distributionType),
+                ImmutableMap.of());
     }
 
     private SubPlan fragment(Plan plan)

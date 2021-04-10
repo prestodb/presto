@@ -40,8 +40,8 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
-import io.airlift.units.DataSize;
 import org.joda.time.DateTimeZone;
+import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
@@ -78,6 +78,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
@@ -85,6 +86,8 @@ import static java.util.Objects.requireNonNull;
 public class OrcSelectiveRecordReader
         extends AbstractOrcRecordReader<SelectiveStreamReader>
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcSelectiveRecordReader.class).instanceSize();
+
     // Marks a SQL null when occurring in constantValues.
     private static final byte[] NULL_MARKER = new byte[0];
     private static final Page EMPTY_PAGE = new Page(0);
@@ -99,6 +102,8 @@ public class OrcSelectiveRecordReader
     private final Optional<FilterFunction> filterFunctionWithoutInput;
     private final Map<Integer, Integer> filterFunctionInputMapping;   // channel-to-index-into-hiveColumnIndices-array mapping
     private final Map<Integer, Integer> columnsWithFilterScores;      // keys are indices into hiveColumnIndices array; values are filter scores
+
+    private final OrcLocalMemoryContext localMemoryContext;
 
     // Optimal order of stream readers
     private int[] streamReaderOrder;                                  // elements are indices into hiveColumnIndices array
@@ -164,12 +169,10 @@ public class OrcSelectiveRecordReader
             Map<Integer, Slice> intermediateKeyMetadata,
             int rowsInRowGroup,
             DateTimeZone hiveStorageTimeZone,
+            OrcRecordReaderOptions options,
             boolean legacyMapSubscript,
             PostScript.HiveWriterVersion hiveWriterVersion,
             MetadataReader metadataReader,
-            DataSize maxMergeDistance,
-            DataSize tinyStripeThreshold,
-            DataSize maxBlockSize,
             Map<String, Slice> userMetadata,
             OrcAggregatedMemoryContext systemMemoryUsage,
             Optional<OrcWriteValidation> writeValidation,
@@ -183,6 +186,7 @@ public class OrcSelectiveRecordReader
                         orcDataSource,
                         types,
                         hiveStorageTimeZone,
+                        options,
                         legacyMapSubscript,
                         includedColumns,
                         outputColumns,
@@ -208,9 +212,9 @@ public class OrcSelectiveRecordReader
                 hiveStorageTimeZone,
                 hiveWriterVersion,
                 metadataReader,
-                maxMergeDistance,
-                tinyStripeThreshold,
-                maxBlockSize,
+                options.getMaxMergeDistance(),
+                options.getTinyStripeThreshold(),
+                options.getMaxBlockSize(),
                 userMetadata,
                 systemMemoryUsage,
                 writeValidation,
@@ -240,6 +244,8 @@ public class OrcSelectiveRecordReader
                 .entrySet()
                 .stream()
                 .collect(toImmutableMap(entry -> zeroBasedIndices.get(entry.getKey()), entry -> scoreFilter(entry.getValue())));
+
+        this.localMemoryContext = systemMemoryUsage.newOrcLocalMemoryContext(OrcSelectiveRecordReader.class.getSimpleName());
 
         requireNonNull(coercers, "coercers is null");
         this.coercers = new Function[this.hiveColumnIndices.length];
@@ -564,6 +570,7 @@ public class OrcSelectiveRecordReader
             OrcDataSource orcDataSource,
             List<OrcType> types,
             DateTimeZone hiveStorageTimeZone,
+            OrcRecordReaderOptions options,
             boolean legacyMapSubscript,
             Map<Integer, Type> includedColumns,
             List<Integer> outputColumns,
@@ -596,6 +603,7 @@ public class OrcSelectiveRecordReader
                         outputRequired ? Optional.of(includedColumns.get(columnId)) : Optional.empty(),
                         Optional.ofNullable(requiredSubfields.get(columnId)).orElse(ImmutableList.of()),
                         hiveStorageTimeZone,
+                        options,
                         legacyMapSubscript,
                         systemMemoryContext);
             }
@@ -679,6 +687,8 @@ public class OrcSelectiveRecordReader
             }
         }
 
+        localMemoryContext.setBytes(getSelfRetainedSizeInBytes());
+
         batchRead(batchSize);
 
         if (positionCount == 0) {
@@ -727,6 +737,21 @@ public class OrcSelectiveRecordReader
         validateWritePageChecksum(page);
 
         return page;
+    }
+
+    private long getSelfRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE +
+                sizeOf(NULL_MARKER) +
+                sizeOf(hiveColumnIndices) +
+                sizeOf(constantValues) +
+                sizeOf(coercers) +
+                sizeOf(streamReaderOrder) +
+                sizeOf(filterFunctionsOrder) +
+                sizeOf(positions) +
+                sizeOf(outputPositions) +
+                sizeOf(errors) +
+                sizeOf(tmpErrors);
     }
 
     private SelectiveStreamReader getStreamReader(int columnIndex)

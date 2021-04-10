@@ -16,7 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
@@ -60,11 +60,11 @@ import static java.util.Objects.requireNonNull;
 public class PushPartialAggregationThroughExchange
         implements Rule<AggregationNode>
 {
-    private final FunctionManager functionManager;
+    private final FunctionAndTypeManager functionAndTypeManager;
 
-    public PushPartialAggregationThroughExchange(FunctionManager functionManager)
+    public PushPartialAggregationThroughExchange(FunctionAndTypeManager functionAndTypeManager)
     {
-        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
     }
 
     private static final Capture<ExchangeNode> EXCHANGE_NODE = Capture.newCapture();
@@ -86,7 +86,7 @@ public class PushPartialAggregationThroughExchange
     {
         ExchangeNode exchangeNode = captures.get(EXCHANGE_NODE);
 
-        boolean decomposable = isDecomposable(aggregationNode, functionManager);
+        boolean decomposable = isDecomposable(aggregationNode, functionAndTypeManager);
 
         if (aggregationNode.getStep().equals(SINGLE) &&
                 aggregationNode.hasEmptyGroupingSet() &&
@@ -203,9 +203,9 @@ public class PushPartialAggregationThroughExchange
         Map<VariableReferenceExpression, AggregationNode.Aggregation> finalAggregation = new HashMap<>();
         for (Map.Entry<VariableReferenceExpression, AggregationNode.Aggregation> entry : node.getAggregations().entrySet()) {
             AggregationNode.Aggregation originalAggregation = entry.getValue();
-            String functionName = functionManager.getFunctionMetadata(originalAggregation.getFunctionHandle()).getName().getFunctionName();
+            String functionName = functionAndTypeManager.getFunctionMetadata(originalAggregation.getFunctionHandle()).getName().getObjectName();
             FunctionHandle functionHandle = originalAggregation.getFunctionHandle();
-            InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(functionHandle);
+            InternalAggregationFunction function = functionAndTypeManager.getAggregateFunctionImplementation(functionHandle);
             VariableReferenceExpression intermediateVariable = context.getVariableAllocator().newVariable(functionName, function.getIntermediateType());
 
             checkState(!originalAggregation.getOrderBy().isPresent(), "Aggregate with ORDER BY does not support partial aggregation");

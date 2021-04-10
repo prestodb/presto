@@ -14,14 +14,13 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
-import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
@@ -35,7 +34,7 @@ import java.util.Optional;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.common.type.TypeUtils.writeNativeValue;
-import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.functionTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
@@ -56,7 +55,7 @@ public final class ZipWithFunction
     private ZipWithFunction()
     {
         super(new Signature(
-                QualifiedFunctionName.of(DEFAULT_NAMESPACE, "zip_with"),
+                QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "zip_with"),
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("T"), typeVariable("U"), typeVariable("R")),
                 ImmutableList.of(),
@@ -84,7 +83,7 @@ public final class ZipWithFunction
     }
 
     @Override
-    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
+    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
         Type leftElementType = boundVariables.getTypeVariable("T");
         Type rightElementType = boundVariables.getTypeVariable("U");

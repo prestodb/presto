@@ -36,7 +36,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.execution.warnings.WarningCollector.NOOP;
+import static com.facebook.presto.spi.WarningCollector.NOOP;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
@@ -88,11 +88,11 @@ public class TranslateExpressions
                         .collect(toImmutableList());
                 ImmutableMap.Builder<NodeRef<Expression>, Type> builder = ImmutableMap.<NodeRef<Expression>, Type>builder();
                 if (!lambdaExpressions.isEmpty()) {
-                    List<FunctionType> functionTypes = metadata.getFunctionManager().getFunctionMetadata(callExpression.getFunctionHandle()).getArgumentTypes().stream()
+                    List<FunctionType> functionTypes = metadata.getFunctionAndTypeManager().getFunctionMetadata(callExpression.getFunctionHandle()).getArgumentTypes().stream()
                             .filter(typeSignature -> typeSignature.getBase().equals(FunctionType.NAME))
-                            .map(typeSignature -> (FunctionType) (metadata.getTypeManager().getType(typeSignature)))
+                            .map(typeSignature -> (FunctionType) (metadata.getFunctionAndTypeManager().getType(typeSignature)))
                             .collect(toImmutableList());
-                    InternalAggregationFunction internalAggregationFunction = metadata.getFunctionManager().getAggregateFunctionImplementation(callExpression.getFunctionHandle());
+                    InternalAggregationFunction internalAggregationFunction = metadata.getFunctionAndTypeManager().getAggregateFunctionImplementation(callExpression.getFunctionHandle());
                     List<Class> lambdaInterfaces = internalAggregationFunction.getLambdaInterfaces();
                     verify(lambdaExpressions.size() == functionTypes.size());
                     verify(lambdaExpressions.size() == lambdaInterfaces.size());
@@ -160,7 +160,7 @@ public class TranslateExpressions
 
             private RowExpression toRowExpression(Expression expression, Session session, Map<NodeRef<Expression>, Type> types)
             {
-                return SqlToRowExpressionTranslator.translate(expression, types, ImmutableMap.of(), metadata.getFunctionManager(), metadata.getTypeManager(), session);
+                return SqlToRowExpressionTranslator.translate(expression, types, ImmutableMap.of(), metadata.getFunctionAndTypeManager(), session);
             }
 
             private RowExpression removeOriginalExpression(RowExpression expression, Rule.Context context)

@@ -31,6 +31,7 @@ import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 import java.net.URI;
+import java.time.ZoneId;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
@@ -438,7 +439,7 @@ public class StorageManagerConfig
 
     public DateTimeZone getShardDayBoundaryTimeZone()
     {
-        return DateTimeZone.forTimeZone(TimeZone.getTimeZone(shardDayBoundaryTimeZone));
+        return DateTimeZone.forTimeZone(TimeZone.getTimeZone(ZoneId.of(shardDayBoundaryTimeZone, ZoneId.SHORT_IDS)));
     }
 
     @Config("storage.shard-day-boundary-time-zone")

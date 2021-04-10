@@ -113,6 +113,7 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.isRowType;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.pathExists;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyOnline;
 import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
+import static com.facebook.presto.hive.metastore.PrestoTableType.MATERIALIZED_VIEW;
 import static com.facebook.presto.hive.metastore.PrestoTableType.TEMPORARY_TABLE;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.Float.intBitsToFloat;
@@ -217,7 +218,6 @@ public final class HiveWriteUtils
         };
     }
 
-    @SuppressWarnings("deprecation")
     public static Serializer initializeSerializer(Configuration conf, Properties properties, String serializerName)
     {
         try {
@@ -300,6 +300,7 @@ public final class HiveWriteUtils
         PrestoTableType tableType = table.getTableType();
         if (!writesToNonManagedTablesEnabled
                 && !tableType.equals(MANAGED_TABLE)
+                && !tableType.equals(MATERIALIZED_VIEW)
                 && !tableType.equals(TEMPORARY_TABLE)) {
             throw new PrestoException(NOT_SUPPORTED, "Cannot write to non-managed Hive table");
         }
@@ -348,13 +349,14 @@ public final class HiveWriteUtils
         }
     }
 
-    public static Path getTableDefaultLocation(HdfsContext context, SemiTransactionalHiveMetastore metastore, HdfsEnvironment hdfsEnvironment, String schemaName, String tableName)
+    public static Path getTableDefaultLocation(ConnectorSession session, SemiTransactionalHiveMetastore metastore, HdfsEnvironment hdfsEnvironment, String schemaName, String tableName)
     {
         Optional<String> location = getDatabase(metastore, schemaName).getLocation();
         if (!location.isPresent() || location.get().isEmpty()) {
             throw new PrestoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location is not set", schemaName));
         }
 
+        HdfsContext context = new HdfsContext(session, schemaName, tableName, location.get(), true);
         Path databasePath = new Path(location.get());
         if (!isS3FileSystem(context, hdfsEnvironment, databasePath)) {
             if (!pathExists(context, hdfsEnvironment, databasePath)) {
@@ -419,11 +421,20 @@ public final class HiveWriteUtils
 
         // use relative temporary directory on ViewFS
         if (isViewFileSystem(context, hdfsEnvironment, targetPath)) {
-            temporaryPrefix = ".hive-staging";
+            if (pathExists(context, hdfsEnvironment, targetPath)) {
+                temporaryPrefix = ".hive-staging";
+            }
+            else {
+                //use the temporary folder in parent when target path does not exist
+                temporaryPrefix = "../.hive-staging";
+            }
         }
 
         // create a temporary directory on the same filesystem
         Path temporaryRoot = new Path(targetPath, temporaryPrefix);
+        if (!pathExists(context, hdfsEnvironment, temporaryRoot)) {
+            createDirectory(context, hdfsEnvironment, temporaryRoot);
+        }
         Path temporaryPath = new Path(temporaryRoot, randomUUID().toString());
 
         createDirectory(context, hdfsEnvironment, temporaryPath);

@@ -13,10 +13,12 @@
  */
 package com.facebook.presto.cache.alluxio;
 
+import alluxio.client.file.cache.CacheManager;
 import alluxio.metrics.MetricKey;
 import alluxio.metrics.MetricsSystem;
 import alluxio.util.io.FileUtils;
 import com.facebook.presto.cache.CacheConfig;
+import com.facebook.presto.hive.CacheQuota;
 import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import io.airlift.units.DataSize;
@@ -28,11 +30,14 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.util.Progressable;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.HashMap;
@@ -40,15 +45,19 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.cache.CacheType.ALLUXIO;
 import static com.facebook.presto.cache.TestingCacheUtils.stressTest;
 import static com.facebook.presto.cache.TestingCacheUtils.validateBuffer;
 import static com.facebook.presto.hive.CacheQuota.NO_CACHE_CONSTRAINTS;
+import static com.facebook.presto.hive.CacheQuotaScope.TABLE;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.nio.file.Files.createTempDirectory;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestAlluxioCachingFileSystem
@@ -84,11 +93,12 @@ public class TestAlluxioCachingFileSystem
         resetBaseline();
     }
 
-    @Test(timeOut = 30_000)
-    public void testBasicWithValidationEnabled()
+    @AfterMethod(alwaysRun = true)
+    public void tearDown()
             throws Exception
     {
-        testBasic(true);
+        // Cleanup CacheManager singleton to prevent state leftover across tests
+        resetCacheManager();
     }
 
     @Test(timeOut = 30_000)
@@ -107,7 +117,8 @@ public class TestAlluxioCachingFileSystem
                 .setBaseDirectory(cacheDirectory)
                 .setValidationEnabled(validationEnabled);
         AlluxioCacheConfig alluxioCacheConfig = new AlluxioCacheConfig();
-        AlluxioCachingFileSystem fileSystem = cachingFileSystem(cacheConfig, alluxioCacheConfig);
+        Configuration configuration = getHdfsConfiguration(cacheConfig, alluxioCacheConfig);
+        AlluxioCachingFileSystem fileSystem = cachingFileSystem(configuration);
         byte[] buffer = new byte[PAGE_SIZE * 2];
         int pageOffset = PAGE_SIZE;
 
@@ -117,6 +128,7 @@ public class TestAlluxioCachingFileSystem
         checkMetrics(MetricKey.CLIENT_CACHE_BYTES_READ_CACHE, 0);
         checkMetrics(MetricKey.CLIENT_CACHE_BYTES_REQUESTED_EXTERNAL, 100);
         checkMetrics(MetricKey.CLIENT_CACHE_BYTES_READ_EXTERNAL, PAGE_SIZE);
+        checkMetrics(MetricKey.CLIENT_CACHE_BYTES_EVICTED, 0);
         validateBuffer(data, pageOffset + 10, buffer, 0, 100);
 
         // read within the cached page
@@ -125,6 +137,7 @@ public class TestAlluxioCachingFileSystem
         checkMetrics(MetricKey.CLIENT_CACHE_BYTES_READ_CACHE, 90);
         checkMetrics(MetricKey.CLIENT_CACHE_BYTES_REQUESTED_EXTERNAL, 0);
         checkMetrics(MetricKey.CLIENT_CACHE_BYTES_READ_EXTERNAL, 0);
+        checkMetrics(MetricKey.CLIENT_CACHE_BYTES_EVICTED, 0);
         validateBuffer(data, pageOffset + 20, buffer, 0, 90);
 
         // read partially after the range of the cache
@@ -133,6 +146,7 @@ public class TestAlluxioCachingFileSystem
         checkMetrics(MetricKey.CLIENT_CACHE_BYTES_READ_CACHE, 10);
         checkMetrics(MetricKey.CLIENT_CACHE_BYTES_REQUESTED_EXTERNAL, 90);
         checkMetrics(MetricKey.CLIENT_CACHE_BYTES_READ_EXTERNAL, PAGE_SIZE);
+        checkMetrics(MetricKey.CLIENT_CACHE_BYTES_EVICTED, 0);
         validateBuffer(data, pageOffset + PAGE_SIZE - 10, buffer, 0, 100);
 
         // read partially before the range of the cache
@@ -141,6 +155,7 @@ public class TestAlluxioCachingFileSystem
         checkMetrics(MetricKey.CLIENT_CACHE_BYTES_READ_CACHE, 40);
         checkMetrics(MetricKey.CLIENT_CACHE_BYTES_REQUESTED_EXTERNAL, 10);
         checkMetrics(MetricKey.CLIENT_CACHE_BYTES_READ_EXTERNAL, PAGE_SIZE);
+        checkMetrics(MetricKey.CLIENT_CACHE_BYTES_EVICTED, 0);
         validateBuffer(data, pageOffset - 10, buffer, 10, 50);
 
         // skip one page
@@ -149,6 +164,7 @@ public class TestAlluxioCachingFileSystem
         checkMetrics(MetricKey.CLIENT_CACHE_BYTES_READ_CACHE, 0);
         checkMetrics(MetricKey.CLIENT_CACHE_BYTES_REQUESTED_EXTERNAL, 50);
         checkMetrics(MetricKey.CLIENT_CACHE_BYTES_READ_EXTERNAL, PAGE_SIZE);
+        checkMetrics(MetricKey.CLIENT_CACHE_BYTES_EVICTED, 0);
         validateBuffer(data, pageOffset + PAGE_SIZE * 3, buffer, 40, 50);
 
         // read between cached pages
@@ -157,6 +173,7 @@ public class TestAlluxioCachingFileSystem
         checkMetrics(MetricKey.CLIENT_CACHE_BYTES_READ_CACHE, 20);
         checkMetrics(MetricKey.CLIENT_CACHE_BYTES_REQUESTED_EXTERNAL, PAGE_SIZE);
         checkMetrics(MetricKey.CLIENT_CACHE_BYTES_READ_EXTERNAL, PAGE_SIZE);
+        checkMetrics(MetricKey.CLIENT_CACHE_BYTES_EVICTED, 0);
         validateBuffer(data, pageOffset + PAGE_SIZE * 2 - 10, buffer, 400, PAGE_SIZE + 20);
     }
 
@@ -170,8 +187,8 @@ public class TestAlluxioCachingFileSystem
                 .setBaseDirectory(cacheDirectory);
         AlluxioCacheConfig alluxioCacheConfig = new AlluxioCacheConfig()
                 .setMaxCacheSize(new DataSize(10, KILOBYTE));
-
-        AlluxioCachingFileSystem cachingFileSystem = cachingFileSystem(cacheConfig, alluxioCacheConfig);
+        Configuration configuration = getHdfsConfiguration(cacheConfig, alluxioCacheConfig);
+        AlluxioCachingFileSystem cachingFileSystem = cachingFileSystem(configuration);
         stressTest(data, (position, buffer, offset, length) -> {
             try {
                 readFully(cachingFileSystem, position, buffer, offset, length);
@@ -182,11 +199,257 @@ public class TestAlluxioCachingFileSystem
         });
     }
 
+    @Test(timeOut = 30_000, expectedExceptions = {IOException.class})
+    public void testSyncRestoreFailure()
+            throws Exception
+    {
+        URI badCacheDirectory = createTempDirectory("alluxio_cache_bad").toUri();
+        File cacheDirectory = new File(badCacheDirectory.getPath());
+        cacheDirectory.setWritable(false);
+        CacheConfig cacheConfig = new CacheConfig()
+                .setCacheType(ALLUXIO)
+                .setCachingEnabled(true)
+                .setBaseDirectory(badCacheDirectory);
+        AlluxioCacheConfig alluxioCacheConfig = new AlluxioCacheConfig();
+        Configuration configuration = getHdfsConfiguration(cacheConfig, alluxioCacheConfig);
+        try {
+            cachingFileSystem(configuration);
+        }
+        finally {
+            cacheDirectory.setWritable(true);
+        }
+    }
+
+    @Test(timeOut = 30_000)
+    public void testBasicReadWithAsyncRestoreFailure()
+            throws Exception
+    {
+        File cacheDirectory = new File(this.cacheDirectory.getPath());
+        cacheDirectory.setWritable(false);
+        CacheConfig cacheConfig = new CacheConfig()
+                .setCacheType(ALLUXIO)
+                .setCachingEnabled(true)
+                .setBaseDirectory(this.cacheDirectory);
+        AlluxioCacheConfig alluxioCacheConfig = new AlluxioCacheConfig();
+        Configuration configuration = getHdfsConfiguration(cacheConfig, alluxioCacheConfig);
+        configuration.set("alluxio.user.client.cache.async.restore.enabled", String.valueOf(true));
+        try {
+            AlluxioCachingFileSystem fileSystem = cachingFileSystem(configuration);
+            long state = MetricsSystem.counter(MetricKey.CLIENT_CACHE_STATE.getName()).getCount();
+            assertTrue(state == CacheManager.State.READ_ONLY.getValue() || state == CacheManager.State.NOT_IN_USE.getValue());
+            // different cases of read can still proceed even cache is read-only or not-in-use
+            byte[] buffer = new byte[PAGE_SIZE * 2];
+            int pageOffset = PAGE_SIZE;
+            // new read
+            resetBaseline();
+            assertEquals(readFully(fileSystem, pageOffset + 10, buffer, 0, 100), 100);
+            checkMetrics(MetricKey.CLIENT_CACHE_BYTES_READ_CACHE, 0);
+            checkMetrics(MetricKey.CLIENT_CACHE_BYTES_REQUESTED_EXTERNAL, 100);
+            checkMetrics(MetricKey.CLIENT_CACHE_BYTES_READ_EXTERNAL, PAGE_SIZE);
+            checkMetrics(MetricKey.CLIENT_CACHE_BYTES_EVICTED, 0);
+            validateBuffer(data, pageOffset + 10, buffer, 0, 100);
+
+            // read within the cached page
+            resetBaseline();
+            assertEquals(readFully(fileSystem, pageOffset + 20, buffer, 0, 90), 90);
+            checkMetrics(MetricKey.CLIENT_CACHE_BYTES_READ_CACHE, 0);
+            checkMetrics(MetricKey.CLIENT_CACHE_BYTES_REQUESTED_EXTERNAL, 90);
+            checkMetrics(MetricKey.CLIENT_CACHE_BYTES_READ_EXTERNAL, PAGE_SIZE);
+            checkMetrics(MetricKey.CLIENT_CACHE_BYTES_EVICTED, 0);
+            validateBuffer(data, pageOffset + 20, buffer, 0, 90);
+
+            // read partially after the range of the cache
+            resetBaseline();
+            assertEquals(readFully(fileSystem, pageOffset + PAGE_SIZE - 10, buffer, 0, 100), 100);
+            checkMetrics(MetricKey.CLIENT_CACHE_BYTES_READ_CACHE, 0);
+            checkMetrics(MetricKey.CLIENT_CACHE_BYTES_REQUESTED_EXTERNAL, 100);
+            checkMetrics(MetricKey.CLIENT_CACHE_BYTES_READ_EXTERNAL, 2 * PAGE_SIZE);
+            checkMetrics(MetricKey.CLIENT_CACHE_BYTES_EVICTED, 0);
+            validateBuffer(data, pageOffset + PAGE_SIZE - 10, buffer, 0, 100);
+
+            // read partially before the range of the cache
+            resetBaseline();
+            assertEquals(readFully(fileSystem, pageOffset - 10, buffer, 10, 50), 50);
+            checkMetrics(MetricKey.CLIENT_CACHE_BYTES_READ_CACHE, 0);
+            checkMetrics(MetricKey.CLIENT_CACHE_BYTES_REQUESTED_EXTERNAL, 50);
+            checkMetrics(MetricKey.CLIENT_CACHE_BYTES_READ_EXTERNAL, 2 * PAGE_SIZE);
+            checkMetrics(MetricKey.CLIENT_CACHE_BYTES_EVICTED, 0);
+            validateBuffer(data, pageOffset - 10, buffer, 10, 50);
+
+            // skip one page
+            resetBaseline();
+            assertEquals(readFully(fileSystem, pageOffset + PAGE_SIZE * 3, buffer, 40, 50), 50);
+            checkMetrics(MetricKey.CLIENT_CACHE_BYTES_READ_CACHE, 0);
+            checkMetrics(MetricKey.CLIENT_CACHE_BYTES_REQUESTED_EXTERNAL, 50);
+            checkMetrics(MetricKey.CLIENT_CACHE_BYTES_READ_EXTERNAL, PAGE_SIZE);
+            checkMetrics(MetricKey.CLIENT_CACHE_BYTES_EVICTED, 0);
+            validateBuffer(data, pageOffset + PAGE_SIZE * 3, buffer, 40, 50);
+
+            // read between cached pages
+            resetBaseline();
+            assertEquals(readFully(fileSystem, pageOffset + PAGE_SIZE * 2 - 10, buffer, 400, PAGE_SIZE + 20), PAGE_SIZE + 20);
+            checkMetrics(MetricKey.CLIENT_CACHE_BYTES_READ_CACHE, 0);
+            checkMetrics(MetricKey.CLIENT_CACHE_BYTES_REQUESTED_EXTERNAL, PAGE_SIZE + 20);
+            checkMetrics(MetricKey.CLIENT_CACHE_BYTES_READ_EXTERNAL, 3 * PAGE_SIZE);
+            checkMetrics(MetricKey.CLIENT_CACHE_BYTES_EVICTED, 0);
+            validateBuffer(data, pageOffset + PAGE_SIZE * 2 - 10, buffer, 400, PAGE_SIZE + 20);
+
+            state = MetricsSystem.counter(MetricKey.CLIENT_CACHE_STATE.getName()).getCount();
+            assertTrue(state == CacheManager.State.READ_ONLY.getValue() || state == CacheManager.State.NOT_IN_USE.getValue());
+        }
+        finally {
+            cacheDirectory.setWritable(true);
+        }
+    }
+
+    @Test(timeOut = 30_000)
+    public void testQuotaBasics()
+            throws Exception
+    {
+        DataSize quotaSize = DataSize.succinctDataSize(1, KILOBYTE);
+        CacheQuota cacheQuota = new CacheQuota("test.table", Optional.of(quotaSize));
+        CacheConfig cacheConfig = new CacheConfig()
+                .setCacheType(ALLUXIO)
+                .setCachingEnabled(true)
+                .setBaseDirectory(cacheDirectory)
+                .setValidationEnabled(false)
+                .setCacheQuotaScope(TABLE);
+        AlluxioCacheConfig alluxioCacheConfig = new AlluxioCacheConfig().setCacheQuotaEnabled(true);
+        Configuration configuration = getHdfsConfiguration(cacheConfig, alluxioCacheConfig);
+        AlluxioCachingFileSystem fileSystem = cachingFileSystem(configuration);
+
+        byte[] buffer = new byte[10240];
+
+        // read within the cache quota
+        resetBaseline();
+        assertEquals(readFully(fileSystem, cacheQuota, 42, buffer, 0, 100), 100);
+        checkMetrics(MetricKey.CLIENT_CACHE_BYTES_READ_CACHE, 0);
+        checkMetrics(MetricKey.CLIENT_CACHE_BYTES_REQUESTED_EXTERNAL, 100);
+        checkMetrics(MetricKey.CLIENT_CACHE_BYTES_READ_EXTERNAL, PAGE_SIZE);
+        checkMetrics(MetricKey.CLIENT_CACHE_BYTES_EVICTED, 0);
+        validateBuffer(data, 42, buffer, 0, 100);
+
+        // read beyond cache quota
+        resetBaseline();
+        assertEquals(readFully(fileSystem, cacheQuota, 47, buffer, 0, 9000), 9000);
+        checkMetrics(MetricKey.CLIENT_CACHE_BYTES_READ_CACHE, PAGE_SIZE - 47);
+        checkMetrics(MetricKey.CLIENT_CACHE_BYTES_REQUESTED_EXTERNAL, 9000 - PAGE_SIZE + 47);
+        checkMetrics(MetricKey.CLIENT_CACHE_BYTES_READ_EXTERNAL, (9000 / PAGE_SIZE) * PAGE_SIZE);
+        checkMetrics(MetricKey.CLIENT_CACHE_BYTES_EVICTED, (9000 / PAGE_SIZE) * PAGE_SIZE);
+        validateBuffer(data, 47, buffer, 0, 9000);
+    }
+
+    @Test(timeOut = 30_000)
+    public void testQuotaUpdated()
+            throws Exception
+    {
+        CacheQuota smallCacheQuota = new CacheQuota("test.table", Optional.of(DataSize.succinctDataSize(1, KILOBYTE)));
+        CacheConfig cacheConfig = new CacheConfig()
+                .setCacheType(ALLUXIO)
+                .setCachingEnabled(true)
+                .setBaseDirectory(cacheDirectory)
+                .setValidationEnabled(false)
+                .setCacheQuotaScope(TABLE);
+        AlluxioCacheConfig alluxioCacheConfig = new AlluxioCacheConfig().setCacheQuotaEnabled(true);
+        Configuration configuration = getHdfsConfiguration(cacheConfig, alluxioCacheConfig);
+        AlluxioCachingFileSystem fileSystem = cachingFileSystem(configuration);
+
+        byte[] buffer = new byte[10240];
+
+        // read beyond the small cache quota
+        resetBaseline();
+        assertEquals(readFully(fileSystem, smallCacheQuota, 0, buffer, 0, 9000), 9000);
+        checkMetrics(MetricKey.CLIENT_CACHE_BYTES_READ_CACHE, 0);
+        checkMetrics(MetricKey.CLIENT_CACHE_BYTES_REQUESTED_EXTERNAL, 9000);
+        checkMetrics(MetricKey.CLIENT_CACHE_BYTES_READ_EXTERNAL, (9000 / PAGE_SIZE + 1) * PAGE_SIZE);
+        checkMetrics(MetricKey.CLIENT_CACHE_BYTES_EVICTED, (9000 / PAGE_SIZE) * PAGE_SIZE);
+        validateBuffer(data, 0, buffer, 0, 9000);
+
+        // read again within an updated larger cache quota
+        CacheQuota largeCacheQuota = new CacheQuota("test.table", Optional.of(DataSize.succinctDataSize(10, KILOBYTE)));
+        resetBaseline();
+        assertEquals(readFully(fileSystem, largeCacheQuota, 0, buffer, 0, 9000), 9000);
+        checkMetrics(MetricKey.CLIENT_CACHE_BYTES_READ_CACHE, 9000 - (9000 / PAGE_SIZE) * PAGE_SIZE);
+        checkMetrics(MetricKey.CLIENT_CACHE_BYTES_REQUESTED_EXTERNAL, (9000 / PAGE_SIZE) * PAGE_SIZE);
+        checkMetrics(MetricKey.CLIENT_CACHE_BYTES_READ_EXTERNAL, (9000 / PAGE_SIZE) * PAGE_SIZE);
+        checkMetrics(MetricKey.CLIENT_CACHE_BYTES_EVICTED, 0);
+        validateBuffer(data, 0, buffer, 0, 9000);
+    }
+
+    @Test(invocationCount = 10)
+    public void testStressWithQuota()
+            throws ExecutionException, InterruptedException, URISyntaxException, IOException
+    {
+        CacheQuota cacheQuota = new CacheQuota("test.table", Optional.of(DataSize.succinctDataSize(5, KILOBYTE)));
+        CacheConfig cacheConfig = new CacheConfig()
+                .setCacheType(ALLUXIO)
+                .setCachingEnabled(true)
+                .setValidationEnabled(false)
+                .setBaseDirectory(cacheDirectory)
+                .setCacheQuotaScope(TABLE);
+        AlluxioCacheConfig alluxioCacheConfig = new AlluxioCacheConfig()
+                .setMaxCacheSize(new DataSize(10, KILOBYTE))
+                .setCacheQuotaEnabled(true);
+        Configuration configuration = getHdfsConfiguration(cacheConfig, alluxioCacheConfig);
+        AlluxioCachingFileSystem cachingFileSystem = cachingFileSystem(configuration);
+        stressTest(data, (position, buffer, offset, length) -> {
+            try {
+                readFully(cachingFileSystem, cacheQuota, position, buffer, offset, length);
+            }
+            catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
+    }
+
+    @Test(timeOut = 30_000)
+    public void testInitialization()
+            throws Exception
+    {
+        int pageSize = (int) new DataSize(8, KILOBYTE).toBytes();
+        int maxCacheSize = (int) new DataSize(512, MEGABYTE).toBytes();
+        String jmxClass = "alluxio.metrics.sink.JmxSink";
+        String metricsDomain = "com.facebook.alluxio";
+
+        Configuration configuration = new Configuration();
+        configuration.set("alluxio.user.local.cache.enabled", "true");
+        configuration.set("alluxio.user.client.cache.dir", cacheDirectory.getPath());
+        configuration.set("alluxio.user.client.cache.page.size", Integer.toString(pageSize));
+        configuration.set("alluxio.user.client.cache.size", Integer.toString(maxCacheSize));
+        configuration.set("sink.jmx.class", jmxClass);
+        configuration.set("sink.jmx.domain", metricsDomain);
+
+        AlluxioCachingFileSystem fileSystem = cachingFileSystem(configuration);
+        Configuration conf = fileSystem.getConf();
+        assertTrue(conf.getBoolean("alluxio.user.local.cache.enabled", false));
+        assertEquals(cacheDirectory.getPath(), conf.get("alluxio.user.client.cache.dir", "bad result"));
+        assertEquals(pageSize, conf.getInt("alluxio.user.client.cache.page.size", 0));
+        assertEquals(maxCacheSize, conf.getInt("alluxio.user.client.cache.size", 0));
+        assertEquals(jmxClass, conf.get("sink.jmx.class", "bad result"));
+        assertEquals(metricsDomain, conf.get("sink.jmx.domain", "bad result"));
+    }
+
+    // TODO: update unit tests after CacheManager.reset() is available to avoid using reflection to modify singleton
+    private void resetCacheManager()
+            throws Exception
+    {
+        Field field = CacheManager.Factory.class.getDeclaredField("CACHE_MANAGER");
+        field.setAccessible(true);
+        AtomicReference<CacheManager> managerReference = (AtomicReference<CacheManager>) field.get(null);
+        if (managerReference != null) {
+            CacheManager manager = managerReference.getAndSet(null);
+            if (manager != null) {
+                manager.close();
+            }
+        }
+    }
+
     private void resetBaseline()
     {
         updateBaseline(MetricKey.CLIENT_CACHE_BYTES_READ_CACHE);
         updateBaseline(MetricKey.CLIENT_CACHE_BYTES_READ_EXTERNAL);
         updateBaseline(MetricKey.CLIENT_CACHE_BYTES_REQUESTED_EXTERNAL);
+        updateBaseline(MetricKey.CLIENT_CACHE_BYTES_EVICTED);
     }
 
     private void updateBaseline(MetricKey metricsKey)
@@ -199,14 +462,13 @@ public class TestAlluxioCachingFileSystem
         assertEquals(MetricsSystem.meter(metricsKey.getName()).getCount() - baseline.getOrDefault(metricsKey.getName(), 0L), expected);
     }
 
-    private AlluxioCachingFileSystem cachingFileSystem(CacheConfig cacheConfig, AlluxioCacheConfig alluxioCacheConfig)
+    private AlluxioCachingFileSystem cachingFileSystem(Configuration configuration)
             throws URISyntaxException, IOException
     {
         Map<Path, byte[]> files = new HashMap<>();
         files.put(new Path(testFilePath), data);
-        Configuration configuration = getHdfsConfiguration(cacheConfig, alluxioCacheConfig);
         ExtendedFileSystem testingFileSystem = new TestingFileSystem(files, configuration);
-        URI uri = new URI("hdfs://test:8020/");
+        URI uri = new URI("alluxio://test:8020/");
         AlluxioCachingFileSystem cachingFileSystem = new AlluxioCachingFileSystem(testingFileSystem, uri);
         cachingFileSystem.initialize(uri, configuration);
         return cachingFileSystem;
@@ -217,13 +479,24 @@ public class TestAlluxioCachingFileSystem
         Configuration configuration = new Configuration();
         if (cacheConfig.isCachingEnabled() && cacheConfig.getCacheType() == ALLUXIO) {
             configuration.set("alluxio.user.local.cache.enabled", String.valueOf(cacheConfig.isCachingEnabled()));
-            configuration.set("alluxio.user.client.cache.dir", cacheConfig.getBaseDirectory().getPath());
+            if (cacheConfig.getBaseDirectory() != null) {
+                configuration.set("alluxio.user.client.cache.dir", cacheConfig.getBaseDirectory().getPath());
+            }
             configuration.set("alluxio.user.client.cache.size", alluxioCacheConfig.getMaxCacheSize().toString());
             configuration.set("alluxio.user.client.cache.page.size", Integer.toString(PAGE_SIZE));
             configuration.set("alluxio.user.metrics.collection.enabled", String.valueOf(alluxioCacheConfig.isMetricsCollectionEnabled()));
             configuration.set("alluxio.user.client.cache.async.write.enabled", String.valueOf(alluxioCacheConfig.isAsyncWriteEnabled()));
+            configuration.set("alluxio.user.client.cache.async.restore.enabled", String.valueOf(false));
+            configuration.set("alluxio.user.client.cache.quota.enabled", String.valueOf(alluxioCacheConfig.isCacheQuotaEnabled()));
             configuration.set("sink.jmx.class", alluxioCacheConfig.getJmxClass());
             configuration.set("sink.jmx.domain", alluxioCacheConfig.getMetricsDomain());
+            if (alluxioCacheConfig.getTimeoutEnabled()) {
+                configuration.set("alluxio.user.client.cache.timeout.duration", String.valueOf(alluxioCacheConfig.getTimeoutDuration().toMillis()));
+                configuration.set("alluxio.user.client.cache.timeout.threads", String.valueOf(alluxioCacheConfig.getTimeoutThreads()));
+            }
+            else {
+                configuration.set("alluxio.user.client.cache.timeout.duration", "-1");
+            }
         }
         return configuration;
     }
@@ -231,7 +504,13 @@ public class TestAlluxioCachingFileSystem
     private int readFully(AlluxioCachingFileSystem fileSystem, long position, byte[] buffer, int offset, int length)
             throws Exception
     {
-        try (FSDataInputStream stream = fileSystem.openFile(new Path(testFilePath), new HiveFileContext(true, NO_CACHE_CONSTRAINTS, Optional.empty()))) {
+        return readFully(fileSystem, NO_CACHE_CONSTRAINTS, position, buffer, offset, length);
+    }
+
+    private int readFully(AlluxioCachingFileSystem fileSystem, CacheQuota quota, long position, byte[] buffer, int offset, int length)
+            throws Exception
+    {
+        try (FSDataInputStream stream = fileSystem.openFile(new Path(testFilePath), new HiveFileContext(true, quota, Optional.empty(), Optional.of((long) DATA_LENGTH)))) {
             return stream.read(position, buffer, offset, length);
         }
     }

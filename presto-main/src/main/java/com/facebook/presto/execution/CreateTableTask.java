@@ -14,9 +14,9 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -45,7 +45,9 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
+import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
@@ -57,7 +59,6 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TABLE_ALREADY_EXISTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
-import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 
@@ -190,7 +191,7 @@ public class CreateTableTask
 
         Map<String, Object> finalProperties = combineProperties(sqlProperties.keySet(), properties, inheritedProperties);
 
-        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName.asSchemaTableName(), ImmutableList.copyOf(columns.values()), finalProperties, statement.getComment());
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(toSchemaTableName(tableName), ImmutableList.copyOf(columns.values()), finalProperties, statement.getComment());
         try {
             metadata.createTable(session, tableName.getCatalogName(), tableMetadata, statement.isNotExists());
         }

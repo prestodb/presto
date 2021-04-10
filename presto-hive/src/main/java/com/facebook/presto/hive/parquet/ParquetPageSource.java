@@ -19,32 +19,22 @@ import com.facebook.presto.common.block.LazyBlock;
 import com.facebook.presto.common.block.LazyBlockLoader;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.parquet.Field;
 import com.facebook.presto.parquet.ParquetCorruptionException;
 import com.facebook.presto.parquet.reader.ParquetReader;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
-import org.apache.hadoop.fs.Path;
-import org.apache.parquet.io.MessageColumnIO;
-import org.apache.parquet.schema.MessageType;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
-import static com.facebook.presto.hive.parquet.ParquetPageSourceFactory.getParquetType;
-import static com.facebook.presto.parquet.ParquetTypeUtils.lookupColumnByName;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
-import static org.apache.parquet.io.ColumnIOConverter.constructField;
 
 public class ParquetPageSource
         implements ConnectorPageSource
@@ -61,41 +51,14 @@ public class ParquetPageSource
 
     public ParquetPageSource(
             ParquetReader parquetReader,
-            MessageType fileSchema,
-            MessageColumnIO messageColumnIO,
-            TypeManager typeManager,
-            List<HiveColumnHandle> columns,
-            boolean useParquetColumnNames,
-            SchemaTableName tableName,
-            Path path)
+            List<Type> types,
+            List<Optional<Field>> fields,
+            List<String> columnNames)
     {
-        requireNonNull(columns, "columns is null");
-        requireNonNull(fileSchema, "fileSchema is null");
         this.parquetReader = requireNonNull(parquetReader, "parquetReader is null");
-
-        ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
-        ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();
-        ImmutableList.Builder<Optional<Field>> fieldsBuilder = ImmutableList.builder();
-        for (HiveColumnHandle column : columns) {
-            checkState(column.getColumnType() == REGULAR, "column type must be regular");
-
-            String name = column.getName();
-            Type type = typeManager.getType(column.getTypeSignature());
-
-            namesBuilder.add(name);
-            typesBuilder.add(type);
-
-            if (getParquetType(type, fileSchema, useParquetColumnNames, column, tableName, path).isPresent()) {
-                String columnName = useParquetColumnNames ? name : fileSchema.getFields().get(column.getHiveColumnIndex()).getName();
-                fieldsBuilder.add(constructField(type, lookupColumnByName(messageColumnIO, columnName)));
-            }
-            else {
-                fieldsBuilder.add(Optional.empty());
-            }
-        }
-        types = typesBuilder.build();
-        fields = fieldsBuilder.build();
-        columnNames = namesBuilder.build();
+        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+        this.fields = ImmutableList.copyOf(requireNonNull(fields, "fields is null"));
+        this.columnNames = ImmutableList.copyOf(requireNonNull(columnNames, "columnNames is null"));
     }
 
     @Override

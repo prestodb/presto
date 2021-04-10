@@ -69,7 +69,7 @@ public class TestEventListenerWithExchangeMaterialization
                         .put("optimizer.join-reordering-strategy", "ELIMINATE_CROSS_JOINS")
                         .put("query.hash-partition-count", "11")
                         .put("colocated-joins-enabled", "true")
-                        .put("grouped-execution-for-aggregation-enabled", "true")
+                        .put("grouped-execution-enabled", "true")
                         .build(),
                 Optional.empty());
         queryRunner.installPlugin(new TestingEventListenerPlugin(generatedEvents));

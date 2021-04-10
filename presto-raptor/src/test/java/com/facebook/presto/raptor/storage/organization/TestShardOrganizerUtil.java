@@ -14,6 +14,7 @@
 package com.facebook.presto.raptor.storage.organization;
 
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.raptor.RaptorMetadata;
 import com.facebook.presto.raptor.metadata.ColumnInfo;
 import com.facebook.presto.raptor.metadata.ColumnStats;
@@ -25,7 +26,6 @@ import com.facebook.presto.raptor.metadata.Table;
 import com.facebook.presto.raptor.metadata.TableColumn;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
@@ -49,6 +49,7 @@ import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.createShardManager;
@@ -77,13 +78,14 @@ public class TestShardOrganizerUtil
     @BeforeMethod
     public void setup()
     {
+        FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
         dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
-        dbi.registerMapper(new TableColumn.Mapper(new TypeRegistry()));
+        dbi.registerMapper(new TableColumn.Mapper(functionAndTypeManager));
         dummyHandle = dbi.open();
         createTablesWithRetry(dbi);
         dataDir = Files.createTempDir();
 
-        metadata = new RaptorMetadata("raptor", dbi, createShardManager(dbi), new TypeRegistry());
+        metadata = new RaptorMetadata("raptor", dbi, createShardManager(dbi), functionAndTypeManager);
 
         metadataDao = dbi.onDemand(MetadataDao.class);
         shardManager = createShardManager(dbi);
