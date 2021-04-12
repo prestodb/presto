@@ -161,7 +161,7 @@ public class HiveClientConfig
     private String temporaryTableSchema = "default";
     private HiveStorageFormat temporaryTableStorageFormat = ORC;
     private HiveCompressionCodec temporaryTableCompressionCodec = HiveCompressionCodec.SNAPPY;
-    private boolean shouldCreateEmptyBucketFilesForTemporaryTable = true;
+    private boolean shouldCreateEmptyBucketFilesForTemporaryTable;
     private boolean usePageFileForHiveUnsupportedType = true;
 
     private boolean pushdownFilterEnabled;
