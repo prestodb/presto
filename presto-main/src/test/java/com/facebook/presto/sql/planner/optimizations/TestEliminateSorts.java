@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
@@ -94,7 +95,7 @@ public class TestEliminateSorts
                         getQueryRunner().getStatsCalculator(),
                         getQueryRunner().getCostCalculator(),
                         new TranslateExpressions(getMetadata(), new SqlParser()).rules()),
-                new AddExchanges(getQueryRunner().getMetadata(), new SqlParser()),
+                new AddExchanges(getQueryRunner().getMetadata(), new SqlParser(), new PartitioningProviderManager()),
                 new UnaliasSymbolReferences(getMetadata().getFunctionAndTypeManager()),
                 new PruneUnreferencedOutputs(),
                 new IterativeOptimizer(

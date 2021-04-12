@@ -21,12 +21,17 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.List;
+
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static com.facebook.presto.SystemSessionProperties.PARTIAL_MERGE_PUSHDOWN_STRATEGY;
 import static com.facebook.presto.spark.PrestoSparkQueryRunner.createHivePrestoSparkQueryRunner;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.STORAGE_BASED_BROADCAST_JOIN_ENABLED;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrategy.PUSH_THROUGH_LOW_MEMORY_OPERATORS;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.airlift.tpch.TpchTable.NATION;
+import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPrestoSparkQueryRunner
@@ -91,31 +96,157 @@ public class TestPrestoSparkQueryRunner
     }
 
     @Test
-    public void testBucketedTableWrite()
+    public void testBucketedTableWriteSimple()
     {
-        // create from bucketed table
-        assertUpdate(
-                "CREATE TABLE hive.hive_test.hive_orders_bucketed_1 WITH (bucketed_by=array['orderkey'], bucket_count=11) AS " +
-                        "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
-                        "FROM orders_bucketed",
-                15000);
-        assertQuery(
-                "SELECT count(*) " +
-                        "FROM hive.hive_test.hive_orders_bucketed_1 " +
-                        "WHERE \"$bucket\" = 1",
-                "SELECT 1365");
+        // simple write from a bucketed table to a bucketed table
+        // same bucket count
+        testBucketedTableWriteSimple(getSession(), 8, 8);
+        for (Session testSession : getTestCompatibleBucketCountSessions()) {
+            // incompatible bucket count
+            testBucketedTableWriteSimple(testSession, 3, 13);
+            testBucketedTableWriteSimple(testSession, 13, 7);
+            // compatible bucket count
+            testBucketedTableWriteSimple(testSession, 4, 8);
+            testBucketedTableWriteSimple(testSession, 8, 4);
+        }
+    }
 
-        // create from non bucketed table
+    private void testBucketedTableWriteSimple(Session session, int inputBucketCount, int outputBucketCount)
+    {
         assertUpdate(
-                "CREATE TABLE hive.hive_test.hive_orders_bucketed_2 WITH (bucketed_by=array['orderkey'], bucket_count=11) AS " +
+                session,
+                format("CREATE TABLE hive.hive_test.test_hive_orders_bucketed_simple_input WITH (bucketed_by=array['orderkey'], bucket_count=%s) AS " +
                         "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
-                        "FROM orders",
+                        "FROM orders_bucketed", inputBucketCount),
                 15000);
         assertQuery(
+                session,
                 "SELECT count(*) " +
-                        "FROM hive.hive_test.hive_orders_bucketed_2 " +
-                        "WHERE \"$bucket\" = 1",
-                "SELECT 1365");
+                        "FROM hive.hive_test.test_hive_orders_bucketed_simple_input " +
+                        "WHERE \"$bucket\" = 0",
+                format("SELECT count(*) FROM orders WHERE orderkey %% %s = 0", inputBucketCount));
+
+        assertUpdate(
+                session,
+                format("CREATE TABLE hive.hive_test.test_hive_orders_bucketed_simple_output WITH (bucketed_by=array['orderkey'], bucket_count=%s) AS " +
+                        "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
+                        "FROM hive.hive_test.test_hive_orders_bucketed_simple_input", outputBucketCount),
+                15000);
+        assertQuery(
+                session,
+                "SELECT count(*) " +
+                        "FROM hive.hive_test.test_hive_orders_bucketed_simple_output " +
+                        "WHERE \"$bucket\" = 0",
+                format("SELECT count(*) FROM orders WHERE orderkey %% %s = 0", outputBucketCount));
+
+        dropTable("hive_test", "test_hive_orders_bucketed_simple_input");
+        dropTable("hive_test", "test_hive_orders_bucketed_simple_output");
+    }
+
+    @Test
+    public void testBucketedTableWriteAggregation()
+    {
+        // aggregate on a bucket key and write to a bucketed table
+        // same bucket count
+        testBucketedTableWriteAggregation(getSession(), 8, 8);
+        for (Session testSession : getTestCompatibleBucketCountSessions()) {
+            // incompatible bucket count
+            testBucketedTableWriteAggregation(testSession, 7, 13);
+            testBucketedTableWriteAggregation(testSession, 13, 7);
+            // compatible bucket count
+            testBucketedTableWriteAggregation(testSession, 4, 8);
+            testBucketedTableWriteAggregation(testSession, 8, 4);
+        }
+    }
+
+    private void testBucketedTableWriteAggregation(Session session, int inputBucketCount, int outputBucketCount)
+    {
+        assertUpdate(
+                session,
+                format("CREATE TABLE hive.hive_test.test_hive_orders_bucketed_aggregation_input WITH (bucketed_by=array['orderkey'], bucket_count=%s) AS " +
+                        "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
+                        "FROM orders_bucketed", inputBucketCount),
+                15000);
+
+        assertUpdate(
+                session,
+                format("CREATE TABLE hive.hive_test.test_hive_orders_bucketed_aggregation_output WITH (bucketed_by=array['orderkey'], bucket_count=%s) AS " +
+                        "SELECT orderkey, sum(totalprice) totalprice " +
+                        "FROM hive.hive_test.test_hive_orders_bucketed_aggregation_input " +
+                        "GROUP BY orderkey", outputBucketCount),
+                15000);
+        assertQuery(
+                session,
+                "SELECT count(*) " +
+                        "FROM hive.hive_test.test_hive_orders_bucketed_aggregation_output " +
+                        "WHERE \"$bucket\" = 0",
+                format("SELECT count(*) FROM orders WHERE orderkey %% %s = 0", outputBucketCount));
+
+        dropTable("hive_test", "test_hive_orders_bucketed_aggregation_input");
+        dropTable("hive_test", "test_hive_orders_bucketed_aggregation_output");
+    }
+
+    @Test
+    public void testBucketedTableWriteJoin()
+    {
+        // join on a bucket key and write to a bucketed table
+        // same bucket count
+        testBucketedTableWriteJoin(getSession(), 8, 8, 8);
+        for (Session testSession : getTestCompatibleBucketCountSessions()) {
+            // incompatible bucket count
+            testBucketedTableWriteJoin(testSession, 7, 13, 17);
+            testBucketedTableWriteJoin(testSession, 13, 7, 17);
+            testBucketedTableWriteJoin(testSession, 7, 7, 17);
+            // compatible bucket count
+            testBucketedTableWriteJoin(testSession, 4, 4, 8);
+            testBucketedTableWriteJoin(testSession, 8, 8, 4);
+            testBucketedTableWriteJoin(testSession, 4, 8, 8);
+            testBucketedTableWriteJoin(testSession, 8, 4, 8);
+            testBucketedTableWriteJoin(testSession, 4, 8, 4);
+            testBucketedTableWriteJoin(testSession, 8, 4, 4);
+        }
+    }
+
+    private void testBucketedTableWriteJoin(Session session, int firstInputBucketCount, int secondInputBucketCount, int outputBucketCount)
+    {
+        assertUpdate(
+                session,
+                format("CREATE TABLE hive.hive_test.test_hive_orders_bucketed_join_input_1 WITH (bucketed_by=array['orderkey'], bucket_count=%s) AS " +
+                        "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
+                        "FROM orders_bucketed", firstInputBucketCount),
+                15000);
+
+        assertUpdate(
+                session,
+                format("CREATE TABLE hive.hive_test.test_hive_orders_bucketed_join_input_2 WITH (bucketed_by=array['orderkey'], bucket_count=%s) AS " +
+                        "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
+                        "FROM orders_bucketed", secondInputBucketCount),
+                15000);
+
+        assertUpdate(
+                session,
+                format("CREATE TABLE hive.hive_test.test_hive_orders_bucketed_join_output WITH (bucketed_by=array['orderkey'], bucket_count=%s) AS " +
+                                "SELECT  first.orderkey, second.totalprice " +
+                                "FROM hive.hive_test.test_hive_orders_bucketed_join_input_1 first " +
+                                "INNER JOIN hive.hive_test.test_hive_orders_bucketed_join_input_2 second " +
+                                "ON first.orderkey = second.orderkey ",
+                        outputBucketCount),
+                15000);
+        assertQuery(
+                session,
+                "SELECT count(*) " +
+                        "FROM hive.hive_test.test_hive_orders_bucketed_join_output " +
+                        "WHERE \"$bucket\" = 0",
+                format("SELECT count(*) FROM orders WHERE orderkey %% %s = 0", outputBucketCount));
+
+        dropTable("hive_test", "test_hive_orders_bucketed_join_input_1");
+        dropTable("hive_test", "test_hive_orders_bucketed_join_input_2");
+        dropTable("hive_test", "test_hive_orders_bucketed_join_output");
+    }
+
+    private void dropTable(String schema, String table)
+    {
+        ((PrestoSparkQueryRunner) getQueryRunner()).getMetastore().dropTable(schema, table, true);
     }
 
     @Test
@@ -161,6 +292,66 @@ public class TestPrestoSparkQueryRunner
                 "JOIN orders_bucketed o " +
                 "ON l.orderkey = o.orderkey " +
                 "WHERE l.orderkey % 223 = 42 AND l.linenumber = 4 and o.orderstatus = 'O'");
+
+        // different number of buckets
+        assertUpdate("create table if not exists hive.hive_test.bucketed_nation_for_join_4 " +
+                        "WITH (bucket_count = 4, bucketed_by = ARRAY['nationkey']) as select * from nation",
+                25);
+        assertUpdate("create table if not exists hive.hive_test.bucketed_nation_for_join_8 " +
+                        "WITH (bucket_count = 8, bucketed_by = ARRAY['nationkey']) as select * from nation",
+                25);
+
+        for (Session session : getTestCompatibleBucketCountSessions()) {
+            String expected = "SELECT * FROM nation first " +
+                    "INNER JOIN nation second " +
+                    "ON first.nationkey = second.nationkey";
+            assertQuery(
+                    session,
+                    "SELECT * FROM hive.hive_test.bucketed_nation_for_join_4 first " +
+                            "INNER JOIN hive.hive_test.bucketed_nation_for_join_8 second " +
+                            "ON first.nationkey = second.nationkey",
+                    expected);
+            assertQuery(
+                    session,
+                    "SELECT * FROM hive.hive_test.bucketed_nation_for_join_8 first " +
+                            "INNER JOIN hive.hive_test.bucketed_nation_for_join_4 second " +
+                            "ON first.nationkey = second.nationkey",
+                    expected);
+
+            expected = "SELECT * FROM nation first " +
+                    "INNER JOIN nation second " +
+                    "ON first.nationkey = second.nationkey " +
+                    "INNER JOIN nation third " +
+                    "ON second.nationkey = third.nationkey";
+
+            assertQuery(
+                    session,
+                    "SELECT * FROM hive.hive_test.bucketed_nation_for_join_4 first " +
+                            "INNER JOIN hive.hive_test.bucketed_nation_for_join_8 second " +
+                            "ON first.nationkey = second.nationkey " +
+                            "INNER JOIN nation third " +
+                            "ON second.nationkey = third.nationkey",
+                    expected);
+            assertQuery(
+                    session,
+                    "SELECT * FROM hive.hive_test.bucketed_nation_for_join_8 first " +
+                            "INNER JOIN hive.hive_test.bucketed_nation_for_join_4 second " +
+                            "ON first.nationkey = second.nationkey " +
+                            "INNER JOIN nation third " +
+                            "ON second.nationkey = third.nationkey",
+                    expected);
+        }
+    }
+
+    private List<Session> getTestCompatibleBucketCountSessions()
+    {
+        return ImmutableList.of(
+                Session.builder(getSession())
+                        .setSystemProperty(PARTIAL_MERGE_PUSHDOWN_STRATEGY, PUSH_THROUGH_LOW_MEMORY_OPERATORS.name())
+                        .build(),
+                Session.builder(getSession())
+                        .setCatalogSessionProperty("hive", "optimize_mismatched_bucket_count", "true")
+                        .build());
     }
 
     @Test

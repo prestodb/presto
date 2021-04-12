@@ -178,6 +178,7 @@ public final class SystemSessionProperties
     public static final String MAX_UNACKNOWLEDGED_SPLITS_PER_TASK = "max_unacknowledged_splits_per_task";
     public static final String OPTIMIZE_JOINS_WITH_EMPTY_SOURCES = "optimize_joins_with_empty_sources";
     public static final String SPOOLING_OUTPUT_BUFFER_ENABLED = "spooling_output_buffer_enabled";
+    public static final String SPARK_ASSIGN_BUCKET_TO_PARTITION_FOR_PARTITIONED_TABLE_WRITE_ENABLED = "spark_assign_bucket_to_partition_for_partitioned_table_write_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -932,7 +933,12 @@ public final class SystemSessionProperties
                         SPOOLING_OUTPUT_BUFFER_ENABLED,
                         "Enable spooling output buffer for terminal task",
                         featuresConfig.isSpoolingOutputBufferEnabled(),
-                        false));
+                        false),
+                booleanProperty(
+                        SPARK_ASSIGN_BUCKET_TO_PARTITION_FOR_PARTITIONED_TABLE_WRITE_ENABLED,
+                        "Assign bucket to partition map for partitioned table write when adding an exchange",
+                        featuresConfig.isPrestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled(),
+                        true));
     }
 
     public static boolean isEmptyJoinOptimization(Session session)
@@ -1577,5 +1583,10 @@ public final class SystemSessionProperties
     public static int getMaxUnacknowledgedSplitsPerTask(Session session)
     {
         return session.getSystemProperty(MAX_UNACKNOWLEDGED_SPLITS_PER_TASK, Integer.class);
+    }
+
+    public static boolean isPrestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled(Session session)
+    {
+        return session.getSystemProperty(SPARK_ASSIGN_BUCKET_TO_PARTITION_FOR_PARTITIONED_TABLE_WRITE_ENABLED, Boolean.class);
     }
 }
