@@ -165,7 +165,8 @@ public class PlanOptimizers
             CostCalculator costCalculator,
             @EstimatedExchanges CostCalculator estimatedExchangesCostCalculator,
             CostComparator costComparator,
-            TaskCountEstimator taskCountEstimator)
+            TaskCountEstimator taskCountEstimator,
+            PartitioningProviderManager partitioningProviderManager)
     {
         this(metadata,
                 sqlParser,
@@ -178,7 +179,8 @@ public class PlanOptimizers
                 costCalculator,
                 estimatedExchangesCostCalculator,
                 costComparator,
-                taskCountEstimator);
+                taskCountEstimator,
+                partitioningProviderManager);
     }
 
     @PostConstruct
@@ -207,7 +209,8 @@ public class PlanOptimizers
             CostCalculator costCalculator,
             CostCalculator estimatedExchangesCostCalculator,
             CostComparator costComparator,
-            TaskCountEstimator taskCountEstimator)
+            TaskCountEstimator taskCountEstimator,
+            PartitioningProviderManager partitioningProviderManager)
     {
         this.exporter = exporter;
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
@@ -448,7 +451,7 @@ public class PlanOptimizers
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(new PushDownDereferences(metadata).rules())
                                 .build()),
-                    new PruneUnreferencedOutputs());
+                new PruneUnreferencedOutputs());
 
         builder.add(new IterativeOptimizer(
                 ruleStats,
@@ -540,7 +543,7 @@ public class PlanOptimizers
                             statsCalculator,
                             estimatedExchangesCostCalculator,
                             ImmutableSet.of(new PushTableWriteThroughUnion()))); // Must run before AddExchanges
-            builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new AddExchanges(metadata, sqlParser)));
+            builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new AddExchanges(metadata, sqlParser, partitioningProviderManager)));
         }
 
         //noinspection UnusedAssignment

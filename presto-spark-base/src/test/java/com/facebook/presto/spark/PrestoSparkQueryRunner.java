@@ -202,6 +202,8 @@ public class PrestoSparkQueryRunner
         ImmutableMap.Builder<String, String> configProperties = ImmutableMap.builder();
         configProperties.put("presto.version", "testversion");
         configProperties.put("query.hash-partition-count", Integer.toString(NODE_COUNT * 2));
+        configProperties.put("task.writer-count", Integer.toString(2));
+        configProperties.put("task.partitioned-writer-count", Integer.toString(4));
         configProperties.putAll(additionalConfigProperties);
 
         PrestoSparkInjectorFactory injectorFactory = new PrestoSparkInjectorFactory(
