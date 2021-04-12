@@ -43,8 +43,8 @@ public class TestPrestoSparkQueryRunner
         // some basic tests
         assertUpdate(
                 "CREATE TABLE hive.hive_test.hive_orders AS " +
-                "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
-                "FROM orders",
+                        "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
+                        "FROM orders",
                 15000);
 
         assertUpdate(
@@ -311,19 +311,19 @@ public class TestPrestoSparkQueryRunner
 
         // 22 buckets UNION ALL 11 buckets
         assertQuery("SELECT o.regionkey, l.orderkey " +
-                "FROM (SELECT * FROM lineitem  WHERE linenumber = 4) l " +
-                "CROSS JOIN (" +
-                "   SELECT * FROM hive.hive_test.partitioned_nation_22 " +
-                "   UNION ALL " +
-                "   SELECT * FROM hive.hive_test.partitioned_nation_11 " +
-                ") o",
+                        "FROM (SELECT * FROM lineitem  WHERE linenumber = 4) l " +
+                        "CROSS JOIN (" +
+                        "   SELECT * FROM hive.hive_test.partitioned_nation_22 " +
+                        "   UNION ALL " +
+                        "   SELECT * FROM hive.hive_test.partitioned_nation_11 " +
+                        ") o",
                 "SELECT o.regionkey, l.orderkey " +
-                "FROM (SELECT * FROM lineitem  WHERE linenumber = 4) l " +
-                "CROSS JOIN (" +
-                "   SELECT * FROM nation " +
-                "   UNION ALL " +
-                "   SELECT * FROM nation" +
-                ") o");
+                        "FROM (SELECT * FROM lineitem  WHERE linenumber = 4) l " +
+                        "CROSS JOIN (" +
+                        "   SELECT * FROM nation " +
+                        "   UNION ALL " +
+                        "   SELECT * FROM nation" +
+                        ") o");
 
         // 11 buckets UNION ALL 22 buckets
         assertQuery("SELECT o.regionkey, l.orderkey " +
