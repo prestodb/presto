@@ -193,6 +193,9 @@ public class NodeScheduler
                     .collect(toImmutableSet());
 
             for (InternalNode node : allNodes) {
+                if (node.isResourceManager()) {
+                    continue;
+                }
                 if (node.getNodeStatus() == ALIVE) {
                     activeNodesByNodeId.put(node.getNodeIdentifier(), node);
                     if (useNetworkTopology && (includeCoordinator || !coordinatorNodeIds.contains(node.getNodeIdentifier()))) {
