@@ -186,6 +186,7 @@ public class FeaturesConfig
     private PartitioningPrecisionStrategy partitioningPrecisionStrategy = PartitioningPrecisionStrategy.AUTOMATIC;
 
     private boolean enforceFixedDistributionForOutputOperator;
+    private boolean prestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -1581,6 +1582,18 @@ public class FeaturesConfig
     public FeaturesConfig setSpoolingOutputBufferTempStorage(String spoolingOutputBufferTempStorage)
     {
         this.spoolingOutputBufferTempStorage = spoolingOutputBufferTempStorage;
+        return this;
+    }
+
+    public boolean isPrestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled()
+    {
+        return prestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled;
+    }
+
+    @Config("spark.assign-bucket-to-partition-for-partitioned-table-write-enabled")
+    public FeaturesConfig setPrestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled(boolean prestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled)
+    {
+        this.prestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled = prestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled;
         return this;
     }
 }
