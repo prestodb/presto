@@ -28,6 +28,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.apache.spark.SparkException;
 import org.apache.spark.api.java.JavaFutureAction;
+import scala.reflect.ClassTag;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -247,5 +248,10 @@ public class PrestoSparkUtils
                 action.cancel(true);
             }
         }
+    }
+
+    public static <T> ClassTag<T> classTag(Class<T> clazz)
+    {
+        return scala.reflect.ClassTag$.MODULE$.apply(clazz);
     }
 }
