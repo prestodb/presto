@@ -19,7 +19,6 @@ import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.regex.Pattern;
@@ -33,17 +32,11 @@ public class TestKuduIntegrationSmoke
 {
     public static final String SCHEMA = "tpch";
 
-    private QueryRunner queryRunner;
-
-    public TestKuduIntegrationSmoke()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> KuduQueryRunnerFactory.createKuduQueryRunnerTpch(ORDERS));
-    }
-
-    @BeforeClass
-    public void setUp()
-    {
-        queryRunner = getQueryRunner();
+        return KuduQueryRunnerFactory.createKuduQueryRunnerTpch(ORDERS);
     }
 
     /**
@@ -76,7 +69,7 @@ public class TestKuduIntegrationSmoke
     @Test
     public void testShowCreateTable()
     {
-        queryRunner.execute("CREATE TABLE IF NOT EXISTS test_show_create_table (\n" +
+        getQueryRunner().execute("CREATE TABLE IF NOT EXISTS test_show_create_table (\n" +
                 "id INT WITH (primary_key=true),\n" +
                 "user_name VARCHAR\n" +
                 ") WITH (\n" +
@@ -85,7 +78,7 @@ public class TestKuduIntegrationSmoke
                 " number_of_replicas = 1\n" +
                 ")");
 
-        MaterializedResult result = queryRunner.execute("SHOW CREATE TABLE test_show_create_table");
+        MaterializedResult result = getQueryRunner().execute("SHOW CREATE TABLE test_show_create_table");
         String sqlStatement = (String) result.getOnlyValue();
         String tableProperties = sqlStatement.split("\\)\\s*WITH\\s*\\(")[1];
         assertTableProperty(tableProperties, "number_of_replicas", "1");
@@ -102,7 +95,6 @@ public class TestKuduIntegrationSmoke
     @AfterClass(alwaysRun = true)
     public final void destroy()
     {
-        queryRunner.close();
-        queryRunner = null;
+        getQueryRunner().close();
     }
 }

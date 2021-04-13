@@ -78,12 +78,9 @@ public class TestEnums
                     "MKT_BUILDING", "BUILDING",
                     "MKT_FURNITURE", "FURNITURE")))));
 
-    protected TestEnums()
-    {
-        super(TestEnums::createQueryRunner);
-    }
-
-    private static QueryRunner createQueryRunner()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
         try {
             Session session = testSessionBuilder().build();

@@ -14,6 +14,7 @@
 package com.facebook.presto.kafka;
 
 import com.facebook.presto.kafka.util.EmbeddedKafka;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterClass;
@@ -35,18 +36,14 @@ import static java.util.Objects.requireNonNull;
 public class TestKafkaIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private final EmbeddedKafka embeddedKafka;
+    private EmbeddedKafka embeddedKafka;
 
-    public TestKafkaIntegrationSmokeTest()
+    @Override
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this(createEmbeddedKafka());
-    }
-
-    public TestKafkaIntegrationSmokeTest(EmbeddedKafka embeddedKafka)
-    {
-        super(() -> createKafkaQueryRunner(embeddedKafka, ORDERS));
-        this.embeddedKafka = embeddedKafka;
+        this.embeddedKafka = createEmbeddedKafka();
+        return createKafkaQueryRunner(embeddedKafka, ORDERS);
     }
 
     @Test(dataProvider = "roundTripAllFormatsDataProvider")

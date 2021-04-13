@@ -14,29 +14,27 @@
 package com.facebook.presto.redis;
 
 import com.facebook.presto.redis.util.EmbeddedRedis;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueries;
 import io.airlift.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.redis.RedisQueryRunner.createRedisQueryRunner;
 import static com.facebook.presto.redis.util.EmbeddedRedis.createEmbeddedRedis;
 
 @Test
 public class TestRedisDistributedHash
         extends AbstractTestQueries
 {
-    private final EmbeddedRedis embeddedRedis;
+    private EmbeddedRedis embeddedRedis;
 
-    public TestRedisDistributedHash()
+    @Override
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this(createEmbeddedRedis());
-    }
-
-    public TestRedisDistributedHash(EmbeddedRedis embeddedRedis)
-    {
-        super(() -> RedisQueryRunner.createRedisQueryRunner(embeddedRedis, "hash", TpchTable.getTables()));
-        this.embeddedRedis = embeddedRedis;
+        embeddedRedis = createEmbeddedRedis();
+        return createRedisQueryRunner(embeddedRedis, "hash", TpchTable.getTables());
     }
 
     @AfterClass(alwaysRun = true)

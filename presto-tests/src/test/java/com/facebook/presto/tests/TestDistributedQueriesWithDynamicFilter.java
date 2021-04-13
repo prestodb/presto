@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
 
 import static com.facebook.presto.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
@@ -20,10 +21,12 @@ import static com.facebook.presto.SystemSessionProperties.ENABLE_DYNAMIC_FILTERI
 public class TestDistributedQueriesWithDynamicFilter
         extends AbstractTestQueries
 {
-    public TestDistributedQueriesWithDynamicFilter()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> TpchQueryRunnerBuilder.builder()
+        return TpchQueryRunnerBuilder.builder()
                 .amendSession(builder -> builder.setSystemProperty(ENABLE_DYNAMIC_FILTERING, "true"))
-                .build());
+                .build();
     }
 }

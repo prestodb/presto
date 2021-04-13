@@ -14,13 +14,13 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
 import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.tpch.TpchTable.getTables;
@@ -29,9 +29,11 @@ import static org.testng.Assert.assertEquals;
 public class TestHivePushdownDistributedQueries
         extends AbstractTestDistributedQueries
 {
-    public TestHivePushdownDistributedQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createQueryRunner(
+        return HiveQueryRunner.createQueryRunner(
                 getTables(),
                 ImmutableMap.of("experimental.pushdown-subfields-enabled", "true",
                         "experimental.pushdown-dereference-enabled", "true"),
@@ -40,7 +42,7 @@ public class TestHivePushdownDistributedQueries
                         "hive.enable-parquet-dereference-pushdown", "true",
                         "hive.partial_aggregation_pushdown_enabled", "true",
                         "hive.partial_aggregation_pushdown_for_variable_length_datatypes_enabled", "true"),
-                Optional.empty()));
+                Optional.empty());
     }
 
     @Override
