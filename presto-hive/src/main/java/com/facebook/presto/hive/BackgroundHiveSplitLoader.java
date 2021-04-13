@@ -30,6 +30,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.Executor;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import static com.facebook.airlift.concurrent.MoreFutures.addExceptionCallback;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -95,7 +96,8 @@ public class BackgroundHiveSplitLoader
     {
         this.hiveSplitSource = splitSource;
         for (int i = 0; i < loaderConcurrency; i++) {
-            ResumableTasks.submit(executor, new HiveSplitLoaderTask());
+            ListenableFuture<?> future = ResumableTasks.submit(executor, new HiveSplitLoaderTask());
+            addExceptionCallback(future, hiveSplitSource::fail); // best effort; hiveSplitSource could be already completed
         }
     }
 
@@ -120,7 +122,7 @@ public class BackgroundHiveSplitLoader
                 try {
                     future = loadSplits();
                 }
-                catch (Exception e) {
+                catch (Throwable e) {
                     if (e instanceof IOException) {
                         e = new PrestoException(HIVE_FILESYSTEM_ERROR, e);
                     }

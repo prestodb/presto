@@ -14,6 +14,8 @@
 package com.facebook.presto.hive.util;
 
 import com.facebook.airlift.log.Logger;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 
 import java.util.concurrent.Executor;
 
@@ -21,34 +23,35 @@ public final class ResumableTasks
 {
     private static final Logger log = Logger.get(ResumableTasks.class);
 
-    private ResumableTasks()
-    {
-    }
+    private ResumableTasks() {}
 
-    public static void submit(Executor executor, ResumableTask task)
+    public static ListenableFuture<Void> submit(Executor executor, ResumableTask task)
     {
+        SettableFuture<Void> completionFuture = SettableFuture.create();
         executor.execute(new Runnable()
         {
             @Override
             public void run()
             {
-                ResumableTask.TaskStatus status = safeProcessTask(task);
-                if (!status.isFinished()) {
-                    // if task is not complete, schedule it it to run again when the future finishes
-                    status.getContinuationFuture().addListener(this, executor);
+                ResumableTask.TaskStatus status;
+                try {
+                    status = task.process();
                 }
+                catch (Throwable t) {
+                    log.error(t, "ResumableTask completed exceptionally");
+                    completionFuture.setException(t);
+                    return;
+                }
+
+                if (status.isFinished()) {
+                    completionFuture.set(null);
+                    return;
+                }
+
+                // if task is not complete, schedule it it to run again when the future finishes
+                status.getContinuationFuture().addListener(this, executor);
             }
         });
-    }
-
-    private static ResumableTask.TaskStatus safeProcessTask(ResumableTask task)
-    {
-        try {
-            return task.process();
-        }
-        catch (Throwable t) {
-            log.warn(t, "ResumableTask completed exceptionally");
-            return ResumableTask.TaskStatus.finished();
-        }
+        return completionFuture;
     }
 }
