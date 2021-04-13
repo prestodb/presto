@@ -68,11 +68,12 @@ public class TestSqlFunctions
 
     protected TestSqlFunctions()
     {
-        super(TestSqlFunctions::createQueryRunner);
         TestingThriftUdfServer.start(ImmutableMap.of("thrift.server.port", "7779"));
     }
 
-    private static QueryRunner createQueryRunner()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
         try {
             Session session = testSessionBuilder()

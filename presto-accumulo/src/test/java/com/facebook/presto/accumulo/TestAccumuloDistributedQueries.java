@@ -14,6 +14,7 @@
 package com.facebook.presto.accumulo;
 
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -37,9 +38,11 @@ import static org.testng.Assert.assertTrue;
 public class TestAccumuloDistributedQueries
         extends AbstractTestDistributedQueries
 {
-    public TestAccumuloDistributedQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createAccumuloQueryRunner(ImmutableMap.of()));
+        return createAccumuloQueryRunner(ImmutableMap.of());
     }
 
     @Override

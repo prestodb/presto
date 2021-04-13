@@ -38,11 +38,6 @@ import static org.testng.Assert.assertTrue;
 public abstract class AbstractTestJoinQueries
         extends AbstractTestQueryFramework
 {
-    protected AbstractTestJoinQueries(QueryRunnerSupplier supplier)
-    {
-        super(supplier);
-    }
-
     @Test
     public void testRowFieldAccessorInJoin()
     {

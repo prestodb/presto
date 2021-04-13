@@ -13,19 +13,17 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.testing.QueryRunner;
 import org.testng.annotations.Test;
 
 public class TestSpilledAggregations
         extends AbstractTestAggregations
 {
-    public TestSpilledAggregations()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        this(TestDistributedSpilledQueries::createQueryRunner);
-    }
-
-    protected TestSpilledAggregations(QueryRunnerSupplier supplier)
-    {
-        super(supplier);
+        return TestDistributedSpilledQueries.localCreateQueryRunner();
     }
 
     @Test

@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
@@ -59,20 +60,16 @@ import static org.testng.Assert.assertNotNull;
 public class TestRaptorIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    @SuppressWarnings("unused")
-    public TestRaptorIntegrationSmokeTest()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        this(() -> createRaptorQueryRunner(
+        return createRaptorQueryRunner(
                 ImmutableMap.of(),
                 true,
                 false,
                 false,
-                ImmutableMap.of("storage.orc.optimized-writer-stage", "ENABLED_AND_VALIDATED")));
-    }
-
-    protected TestRaptorIntegrationSmokeTest(QueryRunnerSupplier supplier)
-    {
-        super(supplier);
+                ImmutableMap.of("storage.orc.optimized-writer-stage", "ENABLED_AND_VALIDATED"));
     }
 
     @Test

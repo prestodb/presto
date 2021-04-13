@@ -14,6 +14,7 @@
 package com.facebook.presto.plugin.oracle;
 
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -27,11 +28,20 @@ public class TestOracleIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
     private final TestingOracleServer oracleServer;
+    private QueryRunner queryRunner;
 
     protected TestOracleIntegrationSmokeTest(TestingOracleServer oracleServer)
+            throws Exception
     {
-        super(() -> createOracleQueryRunner(oracleServer, ORDERS));
+        this.queryRunner = createOracleQueryRunner(oracleServer, ORDERS);
         this.oracleServer = new TestingOracleServer();
+    }
+
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
+    {
+        return queryRunner;
     }
 
     @AfterClass(alwaysRun = true)

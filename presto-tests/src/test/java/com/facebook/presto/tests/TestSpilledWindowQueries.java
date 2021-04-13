@@ -13,16 +13,15 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.testing.QueryRunner;
+
 public class TestSpilledWindowQueries
         extends AbstractTestWindowQueries
 {
-    public TestSpilledWindowQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        this(TestDistributedSpilledQueries::createQueryRunner);
-    }
-
-    protected TestSpilledWindowQueries(QueryRunnerSupplier supplier)
-    {
-        super(supplier);
+        return TestDistributedSpilledQueries.localCreateQueryRunner();
     }
 }

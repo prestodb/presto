@@ -13,14 +13,18 @@
  */
 package com.facebook.presto.spark;
 
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestJoinQueries;
+
+import static com.facebook.presto.spark.PrestoSparkQueryRunner.createHivePrestoSparkQueryRunner;
 
 public class TestPrestoSparkAbstractTestJoinQueries
         extends AbstractTestJoinQueries
 {
-    protected TestPrestoSparkAbstractTestJoinQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
     {
-        super(PrestoSparkQueryRunner::createHivePrestoSparkQueryRunner);
+        return createHivePrestoSparkQueryRunner();
     }
 
     @Override

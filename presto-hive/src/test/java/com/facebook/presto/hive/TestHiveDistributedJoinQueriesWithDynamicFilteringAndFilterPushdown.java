@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestJoinQueries;
 import org.testng.annotations.Test;
 
@@ -21,7 +22,6 @@ import static com.facebook.presto.SystemSessionProperties.ENABLE_DYNAMIC_FILTERI
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_ENABLED;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
-import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
 import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static io.airlift.tpch.TpchTable.getTables;
@@ -29,9 +29,11 @@ import static io.airlift.tpch.TpchTable.getTables;
 public class TestHiveDistributedJoinQueriesWithDynamicFilteringAndFilterPushdown
         extends AbstractTestJoinQueries
 {
-    public TestHiveDistributedJoinQueriesWithDynamicFilteringAndFilterPushdown()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createQueryRunner(getTables()));
+        return HiveQueryRunner.createQueryRunner(getTables());
     }
 
     @Override
