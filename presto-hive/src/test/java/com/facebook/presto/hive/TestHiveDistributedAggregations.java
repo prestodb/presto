@@ -13,16 +13,18 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestAggregations;
 
-import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
 import static io.airlift.tpch.TpchTable.getTables;
 
 public class TestHiveDistributedAggregations
         extends AbstractTestAggregations
 {
-    public TestHiveDistributedAggregations()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createQueryRunner(getTables()));
+        return HiveQueryRunner.createQueryRunner(getTables());
     }
 }

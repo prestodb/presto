@@ -47,15 +47,15 @@ public class TestPostgreSqlIntegrationSmokeTest
     public TestPostgreSqlIntegrationSmokeTest()
             throws Exception
     {
-        this(new TestingPostgreSqlServer("testuser", "tpch"));
+        this.postgreSqlServer = new TestingPostgreSqlServer("testuser", "tpch");
+        execute("CREATE EXTENSION file_fdw");
     }
 
-    public TestPostgreSqlIntegrationSmokeTest(TestingPostgreSqlServer postgreSqlServer)
+    @Override
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
-        super(() -> PostgreSqlQueryRunner.createPostgreSqlQueryRunner(postgreSqlServer, ORDERS));
-        this.postgreSqlServer = postgreSqlServer;
-        execute("CREATE EXTENSION file_fdw");
+        return PostgreSqlQueryRunner.createPostgreSqlQueryRunner(postgreSqlServer, ORDERS);
     }
 
     @AfterClass(alwaysRun = true)

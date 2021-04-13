@@ -44,12 +44,8 @@ public class TestKuduIntegrationSchemaNotExisting
 
     private static final String DROP_TABLE = "drop table if exists kudu." + SCHEMA_NAME + ".test_presto_table";
 
-    public TestKuduIntegrationSchemaNotExisting()
-    {
-        super(() -> createKuduQueryRunner());
-    }
-
-    private static QueryRunner createKuduQueryRunner()
+    @Override
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
         oldPrefix = System.getProperty("kudu.schema-emulation.prefix");

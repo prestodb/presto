@@ -98,7 +98,6 @@ import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveQueryRunner.TPCH_SCHEMA;
 import static com.facebook.presto.hive.HiveQueryRunner.createBucketedSession;
 import static com.facebook.presto.hive.HiveQueryRunner.createMaterializeExchangesSession;
-import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
 import static com.facebook.presto.hive.HiveSessionProperties.FILE_RENAMING_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.MANIFEST_VERIFICATION_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.PREFER_MANIFESTS_TO_LIST_FILES;
@@ -161,25 +160,29 @@ public class TestHiveIntegrationSmokeTest
     @SuppressWarnings("unused")
     public TestHiveIntegrationSmokeTest()
     {
-        this(() -> createQueryRunner(ORDERS, CUSTOMER, LINE_ITEM, PART_SUPPLIER),
-                createBucketedSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))),
+        this(createBucketedSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))),
                 createMaterializeExchangesSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))),
                 HIVE_CATALOG,
                 new HiveTypeTranslator());
     }
 
     protected TestHiveIntegrationSmokeTest(
-            QueryRunnerSupplier queryRunnerSupplier,
             Session bucketedSession,
             Session materializeExchangesSession,
             String catalog,
             TypeTranslator typeTranslator)
     {
-        super(queryRunnerSupplier);
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.bucketedSession = requireNonNull(bucketedSession, "bucketSession is null");
         this.materializeExchangesSession = requireNonNull(materializeExchangesSession, "materializeExchangesSession is null");
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
+    }
+
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
+    {
+        return HiveQueryRunner.createQueryRunner(ORDERS, CUSTOMER, LINE_ITEM, PART_SUPPLIER);
     }
 
     private List<?> getPartitions(HiveTableLayoutHandle tableLayoutHandle)

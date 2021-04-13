@@ -13,19 +13,20 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
-
 public class TestShowStats
         extends AbstractTestQueryFramework
 {
-    public TestShowStats()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createQueryRunner(ImmutableList.of()));
+        return HiveQueryRunner.createQueryRunner(ImmutableList.of());
     }
 
     @BeforeClass

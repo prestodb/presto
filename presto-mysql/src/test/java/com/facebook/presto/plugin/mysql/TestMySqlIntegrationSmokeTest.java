@@ -59,13 +59,14 @@ public class TestMySqlIntegrationSmokeTest
     public TestMySqlIntegrationSmokeTest()
             throws Exception
     {
-        this(new TestingMySqlServer("testuser", "testpass", ImmutableList.of("tpch", "test_database"), MY_SQL_OPTIONS));
+        this.mysqlServer = new TestingMySqlServer("testuser", "testpass", ImmutableList.of("tpch", "test_database"), MY_SQL_OPTIONS);
     }
 
-    public TestMySqlIntegrationSmokeTest(TestingMySqlServer mysqlServer)
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createMySqlQueryRunner(mysqlServer, ORDERS));
-        this.mysqlServer = mysqlServer;
+        return createMySqlQueryRunner(mysqlServer, ORDERS);
     }
 
     @AfterClass(alwaysRun = true)

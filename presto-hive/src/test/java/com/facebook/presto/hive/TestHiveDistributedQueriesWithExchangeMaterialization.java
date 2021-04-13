@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import org.testng.annotations.Test;
 
@@ -34,9 +35,11 @@ import static org.testng.Assert.assertThrows;
 public class TestHiveDistributedQueriesWithExchangeMaterialization
         extends AbstractTestDistributedQueries
 {
-    public TestHiveDistributedQueriesWithExchangeMaterialization()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createMaterializingQueryRunner(getTables()));
+        return createMaterializingQueryRunner(getTables());
     }
 
     @Test

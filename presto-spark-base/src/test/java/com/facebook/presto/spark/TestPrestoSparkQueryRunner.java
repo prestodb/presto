@@ -39,9 +39,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestPrestoSparkQueryRunner
         extends AbstractTestQueryFramework
 {
-    public TestPrestoSparkQueryRunner()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(PrestoSparkQueryRunner::createHivePrestoSparkQueryRunner);
+        return PrestoSparkQueryRunner.createHivePrestoSparkQueryRunner();
     }
 
     @Test

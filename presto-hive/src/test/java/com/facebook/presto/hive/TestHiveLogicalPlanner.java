@@ -85,7 +85,6 @@ import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTAN
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.hive.HiveColumnHandle.isPushedDownSubfield;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
-import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
 import static com.facebook.presto.hive.HiveSessionProperties.COLLECT_COLUMN_STATISTICS_ON_WRITE;
 import static com.facebook.presto.hive.HiveSessionProperties.PARQUET_DEREFERENCE_PUSHDOWN_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.PARTIAL_AGGREGATION_PUSHDOWN_ENABLED;
@@ -134,9 +133,11 @@ import static org.testng.Assert.assertTrue;
 public class TestHiveLogicalPlanner
         extends AbstractTestQueryFramework
 {
-    public TestHiveLogicalPlanner()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createQueryRunner(ImmutableList.of(ORDERS, LINE_ITEM), ImmutableMap.of("experimental.pushdown-subfields-enabled", "true"), Optional.empty()));
+        return HiveQueryRunner.createQueryRunner(ImmutableList.of(ORDERS, LINE_ITEM), ImmutableMap.of("experimental.pushdown-subfields-enabled", "true"), Optional.empty());
     }
 
     @Test

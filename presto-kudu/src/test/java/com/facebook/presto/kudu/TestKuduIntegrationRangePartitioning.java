@@ -83,9 +83,11 @@ public class TestKuduIntegrationRangePartitioning
                     "{\"lower\": [2, \"Z\"], \"upper\": null}"),
     };
 
-    public TestKuduIntegrationRangePartitioning()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> KuduQueryRunnerFactory.createKuduQueryRunner("range_partitioning"));
+        return KuduQueryRunnerFactory.createKuduQueryRunner("range_partitioning");
     }
 
     @Test

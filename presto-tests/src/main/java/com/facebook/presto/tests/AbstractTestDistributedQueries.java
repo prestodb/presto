@@ -72,11 +72,6 @@ import static org.testng.Assert.assertTrue;
 public abstract class AbstractTestDistributedQueries
         extends AbstractTestQueries
 {
-    protected AbstractTestDistributedQueries(QueryRunnerSupplier supplier)
-    {
-        super(supplier);
-    }
-
     protected boolean supportsViews()
     {
         return true;
