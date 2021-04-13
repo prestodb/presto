@@ -591,8 +591,9 @@ public class LogicalPlanner
 
             List<VariableReferenceExpression> outputLayout = new ArrayList<>(variables);
 
+            // TODO: pass distribution to here.
             partitioningScheme = Optional.of(new PartitioningScheme(
-                    Partitioning.create(tableLayout.get().getPartitioning(), partitionFunctionArguments),
+                    Partitioning.create(tableLayout.get().getPartitioning(), partitionFunctionArguments, Optional.empty()),
                     outputLayout));
         }
         return partitioningScheme;

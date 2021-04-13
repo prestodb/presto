@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 
 import javax.inject.Inject;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -46,6 +47,7 @@ public class HiveTableProperties
     public static final String PARTITIONED_BY_PROPERTY = "partitioned_by";
     public static final String BUCKETED_BY_PROPERTY = "bucketed_by";
     public static final String BUCKET_COUNT_PROPERTY = "bucket_count";
+    public static final String DISTRIBUTION_PROPERTY = "distribution";
     public static final String SORTED_BY_PROPERTY = "sorted_by";
     public static final String ORC_BLOOM_FILTER_COLUMNS = "orc_bloom_filter_columns";
     public static final String ORC_BLOOM_FILTER_FPP = "orc_bloom_filter_fpp";
@@ -93,6 +95,17 @@ public class HiveTableProperties
                 new PropertyMetadata<>(
                         BUCKETED_BY_PROPERTY,
                         "Bucketing columns",
+                        typeManager.getType(parseTypeSignature("array(varchar)")),
+                        List.class,
+                        ImmutableList.of(),
+                        false,
+                        value -> ImmutableList.copyOf(((Collection<?>) value).stream()
+                                .map(name -> ((String) name).toLowerCase(ENGLISH))
+                                .collect(Collectors.toList())),
+                        value -> value),
+                new PropertyMetadata<>(
+                        DISTRIBUTION_PROPERTY,
+                        "distribution of columns",
                         typeManager.getType(parseTypeSignature("array(varchar)")),
                         List.class,
                         ImmutableList.of(),
@@ -199,6 +212,7 @@ public class HiveTableProperties
         List<String> bucketedBy = getBucketedBy(tableProperties);
         List<SortingColumn> sortedBy = getSortedBy(tableProperties);
         int bucketCount = (Integer) tableProperties.get(BUCKET_COUNT_PROPERTY);
+        List<String> distribution = getDistribution(tableProperties);
         if ((bucketedBy.isEmpty()) && (bucketCount == 0)) {
             if (!sortedBy.isEmpty()) {
                 throw new PrestoException(INVALID_TABLE_PROPERTY, format("%s may be specified only when %s is specified", SORTED_BY_PROPERTY, BUCKETED_BY_PROPERTY));
@@ -214,13 +228,22 @@ public class HiveTableProperties
         if (bucketedBy.isEmpty() || bucketCount == 0) {
             throw new PrestoException(INVALID_TABLE_PROPERTY, format("%s and %s must be specified together", BUCKETED_BY_PROPERTY, BUCKET_COUNT_PROPERTY));
         }
-        return Optional.of(new HiveBucketProperty(bucketedBy, bucketCount, sortedBy, HIVE_COMPATIBLE, Optional.empty()));
+        if (distribution == null) {
+            distribution = new ArrayList<>();
+        }
+        return Optional.of(new HiveBucketProperty(bucketedBy, bucketCount, sortedBy, HIVE_COMPATIBLE, Optional.empty(), Optional.of(distribution)));
     }
 
     @SuppressWarnings("unchecked")
     private static List<String> getBucketedBy(Map<String, Object> tableProperties)
     {
         return (List<String>) tableProperties.get(BUCKETED_BY_PROPERTY);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<String> getDistribution(Map<String, Object> tableProperties)
+    {
+        return (List<String>) tableProperties.get(DISTRIBUTION_PROPERTY);
     }
 
     @SuppressWarnings("unchecked")

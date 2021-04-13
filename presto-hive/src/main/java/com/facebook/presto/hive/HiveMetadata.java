@@ -156,6 +156,7 @@ import static com.facebook.presto.common.type.VarcharType.createUnboundedVarchar
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.binaryExpression;
+import static com.facebook.presto.hive.BucketFunctionType.HIVE_CLUSTERING;
 import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
 import static com.facebook.presto.hive.BucketFunctionType.PRESTO_NATIVE;
 import static com.facebook.presto.hive.ColumnEncryptionInformation.ColumnWithStructSubfield;
@@ -186,6 +187,7 @@ import static com.facebook.presto.hive.HiveManifestUtils.getManifestSizeInBytes;
 import static com.facebook.presto.hive.HiveManifestUtils.updatePartitionMetadataWithFileNamesAndSizes;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HivePartitioningHandle.createHiveCompatiblePartitioningHandle;
+import static com.facebook.presto.hive.HivePartitioningHandle.createPrestoClusteringPartitioningHandle;
 import static com.facebook.presto.hive.HivePartitioningHandle.createPrestoNativePartitioningHandle;
 import static com.facebook.presto.hive.HiveSessionProperties.HIVE_STORAGE_FORMAT;
 import static com.facebook.presto.hive.HiveSessionProperties.RESPECT_TABLE_FORMAT;
@@ -221,6 +223,7 @@ import static com.facebook.presto.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY
 import static com.facebook.presto.hive.HiveTableProperties.CSV_ESCAPE;
 import static com.facebook.presto.hive.HiveTableProperties.CSV_QUOTE;
 import static com.facebook.presto.hive.HiveTableProperties.CSV_SEPARATOR;
+import static com.facebook.presto.hive.HiveTableProperties.DISTRIBUTION_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.DWRF_ENCRYPTION_ALGORITHM;
 import static com.facebook.presto.hive.HiveTableProperties.DWRF_ENCRYPTION_PROVIDER;
 import static com.facebook.presto.hive.HiveTableProperties.ENCRYPT_COLUMNS;
@@ -312,6 +315,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
+import static com.google.common.collect.Iterables.partition;
 import static com.google.common.collect.Streams.stream;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
@@ -617,6 +621,7 @@ public class HiveMetadata
             properties.put(BUCKET_COUNT_PROPERTY, bucketProperty.get().getBucketCount());
             properties.put(BUCKETED_BY_PROPERTY, bucketProperty.get().getBucketedBy());
             properties.put(SORTED_BY_PROPERTY, bucketProperty.get().getSortedBy());
+            properties.put(DISTRIBUTION_PROPERTY, bucketProperty.get().getDistribution());
         }
 
         // Preferred ordering columns
@@ -985,9 +990,13 @@ public class HiveMetadata
                         "Bucketing columns %s not present in schema",
                         Sets.difference(ImmutableSet.copyOf(partitioning.getPartitionColumns()), allColumns)));
             }
+
             HivePartitioningHandle partitioningHandle = (HivePartitioningHandle) partitioning.getPartitioningHandle();
             List<String> partitionColumns = partitioning.getPartitionColumns();
             BucketFunctionType bucketFunctionType = partitioningHandle.getBucketFunctionType();
+            Map<String, Type> columnNameToTypeMap = columns.stream()
+                    .collect(toMap(ColumnMetadata::getName, ColumnMetadata::getType));
+
             switch (bucketFunctionType) {
                 case HIVE_COMPATIBLE:
                     return new HiveBucketProperty(
@@ -995,10 +1004,9 @@ public class HiveMetadata
                             partitioningHandle.getBucketCount(),
                             ImmutableList.of(),
                             HIVE_COMPATIBLE,
+                            Optional.empty(),
                             Optional.empty());
                 case PRESTO_NATIVE:
-                    Map<String, Type> columnNameToTypeMap = columns.stream()
-                            .collect(toMap(ColumnMetadata::getName, ColumnMetadata::getType));
                     return new HiveBucketProperty(
                             partitionColumns,
                             partitioningHandle.getBucketCount(),
@@ -1006,7 +1014,18 @@ public class HiveMetadata
                             PRESTO_NATIVE,
                             Optional.of(partitionColumns.stream()
                                     .map(columnNameToTypeMap::get)
-                                    .collect(toImmutableList())));
+                                    .collect(toImmutableList())),
+                            Optional.empty());
+                case HIVE_CLUSTERING:
+                    return new HiveBucketProperty(
+                            partitionColumns,
+                            partitioningHandle.getBucketCount(),
+                            ImmutableList.of(),
+                            HIVE_CLUSTERING,
+                            Optional.of(partitionColumns.stream()
+                                    .map(columnNameToTypeMap::get)
+                                    .collect(toImmutableList())),
+                            Optional.empty());
                 default:
                     throw new IllegalArgumentException("Unsupported bucket function type " + bucketFunctionType);
             }
@@ -2478,6 +2497,12 @@ public class HiveMetadata
                                         .collect(toImmutableList()),
                                 maxCompatibleBucketCount);
                         break;
+                    case HIVE_CLUSTERING:
+                        partitioningHandle = createPrestoClusteringPartitioningHandle(
+                                bucketCount,
+                                bucketProperty.getTypes().get(),
+                                maxCompatibleBucketCount,
+                                bucketProperty.getDistribution().get());
                     case PRESTO_NATIVE:
                         partitioningHandle = createPrestoNativePartitioningHandle(
                                 bucketCount,
@@ -2559,7 +2584,8 @@ public class HiveMetadata
                 maxCompatibleBucketCount,
                 leftHandle.getBucketFunctionType(),
                 leftHandle.getHiveTypes(),
-                leftHandle.getTypes()));
+                leftHandle.getTypes(),
+                Optional.empty()));
     }
 
     @Override
@@ -2746,6 +2772,13 @@ public class HiveMetadata
                         bucketProperty.getTypes().get(),
                         maxCompatibleBucketCount);
                 break;
+            case HIVE_CLUSTERING:
+                partitioningHandle = createPrestoClusteringPartitioningHandle(
+                        bucketCount,
+                        bucketProperty.getTypes().get(),
+                        maxCompatibleBucketCount,
+                        bucketProperty.getDistribution().get()
+                );
             default:
                 throw new IllegalArgumentException("Unsupported bucket function type " + bucketProperty.getBucketFunctionType());
         }

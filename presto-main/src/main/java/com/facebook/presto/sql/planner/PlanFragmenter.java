@@ -31,6 +31,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
+import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
@@ -183,7 +184,7 @@ public class PlanFragmenter
                 getTableWriterNodeIds(plan.getRoot()));
 
         FragmentProperties properties = new FragmentProperties(new PartitioningScheme(
-                Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()),
+                Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of(), Optional.empty()),
                 plan.getRoot().getOutputVariables()));
         if (forceSingleNode || isForceSingleNodeOutput(session)) {
             properties = properties.setSingleNodeDistribution();
@@ -605,7 +606,8 @@ public class PlanFragmenter
                     partitioningMetadata);
 
             FragmentProperties writeProperties = new FragmentProperties(new PartitioningScheme(
-                    Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()),
+                    Partitioning.create(
+                            SINGLE_DISTRIBUTION, ImmutableList.of(), Optional.empty()),
                     write.getOutputVariables()));
             writeProperties.setCoordinatorOnlyDistribution();
 
@@ -741,9 +743,12 @@ public class PlanFragmenter
 
             SchemaTableName schemaTableName = metadata.getTableMetadata(session, tableHandle).getTable();
             InsertReference insertReference = new InsertReference(tableHandle, schemaTableName);
+            TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
+            List<String> distribution = (List<String>) tableMetadata.getMetadata().getProperties().get("distribution");
 
             PartitioningScheme partitioningScheme = new PartitioningScheme(
-                    Partitioning.create(partitioningHandle, partitioningVariables),
+                    Partitioning.create(
+                            partitioningHandle, partitioningVariables, Optional.of(distribution)),
                     outputs,
                     Optional.empty(),
                     false,
@@ -775,7 +780,6 @@ public class PlanFragmenter
             }
 
             String catalogName = tableHandle.getConnectorId().getCatalogName();
-            TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
             TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, catalogName, tableMetadata.getMetadata());
             TableStatisticAggregation statisticsResult = statisticsAggregationPlanner.createStatisticsAggregation(statisticsMetadata, columnNameToVariable, false);
             StatisticAggregations.Parts aggregations = statisticsResult.getAggregations().splitIntoPartialAndFinal(variableAllocator, metadata.getFunctionAndTypeManager());

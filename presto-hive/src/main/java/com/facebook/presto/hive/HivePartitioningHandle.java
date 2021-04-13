@@ -37,6 +37,7 @@ public class HivePartitioningHandle
     private final BucketFunctionType bucketFunctionType;
     private final Optional<List<HiveType>> hiveTypes;
     private final Optional<List<Type>> types;
+    private final Optional<List<String>> distribution;
 
     public static HivePartitioningHandle createHiveCompatiblePartitioningHandle(
             int bucketCount,
@@ -48,6 +49,7 @@ public class HivePartitioningHandle
                 maxCompatibleBucketCount,
                 HIVE_COMPATIBLE,
                 Optional.of(hiveTypes),
+                Optional.empty(),
                 Optional.empty());
     }
 
@@ -61,7 +63,23 @@ public class HivePartitioningHandle
                 maxCompatibleBucketCount,
                 PRESTO_NATIVE,
                 Optional.empty(),
-                Optional.of(types));
+                Optional.of(types),
+                Optional.empty());
+    }
+
+    public static HivePartitioningHandle createPrestoClusteringPartitioningHandle(
+            int bucketCount,
+            List<Type> types,
+            OptionalInt maxCompatibleBucketCount,
+            List<String> distribution)
+    {
+        return new HivePartitioningHandle(
+                bucketCount,
+                maxCompatibleBucketCount,
+                PRESTO_NATIVE,
+                Optional.empty(),
+                Optional.of(types),
+                Optional.of(distribution));
     }
 
     @JsonCreator
@@ -70,13 +88,15 @@ public class HivePartitioningHandle
             @JsonProperty("maxCompatibleBucketCount") OptionalInt maxCompatibleBucketCount,
             @JsonProperty("bucketFunctionType") BucketFunctionType bucketFunctionType,
             @JsonProperty("hiveTypes") Optional<List<HiveType>> hiveTypes,
-            @JsonProperty("types") Optional<List<Type>> types)
+            @JsonProperty("types") Optional<List<Type>> types,
+            @JsonProperty("distribution") Optional<List<String>> distribution)
     {
         this.bucketCount = bucketCount;
         this.maxCompatibleBucketCount = maxCompatibleBucketCount;
         this.bucketFunctionType = requireNonNull(bucketFunctionType, "bucketFunctionType is null");
         this.hiveTypes = requireNonNull(hiveTypes, "hiveTypes is null");
         this.types = requireNonNull(types, "types is null");
+        this.distribution = requireNonNull(distribution, "distribution is null");
         checkArgument(bucketFunctionType.equals(HIVE_COMPATIBLE) && hiveTypes.isPresent() && !types.isPresent() ||
                         bucketFunctionType.equals(PRESTO_NATIVE) && !hiveTypes.isPresent() && types.isPresent(),
                 "Type list for bucketFunctionType %s is missing or duplicated. hiveTypes: %s, types: %s", bucketFunctionType,

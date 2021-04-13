@@ -54,18 +54,22 @@ public final class Partitioning
 {
     private final PartitioningHandle handle;
     private final List<RowExpression> arguments;
+    private final Optional<List<String>> distribution;
 
-    private Partitioning(PartitioningHandle handle, List<RowExpression> arguments)
+    private Partitioning(
+            PartitioningHandle handle, List<RowExpression> arguments, Optional<List<String>> distribution)
     {
         this.handle = requireNonNull(handle, "handle is null");
         this.arguments = ImmutableList.copyOf(requireNonNull(arguments, "arguments is null"));
+        this.distribution = distribution;
     }
 
-    public static <T extends RowExpression> Partitioning create(PartitioningHandle handle, Collection<T> columns)
+    public static <T extends RowExpression> Partitioning create(
+            PartitioningHandle handle, Collection<T> columns, Optional<List<String>> distribution)
     {
         return new Partitioning(handle, columns.stream()
                 .map(RowExpression.class::cast)
-                .collect(toImmutableList()));
+                .collect(toImmutableList()), distribution);
     }
 
     // Factory method for JSON serde only!
@@ -74,7 +78,7 @@ public final class Partitioning
             @JsonProperty("handle") PartitioningHandle handle,
             @JsonProperty("arguments") List<RowExpression> arguments)
     {
-        return new Partitioning(handle, arguments);
+        return new Partitioning(handle, arguments, Optional.empty());
     }
 
     @JsonProperty
@@ -291,7 +295,7 @@ public final class Partitioning
                     }
                     return argument;
                 })
-                .collect(toImmutableList()));
+                .collect(toImmutableList()), distribution);
     }
 
     // Tries to translate VariableReferenceExpression in arguments according to translator, keeps constant arguments unchanged. If any arguments failed to translate, return empty partitioning.
@@ -314,7 +318,7 @@ public final class Partitioning
             }
         }
 
-        return Optional.of(new Partitioning(handle, newArguments.build()));
+        return Optional.of(new Partitioning(handle, newArguments.build(), distribution));
     }
 
     // Maps VariableReferenceExpression in both partitions to an COALESCE expression, keeps constant arguments unchanged.
@@ -342,7 +346,8 @@ public final class Partitioning
                 return Optional.empty();
             }
         }
-        return Optional.of(new Partitioning(metadata.isRefinedPartitioningOver(session, other.handle, this.handle) ? this.handle : other.handle, arguments.build()));
+        return Optional.of(new Partitioning(
+                metadata.isRefinedPartitioningOver(session, other.handle, this.handle) ? this.handle : other.handle, arguments.build(), distribution));
     }
 
     public Optional<Partitioning> translateRowExpression(Map<VariableReferenceExpression, RowExpression> inputToOutputMappings, Map<VariableReferenceExpression, RowExpression> assignments, TypeProvider types)
@@ -403,12 +408,12 @@ public final class Partitioning
             }
         }
 
-        return Optional.of(new Partitioning(handle, newArguments.build()));
+        return Optional.of(new Partitioning(handle, newArguments.build(), distribution));
     }
 
     public Partitioning withAlternativePartitiongingHandle(PartitioningHandle partitiongingHandle)
     {
-        return new Partitioning(partitiongingHandle, this.arguments);
+        return new Partitioning(partitiongingHandle, this.arguments, distribution);
     }
 
     @Override

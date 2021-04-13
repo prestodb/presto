@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.tpch;
 
+import com.facebook.presto.common.clustering.MortonCode;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.BucketFunction;
 import com.facebook.presto.spi.ConnectorSession;
@@ -26,6 +27,7 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.ToIntFunction;
 
@@ -63,7 +65,14 @@ public class TpchNodePartitioningProvider
     }
 
     @Override
-    public BucketFunction getBucketFunction(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle, List<Type> partitionChannelTypes, int bucketCount)
+    public BucketFunction getBucketFunction(
+            ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session,
+            ConnectorPartitioningHandle partitioningHandle,
+            List<Type> partitionChannelTypes,
+            int bucketCount,
+            Optional<MortonCode> mortonCode,
+            Optional<List<String>> bucketingColumns)
     {
         long totalRows = ((TpchPartitioningHandle) partitioningHandle).getTotalRows();
         long rowsPerBucket = totalRows / bucketCount;

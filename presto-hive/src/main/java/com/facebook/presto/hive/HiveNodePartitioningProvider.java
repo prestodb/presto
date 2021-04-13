@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.clustering.MortonCode;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.BucketFunction;
 import com.facebook.presto.spi.ConnectorSession;
@@ -27,6 +28,7 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.function.ToIntFunction;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -34,6 +36,7 @@ import java.util.stream.Stream;
 import static com.facebook.presto.hive.HiveBucketFunction.createHiveCompatibleBucketFunction;
 import static com.facebook.presto.hive.HiveBucketFunction.createPrestoNativeBucketFunction;
 import static com.facebook.presto.hive.HiveSessionProperties.getNodeSelectionStrategy;
+import static com.facebook.presto.hive.clustering.HiveClusteringBucketFunction.createHiveClusteringBucketFunction;
 import static com.facebook.presto.spi.StandardErrorCode.NODE_SELECTION_NOT_SUPPORTED;
 import static com.facebook.presto.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -48,7 +51,9 @@ public class HiveNodePartitioningProvider
             ConnectorSession session,
             ConnectorPartitioningHandle partitioningHandle,
             List<Type> partitionChannelTypes,
-            int bucketCount)
+            int bucketCount,
+            Optional<MortonCode> mortonCode,
+            Optional<List<String>> bucketingColumns)
     {
         HivePartitioningHandle handle = (HivePartitioningHandle) partitioningHandle;
         BucketFunctionType bucketFunctionType = handle.getBucketFunctionType();
@@ -57,6 +62,9 @@ public class HiveNodePartitioningProvider
                 return createHiveCompatibleBucketFunction(bucketCount, handle.getHiveTypes().get());
             case PRESTO_NATIVE:
                 return createPrestoNativeBucketFunction(bucketCount, handle.getTypes().get());
+            case HIVE_CLUSTERING:
+                return createHiveClusteringBucketFunction(
+                        bucketCount, mortonCode.get(), bucketingColumns.get(), handle.getTypes().get());
             default:
                 throw new IllegalArgumentException("Unsupported bucket function type " + bucketFunctionType);
         }

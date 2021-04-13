@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.connector;
 
+import com.facebook.presto.common.clustering.MortonCode;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.BucketFunction;
 import com.facebook.presto.spi.ConnectorSession;
@@ -20,6 +21,7 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.Node;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.function.ToIntFunction;
 
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
@@ -50,7 +52,9 @@ public interface ConnectorNodePartitioningProvider
             ConnectorSession session,
             ConnectorPartitioningHandle partitioningHandle,
             List<Type> partitionChannelTypes,
-            int bucketCount);
+            int bucketCount,
+            Optional<MortonCode> mortonCode,
+            Optional<List<String>> bucketingColumns);
 
     int getBucketCount(
             ConnectorTransactionHandle transactionHandle,

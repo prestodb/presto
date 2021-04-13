@@ -20,6 +20,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
+import org.checkerframework.checker.nullness.Opt;
 
 import java.util.List;
 import java.util.Objects;
@@ -40,6 +41,7 @@ public class HiveBucketProperty
     private final List<SortingColumn> sortedBy;
     private final BucketFunctionType bucketFunctionType;
     private final Optional<List<Type>> types;
+    private final Optional<List<String>> distribution;
 
     @JsonCreator
     public HiveBucketProperty(
@@ -47,13 +49,16 @@ public class HiveBucketProperty
             @JsonProperty("bucketCount") int bucketCount,
             @JsonProperty("sortedBy") List<SortingColumn> sortedBy,
             @JsonProperty("bucketFunctionType") BucketFunctionType bucketFunctionType,
-            @JsonProperty("types") Optional<List<Type>> types)
+            @JsonProperty("types") Optional<List<Type>> types,
+            @JsonProperty("distribution") Optional<List<String>> distribution)
     {
         this.bucketedBy = ImmutableList.copyOf(requireNonNull(bucketedBy, "bucketedBy is null"));
         this.bucketCount = bucketCount;
         this.sortedBy = ImmutableList.copyOf(requireNonNull(sortedBy, "sortedBy is null"));
         this.bucketFunctionType = requireNonNull(bucketFunctionType, "bucketFunctionType is null");
         this.types = requireNonNull(types, "type is null");
+        this.distribution = requireNonNull(distribution, "distribution is null");
+
         if (bucketFunctionType.equals(PRESTO_NATIVE)) {
             checkArgument(types.isPresent(), "Types must be present for bucket function type " + bucketFunctionType);
             checkArgument(types.get().size() == bucketedBy.size(), "The sizes of bucketedBy and types should match");
@@ -85,6 +90,7 @@ public class HiveBucketProperty
                 storageDescriptor.getNumBuckets(),
                 sortedBy,
                 HIVE_COMPATIBLE,
+                Optional.empty(),
                 Optional.empty()));
     }
 
@@ -116,6 +122,12 @@ public class HiveBucketProperty
     public Optional<List<Type>> getTypes()
     {
         return types;
+    }
+
+    @JsonProperty
+    public Optional<List<String>> getDistribution()
+    {
+        return distribution;
     }
 
     @Override

@@ -405,7 +405,10 @@ public class PlanPrinter
                 types.allVariables(),
                 SINGLE_DISTRIBUTION,
                 ImmutableList.of(plan.getId()),
-                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getOutputVariables()),
+                new PartitioningScheme(
+                        Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of(), Optional.empty()),
+                        plan.getOutputVariables()
+                ),
                 StageExecutionDescriptor.ungroupedExecution(),
                 false,
                 StatsAndCosts.empty(),

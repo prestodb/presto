@@ -19,9 +19,13 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.IntArrayBlockBuilder;
+import com.facebook.presto.common.clustering.ColumnInterval;
+import com.facebook.presto.common.clustering.IntervalExtractor;
+import com.facebook.presto.common.clustering.MortonCode;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
+import com.facebook.presto.spi.BucketFunction;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PageIndexer;
@@ -61,6 +65,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_TOO_MANY_OPEN_PARTITIO
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static com.facebook.presto.hive.HiveSessionProperties.isFileRenamingEnabled;
 import static com.facebook.presto.hive.PartitionUpdate.FileWriteInfo;
+import static com.facebook.presto.hive.clustering.HiveClusteringBucketFunction.createHiveClusteringBucketFunction;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -86,7 +91,7 @@ public class HivePageSink
     private final int[] partitionColumnsInputIndex; // ordinal of columns (not counting sample weight column)
 
     private final int[] bucketColumns;
-    private final HiveBucketFunction bucketFunction;
+    private final BucketFunction bucketFunction;
 
     private final HiveWriterPagePartitioner pagePartitioner;
     private final HdfsEnvironment hdfsEnvironment;
@@ -181,6 +186,13 @@ public class HivePageSink
                 case PRESTO_NATIVE:
                     bucketFunction = createPrestoNativeBucketFunction(bucketCount, bucketProperty.get().getTypes().get());
                     break;
+                case HIVE_CLUSTERING:
+                    List<String> distribution = bucketProperty.get().getDistribution().get();
+                    List<String> bucketColumns = bucketProperty.get().getBucketedBy();
+                    Map<String, ColumnInterval> intervals = IntervalExtractor.extractIntervals(distribution, bucketColumns);
+                    MortonCode mortonCode = new MortonCode(intervals);
+                    bucketFunction = createHiveClusteringBucketFunction(
+                            bucketCount, mortonCode, bucketColumns, bucketProperty.get().getTypes().get());
                 default:
                     throw new IllegalArgumentException("Unsupported bucket function type " + bucketFunctionType);
             }
