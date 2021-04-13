@@ -14,8 +14,10 @@
 package com.facebook.presto.parquet;
 
 import io.airlift.compress.Decompressor;
+import io.airlift.compress.lz4.Lz4Decompressor;
 import io.airlift.compress.lzo.LzoDecompressor;
 import io.airlift.compress.snappy.SnappyDecompressor;
+import io.airlift.compress.zstd.ZstdDecompressor;
 import io.airlift.slice.Slice;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 
@@ -56,6 +58,10 @@ public final class ParquetCompressionUtils
                 return input;
             case LZO:
                 return decompressLZO(input, uncompressedSize);
+            case LZ4:
+                return decompressLz4(input, uncompressedSize);
+            case ZSTD:
+                return decompressZstd(input, uncompressedSize);
             default:
                 throw new ParquetCorruptionException("Codec not supported in Parquet: " + codec);
         }
@@ -65,6 +71,13 @@ public final class ParquetCompressionUtils
     {
         byte[] buffer = new byte[uncompressedSize];
         decompress(new SnappyDecompressor(), input, 0, input.length(), buffer, 0);
+        return wrappedBuffer(buffer);
+    }
+
+    private static Slice decompressZstd(Slice input, int uncompressedSize)
+    {
+        byte[] buffer = new byte[uncompressedSize];
+        decompress(new ZstdDecompressor(), input, 0, input.length(), buffer, 0);
         return wrappedBuffer(buffer);
     }
 
@@ -94,6 +107,32 @@ public final class ParquetCompressionUtils
             throw new IllegalArgumentException(format("Invalid uncompressedSize for GZIP input. Expected %s, actual: %s", uncompressedSize, bytesRead));
         }
         return wrappedBuffer(buffer, 0, bytesRead);
+    }
+
+    private static Slice decompressLz4(Slice input, int uncompressedSize)
+    {
+        Lz4Decompressor decompressor = new Lz4Decompressor();
+        long totalDecompressedCount = 0;
+        // over allocate buffer which makes decompression easier
+        byte[] output = new byte[uncompressedSize + SIZE_OF_LONG];
+        int outputOffset = 0;
+        int inputOffset = 0;
+        int cumulativeUncompressedBlockLength = 0;
+
+        while (totalDecompressedCount < uncompressedSize) {
+            if (totalDecompressedCount == cumulativeUncompressedBlockLength) {
+                cumulativeUncompressedBlockLength += Integer.reverseBytes(input.getInt(inputOffset));
+                inputOffset += SIZE_OF_INT;
+            }
+            int compressedChunkLength = Integer.reverseBytes(input.getInt(inputOffset));
+            inputOffset += SIZE_OF_INT;
+            int decompressionSize = decompress(decompressor, input, inputOffset, compressedChunkLength, output, outputOffset);
+            totalDecompressedCount += decompressionSize;
+            outputOffset += decompressionSize;
+            inputOffset += compressedChunkLength;
+        }
+        checkArgument(outputOffset == uncompressedSize);
+        return wrappedBuffer(output, 0, uncompressedSize);
     }
 
     private static Slice decompressLZO(Slice input, int uncompressedSize)
