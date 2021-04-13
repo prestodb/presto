@@ -73,6 +73,7 @@ public class TestRecordingHiveMetastore
                     10,
                     ImmutableList.of(new SortingColumn("column", Order.ASCENDING)),
                     HIVE_COMPATIBLE,
+                    Optional.empty(),
                     Optional.empty())),
             true,
             ImmutableMap.of("param", "value2"),

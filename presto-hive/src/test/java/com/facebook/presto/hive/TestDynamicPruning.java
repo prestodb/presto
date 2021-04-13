@@ -133,7 +133,8 @@ public class TestDynamicPruning
                 new Storage(
                         StorageFormat.create(config.getHiveStorageFormat().getSerDe(), config.getHiveStorageFormat().getInputFormat(), config.getHiveStorageFormat().getOutputFormat()),
                         "location",
-                        Optional.of(new HiveBucketProperty(ImmutableList.of("l_orderkey"), 10, ImmutableList.of(), HIVE_COMPATIBLE, Optional.empty())),
+                        Optional.of(new HiveBucketProperty(
+                                ImmutableList.of("l_orderkey"), 10, ImmutableList.of(), HIVE_COMPATIBLE, Optional.empty(), Optional.empty())),
                         false,
                         ImmutableMap.of(),
                         ImmutableMap.of()),

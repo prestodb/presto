@@ -263,7 +263,8 @@ public class AlluxioProtoUtils
             return Optional.empty();
         }
         List<SortingColumn> sortedBy = property.getSortedByList().stream().map(AlluxioProtoUtils::fromProto).collect(toImmutableList());
-        return Optional.of(new HiveBucketProperty(property.getBucketedByList(), (int) property.getBucketCount(), sortedBy, HIVE_COMPATIBLE, Optional.empty()));
+        return Optional.of(new HiveBucketProperty(
+                property.getBucketedByList(), (int) property.getBucketCount(), sortedBy, HIVE_COMPATIBLE, Optional.empty(), Optional.empty()));
     }
 
     private static Optional<BigDecimal> fromMetastoreDecimal(@Nullable Decimal decimal)

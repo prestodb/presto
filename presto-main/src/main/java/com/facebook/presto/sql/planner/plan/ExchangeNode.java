@@ -151,7 +151,7 @@ public class ExchangeNode
                 id,
                 scope,
                 child,
-                Partitioning.create(FIXED_HASH_DISTRIBUTION, partitioningColumns),
+                Partitioning.create(FIXED_HASH_DISTRIBUTION, partitioningColumns, Optional.empty()),
                 hashColumn,
                 replicateNullsAndAny);
     }
@@ -197,7 +197,9 @@ public class ExchangeNode
                 id,
                 REPLICATE,
                 scope,
-                new PartitioningScheme(Partitioning.create(FIXED_BROADCAST_DISTRIBUTION, ImmutableList.of()), child.getOutputVariables()),
+                new PartitioningScheme(
+                        Partitioning.create(FIXED_BROADCAST_DISTRIBUTION, ImmutableList.of(), Optional.empty()),
+                        child.getOutputVariables()),
                 ImmutableList.of(child),
                 ImmutableList.of(child.getOutputVariables()),
                 false,
@@ -220,7 +222,9 @@ public class ExchangeNode
                 id,
                 GATHER,
                 scope,
-                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), child.getOutputVariables()),
+                new PartitioningScheme(
+                        Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of(), Optional.empty()),
+                        child.getOutputVariables()),
                 ImmutableList.of(child),
                 ImmutableList.of(child.getOutputVariables()),
                 ensureSourceOrdering,
@@ -233,7 +237,9 @@ public class ExchangeNode
                 id,
                 scope,
                 child,
-                new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), child.getOutputVariables()));
+                new PartitioningScheme(Partitioning.create(
+                        FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of(), Optional.empty()),
+                        child.getOutputVariables()));
     }
 
     public static ExchangeNode mergingExchange(PlanNodeId id, Scope scope, PlanNode child, OrderingScheme orderingScheme)
@@ -243,7 +249,9 @@ public class ExchangeNode
                 id,
                 GATHER,
                 scope,
-                new PartitioningScheme(Partitioning.create(partitioningHandle, ImmutableList.of()), child.getOutputVariables()),
+                new PartitioningScheme(Partitioning.create(
+                        partitioningHandle, ImmutableList.of(), Optional.empty()),
+                        child.getOutputVariables()),
                 ImmutableList.of(child),
                 ImmutableList.of(child.getOutputVariables()),
                 true,

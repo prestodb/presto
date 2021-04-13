@@ -189,7 +189,9 @@ public class LocalExchange
                 session.toConnectorSession(),
                 partitioning.getConnectorHandle(),
                 partitioningChannelTypes,
-                bucketCount);
+                bucketCount,
+                Optional.empty(),
+                Optional.empty());
 
         checkArgument(bucketFunction != null, "No bucket function for partitioning: %s", partitioning);
         return new BucketPartitionFunction(bucketFunction, bucketToPartition);

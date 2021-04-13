@@ -51,6 +51,13 @@ public class HiveBucketFunction
         return new HiveBucketFunction(bucketCount, PRESTO_NATIVE, Optional.empty(), Optional.of(types));
     }
 
+    public static HiveBucketFunction createHiveClusteringBucketFunction(
+            int bucketCount,
+            List<Type> types)
+    {
+        return new HiveBucketFunction(bucketCount, PRESTO_NATIVE, Optional.empty(), Optional.of(types));
+    }
+
     private HiveBucketFunction(
             int bucketCount,
             BucketFunctionType bucketFunctionType,

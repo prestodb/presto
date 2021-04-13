@@ -586,10 +586,12 @@ public class AddExchanges
 
             if (!shufflePartitioningScheme.isPresent()) {
                 if (scaleWriters) {
-                    shufflePartitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(SCALED_WRITER_DISTRIBUTION, ImmutableList.of()), source.getNode().getOutputVariables()));
+                    shufflePartitioningScheme = Optional.of(
+                            new PartitioningScheme(Partitioning.create(SCALED_WRITER_DISTRIBUTION, ImmutableList.of(), Optional.empty()), source.getNode().getOutputVariables()));
                 }
                 else if (redistributeWrites) {
-                    shufflePartitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), source.getNode().getOutputVariables()));
+                    shufflePartitioningScheme = Optional.of(new PartitioningScheme(
+                            Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of(), Optional.empty()), source.getNode().getOutputVariables()));
                 }
             }
 
@@ -676,7 +678,7 @@ public class AddExchanges
                         idAllocator.getNextId(),
                         GATHER,
                         REMOTE_STREAMING,
-                        new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), exchangeNode.getOutputVariables()),
+                        new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of(), Optional.empty()), exchangeNode.getOutputVariables()),
                         exchangeNode.getSources(),
                         exchangeNode.getInputs(),
                         true,
@@ -1217,7 +1219,7 @@ public class AddExchanges
                                         idAllocator.getNextId(),
                                         REPARTITION,
                                         REMOTE_STREAMING,
-                                        new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), node.getOutputVariables()),
+                                        new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of(), Optional.empty()), node.getOutputVariables()),
                                         distributedChildren,
                                         distributedOutputLayouts,
                                         false,
@@ -1236,7 +1238,7 @@ public class AddExchanges
                         idAllocator.getNextId(),
                         GATHER,
                         REMOTE_STREAMING,
-                        new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), node.getOutputVariables()),
+                        new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of(), Optional.empty()), node.getOutputVariables()),
                         distributedChildren,
                         distributedOutputLayouts,
                         false,
@@ -1255,7 +1257,7 @@ public class AddExchanges
                             idAllocator.getNextId(),
                             GATHER,
                             REMOTE_STREAMING,
-                            new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), exchangeOutputLayout),
+                            new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of(), Optional.empty()), exchangeOutputLayout),
                             distributedChildren,
                             distributedOutputLayouts,
                             false,
@@ -1354,7 +1356,7 @@ public class AddExchanges
         {
             // TODO: Use SystemTablesMetadata instead of introducing a special case
             if (GlobalSystemConnector.NAME.equals(partitioningProviderCatalog)) {
-                return Partitioning.create(FIXED_HASH_DISTRIBUTION, ImmutableList.copyOf(partitioningColumns));
+                return Partitioning.create(FIXED_HASH_DISTRIBUTION, ImmutableList.copyOf(partitioningColumns), Optional.empty());
             }
 
             List<Type> partitioningTypes = partitioningColumns.stream()
@@ -1362,7 +1364,8 @@ public class AddExchanges
                     .collect(toImmutableList());
             try {
                 PartitioningHandle partitioningHandle = metadata.getPartitioningHandleForExchange(session, partitioningProviderCatalog, hashPartitionCount, partitioningTypes);
-                return Partitioning.create(partitioningHandle, partitioningColumns);
+                // TODO: get distribution from metadata.
+                return Partitioning.create(partitioningHandle, partitioningColumns, Optional.empty());
             }
             catch (PrestoException e) {
                 if (e.getErrorCode().equals(NOT_SUPPORTED.toErrorCode())) {

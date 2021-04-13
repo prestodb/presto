@@ -286,12 +286,12 @@ public final class HiveBucketing
             return Optional.empty();
         }
 
-        Map<String, HiveColumnHandle> map = getRegularColumnHandles(table).stream()
+        Map<String, HiveColumnHandle> columnMap = getRegularColumnHandles(table).stream()
                 .collect(Collectors.toMap(HiveColumnHandle::getName, identity()));
 
         ImmutableList.Builder<HiveColumnHandle> bucketColumns = ImmutableList.builder();
         for (String bucketColumnName : hiveBucketProperty.get().getBucketedBy()) {
-            HiveColumnHandle bucketColumnHandle = map.get(bucketColumnName);
+            HiveColumnHandle bucketColumnHandle = columnMap.get(bucketColumnName);
             if (bucketColumnHandle == null) {
                 throw new PrestoException(
                         HIVE_INVALID_METADATA,

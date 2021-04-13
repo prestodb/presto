@@ -422,8 +422,8 @@ public class ActualProperties
                 Optional<List<U>> streamPartitioning)
         {
             return new Global(
-                    Optional.of(Partitioning.create(nodePartitioningHandle, nodePartitioning)),
-                    streamPartitioning.map(columns -> Partitioning.create(SOURCE_DISTRIBUTION, columns)),
+                    Optional.of(Partitioning.create(nodePartitioningHandle, nodePartitioning, Optional.empty())),
+                    streamPartitioning.map(columns -> Partitioning.create(SOURCE_DISTRIBUTION, columns, Optional.empty())),
                     false);
         }
 
@@ -439,7 +439,7 @@ public class ActualProperties
         {
             return new Global(
                     Optional.empty(),
-                    Optional.of(Partitioning.create(SOURCE_DISTRIBUTION, streamPartitioning)),
+                    Optional.of(Partitioning.create(SOURCE_DISTRIBUTION, streamPartitioning, Optional.empty())),
                     false);
         }
 

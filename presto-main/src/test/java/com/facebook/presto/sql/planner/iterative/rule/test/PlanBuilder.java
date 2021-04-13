@@ -652,22 +652,27 @@ public class PlanBuilder
 
         public ExchangeBuilder singleDistributionPartitioningScheme(List<VariableReferenceExpression> outputVariables)
         {
-            return partitioningScheme(new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), outputVariables));
+            return partitioningScheme(new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of(), Optional.empty()), outputVariables));
         }
 
         public ExchangeBuilder fixedHashDistributionParitioningScheme(List<VariableReferenceExpression> outputVariables, List<VariableReferenceExpression> partitioningVariables)
         {
             return partitioningScheme(new PartitioningScheme(Partitioning.create(
                     FIXED_HASH_DISTRIBUTION,
-                    ImmutableList.copyOf(partitioningVariables)),
+                    ImmutableList.copyOf(partitioningVariables),
+                    Optional.empty()),
                     ImmutableList.copyOf(outputVariables)));
         }
 
-        public ExchangeBuilder fixedHashDistributionParitioningScheme(List<VariableReferenceExpression> outputVariables, List<VariableReferenceExpression> partitioningVariables, VariableReferenceExpression hashVariable)
+        public ExchangeBuilder fixedHashDistributionParitioningScheme(
+                List<VariableReferenceExpression> outputVariables,
+                List<VariableReferenceExpression> partitioningVariables,
+                VariableReferenceExpression hashVariable)
         {
             return partitioningScheme(new PartitioningScheme(Partitioning.create(
                     FIXED_HASH_DISTRIBUTION,
-                    ImmutableList.copyOf(partitioningVariables)),
+                    ImmutableList.copyOf(partitioningVariables),
+                    Optional.empty()),
                     ImmutableList.copyOf(outputVariables),
                     Optional.of(hashVariable)));
         }

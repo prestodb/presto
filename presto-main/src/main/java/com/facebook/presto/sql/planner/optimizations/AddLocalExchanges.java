@@ -641,7 +641,8 @@ public class AddLocalExchanges
                         idAllocator.getNextId(),
                         GATHER,
                         LOCAL,
-                        new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), node.getOutputVariables()),
+                        new PartitioningScheme(Partitioning.create(
+                                SINGLE_DISTRIBUTION, ImmutableList.of(), Optional.empty()), node.getOutputVariables()),
                         sources,
                         inputLayouts,
                         false,
@@ -656,7 +657,7 @@ public class AddLocalExchanges
                         REPARTITION,
                         LOCAL,
                         new PartitioningScheme(
-                                Partitioning.create(FIXED_HASH_DISTRIBUTION, preferredPartitionColumns.get()),
+                                Partitioning.create(FIXED_HASH_DISTRIBUTION, preferredPartitionColumns.get(), Optional.empty()),
                                 node.getOutputVariables()),
                         sources,
                         inputLayouts,
@@ -670,7 +671,7 @@ public class AddLocalExchanges
                     idAllocator.getNextId(),
                     REPARTITION,
                     LOCAL,
-                    new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), node.getOutputVariables()),
+                    new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of(), Optional.empty()), node.getOutputVariables()),
                     sources,
                     inputLayouts,
                     false,

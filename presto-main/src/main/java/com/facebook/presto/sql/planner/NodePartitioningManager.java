@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.clustering.MortonCode;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.scheduler.BucketNodeMap;
 import com.facebook.presto.execution.scheduler.FixedBucketNodeMap;
@@ -31,6 +32,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorBucketNodeMap;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.facebook.presto.split.EmptySplit;
 import com.google.common.collect.BiMap;
@@ -87,12 +89,23 @@ public class NodePartitioningManager
         else {
             ConnectorNodePartitioningProvider partitioningProvider = partitioningProviderManager.getPartitioningProvider(partitioningHandle.getConnectorId().get());
 
+            // TODO: Make the logic correct.
+            List<String> columnNames = new ArrayList<>();
+            List<RowExpression> columns = partitioningScheme.getPartitioning().getArguments();
+            for (RowExpression column : columns) {
+                columnNames.add(column.toString());
+            }
+
+            // TODO: create MortonCode Object here.
+
             bucketFunction = partitioningProvider.getBucketFunction(
                     partitioningHandle.getTransactionHandle().orElse(null),
                     session.toConnectorSession(),
                     partitioningHandle.getConnectorHandle(),
                     partitionChannelTypes,
-                    bucketToPartition.get().length);
+                    bucketToPartition.get().length,
+                    Optional.empty(),
+                    Optional.of(columnNames));
 
             checkArgument(bucketFunction != null, "No function %s", partitioningHandle);
         }

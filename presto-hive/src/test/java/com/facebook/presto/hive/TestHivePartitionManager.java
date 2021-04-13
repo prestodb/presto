@@ -69,6 +69,7 @@ public class TestHivePartitionManager
                             100,
                             ImmutableList.of(),
                             HIVE_COMPATIBLE,
+                            Optional.empty(),
                             Optional.empty())),
                     false,
                     ImmutableMap.of(),
