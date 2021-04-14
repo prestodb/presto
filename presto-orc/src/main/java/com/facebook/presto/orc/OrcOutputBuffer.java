@@ -17,11 +17,11 @@ import com.facebook.presto.orc.checkpoint.InputStreamCheckpoint;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.CompressionParameters;
 import com.facebook.presto.orc.zlib.DeflateCompressor;
-import com.facebook.presto.orc.zstd.ZstdJniCompressor;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.compress.Compressor;
 import io.airlift.compress.lz4.Lz4Compressor;
 import io.airlift.compress.snappy.SnappyCompressor;
+import io.airlift.compress.zstd.ZstdCompressor;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -107,7 +107,7 @@ public class OrcOutputBuffer
             this.compressor = new Lz4Compressor();
         }
         else if (compressionKind == CompressionKind.ZSTD) {
-            this.compressor = new ZstdJniCompressor(compressionParameters.getLevel());
+            this.compressor = new ZstdCompressor();
         }
         else {
             throw new IllegalArgumentException("Unsupported compression " + compressionKind);
