@@ -93,7 +93,7 @@ public class HiveTableOperations
     private final String tableName;
     private final Optional<String> owner;
     private final Optional<String> location;
-    private final FileIO fileIo;
+    private final FileIO fileIO;
 
     private TableMetadata currentMetadata;
     private String currentMetadataLocation;
@@ -102,12 +102,12 @@ public class HiveTableOperations
 
     public HiveTableOperations(ExtendedHiveMetastore metastore, HdfsEnvironment hdfsEnvironment, HdfsContext hdfsContext, String database, String table)
     {
-        this(new HdfsFileIo(hdfsEnvironment, hdfsContext), metastore, database, table, Optional.empty(), Optional.empty());
+        this(new HdfsFileIO(hdfsEnvironment, hdfsContext), metastore, database, table, Optional.empty(), Optional.empty());
     }
 
     public HiveTableOperations(ExtendedHiveMetastore metastore, HdfsEnvironment hdfsEnvironment, HdfsContext hdfsContext, String database, String table, String owner, String location)
     {
-        this(new HdfsFileIo(hdfsEnvironment, hdfsContext),
+        this(new HdfsFileIO(hdfsEnvironment, hdfsContext),
                 metastore,
                 database,
                 table,
@@ -115,9 +115,9 @@ public class HiveTableOperations
                 Optional.of(requireNonNull(location, "location is null")));
     }
 
-    private HiveTableOperations(FileIO fileIo, ExtendedHiveMetastore metastore, String database, String table, Optional<String> owner, Optional<String> location)
+    private HiveTableOperations(FileIO fileIO, ExtendedHiveMetastore metastore, String database, String table, Optional<String> owner, Optional<String> location)
     {
-        this.fileIo = requireNonNull(fileIo, "fileIo is null");
+        this.fileIO = requireNonNull(fileIO, "fileIO is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.database = requireNonNull(database, "database is null");
         this.tableName = requireNonNull(table, "table is null");
@@ -247,7 +247,7 @@ public class HiveTableOperations
     @Override
     public FileIO io()
     {
-        return fileIo;
+        return fileIO;
     }
 
     @Override
@@ -289,7 +289,7 @@ public class HiveTableOperations
     private String writeNewMetadata(TableMetadata metadata, int newVersion)
     {
         String newTableMetadataFilePath = newTableMetadataFilePath(metadata, newVersion);
-        OutputFile newMetadataLocation = fileIo.newOutputFile(newTableMetadataFilePath);
+        OutputFile newMetadataLocation = fileIO.newOutputFile(newTableMetadataFilePath);
 
         // write the new metadata
         TableMetadataParser.write(metadata, newMetadataLocation);
