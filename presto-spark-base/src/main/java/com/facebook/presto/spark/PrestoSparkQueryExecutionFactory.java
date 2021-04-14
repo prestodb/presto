@@ -901,7 +901,7 @@ public class PrestoSparkQueryExecutionFactory
             processShuffleStats();
 
             ConnectorSession connectorSession = session.toConnectorSession();
-            List<Type> types = fragmentedPlan.getFragment().getTypes();
+            List<Type> types = getOutputTypes();
             ImmutableList.Builder<List<Object>> result = ImmutableList.builder();
             for (Tuple2<MutablePartitionId, PrestoSparkSerializedPage> tuple : rddResults) {
                 Page page = pagesSerde.deserialize(toSerializedPage(tuple._2));
