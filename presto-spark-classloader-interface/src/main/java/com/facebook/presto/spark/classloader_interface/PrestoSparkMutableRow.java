@@ -116,7 +116,7 @@ public class PrestoSparkMutableRow
     {
         // PrestoSparkMutableRow is expected to be serialized only during shuffle.
         // During shuffle rows are always serialized with PrestoSparkShuffleSerializer.
-        return new UnsupportedOperationException("PrestoSparkUnsafeRow is not expected to be serialized with Kryo or standard Java serialization");
+        return new UnsupportedOperationException("PrestoSparkMutableRow is not expected to be serialized with Kryo or standard Java serialization");
     }
 
     @Override
