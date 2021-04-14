@@ -26,13 +26,13 @@ import java.io.IOException;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static java.util.Objects.requireNonNull;
 
-public class HdfsFileIo
+public class HdfsFileIO
         implements FileIO
 {
     private final HdfsEnvironment environment;
     private final HdfsContext context;
 
-    public HdfsFileIo(HdfsEnvironment environment, HdfsContext context)
+    public HdfsFileIO(HdfsEnvironment environment, HdfsContext context)
     {
         this.environment = requireNonNull(environment, "environment is null");
         this.context = requireNonNull(context, "context is null");
