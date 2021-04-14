@@ -326,7 +326,7 @@ public class PrestoSparkQueryExecutionFactory
             sql = new String(sqlFileBytes, UTF_8);
         }
 
-        log.info("Query: {}", sql);
+        log.info("Query: %s", sql);
 
         QueryStateTimer queryStateTimer = new QueryStateTimer(systemTicker());
 
