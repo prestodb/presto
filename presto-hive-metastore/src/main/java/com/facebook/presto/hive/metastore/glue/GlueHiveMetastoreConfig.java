@@ -15,6 +15,7 @@ package com.facebook.presto.hive.metastore.glue;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
+import com.facebook.airlift.configuration.ConfigSecuritySensitive;
 
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
@@ -33,6 +34,8 @@ public class GlueHiveMetastoreConfig
     private int partitionSegments = 5;
     private int getPartitionThreads = 20;
     private Optional<String> iamRole = Optional.empty();
+    private Optional<String> awsAccessKey = Optional.empty();
+    private Optional<String> awsSecretKey = Optional.empty();
 
     public Optional<String> getGlueRegion()
     {
@@ -165,6 +168,33 @@ public class GlueHiveMetastoreConfig
     public GlueHiveMetastoreConfig setIamRole(String iamRole)
     {
         this.iamRole = Optional.ofNullable(iamRole);
+        return this;
+    }
+
+    public Optional<String> getAwsAccessKey()
+    {
+        return awsAccessKey;
+    }
+
+    @Config("hive.metastore.glue.aws-access-key")
+    @ConfigDescription("Hive Glue metastore AWS access key")
+    public GlueHiveMetastoreConfig setAwsAccessKey(String awsAccessKey)
+    {
+        this.awsAccessKey = Optional.ofNullable(awsAccessKey);
+        return this;
+    }
+
+    public Optional<String> getAwsSecretKey()
+    {
+        return awsSecretKey;
+    }
+
+    @Config("hive.metastore.glue.aws-secret-key")
+    @ConfigDescription("Hive Glue metastore AWS secret key")
+    @ConfigSecuritySensitive
+    public GlueHiveMetastoreConfig setAwsSecretKey(String awsSecretKey)
+    {
+        this.awsSecretKey = Optional.ofNullable(awsSecretKey);
         return this;
     }
 }

@@ -231,6 +231,16 @@ Property Name                                        Description
 
 ``hive.metastore.glue.default-warehouse-dir``        Hive Glue metastore default warehouse directory
 
+``hive.metastore.glue.aws-access-key``               AWS access key to use to connect to the Glue Catalog. If
+                                                     specified along with ``hive.metastore.glue.aws-secret-key``,
+                                                     this parameter takes precedence over
+                                                     ``hive.metastore.glue.iam-role``.
+
+``hive.metastore.glue.aws-secret-key``               AWS secret key to use to connect to the Glue Catalog. If
+                                                     specified along with ``hive.metastore.glue.aws-access-key``,
+                                                     this parameter takes precedence over
+                                                     ``hive.metastore.glue.iam-role``.
+
 ``hive.metastore.glue.catalogid``                    The ID of the Glue Catalog in which the metadata database
                                                      resides.
 
