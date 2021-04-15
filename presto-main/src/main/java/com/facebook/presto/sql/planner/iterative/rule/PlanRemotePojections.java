@@ -44,7 +44,6 @@ import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.isRemoteFunctionsEnabled;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
-import static com.facebook.presto.spi.function.FunctionImplementationType.THRIFT;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.REMOTE;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.UNKNOWN;
@@ -248,7 +247,7 @@ public class PlanRemotePojections
         public List<ProjectionContext> visitCall(CallExpression call, Void context)
         {
             FunctionMetadata functionMetadata = functionAndTypeManager.getFunctionMetadata(call.getFunctionHandle());
-            boolean local = !functionMetadata.getImplementationType().equals(THRIFT);
+            boolean local = !functionMetadata.getImplementationType().isExternal();
 
             // Break function arguments into local and remote projections first
             ImmutableList.Builder<RowExpression> newArgumentsBuilder = ImmutableList.builder();
