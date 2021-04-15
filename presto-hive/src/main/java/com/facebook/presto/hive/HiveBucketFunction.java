@@ -38,15 +38,13 @@ public class HiveBucketFunction
     private final Optional<List<Type>> types;
 
     public static HiveBucketFunction createHiveCompatibleBucketFunction(
-            int bucketCount,
-            List<HiveType> hiveTypes)
+            int bucketCount, List<HiveType> hiveTypes)
     {
         return new HiveBucketFunction(bucketCount, HIVE_COMPATIBLE, Optional.of(hiveTypes), Optional.empty());
     }
 
     public static HiveBucketFunction createPrestoNativeBucketFunction(
-            int bucketCount,
-            List<Type> types)
+            int bucketCount, List<Type> types)
     {
         return new HiveBucketFunction(bucketCount, PRESTO_NATIVE, Optional.empty(), Optional.of(types));
     }

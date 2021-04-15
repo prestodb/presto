@@ -113,7 +113,14 @@ public class TestBackgroundHiveSplitLoader
 
     private static final Optional<HiveBucketProperty> BUCKET_PROPERTY = Optional.of(
             new HiveBucketProperty(
-                    ImmutableList.of("col1"), BUCKET_COUNT, ImmutableList.of(), HIVE_COMPATIBLE, Optional.empty(), Optional.empty()));
+                    ImmutableList.of("col1"),
+                    BUCKET_COUNT,
+                    ImmutableList.of(),
+                    HIVE_COMPATIBLE,
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty()));
 
     private static final Table SIMPLE_TABLE = table(ImmutableList.of(), Optional.empty());
     private static final Table PARTITIONED_TABLE = table(PARTITION_COLUMNS, BUCKET_PROPERTY);

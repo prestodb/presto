@@ -76,7 +76,8 @@ public final class Partitioning
     @JsonCreator
     public static Partitioning jsonCreate(
             @JsonProperty("handle") PartitioningHandle handle,
-            @JsonProperty("arguments") List<RowExpression> arguments)
+            @JsonProperty("arguments") List<RowExpression> arguments,
+            @JsonProperty("distribution") List<String> distribution)
     {
         return new Partitioning(handle, arguments, Optional.empty());
     }

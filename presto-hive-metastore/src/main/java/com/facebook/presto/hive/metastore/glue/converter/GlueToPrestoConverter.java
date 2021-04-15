@@ -190,7 +190,14 @@ public final class GlueToPrestoConverter
                 List<String> bucketColumns = this.bucketColumns.apply(sd.getBucketColumns());
                 List<SortingColumn> sortedBy = this.sortColumns.apply(sd.getSortColumns());
                 return bucketProperty.apply(Optional.of(new HiveBucketProperty(
-                        bucketColumns, sd.getNumberOfBuckets(), sortedBy, HIVE_COMPATIBLE, Optional.empty(), Optional.empty())));
+                        bucketColumns,
+                        sd.getNumberOfBuckets(),
+                        sortedBy,
+                        HIVE_COMPATIBLE,
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty())));
             }
             return Optional.empty();
         }

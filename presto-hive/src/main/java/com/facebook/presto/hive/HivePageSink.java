@@ -155,6 +155,7 @@ public class HivePageSink
         ImmutableList.Builder<Integer> dataColumnsInputIndex = ImmutableList.builder();
         Object2IntMap<String> dataColumnNameToIdMap = new Object2IntOpenHashMap<>();
         Map<String, HiveType> dataColumnNameToHiveTypeMap = new HashMap<>();
+        Map<String, Type> dataColumnTypeToTypeMap = new HashMap<>();
         // sample weight column is passed separately, so index must be calculated without this column
         for (int inputIndex = 0; inputIndex < inputColumns.size(); inputIndex++) {
             HiveColumnHandle column = inputColumns.get(inputIndex);
@@ -165,6 +166,7 @@ public class HivePageSink
                 dataColumnsInputIndex.add(inputIndex);
                 dataColumnNameToIdMap.put(column.getName(), inputIndex);
                 dataColumnNameToHiveTypeMap.put(column.getName(), column.getHiveType());
+                dataColumnTypeToTypeMap.put(column.getName(), typeManager.getType(column.getTypeSignature()));
             }
         }
         this.partitionColumnsInputIndex = Ints.toArray(partitionColumns.build());
@@ -176,6 +178,13 @@ public class HivePageSink
                     .mapToInt(dataColumnNameToIdMap::get)
                     .toArray();
             BucketFunctionType bucketFunctionType = bucketProperty.get().getBucketFunctionType();
+
+            // TODO: Add correct switch for HIVE_COMPATILE and HIVE_CLUSTERING.
+            if (!bucketProperty.get().getDistribution().isPresent() && bucketFunctionType == BucketFunctionType.HIVE_CLUSTERING)
+            {
+                bucketFunctionType = BucketFunctionType.HIVE_COMPATIBLE;
+            }
+
             switch (bucketFunctionType) {
                 case HIVE_COMPATIBLE:
                     List<HiveType> bucketColumnHiveTypes = bucketProperty.get().getBucketedBy().stream()
@@ -188,11 +197,17 @@ public class HivePageSink
                     break;
                 case HIVE_CLUSTERING:
                     List<String> distribution = bucketProperty.get().getDistribution().get();
-                    List<String> bucketColumns = bucketProperty.get().getBucketedBy();
-                    Map<String, ColumnInterval> intervals = IntervalExtractor.extractIntervals(distribution, bucketColumns);
+                    List<String> clusteredBy = bucketProperty.get().getClusteredBy().get();
+                    List<Integer> clusterCount = bucketProperty.get().getClusterCount().get();
+                    List<Type> columnTypes = clusteredBy.stream()
+                            .map(dataColumnTypeToTypeMap::get)
+                            .collect(toImmutableList());
+                    Map<String, ColumnInterval> intervals = IntervalExtractor.extractIntervals(
+                            distribution, clusteredBy, columnTypes);
                     MortonCode mortonCode = new MortonCode(intervals);
                     bucketFunction = createHiveClusteringBucketFunction(
-                            bucketCount, mortonCode, bucketColumns, bucketProperty.get().getTypes().get());
+                            clusterCount, mortonCode, clusteredBy, columnTypes);
+                    break;
                 default:
                     throw new IllegalArgumentException("Unsupported bucket function type " + bucketFunctionType);
             }

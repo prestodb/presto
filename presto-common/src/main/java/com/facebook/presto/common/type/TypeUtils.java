@@ -29,6 +29,7 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
@@ -59,6 +60,11 @@ public final class TypeUtils
     public static boolean isApproximateNumericType(Type type)
     {
         return type.equals(DOUBLE) || type.equals(REAL);
+    }
+
+    public static boolean isStringType(Type type)
+    {
+        return type.equals(VARCHAR);
     }
 
     /**

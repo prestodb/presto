@@ -23,6 +23,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static com.facebook.presto.hive.BucketFunctionType.HIVE_CLUSTERING;
 import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
 import static com.facebook.presto.hive.BucketFunctionType.PRESTO_NATIVE;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -76,7 +77,7 @@ public class HivePartitioningHandle
         return new HivePartitioningHandle(
                 bucketCount,
                 maxCompatibleBucketCount,
-                PRESTO_NATIVE,
+                HIVE_CLUSTERING,
                 Optional.empty(),
                 Optional.of(types),
                 Optional.of(distribution));
@@ -97,8 +98,9 @@ public class HivePartitioningHandle
         this.hiveTypes = requireNonNull(hiveTypes, "hiveTypes is null");
         this.types = requireNonNull(types, "types is null");
         this.distribution = requireNonNull(distribution, "distribution is null");
-        checkArgument(bucketFunctionType.equals(HIVE_COMPATIBLE) && hiveTypes.isPresent() && !types.isPresent() ||
-                        bucketFunctionType.equals(PRESTO_NATIVE) && !hiveTypes.isPresent() && types.isPresent(),
+        checkArgument((bucketFunctionType.equals(HIVE_COMPATIBLE) && hiveTypes.isPresent() && !types.isPresent()) ||
+                        ((bucketFunctionType.equals(PRESTO_NATIVE) || bucketFunctionType.equals(HIVE_CLUSTERING)) &&
+                                !hiveTypes.isPresent() && types.isPresent()),
                 "Type list for bucketFunctionType %s is missing or duplicated. hiveTypes: %s, types: %s", bucketFunctionType,
                 hiveTypes,
                 types);

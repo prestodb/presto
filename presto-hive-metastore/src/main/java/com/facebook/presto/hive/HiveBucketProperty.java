@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.facebook.presto.hive.BucketFunctionType.HIVE_CLUSTERING;
 import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
 import static com.facebook.presto.hive.BucketFunctionType.PRESTO_NATIVE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
@@ -42,6 +43,8 @@ public class HiveBucketProperty
     private final BucketFunctionType bucketFunctionType;
     private final Optional<List<Type>> types;
     private final Optional<List<String>> distribution;
+    private final Optional<List<String>> clusteredBy;
+    private final Optional<List<Integer>> clusterCount;
 
     @JsonCreator
     public HiveBucketProperty(
@@ -50,7 +53,9 @@ public class HiveBucketProperty
             @JsonProperty("sortedBy") List<SortingColumn> sortedBy,
             @JsonProperty("bucketFunctionType") BucketFunctionType bucketFunctionType,
             @JsonProperty("types") Optional<List<Type>> types,
-            @JsonProperty("distribution") Optional<List<String>> distribution)
+            @JsonProperty("distribution") Optional<List<String>> distribution,
+            @JsonProperty("clusteredBy") Optional<List<String>> clusteredBy,
+            @JsonProperty("clusterCount") Optional<List<Integer>> clusterCount)
     {
         this.bucketedBy = ImmutableList.copyOf(requireNonNull(bucketedBy, "bucketedBy is null"));
         this.bucketCount = bucketCount;
@@ -58,10 +63,17 @@ public class HiveBucketProperty
         this.bucketFunctionType = requireNonNull(bucketFunctionType, "bucketFunctionType is null");
         this.types = requireNonNull(types, "type is null");
         this.distribution = requireNonNull(distribution, "distribution is null");
+        this.clusteredBy = requireNonNull(clusteredBy, "clusteredBy is null");
+        this.clusterCount = requireNonNull(clusterCount, "clusterCount is null");
 
         if (bucketFunctionType.equals(PRESTO_NATIVE)) {
             checkArgument(types.isPresent(), "Types must be present for bucket function type " + bucketFunctionType);
             checkArgument(types.get().size() == bucketedBy.size(), "The sizes of bucketedBy and types should match");
+        }
+        else if (bucketFunctionType.equals(HIVE_CLUSTERING)) {
+            checkArgument(clusteredBy.isPresent(), "Cluster columns must be present for bucket function type " + bucketFunctionType);
+            checkArgument(clusterCount.isPresent(), "Cluster numbers must be present for bucket function type " + bucketFunctionType);
+            checkArgument(bucketedBy.isEmpty(), "Bucket columns should not be present for bucket function type " + bucketFunctionType);
         }
         else {
             checkArgument(!types.isPresent(), "Types not needed for bucket function type " + bucketFunctionType);
@@ -90,6 +102,8 @@ public class HiveBucketProperty
                 storageDescriptor.getNumBuckets(),
                 sortedBy,
                 HIVE_COMPATIBLE,
+                Optional.empty(),
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty()));
     }
@@ -128,6 +142,18 @@ public class HiveBucketProperty
     public Optional<List<String>> getDistribution()
     {
         return distribution;
+    }
+
+    @JsonProperty
+    public Optional<List<String>> getClusteredBy()
+    {
+        return clusteredBy;
+    }
+
+    @JsonProperty
+    public Optional<List<Integer>> getClusterCount()
+    {
+        return clusterCount;
     }
 
     @Override

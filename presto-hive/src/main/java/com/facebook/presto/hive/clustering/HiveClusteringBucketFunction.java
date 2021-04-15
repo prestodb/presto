@@ -20,20 +20,19 @@ import static java.util.Objects.requireNonNull;
 
 public class HiveClusteringBucketFunction implements BucketFunction
 {
+    private final List<Integer> clusterCount;
     private final MortonCode mortonCode;
     private final List<String> columnNames;
     private final Optional<List<Type>> types;
 
-    private int bucketCount;
-
     public static BucketFunction createHiveClusteringBucketFunction(
-            int bucketCount,
+            List<Integer> clusterCount,
             MortonCode mortonCode,
             List<String> columnNames,
             List<Type> types)
     {
         return new HiveClusteringBucketFunction(
-                bucketCount,
+                clusterCount,
                 mortonCode,
                 columnNames,
                 Optional.of(types)
@@ -41,17 +40,20 @@ public class HiveClusteringBucketFunction implements BucketFunction
     }
 
     private HiveClusteringBucketFunction(
-            int bucketCount,
+            List<Integer> clusterCount,
             MortonCode mortonCode,
             List<String> columnNames,
             Optional<List<Type>> types)
     {
-        this.bucketCount = bucketCount;
+        this.clusterCount = clusterCount;
         this.mortonCode = mortonCode;
         this.columnNames = columnNames;
         this.types = requireNonNull(types, "types is null");
     }
 
+    // TODO: Currently this function ignores the bucketCount parameter.
+    // This should work for Writers; but not sure if the current reader
+    // relies on bucketCount or not.
     public int getBucket(Page page, int position)
     {
         return HiveClustering.getHiveCluster(types.get(), columnNames, page, position, mortonCode);

@@ -26,6 +26,7 @@ import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Optional;
@@ -64,7 +65,7 @@ public class HiveNodePartitioningProvider
                 return createPrestoNativeBucketFunction(bucketCount, handle.getTypes().get());
             case HIVE_CLUSTERING:
                 return createHiveClusteringBucketFunction(
-                        bucketCount, mortonCode.get(), bucketingColumns.get(), handle.getTypes().get());
+                        ImmutableList.of(), mortonCode.get(), bucketingColumns.get(), handle.getTypes().get());
             default:
                 throw new IllegalArgumentException("Unsupported bucket function type " + bucketFunctionType);
         }

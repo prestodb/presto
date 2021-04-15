@@ -43,6 +43,7 @@ import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil;
 import com.facebook.presto.hive.statistics.HiveStatisticsProvider;
+import com.facebook.presto.spi.BucketFunction;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
@@ -1005,6 +1006,8 @@ public class HiveMetadata
                             ImmutableList.of(),
                             HIVE_COMPATIBLE,
                             Optional.empty(),
+                            Optional.empty(),
+                            Optional.empty(),
                             Optional.empty());
                 case PRESTO_NATIVE:
                     return new HiveBucketProperty(
@@ -1015,7 +1018,10 @@ public class HiveMetadata
                             Optional.of(partitionColumns.stream()
                                     .map(columnNameToTypeMap::get)
                                     .collect(toImmutableList())),
+                            Optional.empty(),
+                            Optional.empty(),
                             Optional.empty());
+                // TODO: Confirm if for temporary table do we need to provide cluster parameters.
                 case HIVE_CLUSTERING:
                     return new HiveBucketProperty(
                             partitionColumns,
@@ -1025,6 +1031,8 @@ public class HiveMetadata
                             Optional.of(partitionColumns.stream()
                                     .map(columnNameToTypeMap::get)
                                     .collect(toImmutableList())),
+                            Optional.empty(),
+                            Optional.empty(),
                             Optional.empty());
                 default:
                     throw new IllegalArgumentException("Unsupported bucket function type " + bucketFunctionType);
@@ -2498,11 +2506,15 @@ public class HiveMetadata
                                 maxCompatibleBucketCount);
                         break;
                     case HIVE_CLUSTERING:
+                        List<Type> columnTypes = hiveBucketHandle.getColumns().stream()
+                                .map(columnHandle -> columnHandle.getHiveType().getType(typeManager))
+                                .collect(toImmutableList());
                         partitioningHandle = createPrestoClusteringPartitioningHandle(
                                 bucketCount,
-                                bucketProperty.getTypes().get(),
+                                columnTypes,
                                 maxCompatibleBucketCount,
                                 bucketProperty.getDistribution().get());
+                        break;
                     case PRESTO_NATIVE:
                         partitioningHandle = createPrestoNativePartitioningHandle(
                                 bucketCount,
@@ -2832,8 +2844,10 @@ public class HiveMetadata
         if (!bucketProperty.isPresent()) {
             return Optional.empty();
         }
-        checkArgument(bucketProperty.get().getBucketFunctionType().equals(BucketFunctionType.HIVE_COMPATIBLE),
-                "bucketFunctionType is expected to be HIVE_COMPATIBLE, got: %s",
+        checkArgument(
+                bucketProperty.get().getBucketFunctionType().equals(HIVE_COMPATIBLE) ||
+                bucketProperty.get().getBucketFunctionType().equals(HIVE_CLUSTERING),
+                "bucketFunctionType is expected to be HIVE_COMPATIBLE or HIVE_CLUSTERING, got: %s",
                 bucketProperty.get().getBucketFunctionType());
         if (!bucketProperty.get().getSortedBy().isEmpty() && !isSortedWritingEnabled(session)) {
             throw new PrestoException(NOT_SUPPORTED, "Writing to bucketed sorted Hive tables is disabled");

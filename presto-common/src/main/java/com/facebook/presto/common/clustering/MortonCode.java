@@ -28,10 +28,20 @@ public class MortonCode
 
         List<Integer> indices = getIntervalIndices(columnNames, intervals, page, position);
 
+        // TODO: Create our own Z-order library.
+        // API of this library has a few limitations:
+        // 1. has and only has three parameters.
+        // 2. for two or one dimensions, it will generate the bucket number is larger than
+        //    the bucket number.
+
+        if (indices.size() == 1) {
+            return indices.get(0);
+        }
+
         long mortonCode = mortonCurve.encode(
                 indices.get(0),
-                indices.get(1),
-                indices.size() == 3? indices.get(2) : 0
+                indices.size() >= 2? indices.get(1) : 0,
+                indices.size() >= 3? indices.get(2) : 0
         );
 
         return mortonCode;
@@ -89,7 +99,7 @@ public class MortonCode
     static boolean compare(Object splittingValue, Type columnType, int idx, Page page, int position)
     {
         if (TypeUtils.isExactNumericType(columnType)) {
-            return (Long) splittingValue >= page.getBlock(idx).getLong(position);
+            return (Integer) splittingValue >= page.getBlock(idx).getLong(position);
         } else {
             return (Double) splittingValue >= page.getBlock(idx).getLong(position);
         }
