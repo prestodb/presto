@@ -33,7 +33,6 @@ import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -72,7 +71,6 @@ public class TempStorageManager
     public TempStorageManager(NodeManager nodeManager)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-        addTempStorageFactory(new LocalTempStorage.Factory());
     }
 
     public void addTempStorageFactory(TempStorageFactory tempStorageFactory)
@@ -84,12 +82,6 @@ public class TempStorageManager
         }
     }
 
-    public void loadTempStorages()
-            throws IOException
-    {
-        loadTempStorages(ImmutableMap.of());
-    }
-
     public TempStorage getTempStorage(String name)
     {
         TempStorage tempStorage = loadedTempStorages.get(name);
@@ -98,15 +90,13 @@ public class TempStorageManager
         return tempStorage;
     }
 
-    public void loadTempStorages(Map<String, Map<String, String>> storageProperties)
+    public void loadTempStorages()
             throws IOException
     {
-        if (!tempStorageLoading.compareAndSet(false, true)) {
-            return;
-        }
-
+        ImmutableMap.Builder<String, Map<String, String>> storageProperties = ImmutableMap.builder();
         // Always load local temp storage
-        loadTempStorage(
+        addTempStorageFactory(new LocalTempStorage.Factory());
+        storageProperties.put(
                 LocalTempStorage.NAME,
                 // TODO: Local temp storage should be configurable
                 ImmutableMap.of(
@@ -118,9 +108,18 @@ public class TempStorageManager
         for (File file : listFiles(TEMP_STORAGE_CONFIGURATION_DIR)) {
             if (file.isFile() && file.getName().endsWith(".properties")) {
                 String name = getNameWithoutExtension(file.getName());
-                Map<String, String> properties = new HashMap<>(loadProperties(file));
-                loadTempStorage(name, properties);
+                Map<String, String> properties = loadProperties(file);
+                storageProperties.put(name, properties);
             }
+        }
+        loadTempStorages(storageProperties.build());
+    }
+
+    public void loadTempStorages(Map<String, Map<String, String>> storageProperties)
+            throws IOException
+    {
+        if (!tempStorageLoading.compareAndSet(false, true)) {
+            return;
         }
 
         storageProperties.entrySet().stream()
