@@ -14,6 +14,7 @@
 package com.facebook.presto.kafka;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.presto.kafka.schema.file.FileTableDescriptionSupplier;
 import com.facebook.presto.spi.HostAddress;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
@@ -22,9 +23,7 @@ import io.airlift.units.MinDuration;
 
 import javax.validation.constraints.NotNull;
 
-import java.io.File;
 import java.util.List;
-import java.util.Set;
 
 import static com.google.common.collect.Iterables.transform;
 
@@ -48,16 +47,6 @@ public class KafkaConnectorConfig
     private String defaultSchema = "default";
 
     /**
-     * Set of tables known to this connector. For each table, a description file may be present in the catalog folder which describes columns for the given topic.
-     */
-    private Set<String> tableNames = ImmutableSet.of();
-
-    /**
-     * Folder holding the JSON description files for Kafka topics.
-     */
-    private File tableDescriptionDir = new File("etc/kafka/");
-
-    /**
      * Whether internal columns are shown in table metadata or not. Default is no.
      */
     private boolean hideInternalColumns = true;
@@ -72,31 +61,10 @@ public class KafkaConnectorConfig
      */
     private int maxPartitionFetchBytes = 1024 * 1024;
 
-    @NotNull
-    public File getTableDescriptionDir()
-    {
-        return tableDescriptionDir;
-    }
-
-    @Config("kafka.table-description-dir")
-    public KafkaConnectorConfig setTableDescriptionDir(File tableDescriptionDir)
-    {
-        this.tableDescriptionDir = tableDescriptionDir;
-        return this;
-    }
-
-    @NotNull
-    public Set<String> getTableNames()
-    {
-        return tableNames;
-    }
-
-    @Config("kafka.table-names")
-    public KafkaConnectorConfig setTableNames(String tableNames)
-    {
-        this.tableNames = ImmutableSet.copyOf(Splitter.on(',').omitEmptyStrings().trimResults().split(tableNames));
-        return this;
-    }
+    /**
+     * The table description supplier to use, default is FILE
+     */
+    private String tableDescriptionSupplier = FileTableDescriptionSupplier.NAME;
 
     @NotNull
     public String getDefaultSchema()
@@ -157,6 +125,19 @@ public class KafkaConnectorConfig
     public KafkaConnectorConfig setMaxPartitionFetchBytes(int maxPartitionFetchBytes)
     {
         this.maxPartitionFetchBytes = maxPartitionFetchBytes;
+        return this;
+    }
+
+    @NotNull
+    public String getTableDescriptionSupplier()
+    {
+        return tableDescriptionSupplier;
+    }
+
+    @Config("kafka.table-description-supplier")
+    public KafkaConnectorConfig setTableDescriptionSupplier(String tableDescriptionSupplier)
+    {
+        this.tableDescriptionSupplier = tableDescriptionSupplier;
         return this;
     }
 

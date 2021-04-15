@@ -11,11 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.kafka;
+package com.facebook.presto.kafka.schema.file;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.decoder.dummy.DummyRowDecoder;
+import com.facebook.presto.kafka.KafkaConnectorConfig;
+import com.facebook.presto.kafka.KafkaTopicDescription;
+import com.facebook.presto.kafka.KafkaTopicFieldGroup;
+import com.facebook.presto.kafka.schema.MapBasedTableDescriptionSupplier;
+import com.facebook.presto.kafka.schema.TableDescriptionSupplier;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -39,10 +44,12 @@ import static java.nio.file.Files.readAllBytes;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
-public class KafkaTableDescriptionSupplier
+public class FileTableDescriptionSupplier
         implements Provider<TableDescriptionSupplier>
 {
-    private static final Logger log = Logger.get(KafkaTableDescriptionSupplier.class);
+    public static final String NAME = "file";
+
+    private static final Logger log = Logger.get(FileTableDescriptionSupplier.class);
 
     private final JsonCodec<KafkaTopicDescription> topicDescriptionCodec;
     private final File tableDescriptionDir;
@@ -50,15 +57,15 @@ public class KafkaTableDescriptionSupplier
     private final Set<String> tableNames;
 
     @Inject
-    KafkaTableDescriptionSupplier(KafkaConnectorConfig kafkaConnectorConfig,
+    FileTableDescriptionSupplier(FileTableDescriptionSupplierConfig config, KafkaConnectorConfig kafkaConnectorConfig,
             JsonCodec<KafkaTopicDescription> topicDescriptionCodec)
     {
         this.topicDescriptionCodec = requireNonNull(topicDescriptionCodec, "topicDescriptionCodec is null");
-
+        requireNonNull(config, "config is null");
         requireNonNull(kafkaConnectorConfig, "kafkaConfig is null");
-        this.tableDescriptionDir = kafkaConnectorConfig.getTableDescriptionDir();
+        this.tableDescriptionDir = config.getTableDescriptionDir();
         this.defaultSchema = kafkaConnectorConfig.getDefaultSchema();
-        this.tableNames = ImmutableSet.copyOf(kafkaConnectorConfig.getTableNames());
+        this.tableNames = ImmutableSet.copyOf(config.getTableNames());
     }
 
     @Override
