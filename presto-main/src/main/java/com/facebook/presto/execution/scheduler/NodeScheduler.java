@@ -50,6 +50,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.airlift.concurrent.MoreFutures.whenAnyCompleteCancelOthers;
 import static com.facebook.presto.SystemSessionProperties.getMaxUnacknowledgedSplitsPerTask;
@@ -184,7 +185,7 @@ public class NodeScheduler
                 allNodes = nodeManager.getAllConnectorNodes(connectorId);
             }
             else {
-                activeNodes = nodeManager.getNodes(ACTIVE);
+                activeNodes = nodeManager.getNodes(ACTIVE).stream().filter(s -> !s.isResourceManager()).collect(Collectors.toSet());
                 allNodes = activeNodes;
             }
 
@@ -193,9 +194,6 @@ public class NodeScheduler
                     .collect(toImmutableSet());
 
             for (InternalNode node : allNodes) {
-                if (node.isResourceManager()) {
-                    continue;
-                }
                 if (node.getNodeStatus() == ALIVE) {
                     activeNodesByNodeId.put(node.getNodeIdentifier(), node);
                     if (useNetworkTopology && (includeCoordinator || !coordinatorNodeIds.contains(node.getNodeIdentifier()))) {

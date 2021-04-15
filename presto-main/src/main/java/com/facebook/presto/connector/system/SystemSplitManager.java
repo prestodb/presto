@@ -32,6 +32,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
@@ -81,7 +82,8 @@ public class SystemSplitManager
             nodes.addAll(nodeManager.getCoordinators());
         }
         else if (tableDistributionMode == ALL_NODES) {
-            nodes.addAll(nodeManager.getNodes(ACTIVE));
+            Set<InternalNode> allNodes = nodeManager.getNodes(ACTIVE).stream().filter(s -> !s.isResourceManager()).collect(Collectors.toSet());
+            nodes.addAll(allNodes);
         }
         Set<InternalNode> nodeSet = nodes.build();
         for (InternalNode node : nodeSet) {
