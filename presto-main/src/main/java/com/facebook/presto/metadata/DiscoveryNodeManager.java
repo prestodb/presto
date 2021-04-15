@@ -390,7 +390,7 @@ public final class DiscoveryNodeManager
         Optional<NodeState> remoteNodeState = nodeStates.containsKey(nodeId)
                 ? nodeStates.get(nodeId).getNodeState()
                 : Optional.empty();
-        return remoteNodeState.isPresent() && remoteNodeState.get() == SHUTTING_DOWN;
+        return !remoteNodeState.isPresent() || remoteNodeState.get() == SHUTTING_DOWN;
     }
 
     @Override
