@@ -18,18 +18,21 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.decoder.DecoderModule;
 import com.facebook.presto.kafka.encoder.EncoderModule;
+import com.facebook.presto.kafka.schema.file.FileTableDescriptionSupplier;
+import com.facebook.presto.kafka.schema.file.FileTableDescriptionSupplierModule;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Binder;
+import com.google.inject.Module;
 import com.google.inject.Scopes;
 
 import javax.inject.Inject;
 
+import static com.facebook.airlift.configuration.ConditionalModule.installModuleIf;
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -51,7 +54,7 @@ public class KafkaConnectorModule
 
         binder.bind(KafkaConsumerManager.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(KafkaConnectorConfig.class);
-        newSetBinder(binder, TableDescriptionSupplier.class).addBinding().toProvider(KafkaTableDescriptionSupplier.class).in(Scopes.SINGLETON);
+        bindTopicSchemaProviderModule(FileTableDescriptionSupplier.NAME, new FileTableDescriptionSupplierModule());
 
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
         jsonCodecBinder(binder).bindJsonCodec(KafkaTopicDescription.class);
@@ -80,5 +83,13 @@ public class KafkaConnectorModule
         {
             return typeManager.getType(parseTypeSignature(value));
         }
+    }
+
+    public void bindTopicSchemaProviderModule(String name, Module module)
+    {
+        install(installModuleIf(
+                KafkaConnectorConfig.class,
+                kafkaConfig -> name.equalsIgnoreCase(kafkaConfig.getTableDescriptionSupplier()),
+                module));
     }
 }
