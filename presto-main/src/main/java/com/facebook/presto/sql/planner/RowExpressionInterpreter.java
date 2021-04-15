@@ -29,6 +29,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.SqlInvokedScalarFunctionImplementation;
 import com.facebook.presto.spi.relation.CallExpression;
@@ -75,6 +76,8 @@ import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.metadata.CastType.JSON_TO_ARRAY_CAST;
 import static com.facebook.presto.metadata.CastType.JSON_TO_MAP_CAST;
 import static com.facebook.presto.metadata.CastType.JSON_TO_ROW_CAST;
+import static com.facebook.presto.spi.function.FunctionImplementationType.BUILTIN;
+import static com.facebook.presto.spi.function.FunctionImplementationType.SQL;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.EVALUATED;
@@ -111,7 +114,6 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
-import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.insertArguments;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
@@ -267,34 +269,32 @@ public class RowExpressionInterpreter
             }
 
             Object value;
-            switch (functionMetadata.getImplementationType()) {
-                case BUILTIN:
-                    value = functionInvoker.invoke(functionHandle, session.getSqlFunctionProperties(), argumentValues);
-                    break;
-                case SQL:
-                    SqlInvokedScalarFunctionImplementation functionImplementation = (SqlInvokedScalarFunctionImplementation) functionAndTypeManager.getScalarFunctionImplementation(functionHandle);
-                    RowExpression function = getSqlFunctionRowExpression(
-                            functionMetadata,
-                            functionImplementation,
-                            metadata,
-                            session.getSqlFunctionProperties(),
-                            session.getSessionFunctions(),
-                            node.getArguments());
-                    RowExpressionInterpreter rowExpressionInterpreter = new RowExpressionInterpreter(function, metadata, session, optimizationLevel);
-                    if (optimizationLevel.ordinal() >= EVALUATED.ordinal()) {
-                        value = rowExpressionInterpreter.evaluate();
-                    }
-                    else {
-                        value = rowExpressionInterpreter.optimize();
-                    }
-                    break;
-                case THRIFT:
-                    // do not interpret remote functions on coordinator
-                    return call(node.getDisplayName(), functionHandle, node.getType(), toRowExpressions(argumentValues, node.getArguments()));
-                default:
-                    throw new IllegalArgumentException(format("Unsupported function implementation type: %s", functionMetadata.getImplementationType()));
+            FunctionImplementationType implementationType = functionMetadata.getImplementationType();
+            if (implementationType.isExternal()) {
+                // do not interpret remote functions on coordinator
+                return call(node.getDisplayName(), functionHandle, node.getType(), toRowExpressions(argumentValues, node.getArguments()));
             }
-
+            else if (implementationType.equals(BUILTIN)) {
+                value = functionInvoker.invoke(functionHandle, session.getSqlFunctionProperties(), argumentValues);
+            }
+            else {
+                checkState(implementationType.equals(SQL));
+                SqlInvokedScalarFunctionImplementation functionImplementation = (SqlInvokedScalarFunctionImplementation) functionAndTypeManager.getScalarFunctionImplementation(functionHandle);
+                RowExpression function = getSqlFunctionRowExpression(
+                        functionMetadata,
+                        functionImplementation,
+                        metadata,
+                        session.getSqlFunctionProperties(),
+                        session.getSessionFunctions(),
+                        node.getArguments());
+                RowExpressionInterpreter rowExpressionInterpreter = new RowExpressionInterpreter(function, metadata, session, optimizationLevel);
+                if (optimizationLevel.ordinal() >= EVALUATED.ordinal()) {
+                    value = rowExpressionInterpreter.evaluate();
+                }
+                else {
+                    value = rowExpressionInterpreter.optimize();
+                }
+            }
             if (optimizationLevel.ordinal() <= SERIALIZABLE.ordinal() && !isSerializable(value, node.getType())) {
                 return call(node.getDisplayName(), functionHandle, node.getType(), toRowExpressions(argumentValues, node.getArguments()));
             }
