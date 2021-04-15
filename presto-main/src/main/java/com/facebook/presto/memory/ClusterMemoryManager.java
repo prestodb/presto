@@ -517,6 +517,7 @@ public class ClusterMemoryManager
                 .build();
 
         ImmutableSet<String> aliveNodeIds = aliveNodes.stream()
+                .filter(s -> !s.isResourceManager())
                 .map(InternalNode::getNodeIdentifier)
                 .collect(toImmutableSet());
 
