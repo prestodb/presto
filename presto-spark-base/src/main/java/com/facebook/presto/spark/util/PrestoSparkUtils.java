@@ -28,6 +28,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.apache.spark.SparkException;
 import org.apache.spark.api.java.JavaFutureAction;
+import scala.reflect.ClassTag;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -63,7 +64,8 @@ public class PrestoSparkUtils
                 compactArray(slice.byteArray(), slice.byteArrayOffset(), slice.length()),
                 serializedPage.getPositionCount(),
                 serializedPage.getUncompressedSizeInBytes(),
-                serializedPage.getPageCodecMarkers());
+                serializedPage.getPageCodecMarkers(),
+                serializedPage.getChecksum());
     }
 
     public static SerializedPage toSerializedPage(PrestoSparkSerializedPage prestoSparkSerializedPage)
@@ -72,7 +74,8 @@ public class PrestoSparkUtils
                 Slices.wrappedBuffer(prestoSparkSerializedPage.getBytes()),
                 prestoSparkSerializedPage.getPageCodecMarkers(),
                 toIntExact(prestoSparkSerializedPage.getPositionCount()),
-                prestoSparkSerializedPage.getUncompressedSizeInBytes());
+                prestoSparkSerializedPage.getUncompressedSizeInBytes(),
+                prestoSparkSerializedPage.getChecksum());
     }
 
     public static byte[] compress(byte[] bytes)
@@ -245,5 +248,10 @@ public class PrestoSparkUtils
                 action.cancel(true);
             }
         }
+    }
+
+    public static <T> ClassTag<T> classTag(Class<T> clazz)
+    {
+        return scala.reflect.ClassTag$.MODULE$.apply(clazz);
     }
 }

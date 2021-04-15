@@ -25,8 +25,6 @@ import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spark.PrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.classloader_interface.MutablePartitionId;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkMutableRow;
-import com.facebook.presto.spark.classloader_interface.PrestoSparkPartitioner;
-import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleSerializer;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleStats;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskOutput;
@@ -62,15 +60,12 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import io.airlift.units.DataSize;
-import org.apache.spark.Partitioner;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.rdd.RDD;
-import org.apache.spark.rdd.ShuffledRDD;
 import org.apache.spark.util.CollectionAccumulator;
 import scala.Tuple2;
-import scala.reflect.ClassTag;
 
 import javax.inject.Inject;
 
@@ -78,20 +73,18 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.PriorityQueue;
 import java.util.Set;
 import java.util.function.ToIntFunction;
-import java.util.stream.IntStream;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
-import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getMaxSparkInputPartitionCountForAutoTune;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getMaxSplitsDataSizePerSparkPartition;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getMinSparkInputPartitionCountForAutoTune;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getSparkInitialPartitionCount;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.isSparkPartitionCountAutoTuneEnabled;
+import static com.facebook.presto.spark.util.PrestoSparkUtils.classTag;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.serializeZstdCompressed;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
@@ -165,9 +158,6 @@ public class PrestoSparkRddFactory
         // TODO: We should consider removing ARBITRARY_DISTRIBUTION.
         checkArgument(!partitioning.equals(ARBITRARY_DISTRIBUTION), "ARBITRARY_DISTRIBUTION is not expected to be set as a fragment distribution");
 
-        // set the number of output partitions
-        fragment = configureOutputPartitioning(session, fragment);
-
         if (partitioning.equals(SINGLE_DISTRIBUTION) ||
                 partitioning.equals(FIXED_HASH_DISTRIBUTION) ||
                 partitioning.equals(FIXED_ARBITRARY_DISTRIBUTION) ||
@@ -182,9 +172,6 @@ public class PrestoSparkRddFactory
                 }
             }
 
-            Map<PlanFragmentId, JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow>> partitionedInputs = rddInputs.entrySet().stream()
-                    .collect(toImmutableMap(Entry::getKey, entry -> partitionBy(entry.getValue(), createPartitioner(session, partitioning))));
-
             return createRdd(
                     sparkContext,
                     session,
@@ -193,63 +180,13 @@ public class PrestoSparkRddFactory
                     taskInfoCollector,
                     shuffleStatsCollector,
                     tableWriteInfo,
-                    partitionedInputs,
+                    rddInputs,
                     broadcastInputs,
                     outputType);
         }
         else {
             throw new IllegalArgumentException(format("Unexpected fragment partitioning %s, fragmentId: %s", partitioning, fragment.getId()));
         }
-    }
-
-    private PlanFragment configureOutputPartitioning(Session session, PlanFragment fragment)
-    {
-        PartitioningHandle outputPartitioningHandle = fragment.getPartitioningScheme().getPartitioning().getHandle();
-        if (outputPartitioningHandle.equals(FIXED_HASH_DISTRIBUTION)) {
-            int hashPartitionCount = getHashPartitionCount(session);
-            return fragment.withBucketToPartition(Optional.of(IntStream.range(0, hashPartitionCount).toArray()));
-        }
-        //  FIXED_ARBITRARY_DISTRIBUTION is used for UNION ALL
-        //  UNION ALL inputs could be source inputs or shuffle inputs
-        if (outputPartitioningHandle.equals(FIXED_ARBITRARY_DISTRIBUTION)) {
-            // given modular hash function, partition count could be arbitrary size
-            // simply reuse hash_partition_count for convenience
-            // it can also be set by a separate session property if needed
-            int partitionCount = getHashPartitionCount(session);
-            return fragment.withBucketToPartition(Optional.of(IntStream.range(0, partitionCount).toArray()));
-        }
-        if (outputPartitioningHandle.getConnectorId().isPresent()) {
-            int connectorPartitionCount = getPartitionCount(session, outputPartitioningHandle);
-            return fragment.withBucketToPartition(Optional.of(IntStream.range(0, connectorPartitionCount).toArray()));
-        }
-        return fragment;
-    }
-
-    private static JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow> partitionBy(JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow> rdd, Partitioner partitioner)
-    {
-        JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow> javaPairRdd = rdd.partitionBy(partitioner);
-        ShuffledRDD<MutablePartitionId, PrestoSparkMutableRow, PrestoSparkMutableRow> shuffledRdd = (ShuffledRDD<MutablePartitionId, PrestoSparkMutableRow, PrestoSparkMutableRow>) javaPairRdd.rdd();
-        shuffledRdd.setSerializer(new PrestoSparkShuffleSerializer());
-        return JavaPairRDD.fromRDD(
-                shuffledRdd,
-                classTag(MutablePartitionId.class),
-                classTag(PrestoSparkMutableRow.class));
-    }
-
-    private Partitioner createPartitioner(Session session, PartitioningHandle partitioning)
-    {
-        if (partitioning.equals(SINGLE_DISTRIBUTION)) {
-            return new PrestoSparkPartitioner(1);
-        }
-        if (partitioning.equals(FIXED_HASH_DISTRIBUTION) || partitioning.equals(FIXED_ARBITRARY_DISTRIBUTION)) {
-            int hashPartitionCount = getHashPartitionCount(session);
-            return new PrestoSparkPartitioner(hashPartitionCount);
-        }
-        if (partitioning.getConnectorId().isPresent()) {
-            int connectorPartitionCount = getPartitionCount(session, partitioning);
-            return new PrestoSparkPartitioner(connectorPartitionCount);
-        }
-        throw new IllegalArgumentException(format("Unexpected fragment partitioning %s", partitioning));
     }
 
     private <T extends PrestoSparkTaskOutput> JavaPairRDD<MutablePartitionId, T> createRdd(
@@ -518,15 +455,6 @@ public class PrestoSparkRddFactory
                 partitioning.getConnectorHandle());
     }
 
-    private int getPartitionCount(Session session, PartitioningHandle partitioning)
-    {
-        ConnectorNodePartitioningProvider partitioningProvider = getPartitioningProvider(partitioning);
-        return partitioningProvider.getBucketCount(
-                partitioning.getTransactionHandle().orElse(null),
-                session.toConnectorSession(),
-                partitioning.getConnectorHandle());
-    }
-
     private ConnectorNodePartitioningProvider getPartitioningProvider(PartitioningHandle partitioning)
     {
         ConnectorId connectorId = partitioning.getConnectorId()
@@ -569,11 +497,6 @@ public class PrestoSparkRddFactory
                 broadcastInputs.keySet(),
                 missingInputs,
                 expectedInputs);
-    }
-
-    private static <T> ClassTag<T> classTag(Class<T> clazz)
-    {
-        return scala.reflect.ClassTag$.MODULE$.apply(clazz);
     }
 
     private static class SparkPartition

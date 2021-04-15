@@ -185,6 +185,9 @@ public class PrestoSparkInjectorFactory
                 if (tempStorageProperties.isPresent()) {
                     injector.getInstance(TempStorageManager.class).loadTempStorages(tempStorageProperties.get());
                 }
+                else {
+                    injector.getInstance(TempStorageManager.class).loadTempStorages();
+                }
             }
 
             if ((sparkProcessType.equals(DRIVER))) {
