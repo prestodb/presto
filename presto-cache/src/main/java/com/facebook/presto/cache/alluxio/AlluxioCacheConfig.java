@@ -29,7 +29,7 @@ public class AlluxioCacheConfig
     private String metricsDomain = "com.facebook.alluxio";
     private DataSize maxCacheSize = new DataSize(2, GIGABYTE);
     private boolean configValidationEnabled;
-    private boolean timeoutEnabled;
+    private boolean timeoutEnabled = true;
     private boolean cacheQuotaEnabled;
     private Duration timeoutDuration = new Duration(60, SECONDS);
     private int timeoutThreads = 64;
