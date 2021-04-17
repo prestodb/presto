@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.net.HostAndPort;
 import okhttp3.OkHttpClient;
+import okhttp3.Protocol;
 
 import java.io.File;
 import java.net.URI;
@@ -47,6 +48,7 @@ import static com.facebook.presto.jdbc.ConnectionProperties.ACCESS_TOKEN;
 import static com.facebook.presto.jdbc.ConnectionProperties.APPLICATION_NAME_PREFIX;
 import static com.facebook.presto.jdbc.ConnectionProperties.DISABLE_COMPRESSION;
 import static com.facebook.presto.jdbc.ConnectionProperties.EXTRA_CREDENTIALS;
+import static com.facebook.presto.jdbc.ConnectionProperties.HTTP_PROTOCOLS;
 import static com.facebook.presto.jdbc.ConnectionProperties.HTTP_PROXY;
 import static com.facebook.presto.jdbc.ConnectionProperties.KERBEROS_CONFIG_PATH;
 import static com.facebook.presto.jdbc.ConnectionProperties.KERBEROS_CREDENTIAL_CACHE_PATH;
@@ -170,6 +172,12 @@ final class PrestoDriverUri
         return DISABLE_COMPRESSION.getValue(properties).orElse(false);
     }
 
+    public Optional<List<Protocol>> getProtocols()
+            throws SQLException
+    {
+        return HTTP_PROTOCOLS.getValue(properties);
+    }
+
     public void setupClient(OkHttpClient.Builder builder)
             throws SQLException
     {
@@ -177,6 +185,9 @@ final class PrestoDriverUri
             setupCookieJar(builder);
             setupSocksProxy(builder, SOCKS_PROXY.getValue(properties));
             setupHttpProxy(builder, HTTP_PROXY.getValue(properties));
+
+            // add user specified protocols to okhttp3 client if specified
+            getProtocols().ifPresent(builder::protocols);
 
             // TODO: fix Tempto to allow empty passwords
             String password = PASSWORD.getValue(properties).orElse("");
