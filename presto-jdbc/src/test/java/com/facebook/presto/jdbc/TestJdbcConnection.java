@@ -217,6 +217,22 @@ public class TestJdbcConnection
     }
 
     @Test
+    public void testHttpProtocols()
+            throws SQLException
+    {
+        String extra = "protocols=http11";
+        try (Connection connection = createConnection(extra)) {
+            assertThat(connection.getCatalog()).isEqualTo("hive");
+        }
+
+        // deduplication
+        extra = "protocols=http11,http11";
+        try (Connection connection = createConnection(extra)) {
+            assertThat(connection.getCatalog()).isEqualTo("hive");
+        }
+    }
+
+    @Test
     public void testExtraCredentials()
             throws SQLException
     {
