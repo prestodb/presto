@@ -1415,4 +1415,33 @@ public class TestMathFunctions
 
         assertFunction("wilson_interval_upper(1250, 1310, 1.96e0)", DOUBLE, 0.9642524717143908);
     }
+
+    @Test
+    public void testInverseGammaCdf()
+    {
+        assertFunction("inverse_gamma_cdf(3, 3.6, 0.0)", DOUBLE, 0.0);
+        assertFunction("inverse_gamma_cdf(3, 3.6, 1.0)", DOUBLE, 1.0);
+        assertFunction("inverse_gamma_cdf(3, 3.6, 0.3)", DOUBLE, 0.162);
+        assertFunction("inverse_gamma_cdf(3, 3.6, 0.95)", DOUBLE, 0.756);
+
+        assertInvalidFunction("inverse_gamma_cdf(0, 3, 0.5)", "shape must be greater than 0");
+        assertInvalidFunction("inverse_gamma_cdf(3, 0, 0.5)", "scale must be greater than 0");
+        assertInvalidFunction("inverse_gamma_cdf(3, 5, -0.1)", "p must be in the interval [0, 1]");
+        assertInvalidFunction("inverse_gamma_cdf(3, 5, 1.1)", "p must be in the interval [0, 1]");
+    }
+
+    @Test
+    public void testGammaCdf()
+            throws Exception
+    {
+        assertFunction("gamma_cdf(3, 3.6, 0.0)", DOUBLE, 0.0);
+        assertFunction("gamma_cdf(3, 3.6, 1.0)", DOUBLE, 1.0);
+        assertFunction("gamma_cdf(3, 3.6, 0.3)", DOUBLE, 0.001);
+        assertFunction("gamma_cdf(3, 3.6, 0.9)", DOUBLE, 0.007);
+
+        assertInvalidFunction("gamma_cdf(0, 3, 0.5)", "shape must be greater than 0");
+        assertInvalidFunction("gamma_cdf(3, 0, 0.5)", "scale must be greater than 0");
+        assertInvalidFunction("gamma_cdf(3, 5, -0.1)", "value must be in the interval [0, 1]");
+        assertInvalidFunction("gamma_cdf(3, 5, 1.1)", "value must be in the interval [0, 1]");
+    }
 }
