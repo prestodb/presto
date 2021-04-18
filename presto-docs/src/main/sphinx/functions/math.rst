@@ -85,18 +85,6 @@ Mathematical Functions
     The a, b parameters must be positive real numbers and value v must be a real value.
     The value v must lie on the interval [0, 1].
 
-.. function:: inverse_gamma_cdf(shape, scale, p) -> double
-
-    Compute the inverse of the Gamma cdf with given shape, scale parameters for the cumulative
-    probability (p): P(N < n). The shape, scale parameters must be positive real values.
-    The probability p must lie on the interval [0, 1].
-
-.. function:: gamma_cdf(shape, scale, v) -> double
-
-    Compute the Gamma cdf with given shape, scale parameters:  P(N < v; shape, scale).
-    The shape, scale parameters must be positive real numbers and value v must be a real value.
-    The value v must lie on the interval [0, 1].
-
 .. function:: inverse_f_cdf(n_df, d_df, p) -> double
 
     Compute the inverse of the F cdf with given numerator df, denominator df parameters for the cumulative

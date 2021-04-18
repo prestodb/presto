@@ -706,36 +706,6 @@ public final class MathFunctions
         return distribution.cumulativeProbability(value);
     }
 
-    @Description("inverse of Gamma cdf given shape and scale parameter and probability")
-    @ScalarFunction
-    @SqlType(StandardTypes.DOUBLE)
-    public static double inverseGammaCdf(
-            @SqlType(StandardTypes.DOUBLE) double shape,
-            @SqlType(StandardTypes.DOUBLE) double scale,
-            @SqlType(StandardTypes.DOUBLE) double p)
-    {
-        checkCondition(p >= 0 && p <= 1, INVALID_FUNCTION_ARGUMENT, "p must be in the interval [0, 1]");
-        checkCondition(shape > 0, INVALID_FUNCTION_ARGUMENT, "shape must be > 0");
-        checkCondition(scale > 0, INVALID_FUNCTION_ARGUMENT, "scale must be > 0");
-        GammaDistribution distribution = new GammaDistribution(null, shape, scale, GammaDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
-        return distribution.inverseCumulativeProbability(p);
-    }
-
-    @Description("Gamma cdf given the shape and scale parameter and value")
-    @ScalarFunction
-    @SqlType(StandardTypes.DOUBLE)
-    public static double gammaCdf(
-            @SqlType(StandardTypes.DOUBLE) double shape,
-            @SqlType(StandardTypes.DOUBLE) double scale,
-            @SqlType(StandardTypes.DOUBLE) double value)
-    {
-        checkCondition(value >= 0, INVALID_FUNCTION_ARGUMENT, "value must non-negative");
-        checkCondition(shape > 0, INVALID_FUNCTION_ARGUMENT, "shape must be > 0");
-        checkCondition(scale > 0, INVALID_FUNCTION_ARGUMENT, "scale must be > 0");
-        GammaDistribution distribution = new GammaDistribution(null, shape, scale, GammaDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
-        return distribution.cumulativeProbability(value);
-    }
-
     @Description("inverse of F cdf given numerator df, denominator df parameters and probability")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
@@ -745,8 +715,8 @@ public final class MathFunctions
             @SqlType(StandardTypes.DOUBLE) double p)
     {
         checkCondition(p >= 0 && p <= 1, INVALID_FUNCTION_ARGUMENT, "p must be in the interval [0, 1]");
-        checkCondition(n_df > 0, INVALID_FUNCTION_ARGUMENT, "numerator df must be > 0");
-        checkCondition(d_df > 0, INVALID_FUNCTION_ARGUMENT, "denomirator df must be > 0");
+        checkCondition(n_df > 0, INVALID_FUNCTION_ARGUMENT, "numerator df must be greater than 0");
+        checkCondition(d_df > 0, INVALID_FUNCTION_ARGUMENT, "denomirator df must be greater than 0");
         FDistribution distribution = new FDistribution(null, n_df, d_df, FDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
         return distribution.inverseCumulativeProbability(p);
     }
@@ -760,8 +730,8 @@ public final class MathFunctions
             @SqlType(StandardTypes.DOUBLE) double value)
     {
         checkCondition(value >= 0 && value <= 1, INVALID_FUNCTION_ARGUMENT, "value must be in the interval [0, 1]");
-        checkCondition(n_df > 0, INVALID_FUNCTION_ARGUMENT, "numerator df must be > 0");
-        checkCondition(d_df > 0, INVALID_FUNCTION_ARGUMENT, "denomirator df must be > 0");
+        checkCondition(n_df > 0, INVALID_FUNCTION_ARGUMENT, "numerator df must be greater than 0");
+        checkCondition(d_df > 0, INVALID_FUNCTION_ARGUMENT, "denomirator df must be greater than 0");
         FDistribution distribution = new FDistribution(null, n_df, d_df, FDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
         return distribution.cumulativeProbability(value);
     }
