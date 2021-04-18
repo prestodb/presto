@@ -1415,4 +1415,33 @@ public class TestMathFunctions
 
         assertFunction("wilson_interval_upper(1250, 1310, 1.96e0)", DOUBLE, 0.9642524717143908);
     }
+
+    @Test
+    public void testInverseFCdf()
+    {
+        assertFunction("inverse_f_cdf(3, 4, 0.0)", DOUBLE, 0.0);
+        assertFunction("inverse_f_cdf(3, 4, 1.0)", DOUBLE, 1.0);
+        assertFunction("inverse_f_cdf(3, 4, 0.3)", DOUBLE, 0.5);
+        assertFunction("inverse_f_cdf(3, 10, 0.95)", DOUBLE, 3.71);
+
+        assertInvalidFunction("inverse_f_cdf(0, 3, 0.5)", "numerator df must be greater than 0");
+        assertInvalidFunction("inverse_f_cdf(3, 0, 0.5)", "dinominator df must be greater than 0");
+        assertInvalidFunction("inverse_f_cdf(3, 5, -0.1)", "p must be in the interval [0, 1]");
+        assertInvalidFunction("inverse_f_cdf(3, 5, 1.1)", "p must be in the interval [0, 1]");
+    }
+
+    @Test
+    public void testFCdf()
+            throws Exception
+    {
+        assertFunction("f_cdf(3, 4, 0.0)", DOUBLE, 0.0);
+        assertFunction("f_cdf(3, 4, 1.0)", DOUBLE, 1.0);
+        assertFunction("f_cdf(3, 4, 0.3)", DOUBLE, 0.18);
+        assertFunction("f_cdf(3, 4, 0.9)", DOUBLE, 0.48);
+
+        assertInvalidFunction("f_cdf(0, 3, 0.5)", "numerator df must be greater than 0");
+        assertInvalidFunction("f_cdf(3, 0, 0.5)", "dinominator df must be greater than 0");
+        assertInvalidFunction("f_cdf(3, 5, -0.1)", "value must be in the interval [0, 1]");
+        assertInvalidFunction("f_cdf(3, 5, 1.1)", "value must be in the interval [0, 1]");
+    }
 }

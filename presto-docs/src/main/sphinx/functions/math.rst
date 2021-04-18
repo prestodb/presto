@@ -72,6 +72,12 @@ Mathematical Functions
     probability (p): P(N < n). The df parameter must be positive real values.
     The probability p must lie on the interval [0, 1].
 
+.. function:: inverse_f_cdf(n_df, d_df, p) -> double
+
+    Compute the inverse of the F cdf with given numerator df (degrees of freedom), denominator df (degrees of freedom) parameters for the cumulative
+    probability (p): P(N < n). The numerator df, denominator df parameters must be positive real values.
+    The probability p must lie on the interval [0, 1].
+
 .. function:: inverse_normal_cdf(mean, sd, p) -> double
 
     Compute the inverse of the Normal cdf with given mean and standard
@@ -95,6 +101,12 @@ Mathematical Functions
 
     Compute the Beta cdf with given a, b parameters:  P(N < v; a, b).
     The a, b parameters must be positive real numbers and value v must be a real value.
+    The value v must lie on the interval [0, 1].
+
+.. function:: f_cdf(n_df, d_df, value) -> double
+
+    Compute the F cdf with given numerator df (degrees of freedom), denominator df (degrees of freedom) parameters:  P(N < v; n_df, d_df).
+    The numerator df, denominator df parameters must be positive real numbers and value v must be a real value.
     The value v must lie on the interval [0, 1].
 
 .. function:: ln(x) -> double
