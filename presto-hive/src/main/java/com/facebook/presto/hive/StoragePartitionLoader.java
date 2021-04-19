@@ -151,7 +151,7 @@ public class StoragePartitionLoader
         int partitionDataColumnCount = partition.getPartition()
                 .map(p -> p.getColumns().size())
                 .orElse(table.getDataColumns().size());
-        List<HivePartitionKey> partitionKeys = getPartitionKeys(table, partition.getPartition());
+        List<HivePartitionKey> partitionKeys = getPartitionKeys(table, partition.getPartition(), partitionName);
         String location = getPartitionLocation(table, partition.getPartition());
         if (location.isEmpty()) {
             checkState(!shouldCreateFilesForMissingBuckets(table, session), "Empty location is only allowed for empty temporary table when zero-row file is not created");
