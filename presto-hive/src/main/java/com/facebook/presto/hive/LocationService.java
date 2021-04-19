@@ -25,7 +25,7 @@ import static java.util.Objects.requireNonNull;
 
 public interface LocationService
 {
-    LocationHandle forNewTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, String schemaName, String tableName, boolean tempPathRequired);
+    LocationHandle forNewTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, String schemaName, String tableName, boolean tempPathRequired, Optional<Path> externalLocation);
 
     LocationHandle forExistingTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, Table table, boolean tempPathRequired);
 
