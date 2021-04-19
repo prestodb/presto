@@ -35,6 +35,7 @@ import static com.facebook.presto.hive.HiveType.HIVE_DATE;
 import static com.facebook.presto.hive.HiveType.HIVE_DOUBLE;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.extractPartitionValues;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.reconstructPartitionSchema;
 import static org.apache.hadoop.hive.serde.serdeConstants.COLUMN_NAME_DELIMITER;
@@ -199,5 +200,16 @@ public class TestHiveMetastoreUtil
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> reconstructPartitionSchema(ImmutableList.of(c1), 2, ImmutableMap.of(0, c2)))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    public void testExtractPartitionValues()
+    {
+        String datePartition = "20201221";
+        String countryPartition = "united_states";
+        assertEquals(extractPartitionValues("datePartition=20201221/countryPartition=united_states", Optional.of(ImmutableList.of("datePartition", "countryPartition"))), ImmutableList.of(datePartition, countryPartition));
+        assertEquals(extractPartitionValues("countryPartition=united_states/datePartition=20201221", Optional.of(ImmutableList.of("datePartition", "countryPartition"))), ImmutableList.of(datePartition, countryPartition));
+        assertEquals(extractPartitionValues("datePartition=20201221/countryPartition=united_states"), ImmutableList.of(datePartition, countryPartition));
+        assertEquals(extractPartitionValues("countryPartition=united_states/datePartition=20201221"), ImmutableList.of(countryPartition, datePartition));
     }
 }
