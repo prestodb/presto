@@ -264,6 +264,7 @@ import static com.facebook.presto.hive.HiveUtil.translateHiveUnsupportedTypeForT
 import static com.facebook.presto.hive.HiveUtil.translateHiveUnsupportedTypesForTemporaryTable;
 import static com.facebook.presto.hive.HiveUtil.verifyPartitionTypeSupported;
 import static com.facebook.presto.hive.HiveWriteUtils.checkTableIsWritable;
+import static com.facebook.presto.hive.HiveWriteUtils.isS3FileSystem;
 import static com.facebook.presto.hive.HiveWriteUtils.isWritableType;
 import static com.facebook.presto.hive.HiveWriterFactory.getFileExtension;
 import static com.facebook.presto.hive.PartitionUpdate.UpdateMode.APPEND;
@@ -956,10 +957,11 @@ public class HiveMetadata
                 throw new PrestoException(NOT_SUPPORTED, "Cannot create non-managed Hive table");
             }
             String externalLocation = getExternalLocation(tableMetadata.getProperties());
-            targetPath = getExternalPath(new HdfsContext(session, schemaName, tableName, externalLocation, true), externalLocation);
+            targetPath = getExternalLocationAsPath(externalLocation);
+            checkExternalPath(new HdfsContext(session, schemaName, tableName), targetPath);
         }
         else if (tableType.equals(MANAGED_TABLE) || tableType.equals(MATERIALIZED_VIEW)) {
-            LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName, isTempPathRequired(session, bucketProperty, preferredOrderingColumns));
+            LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName, isTempPathRequired(session, bucketProperty, preferredOrderingColumns), Optional.empty());
             targetPath = locationService.getQueryWriteInfo(locationHandle).getTargetPath();
         }
         else {
@@ -1245,17 +1247,27 @@ public class HiveMetadata
         }
     }
 
-    private Path getExternalPath(HdfsContext context, String location)
+    private static Path getExternalLocationAsPath(String location)
     {
         try {
-            Path path = new Path(location);
-            if (!hdfsEnvironment.getFileSystem(context, path).isDirectory(path)) {
-                throw new PrestoException(INVALID_TABLE_PROPERTY, "External location must be a directory");
-            }
-            return path;
+            return new Path(location);
         }
-        catch (IllegalArgumentException | IOException e) {
-            throw new PrestoException(INVALID_TABLE_PROPERTY, "External location is not a valid file system URI", e);
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(INVALID_TABLE_PROPERTY, "External location is not a valid file system URI: " + location, e);
+        }
+    }
+
+    private void checkExternalPath(HdfsContext context, Path path)
+    {
+        try {
+            if (!isS3FileSystem(context, hdfsEnvironment, path)) {
+                if (!hdfsEnvironment.getFileSystem(context, path).isDirectory(path)) {
+                    throw new PrestoException(INVALID_TABLE_PROPERTY, "External location must be a directory: " + path);
+                }
+            }
+        }
+        catch (IOException e) {
+            throw new PrestoException(INVALID_TABLE_PROPERTY, "External location is not a valid file system URI: " + path, e);
         }
     }
 
@@ -1486,7 +1498,7 @@ public class HiveMetadata
     {
         verifyJvmTimeZone();
 
-        if (getExternalLocation(tableMetadata.getProperties()) != null) {
+        if (!createsOfNonManagedTablesEnabled && getExternalLocation(tableMetadata.getProperties()) != null) {
             throw new PrestoException(NOT_SUPPORTED, "External tables cannot be created using CREATE TABLE AS");
         }
 
@@ -1530,7 +1542,9 @@ public class HiveMetadata
                 .collect(toList());
         checkPartitionTypesSupported(partitionColumns);
 
-        LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName, isTempPathRequired(session, bucketProperty, preferredOrderingColumns));
+        Optional<Path> externalLocation = Optional.ofNullable(getExternalLocation(tableMetadata.getProperties())).map(HiveMetadata::getExternalLocationAsPath);
+
+        LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName, isTempPathRequired(session, bucketProperty, preferredOrderingColumns), externalLocation);
 
         HdfsContext context = new HdfsContext(session, schemaName, tableName, locationHandle.getTargetPath().toString(), true);
         Map<String, String> tableProperties = getEmptyTableProperties(
@@ -1554,7 +1568,8 @@ public class HiveMetadata
                 preferredOrderingColumns,
                 session.getUser(),
                 tableProperties,
-                encryptionInformationProvider.getWriteEncryptionInformation(session, tableEncryptionProperties, schemaName, tableName));
+                encryptionInformationProvider.getWriteEncryptionInformation(session, tableEncryptionProperties, schemaName, tableName),
+                externalLocation.isPresent());
 
         WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
         metastore.declareIntentionToWrite(
@@ -1606,7 +1621,7 @@ public class HiveMetadata
                         .putAll(tableEncryptionParameters)
                         .build(),
                 writeInfo.getTargetPath(),
-                MANAGED_TABLE,
+                handle.isExternal() ? EXTERNAL_TABLE : MANAGED_TABLE,
                 prestoVersion);
         PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(handle.getTableOwner());
 
@@ -3259,12 +3274,12 @@ public class HiveMetadata
     /**
      * Validate the partition columns of a materialized view to ensure 1) a materialized view is partitioned; and 2) it has at least one partition
      * directly mapped to a base table partition.
-     *
+     * <p>
      * A column is directly mapped to a base table column if it is derived directly or transitively from the base table column,
      * by only selecting a column or an aliased column without any function or operator applied.
      * For example, with SELECT column_b AS column_a, column_a is directly mapped to column_b.
      * With SELECT column_b + column_c AS column_a, column_a is not directly mapped to any column.
-     *
+     * <p>
      * {@code viewToBaseColumnMap} only contains direct column mappings.
      */
     private static void validateMaterializedViewPartitionColumns(Table viewTable, List<Table> baseTables, Map<String, Map<SchemaTableName, String>> viewToBaseColumnMap)
