@@ -433,7 +433,7 @@ public class QueuedStatementResource
                     1,
                     uriInfo,
                     xForwardedProto,
-                    DispatchInfo.queued(NO_DURATION, NO_DURATION));
+                    DispatchInfo.queued(NO_DURATION, NO_DURATION, NO_DURATION));
         }
 
         public ListenableFuture<Response> toResponse(long token, UriInfo uriInfo, String xForwardedProto, Duration maxWait, boolean compressionEnabled)
@@ -453,7 +453,7 @@ public class QueuedStatementResource
                             token + 1,
                             uriInfo,
                             xForwardedProto,
-                            DispatchInfo.queued(NO_DURATION, NO_DURATION));
+                            DispatchInfo.queued(NO_DURATION, NO_DURATION, NO_DURATION));
                     return immediateFuture(withCompressionConfiguration(Response.ok(queryResults), compressionEnabled).build());
                 }
             }

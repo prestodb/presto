@@ -39,8 +39,6 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
-import javax.ws.rs.HEAD;
-
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;

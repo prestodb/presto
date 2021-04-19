@@ -34,6 +34,8 @@ import com.facebook.presto.server.SessionSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.dispatcher.PrerequisiteManager;
+import com.facebook.presto.spi.dispatcher.QueryPrerequisiteContext;
 import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
@@ -49,10 +51,9 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
-import static com.facebook.airlift.concurrent.MoreFutures.addExceptionCallback;
-import static com.facebook.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static com.facebook.presto.SystemSessionProperties.getWarningHandlingLevel;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_TEXT_TOO_LARGE;
 import static com.facebook.presto.util.StatementUtils.getQueryType;
@@ -62,6 +63,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 
 public class DispatchManager
 {
@@ -86,6 +88,7 @@ public class DispatchManager
     private final QueryTracker<DispatchQuery> queryTracker;
 
     private final QueryManagerStats stats = new QueryManagerStats();
+    private final Optional<PrerequisiteManager> prerequisiteManager;
 
     @Inject
     public DispatchManager(
@@ -101,7 +104,8 @@ public class DispatchManager
             SessionPropertyDefaults sessionPropertyDefaults,
             QueryManagerConfig queryManagerConfig,
             DispatchExecutor dispatchExecutor,
-            ClusterStatusSender clusterStatusSender)
+            ClusterStatusSender clusterStatusSender,
+            Optional<PrerequisiteManager> prerequisiteManager)
     {
         this.queryIdGenerator = requireNonNull(queryIdGenerator, "queryIdGenerator is null");
         this.queryPreparer = requireNonNull(queryPreparer, "queryPreparer is null");
@@ -122,6 +126,7 @@ public class DispatchManager
         this.clusterStatusSender = requireNonNull(clusterStatusSender, "clusterStatusSender is null");
 
         this.queryTracker = new QueryTracker<>(queryManagerConfig, dispatchExecutor.getScheduledExecutor());
+        this.prerequisiteManager = requireNonNull(prerequisiteManager, "prerequisiteManager is null");
     }
 
     @PostConstruct
@@ -236,15 +241,32 @@ public class DispatchManager
                     dispatchQuery.fail(e);
                 }
 
-                ListenableFuture<?> prerequisitesFuture = immediateFuture(null);
+                Session finalSession = session;
+                String finalQuery = query;
+                prerequisiteManager.ifPresent((m) -> System.out.println(m));
+                CompletableFuture<?> prerequisitesFuture = prerequisiteManager
+                        .map(manager -> manager.waitForPrerequisites(new QueryPrerequisiteContext(
+                                finalSession.getQueryId(),
+                                finalSession.getIdentity(),
+                                finalSession.getCatalog(),
+                                finalSession.getSchema(),
+                                finalQuery,
+                                finalSession.getSystemProperties(),
+                                finalSession.getConnectorProperties(),
+                                finalSession.getUnprocessedCatalogProperties())))
+                        .orElseGet(() -> completedFuture(null));
                 dispatchQuery.addStateChangeListener(state -> {
                     if (state.isDone() && !prerequisitesFuture.isDone()) {
                         // If the query fails, in that situation cancel the future
                         prerequisitesFuture.cancel(true);
                     }
                 });
-                addSuccessCallback(prerequisitesFuture, dispatchQuery::queueQuery);
-                addExceptionCallback(prerequisitesFuture, throwable -> queryExecutor.execute(() -> dispatchQuery.fail(throwable)));
+                prerequisitesFuture.thenRun(dispatchQuery::queueQuery);
+                prerequisitesFuture.exceptionally(
+                        throwable -> {
+                            queryExecutor.execute(() -> dispatchQuery.fail(throwable));
+                            return null;
+                        });
             }
         }
         catch (Throwable throwable) {

@@ -67,6 +67,7 @@ public class FailedDispatchQuery
         this.dispatchInfo = DispatchInfo.failed(
                 failure,
                 basicQueryInfo.getQueryStats().getElapsedTime(),
+                basicQueryInfo.getQueryStats().getPrerequisiteWaitTime(),
                 basicQueryInfo.getQueryStats().getQueuedTime());
     }
 

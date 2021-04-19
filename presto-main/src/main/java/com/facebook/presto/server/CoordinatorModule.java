@@ -106,6 +106,7 @@ import com.facebook.presto.server.protocol.QueuedStatementResource;
 import com.facebook.presto.server.protocol.RetryCircuitBreaker;
 import com.facebook.presto.server.remotetask.HttpRemoteTaskFactory;
 import com.facebook.presto.server.remotetask.RemoteTaskStats;
+import com.facebook.presto.spi.dispatcher.PrerequisiteManager;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.security.SelectedRole;
@@ -180,6 +181,7 @@ import static com.facebook.presto.execution.SqlQueryExecution.SqlQueryExecutionF
 import static com.facebook.presto.util.StatementUtils.getAllQueryTypes;
 import static com.google.common.base.Verify.verify;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -251,6 +253,7 @@ public class CoordinatorModule
         binder.bind(DispatchManager.class).in(Scopes.SINGLETON);
         binder.bind(FailedDispatchQueryFactory.class).in(Scopes.SINGLETON);
         binder.bind(DispatchExecutor.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, PrerequisiteManager.class);
 
         // local dispatcher
         binder.bind(DispatchQueryFactory.class).to(LocalDispatchQueryFactory.class);

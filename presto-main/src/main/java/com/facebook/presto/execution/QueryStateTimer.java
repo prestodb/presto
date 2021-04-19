@@ -82,6 +82,7 @@ public class QueryStateTimer
 
     private void beginWaitingForResources(long now)
     {
+        beginQueuing(now);
         queuedTime.compareAndSet(null, nanosSince(beginQueuingNanos, now));
         beginResourceWaitingNanos.compareAndSet(null, now);
     }

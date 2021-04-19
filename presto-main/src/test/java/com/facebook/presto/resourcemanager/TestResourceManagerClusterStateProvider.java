@@ -380,6 +380,7 @@ public class TestResourceManagerClusterStateProvider
                 new BasicQueryStats(
                         DateTime.parse("1991-09-06T05:00-05:30"),
                         DateTime.parse("1991-09-06T05:01-05:30"),
+                        Duration.valueOf("10s"),
                         Duration.valueOf("8m"),
                         Duration.valueOf("7m"),
                         Duration.valueOf("34m"),

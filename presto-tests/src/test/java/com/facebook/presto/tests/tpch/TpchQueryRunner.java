@@ -15,8 +15,12 @@ package com.facebook.presto.tests.tpch;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.log.Logging;
+import com.facebook.presto.dispatcher.RandomWaitingPrerequisiteManager;
+import com.facebook.presto.spi.dispatcher.PrerequisiteManager;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Scopes;
 
 import java.util.Map;
 
@@ -29,6 +33,7 @@ public final class TpchQueryRunner
     {
         return TpchQueryRunnerBuilder.builder()
                 .setExtraProperties(extraProperties)
+                .setExtraModules(ImmutableList.of((binder) -> binder.bind(PrerequisiteManager.class).to(RandomWaitingPrerequisiteManager.class).in(Scopes.SINGLETON)))
                 .build();
     }
 
@@ -39,6 +44,7 @@ public final class TpchQueryRunner
                 .setExtraProperties(extraProperties)
                 .setResourceManagerEnabled(true)
                 .setCoordinatorCount(coordinatorCount)
+                .setExtraModules(ImmutableList.of((binder) -> binder.bind(PrerequisiteManager.class).to(RandomWaitingPrerequisiteManager.class).in(Scopes.SINGLETON)))
                 .build();
     }
 
