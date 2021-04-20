@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.verifier.framework;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.sql.tree.AstVisitor;
@@ -59,6 +60,7 @@ import static java.util.Objects.requireNonNull;
 
 public class DeterminismAnalyzer
 {
+    private static final Logger log = Logger.get(DeterminismAnalyzer.class);
     private final SourceQuery sourceQuery;
     private final PrestoAction prestoAction;
     private final QueryRewriter queryRewriter;
@@ -131,6 +133,7 @@ public class DeterminismAnalyzer
         Map<QueryBundle, DeterminismAnalysisRun.Builder> queryRuns = new HashMap<>();
         try {
             for (int i = 0; i < maxAnalysisRuns; i++) {
+                log.info("Determinism Analysis for %s attempt=(%d/%d)", sourceQuery.getName(), i + 1, maxAnalysisRuns);
                 QueryObjectBundle queryBundle = queryRewriter.rewriteQuery(sourceQuery.getQuery(CONTROL), CONTROL);
                 DeterminismAnalysisRun.Builder run = determinismAnalysisDetails.addRun().setTableName(queryBundle.getObjectName().toString());
                 queryRuns.put(queryBundle, run);
