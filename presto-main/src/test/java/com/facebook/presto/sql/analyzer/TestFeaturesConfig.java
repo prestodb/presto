@@ -161,7 +161,10 @@ public class TestFeaturesConfig
                 .setSpoolingOutputBufferEnabled(false)
                 .setSpoolingOutputBufferThreshold(new DataSize(8, MEGABYTE))
                 .setSpoolingOutputBufferTempStorage("local")
-                .setPrestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled(false));
+                .setPrestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled(false)
+                .setPartialResultsEnabled(false)
+                .setPartialResultsCompletionRatioThreshold(0.5)
+                .setPartialResultsMaxExecutionTimeMultiplier(2.0));
     }
 
     @Test
@@ -276,6 +279,9 @@ public class TestFeaturesConfig
                 .put("spooling-output-buffer-threshold", "16MB")
                 .put("spooling-output-buffer-temp-storage", "tempfs")
                 .put("spark.assign-bucket-to-partition-for-partitioned-table-write-enabled", "true")
+                .put("partial-results-enabled", "true")
+                .put("partial-results-completion-ratio-threshold", "0.9")
+                .put("partial-results-max-execution-time-multiplier", "1.5")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -387,7 +393,10 @@ public class TestFeaturesConfig
                 .setSpoolingOutputBufferEnabled(true)
                 .setSpoolingOutputBufferThreshold(new DataSize(16, MEGABYTE))
                 .setSpoolingOutputBufferTempStorage("tempfs")
-                .setPrestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled(true);
+                .setPrestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled(true)
+                .setPartialResultsEnabled(true)
+                .setPartialResultsCompletionRatioThreshold(0.9)
+                .setPartialResultsMaxExecutionTimeMultiplier(1.5);
         assertFullMapping(properties, expected);
     }
 
