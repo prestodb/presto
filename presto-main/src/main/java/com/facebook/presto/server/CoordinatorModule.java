@@ -56,6 +56,7 @@ import com.facebook.presto.execution.ForQueryExecution;
 import com.facebook.presto.execution.GrantRolesTask;
 import com.facebook.presto.execution.GrantTask;
 import com.facebook.presto.execution.NodeResourceStatusConfig;
+import com.facebook.presto.execution.PartialResultQueryManager;
 import com.facebook.presto.execution.PrepareTask;
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryExecutionMBean;
@@ -326,6 +327,7 @@ public class CoordinatorModule
         getAllQueryTypes().entrySet().stream()
                 .filter(entry -> entry.getValue() != QueryType.DATA_DEFINITION)
                 .forEach(entry -> executionBinder.addBinding(entry.getKey()).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON));
+        binder.bind(PartialResultQueryManager.class).in(Scopes.SINGLETON);
 
         binder.bind(DataDefinitionExecutionFactory.class).in(Scopes.SINGLETON);
         bindDataDefinitionTask(binder, executionBinder, CreateSchema.class, CreateSchemaTask.class);

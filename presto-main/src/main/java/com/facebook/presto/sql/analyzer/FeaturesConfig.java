@@ -189,6 +189,10 @@ public class FeaturesConfig
     private boolean enforceFixedDistributionForOutputOperator;
     private boolean prestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled;
 
+    private boolean partialResultsEnabled;
+    private double partialResultsCompletionRatioThreshold = 0.5;
+    private double partialResultsMaxExecutionTimeMultiplier = 2.0;
+
     public enum PartitioningPrecisionStrategy
     {
         // Let Presto decide when to repartition
@@ -1609,6 +1613,45 @@ public class FeaturesConfig
     public FeaturesConfig setPrestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled(boolean prestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled)
     {
         this.prestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled = prestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled;
+        return this;
+    }
+
+    public boolean isPartialResultsEnabled()
+    {
+        return partialResultsEnabled;
+    }
+
+    @Config("partial-results-enabled")
+    @ConfigDescription("Enable returning partial results. Please note that queries might not read all the data when this is enabled.")
+    public FeaturesConfig setPartialResultsEnabled(boolean partialResultsEnabled)
+    {
+        this.partialResultsEnabled = partialResultsEnabled;
+        return this;
+    }
+
+    public double getPartialResultsCompletionRatioThreshold()
+    {
+        return partialResultsCompletionRatioThreshold;
+    }
+
+    @Config("partial-results-completion-ratio-threshold")
+    @ConfigDescription("Minimum query completion ratio threshold for partial results")
+    public FeaturesConfig setPartialResultsCompletionRatioThreshold(double partialResultsCompletionRatioThreshold)
+    {
+        this.partialResultsCompletionRatioThreshold = partialResultsCompletionRatioThreshold;
+        return this;
+    }
+
+    public double getPartialResultsMaxExecutionTimeMultiplier()
+    {
+        return partialResultsMaxExecutionTimeMultiplier;
+    }
+
+    @Config("partial-results-max-execution-time-multiplier")
+    @ConfigDescription("This value is multiplied by the time taken to reach the completion ratio threshold and is set as max task end time")
+    public FeaturesConfig setPartialResultsMaxExecutionTimeMultiplier(double partialResultsMaxExecutionTimeMultiplier)
+    {
+        this.partialResultsMaxExecutionTimeMultiplier = partialResultsMaxExecutionTimeMultiplier;
         return this;
     }
 }
