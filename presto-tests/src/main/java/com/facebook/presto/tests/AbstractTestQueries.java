@@ -153,7 +153,7 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void selectLargeInterval()
+    public void testSelectLargeInterval()
     {
         MaterializedResult result = computeActual("SELECT INTERVAL '30' DAY");
         assertEquals(result.getRowCount(), 1);
@@ -165,7 +165,7 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void emptyJoins()
+    public void testEmptyJoins()
     {
         // Empty predicate
         assertQuery("select 1 from (select * from orders where 1 = 0) DT join customer on DT.custkey=customer.custkey",
@@ -186,7 +186,7 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void selectNull()
+    public void testSelectNull()
     {
         assertQuery("SELECT NULL");
     }
