@@ -63,6 +63,8 @@ import static com.facebook.presto.functionNamespace.testing.SqlInvokedFunctionTe
 import static com.facebook.presto.functionNamespace.testing.SqlInvokedFunctionTestUtils.TEST_SCHEMA;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
+import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
+import static com.facebook.presto.spi.function.FunctionVersion.withVersion;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.DETERMINISTIC;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.NullCallClause.RETURNS_NULL_ON_NULL_INPUT;
@@ -288,7 +290,7 @@ public class TestMySqlFunctionNamespaceManager
                         "power tower",
                         RoutineCharacteristics.builder().setDeterminism(DETERMINISTIC).setNullCallClause(RETURNS_NULL_ON_NULL_INPUT).build(),
                         "RETURN pow(x, x)",
-                        Optional.of("2")));
+                        withVersion("2")));
 
         // Drop function and alter function by name
         dropFunction(POWER_TOWER, Optional.of(ImmutableList.of(parseTypeSignature(DOUBLE))), false);
@@ -303,7 +305,7 @@ public class TestMySqlFunctionNamespaceManager
                 FUNCTION_TANGENT.getDescription(),
                 RoutineCharacteristics.builder().setDeterminism(DETERMINISTIC).build(),
                 FUNCTION_TANGENT.getBody(),
-                Optional.of("2"));
+                withVersion("2"));
         assertGetFunctions(TANGENT, tangentV2);
 
         // Alter function with no change
@@ -492,7 +494,7 @@ public class TestMySqlFunctionNamespaceManager
                 "power tower",
                 RoutineCharacteristics.builder().setDeterminism(DETERMINISTIC).build(),
                 "pow(x, x)",
-                Optional.empty());
+                notVersioned());
     }
 
     private static SqlInvokedFunction createFunctionTangent(QualifiedObjectName functionName)
@@ -504,7 +506,7 @@ public class TestMySqlFunctionNamespaceManager
                 FUNCTION_TANGENT.getDescription(),
                 FUNCTION_TANGENT.getRoutineCharacteristics(),
                 FUNCTION_TANGENT.getBody(),
-                Optional.empty());
+                notVersioned());
     }
 
     private static SqlInvokedFunction createFunctionTangent(List<Parameter> parameters)
@@ -516,7 +518,7 @@ public class TestMySqlFunctionNamespaceManager
                 FUNCTION_TANGENT.getDescription(),
                 FUNCTION_TANGENT.getRoutineCharacteristics(),
                 FUNCTION_TANGENT.getBody(),
-                Optional.empty());
+                notVersioned());
     }
 
     private static SqlInvokedFunction createFunctionTangent(TypeSignature returnType)
@@ -528,7 +530,7 @@ public class TestMySqlFunctionNamespaceManager
                 FUNCTION_TANGENT.getDescription(),
                 FUNCTION_TANGENT.getRoutineCharacteristics(),
                 FUNCTION_TANGENT.getBody(),
-                Optional.empty());
+                notVersioned());
     }
 
     private static TypeSignature createLargeRowType(int fieldCount)
