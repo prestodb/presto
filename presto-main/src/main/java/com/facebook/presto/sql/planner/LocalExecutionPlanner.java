@@ -2155,10 +2155,24 @@ public class LocalExecutionPlanner
             PhysicalOperation probeSource = probeNode.accept(this, context);
 
             // Plan build
-            JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory =
-                    createLookupSourceFactory(node, buildNode, buildVariables, buildHashVariable, probeSource, context);
+            LocalExecutionPlanContext buildContext = context.createSubContext();
+            PhysicalOperation buildSource = buildNode.accept(this, buildContext);
+            if (buildSource.getPipelineExecutionStrategy() == GROUPED_EXECUTION) {
+                checkState(
+                        probeSource.getPipelineExecutionStrategy() == GROUPED_EXECUTION,
+                        "Build execution is GROUPED_EXECUTION. Probe execution is expected be GROUPED_EXECUTION, but is UNGROUPED_EXECUTION.");
+            }
 
-            OperatorFactory operator = createLookupJoin(node, probeSource, probeVariables, probeHashVariable, lookupSourceFactory, context);
+            boolean buildOuter = node.getType() == RIGHT || node.getType() == FULL;
+            // spill does not work for probe only grouped execution because PartitionedLookupSourceFactory.finishProbe() expects a defined number of probe operators
+            boolean isProbeOnlyGroupedExecution = probeSource.getPipelineExecutionStrategy() == GROUPED_EXECUTION && buildSource.getPipelineExecutionStrategy() != GROUPED_EXECUTION;
+            boolean spillEnabled = isSpillEnabled(context.getSession()) && isJoinSpillingEnabled(context.getSession()) && !buildOuter && !isProbeOnlyGroupedExecution;
+
+            // Plan build
+            JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory =
+                    createLookupSourceFactory(node, buildSource, buildContext, buildVariables, buildHashVariable, probeSource, spillEnabled, context);
+
+            OperatorFactory operator = createLookupJoin(node, probeSource, probeVariables, probeHashVariable, lookupSourceFactory, spillEnabled, context);
 
             ImmutableMap.Builder<VariableReferenceExpression, Integer> outputMappings = ImmutableMap.builder();
             List<VariableReferenceExpression> outputVariables = node.getOutputVariables();
@@ -2171,25 +2185,14 @@ public class LocalExecutionPlanner
 
         private JoinBridgeManager<PartitionedLookupSourceFactory> createLookupSourceFactory(
                 JoinNode node,
-                PlanNode buildNode,
+                PhysicalOperation buildSource,
+                LocalExecutionPlanContext buildContext,
                 List<VariableReferenceExpression> buildVariables,
                 Optional<VariableReferenceExpression> buildHashVariable,
                 PhysicalOperation probeSource,
+                boolean spillEnabled,
                 LocalExecutionPlanContext context)
         {
-            // Determine if planning broadcast join
-            Optional<JoinNode.DistributionType> distributionType = node.getDistributionType();
-            boolean isBroadcastJoin = distributionType.isPresent() && distributionType.get() == REPLICATED;
-
-            LocalExecutionPlanContext buildContext = context.createSubContext();
-            PhysicalOperation buildSource = buildNode.accept(this, buildContext);
-
-            if (buildSource.getPipelineExecutionStrategy() == GROUPED_EXECUTION) {
-                checkState(
-                        probeSource.getPipelineExecutionStrategy() == GROUPED_EXECUTION,
-                        "Build execution is GROUPED_EXECUTION. Probe execution is expected be GROUPED_EXECUTION, but is UNGROUPED_EXECUTION.");
-            }
-
             List<VariableReferenceExpression> buildOutputVariables = node.getOutputVariables().stream()
                     .filter(node.getRight().getOutputVariables()::contains)
                     .collect(toImmutableList());
@@ -2197,10 +2200,6 @@ public class LocalExecutionPlanner
             List<Integer> buildChannels = ImmutableList.copyOf(getChannelsForVariables(buildVariables, buildSource.getLayout()));
             OptionalInt buildHashChannel = buildHashVariable.map(variableChannelGetter(buildSource))
                     .map(OptionalInt::of).orElse(OptionalInt.empty());
-
-            boolean spillEnabled = isSpillEnabled(context.getSession()) && isJoinSpillingEnabled(context.getSession());
-            boolean buildOuter = node.getType() == RIGHT || node.getType() == FULL;
-            int partitionCount = buildContext.getDriverInstanceCount().orElse(1);
 
             Optional<JoinFilterFunctionFactory> filterFunctionFactory = node.getFilter()
                     .map(filterExpression -> compileJoinFilterFunction(
@@ -2234,6 +2233,8 @@ public class LocalExecutionPlanner
             ImmutableList<Type> buildOutputTypes = buildOutputChannels.stream()
                     .map(buildSource.getTypes()::get)
                     .collect(toImmutableList());
+            boolean buildOuter = node.getType() == RIGHT || node.getType() == FULL;
+            int partitionCount = buildContext.getDriverInstanceCount().orElse(1);
             JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager = new JoinBridgeManager<>(
                     buildOuter,
                     probeSource.getPipelineExecutionStrategy(),
@@ -2255,8 +2256,9 @@ public class LocalExecutionPlanner
             createDynamicFilter(buildSource, node, context, partitionCount).ifPresent(
                     filter -> factoriesBuilder.add(createDynamicFilterSourceOperatorFactory(filter, node.getId(), buildSource, buildContext)));
 
-            // spill does not work for probe only grouped execution because PartitionedLookupSourceFactory.finishProbe() expects a defined number of probe operators
-            boolean isProbeOnlyGroupedExecution = probeSource.getPipelineExecutionStrategy() == GROUPED_EXECUTION && buildSource.getPipelineExecutionStrategy() != GROUPED_EXECUTION;
+            // Determine if planning broadcast join
+            Optional<JoinNode.DistributionType> distributionType = node.getDistributionType();
+            boolean isBroadcastJoin = distributionType.isPresent() && distributionType.get() == REPLICATED;
 
             HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(
                     buildContext.getNextOperatorId(),
@@ -2270,7 +2272,7 @@ public class LocalExecutionPlanner
                     searchFunctionFactories,
                     10_000,
                     pagesIndexFactory,
-                    spillEnabled && !buildOuter && partitionCount > 1 && !isProbeOnlyGroupedExecution,
+                    spillEnabled && partitionCount > 1,
                     singleStreamSpillerFactory,
                     isBroadcastJoin);
 
@@ -2360,6 +2362,7 @@ public class LocalExecutionPlanner
                 List<VariableReferenceExpression> probeVariables,
                 Optional<VariableReferenceExpression> probeHashVariable,
                 JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactoryManager,
+                boolean spillEnabled,
                 LocalExecutionPlanContext context)
         {
             List<Type> probeTypes = probeSource.getTypes();
@@ -2370,7 +2373,7 @@ public class LocalExecutionPlanner
             List<Integer> probeJoinChannels = ImmutableList.copyOf(getChannelsForVariables(probeVariables, probeSource.getLayout()));
             OptionalInt probeHashChannel = probeHashVariable.map(variableChannelGetter(probeSource))
                     .map(OptionalInt::of).orElse(OptionalInt.empty());
-            OptionalInt totalOperatorsCount = getJoinOperatorsCountForSpill(context, session);
+            OptionalInt totalOperatorsCount = getJoinOperatorsCountForSpill(context, spillEnabled);
 
             switch (node.getType()) {
                 case INNER:
@@ -2386,13 +2389,14 @@ public class LocalExecutionPlanner
             }
         }
 
-        private OptionalInt getJoinOperatorsCountForSpill(LocalExecutionPlanContext context, Session session)
+        private OptionalInt getJoinOperatorsCountForSpill(LocalExecutionPlanContext context, boolean spillEnabled)
         {
-            OptionalInt driverInstanceCount = context.getDriverInstanceCount();
-            if (isSpillEnabled(session) && isJoinSpillingEnabled(session)) {
+            if (spillEnabled) {
+                OptionalInt driverInstanceCount = context.getDriverInstanceCount();
                 checkState(driverInstanceCount.isPresent(), "A fixed distribution is required for JOIN when spilling is enabled");
+                return driverInstanceCount;
             }
-            return driverInstanceCount;
+            return OptionalInt.empty();
         }
 
         private Map<VariableReferenceExpression, Integer> createJoinSourcesLayout(Map<VariableReferenceExpression, Integer> lookupSourceLayout, Map<VariableReferenceExpression, Integer> probeSourceLayout)
