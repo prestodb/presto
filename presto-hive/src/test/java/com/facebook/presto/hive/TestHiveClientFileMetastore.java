@@ -110,6 +110,12 @@ public class TestHiveClientFileMetastore
         // FileHiveMetastore has various incompatibilities
     }
 
+    @Override
+    public void testInsertOverwriteUnpartitioned()
+    {
+        // FileHiveMetastore has various incompatibilities
+    }
+
     @Test
     public void testPartitionNotReadable()
     {
@@ -142,7 +148,7 @@ public class TestHiveClientFileMetastore
 
             try (Transaction transaction = newTransaction()) {
                 ConnectorMetadata metadata = transaction.getMetadata();
-                ConnectorSession session = newSession(ImmutableMap.of(HiveSessionProperties.IGNORE_UNREADABLE_PARTITION, true));
+                ConnectorSession session = newSessionWithExtraProperties(ImmutableMap.of(HiveSessionProperties.IGNORE_UNREADABLE_PARTITION, true));
 
                 ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
                 assertNotNull(tableHandle);

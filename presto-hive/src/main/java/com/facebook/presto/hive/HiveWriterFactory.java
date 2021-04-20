@@ -68,6 +68,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_READ_ONLY;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_TABLE_READ_ONLY;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HiveSessionProperties.getSortedWriteTempPathSubdirectoryCount;
 import static com.facebook.presto.hive.HiveSessionProperties.isFailFastOnInsertIntoImmutablePartitionsEnabled;
@@ -445,7 +446,7 @@ public class HiveWriterFactory
         return new WriterParameters(
                 UpdateMode.NEW,
                 createHiveSchema(dataColumns),
-                locationService.getTableWriteInfo(locationHandle),
+                locationService.getTableWriteInfo(locationHandle, false),
                 fromHiveStorageFormat(tableStorageFormat));
     }
 
@@ -474,19 +475,30 @@ public class HiveWriterFactory
 
     private WriterParameters getWriterParametersForExistingUnpartitionedTable(OptionalInt bucketNumber)
     {
+        UpdateMode updateMode = UpdateMode.APPEND;
         // Note: temporary table is always empty at this step
         if (!table.getTableType().equals(TEMPORARY_TABLE)) {
-            if (bucketNumber.isPresent()) {
-                throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Cannot insert into bucketed unpartitioned Hive table");
-            }
-            if (immutablePartitions) {
-                throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Unpartitioned Hive tables are immutable");
+            switch (insertExistingPartitionsBehavior) {
+                case APPEND:
+                    checkState(!immutablePartitions);
+                    if (bucketNumber.isPresent()) {
+                        throw new PrestoException(HIVE_TABLE_READ_ONLY, "Cannot insert into bucketed unpartitioned Hive table");
+                    }
+                    break;
+                case OVERWRITE:
+                    updateMode = UpdateMode.OVERWRITE;
+                    break;
+                case ERROR:
+                    throw new PrestoException(HIVE_TABLE_READ_ONLY, "Unpartitioned Hive tables are immutable");
+                default:
+                    throw new IllegalArgumentException("Unsupported insert existing table behavior: " + insertExistingPartitionsBehavior);
             }
         }
+
         return new WriterParameters(
-                UpdateMode.APPEND,
+                updateMode,
                 getHiveSchema(table),
-                locationService.getTableWriteInfo(locationHandle),
+                locationService.getTableWriteInfo(locationHandle, false),
                 fromHiveStorageFormat(tableStorageFormat));
     }
 
