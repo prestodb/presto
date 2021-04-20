@@ -182,6 +182,9 @@ public final class SystemSessionProperties
     public static final String LOG_FORMATTED_QUERY_ENABLED = "log_formatted_query_enabled";
     public static final String QUERY_RETRY_LIMIT = "query_retry_limit";
     public static final String QUERY_RETRY_MAX_EXECUTION_TIME = "query_retry_max_execution_time";
+    public static final String PARTIAL_RESULTS_ENABLED = "partial_results_enabled";
+    public static final String PARTIAL_RESULTS_COMPLETION_RATIO_THRESHOLD = "partial_results_completion_ratio_threshold";
+    public static final String PARTIAL_RESULTS_MAX_EXECUTION_TIME_MULTIPLIER = "partial_results_max_execution_time_multiplier";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -964,7 +967,22 @@ public final class SystemSessionProperties
                         queryManagerConfig.getPerQueryRetryMaxExecutionTime(),
                         true,
                         value -> Duration.valueOf((String) value),
-                        Duration::toString));
+                        Duration::toString),
+                booleanProperty(
+                        PARTIAL_RESULTS_ENABLED,
+                        "Enable returning partial results. Please note that queries might not read all the data when this is enabled",
+                        featuresConfig.isPartialResultsEnabled(),
+                        false),
+                doubleProperty(
+                        PARTIAL_RESULTS_COMPLETION_RATIO_THRESHOLD,
+                        "Minimum query completion ratio threshold for partial results",
+                        featuresConfig.getPartialResultsCompletionRatioThreshold(),
+                        false),
+                doubleProperty(
+                        PARTIAL_RESULTS_MAX_EXECUTION_TIME_MULTIPLIER,
+                        "This value is multiplied by the time taken to reach the completion ratio threshold and is set as max task end time",
+                        featuresConfig.getPartialResultsMaxExecutionTimeMultiplier(),
+                        false));
     }
 
     public static boolean isEmptyJoinOptimization(Session session)
@@ -1629,5 +1647,20 @@ public final class SystemSessionProperties
     public static Duration getQueryRetryMaxExecutionTime(Session session)
     {
         return session.getSystemProperty(QUERY_RETRY_MAX_EXECUTION_TIME, Duration.class);
+    }
+
+    public static boolean isPartialResultsEnabled(Session session)
+    {
+        return session.getSystemProperty(PARTIAL_RESULTS_ENABLED, Boolean.class);
+    }
+
+    public static double getPartialResultsCompletionRatioThreshold(Session session)
+    {
+        return session.getSystemProperty(PARTIAL_RESULTS_COMPLETION_RATIO_THRESHOLD, Double.class);
+    }
+
+    public static double getPartialResultsMaxExecutionTimeMultiplier(Session session)
+    {
+        return session.getSystemProperty(PARTIAL_RESULTS_MAX_EXECUTION_TIME_MULTIPLIER, Double.class);
     }
 }
