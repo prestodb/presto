@@ -203,7 +203,7 @@ public class IcebergPageSourceProvider
             long fileSize = filesystem.getFileStatus(path).getLen();
             FSDataInputStream inputStream = filesystem.openFile(path, DEFAULT_HIVE_FILE_CONTEXT);
             dataSource = buildHdfsParquetDataSource(inputStream, path, fileFormatDataSourceStats);
-            ParquetMetadata parquetMetadata = MetadataReader.readFooter(inputStream, path, fileSize).getParquetMetadata();
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, fileSize).getParquetMetadata();
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
 
