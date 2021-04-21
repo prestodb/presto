@@ -130,7 +130,7 @@ public class MemoryRevokingScheduler
             try {
                 requestMemoryRevokingIfNeeded();
             }
-            catch (Throwable e) {
+            catch (Exception e) {
                 log.error(e, "Error requesting system memory revoking");
             }
         }, 1, 1, SECONDS);
@@ -165,7 +165,7 @@ public class MemoryRevokingScheduler
                 scheduleRevoking();
             }
         }
-        catch (Throwable e) {
+        catch (Exception e) {
             log.error(e, "Error when acting on memory pool reservation");
         }
     }
@@ -184,7 +184,7 @@ public class MemoryRevokingScheduler
             try {
                 runMemoryRevoking();
             }
-            catch (Throwable e) {
+            catch (Exception e) {
                 log.error(e, "Error requesting memory revoking");
             }
         });

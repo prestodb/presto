@@ -105,7 +105,7 @@ public class TaskThresholdMemoryRevokingScheduler
             try {
                 revokeHighMemoryTasksIfNeeded();
             }
-            catch (Throwable e) {
+            catch (Exception e) {
                 log.error(e, "Error requesting task memory revoking");
             }
         }, 1, 1, SECONDS);
@@ -149,7 +149,7 @@ public class TaskThresholdMemoryRevokingScheduler
                 scheduleRevoking();
             }
         }
-        catch (Throwable e) {
+        catch (Exception e) {
             log.error(e, "Error when acting on memory pool reservation");
         }
     }
@@ -160,7 +160,7 @@ public class TaskThresholdMemoryRevokingScheduler
             try {
                 revokeHighMemoryTasks();
             }
-            catch (Throwable e) {
+            catch (Exception e) {
                 log.error(e, "Error requesting memory revoking");
             }
         });
