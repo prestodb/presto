@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.hive.LocationHandle.TableType;
 import com.facebook.presto.hive.LocationHandle.WriteMode;
 import com.facebook.presto.hive.metastore.Partition;
@@ -45,6 +46,8 @@ import static java.util.UUID.randomUUID;
 public class HiveLocationService
         implements LocationService
 {
+    private static final Logger LOGGER = Logger.get(HiveLocationService.class);
+
     private final HdfsEnvironment hdfsEnvironment;
 
     @Inject
@@ -56,7 +59,7 @@ public class HiveLocationService
     @Override
     public LocationHandle forNewTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, String schemaName, String tableName, boolean tempPathRequired, Optional<Path> externalLocation)
     {
-        Path targetPath = externalLocation.orElse(getTableDefaultLocation(session, metastore, hdfsEnvironment, schemaName, tableName));
+        Path targetPath = externalLocation.orElseGet(() -> getTableDefaultLocation(session, metastore, hdfsEnvironment, schemaName, tableName));
 
         HdfsContext context = new HdfsContext(session, schemaName, tableName, targetPath.toString(), true);
         // verify the target directory for the table
