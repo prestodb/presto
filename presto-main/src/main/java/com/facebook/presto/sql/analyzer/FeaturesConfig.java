@@ -111,6 +111,7 @@ public class FeaturesConfig
     private boolean pagesIndexEagerCompactionEnabled;
     private boolean distributedSort = true;
     private boolean optimizeJoinsWithEmptySources;
+    private boolean logFormattedQueryEnabled;
 
     private boolean dictionaryAggregation;
 
@@ -1546,6 +1547,19 @@ public class FeaturesConfig
     public FeaturesConfig setEmptyJoinOptimization(boolean value)
     {
         this.optimizeJoinsWithEmptySources = value;
+        return this;
+    }
+
+    public boolean isLogFormattedQueryEnabled()
+    {
+        return logFormattedQueryEnabled;
+    }
+
+    @Config("log-formatted-query-enabled")
+    @ConfigDescription("Log formatted prepared query instead of raw query when enabled")
+    public FeaturesConfig setLogFormattedQueryEnabled(boolean logFormattedQueryEnabled)
+    {
+        this.logFormattedQueryEnabled = logFormattedQueryEnabled;
         return this;
     }
 

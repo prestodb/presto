@@ -179,6 +179,7 @@ public final class SystemSessionProperties
     public static final String OPTIMIZE_JOINS_WITH_EMPTY_SOURCES = "optimize_joins_with_empty_sources";
     public static final String SPOOLING_OUTPUT_BUFFER_ENABLED = "spooling_output_buffer_enabled";
     public static final String SPARK_ASSIGN_BUCKET_TO_PARTITION_FOR_PARTITIONED_TABLE_WRITE_ENABLED = "spark_assign_bucket_to_partition_for_partitioned_table_write_enabled";
+    public static final String LOG_FORMATTED_QUERY_ENABLED = "log_formatted_query_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -938,7 +939,12 @@ public final class SystemSessionProperties
                         SPARK_ASSIGN_BUCKET_TO_PARTITION_FOR_PARTITIONED_TABLE_WRITE_ENABLED,
                         "Assign bucket to partition map for partitioned table write when adding an exchange",
                         featuresConfig.isPrestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled(),
-                        true));
+                        true),
+                booleanProperty(
+                        LOG_FORMATTED_QUERY_ENABLED,
+                        "Log formatted prepared query instead of raw query when enabled",
+                        featuresConfig.isLogFormattedQueryEnabled(),
+                        false));
     }
 
     public static boolean isEmptyJoinOptimization(Session session)
@@ -1588,5 +1594,10 @@ public final class SystemSessionProperties
     public static boolean isPrestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled(Session session)
     {
         return session.getSystemProperty(SPARK_ASSIGN_BUCKET_TO_PARTITION_FOR_PARTITIONED_TABLE_WRITE_ENABLED, Boolean.class);
+    }
+
+    public static boolean isLogFormattedQueryEnabled(Session session)
+    {
+        return session.getSystemProperty(LOG_FORMATTED_QUERY_ENABLED, Boolean.class);
     }
 }

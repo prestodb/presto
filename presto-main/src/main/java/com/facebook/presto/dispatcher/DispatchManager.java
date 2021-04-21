@@ -51,7 +51,9 @@ import java.util.Optional;
 import java.util.concurrent.Executor;
 
 import static com.facebook.presto.SystemSessionProperties.getWarningHandlingLevel;
+import static com.facebook.presto.SystemSessionProperties.isLogFormattedQueryEnabled;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_TEXT_TOO_LARGE;
+import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.util.StatementUtils.getQueryType;
 import static com.facebook.presto.util.StatementUtils.isTransactionControlStatement;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -181,6 +183,9 @@ public class DispatchManager
             // prepare query
             WarningCollector warningCollector = warningCollectorFactory.create(getWarningHandlingLevel(session));
             preparedQuery = queryPreparer.prepareQuery(session, query, warningCollector);
+            if (isLogFormattedQueryEnabled(session)) {
+                query = formatSql(preparedQuery.getStatement(), Optional.of(preparedQuery.getParameters()));
+            }
 
             // select resource group
             Optional<QueryType> queryType = getQueryType(preparedQuery.getStatement().getClass());
