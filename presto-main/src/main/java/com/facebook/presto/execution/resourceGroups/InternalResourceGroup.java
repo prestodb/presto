@@ -93,6 +93,7 @@ public class InternalResourceGroup
     private final boolean staticResourceGroup;
     private final Map<ResourceGroupId, ResourceGroupRuntimeInfo> resourceGroupRuntimeInfos;
     private final double concurrencyThreshold;
+    private final boolean resourceManagerEnabled;
 
     // Configuration
     // =============
@@ -158,7 +159,8 @@ public class InternalResourceGroup
             boolean staticResourceGroup,
             Map<ResourceGroupId, ResourceGroupRuntimeInfo> resourceGroupRuntimeInfos,
             AtomicLong lastUpdatedResourceGroupRuntimeInfo,
-            Double concurrencyThreshold)
+            Double concurrencyThreshold,
+            Boolean resourceManagerEnabled)
     {
         this.parent = requireNonNull(parent, "parent is null");
         this.jmxExportListener = requireNonNull(jmxExportListener, "jmxExportListener is null");
@@ -177,6 +179,21 @@ public class InternalResourceGroup
         this.lastUpdatedResourceGroupRuntimeInfo = lastUpdatedResourceGroupRuntimeInfo;
         checkArgument(concurrencyThreshold > 0 && concurrencyThreshold <= 1, "Concurrency threshold must be between (0, 1]");
         this.concurrencyThreshold = concurrencyThreshold;
+        this.resourceManagerEnabled = resourceManagerEnabled;
+    }
+
+    protected InternalResourceGroup(
+            Optional<InternalResourceGroup> parent,
+            String name,
+            BiConsumer<InternalResourceGroup, Boolean> jmxExportListener,
+            Executor executor,
+            boolean staticResourceGroup,
+            Map<ResourceGroupId, ResourceGroupRuntimeInfo> resourceGroupRuntimeInfos,
+            AtomicLong lastUpdatedResourceGroupRuntimeInfo,
+            Double concurrencyThreshold)
+    {
+        this(parent, name, jmxExportListener, executor, staticResourceGroup, resourceGroupRuntimeInfos,
+                lastUpdatedResourceGroupRuntimeInfo, concurrencyThreshold, false);
     }
 
     public ResourceGroupInfo getResourceGroupInfo(boolean includeQueryInfo, boolean summarizeSubgroups, boolean includeStaticSubgroupsOnly)
@@ -612,7 +629,8 @@ public class InternalResourceGroup
                     staticResourceGroup && staticSegment,
                     resourceGroupRuntimeInfos,
                     lastUpdatedResourceGroupRuntimeInfo,
-                    concurrencyThreshold);
+                    concurrencyThreshold,
+                    resourceManagerEnabled);
             // Sub group must use query priority to ensure ordering
             if (schedulingPolicy == QUERY_PRIORITY) {
                 subGroup.setSchedulingPolicy(QUERY_PRIORITY);
@@ -905,6 +923,11 @@ public class InternalResourceGroup
     {
         checkState(Thread.holdsLock(root), "Must hold lock");
         synchronized (root) {
+            if (!resourceManagerEnabled) {
+                if (!canRunMore()) {
+                    return false;
+                }
+            }
             return !queuedQueries.isEmpty() || !eligibleSubGroups.isEmpty();
         }
     }
@@ -1040,10 +1063,23 @@ public class InternalResourceGroup
                 Executor executor,
                 ConcurrentMap<ResourceGroupId, ResourceGroupRuntimeInfo> resourceGroupRuntimeInfos,
                 AtomicLong lastUpdatedResourceGroupRuntimeInfo,
+                Double concurrencyThreshold,
+                Boolean resourceManagerEnabled)
+        {
+            super(Optional.empty(), name, jmxExportListener, executor, true, resourceGroupRuntimeInfos,
+                    lastUpdatedResourceGroupRuntimeInfo, concurrencyThreshold, resourceManagerEnabled);
+        }
+
+        public RootInternalResourceGroup(
+                String name,
+                BiConsumer<InternalResourceGroup, Boolean> jmxExportListener,
+                Executor executor,
+                ConcurrentMap<ResourceGroupId, ResourceGroupRuntimeInfo> resourceGroupRuntimeInfos,
+                AtomicLong lastUpdatedResourceGroupRuntimeInfo,
                 Double concurrencyThreshold)
         {
             super(Optional.empty(), name, jmxExportListener, executor, true, resourceGroupRuntimeInfos,
-                    lastUpdatedResourceGroupRuntimeInfo, concurrencyThreshold);
+                    lastUpdatedResourceGroupRuntimeInfo, concurrencyThreshold, false);
         }
 
         public synchronized void processQueuedQueries()

@@ -20,6 +20,7 @@ import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroup.RootInternalResourceGroup;
 import com.facebook.presto.resourcemanager.ResourceGroupService;
 import com.facebook.presto.server.ResourceGroupInfo;
+import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
@@ -99,6 +100,7 @@ public final class InternalResourceGroupManager<C>
     private final AtomicLong lastUpdatedResourceGroupRuntimeInfo = new AtomicLong(0L);
     private final double concurrencyThreshold;
     private final Duration resourceGroupRuntimeInfoRefreshInterval;
+    private final boolean resourceManagerEnabled;
 
     @Inject
     public InternalResourceGroupManager(
@@ -108,7 +110,8 @@ public final class InternalResourceGroupManager<C>
             NodeInfo nodeInfo,
             MBeanExporter exporter,
             // TODO: move this to a different class
-            ResourceGroupService resourceGroupService)
+            ResourceGroupService resourceGroupService,
+            ServerConfig serverConfig)
     {
         requireNonNull(queryManagerConfig, "queryManagerConfig is null");
         this.exporter = requireNonNull(exporter, "exporter is null");
@@ -119,6 +122,7 @@ public final class InternalResourceGroupManager<C>
         this.resourceGroupService = requireNonNull(resourceGroupService, "resourceGroupService is null");
         this.concurrencyThreshold = queryManagerConfig.getConcurrencyThresholdToEnableResourceGroupRefresh();
         this.resourceGroupRuntimeInfoRefreshInterval = queryManagerConfig.getResourceGroupRunTimeInfoRefreshInterval();
+        this.resourceManagerEnabled = requireNonNull(serverConfig, "serverConfig is null").isResourceManagerEnabled();
     }
 
     @Override
@@ -219,9 +223,11 @@ public final class InternalResourceGroupManager<C>
                     throw t;
                 }
             }, 1, 1, MILLISECONDS);
-            refreshExecutor.scheduleWithFixedDelay(() -> {
-                refreshResourceGroupRuntimeInfo();
-            }, 1, resourceGroupRuntimeInfoRefreshInterval.toMillis(), MILLISECONDS);
+            if (resourceManagerEnabled) {
+                refreshExecutor.scheduleWithFixedDelay(() -> {
+                    refreshResourceGroupRuntimeInfo();
+                }, 1, resourceGroupRuntimeInfoRefreshInterval.toMillis(), MILLISECONDS);
+            }
         }
     }
 
@@ -291,7 +297,7 @@ public final class InternalResourceGroupManager<C>
             }
             else {
                 RootInternalResourceGroup root = new RootInternalResourceGroup(id.getSegments().get(0), this::exportGroup, executor, resourceGroupRuntimeInfos,
-                        lastUpdatedResourceGroupRuntimeInfo, concurrencyThreshold);
+                        lastUpdatedResourceGroupRuntimeInfo, concurrencyThreshold, resourceManagerEnabled);
                 group = root;
                 rootGroups.add(root);
             }
