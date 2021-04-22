@@ -45,6 +45,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.TypeUtils.hashPosition;
+import static com.facebook.presto.hive.BucketFunctionType.HIVE_CLUSTERING;
 import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
 import static com.facebook.presto.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
@@ -290,7 +291,11 @@ public final class HiveBucketing
                 .collect(Collectors.toMap(HiveColumnHandle::getName, identity()));
 
         ImmutableList.Builder<HiveColumnHandle> bucketColumns = ImmutableList.builder();
-        for (String bucketColumnName : hiveBucketProperty.get().getBucketedBy()) {
+        BucketFunctionType bucketFunctionType = hiveBucketProperty.get().getBucketFunctionType();
+        List<String> bucketColumnNames = (bucketFunctionType == HIVE_CLUSTERING ?
+                hiveBucketProperty.get().getClusteredBy().get() : hiveBucketProperty.get().getBucketedBy());
+
+        for (String bucketColumnName : bucketColumnNames) {
             HiveColumnHandle bucketColumnHandle = map.get(bucketColumnName);
             if (bucketColumnHandle == null) {
                 throw new PrestoException(

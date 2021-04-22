@@ -23,6 +23,8 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
 
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -53,10 +55,16 @@ public class TestHiveClustering
         Optional<EventListener> eventListener = getQueryRunner().getEventListener();
         assertTrue(eventListener.isPresent());
         assertTrue(eventListener.get() instanceof TestingHiveEventListener);
+
         Set<QueryId> runningQueryIds = ((TestingHiveEventListener) eventListener.get()).getRunningQueries();
+
+        TimeUnit.MILLISECONDS.sleep(500);
+        Logger logger = Logger.getLogger(TestHiveClustering.class.getName());
+        logger.info("Running queries" + runningQueryIds.toString());
         assertTrue(runningQueryIds.isEmpty(), format(
                 "Query completion events not sent for %d queries",
                 runningQueryIds.size()));
+
         super.close();
     }
 
@@ -87,5 +95,50 @@ public class TestHiveClustering
 
         MaterializedResult result = computeActual(query);
         assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), true);
+    }
+
+    @Test
+    public void testCreateTableAsSelect()
+    {
+        String query = (
+                "CREATE TABLE hive_bucketed.tpch_bucketed.customer_copied \n" +
+                        " WITH (" +
+                        "    format = 'TEXTFILE',\n" +
+                        "    clustered_by = array['custkey'], \n" +
+                        "    cluster_count = array[11], \n" +
+                        "    distribution = array['150', '300', '450', '600', '750', '900', '1050', '1200', '1350']) \n" +
+                        " AS SELECT * FROM customer");
+
+        MaterializedResult result = computeActual(query);
+        assertEquals(result.getOnlyValue(), 1500L);
+
+        query = "SELECT COUNT(*) FROM hive_bucketed.tpch_bucketed.customer_copied";
+        result = computeActual(query);
+        assertEquals(result.getOnlyValue(), 1500L);
+
+        query = "SELECT custkey, COUNT(*) FROM hive_bucketed.tpch_bucketed.customer_copied GROUP BY custkey ORDER BY custkey LIMIT 1 ";
+        result = computeActual(query);
+        assertEquals(result.getRowCount(), 1L);
+        assertEquals(result.getMaterializedRows().get(0).getField(1), 1L);
+    }
+
+    @Test
+    public void testInsert()
+    {
+        String query = (
+                "Insert INTO hive_bucketed.tpch_bucketed.customer_copied \n" +
+                "SELECT * from customer");
+
+        MaterializedResult result = computeActual(query);
+        assertEquals(result.getOnlyValue(), 1500L);
+
+        query = "SELECT COUNT(*) FROM hive_bucketed.tpch_bucketed.customer_copied";
+        result = computeActual(query);
+        assertEquals(result.getOnlyValue(), 3000L);
+
+        query = "SELECT custkey, COUNT(*) FROM hive_bucketed.tpch_bucketed.customer_copied GROUP BY custkey ORDER BY custkey LIMIT 1 ";
+        result = computeActual(query);
+        assertEquals(result.getRowCount(), 1L);
+        assertEquals(result.getMaterializedRows().get(0).getField(1), 2L);
     }
 }

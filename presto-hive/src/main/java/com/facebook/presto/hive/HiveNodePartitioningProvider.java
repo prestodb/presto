@@ -33,6 +33,7 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.hive.HiveBucketFunction.createHiveCompatibleBucketFunction;
 import static com.facebook.presto.hive.HiveBucketFunction.createPrestoNativeBucketFunction;
+import static com.facebook.presto.hive.HiveClusteringBucketFunction.createHiveClusteringBucketFunction;
 import static com.facebook.presto.hive.HiveSessionProperties.getNodeSelectionStrategy;
 import static com.facebook.presto.spi.StandardErrorCode.NODE_SELECTION_NOT_SUPPORTED;
 import static com.facebook.presto.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
@@ -57,6 +58,12 @@ public class HiveNodePartitioningProvider
                 return createHiveCompatibleBucketFunction(bucketCount, handle.getHiveTypes().get());
             case PRESTO_NATIVE:
                 return createPrestoNativeBucketFunction(bucketCount, handle.getTypes().get());
+            case HIVE_CLUSTERING:
+                List<Integer> clusterCount = handle.getClusterCount();
+                List<String> clusteredBy = handle.getClusteredBy();
+                List<String> distribution = handle.getDistribution();
+                return createHiveClusteringBucketFunction(
+                        clusterCount, clusteredBy, distribution, handle.getTypes().get());
             default:
                 throw new IllegalArgumentException("Unsupported bucket function type " + bucketFunctionType);
         }
@@ -68,6 +75,7 @@ public class HiveNodePartitioningProvider
         HivePartitioningHandle handle = (HivePartitioningHandle) partitioningHandle;
         NodeSelectionStrategy nodeSelectionStrategy = getNodeSelectionStrategy(session);
         int bucketCount = handle.getBucketCount();
+
         switch (nodeSelectionStrategy) {
             case HARD_AFFINITY:
             case SOFT_AFFINITY:

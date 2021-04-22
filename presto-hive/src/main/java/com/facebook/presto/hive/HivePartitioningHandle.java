@@ -17,12 +17,14 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static com.facebook.presto.hive.BucketFunctionType.HIVE_CLUSTERING;
 import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
 import static com.facebook.presto.hive.BucketFunctionType.PRESTO_NATIVE;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -38,6 +40,10 @@ public class HivePartitioningHandle
     private final Optional<List<HiveType>> hiveTypes;
     private final Optional<List<Type>> types;
 
+    private final Optional<List<String>> clusteredBy;
+    private final Optional<List<Integer>> clusterCount;
+    private final Optional<List<String>> distribution;
+
     public static HivePartitioningHandle createHiveCompatiblePartitioningHandle(
             int bucketCount,
             List<HiveType> hiveTypes,
@@ -48,6 +54,9 @@ public class HivePartitioningHandle
                 maxCompatibleBucketCount,
                 HIVE_COMPATIBLE,
                 Optional.of(hiveTypes),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
     }
 
@@ -61,7 +70,28 @@ public class HivePartitioningHandle
                 maxCompatibleBucketCount,
                 PRESTO_NATIVE,
                 Optional.empty(),
-                Optional.of(types));
+                Optional.of(types),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
+    }
+
+    public static HivePartitioningHandle createClusteringPartitioningHandle(
+            List<Type> types,
+            OptionalInt maxCompatibleBucketCount,
+            List<String> clusteredBy,
+            List<Integer> clusterCount,
+            List<String> distribution)
+    {
+        return new HivePartitioningHandle(
+                0,
+                maxCompatibleBucketCount,
+                HIVE_CLUSTERING,
+                Optional.empty(),
+                Optional.of(types),
+                Optional.of(clusteredBy),
+                Optional.of(clusterCount),
+                Optional.of(distribution));
     }
 
     @JsonCreator
@@ -70,15 +100,25 @@ public class HivePartitioningHandle
             @JsonProperty("maxCompatibleBucketCount") OptionalInt maxCompatibleBucketCount,
             @JsonProperty("bucketFunctionType") BucketFunctionType bucketFunctionType,
             @JsonProperty("hiveTypes") Optional<List<HiveType>> hiveTypes,
-            @JsonProperty("types") Optional<List<Type>> types)
+            @JsonProperty("types") Optional<List<Type>> types,
+            @JsonProperty("clusteredBy") Optional<List<String>> clusteredBy,
+            @JsonProperty("clusterCount") Optional<List<Integer>> clusterCount,
+            @JsonProperty("distribution")Optional<List<String>> distribution)
     {
         this.bucketCount = bucketCount;
         this.maxCompatibleBucketCount = maxCompatibleBucketCount;
         this.bucketFunctionType = requireNonNull(bucketFunctionType, "bucketFunctionType is null");
         this.hiveTypes = requireNonNull(hiveTypes, "hiveTypes is null");
         this.types = requireNonNull(types, "types is null");
-        checkArgument(bucketFunctionType.equals(HIVE_COMPATIBLE) && hiveTypes.isPresent() && !types.isPresent() ||
-                        bucketFunctionType.equals(PRESTO_NATIVE) && !hiveTypes.isPresent() && types.isPresent(),
+
+        this.clusteredBy = requireNonNull(clusteredBy, "Clustering columns are null");
+        this.clusterCount = requireNonNull(clusterCount, "The number of clusters for each clustering column");
+        this.distribution = requireNonNull(distribution, "distribution is null");
+
+        checkArgument((
+                bucketFunctionType.equals(HIVE_COMPATIBLE) && hiveTypes.isPresent() && !types.isPresent()) ||
+                        ((bucketFunctionType.equals(PRESTO_NATIVE) || bucketFunctionType.equals(HIVE_CLUSTERING)) &&
+                                !hiveTypes.isPresent() && types.isPresent()),
                 "Type list for bucketFunctionType %s is missing or duplicated. hiveTypes: %s, types: %s", bucketFunctionType,
                 hiveTypes,
                 types);
@@ -87,7 +127,21 @@ public class HivePartitioningHandle
     @JsonProperty
     public int getBucketCount()
     {
-        return bucketCount;
+        if (bucketFunctionType == HIVE_COMPATIBLE || bucketFunctionType == PRESTO_NATIVE) {
+            return bucketCount;
+        }
+
+        return getMergedClusterCount(clusterCount.get());
+    }
+
+    // TODO: Consolidate the same logic in HiveBucktProperty.
+    private static int getMergedClusterCount(List<Integer> clusterCount)
+    {
+        int mergedClusterCount = 1;
+        for (int count : clusterCount) {
+            mergedClusterCount *= count;
+        }
+        return mergedClusterCount;
     }
 
     @JsonProperty
@@ -112,6 +166,33 @@ public class HivePartitioningHandle
     public BucketFunctionType getBucketFunctionType()
     {
         return bucketFunctionType;
+    }
+
+    @JsonProperty
+    public List<String> getClusteredBy()
+    {
+        if (clusteredBy.isPresent()) {
+            return clusteredBy.get();
+        }
+        return ImmutableList.of();
+    }
+
+    @JsonProperty
+    public List<Integer> getClusterCount()
+    {
+        if (clusterCount.isPresent()) {
+            return clusterCount.get();
+        }
+        return ImmutableList.of();
+    }
+
+    @JsonProperty
+    public List<String> getDistribution()
+    {
+        if (distribution.isPresent()) {
+            return distribution.get();
+        }
+        return ImmutableList.of();
     }
 
     @Override

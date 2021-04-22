@@ -30,6 +30,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.hive.BucketFunctionType.HIVE_CLUSTERING;
 import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.session.PropertyMetadata.doubleProperty;
@@ -235,27 +236,72 @@ public class HiveTableProperties
         return partitionedBy == null ? ImmutableList.of() : ImmutableList.copyOf(partitionedBy);
     }
 
+    // TODO: This logic should not be here.
     public static Optional<HiveBucketProperty> getBucketProperty(Map<String, Object> tableProperties)
     {
         List<String> bucketedBy = getBucketedBy(tableProperties);
         List<SortingColumn> sortedBy = getSortedBy(tableProperties);
         int bucketCount = (Integer) tableProperties.get(BUCKET_COUNT_PROPERTY);
-        if ((bucketedBy.isEmpty()) && (bucketCount == 0)) {
-            if (!sortedBy.isEmpty()) {
-                throw new PrestoException(INVALID_TABLE_PROPERTY, format("%s may be specified only when %s is specified", SORTED_BY_PROPERTY, BUCKETED_BY_PROPERTY));
-            }
-            return Optional.empty();
+
+        List<String> clusteredBy = getClusteredBy(tableProperties);
+        List<Integer> clusterCount = getClusterCount(tableProperties);
+        List<String> distribution = getDistribution(tableProperties);
+
+        if (doBucketing(bucketedBy)) {
+            return getPropertyForBucketing(bucketedBy, sortedBy, bucketCount);
         }
-        if (bucketCount < 0) {
-            throw new PrestoException(INVALID_TABLE_PROPERTY, format("%s must be greater than zero", BUCKET_COUNT_PROPERTY));
+
+        if (doClustering(clusteredBy)) {
+            return getPropertyForClustering(bucketedBy, sortedBy, bucketCount, clusteredBy, clusterCount, distribution);
         }
-        if (bucketCount > 1_000_000) {
-            throw new PrestoException(INVALID_TABLE_PROPERTY, format("%s should be no more than 1000000", BUCKET_COUNT_PROPERTY));
+
+        if (!sortedBy.isEmpty()) {
+            throw new PrestoException(INVALID_TABLE_PROPERTY, format("%s may be specified only when %s is specified",
+                    SORTED_BY_PROPERTY, BUCKETED_BY_PROPERTY));
         }
-        if (bucketedBy.isEmpty() || bucketCount == 0) {
-            throw new PrestoException(INVALID_TABLE_PROPERTY, format("%s and %s must be specified together", BUCKETED_BY_PROPERTY, BUCKET_COUNT_PROPERTY));
+        return Optional.empty();
+    }
+
+    private static boolean doBucketing(List<String> bucketedBy)
+    {
+        return !bucketedBy.isEmpty();
+    }
+
+    private static Optional<HiveBucketProperty> getPropertyForBucketing(List<String> bucketedBy, List<SortingColumn> sortedBy, int bucketCount)
+    {
+        if (bucketCount < 0 || bucketCount > 1_000_000) {
+            throw new PrestoException(INVALID_TABLE_PROPERTY, format("%s must be within range (0, 1,000,000]", BUCKET_COUNT_PROPERTY));
         }
-        return Optional.of(new HiveBucketProperty(bucketedBy, bucketCount, sortedBy, HIVE_COMPATIBLE, Optional.empty()));
+
+        return Optional.of(new HiveBucketProperty(
+                bucketedBy, bucketCount, sortedBy, HIVE_COMPATIBLE, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
+    }
+
+    private static boolean doClustering(List<String> clusteredBy)
+    {
+        return !clusteredBy.isEmpty();
+    }
+
+    private static Optional<HiveBucketProperty> getPropertyForClustering(
+            List<String> bucketedBy,
+            List<SortingColumn> sortedBy,
+            int bucketCount,
+            List<String> clusteredBy,
+            List<Integer> clusterCount,
+            List<String> distribution)
+    {
+        if (clusterCount.isEmpty() || distribution.isEmpty()) {
+            throw new PrestoException(INVALID_TABLE_PROPERTY, "To do clustering, cluster_count and distribution must be specified");
+        }
+        return Optional.of(new HiveBucketProperty(
+                bucketedBy,
+                bucketCount,
+                sortedBy,
+                HIVE_CLUSTERING,
+                Optional.empty(),
+                Optional.of(clusteredBy),
+                Optional.of(clusterCount),
+                Optional.of(distribution)));
     }
 
     @SuppressWarnings("unchecked")
@@ -268,6 +314,24 @@ public class HiveTableProperties
     private static List<SortingColumn> getSortedBy(Map<String, Object> tableProperties)
     {
         return (List<SortingColumn>) tableProperties.get(SORTED_BY_PROPERTY);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<String> getClusteredBy(Map<String, Object> tableProperties)
+    {
+        return (List<String>) tableProperties.get(CLUSTERED_BY_PROPERTY);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<Integer> getClusterCount(Map<String, Object> tableProperties)
+    {
+        return (List<Integer>) tableProperties.get(CLUSTER_COUNT_PROPERTY);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<String> getDistribution(Map<String, Object> tableProperties)
+    {
+        return (List<String>) tableProperties.get(DISTRIBUTION_PROPERTY);
     }
 
     @SuppressWarnings("unchecked")

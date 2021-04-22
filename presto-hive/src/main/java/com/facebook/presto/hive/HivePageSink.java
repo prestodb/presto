@@ -23,6 +23,7 @@ import com.facebook.presto.common.block.IntArrayBlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
+import com.facebook.presto.spi.BucketFunction;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PageIndexer;
@@ -57,6 +58,7 @@ import static com.facebook.airlift.concurrent.MoreFutures.toListenableFuture;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.hive.HiveBucketFunction.createHiveCompatibleBucketFunction;
 import static com.facebook.presto.hive.HiveBucketFunction.createPrestoNativeBucketFunction;
+import static com.facebook.presto.hive.HiveClusteringBucketFunction.createHiveClusteringBucketFunction;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TOO_MANY_OPEN_PARTITIONS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
@@ -90,7 +92,7 @@ public class HivePageSink
     private final int[] partitionColumnsInputIndex; // ordinal of columns (not counting sample weight column)
 
     private final int[] bucketColumns;
-    private final HiveBucketFunction bucketFunction;
+    private final BucketFunction bucketFunction;
 
     private final HiveWriterPagePartitioner pagePartitioner;
     private final HdfsEnvironment hdfsEnvironment;
@@ -157,6 +159,7 @@ public class HivePageSink
         ImmutableList.Builder<Integer> dataColumnsInputIndex = ImmutableList.builder();
         Object2IntMap<String> dataColumnNameToIdMap = new Object2IntOpenHashMap<>();
         Map<String, HiveType> dataColumnNameToHiveTypeMap = new HashMap<>();
+        Map<String, Type> dataColumnNameToType = new HashMap<>();
         // sample weight column is passed separately, so index must be calculated without this column
         for (int inputIndex = 0; inputIndex < inputColumns.size(); inputIndex++) {
             HiveColumnHandle column = inputColumns.get(inputIndex);
@@ -167,6 +170,7 @@ public class HivePageSink
                 dataColumnsInputIndex.add(inputIndex);
                 dataColumnNameToIdMap.put(column.getName(), inputIndex);
                 dataColumnNameToHiveTypeMap.put(column.getName(), column.getHiveType());
+                dataColumnNameToType.put(column.getName(), column.getHiveType().getType(typeManager));
             }
         }
         this.partitionColumnsInputIndex = Ints.toArray(partitionColumns.build());
@@ -187,6 +191,16 @@ public class HivePageSink
                     break;
                 case PRESTO_NATIVE:
                     bucketFunction = createPrestoNativeBucketFunction(bucketCount, bucketProperty.get().getTypes().get());
+                    break;
+                case HIVE_CLUSTERING:
+                    List<Type> types = bucketProperty.get().getBucketedBy().stream()
+                            .map(dataColumnNameToType::get)
+                            .collect(toImmutableList());
+                    bucketFunction = createHiveClusteringBucketFunction(
+                            bucketProperty.get().getClusterCount().get(),
+                            bucketProperty.get().getClusteredBy().get(),
+                            bucketProperty.get().getDistribution().get(),
+                            types);
                     break;
                 default:
                     throw new IllegalArgumentException("Unsupported bucket function type " + bucketFunctionType);

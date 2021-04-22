@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.facebook.presto.hive.BucketFunctionType.HIVE_CLUSTERING;
 import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
 import static com.facebook.presto.hive.BucketFunctionType.PRESTO_NATIVE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
@@ -40,6 +41,9 @@ public class HiveBucketProperty
     private final List<SortingColumn> sortedBy;
     private final BucketFunctionType bucketFunctionType;
     private final Optional<List<Type>> types;
+    private final Optional<List<String>> clusteredBy;
+    private final Optional<List<Integer>> clusterCount;
+    private final Optional<List<String>> distribution;
 
     @JsonCreator
     public HiveBucketProperty(
@@ -47,16 +51,28 @@ public class HiveBucketProperty
             @JsonProperty("bucketCount") int bucketCount,
             @JsonProperty("sortedBy") List<SortingColumn> sortedBy,
             @JsonProperty("bucketFunctionType") BucketFunctionType bucketFunctionType,
-            @JsonProperty("types") Optional<List<Type>> types)
+            @JsonProperty("types") Optional<List<Type>> types,
+            @JsonProperty("clusteredBy") Optional<List<String>> clusteredBy,
+            @JsonProperty("clusterCount") Optional<List<Integer>> clusterCount,
+            @JsonProperty("distribution") Optional<List<String>> distribution)
     {
         this.bucketedBy = ImmutableList.copyOf(requireNonNull(bucketedBy, "bucketedBy is null"));
         this.bucketCount = bucketCount;
         this.sortedBy = ImmutableList.copyOf(requireNonNull(sortedBy, "sortedBy is null"));
         this.bucketFunctionType = requireNonNull(bucketFunctionType, "bucketFunctionType is null");
         this.types = requireNonNull(types, "type is null");
+        this.clusteredBy = requireNonNull(clusteredBy, "clusteredBy is null");
+        this.clusterCount = requireNonNull(clusterCount, "clusterCount is null");
+        this.distribution = requireNonNull(distribution, "distribution is null");
+
         if (bucketFunctionType.equals(PRESTO_NATIVE)) {
             checkArgument(types.isPresent(), "Types must be present for bucket function type " + bucketFunctionType);
             checkArgument(types.get().size() == bucketedBy.size(), "The sizes of bucketedBy and types should match");
+        }
+        else if (bucketFunctionType.equals(HIVE_CLUSTERING)) {
+            checkArgument(clusteredBy.isPresent(), "Cluster columns must be present for bucket function type " + bucketFunctionType);
+            checkArgument(clusterCount.isPresent(), "Cluster numbers must be present for bucket function type " + bucketFunctionType);
+            checkArgument(bucketedBy.isEmpty(), "Bucket columns should not be present for bucket function type " + bucketFunctionType);
         }
         else {
             checkArgument(!types.isPresent(), "Types not needed for bucket function type " + bucketFunctionType);
@@ -85,6 +101,9 @@ public class HiveBucketProperty
                 storageDescriptor.getNumBuckets(),
                 sortedBy,
                 HIVE_COMPATIBLE,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
                 Optional.empty()));
     }
 
@@ -97,7 +116,20 @@ public class HiveBucketProperty
     @JsonProperty
     public int getBucketCount()
     {
-        return bucketCount;
+        if (bucketFunctionType != HIVE_CLUSTERING) {
+            return bucketCount;
+        }
+
+        return getMergedClusterCount(clusterCount.get());
+    }
+
+    private static int getMergedClusterCount(List<Integer> clusterCount)
+    {
+        int combinedClusterCount = 1;
+        for (int count : clusterCount) {
+            combinedClusterCount *= count;
+        }
+        return combinedClusterCount;
     }
 
     @JsonProperty
@@ -116,6 +148,24 @@ public class HiveBucketProperty
     public Optional<List<Type>> getTypes()
     {
         return types;
+    }
+
+    @JsonProperty
+    public Optional<List<String>> getClusteredBy()
+    {
+        return clusteredBy;
+    }
+
+    @JsonProperty
+    public Optional<List<Integer>> getClusterCount()
+    {
+        return clusterCount;
+    }
+
+    @JsonProperty
+    public Optional<List<String>> getDistribution()
+    {
+        return distribution;
     }
 
     @Override
