@@ -47,6 +47,9 @@ public class HiveTableProperties
     public static final String BUCKETED_BY_PROPERTY = "bucketed_by";
     public static final String BUCKET_COUNT_PROPERTY = "bucket_count";
     public static final String SORTED_BY_PROPERTY = "sorted_by";
+    public static final String CLUSTERED_BY_PROPERTY = "clustered_by";
+    public static final String CLUSTER_COUNT_PROPERTY = "cluster_count";
+    public static final String DISTRIBUTION_PROPERTY = "distribution";
     public static final String ORC_BLOOM_FILTER_COLUMNS = "orc_bloom_filter_columns";
     public static final String ORC_BLOOM_FILTER_FPP = "orc_bloom_filter_fpp";
     public static final String AVRO_SCHEMA_URL = "avro_schema_url";
@@ -116,6 +119,39 @@ public class HiveTableProperties
                                 .map(SortingColumn.class::cast)
                                 .map(SortingColumn::sortingColumnToString)
                                 .collect(toImmutableList())),
+                new PropertyMetadata<>(
+                        CLUSTERED_BY_PROPERTY,
+                        "Columns used for clustering",
+                        typeManager.getType(parseTypeSignature("array(varchar)")),
+                        List.class,
+                        ImmutableList.of(),
+                        false,
+                        value -> ImmutableList.copyOf(((Collection<?>) value).stream()
+                                .map(name -> ((String) name).toLowerCase(ENGLISH))
+                                .collect(Collectors.toList())),
+                        value -> value),
+                new PropertyMetadata<>(
+                        CLUSTER_COUNT_PROPERTY,
+                        "Number of clusters",
+                        typeManager.getType(parseTypeSignature("array(integer)")),
+                        List.class,
+                        ImmutableList.of(),
+                        false,
+                        value -> ImmutableList.copyOf(((Collection<?>) value).stream()
+                                .map(count -> ((Integer) count))
+                                .collect(Collectors.toList())),
+                        value -> value),
+                new PropertyMetadata<>(
+                        DISTRIBUTION_PROPERTY,
+                        "Distributions of clustering columns",
+                        typeManager.getType(parseTypeSignature("array(varchar)")),
+                        List.class,
+                        ImmutableList.of(),
+                        false,
+                        value -> ImmutableList.copyOf(((Collection<?>) value).stream()
+                                .map(name -> ((String) name).toLowerCase(ENGLISH))
+                                .collect(Collectors.toList())),
+                        value -> value),
                 new PropertyMetadata<>(
                         ORC_BLOOM_FILTER_COLUMNS,
                         "ORC Bloom filter index columns",
