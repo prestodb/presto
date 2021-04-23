@@ -37,6 +37,7 @@ import com.facebook.presto.execution.scheduler.ExecutionWriterTarget;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.CreateHandle;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.DeleteHandle;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.InsertHandle;
+import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.RefreshMaterializedViewHandle;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.execution.scheduler.TableWriteInfo.DeleteScanInfo;
 import com.facebook.presto.expressions.DynamicFilters;
@@ -3175,6 +3176,9 @@ public class LocalExecutionPlanner
                 metadata.finishDelete(session, ((DeleteHandle) target).getHandle(), fragments);
                 return Optional.empty();
             }
+            else if (target instanceof RefreshMaterializedViewHandle) {
+                return metadata.finishRefreshMaterializedView(session, ((RefreshMaterializedViewHandle) target).getHandle(), fragments, statistics);
+            }
             else {
                 throw new AssertionError("Unhandled target type: " + target.getClass().getName());
             }
@@ -3189,6 +3193,9 @@ public class LocalExecutionPlanner
             }
             else if (target instanceof InsertHandle) {
                 return metadata.commitPageSinkAsync(session, ((InsertHandle) target).getHandle(), fragments);
+            }
+            else if (target instanceof RefreshMaterializedViewHandle) {
+                return metadata.commitPageSinkAsync(session, ((RefreshMaterializedViewHandle) target).getHandle(), fragments);
             }
             else {
                 throw new AssertionError("Unhandled target type: " + target.getClass().getName());

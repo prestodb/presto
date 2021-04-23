@@ -492,6 +492,10 @@ public class HiveWriterFactory
 
     private WriterParameters getWriterParametersForExistingPartitionedTable(String partitionName, OptionalInt bucketNumber)
     {
+        if (MetastoreUtil.isPrestoMaterializedView(table)) {
+            return getWriterParametersForOverwritePartition(partitionName);
+        }
+
         switch (insertExistingPartitionsBehavior) {
             case APPEND:
                 return getWriterParametersForAppendPartition(partitionName, bucketNumber);
