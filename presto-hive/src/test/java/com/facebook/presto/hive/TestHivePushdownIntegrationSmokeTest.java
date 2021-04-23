@@ -26,6 +26,7 @@ import static com.facebook.presto.hive.HiveQueryRunner.createMaterializeExchange
 import static com.facebook.presto.spi.security.SelectedRole.Type.ROLE;
 import static io.airlift.tpch.TpchTable.CUSTOMER;
 import static io.airlift.tpch.TpchTable.LINE_ITEM;
+import static io.airlift.tpch.TpchTable.NATION;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static io.airlift.tpch.TpchTable.PART_SUPPLIER;
 
@@ -45,7 +46,7 @@ public class TestHivePushdownIntegrationSmokeTest
             throws Exception
     {
         return HiveQueryRunner.createQueryRunner(
-                ImmutableList.of(ORDERS, CUSTOMER, LINE_ITEM, PART_SUPPLIER),
+                ImmutableList.of(ORDERS, CUSTOMER, LINE_ITEM, PART_SUPPLIER, NATION),
                 ImmutableMap.of("experimental.pushdown-subfields-enabled", "true",
                         "experimental.pushdown-dereference-enabled", "true"),
                 "sql-standard",
