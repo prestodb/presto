@@ -35,6 +35,7 @@ public final class ConnectorMaterializedViewDefinition
     private final List<SchemaTableName> baseTables;
     private final Optional<String> owner;
     private final List<ColumnMapping> columnMappings;
+    private final Optional<List<String>> validRefreshColumns;
 
     @JsonCreator
     public ConnectorMaterializedViewDefinition(
@@ -43,7 +44,8 @@ public final class ConnectorMaterializedViewDefinition
             @JsonProperty("table") String table,
             @JsonProperty("baseTables") List<SchemaTableName> baseTables,
             @JsonProperty("owner") Optional<String> owner,
-            @JsonProperty("columnMapping") List<ColumnMapping> columnMappings)
+            @JsonProperty("columnMapping") List<ColumnMapping> columnMappings,
+            @JsonProperty("validRefreshColumns") Optional<List<String>> validRefreshColumns)
     {
         this.originalSql = requireNonNull(originalSql, "originalSql is null");
         this.schema = requireNonNull(schema, "schema is null");
@@ -51,6 +53,7 @@ public final class ConnectorMaterializedViewDefinition
         this.baseTables = unmodifiableList(new ArrayList<>(requireNonNull(baseTables, "baseTables is null")));
         this.owner = requireNonNull(owner, "owner is null");
         this.columnMappings = unmodifiableList(new ArrayList<>(requireNonNull(columnMappings, "columnMappings is null")));
+        this.validRefreshColumns = requireNonNull(validRefreshColumns, "validRefreshColumns is null").map(columns -> unmodifiableList(new ArrayList<>(columns)));
     }
 
     @JsonIgnore
@@ -60,9 +63,17 @@ public final class ConnectorMaterializedViewDefinition
             String table,
             List<SchemaTableName> baseTables,
             Optional<String> owner,
-            Map<String, Map<SchemaTableName, String>> originalColumnMapping)
+            Map<String, Map<SchemaTableName, String>> originalColumnMapping,
+            Optional<List<String>> validRefreshColumns)
     {
-        this(originalSql, schema, table, baseTables, owner, convertFromMapToColumnMappings(requireNonNull(originalColumnMapping, "originalColumnMapping is null"), new SchemaTableName(schema, table)));
+        this(
+                originalSql,
+                schema,
+                table,
+                baseTables,
+                owner,
+                convertFromMapToColumnMappings(requireNonNull(originalColumnMapping, "originalColumnMapping is null"), new SchemaTableName(schema, table)),
+                validRefreshColumns);
     }
 
     @JsonProperty
@@ -101,6 +112,12 @@ public final class ConnectorMaterializedViewDefinition
         return columnMappings;
     }
 
+    @JsonProperty
+    public Optional<List<String>> getValidRefreshColumns()
+    {
+        return validRefreshColumns;
+    }
+
     @Override
     public String toString()
     {
@@ -111,6 +128,7 @@ public final class ConnectorMaterializedViewDefinition
         sb.append(",baseTables=").append(baseTables);
         sb.append(",owner=").append(owner.orElse(null));
         sb.append(",columnMappings=").append(columnMappings);
+        sb.append(",validRefreshColumns=").append(validRefreshColumns.orElse(null));
         sb.append("}");
         return sb.toString();
     }

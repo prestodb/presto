@@ -2365,6 +2365,15 @@ public class HiveMetadata
         }
 
         Table basicTable = prepareTable(session, viewMetadata, MATERIALIZED_VIEW);
+        viewDefinition = new ConnectorMaterializedViewDefinition(
+                viewDefinition.getOriginalSql(),
+                viewDefinition.getSchema(),
+                viewDefinition.getTable(),
+                viewDefinition.getBaseTables(),
+                viewDefinition.getOwner(),
+                viewDefinition.getColumnMappings(),
+                Optional.of(getPartitionedBy(viewMetadata.getProperties())));
+
         Map<String, String> parameters = ImmutableMap.<String, String>builder()
                 .putAll(basicTable.getParameters())
                 .put(PRESTO_MATERIALIZED_VIEW_FLAG, "true")

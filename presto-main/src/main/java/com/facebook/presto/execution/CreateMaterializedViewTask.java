@@ -133,7 +133,8 @@ public class CreateMaterializedViewTask
                 viewName.getObjectName(),
                 baseTables,
                 Optional.of(session.getUser()),
-                analysis.getOriginalColumnMapping(statement.getQuery()));
+                analysis.getOriginalColumnMapping(statement.getQuery()),
+                Optional.empty());
         try {
             metadata.createMaterializedView(session, viewName.getCatalogName(), viewMetadata, viewDefinition, statement.isNotExists());
         }
