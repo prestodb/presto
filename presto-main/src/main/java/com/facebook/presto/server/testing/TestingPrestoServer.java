@@ -169,12 +169,12 @@ public class TestingPrestoServer
         private final CountDownLatch shutdownCalled = new CountDownLatch(1);
 
         @GuardedBy("this")
-        private boolean isWorkerShutdown;
+        private boolean isShutdown;
 
         @Override
         public synchronized void onShutdown()
         {
-            isWorkerShutdown = true;
+            isShutdown = true;
             shutdownCalled.countDown();
         }
 
@@ -184,9 +184,9 @@ public class TestingPrestoServer
             shutdownCalled.await(millis, MILLISECONDS);
         }
 
-        public synchronized boolean isWorkerShutdown()
+        public synchronized boolean isShutdown()
         {
-            return isWorkerShutdown;
+            return isShutdown;
         }
     }
 
