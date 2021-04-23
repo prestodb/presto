@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.airlift.log.Logger;
 import com.facebook.presto.hive.LocationHandle.TableType;
 import com.facebook.presto.hive.LocationHandle.WriteMode;
 import com.facebook.presto.hive.metastore.Partition;
@@ -46,8 +45,6 @@ import static java.util.UUID.randomUUID;
 public class HiveLocationService
         implements LocationService
 {
-    private static final Logger LOGGER = Logger.get(HiveLocationService.class);
-
     private final HdfsEnvironment hdfsEnvironment;
 
     @Inject
