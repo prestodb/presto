@@ -103,6 +103,7 @@ import static com.facebook.presto.spi.plan.LimitNode.Step.FINAL;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateName;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertReference;
+import static com.facebook.presto.sql.planner.plan.TableWriterNode.RefreshMaterializedViewReference;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
@@ -354,8 +355,9 @@ public class LogicalPlanner
 
         TableHandle tableHandle = viewAnalysis.getTarget();
         List<ColumnHandle> columnHandles = viewAnalysis.getColumns();
+        WriterTarget target = new RefreshMaterializedViewReference(tableHandle, metadata.getTableMetadata(session, tableHandle).getTable());
 
-        return buildInternalInsertPlan(tableHandle, columnHandles, viewAnalysis.getQuery(), analysis);
+        return buildInternalInsertPlan(tableHandle, columnHandles, viewAnalysis.getQuery(), analysis, target);
     }
 
     private RelationPlan createInsertPlan(Analysis analysis, Insert insertStatement)
@@ -364,15 +366,17 @@ public class LogicalPlanner
 
         TableHandle tableHandle = insertAnalysis.getTarget();
         List<ColumnHandle> columnHandles = insertAnalysis.getColumns();
+        WriterTarget target = new InsertReference(tableHandle, metadata.getTableMetadata(session, tableHandle).getTable());
 
-        return buildInternalInsertPlan(tableHandle, columnHandles, insertStatement.getQuery(), analysis);
+        return buildInternalInsertPlan(tableHandle, columnHandles, insertStatement.getQuery(), analysis, target);
     }
 
     private RelationPlan buildInternalInsertPlan(
             TableHandle tableHandle,
             List<ColumnHandle> columnHandles,
             Query query,
-            Analysis analysis)
+            Analysis analysis,
+            WriterTarget target)
     {
         TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
 
@@ -429,7 +433,7 @@ public class LogicalPlanner
         return createTableWriterPlan(
                 analysis,
                 plan,
-                new InsertReference(tableHandle, metadata.getTableMetadata(session, tableHandle).getTable()),
+                target,
                 visibleTableColumnNames,
                 visibleTableColumns,
                 newTableLayout,
