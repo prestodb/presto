@@ -573,6 +573,15 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
+    protected R visitRefreshMaterializedView(RefreshMaterializedView node, C context)
+    {
+        process(node.getTarget(), context);
+        process(node.getWhere(), context);
+
+        return null;
+    }
+
+    @Override
     protected R visitSetSession(SetSession node, C context)
     {
         process(node.getValue(), context);

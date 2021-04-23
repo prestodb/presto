@@ -100,6 +100,7 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
+import com.facebook.presto.sql.tree.RefreshMaterializedView;
 import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameSchema;
 import com.facebook.presto.sql.tree.RenameTable;
@@ -1375,6 +1376,21 @@ public class TestSqlParser
         assertStatement("DROP MATERIALIZED VIEW IF EXISTS a", new DropMaterializedView(Optional.empty(), QualifiedName.of("a"), true));
         assertStatement("DROP MATERIALIZED VIEW IF EXISTS a.b", new DropMaterializedView(Optional.empty(), QualifiedName.of("a", "b"), true));
         assertStatement("DROP MATERIALIZED VIEW IF EXISTS a.b.c", new DropMaterializedView(Optional.empty(), QualifiedName.of("a", "b", "c"), true));
+    }
+
+    @Test
+    public void testRefreshMaterializedView()
+    {
+        assertStatement(
+                "REFRESH MATERIALIZED VIEW a WHERE p = 'x'",
+                new RefreshMaterializedView(
+                        table(QualifiedName.of("a")),
+                        new ComparisonExpression(ComparisonExpression.Operator.EQUAL, new Identifier("p"), new StringLiteral("x"))));
+        assertStatement(
+                "REFRESH MATERIALIZED VIEW a.b WHERE p = 'x'",
+                new RefreshMaterializedView(
+                        table(QualifiedName.of("a", "b")),
+                        new ComparisonExpression(ComparisonExpression.Operator.EQUAL, new Identifier("p"), new StringLiteral("x"))));
     }
 
     @Test
