@@ -62,6 +62,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Injector;
+import com.google.inject.Key;
 import io.airlift.tpch.TpchTable;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
@@ -73,6 +74,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -126,6 +128,7 @@ public class PrestoSparkQueryRunner
     private final StatsCalculator statsCalculator;
     private final PluginManager pluginManager;
     private final ConnectorManager connectorManager;
+    private final Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics;
 
     private final LifeCycleManager lifeCycleManager;
 
@@ -236,6 +239,7 @@ public class PrestoSparkQueryRunner
         statsCalculator = injector.getInstance(StatsCalculator.class);
         pluginManager = injector.getInstance(PluginManager.class);
         connectorManager = injector.getInstance(ConnectorManager.class);
+        waitTimeMetrics = injector.getInstance(new Key<Set<PrestoSparkServiceWaitTimeMetrics>>() {});
 
         lifeCycleManager = injector.getInstance(LifeCycleManager.class);
 
@@ -471,6 +475,11 @@ public class PrestoSparkQueryRunner
     public FileHiveMetastore getMetastore()
     {
         return metastore;
+    }
+
+    public Set<PrestoSparkServiceWaitTimeMetrics> getWaitTimeMetrics()
+    {
+        return waitTimeMetrics;
     }
 
     @Override

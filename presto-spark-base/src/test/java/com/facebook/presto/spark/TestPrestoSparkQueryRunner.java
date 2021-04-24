@@ -20,9 +20,11 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.PARTIAL_MERGE_PUSHDOWN_STRATEGY;
@@ -34,6 +36,7 @@ import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.airlift.tpch.TpchTable.NATION;
 import static java.lang.String.format;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPrestoSparkQueryRunner
@@ -785,6 +788,22 @@ public class TestPrestoSparkQueryRunner
                 .setSystemProperty("query_max_execution_time", "2s")
                 .build();
         assertQueryFails(queryMaxExecutionTimeLimitSession, longRunningCrossJoin, "Query exceeded maximum time limit of 2.00s");
+
+        // Test whether waitTime is being considered while computing timeouts.
+        // Expected run time for this query is ~30s. We will set `dummyServiceWaitTime` as 600s.
+        // The timeout logic will set the timeout for the query as 605s (Actual timeout + waitTime)
+        // and the query should succeed. This is a bit hacky way to check whether service waitTime
+        // is added to the deadline time while submitting jobs
+        Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics = ((PrestoSparkQueryRunner) getQueryRunner()).getWaitTimeMetrics();
+        PrestoSparkTestingServiceWaitTimeMetrics testingServiceWaitTimeMetrics = (PrestoSparkTestingServiceWaitTimeMetrics) waitTimeMetrics.stream()
+                .filter(metric -> metric instanceof PrestoSparkTestingServiceWaitTimeMetrics)
+                .findFirst().get();
+        testingServiceWaitTimeMetrics.setWaitTime(new Duration(600, SECONDS));
+        queryMaxRunTimeLimitSession = Session.builder(getSession())
+                .setSystemProperty("query_max_execution_time", "5s")
+                .build();
+        assertQuerySucceeds(queryMaxRunTimeLimitSession, longRunningCrossJoin);
+        testingServiceWaitTimeMetrics.setWaitTime(new Duration(0, SECONDS));
     }
 
     @Test
