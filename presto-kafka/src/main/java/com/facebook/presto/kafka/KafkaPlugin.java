@@ -27,11 +27,12 @@ import static java.util.Objects.requireNonNull;
 public class KafkaPlugin
         implements Plugin
 {
+    public static final Module DEFAULT_EXTENSION = Modules.EMPTY_MODULE;
     private final Module extension;
 
     public KafkaPlugin()
     {
-        this(Modules.EMPTY_MODULE);
+        this(DEFAULT_EXTENSION);
     }
 
     public KafkaPlugin(Module extension)

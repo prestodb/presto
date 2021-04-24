@@ -13,34 +13,56 @@
  */
 package com.facebook.presto.kafka;
 
-import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static java.util.Objects.requireNonNull;
+import static java.lang.Math.min;
 
-public class KafkaTableLayoutHandle
-        implements ConnectorTableLayoutHandle
+public class Range
 {
-    private final KafkaTableHandle table;
+    private final long begin; // inclusive
+    private final long end; // exclusive
 
     @JsonCreator
-    public KafkaTableLayoutHandle(@JsonProperty("table") KafkaTableHandle table)
+    public Range(@JsonProperty long begin, @JsonProperty long end)
     {
-        this.table = requireNonNull(table, "table is null");
+        this.begin = begin;
+        this.end = end;
     }
 
     @JsonProperty
-    public KafkaTableHandle getTable()
+    public long getBegin()
     {
-        return table;
+        return begin;
+    }
+
+    @JsonProperty
+    public long getEnd()
+    {
+        return end;
+    }
+
+    public List<Range> partition(int partitionSize)
+    {
+        ImmutableList.Builder<Range> partitions = ImmutableList.builder();
+        long position = begin;
+        while (position <= end) {
+            partitions.add(new Range(position, min(position + partitionSize, end)));
+            position += partitionSize;
+        }
+        return partitions.build();
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("table", table.toString()).toString();
+                .add("begin", begin)
+                .add("end", end)
+                .toString();
     }
 }

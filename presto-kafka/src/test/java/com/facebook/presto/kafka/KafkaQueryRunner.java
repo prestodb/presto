@@ -16,8 +16,14 @@ package com.facebook.presto.kafka;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.log.Logging;
-import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.decoder.DecoderModule;
+import com.facebook.presto.kafka.encoder.EncoderModule;
+import com.facebook.presto.kafka.schema.MapBasedTableDescriptionSupplier;
+import com.facebook.presto.kafka.schema.TableDescriptionSupplier;
+import com.facebook.presto.kafka.server.KafkaClusterMetadataSupplier;
+import com.facebook.presto.kafka.server.file.FileKafkaClusterMetadataSupplier;
+import com.facebook.presto.kafka.server.file.FileKafkaClusterMetadataSupplierConfig;
 import com.facebook.presto.kafka.util.CodecSupplier;
 import com.facebook.presto.kafka.util.EmbeddedKafka;
 import com.facebook.presto.kafka.util.TestUtils;
@@ -28,22 +34,25 @@ import com.facebook.presto.tests.TestingPrestoClient;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Module;
 import io.airlift.tpch.TpchTable;
 
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.airlift.testing.Closeables.closeAllSuppress;
-import static com.facebook.presto.kafka.util.TestUtils.installKafkaPlugin;
+import static com.facebook.airlift.configuration.ConditionalModule.installModuleIf;
+import static com.facebook.presto.kafka.ConfigurationAwareModules.combine;
 import static com.facebook.presto.kafka.util.TestUtils.loadTpchTopicDescription;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static com.google.common.io.ByteStreams.toByteArray;
 import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public final class KafkaQueryRunner
@@ -54,47 +63,104 @@ public final class KafkaQueryRunner
 
     private static final Logger log = Logger.get("TestQueries");
     private static final String TPCH_SCHEMA = "tpch";
+    private static final String TEST = "test";
 
-    public static DistributedQueryRunner createKafkaQueryRunner(EmbeddedKafka embeddedKafka, TpchTable<?>... tables)
-            throws Exception
+    public static Builder builder(EmbeddedKafka embeddedKafka)
     {
-        return createKafkaQueryRunner(embeddedKafka, ImmutableList.copyOf(tables));
+        return new Builder(embeddedKafka);
     }
 
-    public static DistributedQueryRunner createKafkaQueryRunner(EmbeddedKafka embeddedKafka, Iterable<TpchTable<?>> tables)
-            throws Exception
+    public static class Builder
+            extends KafkaQueryRunnerBuilder
     {
-        DistributedQueryRunner queryRunner = null;
-        try {
-            queryRunner = new DistributedQueryRunner(createSession(), 2);
+        private List<TpchTable<?>> tables = ImmutableList.of();
+        private Map<SchemaTableName, KafkaTopicDescription> extraTopicDescription = ImmutableMap.of();
 
+        protected Builder(EmbeddedKafka embeddedKafka)
+        {
+            super(embeddedKafka, TPCH_SCHEMA);
+        }
+
+        public Builder setTables(Iterable<TpchTable<?>> tables)
+        {
+            this.tables = ImmutableList.copyOf(requireNonNull(tables, "tables is null"));
+            return this;
+        }
+
+        public Builder setExtraTopicDescription(Map<SchemaTableName, KafkaTopicDescription> extraTopicDescription)
+        {
+            this.extraTopicDescription = ImmutableMap.copyOf(requireNonNull(extraTopicDescription, "extraTopicDescription is null"));
+            return this;
+        }
+
+        @Override
+        public Builder setExtension(Module extension)
+        {
+            this.extension = requireNonNull(extension, "extension is null");
+            return this;
+        }
+
+        @Override
+        public void preInit(DistributedQueryRunner queryRunner)
+                throws Exception
+        {
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
-            embeddedKafka.start();
+            List<SchemaTableName> tableNames = new ArrayList<>();
+            tableNames.add(new SchemaTableName("read_test", "all_datatypes_json"));
+            tableNames.add(new SchemaTableName("write_test", "all_datatypes_avro"));
+            tableNames.add(new SchemaTableName("write_test", "all_datatypes_csv"));
+
+            JsonCodec<KafkaTopicDescription> topicDescriptionJsonCodec = new CodecSupplier<>(KafkaTopicDescription.class, queryRunner.getMetadata()).get();
+
+            ImmutableMap.Builder<SchemaTableName, KafkaTopicDescription> testTopicDescriptions = ImmutableMap.builder();
+            for (SchemaTableName tableName : tableNames) {
+                embeddedKafka.createTopics(String.format("%s.%s", tableName.getSchemaName(), tableName.getTableName()));
+                testTopicDescriptions.put(tableName, createTable(tableName, topicDescriptionJsonCodec));
+            }
 
             for (TpchTable<?> table : tables) {
                 embeddedKafka.createTopics(kafkaTopicName(table));
             }
+            Map<SchemaTableName, KafkaTopicDescription> tpchTopicDescriptions = createTpchTopicDescriptions(queryRunner.getCoordinator().getMetadata(), tables);
 
-            Map<SchemaTableName, KafkaTopicDescription> topicDescriptions = createTpchTopicDescriptions(queryRunner.getCoordinator().getMetadata(), tables, embeddedKafka);
+            FileKafkaClusterMetadataSupplierConfig clusterMetadataSupplierConfig = new FileKafkaClusterMetadataSupplierConfig();
+            clusterMetadataSupplierConfig.setNodes(embeddedKafka.getConnectString());
+            Map<SchemaTableName, KafkaTopicDescription> topicDescriptions = ImmutableMap.<SchemaTableName, KafkaTopicDescription>builder()
+                    .putAll(extraTopicDescription)
+                    .putAll(tpchTopicDescriptions)
+                    .putAll(testTopicDescriptions.build())
+                    .build();
+            setExtension(combine(
+                    installModuleIf(
+                            KafkaConnectorConfig.class,
+                            kafkaConfig -> kafkaConfig.getTableDescriptionSupplier().equalsIgnoreCase(TEST),
+                            binder -> binder.bind(TableDescriptionSupplier.class)
+                                    .toInstance(new MapBasedTableDescriptionSupplier(topicDescriptions))),
+                    installModuleIf(
+                            KafkaConnectorConfig.class,
+                            kafkaConfig -> kafkaConfig.getClusterMetadataSupplier().equalsIgnoreCase(TEST),
+                            binder -> binder.bind(KafkaClusterMetadataSupplier.class)
+                                    .toInstance(new FileKafkaClusterMetadataSupplier(clusterMetadataSupplierConfig))),
+                    new DecoderModule(),
+                    new EncoderModule()));
+            Map<String, String> properties = new HashMap<>(extraKafkaProperties);
+            properties.putIfAbsent("kafka.table-description-supplier", TEST);
+            setExtraKafkaProperties(properties);
+        }
 
-            installKafkaPlugin(embeddedKafka, queryRunner, topicDescriptions);
-
-            TestingPrestoClient prestoClient = queryRunner.getRandomClient();
-
+        @Override
+        public void postInit(DistributedQueryRunner queryRunner)
+        {
             log.info("Loading data...");
             long startTime = System.nanoTime();
             for (TpchTable<?> table : tables) {
-                loadTpchTopic(embeddedKafka, prestoClient, table);
+                long start = System.nanoTime();
+                loadTpchTopic(embeddedKafka, queryRunner.getRandomClient(), table);
+                log.info("Imported %s in %s", 0, table.getTableName(), nanosSince(start).convertToMostSuccinctTimeUnit());
             }
             log.info("Loading complete in %s", nanosSince(startTime).toString(SECONDS));
-
-            return queryRunner;
-        }
-        catch (Throwable e) {
-            closeAllSuppress(e, queryRunner, embeddedKafka);
-            throw e;
         }
     }
 
@@ -111,7 +177,7 @@ public final class KafkaQueryRunner
         return TPCH_SCHEMA + "." + table.getTableName().toLowerCase(ENGLISH);
     }
 
-    private static Map<SchemaTableName, KafkaTopicDescription> createTpchTopicDescriptions(Metadata metadata, Iterable<TpchTable<?>> tables, EmbeddedKafka embeddedKafka)
+    private static Map<SchemaTableName, KafkaTopicDescription> createTpchTopicDescriptions(Metadata metadata, Iterable<TpchTable<?>> tables)
             throws Exception
     {
         JsonCodec<KafkaTopicDescription> topicDescriptionJsonCodec = new CodecSupplier<>(KafkaTopicDescription.class, metadata).get();
@@ -120,60 +186,44 @@ public final class KafkaQueryRunner
         for (TpchTable<?> table : tables) {
             String tableName = table.getTableName();
             SchemaTableName tpchTable = new SchemaTableName(TPCH_SCHEMA, tableName);
-
             topicDescriptions.put(loadTpchTopicDescription(topicDescriptionJsonCodec, tpchTable.toString(), tpchTable));
         }
 
-        List<String> tableNames = new ArrayList<>(4);
-        tableNames.add("all_datatypes_avro");
-        tableNames.add("all_datatypes_csv");
-        tableNames.add("all_datatypes_json");
-
-        JsonCodec<KafkaTopicDescription> testDescriptionJsonCodec = new CodecSupplier<>(KafkaTopicDescription.class, metadata).get();
-
-        ImmutableMap.Builder<SchemaTableName, KafkaTopicDescription> testTopicDescriptions = ImmutableMap.builder();
-        for (String tableName : tableNames) {
-            embeddedKafka.createTopics("write_test." + tableName);
-            SchemaTableName table = new SchemaTableName("write_test", tableName);
-            KafkaTopicDescription tableTemplate = testDescriptionJsonCodec.fromJson(toByteArray(KafkaQueryRunner.class.getResourceAsStream(format("/write_test/%s.json", tableName))));
-
-            Optional<KafkaTopicFieldGroup> key = tableTemplate.getKey()
-                    .map(keyTemplate -> new KafkaTopicFieldGroup(
-                            keyTemplate.getDataFormat(),
-                            keyTemplate.getDataSchema().map(schema -> KafkaQueryRunner.class.getResource(schema).getPath()),
-                            keyTemplate.getFields()));
-
-            Optional<KafkaTopicFieldGroup> message = tableTemplate.getMessage()
-                    .map(keyTemplate -> new KafkaTopicFieldGroup(
-                            keyTemplate.getDataFormat(),
-                            keyTemplate.getDataSchema().map(schema -> KafkaQueryRunner.class.getResource(schema).getPath()),
-                            keyTemplate.getFields()));
-
-            testTopicDescriptions.put(table,
-                    new KafkaTopicDescription(table.getTableName(),
-                            Optional.of(table.getSchemaName()),
-                            table.toString(),
-                            key,
-                            message));
-        }
-
-        topicDescriptions.putAll(testTopicDescriptions.build());
         return topicDescriptions.build();
     }
 
-    public static Session createSession()
+    private static KafkaTopicDescription createTable(SchemaTableName table, JsonCodec<KafkaTopicDescription> topicDescriptionJsonCodec)
+            throws IOException
     {
-        return testSessionBuilder()
-                .setCatalog("kafka")
-                .setSchema(TPCH_SCHEMA)
-                .build();
+        String fileName = format("/%s/%s.json", table.getSchemaName(), table.getTableName());
+        KafkaTopicDescription tableTemplate = topicDescriptionJsonCodec.fromJson(toByteArray(KafkaQueryRunner.class.getResourceAsStream(fileName)));
+        Optional<KafkaTopicFieldGroup> key = tableTemplate.getKey()
+                .map(keyTemplate -> new KafkaTopicFieldGroup(
+                        keyTemplate.getDataFormat(),
+                        keyTemplate.getDataSchema().map(schema -> KafkaQueryRunner.class.getResource(schema).getPath()),
+                        keyTemplate.getFields()));
+
+        Optional<KafkaTopicFieldGroup> message = tableTemplate.getMessage()
+                .map(keyTemplate -> new KafkaTopicFieldGroup(
+                        keyTemplate.getDataFormat(),
+                        keyTemplate.getDataSchema().map(schema -> KafkaQueryRunner.class.getResource(schema).getPath()),
+                        keyTemplate.getFields()));
+
+        return new KafkaTopicDescription(
+                table.getTableName(),
+                Optional.of(table.getSchemaName()),
+                table.toString(),
+                key,
+                message);
     }
 
     public static void main(String[] args)
             throws Exception
     {
         Logging.initialize();
-        DistributedQueryRunner queryRunner = createKafkaQueryRunner(EmbeddedKafka.createEmbeddedKafka(), TpchTable.getTables());
+        DistributedQueryRunner queryRunner = builder(EmbeddedKafka.createEmbeddedKafka())
+                .setTables(TpchTable.getTables())
+                .build();
         Thread.sleep(10);
         Logger log = Logger.get(KafkaQueryRunner.class);
         log.info("======== SERVER STARTED ========");

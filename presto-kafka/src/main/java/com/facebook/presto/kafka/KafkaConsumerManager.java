@@ -17,11 +17,10 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.common.serialization.ByteBufferDeserializer;
+import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 
 import javax.inject.Inject;
 
-import java.nio.ByteBuffer;
 import java.util.Properties;
 
 import static java.util.Objects.requireNonNull;
@@ -29,8 +28,10 @@ import static org.apache.kafka.clients.consumer.ConsumerConfig.BOOTSTRAP_SERVERS
 import static org.apache.kafka.clients.consumer.ConsumerConfig.CLIENT_ID_CONFIG;
 import static org.apache.kafka.clients.consumer.ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG;
 import static org.apache.kafka.clients.consumer.ConsumerConfig.GROUP_ID_CONFIG;
+import static org.apache.kafka.clients.consumer.ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG;
 import static org.apache.kafka.clients.consumer.ConsumerConfig.MAX_PARTITION_FETCH_BYTES_CONFIG;
 import static org.apache.kafka.clients.consumer.ConsumerConfig.MAX_POLL_RECORDS_CONFIG;
+import static org.apache.kafka.clients.consumer.ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG;
 
 /**
  * Manages connections to the Kafka nodes. A worker may connect to multiple Kafka nodes depending on partitions
@@ -45,12 +46,12 @@ public class KafkaConsumerManager
     @Inject
     public KafkaConsumerManager(KafkaConnectorConfig kafkaConnectorConfig)
     {
-        requireNonNull(kafkaConnectorConfig, "kafkaConfig is null");
+        requireNonNull(kafkaConnectorConfig, "kafkaConnectorConfig is null");
         this.maxPartitionFetchBytes = kafkaConnectorConfig.getMaxPartitionFetchBytes();
         this.maxPollRecords = kafkaConnectorConfig.getMaxPollRecords();
     }
 
-    KafkaConsumer<ByteBuffer, ByteBuffer> createConsumer(String threadName, HostAddress hostAddress)
+    KafkaConsumer<byte[], byte[]> createConsumer(String threadName, HostAddress hostAddress)
     {
         final Properties properties = new Properties();
         properties.put(BOOTSTRAP_SERVERS_CONFIG, hostAddress.toString());
@@ -59,10 +60,12 @@ public class KafkaConsumerManager
         properties.put(MAX_PARTITION_FETCH_BYTES_CONFIG, maxPartitionFetchBytes);
         properties.put(CLIENT_ID_CONFIG, String.format("%s-%s", threadName, hostAddress.toString()));
         properties.put(ENABLE_AUTO_COMMIT_CONFIG, false);
+        properties.put(KEY_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
+        properties.setProperty(VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(KafkaPlugin.class.getClassLoader())) {
             log.debug("Creating KafkaConsumer for thread %s broker %s", threadName, hostAddress.toString());
-            return new KafkaConsumer<>(properties, new ByteBufferDeserializer(), new ByteBufferDeserializer());
+            return new KafkaConsumer<>(properties);
         }
     }
 }

@@ -32,7 +32,9 @@ public class TestKafkaConnectorConfig
                 .setTableDescriptionSupplier(FileTableDescriptionSupplier.NAME)
                 .setHideInternalColumns(true)
                 .setMaxPartitionFetchBytes(1048576)
-                .setMaxPollRecords(500));
+                .setMaxPollRecords(500)
+                .setMessagesPerSplit(100000)
+                .setTimestampUpperBoundPushDownEnabled(false));
     }
 
     @Test
@@ -46,6 +48,8 @@ public class TestKafkaConnectorConfig
                 .put("kafka.hide-internal-columns", "false")
                 .put("kafka.max-partition-fetch-bytes", "1024")
                 .put("kafka.max-poll-records", "1000")
+                .put("kafka.messages-per-split", "1")
+                .put("kafka.timestamp-upper-bound-force-push-down-enabled", "true")
                 .build();
 
         KafkaConnectorConfig expected = new KafkaConnectorConfig()
@@ -55,7 +59,9 @@ public class TestKafkaConnectorConfig
                 .setKafkaConnectTimeout("1h")
                 .setHideInternalColumns(false)
                 .setMaxPartitionFetchBytes(1024)
-                .setMaxPollRecords(1000);
+                .setMaxPollRecords(1000)
+                .setMessagesPerSplit(1)
+                .setTimestampUpperBoundPushDownEnabled(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

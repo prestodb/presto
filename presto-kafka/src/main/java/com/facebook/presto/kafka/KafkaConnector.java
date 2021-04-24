@@ -21,9 +21,12 @@ import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 
 import javax.inject.Inject;
+
+import java.util.List;
 
 import static com.facebook.presto.spi.transaction.IsolationLevel.READ_COMMITTED;
 import static com.facebook.presto.spi.transaction.IsolationLevel.checkConnectorSupports;
@@ -42,6 +45,7 @@ public class KafkaConnector
     private final KafkaSplitManager splitManager;
     private final KafkaRecordSetProvider recordSetProvider;
     private final KafkaPageSinkProvider pageSinkProvider;
+    private final KafkaSessionProperties sessionProperties;
 
     @Inject
     public KafkaConnector(
@@ -49,13 +53,15 @@ public class KafkaConnector
             KafkaMetadata metadata,
             KafkaSplitManager splitManager,
             KafkaRecordSetProvider recordSetProvider,
-            KafkaPageSinkProvider pageSinkProvider)
+            KafkaPageSinkProvider pageSinkProvider,
+            KafkaSessionProperties sessionProperties)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
+        this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null");
     }
 
     @Override
@@ -87,6 +93,12 @@ public class KafkaConnector
     public ConnectorPageSinkProvider getPageSinkProvider()
     {
         return pageSinkProvider;
+    }
+
+    @Override
+    public List<PropertyMetadata<?>> getSessionProperties()
+    {
+        return sessionProperties.getSessionProperties();
     }
 
     @Override

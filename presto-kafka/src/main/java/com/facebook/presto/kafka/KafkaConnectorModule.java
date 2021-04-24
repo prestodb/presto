@@ -54,8 +54,9 @@ public class KafkaConnectorModule
         binder.bind(KafkaSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(KafkaRecordSetProvider.class).in(Scopes.SINGLETON);
         binder.bind(KafkaPageSinkProvider.class).in(Scopes.SINGLETON);
-
+        binder.bind(KafkaSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(KafkaConsumerManager.class).in(Scopes.SINGLETON);
+        binder.bind(KafkaAdminManager.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(KafkaConnectorConfig.class);
         bindTopicSchemaProviderModule(FileTableDescriptionSupplier.NAME, new FileTableDescriptionSupplierModule(), KafkaConnectorConfig::getTableDescriptionSupplier);
         bindTopicSchemaProviderModule(FileKafkaClusterMetadataSupplier.NAME, new FileKafkaClusterMetadataSupplierModule(), KafkaConnectorConfig::getClusterMetadataSupplier);

@@ -25,11 +25,9 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.io.CharStreams;
+import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.clients.consumer.OffsetAndTimestamp;
-import org.apache.kafka.common.Node;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
 
@@ -42,14 +40,13 @@ import java.io.InputStreamReader;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
-import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.kafka.KafkaErrorCode.KAFKA_CONSUMER_ERROR;
 import static com.facebook.presto.kafka.KafkaErrorCode.KAFKA_SPLIT_ERROR;
 import static com.facebook.presto.kafka.KafkaHandleResolver.convertLayout;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
@@ -61,22 +58,23 @@ import static java.util.Objects.requireNonNull;
 public class KafkaSplitManager
         implements ConnectorSplitManager
 {
-    private final String connectorId;
     private final KafkaConsumerManager consumerManager;
     private final KafkaClusterMetadataSupplier clusterMetadataSupplier;
+    private final KafkaAdminManager adminManager;
+    private final int messagesPerSplit;
 
     @Inject
     public KafkaSplitManager(
-            KafkaConnectorId connectorId,
             KafkaConnectorConfig kafkaConnectorConfig,
             KafkaClusterMetadataSupplier clusterMetadataSupplier,
-            KafkaConsumerManager consumerManager)
+            KafkaConsumerManager consumerManager,
+            KafkaAdminManager adminManager)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.consumerManager = requireNonNull(consumerManager, "consumerManager is null");
-
         requireNonNull(kafkaConnectorConfig, "kafkaConfig is null");
         this.clusterMetadataSupplier = requireNonNull(clusterMetadataSupplier, "clusterMetadataSupplier is null");
+        this.messagesPerSplit = requireNonNull(kafkaConnectorConfig, "kafkaConnectorConfig is null").getMessagesPerSplit();
+        this.adminManager = requireNonNull(adminManager, "adminManager is null");
     }
 
     @Override
@@ -87,53 +85,45 @@ public class KafkaSplitManager
             SplitSchedulingContext splitSchedulingContext)
     {
         KafkaTableHandle kafkaTableHandle = convertLayout(layout).getTable();
+        KafkaConsumer<byte[], byte[]> kafkaConsumer = null;
+        AdminClient adminClient = null;
         try {
             String topic = kafkaTableHandle.getTopicName();
             KafkaTableLayoutHandle layoutHandle = (KafkaTableLayoutHandle) layout;
             HostAddress node = KafkaClusterMetadataHelper.selectRandom(clusterMetadataSupplier.getNodes(layoutHandle.getTable().getSchemaName()));
+            kafkaConsumer = consumerManager.createConsumer(Thread.currentThread().getName(), node);
+            adminClient = adminManager.createAdmin(node);
+            List<PartitionInfo> partitionInfos = kafkaConsumer.partitionsFor(topic);
+            List<TopicPartition> topicPartitions = partitionInfos.stream()
+                    .map(KafkaSplitManager::toTopicPartition)
+                    .collect(toImmutableList());
 
-            KafkaConsumer<ByteBuffer, ByteBuffer> consumer = consumerManager.createConsumer(Thread.currentThread().getName(), node);
-            List<PartitionInfo> partitions = consumer.partitionsFor(topic);
             ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
 
-            for (PartitionInfo partition : partitions) {
-                Node leader = partition.leader();
-                if (leader == null) {
-                    throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Leader election in progress for Kafka topic '%s' partition %s", topic, partition.partition()));
-                }
+            Map<TopicPartition, Long> partitionBeginOffsets = kafkaConsumer.beginningOffsets(topicPartitions);
+            Map<TopicPartition, Long> partitionEndOffsets = kafkaConsumer.endOffsets(topicPartitions);
+            KafkaFilterResult kafkaFilterResult = KafkaFilterManager.getKafkaFilterResult(kafkaConsumer, adminClient, session, kafkaTableHandle,
+                    partitionInfos, partitionBeginOffsets, partitionEndOffsets);
+            partitionInfos = kafkaFilterResult.getPartitionInfos();
+            partitionBeginOffsets = kafkaFilterResult.getPartitionBeginOffsets();
+            partitionEndOffsets = kafkaFilterResult.getPartitionEndOffsets();
 
-                HostAddress partitionLeader = HostAddress.fromParts(leader.host(), leader.port());
-                long startTimestamp = layoutHandle.getStartOffsetTimestamp();
-                long endTimestamp = layoutHandle.getEndOffsetTimestamp();
-
-                if (startTimestamp > endTimestamp) {
-                    throw new IllegalArgumentException(String.format("Invalid Kafka Offset start/end pair: %s - %s", startTimestamp, endTimestamp));
-                }
-
-                TopicPartition topicPartition = new TopicPartition(partition.topic(), partition.partition());
-                consumer.assign(ImmutableList.of(topicPartition));
-
-                long beginningOffset = (startTimestamp == 0) ?
-                        consumer.beginningOffsets(ImmutableList.of(topicPartition)).values().iterator().next() :
-                        findOffsetsByTimestamp(consumer, topicPartition, startTimestamp);
-                long endOffset = (endTimestamp == 0) ?
-                        consumer.endOffsets(ImmutableList.of(topicPartition)).values().iterator().next() :
-                        findOffsetsByTimestamp(consumer, topicPartition, endTimestamp);
-
-                KafkaSplit split = new KafkaSplit(
-                        connectorId,
-                        topic,
-                        kafkaTableHandle.getKeyDataFormat(),
-                        kafkaTableHandle.getMessageDataFormat(),
-                        kafkaTableHandle.getKeyDataSchemaLocation().map(KafkaSplitManager::readSchema),
-                        kafkaTableHandle.getMessageDataSchemaLocation().map(KafkaSplitManager::readSchema),
-                        partition.partition(),
-                        beginningOffset,
-                        endOffset,
-                        partitionLeader);
-                splits.add(split);
+            for (PartitionInfo partitionInfo : partitionInfos) {
+                TopicPartition topicPartition = toTopicPartition(partitionInfo);
+                HostAddress leader = HostAddress.fromParts(partitionInfo.leader().host(), partitionInfo.leader().port());
+                new Range(partitionBeginOffsets.get(topicPartition), partitionEndOffsets.get(topicPartition))
+                        .partition(messagesPerSplit).stream()
+                        .map(range -> new KafkaSplit(
+                                topic,
+                                kafkaTableHandle.getKeyDataFormat(),
+                                kafkaTableHandle.getMessageDataFormat(),
+                                kafkaTableHandle.getKeyDataSchemaLocation().map(KafkaSplitManager::readSchema),
+                                kafkaTableHandle.getMessageDataSchemaLocation().map(KafkaSplitManager::readSchema),
+                                partitionInfo.partition(),
+                                range,
+                                leader))
+                        .forEach(splits::add);
             }
-
             return new FixedSplitSource(splits.build());
         }
         catch (Exception e) { // Catch all exceptions because Kafka library is written in scala and checked exceptions are not declared in method signature.
@@ -142,20 +132,13 @@ public class KafkaSplitManager
             }
             throw new PrestoException(KAFKA_SPLIT_ERROR, format("Cannot list splits for table '%s' reading topic '%s'", kafkaTableHandle.getTableName(), kafkaTableHandle.getTopicName()), e);
         }
-    }
-
-    private static long findOffsetsByTimestamp(KafkaConsumer<ByteBuffer, ByteBuffer> consumer, TopicPartition topicPartition, long timestamp)
-    {
-        try {
-            Map<TopicPartition, OffsetAndTimestamp> topicPartitionOffsets = consumer.offsetsForTimes(ImmutableMap.of(topicPartition, timestamp));
-            if (topicPartitionOffsets == null || topicPartitionOffsets.values().size() == 0) {
-                return 0;
+        finally {
+            if (kafkaConsumer != null) {
+                kafkaConsumer.close();
             }
-            OffsetAndTimestamp offsetAndTimestamp = topicPartitionOffsets.values().iterator().next();
-            return offsetAndTimestamp.offset();
-        }
-        catch (IllegalArgumentException e) {
-            throw new PrestoException(KAFKA_CONSUMER_ERROR, String.format("Failed to find offset by timestamp: %d for partition %d", timestamp, topicPartition.partition()), e);
+            if (adminClient != null) {
+                adminClient.close();
+            }
         }
     }
 
@@ -205,5 +188,10 @@ public class KafkaSplitManager
             return false;
         }
         return true;
+    }
+
+    private static TopicPartition toTopicPartition(PartitionInfo partitionInfo)
+    {
+        return new TopicPartition(partitionInfo.topic(), partitionInfo.partition());
     }
 }

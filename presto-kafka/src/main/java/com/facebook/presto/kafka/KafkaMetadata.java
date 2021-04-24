@@ -13,9 +13,7 @@
  */
 package com.facebook.presto.kafka;
 
-import com.facebook.presto.common.predicate.Domain;
-import com.facebook.presto.common.predicate.Marker;
-import com.facebook.presto.common.predicate.Range;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.decoder.dummy.DummyRowDecoder;
 import com.facebook.presto.kafka.schema.TableDescriptionSupplier;
 import com.facebook.presto.spi.ColumnHandle;
@@ -101,7 +99,8 @@ public class KafkaMetadata
                         kafkaTopicDescription.getMessage().flatMap(KafkaTopicFieldGroup::getDataSchema),
                         getColumnHandles(schemaTableName).values().stream()
                                 .map(KafkaColumnHandle.class::cast)
-                                .collect(toImmutableList())))
+                                .collect(toImmutableList()),
+                        TupleDomain.all()))
                 .orElse(null);
     }
 
@@ -204,27 +203,12 @@ public class KafkaMetadata
     public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
         KafkaTableHandle handle = convertTableHandle(table);
-        long startTimestamp = 0;
-        long endTimestamp = 0;
-        Optional<Map<ColumnHandle, Domain>> domains = constraint.getSummary().getDomains();
-        if (domains.isPresent()) {
-            Map<ColumnHandle, Domain> columnHandleDomainMap = domains.get();
-            for (Map.Entry<ColumnHandle, Domain> entry : columnHandleDomainMap.entrySet()) {
-                if (entry.getKey() instanceof KafkaColumnHandle && ((KafkaColumnHandle) entry.getKey()).getName().equals(KafkaInternalFieldDescription.OFFSET_TIMESTAMP_FIELD.getColumnName())) {
-                    Range span = entry.getValue().getValues().getRanges().getSpan();
-                    Marker low = span.getLow();
-                    Marker high = span.getHigh();
-                    if (!low.isLowerUnbounded()) {
-                        startTimestamp = (long) low.getValue();
-                    }
-                    if (!high.isUpperUnbounded()) {
-                        endTimestamp = (long) high.getValue();
-                    }
-                }
-            }
-        }
+        TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
+        TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
 
-        ConnectorTableLayout layout = new ConnectorTableLayout(new KafkaTableLayoutHandle(handle, startTimestamp, endTimestamp));
+        handle.setConstraint(newDomain);
+
+        ConnectorTableLayout layout = new ConnectorTableLayout(new KafkaTableLayoutHandle(handle));
         return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
     }
 
@@ -283,7 +267,8 @@ public class KafkaMetadata
                 table.getMessageDataFormat(),
                 table.getKeyDataSchemaLocation(),
                 table.getMessageDataSchemaLocation(),
-                actualColumns);
+                actualColumns,
+                TupleDomain.none());
     }
 
     @Override

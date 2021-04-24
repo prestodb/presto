@@ -34,58 +34,34 @@ import static java.util.Objects.requireNonNull;
 public class KafkaSplit
         implements ConnectorSplit
 {
-    private final String connectorId;
     private final String topicName;
     private final String keyDataFormat;
     private final String messageDataFormat;
     private final Optional<String> keyDataSchemaContents;
     private final Optional<String> messageDataSchemaContents;
     private final int partitionId;
-    private final long start;
-    private final long end;
+    private final Range messagesRange;
     private final HostAddress leader;
 
     @JsonCreator
     public KafkaSplit(
-            @JsonProperty("connectorId") String connectorId,
             @JsonProperty("topicName") String topicName,
             @JsonProperty("keyDataFormat") String keyDataFormat,
             @JsonProperty("messageDataFormat") String messageDataFormat,
             @JsonProperty("keyDataSchemaContents") Optional<String> keyDataSchemaContents,
             @JsonProperty("messageDataSchemaContents") Optional<String> messageDataSchemaContents,
             @JsonProperty("partitionId") int partitionId,
-            @JsonProperty("start") long start,
-            @JsonProperty("end") long end,
+            @JsonProperty("messagesRange") Range messagesRange,
             @JsonProperty("leader") HostAddress leader)
     {
-        this.connectorId = requireNonNull(connectorId, "connector id is null");
         this.topicName = requireNonNull(topicName, "topicName is null");
         this.keyDataFormat = requireNonNull(keyDataFormat, "dataFormat is null");
         this.messageDataFormat = requireNonNull(messageDataFormat, "messageDataFormat is null");
         this.keyDataSchemaContents = keyDataSchemaContents;
         this.messageDataSchemaContents = messageDataSchemaContents;
         this.partitionId = partitionId;
-        this.start = start;
-        this.end = end;
+        this.messagesRange = requireNonNull(messagesRange, "messagesRange is null");
         this.leader = requireNonNull(leader, "leader address is null");
-    }
-
-    @JsonProperty
-    public String getConnectorId()
-    {
-        return connectorId;
-    }
-
-    @JsonProperty
-    public long getStart()
-    {
-        return start;
-    }
-
-    @JsonProperty
-    public long getEnd()
-    {
-        return end;
     }
 
     @JsonProperty
@@ -125,6 +101,12 @@ public class KafkaSplit
     }
 
     @JsonProperty
+    public Range getMessagesRange()
+    {
+        return messagesRange;
+    }
+
+    @JsonProperty
     public HostAddress getLeader()
     {
         return leader;
@@ -152,15 +134,13 @@ public class KafkaSplit
     public String toString()
     {
         return toStringHelper(this)
-                .add("connectorId", connectorId)
                 .add("topicName", topicName)
                 .add("keyDataFormat", keyDataFormat)
                 .add("messageDataFormat", messageDataFormat)
                 .add("keyDataSchemaContents", keyDataSchemaContents)
                 .add("messageDataSchemaContents", messageDataSchemaContents)
                 .add("partitionId", partitionId)
-                .add("start", start)
-                .add("end", end)
+                .add("messagesRange", messagesRange)
                 .add("leader", leader)
                 .toString();
     }

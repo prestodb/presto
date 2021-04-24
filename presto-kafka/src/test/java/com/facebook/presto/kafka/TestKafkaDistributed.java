@@ -14,15 +14,16 @@
 package com.facebook.presto.kafka;
 
 import com.facebook.presto.kafka.util.EmbeddedKafka;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueries;
+import com.facebook.presto.tests.DistributedQueryRunner;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.tpch.TpchTable;
+import java.io.IOException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
-
-import static com.facebook.presto.kafka.KafkaQueryRunner.createKafkaQueryRunner;
 import static com.facebook.presto.kafka.util.EmbeddedKafka.createEmbeddedKafka;
 
 @Test
@@ -36,7 +37,26 @@ public class TestKafkaDistributed
             throws Exception
     {
         this.embeddedKafka = createEmbeddedKafka();
-        return createKafkaQueryRunner(embeddedKafka, TpchTable.getTables());
+        return createKafkaQueryRunner(embeddedKafka);
+    }
+
+    public TestKafkaDistributed(EmbeddedKafka embeddedKafka)
+    {
+        this.embeddedKafka = embeddedKafka;
+    }
+
+    protected static DistributedQueryRunner createKafkaQueryRunner(EmbeddedKafka embeddedKafka)
+            throws Exception
+    {
+        DistributedQueryRunner queryRunner = KafkaQueryRunner.builder(embeddedKafka)
+                .setTables(TpchTable.getTables())
+                .setExtraTopicDescription(ImmutableMap.<SchemaTableName, KafkaTopicDescription>builder()
+                        .build())
+                .setExtraKafkaProperties(ImmutableMap.<String, String>builder()
+                        .put("kafka.messages-per-split", "100")
+                        .build())
+                .build();
+        return queryRunner;
     }
 
     @AfterClass(alwaysRun = true)

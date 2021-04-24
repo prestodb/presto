@@ -13,29 +13,40 @@
  */
 package com.facebook.presto.kafka.util;
 
+import com.facebook.airlift.log.Logger;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.io.Files;
+import com.google.common.util.concurrent.Futures;
 import kafka.admin.AdminUtils;
 import kafka.admin.RackAwareMode;
 import kafka.server.KafkaConfig;
 import kafka.server.KafkaServerStartable;
 import kafka.utils.ZkUtils;
+import net.jodah.failsafe.Failsafe;
+import net.jodah.failsafe.RetryPolicy;
 import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.serialization.LongSerializer;
 
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.kafka.util.TestUtils.findUnusedPort;
 import static com.facebook.presto.kafka.util.TestUtils.toProperties;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static java.time.temporal.ChronoUnit.MILLIS;
 import static java.util.Objects.requireNonNull;
 import static org.apache.kafka.clients.producer.ProducerConfig.ACKS_CONFIG;
 import static org.apache.kafka.clients.producer.ProducerConfig.BOOTSTRAP_SERVERS_CONFIG;
@@ -45,6 +56,8 @@ import static org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_
 public class EmbeddedKafka
         implements Closeable
 {
+    private static final Logger log = Logger.get(EmbeddedKafka.class);
+
     private final EmbeddedZookeeper zookeeper;
     private final int port;
     private final File kafkaDataDir;
@@ -137,6 +150,11 @@ public class EmbeddedKafka
 
     public KafkaProducer<Long, Object> createProducer()
     {
+        return createProducer(new HashMap<>());
+    }
+
+    public <K, V> KafkaProducer<K, V> createProducer(Map<String, String> extraProducerProperties)
+    {
         Properties properties = new Properties();
         properties.setProperty(BOOTSTRAP_SERVERS_CONFIG, getConnectString());
         properties.setProperty(VALUE_SERIALIZER_CLASS_CONFIG, JsonEncoder.class.getName());
@@ -164,5 +182,54 @@ public class EmbeddedKafka
     public String getZookeeperConnectString()
     {
         return zookeeper.getConnectString();
+    }
+
+    public <K, V> RecordMetadata sendMessages(Stream<ProducerRecord<K, V>> recordStream)
+    {
+        return sendMessages(recordStream, ImmutableMap.of());
+    }
+    public <K, V> RecordMetadata sendMessages(Stream<ProducerRecord<K, V>> recordStream, Map<String, String> extraProducerProperties)
+    {
+        try (KafkaProducer<K, V> producer = createProducer(extraProducerProperties)) {
+            Future<RecordMetadata> future = recordStream.map(record -> send(producer, record))
+                    .reduce((first, second) -> second)
+                    .orElse(Futures.immediateFuture(null));
+            producer.flush();
+            return future.get();
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
+        }
+        catch (ExecutionException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private <K, V> Future<RecordMetadata> send(KafkaProducer<K, V> producer, ProducerRecord<K, V> record)
+    {
+        return Failsafe.with(
+                new RetryPolicy<>()
+                        .onRetry(event -> log.warn(event.getLastFailure(), "Retrying message send"))
+                        .withMaxAttempts(10)
+                        .withBackoff(1, 10_000, MILLIS))
+                .get(() -> producer.send(record));
+    }
+
+    public void createTopicWithConfig(int partitions, int replication, String topic, boolean enableLogAppendTime)
+    {
+        checkState(started.get() && !stopped.get(), "not started!");
+
+        Properties topicProperties = new Properties();
+        if (enableLogAppendTime) {
+            topicProperties.put("message.timestamp.type", "LogAppendTime");
+        }
+        ZkUtils zkUtils = ZkUtils.apply(getZookeeperConnectString(), 30_000, 30_000, false);
+        try {
+            AdminUtils.createTopic(zkUtils, topic, partitions, replication, topicProperties, RackAwareMode.Disabled$.MODULE$);
+        }
+        finally {
+            zkUtils.close();
+        }
     }
 }

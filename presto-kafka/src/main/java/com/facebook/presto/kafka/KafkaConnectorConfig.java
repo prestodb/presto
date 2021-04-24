@@ -19,6 +19,7 @@ import com.facebook.presto.kafka.server.file.FileKafkaClusterMetadataSupplier;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
+import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 public class KafkaConnectorConfig
@@ -57,6 +58,16 @@ public class KafkaConnectorConfig
      * The kafka cluster metadata supplier to use, default is FILE
      */
     private String clusterMetadataSupplier = FileKafkaClusterMetadataSupplier.NAME;
+
+    /**
+     * Count of Kafka messages to be processed by single Kafka connector split
+     */
+    private int messagesPerSplit = 100_000;
+
+    /**
+     * If the time stamp upper bound condition shall be pushed down
+     */
+    private boolean timestampUpperBoundPushDownEnabled;
 
     @NotNull
     public String getDefaultSchema()
@@ -143,6 +154,31 @@ public class KafkaConnectorConfig
     public KafkaConnectorConfig setHideInternalColumns(boolean hideInternalColumns)
     {
         this.hideInternalColumns = hideInternalColumns;
+        return this;
+    }
+
+    public boolean isTimestampUpperBoundPushDownEnabled()
+    {
+        return timestampUpperBoundPushDownEnabled;
+    }
+
+    @Config("kafka.timestamp-upper-bound-force-push-down-enabled")
+    public KafkaConnectorConfig setTimestampUpperBoundPushDownEnabled(boolean timestampUpperBoundPushDownEnabled)
+    {
+        this.timestampUpperBoundPushDownEnabled = timestampUpperBoundPushDownEnabled;
+        return this;
+    }
+
+    @Min(1)
+    public int getMessagesPerSplit()
+    {
+        return messagesPerSplit;
+    }
+
+    @Config("kafka.messages-per-split")
+    public KafkaConnectorConfig setMessagesPerSplit(int messagesPerSplit)
+    {
+        this.messagesPerSplit = messagesPerSplit;
         return this;
     }
 }

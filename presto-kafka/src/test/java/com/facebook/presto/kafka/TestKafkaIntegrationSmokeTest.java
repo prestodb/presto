@@ -14,18 +14,19 @@
 package com.facebook.presto.kafka;
 
 import com.facebook.presto.kafka.util.EmbeddedKafka;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
+import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import java.io.IOException;
+import java.util.List;
+import java.util.stream.Collectors;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
-import java.util.List;
-import java.util.stream.Collectors;
-
-import static com.facebook.presto.kafka.KafkaQueryRunner.createKafkaQueryRunner;
 import static com.facebook.presto.kafka.util.EmbeddedKafka.createEmbeddedKafka;
 import static com.facebook.presto.testing.TestngUtils.toDataProvider;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -43,17 +44,37 @@ public class TestKafkaIntegrationSmokeTest
             throws Exception
     {
         this.embeddedKafka = createEmbeddedKafka();
-        return createKafkaQueryRunner(embeddedKafka, ORDERS);
+        return createKafkaQueryRunner(embeddedKafka);
     }
 
     @Test(dataProvider = "roundTripAllFormatsDataProvider")
+    public TestKafkaIntegrationSmokeTest(EmbeddedKafka embeddedKafka)
+    {
+        this.embeddedKafka = embeddedKafka;
+    }
+
+    static DistributedQueryRunner createKafkaQueryRunner(EmbeddedKafka embeddedKafka)
+            throws Exception
+    {
+        DistributedQueryRunner queryRunner = KafkaQueryRunner.builder(embeddedKafka)
+                .setTables(ImmutableList.of(ORDERS))
+                .setExtraTopicDescription(ImmutableMap.<SchemaTableName, KafkaTopicDescription>builder()
+                        .build())
+                .setExtraKafkaProperties(ImmutableMap.<String, String>builder()
+                        .put("kafka.messages-per-split", "100")
+                        .build())
+                .build();
+        return queryRunner;
+    }
+
+    @Test(dataProvider = "testRoundTripAllFormatsDataProvider")
     public void testRoundTripAllFormats(RoundTripTestCase testCase)
     {
         assertUpdate("INSERT into write_test." + testCase.getTableName() +
                 " (" + testCase.getFieldNames() + ")" +
                 " VALUES " + testCase.getRowValues(), testCase.getNumRows());
         assertQuery("SELECT " + testCase.getFieldNames() + " FROM write_test." + testCase.getTableName() +
-                " WHERE f_bigint > 1",
+                        " WHERE f_bigint > 1",
                 "VALUES " + testCase.getRowValues());
     }
 
