@@ -17,7 +17,6 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.metadata.CompressionKind;
-import com.facebook.presto.orc.metadata.CompressionParameters;
 import com.facebook.presto.orc.metadata.statistics.IntegerStatisticsBuilder;
 import com.facebook.presto.orc.metadata.statistics.StringStatisticsBuilder;
 import com.facebook.presto.orc.writer.ColumnWriter;
@@ -53,7 +52,6 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
-import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_MAX_COMPRESSION_BUFFER_SIZE;
 import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_MAX_STRING_STATISTICS_LIMIT;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -74,10 +72,7 @@ public class BenchmarkDictionaryWriter
     private static final int COLUMN_INDEX = 0;
     private static final int STRING_LIMIT_BYTES = toIntExact(DEFAULT_MAX_STRING_STATISTICS_LIMIT.toBytes());
 
-    private final CompressionParameters compressionParameters = new CompressionParameters(
-            CompressionKind.NONE,
-            OptionalInt.empty(),
-            toIntExact(DEFAULT_MAX_COMPRESSION_BUFFER_SIZE.toBytes()));
+    private final ColumnWriterOptions columnWriterOptions = ColumnWriterOptions.builder().setCompressionKind(CompressionKind.NONE).build();
 
     public static void main(String[] args)
             throws Throwable
@@ -101,10 +96,10 @@ public class BenchmarkDictionaryWriter
         ColumnWriter columnWriter;
         Type type = data.getType();
         if (type.equals(VARCHAR)) {
-            columnWriter = new SliceDirectColumnWriter(COLUMN_INDEX, type, compressionParameters, Optional.empty(), DWRF, this::newStringStatisticsBuilder, DWRF.createMetadataWriter());
+            columnWriter = new SliceDirectColumnWriter(COLUMN_INDEX, type, columnWriterOptions, Optional.empty(), DWRF, this::newStringStatisticsBuilder, DWRF.createMetadataWriter());
         }
         else {
-            columnWriter = new LongColumnWriter(COLUMN_INDEX, type, compressionParameters, Optional.empty(), DWRF, IntegerStatisticsBuilder::new, DWRF.createMetadataWriter());
+            columnWriter = new LongColumnWriter(COLUMN_INDEX, type, columnWriterOptions, Optional.empty(), DWRF, IntegerStatisticsBuilder::new, DWRF.createMetadataWriter());
         }
         for (Block block : data.getBlocks()) {
             columnWriter.beginRowGroup();
@@ -121,10 +116,10 @@ public class BenchmarkDictionaryWriter
         ColumnWriter columnWriter;
         Type type = data.getType();
         if (type.equals(VARCHAR)) {
-            columnWriter = new SliceDictionaryColumnWriter(COLUMN_INDEX, type, compressionParameters, Optional.empty(), DWRF, DEFAULT_MAX_STRING_STATISTICS_LIMIT, DWRF.createMetadataWriter());
+            columnWriter = new SliceDictionaryColumnWriter(COLUMN_INDEX, type, columnWriterOptions, Optional.empty(), DWRF, DEFAULT_MAX_STRING_STATISTICS_LIMIT, DWRF.createMetadataWriter());
         }
         else {
-            columnWriter = new LongDictionaryColumnWriter(COLUMN_INDEX, type, compressionParameters, Optional.empty(), DWRF, DWRF.createMetadataWriter());
+            columnWriter = new LongDictionaryColumnWriter(COLUMN_INDEX, type, columnWriterOptions, Optional.empty(), DWRF, DWRF.createMetadataWriter());
         }
         for (Block block : data.getBlocks()) {
             columnWriter.beginRowGroup();
@@ -141,10 +136,10 @@ public class BenchmarkDictionaryWriter
         DictionaryColumnWriter columnWriter;
         Type type = data.getType();
         if (type.equals(VARCHAR)) {
-            columnWriter = new SliceDictionaryColumnWriter(COLUMN_INDEX, type, compressionParameters, Optional.empty(), DWRF, DEFAULT_MAX_STRING_STATISTICS_LIMIT, DWRF.createMetadataWriter());
+            columnWriter = new SliceDictionaryColumnWriter(COLUMN_INDEX, type, columnWriterOptions, Optional.empty(), DWRF, DEFAULT_MAX_STRING_STATISTICS_LIMIT, DWRF.createMetadataWriter());
         }
         else {
-            columnWriter = new LongDictionaryColumnWriter(COLUMN_INDEX, type, compressionParameters, Optional.empty(), DWRF, DWRF.createMetadataWriter());
+            columnWriter = new LongDictionaryColumnWriter(COLUMN_INDEX, type, columnWriterOptions, Optional.empty(), DWRF, DWRF.createMetadataWriter());
         }
         for (Block block : data.getBlocks()) {
             columnWriter.beginRowGroup();

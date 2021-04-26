@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.orc.stream;
 
+import com.facebook.presto.orc.ColumnWriterOptions;
 import com.facebook.presto.orc.OrcOutputBuffer;
 import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
 import com.facebook.presto.orc.checkpoint.LongStreamV2Checkpoint;
-import com.facebook.presto.orc.metadata.CompressionParameters;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.google.common.collect.ImmutableList;
@@ -89,10 +89,10 @@ public class LongOutputStreamV2
 
     private boolean closed;
 
-    public LongOutputStreamV2(CompressionParameters compressionParameters, boolean signed, StreamKind streamKind)
+    public LongOutputStreamV2(ColumnWriterOptions columnWriterOptions, boolean signed, StreamKind streamKind)
     {
         this.streamKind = requireNonNull(streamKind, "streamKind is null");
-        this.buffer = new OrcOutputBuffer(compressionParameters, Optional.empty());
+        this.buffer = new OrcOutputBuffer(columnWriterOptions, Optional.empty());
         this.signed = signed;
     }
 

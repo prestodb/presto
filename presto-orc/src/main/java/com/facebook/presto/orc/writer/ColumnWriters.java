@@ -14,10 +14,10 @@
 package com.facebook.presto.orc.writer;
 
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.orc.ColumnWriterOptions;
 import com.facebook.presto.orc.DwrfDataEncryptor;
 import com.facebook.presto.orc.DwrfEncryptionInfo;
 import com.facebook.presto.orc.OrcEncoding;
-import com.facebook.presto.orc.metadata.CompressionParameters;
 import com.facebook.presto.orc.metadata.MetadataWriter;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.statistics.BinaryStatisticsBuilder;
@@ -42,7 +42,7 @@ public final class ColumnWriters
             int columnIndex,
             List<OrcType> orcTypes,
             Type type,
-            CompressionParameters compressionParameters,
+            ColumnWriterOptions columnWriterOptions,
             OrcEncoding orcEncoding,
             DateTimeZone hiveStorageTimeZone,
             DataSize stringStatisticsLimit,
@@ -55,47 +55,47 @@ public final class ColumnWriters
         Optional<DwrfDataEncryptor> dwrfEncryptor = dwrfEncryptors.getEncryptorByNodeId(columnIndex);
         switch (orcType.getOrcTypeKind()) {
             case BOOLEAN:
-                return new BooleanColumnWriter(columnIndex, type, compressionParameters, dwrfEncryptor, metadataWriter);
+                return new BooleanColumnWriter(columnIndex, type, columnWriterOptions, dwrfEncryptor, metadataWriter);
 
             case FLOAT:
-                return new FloatColumnWriter(columnIndex, type, compressionParameters, dwrfEncryptor, metadataWriter);
+                return new FloatColumnWriter(columnIndex, type, columnWriterOptions, dwrfEncryptor, metadataWriter);
 
             case DOUBLE:
-                return new DoubleColumnWriter(columnIndex, type, compressionParameters, dwrfEncryptor, metadataWriter);
+                return new DoubleColumnWriter(columnIndex, type, columnWriterOptions, dwrfEncryptor, metadataWriter);
 
             case BYTE:
-                return new ByteColumnWriter(columnIndex, type, compressionParameters, dwrfEncryptor, metadataWriter);
+                return new ByteColumnWriter(columnIndex, type, columnWriterOptions, dwrfEncryptor, metadataWriter);
 
             case DATE:
                 checkArgument(orcEncoding != DWRF, "DWRF does not support %s type", type);
-                return new LongColumnWriter(columnIndex, type, compressionParameters, dwrfEncryptor, orcEncoding, DateStatisticsBuilder::new, metadataWriter);
+                return new LongColumnWriter(columnIndex, type, columnWriterOptions, dwrfEncryptor, orcEncoding, DateStatisticsBuilder::new, metadataWriter);
 
             case SHORT:
-                return new LongColumnWriter(columnIndex, type, compressionParameters, dwrfEncryptor, orcEncoding, IntegerStatisticsBuilder::new, metadataWriter);
+                return new LongColumnWriter(columnIndex, type, columnWriterOptions, dwrfEncryptor, orcEncoding, IntegerStatisticsBuilder::new, metadataWriter);
             case INT:
             case LONG:
                 if (integerDictionaryEncodingEnabled && orcEncoding == DWRF) {
                     // ORC V1 does not support Integer Dictionary encoding. DWRF supports Integer dictionary encoding.
-                    return new LongDictionaryColumnWriter(columnIndex, type, compressionParameters, dwrfEncryptor, orcEncoding, metadataWriter);
+                    return new LongDictionaryColumnWriter(columnIndex, type, columnWriterOptions, dwrfEncryptor, orcEncoding, metadataWriter);
                 }
-                return new LongColumnWriter(columnIndex, type, compressionParameters, dwrfEncryptor, orcEncoding, IntegerStatisticsBuilder::new, metadataWriter);
+                return new LongColumnWriter(columnIndex, type, columnWriterOptions, dwrfEncryptor, orcEncoding, IntegerStatisticsBuilder::new, metadataWriter);
 
             case DECIMAL:
                 checkArgument(orcEncoding != DWRF, "DWRF does not support %s type", type);
-                return new DecimalColumnWriter(columnIndex, type, compressionParameters, orcEncoding, metadataWriter);
+                return new DecimalColumnWriter(columnIndex, type, columnWriterOptions, orcEncoding, metadataWriter);
 
             case TIMESTAMP:
-                return new TimestampColumnWriter(columnIndex, type, compressionParameters, dwrfEncryptor, orcEncoding, hiveStorageTimeZone, metadataWriter);
+                return new TimestampColumnWriter(columnIndex, type, columnWriterOptions, dwrfEncryptor, orcEncoding, hiveStorageTimeZone, metadataWriter);
 
             case BINARY:
-                return new SliceDirectColumnWriter(columnIndex, type, compressionParameters, dwrfEncryptor, orcEncoding, BinaryStatisticsBuilder::new, metadataWriter);
+                return new SliceDirectColumnWriter(columnIndex, type, columnWriterOptions, dwrfEncryptor, orcEncoding, BinaryStatisticsBuilder::new, metadataWriter);
 
             case CHAR:
                 checkArgument(orcEncoding != DWRF, "DWRF does not support %s type", type);
                 // fall through
             case VARCHAR:
             case STRING:
-                return new SliceDictionaryColumnWriter(columnIndex, type, compressionParameters, dwrfEncryptor, orcEncoding, stringStatisticsLimit, metadataWriter);
+                return new SliceDictionaryColumnWriter(columnIndex, type, columnWriterOptions, dwrfEncryptor, orcEncoding, stringStatisticsLimit, metadataWriter);
 
             case LIST: {
                 int fieldColumnIndex = orcType.getFieldTypeIndex(0);
@@ -104,14 +104,14 @@ public final class ColumnWriters
                         fieldColumnIndex,
                         orcTypes,
                         fieldType,
-                        compressionParameters,
+                        columnWriterOptions,
                         orcEncoding,
                         hiveStorageTimeZone,
                         stringStatisticsLimit,
                         dwrfEncryptors,
                         metadataWriter,
                         integerDictionaryEncodingEnabled);
-                return new ListColumnWriter(columnIndex, compressionParameters, dwrfEncryptor, orcEncoding, elementWriter, metadataWriter);
+                return new ListColumnWriter(columnIndex, columnWriterOptions, dwrfEncryptor, orcEncoding, elementWriter, metadataWriter);
             }
 
             case MAP: {
@@ -119,7 +119,7 @@ public final class ColumnWriters
                         orcType.getFieldTypeIndex(0),
                         orcTypes,
                         type.getTypeParameters().get(0),
-                        compressionParameters,
+                        columnWriterOptions,
                         orcEncoding,
                         hiveStorageTimeZone,
                         stringStatisticsLimit,
@@ -130,14 +130,14 @@ public final class ColumnWriters
                         orcType.getFieldTypeIndex(1),
                         orcTypes,
                         type.getTypeParameters().get(1),
-                        compressionParameters,
+                        columnWriterOptions,
                         orcEncoding,
                         hiveStorageTimeZone,
                         stringStatisticsLimit,
                         dwrfEncryptors,
                         metadataWriter,
                         integerDictionaryEncodingEnabled);
-                return new MapColumnWriter(columnIndex, compressionParameters, dwrfEncryptor, orcEncoding, keyWriter, valueWriter, metadataWriter);
+                return new MapColumnWriter(columnIndex, columnWriterOptions, dwrfEncryptor, orcEncoding, keyWriter, valueWriter, metadataWriter);
             }
 
             case STRUCT: {
@@ -149,7 +149,7 @@ public final class ColumnWriters
                             fieldColumnIndex,
                             orcTypes,
                             fieldType,
-                            compressionParameters,
+                            columnWriterOptions,
                             orcEncoding,
                             hiveStorageTimeZone,
                             stringStatisticsLimit,
@@ -157,7 +157,7 @@ public final class ColumnWriters
                             metadataWriter,
                             integerDictionaryEncodingEnabled));
                 }
-                return new StructColumnWriter(columnIndex, compressionParameters, dwrfEncryptor, fieldWriters.build(), metadataWriter);
+                return new StructColumnWriter(columnIndex, columnWriterOptions, dwrfEncryptor, fieldWriters.build(), metadataWriter);
             }
         }
 

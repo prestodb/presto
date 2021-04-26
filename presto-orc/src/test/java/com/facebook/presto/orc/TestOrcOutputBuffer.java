@@ -14,15 +14,15 @@
 package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.metadata.CompressionKind;
-import com.facebook.presto.orc.metadata.CompressionParameters;
 import io.airlift.slice.DynamicSliceOutput;
+import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.Optional;
-import java.util.OptionalInt;
 
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static org.testng.Assert.assertEquals;
 
 public class TestOrcOutputBuffer
@@ -33,8 +33,8 @@ public class TestOrcOutputBuffer
         int size = 1024 * 1024;
         byte[] largeByteArray = new byte[size];
         Arrays.fill(largeByteArray, (byte) 0xA);
-        CompressionParameters compressionParameters = new CompressionParameters(CompressionKind.NONE, OptionalInt.empty(), 256 * 1024);
-        OrcOutputBuffer sliceOutput = new OrcOutputBuffer(compressionParameters, Optional.empty());
+        ColumnWriterOptions columnWriterOptions = ColumnWriterOptions.builder().setCompressionKind(CompressionKind.NONE).build();
+        OrcOutputBuffer sliceOutput = new OrcOutputBuffer(columnWriterOptions, Optional.empty());
 
         DynamicSliceOutput output = new DynamicSliceOutput(size);
         sliceOutput.writeBytes(largeByteArray, 10, size - 10);
@@ -52,8 +52,12 @@ public class TestOrcOutputBuffer
     public void testGrowCapacity()
     {
         byte[] largeByteArray = new byte[4096];
-        CompressionParameters compressionParameters = new CompressionParameters(CompressionKind.NONE, OptionalInt.empty(), 3000);
-        OrcOutputBuffer sliceOutput = new OrcOutputBuffer(compressionParameters, Optional.empty());
+        DataSize maxCompressionSize = new DataSize(3000, BYTE);
+        ColumnWriterOptions columnWriterOptions = ColumnWriterOptions.builder()
+                .setCompressionKind(CompressionKind.NONE)
+                .setCompressionMaxBufferSize(maxCompressionSize)
+                .build();
+        OrcOutputBuffer sliceOutput = new OrcOutputBuffer(columnWriterOptions, Optional.empty());
 
         // write some data that can fit the initial capacity = 256
         sliceOutput.writeBytes(largeByteArray, 0, 200);
