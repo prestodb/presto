@@ -56,6 +56,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.Iterators;
 import com.google.common.io.Closer;
+import com.google.common.net.MediaType;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.apache.hadoop.conf.Configurable;
@@ -155,8 +156,6 @@ import static org.apache.hadoop.fs.FSExceptionMessages.STREAM_IS_CLOSED;
 public class PrestoS3FileSystem
         extends ExtendedFileSystem
 {
-    static final String S3_DIRECTORY_OBJECT_CONTENT_TYPE = "application/x-directory";
-
     private static final Logger log = Logger.get(PrestoS3FileSystem.class);
     private static final PrestoS3FileSystemStats STATS = new PrestoS3FileSystemStats();
     private static final PrestoS3FileSystemMetricCollector METRIC_COLLECTOR = new PrestoS3FileSystemMetricCollector(STATS);
@@ -166,6 +165,7 @@ public class PrestoS3FileSystem
     private static final String PATH_SEPARATOR = "/";
     private static final Duration BACKOFF_MIN_SLEEP = new Duration(1, SECONDS);
     private static final int HTTP_RANGE_NOT_SATISFIABLE = 416;
+    private static final MediaType DIRECTORY_MEDIA_TYPE = MediaType.create("application", "x-directory");
 
     private URI uri;
     private Path workingDirectory;
@@ -359,7 +359,8 @@ public class PrestoS3FileSystem
 
         return new FileStatus(
                 getObjectSize(path, metadata),
-                S3_DIRECTORY_OBJECT_CONTENT_TYPE.equals(metadata.getContentType()),
+                // Some directories (e.g. uploaded through S3 GUI) return a charset in the Content-Type header
+                MediaType.parse(metadata.getContentType()).is(DIRECTORY_MEDIA_TYPE),
                 1,
                 BLOCK_SIZE.toBytes(),
                 lastModifiedTime(metadata),
