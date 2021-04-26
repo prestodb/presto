@@ -13,8 +13,12 @@
  */
 package com.facebook.presto.raptor.filesystem;
 
+import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.hive.HdfsContext;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 import io.airlift.slice.XxHash64;
 import org.apache.hadoop.conf.Configuration;
@@ -23,6 +27,7 @@ import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
@@ -30,7 +35,7 @@ import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 
 public final class FileSystemUtil
 {
-    public static final HdfsContext DEFAULT_RAPTOR_CONTEXT = new HdfsContext(new ConnectorIdentity("presto-raptor", Optional.empty(), Optional.empty()));
+    public static final HdfsContext DEFAULT_RAPTOR_CONTEXT = new HdfsContext(new DefaultRaptorConnectorSession(new ConnectorIdentity("presto-raptor", Optional.empty(), Optional.empty())));
 
     private static final Configuration INITIAL_CONFIGURATION;
 
@@ -73,6 +78,83 @@ public final class FileSystemUtil
         }
         catch (IOException e) {
             throw new PrestoException(RAPTOR_ERROR, "Failed to read file: " + file, e);
+        }
+    }
+
+    private static class DefaultRaptorConnectorSession
+            implements ConnectorSession
+    {
+        private ConnectorIdentity connectorIdentity;
+
+        public DefaultRaptorConnectorSession(ConnectorIdentity connectorIdentity)
+        {
+            this.connectorIdentity = connectorIdentity;
+        }
+
+        @Override
+        public String getQueryId()
+        {
+            return "";
+        }
+
+        @Override
+        public Optional<String> getSource()
+        {
+            return Optional.empty();
+        }
+
+        @Override
+        public ConnectorIdentity getIdentity()
+        {
+            return connectorIdentity;
+        }
+
+        @Override
+        public Locale getLocale()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Optional<String> getTraceToken()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Optional<String> getClientInfo()
+        {
+            return Optional.empty();
+        }
+
+        @Override
+        public long getStartTime()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public SqlFunctionProperties getSqlFunctionProperties()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Map<SqlFunctionId, SqlInvokedFunction> getSessionFunctions()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public <T> T getProperty(String name, Class<T> type)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Optional<String> getSchema()
+        {
+            throw new UnsupportedOperationException();
         }
     }
 }
