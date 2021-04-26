@@ -14,10 +14,12 @@
 package com.facebook.presto.hive.metastore.glue.converter;
 
 import com.amazonaws.services.glue.model.DatabaseInput;
+import com.amazonaws.services.glue.model.Order;
 import com.amazonaws.services.glue.model.PartitionInput;
 import com.amazonaws.services.glue.model.SerDeInfo;
 import com.amazonaws.services.glue.model.StorageDescriptor;
 import com.amazonaws.services.glue.model.TableInput;
+import com.facebook.presto.hive.HiveBucketProperty;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.Partition;
@@ -30,6 +32,7 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.hive.metastore.MetastoreUtil.updateStatisticsParameters;
 import static com.facebook.presto.hive.metastore.PrestoTableType.EXTERNAL_TABLE;
@@ -37,6 +40,7 @@ import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
 import static com.facebook.presto.hive.metastore.PrestoTableType.VIRTUAL_VIEW;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.stream.Collectors.toList;
 
 public final class GlueInputConverter
@@ -119,9 +123,15 @@ public final class GlueInputConverter
         sd.setOutputFormat(storage.getStorageFormat().getOutputFormatNullable());
         sd.setParameters(ImmutableMap.of());
 
-        if (storage.getBucketProperty().isPresent()) {
-            sd.setNumberOfBuckets(storage.getBucketProperty().get().getBucketCount());
-            sd.setBucketColumns(storage.getBucketProperty().get().getBucketedBy());
+        Optional<HiveBucketProperty> bucketProperty = storage.getBucketProperty();
+        if (bucketProperty.isPresent()) {
+            sd.setNumberOfBuckets(bucketProperty.get().getBucketCount());
+            sd.setBucketColumns(bucketProperty.get().getBucketedBy());
+            if (!bucketProperty.get().getSortedBy().isEmpty()) {
+                sd.setSortColumns(bucketProperty.get().getSortedBy().stream()
+                        .map(column -> new Order().withColumn(column.getColumnName()).withSortOrder(column.getOrder().getHiveOrder()))
+                        .collect(toImmutableList()));
+            }
         }
 
         return sd;
