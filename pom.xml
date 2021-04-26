@@ -167,6 +167,7 @@
         <module>presto-common</module>
         <module>presto-thrift-testing-udf-server</module>
         <module>presto-thrift-spec</module>
+        <module>presto-accumulo2</module>
     </modules>
 
     <dependencyManagement>

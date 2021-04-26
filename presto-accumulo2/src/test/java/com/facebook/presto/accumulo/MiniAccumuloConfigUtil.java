@@ -15,7 +15,7 @@ package com.facebook.presto.accumulo;
 
 import com.google.common.base.Splitter;
 import org.apache.accumulo.minicluster.MiniAccumuloConfig;
-import org.apache.accumulo.minicluster.impl.MiniAccumuloConfigImpl;
+import org.apache.accumulo.miniclusterImpl.MiniAccumuloConfigImpl;
 
 import java.io.File;
 import java.lang.reflect.Field;

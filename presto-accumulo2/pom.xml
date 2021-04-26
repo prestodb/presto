@@ -8,18 +8,30 @@
         <version>0.251-SNAPSHOT</version>
     </parent>
 
-    <artifactId>presto-accumulo</artifactId>
-    <description>Presto - Accumulo Connector</description>
+    <artifactId>presto-accumulo2</artifactId>
+    <description>Presto - Accumulo 2 Connector</description>
     <packaging>presto-plugin</packaging>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.accumulo.version>1.7.4</dep.accumulo.version>
+        <dep.accumulo.version>2.0.1</dep.accumulo.version>
         <dep.curator.version>2.12.0</dep.curator.version>
         <dep.log4j.version>1.2.17</dep.log4j.version>
     </properties>
 
     <dependencies>
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-accumulo</artifactId>
+            <version>${project.version}</version>
+            <optional>true</optional>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.accumulo</groupId>
+                    <artifactId>accumulo-core</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
         <dependency>
             <groupId>org.apache.accumulo</groupId>
             <artifactId>accumulo-core</artifactId>
@@ -337,6 +349,57 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>unpack</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>unpack</goal>
+                        </goals>
+                        <configuration>
+                            <skip>false</skip>
+                            <artifactItems>
+                                <artifactItem>
+                                    <groupId>com.facebook.presto</groupId>
+                                    <artifactId>presto-accumulo</artifactId>
+                                    <type>jar</type>
+                                    <overWrite>true</overWrite>
+                                    <outputDirectory>${project.build.directory}/classes</outputDirectory>
+                                </artifactItem>
+                            </artifactItems>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>copy-tests</id>
+                        <phase>generate-test-sources</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/test-classes</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>../presto-accumulo/target/test-classes</directory>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 
     <profiles>
         <profile>

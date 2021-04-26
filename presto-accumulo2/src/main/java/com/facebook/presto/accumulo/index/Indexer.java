@@ -35,6 +35,7 @@ import org.apache.accumulo.core.client.IteratorSetting;
 import org.apache.accumulo.core.client.MutationsRejectedException;
 import org.apache.accumulo.core.client.Scanner;
 import org.apache.accumulo.core.client.TableNotFoundException;
+import org.apache.accumulo.core.client.lexicoder.Encoder;
 import org.apache.accumulo.core.data.ColumnUpdate;
 import org.apache.accumulo.core.data.Key;
 import org.apache.accumulo.core.data.Mutation;
@@ -117,7 +118,7 @@ public class Indexer
 
     private static final byte[] EMPTY_BYTES = new byte[0];
     private static final byte UNDERSCORE = '_';
-    private static final TypedValueCombiner.Encoder<Long> ENCODER = new LongCombiner.StringEncoder();
+    private static final Encoder<Long> ENCODER = new LongCombiner.StringEncoder();
 
     private final AccumuloTable table;
     private final BatchWriter indexWriter;
