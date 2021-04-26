@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.orc.stream;
 
+import com.facebook.presto.orc.ColumnWriterOptions;
 import com.facebook.presto.orc.DwrfDataEncryptor;
 import com.facebook.presto.orc.OrcEncoding;
 import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
-import com.facebook.presto.orc.metadata.CompressionParameters;
 
 import java.util.Optional;
 
@@ -26,13 +26,13 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 public interface LongOutputStream
         extends ValueOutputStream<LongStreamCheckpoint>
 {
-    static LongOutputStream createLengthOutputStream(CompressionParameters compressionParameters, Optional<DwrfDataEncryptor> dwrfEncryptor, OrcEncoding orcEncoding)
+    static LongOutputStream createLengthOutputStream(ColumnWriterOptions columnWriterOptions, Optional<DwrfDataEncryptor> dwrfEncryptor, OrcEncoding orcEncoding)
     {
         if (orcEncoding == DWRF) {
-            return new LongOutputStreamV1(compressionParameters, dwrfEncryptor, false, LENGTH);
+            return new LongOutputStreamV1(columnWriterOptions, dwrfEncryptor, false, LENGTH);
         }
         else {
-            return new LongOutputStreamV2(compressionParameters, false, LENGTH);
+            return new LongOutputStreamV2(columnWriterOptions, false, LENGTH);
         }
     }
 

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.metadata;
 
+import com.facebook.presto.orc.ColumnWriterOptions;
 import com.facebook.presto.orc.DwrfDataEncryptor;
 import com.facebook.presto.orc.OrcOutputBuffer;
 import io.airlift.slice.DynamicSliceOutput;
@@ -30,10 +31,10 @@ public class CompressedMetadataWriter
     private final MetadataWriter metadataWriter;
     private final OrcOutputBuffer buffer;
 
-    public CompressedMetadataWriter(MetadataWriter metadataWriter, CompressionParameters compressionParameters, Optional<DwrfDataEncryptor> dwrfEncryptor)
+    public CompressedMetadataWriter(MetadataWriter metadataWriter, ColumnWriterOptions columnWriterOptions, Optional<DwrfDataEncryptor> dwrfEncryptor)
     {
         this.metadataWriter = requireNonNull(metadataWriter, "metadataWriter is null");
-        this.buffer = new OrcOutputBuffer(compressionParameters, dwrfEncryptor);
+        this.buffer = new OrcOutputBuffer(columnWriterOptions, dwrfEncryptor);
     }
 
     public List<Integer> getOrcMetadataVersion()

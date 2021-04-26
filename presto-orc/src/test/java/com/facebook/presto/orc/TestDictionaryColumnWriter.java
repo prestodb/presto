@@ -21,7 +21,6 @@ import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.CompressionKind;
-import com.facebook.presto.orc.metadata.CompressionParameters;
 import com.facebook.presto.orc.metadata.StripeFooter;
 import com.facebook.presto.orc.writer.DictionaryColumnWriter;
 import com.facebook.presto.orc.writer.SliceDictionaryColumnWriter;
@@ -35,7 +34,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
@@ -49,7 +47,6 @@ import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcTester.createCustomOrcSelectiveRecordReader;
 import static com.facebook.presto.orc.OrcTester.createOrcWriter;
-import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_MAX_COMPRESSION_BUFFER_SIZE;
 import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_MAX_STRING_STATISTICS_LIMIT;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY_V2;
@@ -91,14 +88,11 @@ public class TestDictionaryColumnWriter
     @Test
     public void testStringDirectConversion()
     {
-        CompressionParameters compressionParameters = new CompressionParameters(
-                CompressionKind.NONE,
-                OptionalInt.empty(),
-                toIntExact(DEFAULT_MAX_COMPRESSION_BUFFER_SIZE.toBytes()));
+        ColumnWriterOptions columnWriterOptions = ColumnWriterOptions.builder().setCompressionKind(CompressionKind.NONE).build();
         DictionaryColumnWriter writer = new SliceDictionaryColumnWriter(
                 0,
                 VARCHAR,
-                compressionParameters,
+                columnWriterOptions,
                 Optional.empty(),
                 ORC,
                 DEFAULT_MAX_STRING_STATISTICS_LIMIT,
