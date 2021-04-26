@@ -32,6 +32,7 @@ public class HdfsContext
     // true if the table already exist in the metastore, false if the table is about to be created in the current transaction
     private final Optional<Boolean> isNewTable;
     private final Optional<String> clientInfo;
+    private final Optional<ConnectorSession> session;
 
     /**
      *  Table information is expected to be provided when accessing a storage.
@@ -48,6 +49,7 @@ public class HdfsContext
         this.clientInfo = Optional.empty();
         this.tablePath = Optional.empty();
         this.isNewTable = Optional.empty();
+        this.session = Optional.empty();
     }
 
     /**
@@ -109,7 +111,7 @@ public class HdfsContext
             Optional<String> tablePath,
             Optional<Boolean> isNewTable)
     {
-        requireNonNull(session, "session is null");
+        this.session = Optional.of(requireNonNull(session, "session is null"));
         this.identity = requireNonNull(session.getIdentity(), "session.getIdentity() is null");
         this.source = requireNonNull(session.getSource(), "session.getSource() is null");
         this.queryId = Optional.of(session.getQueryId());
@@ -160,6 +162,11 @@ public class HdfsContext
         return clientInfo;
     }
 
+    public Optional<ConnectorSession> getSession()
+    {
+        return session;
+    }
+
     @Override
     public String toString()
     {
@@ -173,6 +180,7 @@ public class HdfsContext
                 .add("tablePath", tablePath.orElse(null))
                 .add("isNewTable", isNewTable.orElse(null))
                 .add("clientInfo", clientInfo.orElse(null))
+                .add("session", session.orElse(null))
                 .toString();
     }
 }
