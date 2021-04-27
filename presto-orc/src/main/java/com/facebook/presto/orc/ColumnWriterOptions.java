@@ -19,6 +19,7 @@ import io.airlift.units.DataSize;
 import java.util.OptionalInt;
 
 import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_MAX_COMPRESSION_BUFFER_SIZE;
+import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_MAX_STRING_STATISTICS_LIMIT;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -27,13 +28,22 @@ public class ColumnWriterOptions
     private final CompressionKind compressionKind;
     private final OptionalInt compressionLevel;
     private final int compressionMaxBufferSize;
+    private final DataSize stringStatisticsLimit;
+    private final boolean integerDictionaryEncodingEnabled;
 
-    public ColumnWriterOptions(CompressionKind compressionKind, OptionalInt compressionLevel, DataSize compressionMaxBufferSize)
+    public ColumnWriterOptions(
+            CompressionKind compressionKind,
+            OptionalInt compressionLevel,
+            DataSize compressionMaxBufferSize,
+            DataSize stringStatisticsLimit,
+            boolean integerDictionaryEncodingEnabled)
     {
         this.compressionKind = requireNonNull(compressionKind, "compressionKind is null");
         this.compressionLevel = requireNonNull(compressionLevel, "compressionLevel is null");
         requireNonNull(compressionMaxBufferSize, "compressionMaxBufferSize is null");
         this.compressionMaxBufferSize = toIntExact(compressionMaxBufferSize.toBytes());
+        this.stringStatisticsLimit = requireNonNull(stringStatisticsLimit, "stringStatisticsLimit is null");
+        this.integerDictionaryEncodingEnabled = integerDictionaryEncodingEnabled;
     }
 
     public CompressionKind getCompressionKind()
@@ -51,6 +61,16 @@ public class ColumnWriterOptions
         return compressionMaxBufferSize;
     }
 
+    public DataSize getStringStatisticsLimit()
+    {
+        return stringStatisticsLimit;
+    }
+
+    public boolean isIntegerDictionaryEncodingEnabled()
+    {
+        return integerDictionaryEncodingEnabled;
+    }
+
     public static Builder builder()
     {
         return new Builder();
@@ -61,6 +81,8 @@ public class ColumnWriterOptions
         private CompressionKind compressionKind;
         private OptionalInt compressionLevel = OptionalInt.empty();
         private DataSize compressionMaxBufferSize = DEFAULT_MAX_COMPRESSION_BUFFER_SIZE;
+        private DataSize stringStatisticsLimit = DEFAULT_MAX_STRING_STATISTICS_LIMIT;
+        private boolean integerDictionaryEncodingEnabled;
 
         private Builder() {}
 
@@ -82,9 +104,21 @@ public class ColumnWriterOptions
             return this;
         }
 
+        public Builder setStringStatisticsLimit(DataSize stringStatisticsLimit)
+        {
+            this.stringStatisticsLimit = stringStatisticsLimit;
+            return this;
+        }
+
+        public Builder setIntegerDictionaryEncodingEnabled(boolean integerDictionaryEncodingEnabled)
+        {
+            this.integerDictionaryEncodingEnabled = integerDictionaryEncodingEnabled;
+            return this;
+        }
+
         public ColumnWriterOptions build()
         {
-            return new ColumnWriterOptions(compressionKind, compressionLevel, compressionMaxBufferSize);
+            return new ColumnWriterOptions(compressionKind, compressionLevel, compressionMaxBufferSize, stringStatisticsLimit, integerDictionaryEncodingEnabled);
         }
     }
 }
