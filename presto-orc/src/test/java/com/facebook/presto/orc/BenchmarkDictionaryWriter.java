@@ -113,14 +113,7 @@ public class BenchmarkDictionaryWriter
     @Benchmark
     public void writeDictionary(BenchmarkData data)
     {
-        ColumnWriter columnWriter;
-        Type type = data.getType();
-        if (type.equals(VARCHAR)) {
-            columnWriter = new SliceDictionaryColumnWriter(COLUMN_INDEX, type, columnWriterOptions, Optional.empty(), DWRF, DEFAULT_MAX_STRING_STATISTICS_LIMIT, DWRF.createMetadataWriter());
-        }
-        else {
-            columnWriter = new LongDictionaryColumnWriter(COLUMN_INDEX, type, columnWriterOptions, Optional.empty(), DWRF, DWRF.createMetadataWriter());
-        }
+        ColumnWriter columnWriter = getDictionaryColumnWriter(data);
         for (Block block : data.getBlocks()) {
             columnWriter.beginRowGroup();
             columnWriter.writeBlock(block);
@@ -133,14 +126,7 @@ public class BenchmarkDictionaryWriter
     @Benchmark
     public void writeDictionaryAndConvert(BenchmarkData data)
     {
-        DictionaryColumnWriter columnWriter;
-        Type type = data.getType();
-        if (type.equals(VARCHAR)) {
-            columnWriter = new SliceDictionaryColumnWriter(COLUMN_INDEX, type, columnWriterOptions, Optional.empty(), DWRF, DEFAULT_MAX_STRING_STATISTICS_LIMIT, DWRF.createMetadataWriter());
-        }
-        else {
-            columnWriter = new LongDictionaryColumnWriter(COLUMN_INDEX, type, columnWriterOptions, Optional.empty(), DWRF, DWRF.createMetadataWriter());
-        }
+        DictionaryColumnWriter columnWriter = getDictionaryColumnWriter(data);
         for (Block block : data.getBlocks()) {
             columnWriter.beginRowGroup();
             columnWriter.writeBlock(block);
@@ -151,6 +137,19 @@ public class BenchmarkDictionaryWriter
         checkState(optionalInt.isPresent(), "Column did not covert to direct");
         columnWriter.close();
         columnWriter.reset();
+    }
+
+    private DictionaryColumnWriter getDictionaryColumnWriter(BenchmarkData data)
+    {
+        DictionaryColumnWriter columnWriter;
+        Type type = data.getType();
+        if (type.equals(VARCHAR)) {
+            columnWriter = new SliceDictionaryColumnWriter(COLUMN_INDEX, type, columnWriterOptions, Optional.empty(), DWRF, DWRF.createMetadataWriter());
+        }
+        else {
+            columnWriter = new LongDictionaryColumnWriter(COLUMN_INDEX, type, columnWriterOptions, Optional.empty(), DWRF, DWRF.createMetadataWriter());
+        }
+        return columnWriter;
     }
 
     @State(Scope.Thread)

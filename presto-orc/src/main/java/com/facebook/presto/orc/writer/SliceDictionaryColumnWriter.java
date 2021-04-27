@@ -43,7 +43,6 @@ import static com.facebook.presto.orc.stream.LongOutputStream.createLengthOutput
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.toIntExact;
-import static java.util.Objects.requireNonNull;
 
 public class SliceDictionaryColumnWriter
         extends DictionaryColumnWriter
@@ -67,13 +66,12 @@ public class SliceDictionaryColumnWriter
             ColumnWriterOptions columnWriterOptions,
             Optional<DwrfDataEncryptor> dwrfEncryptor,
             OrcEncoding orcEncoding,
-            DataSize stringStatisticsLimit,
             MetadataWriter metadataWriter)
     {
         super(column, type, columnWriterOptions, dwrfEncryptor, orcEncoding, metadataWriter);
         this.dictionaryDataStream = new ByteArrayOutputStream(columnWriterOptions, dwrfEncryptor, Stream.StreamKind.DICTIONARY_DATA);
         this.dictionaryLengthStream = createLengthOutputStream(columnWriterOptions, dwrfEncryptor, orcEncoding);
-        this.stringStatisticsLimitInBytes = toIntExact(requireNonNull(stringStatisticsLimit, "stringStatisticsLimit is null").toBytes());
+        this.stringStatisticsLimitInBytes = toIntExact(columnWriterOptions.getStringStatisticsLimit().toBytes());
         this.statisticsBuilder = newStringStatisticsBuilder();
     }
 
