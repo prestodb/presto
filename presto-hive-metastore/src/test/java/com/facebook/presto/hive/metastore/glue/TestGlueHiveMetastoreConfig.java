@@ -29,6 +29,7 @@ public class TestGlueHiveMetastoreConfig
     {
         assertRecordedDefaults(recordDefaults(GlueHiveMetastoreConfig.class)
                 .setGlueRegion(null)
+                .setGlueEndpointUrl(null)
                 .setPinGlueClientToCurrentRegion(false)
                 .setMaxGlueConnections(5)
                 .setDefaultWarehouseDir(null)
@@ -43,6 +44,7 @@ public class TestGlueHiveMetastoreConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("hive.metastore.glue.region", "us-east-1")
+                .put("hive.metastore.glue.endpoint-url", "http://foo.bar")
                 .put("hive.metastore.glue.pin-client-to-current-region", "true")
                 .put("hive.metastore.glue.max-connections", "10")
                 .put("hive.metastore.glue.default-warehouse-dir", "/location")
@@ -54,6 +56,7 @@ public class TestGlueHiveMetastoreConfig
 
         GlueHiveMetastoreConfig expected = new GlueHiveMetastoreConfig()
                 .setGlueRegion("us-east-1")
+                .setGlueEndpointUrl("http://foo.bar")
                 .setPinGlueClientToCurrentRegion(true)
                 .setMaxGlueConnections(10)
                 .setDefaultWarehouseDir("/location")
