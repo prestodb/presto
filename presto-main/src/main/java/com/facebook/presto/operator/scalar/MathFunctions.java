@@ -33,6 +33,7 @@ import io.airlift.slice.Slice;
 import org.apache.commons.math3.distribution.BetaDistribution;
 import org.apache.commons.math3.distribution.BinomialDistribution;
 import org.apache.commons.math3.distribution.ChiSquaredDistribution;
+import org.apache.commons.math3.distribution.PoissonDistribution;
 import org.apache.commons.math3.special.Erf;
 
 import java.math.BigDecimal;
@@ -759,6 +760,32 @@ public final class MathFunctions
         checkCondition(df > 0, INVALID_FUNCTION_ARGUMENT, "df must be greater than 0");
         ChiSquaredDistribution distribution = new ChiSquaredDistribution(null, df, ChiSquaredDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
         return distribution.cumulativeProbability(value);
+    }
+
+    @Description("Inverse of Poisson cdf given lambda (mean) parameter and probability")
+    @ScalarFunction
+    @SqlType(StandardTypes.INTEGER)
+    public static long inversePoissonCdf(
+            @SqlType(StandardTypes.DOUBLE) double lambda,
+            @SqlType(StandardTypes.DOUBLE) double p)
+    {
+        checkCondition(p >= 0 && p < 1, INVALID_FUNCTION_ARGUMENT, "p must be in the interval [0, 1)");
+        checkCondition(lambda > 0, INVALID_FUNCTION_ARGUMENT, "lambda must be greater than 0");
+        PoissonDistribution distribution = new PoissonDistribution(lambda);
+        return distribution.inverseCumulativeProbability(p);
+    }
+
+    @Description("Poisson cdf given the lambda (mean) parameter and value")
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double poissonCdf(
+            @SqlType(StandardTypes.DOUBLE) double lambda,
+            @SqlType(StandardTypes.INTEGER) long value)
+    {
+        checkCondition(value >= 0, INVALID_FUNCTION_ARGUMENT, "value must be a non-negative integer");
+        checkCondition(lambda > 0, INVALID_FUNCTION_ARGUMENT, "lambda must be greater than 0");
+        PoissonDistribution distribution = new PoissonDistribution(lambda);
+        return distribution.cumulativeProbability((int) value);
     }
 
     @Description("round to nearest integer")
