@@ -247,7 +247,7 @@ public class TestHivePageSink
                 OptionalInt.empty(),
                 NO_PREFERENCE,
                 getColumnHandles().size(),
-                ImmutableMap.of(),
+                TableToPartitionMapping.empty(),
                 Optional.empty(),
                 false,
                 Optional.empty(),

@@ -462,7 +462,7 @@ public class TestBackgroundHiveSplitLoader
                         new HivePartitionMetadata(
                                 new HivePartition(new SchemaTableName("testSchema", "table_name")),
                                 Optional.empty(),
-                                ImmutableMap.of(),
+                                TableToPartitionMapping.empty(),
                                 Optional.empty(),
                                 ImmutableSet.of()));
 
@@ -488,7 +488,7 @@ public class TestBackgroundHiveSplitLoader
                 new HivePartitionMetadata(
                         new HivePartition(new SchemaTableName("testSchema", "table_name")),
                         Optional.empty(),
-                        ImmutableMap.of(),
+                        TableToPartitionMapping.empty(),
                         Optional.empty(),
                         ImmutableSet.of()));
 
@@ -555,7 +555,7 @@ public class TestBackgroundHiveSplitLoader
                         return new HivePartitionMetadata(
                                 new HivePartition(new SchemaTableName("testSchema", "table_name")),
                                 Optional.empty(),
-                                ImmutableMap.of(),
+                                TableToPartitionMapping.empty(),
                                 Optional.empty(),
                                 ImmutableSet.of());
                     case 1:

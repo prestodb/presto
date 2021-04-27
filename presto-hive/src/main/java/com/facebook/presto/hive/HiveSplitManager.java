@@ -85,10 +85,14 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_TRANSACTION_NOT_FOUND;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HiveSessionProperties.isOfflineDataDebugModeEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isPartitionStatisticsBasedOptimizationEnabled;
+import static com.facebook.presto.hive.HiveSessionProperties.isUseParquetColumnNames;
 import static com.facebook.presto.hive.HiveSessionProperties.shouldIgnoreUnreadablePartition;
+import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;
+import static com.facebook.presto.hive.HiveStorageFormat.getHiveStorageFormat;
 import static com.facebook.presto.hive.HiveType.getPrimitiveType;
 import static com.facebook.presto.hive.HiveWarningCode.PARTITION_NOT_READABLE;
 import static com.facebook.presto.hive.StoragePartitionLoader.BucketSplitInfo.createBucketSplitInfo;
+import static com.facebook.presto.hive.TableToPartitionMapping.mapColumnsByIndex;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getProtectMode;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.makePartName;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyOnline;
@@ -106,6 +110,7 @@ import static com.google.common.collect.Iterables.transform;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.Math.min;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.reducing;
@@ -374,11 +379,13 @@ public class HiveSplitManager
                 return ImmutableList.of(new HivePartitionMetadata(
                         firstPartition,
                         Optional.empty(),
-                        ImmutableMap.of(),
+                        TableToPartitionMapping.empty(),
                         encryptionInformationProvider.getReadEncryptionInformation(session, table, allRequestedColumns),
                         ImmutableSet.of()));
             }
         }
+
+        Optional<HiveStorageFormat> storageFormat = getHiveStorageFormat(table.getStorage().getStorageFormat());
 
         Iterable<List<HivePartition>> partitionNameBatches = partitionExponentially(hivePartitions, minPartitionBatchSize, maxPartitionBatchSize);
         Iterable<List<HivePartitionMetadata>> partitionBatches = transform(partitionNameBatches, partitionBatch -> {
@@ -441,38 +448,7 @@ public class HiveSplitManager
                 if ((tableColumns == null) || (partitionColumns == null)) {
                     throw new PrestoException(HIVE_INVALID_METADATA, format("Table '%s' or partition '%s' has null columns", tableName, partitionName));
                 }
-                ImmutableMap.Builder<Integer, Column> partitionSchemaDifference = ImmutableMap.builder();
-                for (int i = 0; i < partitionColumns.size(); i++) {
-                    Column partitionColumn = partitionColumns.get(i);
-
-                    if (i >= tableColumns.size()) {
-                        partitionSchemaDifference.put(i, partitionColumn);
-                        continue;
-                    }
-
-                    HiveType tableType = tableColumns.get(i).getType();
-                    if (!tableType.equals(partitionColumn.getType())) {
-                        if (!coercionPolicy.canCoerce(partitionColumn.getType(), tableType)) {
-                            throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, format("" +
-                                            "There is a mismatch between the table and partition schemas. " +
-                                            "The types are incompatible and cannot be coerced. " +
-                                            "The column '%s' in table '%s' is declared as type '%s', " +
-                                            "but partition '%s' declared column '%s' as type '%s'.",
-                                    tableColumns.get(i).getName(),
-                                    tableName,
-                                    tableType,
-                                    partitionName,
-                                    partitionColumns.get(i).getName(),
-                                    partitionColumn.getType()));
-                        }
-                        partitionSchemaDifference.put(i, partitionColumn);
-                        continue;
-                    }
-
-                    if (!tableColumns.get(i).getName().equals(partitionColumn.getName())) {
-                        partitionSchemaDifference.put(i, partitionColumn);
-                    }
-                }
+                TableToPartitionMapping tableToPartitionMapping = getTableToPartitionMapping(session, storageFormat, tableName, partitionName, tableColumns, partitionColumns);
 
                 if (hiveBucketHandle.isPresent() && !hiveBucketHandle.get().isVirtuallyBucketed()) {
                     Optional<HiveBucketProperty> partitionBucketProperty = partition.getStorage().getBucketProperty();
@@ -504,7 +480,7 @@ public class HiveSplitManager
                         new HivePartitionMetadata(
                                 hivePartition,
                                 Optional.of(partition),
-                                partitionSchemaDifference.build(),
+                                tableToPartitionMapping,
                                 encryptionInformation,
                                 partitionSplitInfo.get(hivePartition.getPartitionId()).getRedundantColumnDomains()));
             }
@@ -518,6 +494,113 @@ public class HiveSplitManager
             return results.build();
         });
         return concat(partitionBatches);
+    }
+
+    /**
+     * This method is called in the case of ordinal-based matching.
+     * It checks for whether column coercions are possible and also creates the partitionSchemaDifference map.
+     *
+     * @param session ConnectorSession
+     * @param storageFormat HiveStorageFormat
+     * @param tableName SchemaTableName
+     * @param partName Partition Name
+     * @param tableColumns List of columns in the table
+     * @param partitionColumns List of columns in the partition
+     * @return {@link TableToPartitionMapping}
+     */
+    private TableToPartitionMapping getTableToPartitionMapping(ConnectorSession session, Optional<HiveStorageFormat> storageFormat, SchemaTableName tableName, String partName, List<Column> tableColumns, List<Column> partitionColumns)
+    {
+        if (storageFormat.isPresent() && storageFormat.get().equals(PARQUET) && isUseParquetColumnNames(session)) {
+            return getTableToPartitionMappingByColumnNames(tableName, partName, tableColumns, partitionColumns);
+        }
+        ImmutableMap.Builder<Integer, Column> partitionSchemaDifference = ImmutableMap.builder();
+        for (int i = 0; i < partitionColumns.size(); i++) {
+            Column partitionColumn = partitionColumns.get(i);
+
+            if (i >= tableColumns.size()) {
+                partitionSchemaDifference.put(i, partitionColumn);
+                continue;
+            }
+
+            HiveType tableType = tableColumns.get(i).getType();
+            if (!tableType.equals(partitionColumn.getType())) {
+                if (!coercionPolicy.canCoerce(partitionColumn.getType(), tableType)) {
+                    throw tablePartitionColumnMismatchException(tableName, partName, tableColumns.get(i).getName(), tableType, partitionColumn.getName(), partitionColumn.getType());
+                }
+                partitionSchemaDifference.put(i, partitionColumn);
+                continue;
+            }
+
+            if (!tableColumns.get(i).getName().equals(partitionColumn.getName())) {
+                partitionSchemaDifference.put(i, partitionColumn);
+            }
+        }
+        return mapColumnsByIndex(partitionSchemaDifference.build());
+    }
+
+    /**
+     * This method is called in case we have name-based matching enabled. The aim of this method is to:
+     * 1. Generate a mapping between table and partition column indexes based on column names
+     * 2. Generate partitionSchemaDifference object which contains all the columns which either have different name or datatype as compared to table schema.
+     * 3. Check for column coercions.
+     *
+     * @param tableName SchemaTableName
+     * @param partName Partition Name
+     * @param tableColumns List of columns in the table
+     * @param partitionColumns List of columns in the partition
+     * @return {@link TableToPartitionMapping}
+     */
+    private TableToPartitionMapping getTableToPartitionMappingByColumnNames(SchemaTableName tableName, String partName, List<Column> tableColumns, List<Column> partitionColumns)
+    {
+        ImmutableMap.Builder<String, Integer> partitionColumnIndexesBuilder = ImmutableMap.builder();
+        for (int i = 0; i < partitionColumns.size(); i++) {
+            partitionColumnIndexesBuilder.put(partitionColumns.get(i).getName().toLowerCase(ENGLISH), i);
+        }
+        Map<String, Integer> partitionColumnsByIndex = partitionColumnIndexesBuilder.build();
+
+        ImmutableMap.Builder<Integer, Column> partitionSchemaDifference = ImmutableMap.builder();
+        ImmutableMap.Builder<Integer, Integer> tableToPartitionColumns = ImmutableMap.builder();
+        for (int tableColumnIndex = 0; tableColumnIndex < tableColumns.size(); tableColumnIndex++) {
+            Column tableColumn = tableColumns.get(tableColumnIndex);
+            HiveType tableType = tableColumn.getType();
+            Integer partitionColumnIndex = partitionColumnsByIndex.get(tableColumn.getName().toLowerCase(ENGLISH));
+            if (partitionColumnIndex == null) {
+                continue;
+            }
+            tableToPartitionColumns.put(tableColumnIndex, partitionColumnIndex);
+            Column partitionColumn = partitionColumns.get(partitionColumnIndex);
+            HiveType partitionType = partitionColumn.getType();
+            if (!tableType.equals(partitionType)) {
+                if (!coercionPolicy.canCoerce(partitionType, tableType)) {
+                    throw tablePartitionColumnMismatchException(tableName, partName, tableColumn.getName(), tableType, partitionColumn.getName(), partitionType);
+                }
+                partitionSchemaDifference.put(partitionColumnIndex, partitionColumn);
+            }
+        }
+
+        ImmutableMap<Integer, Integer> tableToPartitionColumnsMap = tableToPartitionColumns.build();
+        for (int partitionColumnIndex = 0; partitionColumnIndex < partitionColumns.size(); partitionColumnIndex++) {
+            if (!tableToPartitionColumnsMap.containsValue(partitionColumnIndex)) {
+                partitionSchemaDifference.put(partitionColumnIndex, partitionColumns.get(partitionColumnIndex));
+            }
+        }
+
+        return new TableToPartitionMapping(Optional.of(tableToPartitionColumnsMap), partitionSchemaDifference.build());
+    }
+
+    private PrestoException tablePartitionColumnMismatchException(SchemaTableName tableName, String partName, String tableColumnName, HiveType tableType, String partitionColumnName, HiveType partitionType)
+    {
+        return new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, format("" +
+                        "There is a mismatch between the table and partition schemas. " +
+                        "The types are incompatible and cannot be coerced. " +
+                        "The column '%s' in table '%s' is declared as type '%s', " +
+                        "but partition '%s' declared column '%s' as type '%s'.",
+                tableColumnName,
+                tableName,
+                tableType,
+                partName,
+                partitionColumnName,
+                partitionType));
     }
 
     private Map<String, PartitionSplitInfo> getPartitionSplitInfo(
