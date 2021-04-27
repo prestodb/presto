@@ -47,7 +47,6 @@ import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
-import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -166,7 +165,7 @@ public class MySqlFunctionNamespaceManager
     {
         checkCatalog(function);
         checkFunctionLanguageSupported(function);
-        checkArgument(!function.hasVersion(), "function '%s' is already versioned", function);
+        checkArgument(!function.getVersion().isPresent(), "function '%s' is already versioned", function);
 
         QualifiedObjectName functionName = function.getFunctionId().getFunctionName();
         checkFieldLength("Catalog name", functionName.getCatalogName(), MAX_CATALOG_NAME_LENGTH);
@@ -204,7 +203,7 @@ public class MySqlFunctionNamespaceManager
             }
             else if (latestVersion.get().isDeleted()) {
                 SqlInvokedFunction latest = latestVersion.get().getFunction();
-                checkState(latest.hasVersion(), "Function version missing: %s", latest.getFunctionId());
+                checkState(latest.getVersion().isPresent(), "Function version missing: %s", latest.getFunctionId());
                 transactionDao.setDeletionStatus(hash(latest.getFunctionId()), latest.getFunctionId(), getLongVersion(latest), false);
             }
         });
@@ -232,9 +231,9 @@ public class MySqlFunctionNamespaceManager
                     latest.getDescription(),
                     routineCharacteristics.build(),
                     latest.getBody(),
-                    notVersioned());
+                    Optional.empty());
             if (!altered.hasSameDefinitionAs(latest)) {
-                checkState(latest.hasVersion(), "Function version missing: %s", latest.getFunctionId());
+                checkState(latest.getVersion().isPresent(), "Function version missing: %s", latest.getFunctionId());
                 insertSqlInvokedFunction(transactionDao, altered, getLongVersion(latest) + 1);
             }
         });
@@ -256,7 +255,7 @@ public class MySqlFunctionNamespaceManager
             }
             else {
                 SqlInvokedFunction latest = getOnlyElement(functions);
-                checkState(latest.hasVersion(), "Function version missing: %s", latest.getFunctionId());
+                checkState(latest.getVersion().isPresent(), "Function version missing: %s", latest.getFunctionId());
                 transactionDao.setDeletionStatus(hash(latest.getFunctionId()), latest.getFunctionId(), getLongVersion(latest), true);
             }
         });
@@ -304,7 +303,7 @@ public class MySqlFunctionNamespaceManager
 
     private static long getLongVersion(SqlInvokedFunction function)
     {
-        return parseLong(function.getRequiredVersion());
+        return parseLong(function.getVersion().get());
     }
 
     private static void checkFieldLength(String fieldName, String field, int maxLength)

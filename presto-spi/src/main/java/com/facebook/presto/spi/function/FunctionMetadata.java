@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
@@ -39,7 +38,6 @@ public class FunctionMetadata
     private final FunctionImplementationType implementationType;
     private final boolean deterministic;
     private final boolean calledOnNullInput;
-    private final FunctionVersion version;
 
     public FunctionMetadata(
             QualifiedObjectName name,
@@ -50,7 +48,7 @@ public class FunctionMetadata
             boolean deterministic,
             boolean calledOnNullInput)
     {
-        this(name, Optional.empty(), argumentTypes, Optional.empty(), returnType, functionKind, Optional.empty(), implementationType, deterministic, calledOnNullInput, notVersioned());
+        this(name, Optional.empty(), argumentTypes, Optional.empty(), returnType, functionKind, Optional.empty(), implementationType, deterministic, calledOnNullInput);
     }
 
     public FunctionMetadata(
@@ -62,10 +60,9 @@ public class FunctionMetadata
             Language language,
             FunctionImplementationType implementationType,
             boolean deterministic,
-            boolean calledOnNullInput,
-            FunctionVersion version)
+            boolean calledOnNullInput)
     {
-        this(name, Optional.empty(), argumentTypes, Optional.of(argumentNames), returnType, functionKind, Optional.of(language), implementationType, deterministic, calledOnNullInput, version);
+        this(name, Optional.empty(), argumentTypes, Optional.of(argumentNames), returnType, functionKind, Optional.of(language), implementationType, deterministic, calledOnNullInput);
     }
 
     public FunctionMetadata(
@@ -77,7 +74,7 @@ public class FunctionMetadata
             boolean deterministic,
             boolean calledOnNullInput)
     {
-        this(operatorType.getFunctionName(), Optional.of(operatorType), argumentTypes, Optional.empty(), returnType, functionKind, Optional.empty(), implementationType, deterministic, calledOnNullInput, notVersioned());
+        this(operatorType.getFunctionName(), Optional.of(operatorType), argumentTypes, Optional.empty(), returnType, functionKind, Optional.empty(), implementationType, deterministic, calledOnNullInput);
     }
 
     private FunctionMetadata(
@@ -90,8 +87,7 @@ public class FunctionMetadata
             Optional<Language> language,
             FunctionImplementationType implementationType,
             boolean deterministic,
-            boolean calledOnNullInput,
-            FunctionVersion version)
+            boolean calledOnNullInput)
     {
         this.name = requireNonNull(name, "name is null");
         this.operatorType = requireNonNull(operatorType, "operatorType is null");
@@ -103,7 +99,6 @@ public class FunctionMetadata
         this.implementationType = requireNonNull(implementationType, "implementationType is null");
         this.deterministic = deterministic;
         this.calledOnNullInput = calledOnNullInput;
-        this.version = requireNonNull(version, "version is null");
     }
 
     public FunctionKind getFunctionKind()
@@ -156,11 +151,6 @@ public class FunctionMetadata
         return calledOnNullInput;
     }
 
-    public FunctionVersion getVersion()
-    {
-        return version;
-    }
-
     @Override
     public boolean equals(Object obj)
     {
@@ -180,13 +170,12 @@ public class FunctionMetadata
                 Objects.equals(this.language, other.language) &&
                 Objects.equals(this.implementationType, other.implementationType) &&
                 Objects.equals(this.deterministic, other.deterministic) &&
-                Objects.equals(this.calledOnNullInput, other.calledOnNullInput) &&
-                Objects.equals(this.version, other.version);
+                Objects.equals(this.calledOnNullInput, other.calledOnNullInput);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, operatorType, argumentTypes, argumentNames, returnType, functionKind, language, implementationType, deterministic, calledOnNullInput, version);
+        return Objects.hash(name, operatorType, argumentTypes, argumentNames, returnType, functionKind, language, implementationType, deterministic, calledOnNullInput);
     }
 }

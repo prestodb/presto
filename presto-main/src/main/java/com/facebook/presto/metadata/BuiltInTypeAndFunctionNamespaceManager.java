@@ -965,8 +965,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                     sqlFunction.getRoutineCharacteristics().getLanguage(),
                     SQL,
                     function.isDeterministic(),
-                    function.isCalledOnNullInput(),
-                    sqlFunction.getVersion());
+                    function.isCalledOnNullInput());
         }
         else {
             return new FunctionMetadata(

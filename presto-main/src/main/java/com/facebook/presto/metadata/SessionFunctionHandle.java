@@ -61,8 +61,7 @@ public class SessionFunctionHandle
                 sqlFunction.getRoutineCharacteristics().getLanguage(),
                 FunctionImplementationType.SQL,
                 sqlFunction.isDeterministic(),
-                sqlFunction.isCalledOnNullInput(),
-                sqlFunction.getVersion());
+                sqlFunction.isCalledOnNullInput());
     }
 
     @JsonProperty

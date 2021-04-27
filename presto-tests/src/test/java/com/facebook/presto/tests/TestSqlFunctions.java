@@ -33,13 +33,13 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintEnumType.LongEnumMap;
 import static com.facebook.presto.common.type.StandardTypes.BIGINT_ENUM;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR_ENUM;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.VarcharEnumType.VarcharEnumMap;
-import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -516,7 +516,7 @@ public class TestSqlFunctions
                 "",
                 RoutineCharacteristics.builder().build(),
                 "RETURN x * 2",
-                notVersioned());
+                Optional.empty());
         return testSessionBuilder()
                 .addSessionFunction(bigintSignature, bigintFunction)
                 .build();

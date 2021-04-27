@@ -25,7 +25,6 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
-import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -44,7 +43,6 @@ public class SqlInvokedFunction
 
     private final Signature signature;
     private final SqlFunctionId functionId;
-    private final FunctionVersion functionVersion;
     private final Optional<SqlFunctionHandle> functionHandle;
 
     @JsonCreator
@@ -62,7 +60,6 @@ public class SqlInvokedFunction
         this.body = body;
         this.signature = signature;
         this.functionId = functionId;
-        this.functionVersion = notVersioned();
         this.functionHandle = Optional.empty();
     }
 
@@ -73,7 +70,7 @@ public class SqlInvokedFunction
             String description,
             RoutineCharacteristics routineCharacteristics,
             String body,
-            FunctionVersion version)
+            Optional<String> version)
     {
         this.parameters = requireNonNull(parameters, "parameters is null");
         this.description = requireNonNull(description, "description is null");
@@ -85,14 +82,13 @@ public class SqlInvokedFunction
                 .collect(collectingAndThen(toList(), Collections::unmodifiableList));
         this.signature = new Signature(functionName, SCALAR, returnType, argumentTypes);
         this.functionId = new SqlFunctionId(functionName, argumentTypes);
-        this.functionVersion = requireNonNull(version, "version is null");
-        this.functionHandle = version.hasVersion() ? Optional.of(new SqlFunctionHandle(this.functionId, version.toString())) : Optional.empty();
+        this.functionHandle = version.map(v -> new SqlFunctionHandle(this.functionId, v));
     }
 
     public SqlInvokedFunction withVersion(String version)
     {
-        if (hasVersion()) {
-            throw new IllegalArgumentException(format("function %s is already with version %s", signature.getName(), getVersion()));
+        if (getVersion().isPresent()) {
+            throw new IllegalArgumentException(format("function %s is already with version %s", signature.getName(), getVersion().get()));
         }
         return new SqlInvokedFunction(
                 signature.getName(),
@@ -101,7 +97,7 @@ public class SqlInvokedFunction
                 description,
                 routineCharacteristics,
                 body,
-                FunctionVersion.withVersion(version));
+                Optional.of(version));
     }
 
     @Override
@@ -165,14 +161,9 @@ public class SqlInvokedFunction
         return functionHandle;
     }
 
-    public boolean hasVersion()
+    public Optional<String> getVersion()
     {
-        return functionVersion.hasVersion();
-    }
-
-    public FunctionVersion getVersion()
-    {
-        return functionVersion;
+        return functionHandle.map(SqlFunctionHandle::getVersion);
     }
 
     public SqlFunctionHandle getRequiredFunctionHandle()
@@ -186,10 +177,11 @@ public class SqlInvokedFunction
 
     public String getRequiredVersion()
     {
-        if (!hasVersion()) {
+        Optional<String> version = getVersion();
+        if (!version.isPresent()) {
             throw new IllegalStateException("missing version");
         }
-        return getVersion().toString();
+        return version.get();
     }
 
     public boolean hasSameDefinitionAs(SqlInvokedFunction function)
@@ -239,7 +231,7 @@ public class SqlInvokedFunction
                         .map(Object::toString)
                         .collect(joining(",")),
                 signature.getReturnType(),
-                hasVersion() ? ":" + getVersion() : "",
+                getVersion().map(version -> ":" + version).orElse(""),
                 body,
                 routineCharacteristics);
     }

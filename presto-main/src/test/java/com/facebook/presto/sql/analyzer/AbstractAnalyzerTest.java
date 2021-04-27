@@ -73,7 +73,6 @@ import static com.facebook.presto.metadata.MetadataManager.createTestMetadataMan
 import static com.facebook.presto.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static com.facebook.presto.spi.ConnectorId.createInformationSchemaConnectorId;
 import static com.facebook.presto.spi.ConnectorId.createSystemTablesConnectorId;
-import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.DETERMINISTIC;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Language.SQL;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.NullCallClause.RETURNS_NULL_ON_NULL_INPUT;
@@ -115,7 +114,7 @@ public class AbstractAnalyzerTest
                     .setNullCallClause(RETURNS_NULL_ON_NULL_INPUT)
                     .build(),
             "RETURN x * x",
-            notVersioned());
+            Optional.empty());
 
     protected TransactionManager transactionManager;
     protected AccessControl accessControl;
