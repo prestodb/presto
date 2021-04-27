@@ -48,8 +48,7 @@ Mathematical Functions
 .. function:: chi_squared_cdf(df, value) -> double
 
     Compute the Chi-square cdf with given df (degrees of freedom) parameter:  P(N < value; df).
-    The df parameter must be positive real numbers and value must be a real value.
-    The value must be non-negative.
+    The df parameter must be a positive real number, and value must be a non-negative real value (both of type DOUBLE).
 
 .. function:: cosine_similarity(x, y) -> double
 
@@ -99,7 +98,7 @@ Mathematical Functions
 
     Compute the inverse of the Normal cdf with given mean and standard
     deviation (sd) for the cumulative probability (p): P(N < n). The mean must be
-    a real value and the standard deviation must be a real and positive value.
+    a real value and the standard deviation must be a real and positive value (both of type DOUBLE).
     The probability p must lie on the interval (0, 1).
 
 .. function:: inverse_poisson_cdf(lambda, p) -> integer
@@ -115,23 +114,23 @@ Mathematical Functions
     The ``a``, ``b`` parameters must be positive double values. The probability ``p`` must be a double
     on the interval [0, 1].
 
-.. function:: normal_cdf(mean, sd, v) -> double
+.. function:: normal_cdf(mean, sd, value) -> double
 
-    Compute the Normal cdf with given mean and standard deviation (sd):  P(N < v; mean, sd).
-    The mean and value v must be real values and the standard deviation must be a real
-    and positive value.
+    Compute the Normal cdf with given mean and standard deviation (sd):  P(N < value; mean, sd).
+    The mean and value must be real values and the standard deviation must be a real
+    and positive value (all of type DOUBLE).
 
 .. function:: inverse_beta_cdf(a, b, p) -> double
 
     Compute the inverse of the Beta cdf with given a, b parameters for the cumulative
-    probability (p): P(N < n). The a, b parameters must be positive real values.
+    probability (p): P(N < n). The a, b parameters must be positive real values (all of type DOUBLE).
     The probability p must lie on the interval [0, 1].
 
-.. function:: beta_cdf(a, b, v) -> double
+.. function:: beta_cdf(a, b, value) -> double
 
-    Compute the Beta cdf with given a, b parameters:  P(N < v; a, b).
-    The a, b parameters must be positive real numbers and value v must be a real value.
-    The value v must lie on the interval [0, 1].
+    Compute the Beta cdf with given a, b parameters:  P(N < value; a, b).
+    The a, b parameters must be positive real numbers and value must be a real value (all of type DOUBLE).
+    The value must lie on the interval [0, 1].
 
 .. function:: ln(x) -> double
 
@@ -219,7 +218,7 @@ Mathematical Functions
 .. function:: truncate(x, n) -> double
 
     Returns ``x`` truncated to ``n`` decimal places.
-    ``n`` can be negative to truncate ``n`` digits left of the decimal point. 
+    ``n`` can be negative to truncate ``n`` digits left of the decimal point.
 
     Example:
     ``truncate(REAL '12.333', -1)`` -> result is 10.0
