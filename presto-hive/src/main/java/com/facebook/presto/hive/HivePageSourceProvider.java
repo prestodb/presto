@@ -203,7 +203,7 @@ public class HivePageSourceProvider
                 hiveLayout.getDataColumns(),
                 hiveLayout.getTableParameters(),
                 hiveSplit.getPartitionDataColumnCount(),
-                hiveSplit.getPartitionSchemaDifference(),
+                hiveSplit.getTableToPartitionMapping(),
                 hiveSplit.getBucketConversion(),
                 hiveSplit.isS3SelectPushdownEnabled(),
                 new HiveFileContext(splitContext.isCacheable(), cacheQuota, hiveSplit.getExtraFileInfo().map(BinaryExtraHiveFileInfo::new), Optional.of(hiveSplit.getFileSize())),
@@ -266,7 +266,7 @@ public class HivePageSourceProvider
                 split.getPartitionKeys(),
                 allColumns,
                 ImmutableList.of(),
-                split.getPartitionSchemaDifference(),
+                split.getTableToPartitionMapping(),
                 path,
                 split.getTableBucketNumber());
 
@@ -347,7 +347,7 @@ public class HivePageSourceProvider
             List<Column> tableDataColumns,
             Map<String, String> tableParameters,
             int partitionDataColumnCount,
-            Map<Integer, Column> partitionSchemaDifference,
+            TableToPartitionMapping tableToPartitionMapping,
             Optional<BucketConversion> bucketConversion,
             boolean s3SelectPushdownEnabled,
             HiveFileContext hiveFileContext,
@@ -378,7 +378,7 @@ public class HivePageSourceProvider
                 partitionKeys,
                 allColumns,
                 bucketConversion.map(BucketConversion::getBucketColumnHandles).orElse(ImmutableList.of()),
-                partitionSchemaDifference,
+                tableToPartitionMapping,
                 path,
                 tableBucketNumber);
 
@@ -439,7 +439,11 @@ public class HivePageSourceProvider
             // GenericHiveRecordCursor will automatically do the coercion without HiveCoercionRecordCursor
             boolean doCoercion = !(provider instanceof GenericHiveRecordCursorProvider);
 
-            List<Column> partitionDataColumns = reconstructPartitionSchema(tableDataColumns, partitionDataColumnCount, partitionSchemaDifference);
+            List<Column> partitionDataColumns = reconstructPartitionSchema(
+                    tableDataColumns,
+                    partitionDataColumnCount,
+                    tableToPartitionMapping.getPartitionSchemaDifference(),
+                    tableToPartitionMapping.getTableToPartitionColumns());
             List<Column> partitionKeyColumns = partitionKeyColumnHandles.stream()
                     .map(handle -> new Column(handle.getName(), handle.getHiveType(), handle.getComment()))
                     .collect(toImmutableList());
@@ -652,14 +656,14 @@ public class HivePageSourceProvider
         /**
          * @param columns columns that need to be returned to engine
          * @param requiredInterimColumns columns that are needed for processing, but shouldn't be returned to engine (may overlaps with columns)
-         * @param partitionSchemaDifference map from hive column index to hive type
+         * @param tableToPartitionMapping table to partition mapping
          * @param bucketNumber empty if table is not bucketed, a number within [0, # bucket in table) otherwise
          */
         public static List<ColumnMapping> buildColumnMappings(
                 List<HivePartitionKey> partitionKeys,
                 List<HiveColumnHandle> columns,
                 List<HiveColumnHandle> requiredInterimColumns,
-                Map<Integer, Column> partitionSchemaDifference,
+                TableToPartitionMapping tableToPartitionMapping,
                 Path path,
                 OptionalInt bucketNumber)
         {
@@ -669,7 +673,7 @@ public class HivePageSourceProvider
             ImmutableList.Builder<ColumnMapping> columnMappings = ImmutableList.builder();
             for (HiveColumnHandle column : columns) {
                 // will be present if the partition has a different schema (column type, column name) for the column
-                Optional<Column> partitionColumn = Optional.ofNullable(partitionSchemaDifference.get(column.getHiveColumnIndex()));
+                Optional<Column> partitionColumn = tableToPartitionMapping.getPartitionColumn(column.getHiveColumnIndex());
                 Optional<HiveType> coercionFrom = Optional.empty();
                 // we don't care if only the column name has changed
                 if (partitionColumn.isPresent() && !partitionColumn.get().getType().equals(column.getHiveType())) {

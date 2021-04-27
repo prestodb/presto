@@ -143,7 +143,7 @@ public class TestDynamicPruning
                 OptionalInt.of(1),
                 NO_PREFERENCE,
                 getColumnHandles().size(),
-                partitionSchemaDifference,
+                TableToPartitionMapping.mapColumnsByIndex(partitionSchemaDifference),
                 Optional.empty(),
                 false,
                 Optional.empty(),

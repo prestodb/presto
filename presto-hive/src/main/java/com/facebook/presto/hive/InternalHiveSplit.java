@@ -14,7 +14,6 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.HiveSplit.BucketConversion;
-import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.google.common.collect.ImmutableList;
@@ -182,9 +181,9 @@ public class InternalHiveSplit
         return nodeSelectionStrategy;
     }
 
-    public Map<Integer, Column> getPartitionSchemaDifference()
+    public TableToPartitionMapping getTableToPartitionMapping()
     {
-        return partitionInfo.getPartitionSchemaDifference();
+        return partitionInfo.getTableToPartitionMapping();
     }
 
     public Optional<BucketConversion> getBucketConversion()

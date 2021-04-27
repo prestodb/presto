@@ -14,7 +14,6 @@
 
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.PrestoException;
@@ -23,7 +22,6 @@ import org.openjdk.jol.info.ClassLayout;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -39,14 +37,13 @@ import static java.util.Objects.requireNonNull;
 public class HiveSplitPartitionInfo
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(HiveSplitPartitionInfo.class).instanceSize();
-    private static final int INTEGER_INSTANCE_SIZE = ClassLayout.parseClass(Integer.class).instanceSize();
 
     private final Storage storage;
     private final URI path;
     private final List<HivePartitionKey> partitionKeys;
     private final String partitionName;
     private final int partitionDataColumnCount;
-    private final Map<Integer, Column> partitionSchemaDifference;
+    private final TableToPartitionMapping tableToPartitionMapping;
     private final Optional<HiveSplit.BucketConversion> bucketConversion;
     private final Set<ColumnHandle> redundantColumnDomains;
 
@@ -59,7 +56,7 @@ public class HiveSplitPartitionInfo
             List<HivePartitionKey> partitionKeys,
             String partitionName,
             int partitionDataColumnCount,
-            Map<Integer, Column> partitionSchemaDifference,
+            TableToPartitionMapping tableToPartitionMapping,
             Optional<HiveSplit.BucketConversion> bucketConversion,
             Set<ColumnHandle> redundantColumnDomains)
     {
@@ -67,7 +64,7 @@ public class HiveSplitPartitionInfo
         requireNonNull(path, "path is null");
         requireNonNull(partitionKeys, "partitionKeys is null");
         requireNonNull(partitionName, "partitionName is null");
-        requireNonNull(partitionSchemaDifference, "partitionSchemaDifference is null");
+        requireNonNull(tableToPartitionMapping, "tableToPartitionMapping is null");
         requireNonNull(bucketConversion, "bucketConversion is null");
         requireNonNull(redundantColumnDomains, "redundantColumnDomains is null");
 
@@ -76,7 +73,7 @@ public class HiveSplitPartitionInfo
         this.partitionKeys = partitionKeys;
         this.partitionName = partitionName;
         this.partitionDataColumnCount = partitionDataColumnCount;
-        this.partitionSchemaDifference = partitionSchemaDifference;
+        this.tableToPartitionMapping = tableToPartitionMapping;
         this.bucketConversion = bucketConversion;
         this.redundantColumnDomains = redundantColumnDomains;
     }
@@ -120,9 +117,9 @@ public class HiveSplitPartitionInfo
         return partitionDataColumnCount;
     }
 
-    public Map<Integer, Column> getPartitionSchemaDifference()
+    public TableToPartitionMapping getTableToPartitionMapping()
     {
-        return partitionSchemaDifference;
+        return tableToPartitionMapping;
     }
 
     public Optional<HiveSplit.BucketConversion> getBucketConversion()
@@ -144,10 +141,7 @@ public class HiveSplitPartitionInfo
         }
 
         result += partitionName.length() * Character.BYTES;
-        result += sizeOfObjectArray(partitionSchemaDifference.size());
-        for (Column column : partitionSchemaDifference.values()) {
-            result += INTEGER_INSTANCE_SIZE + column.getEstimatedSizeInBytes();
-        }
+        result += tableToPartitionMapping.getEstimatedSizeInBytes();
         return result;
     }
 
