@@ -47,7 +47,6 @@ import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcTester.createCustomOrcSelectiveRecordReader;
 import static com.facebook.presto.orc.OrcTester.createOrcWriter;
-import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_MAX_STRING_STATISTICS_LIMIT;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY_V2;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
@@ -95,7 +94,6 @@ public class TestDictionaryColumnWriter
                 columnWriterOptions,
                 Optional.empty(),
                 ORC,
-                DEFAULT_MAX_STRING_STATISTICS_LIMIT,
                 ORC.createMetadataWriter());
 
         // a single row group exceeds 2G after direct conversion

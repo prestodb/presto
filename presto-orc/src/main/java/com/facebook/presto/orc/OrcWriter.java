@@ -165,7 +165,13 @@ public class OrcWriter
         this.orcEncoding = requireNonNull(orcEncoding, "orcEncoding is null");
 
         requireNonNull(compressionKind, "compressionKind is null");
-        this.columnWriterOptions = ColumnWriterOptions.builder().setCompressionKind(compressionKind).setCompressionLevel(options.getCompressionLevel()).setCompressionMaxBufferSize(options.getMaxCompressionBufferSize()).build();
+        this.columnWriterOptions = ColumnWriterOptions.builder()
+                .setCompressionKind(compressionKind)
+                .setCompressionLevel(options.getCompressionLevel())
+                .setCompressionMaxBufferSize(options.getMaxCompressionBufferSize())
+                .setStringStatisticsLimit(options.getMaxStringStatisticsLimit())
+                .setIntegerDictionaryEncodingEnabled(options.isIntegerDictionaryEncodingEnabled())
+                .build();
         recordValidation(validation -> validation.setCompression(compressionKind));
 
         requireNonNull(options, "options is null");
@@ -239,10 +245,8 @@ public class OrcWriter
                     columnWriterOptions,
                     orcEncoding,
                     hiveStorageTimeZone,
-                    options.getMaxStringStatisticsLimit(),
                     dwrfEncryptionInfo,
-                    orcEncoding.createMetadataWriter(),
-                    options.isIntegerDictionaryEncodingEnabled());
+                    orcEncoding.createMetadataWriter());
             columnWriters.add(columnWriter);
 
             if (columnWriter instanceof DictionaryColumnWriter) {
