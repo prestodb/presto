@@ -1428,6 +1428,30 @@ public class TestMathFunctions
     }
 
     @Test
+    public void testInversePoissonCdf()
+    {
+        assertFunction("inverse_poisson_cdf(3, 0.0)", INTEGER, 0);
+        assertFunction("inverse_poisson_cdf(3, 0.3)", INTEGER, 2);
+        assertFunction("inverse_poisson_cdf(3, 0.95)", INTEGER, 6);
+        assertFunction("inverse_poisson_cdf(3, 0.99999999)", INTEGER, 17);
+
+        assertInvalidFunction("inverse_poisson_cdf(-3, 0.3)", "lambda must be greater than 0");
+        assertInvalidFunction("inverse_poisson_cdf(3, -0.1)", "p must be in the interval [0, 1)");
+        assertInvalidFunction("inverse_poisson_cdf(3, 1.1)", "p must be in the interval [0, 1)");
+        assertInvalidFunction("inverse_poisson_cdf(3, 1)", "p must be in the interval [0, 1)");
+    }
+
+    @Test
+    public void testPoissonCdf()
+    {
+        assertFunction("round(poisson_cdf(10, 0), 2)", DOUBLE, 0.0);
+        assertFunction("round(poisson_cdf(3, 5), 2)", DOUBLE, 0.92);
+
+        assertInvalidFunction("poisson_cdf(-3, 5)", "lambda must be greater than 0");
+        assertInvalidFunction("poisson_cdf(3, -10)", "value must be a non-negative integer");
+    }
+
+    @Test
     public void testWilsonInterval()
     {
         assertInvalidFunction("wilson_interval_lower(-1, 100, 2.575)", "number of successes must not be negative");
