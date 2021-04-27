@@ -45,11 +45,11 @@ import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.common.type.StandardTypes.INTEGER;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.function.FunctionImplementationType.THRIFT;
-import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.DETERMINISTIC;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Language.SQL;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.NullCallClause.RETURNS_NULL_ON_NULL_INPUT;
@@ -74,7 +74,7 @@ public class TestInlineSqlFunctions
                     .setNullCallClause(RETURNS_NULL_ON_NULL_INPUT)
                     .build(),
             "RETURN x * x",
-            notVersioned());
+            Optional.empty());
 
     private static final SqlInvokedFunction THRIFT_FUNCTION_FOO = new SqlInvokedFunction(
             QualifiedObjectName.valueOf(new CatalogSchemaName("unittest", "memory"), "foo"),
@@ -86,7 +86,7 @@ public class TestInlineSqlFunctions
                     .setDeterminism(DETERMINISTIC).setNullCallClause(RETURNS_NULL_ON_NULL_INPUT)
                     .build(),
             "",
-            notVersioned());
+            Optional.empty());
 
     private static final SqlInvokedFunction SQL_FUNCTION_ADD_1_TO_INT_ARRAY = new SqlInvokedFunction(
             QualifiedObjectName.valueOf(new CatalogSchemaName("unittest", "memory"), "add_1_int"),
@@ -98,7 +98,7 @@ public class TestInlineSqlFunctions
                     .setNullCallClause(RETURNS_NULL_ON_NULL_INPUT)
                     .build(),
             "RETURN transform(x, x -> x + 1)",
-            notVersioned());
+            Optional.empty());
 
     private static final SqlInvokedFunction SQL_FUNCTION_ADD_1_TO_BIGINT_ARRAY = new SqlInvokedFunction(
             QualifiedObjectName.valueOf(new CatalogSchemaName("unittest", "memory"), "add_1_bigint"),
@@ -110,7 +110,7 @@ public class TestInlineSqlFunctions
                     .setNullCallClause(RETURNS_NULL_ON_NULL_INPUT)
                     .build(),
             "RETURN transform(x, x -> x + 1)",
-            notVersioned());
+            Optional.empty());
 
     private RuleTester tester;
 

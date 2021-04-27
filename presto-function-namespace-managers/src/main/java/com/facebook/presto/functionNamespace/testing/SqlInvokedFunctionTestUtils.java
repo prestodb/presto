@@ -20,10 +20,11 @@ import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Optional;
+
 import static com.facebook.presto.common.type.StandardTypes.DOUBLE;
 import static com.facebook.presto.common.type.StandardTypes.INTEGER;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.DETERMINISTIC;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.NullCallClause.RETURNS_NULL_ON_NULL_INPUT;
 
@@ -46,7 +47,7 @@ public class SqlInvokedFunctionTestUtils
             "power tower",
             RoutineCharacteristics.builder().setDeterminism(DETERMINISTIC).build(),
             "RETURN pow(x, x)",
-            notVersioned());
+            Optional.empty());
 
     public static final SqlInvokedFunction FUNCTION_POWER_TOWER_DOUBLE_UPDATED = new SqlInvokedFunction(
             POWER_TOWER,
@@ -55,7 +56,7 @@ public class SqlInvokedFunctionTestUtils
             "power tower",
             RoutineCharacteristics.builder().setDeterminism(DETERMINISTIC).setNullCallClause(RETURNS_NULL_ON_NULL_INPUT).build(),
             "RETURN pow(x, x)",
-            notVersioned());
+            Optional.empty());
 
     public static final SqlInvokedFunction FUNCTION_POWER_TOWER_INT = new SqlInvokedFunction(
             POWER_TOWER,
@@ -64,7 +65,7 @@ public class SqlInvokedFunctionTestUtils
             "power tower",
             RoutineCharacteristics.builder().setDeterminism(DETERMINISTIC).setNullCallClause(RETURNS_NULL_ON_NULL_INPUT).build(),
             "RETURN pow(x, x)",
-            notVersioned());
+            Optional.empty());
 
     public static final SqlInvokedFunction FUNCTION_TANGENT = new SqlInvokedFunction(
             TANGENT,
@@ -76,5 +77,5 @@ public class SqlInvokedFunctionTestUtils
                     .setNullCallClause(RETURNS_NULL_ON_NULL_INPUT)
                     .build(),
             "RETURN sin(x) / cos(x)",
-            notVersioned());
+            Optional.empty());
 }

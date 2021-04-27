@@ -55,7 +55,6 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_TIME_ZONE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static com.facebook.presto.common.type.StandardTypes.INTEGER;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.DETERMINISTIC;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.NullCallClause.RETURNS_NULL_ON_NULL_INPUT;
 import static java.lang.String.format;
@@ -234,7 +233,7 @@ public class TestHttpRequestSessionContext
                         .setNullCallClause(RETURNS_NULL_ON_NULL_INPUT)
                         .build(),
                 "RETURN x + y",
-                notVersioned());
+                Optional.empty());
     }
 
     public static SqlFunctionId createSqlFunctionIdAdd1ToIntArray()
@@ -254,6 +253,6 @@ public class TestHttpRequestSessionContext
                         .setNullCallClause(RETURNS_NULL_ON_NULL_INPUT)
                         .build(),
                 "RETURN transform(x, x -> x + 1)",
-                notVersioned());
+                Optional.empty());
     }
 }
