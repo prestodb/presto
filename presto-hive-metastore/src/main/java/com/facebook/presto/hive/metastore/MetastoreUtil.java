@@ -83,6 +83,7 @@ import java.util.OptionalLong;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.Chars.isCharType;
@@ -313,21 +314,38 @@ public class MetastoreUtil
      * If the partition has more columns than the table does, the partitionSchemaDifference
      * map is expected to contain information for the missing columns.
      */
-    public static List<Column> reconstructPartitionSchema(List<Column> tableSchema, int partitionColumnCount, Map<Integer, Column> partitionSchemaDifference)
+    public static List<Column> reconstructPartitionSchema(List<Column> tableSchema, int partitionColumnCount, Map<Integer, Column> partitionSchemaDifference, Optional<Map<Integer, Integer>> tableToPartitionColumns)
     {
         ImmutableList.Builder<Column> columns = ImmutableList.builder();
-        for (int i = 0; i < partitionColumnCount; i++) {
-            Column column = partitionSchemaDifference.get(i);
-            if (column == null) {
-                checkArgument(
-                        i < tableSchema.size(),
-                        "column descriptor for column with hiveColumnIndex %s not found: tableSchema: %s, partitionSchemaDifference: %s",
-                        i,
-                        tableSchema,
-                        partitionSchemaDifference);
-                column = tableSchema.get(i);
+
+        if (tableToPartitionColumns.isPresent()) {
+            Map<Integer, Integer> partitionToTableColumns = tableToPartitionColumns.get()
+                    .entrySet()
+                    .stream()
+                    .collect(Collectors.toMap(Map.Entry::getValue, Map.Entry::getKey));
+
+            for (int i = 0; i < partitionColumnCount; i++) {
+                Column column = partitionSchemaDifference.get(i);
+                if (column == null) {
+                    column = tableSchema.get(partitionToTableColumns.get(i));
+                }
+                columns.add(column);
             }
-            columns.add(column);
+        }
+        else {
+            for (int i = 0; i < partitionColumnCount; i++) {
+                Column column = partitionSchemaDifference.get(i);
+                if (column == null) {
+                    checkArgument(
+                            i < tableSchema.size(),
+                            "column descriptor for column with hiveColumnIndex %s not found: tableSchema: %s, partitionSchemaDifference: %s",
+                            i,
+                            tableSchema,
+                            partitionSchemaDifference);
+                    column = tableSchema.get(i);
+                }
+                columns.add(column);
+            }
         }
         return columns.build();
     }

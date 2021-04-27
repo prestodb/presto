@@ -175,7 +175,7 @@ public class ManifestPartitionLoader
                         partitionKeys,
                         partitionName,
                         partitionDataColumnCount,
-                        partition.getPartitionSchemaDifference(),
+                        partition.getTableToPartitionMapping(),
                         Optional.empty(),
                         partition.getRedundantColumnDomains()),
                 schedulerUsesHostAddresses,

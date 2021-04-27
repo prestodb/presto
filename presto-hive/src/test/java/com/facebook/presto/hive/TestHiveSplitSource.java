@@ -542,7 +542,7 @@ public class TestHiveSplitSource
                             ImmutableList.of(),
                             "partition-name",
                             id,
-                            ImmutableMap.of(),
+                            TableToPartitionMapping.empty(),
                             Optional.empty(),
                             ImmutableSet.of()),
                     Optional.empty(),
