@@ -355,12 +355,16 @@ public class TableFinishOperator
                     // Case 1: lifespan commit is not required, this can be one of the following cases:
                     //  - The source fragment is ungrouped execution (lifespan is TASK_WIDE).
                     //  - The source fragment is grouped execution but not recoverable.
-                    noCommitUnrecoverableLifespanAndStageStates.computeIfAbsent(lifespanAndStage, ignored -> new LifespanAndStageState(tableCommitContext.getTaskId())).update(page);
+                    noCommitUnrecoverableLifespanAndStageStates.computeIfAbsent(
+                            lifespanAndStage, ignored -> new LifespanAndStageState(
+                                    tableCommitContext.getTaskId(), false)).update(page);
                     return;
                 }
                 case TASK_COMMIT: {
                     // Case 2: Commit is required, but partial recovery is not supported
-                    taskCommitUnrecoverableLifespanAndStageStates.computeIfAbsent(lifespanAndStage, ignored -> new LifespanAndStageState(tableCommitContext.getTaskId())).update(page);
+                    taskCommitUnrecoverableLifespanAndStageStates.computeIfAbsent(
+                            lifespanAndStage, ignored -> new LifespanAndStageState(
+                                    tableCommitContext.getTaskId(), false)).update(page);
                     return;
                 }
                 case LIFESPAN_COMMIT: {
@@ -377,7 +381,9 @@ public class TableFinishOperator
 
                     // Case 2b: Current (stage, lifespan) combination is not yet committed
                     Map<TaskId, LifespanAndStageState> lifespanStageStatesPerTask = uncommittedRecoverableLifespanAndStageStates.computeIfAbsent(lifespanAndStage, ignored -> new HashMap<>());
-                    lifespanStageStatesPerTask.computeIfAbsent(tableCommitContext.getTaskId(), ignored -> new LifespanAndStageState(tableCommitContext.getTaskId())).update(page);
+                    lifespanStageStatesPerTask.computeIfAbsent(
+                            tableCommitContext.getTaskId(), ignored -> new LifespanAndStageState(
+                                    tableCommitContext.getTaskId(), true)).update(page);
 
                     if (tableCommitContext.isLastPage()) {
                         checkState(!committedRecoverableLifespanAndStages.containsKey(lifespanAndStage), "LifespanAndStage already finished");
@@ -488,14 +494,15 @@ public class TableFinishOperator
         private static class LifespanAndStageState
         {
             private long rowCount;
-            private ImmutableList.Builder<Slice> fragmentBuilder = ImmutableList.builder();
-            private ImmutableList.Builder<Page> statisticsPages = ImmutableList.builder();
+            private final ImmutableList.Builder<Slice> fragmentBuilder = ImmutableList.builder();
+            private final Optional<ImmutableList.Builder<Page>> statisticsPages;
 
-            private TaskId taskId;
+            private final TaskId taskId;
 
-            public LifespanAndStageState(TaskId taskId)
+            public LifespanAndStageState(TaskId taskId, boolean trackStatisticsPages)
             {
                 this.taskId = requireNonNull(taskId, "taskId is null");
+                this.statisticsPages = trackStatisticsPages ? Optional.of(ImmutableList.builder()) : Optional.empty();
             }
 
             public void update(Page page)
@@ -510,7 +517,9 @@ public class TableFinishOperator
                         fragmentBuilder.add(VARBINARY.getSlice(fragmentBlock, position));
                     }
                 }
-                extractStatisticsRows(page).ifPresent(statisticsPages::add);
+                if (statisticsPages.isPresent()) {
+                    extractStatisticsRows(page).ifPresent(statisticsPages.get()::add);
+                }
             }
 
             public long getRowCount()
@@ -525,7 +534,8 @@ public class TableFinishOperator
 
             public List<Page> getStatisticsPages()
             {
-                return statisticsPages.build();
+                checkState(statisticsPages.isPresent(), "statisticsPages is present for recoverable grouped execution only");
+                return statisticsPages.get().build();
             }
 
             public TaskId getTaskId()
