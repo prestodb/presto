@@ -868,7 +868,7 @@ public class TaskExecutor
             if (duration.compareTo(LONG_SPLIT_WARNING_THRESHOLD) >= 0) {
                 maxActiveSplitCount++;
                 stackTrace.append("\n");
-                stackTrace.append(String.format("\"%s\" tid=%s status=%s", splitInfo.getThreadId(), splitInfo.getThread().getId(), splitInfo.isFinished() ? "finished" : "running")).append("\n");
+                stackTrace.append(String.format("\"%s\" tid=%s status=%s detail=%s", splitInfo.getThreadId(), splitInfo.getThread().getId(), splitInfo.isFinished() ? "finished" : "running", splitInfo.getSplitInfo())).append("\n");
                 for (StackTraceElement traceElement : splitInfo.getThread().getStackTrace()) {
                     stackTrace.append("\tat ").append(traceElement).append("\n");
                 }
@@ -937,6 +937,11 @@ public class TaskExecutor
         public boolean isFinished()
         {
             return split.isFinished();
+        }
+
+        public String getSplitInfo()
+        {
+            return split.getInfo();
         }
 
         @Override
