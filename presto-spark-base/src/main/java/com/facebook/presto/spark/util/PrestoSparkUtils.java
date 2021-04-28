@@ -21,8 +21,8 @@ import com.facebook.presto.spi.page.PageDecompressor;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.github.luben.zstd.Zstd;
-import com.github.luben.zstd.ZstdInputStream;
-import com.github.luben.zstd.ZstdOutputStream;
+import com.github.luben.zstd.ZstdInputStreamNoFinalizer;
+import com.github.luben.zstd.ZstdOutputStreamNoFinalizer;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -103,7 +103,7 @@ public class PrestoSparkUtils
     public static <T> byte[] serializeZstdCompressed(Codec<T> codec, T instance)
     {
         try (ByteArrayOutputStream output = new ByteArrayOutputStream();
-                ZstdOutputStream zstdOutput = new ZstdOutputStream(output)) {
+                ZstdOutputStreamNoFinalizer zstdOutput = new ZstdOutputStreamNoFinalizer(output)) {
             codec.writeBytes(zstdOutput, instance);
             zstdOutput.close();
             output.close();
@@ -117,7 +117,7 @@ public class PrestoSparkUtils
     public static <T> T deserializeZstdCompressed(Codec<T> codec, byte[] bytes)
     {
         try (InputStream input = new ByteArrayInputStream(bytes);
-                ZstdInputStream zstdInput = new ZstdInputStream(input)) {
+                ZstdInputStreamNoFinalizer zstdInput = new ZstdInputStreamNoFinalizer(input)) {
             return codec.readBytes(zstdInput);
         }
         catch (IOException e) {
