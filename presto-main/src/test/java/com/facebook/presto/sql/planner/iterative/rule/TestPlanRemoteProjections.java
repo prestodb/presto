@@ -137,19 +137,6 @@ public class TestPlanRemoteProjections
     }
 
     @Test
-    void testRemoteWithConstantArgument()
-    {
-        PlanBuilder planBuilder = new PlanBuilder(TEST_SESSION, new PlanNodeIdAllocator(), getMetadata());
-
-        PlanRemotePojections rule = new PlanRemotePojections(getFunctionAndTypeManager());
-        List<ProjectionContext> rewritten = rule.planRemoteAssignments(Assignments.builder()
-                .put(planBuilder.variable("a"), planBuilder.rowExpression("unittest.memory.remote_foo(0)"))
-                .put(planBuilder.variable("b"), planBuilder.rowExpression("unittest.memory.remote_foo()"))
-                .build(), new PlanVariableAllocator(planBuilder.getTypes().allVariables()));
-        assertEquals(rewritten.size(), 1);
-    }
-
-    @Test
     void testRemoteOnly()
     {
         PlanBuilder planBuilder = new PlanBuilder(TEST_SESSION, new PlanNodeIdAllocator(), getMetadata());
@@ -236,7 +223,7 @@ public class TestPlanRemoteProjections
                     p.variable("y", INTEGER);
                     return p.project(
                             Assignments.builder()
-                                    .put(p.variable("a"), p.rowExpression("unittest.memory.remote_foo(1, y + unittest.memory.remote_foo(x))")) // identity
+                                    .put(p.variable("a"), p.rowExpression("unittest.memory.remote_foo(x, y + unittest.memory.remote_foo(x))")) // identity
                                     .put(p.variable("b"), p.rowExpression("x IS NULL OR y IS NULL")) // complex expression referenced multiple times
                                     .put(p.variable("c"), p.rowExpression("abs(unittest.memory.remote_foo()) > 0")) // complex expression referenced multiple times
                                     .put(p.variable("d"), p.rowExpression("unittest.memory.remote_foo(x + y, abs(x))")) // literal referenced multiple times
@@ -246,31 +233,35 @@ public class TestPlanRemoteProjections
                 .matches(
                         project(
                                 ImmutableMap.of(
-                                        "a", PlanMatchPattern.expression("unittest.memory.remote_foo(1, add)"),
+                                        "a", PlanMatchPattern.expression("unittest.memory.remote_foo(x, add)"),
                                         "b", PlanMatchPattern.expression("b"),
                                         "c", PlanMatchPattern.expression("c"),
                                         "d", PlanMatchPattern.expression("d")),
                                 project(
                                         ImmutableMap.of(
+                                                "x", PlanMatchPattern.expression("x"),
                                                 "add", PlanMatchPattern.expression("y + unittest_memory_remote_foo"),
                                                 "b", PlanMatchPattern.expression("b"),
-                                                "c", PlanMatchPattern.expression("abs(unittest_memory_remote_foo_7) > 0"),
+                                                "c", PlanMatchPattern.expression("abs(unittest_memory_remote_foo_7) > expr_8"),
                                                 "d", PlanMatchPattern.expression("d")),
                                         project(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
+                                                        .put("x", PlanMatchPattern.expression("x"))
                                                         .put("y", PlanMatchPattern.expression("y"))
                                                         .put("unittest_memory_remote_foo", PlanMatchPattern.expression("unittest.memory.remote_foo(x)"))
                                                         .put("b", PlanMatchPattern.expression("b"))
                                                         .put("unittest_memory_remote_foo_7", PlanMatchPattern.expression("unittest.memory.remote_foo()"))
-                                                        .put("d", PlanMatchPattern.expression("unittest.memory.remote_foo(add_9, abs_11)"))
+                                                        .put("expr_8", PlanMatchPattern.expression("expr_8"))
+                                                        .put("d", PlanMatchPattern.expression("unittest.memory.remote_foo(add_14, abs_16)"))
                                                         .build(),
                                                 project(
                                                         ImmutableMap.<String, ExpressionMatcher>builder()
                                                                 .put("x", PlanMatchPattern.expression("x"))
                                                                 .put("y", PlanMatchPattern.expression("y"))
                                                                 .put("b", PlanMatchPattern.expression("x IS NULL OR y is NULL"))
-                                                                .put("add_9", PlanMatchPattern.expression("x + y"))
-                                                                .put("abs_11", PlanMatchPattern.expression("abs(x)"))
+                                                                .put("expr_8", PlanMatchPattern.expression("0"))
+                                                                .put("add_14", PlanMatchPattern.expression("x + y"))
+                                                                .put("abs_16", PlanMatchPattern.expression("abs(x)"))
                                                                 .build(),
                                                         values(ImmutableMap.of("x", 0, "y", 1)))))));
     }
