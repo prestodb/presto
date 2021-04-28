@@ -26,6 +26,7 @@ import java.util.List;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.PARTIAL_MERGE_PUSHDOWN_STRATEGY;
 import static com.facebook.presto.spark.PrestoSparkQueryRunner.createHivePrestoSparkQueryRunner;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_SPLIT_ASSIGNMENT_BATCH_SIZE;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.STORAGE_BASED_BROADCAST_JOIN_ENABLED;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrategy.PUSH_THROUGH_LOW_MEMORY_OPERATORS;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
@@ -818,6 +819,22 @@ public class TestPrestoSparkQueryRunner
         try (QueryRunner queryRunner = createHivePrestoSparkQueryRunner(ImmutableList.of(NATION), ImmutableMap.of("spark.smile-serialization-enabled", "false"))) {
             MaterializedResult actual = queryRunner.execute(query);
             assertEqualsIgnoreOrder(actual, computeExpected(query, actual.getTypes()));
+        }
+    }
+
+    @Test
+    public void testIterativeSplitEnumeration()
+    {
+        for (int batchSize = 1; batchSize <= 8; batchSize *= 2) {
+            Session session = Session.builder(getSession())
+                    .setSystemProperty(SPARK_SPLIT_ASSIGNMENT_BATCH_SIZE, batchSize + "")
+                    .build();
+
+            assertQuery(session, "select partkey, count(*) c from lineitem where partkey % 10 = 1 group by partkey having count(*) = 42");
+
+            assertQuery(session, "SELECT l.orderkey, l.linenumber, p.brand " +
+                    "FROM lineitem l, part p " +
+                    "WHERE l.partkey = p.partkey");
         }
     }
 
