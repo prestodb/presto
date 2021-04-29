@@ -374,6 +374,22 @@ public class TestMemoryTracking
         assertOperatorMemoryAllocations(operatorContext.getOperatorMemoryContext(), 0, 0, 0);
     }
 
+    @Test
+    public void testCumulativeUserMemoryEstimation()
+    {
+        LocalMemoryContext userMemory = operatorContext.localUserMemoryContext();
+        long userMemoryBytes = 100_000_000;
+        userMemory.setBytes(userMemoryBytes);
+        long startTime = System.nanoTime();
+        double cumulativeUserMemory = taskContext.getTaskStats().getCumulativeUserMemory();
+        long endTime = System.nanoTime();
+
+        double elapsedTimeInMillis = (endTime - startTime) / 1_000_000.0;
+        long averageMemoryForLastPeriod = userMemoryBytes / 2;
+
+        assertTrue(cumulativeUserMemory < elapsedTimeInMillis * averageMemoryForLastPeriod);
+    }
+
     private void assertStats(
             OperatorStats operatorStats,
             DriverStats driverStats,

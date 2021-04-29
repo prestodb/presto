@@ -42,7 +42,7 @@ public class BasicStageExecutionStats
             new DataSize(0, BYTE),
             0,
 
-            0,
+            0.0,
             new DataSize(0, BYTE),
             new DataSize(0, BYTE),
 
@@ -63,7 +63,7 @@ public class BasicStageExecutionStats
     private final int completedDrivers;
     private final DataSize rawInputDataSize;
     private final long rawInputPositions;
-    private final long cumulativeUserMemory;
+    private final double cumulativeUserMemory;
     private final DataSize userMemoryReservation;
     private final DataSize totalMemoryReservation;
     private final Duration totalCpuTime;
@@ -84,7 +84,7 @@ public class BasicStageExecutionStats
             DataSize rawInputDataSize,
             long rawInputPositions,
 
-            long cumulativeUserMemory,
+            double cumulativeUserMemory,
             DataSize userMemoryReservation,
             DataSize totalMemoryReservation,
 
@@ -151,7 +151,7 @@ public class BasicStageExecutionStats
         return rawInputPositions;
     }
 
-    public long getCumulativeUserMemory()
+    public double getCumulativeUserMemory()
     {
         return cumulativeUserMemory;
     }
@@ -203,7 +203,7 @@ public class BasicStageExecutionStats
         int runningDrivers = 0;
         int completedDrivers = 0;
 
-        long cumulativeUserMemory = 0;
+        double cumulativeUserMemory = 0;
         long userMemoryReservation = 0;
         long totalMemoryReservation = 0;
 
