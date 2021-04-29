@@ -409,7 +409,11 @@ public class TableFinishOperator
                 return ImmutableList.of();
             }
             checkState(!uncommittedRecoverableLifespanAndStageStates.containsKey(lifespanAndStage), "lifespanAndStage %s is already committed", lifespanAndStage);
-            return committedRecoverableLifespanAndStages.get(lifespanAndStage).getStatisticsPages();
+            LifespanAndStageState lifespanAndStageState = committedRecoverableLifespanAndStages.get(lifespanAndStage);
+            List<Page> pages = lifespanAndStageState.getStatisticsPages();
+            // statistics data in this lifespanAndStageState will not be accessed any more
+            lifespanAndStageState.resetStatisticsPages();
+            return pages;
         }
 
         public long getFinalRowCount()
@@ -493,11 +497,11 @@ public class TableFinishOperator
 
         private static class LifespanAndStageState
         {
-            private long rowCount;
             private final ImmutableList.Builder<Slice> fragmentBuilder = ImmutableList.builder();
-            private final Optional<ImmutableList.Builder<Page>> statisticsPages;
-
             private final TaskId taskId;
+
+            private long rowCount;
+            private Optional<ImmutableList.Builder<Page>> statisticsPages;
 
             public LifespanAndStageState(TaskId taskId, boolean trackStatisticsPages)
             {
@@ -541,6 +545,11 @@ public class TableFinishOperator
             public TaskId getTaskId()
             {
                 return taskId;
+            }
+
+            public void resetStatisticsPages()
+            {
+                statisticsPages = Optional.empty();
             }
         }
     }
