@@ -422,7 +422,7 @@ public class StageExecutionStats
                 completedDrivers,
                 rawInputDataSize,
                 rawInputPositions,
-                (long) cumulativeUserMemory,
+                cumulativeUserMemory,
                 userMemoryReservation,
                 totalMemoryReservation,
                 totalCpuTime,

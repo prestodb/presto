@@ -503,6 +503,9 @@ public class TaskContext
         updatePeakMemory();
 
         synchronized (cumulativeMemoryLock) {
+            if (lastTaskStatCallNanos == 0) {
+                lastTaskStatCallNanos = startNanos;
+            }
             double sinceLastPeriodMillis = (System.nanoTime() - lastTaskStatCallNanos) / 1_000_000.0;
             long averageMemoryForLastPeriod = (userMemory + lastUserMemoryReservation) / 2;
             cumulativeUserMemory.addAndGet(averageMemoryForLastPeriod * sinceLastPeriodMillis);
