@@ -26,8 +26,10 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -112,5 +114,38 @@ public class UnnestNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         return new UnnestNode(getId(), Iterables.getOnlyElement(newChildren), replicateVariables, unnestVariables, ordinalityVariable);
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        UnnestNode that = (UnnestNode) o;
+        return Objects.equals(source, that.source) &&
+                Objects.equals(replicateVariables, that.replicateVariables) &&
+                Objects.equals(unnestVariables, that.unnestVariables) &&
+                Objects.equals(ordinalityVariable, that.ordinalityVariable);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(source, replicateVariables, unnestVariables, ordinalityVariable);
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("source", source)
+                .add("replicateVariables", replicateVariables)
+                .add("unnestVariables", unnestVariables)
+                .add("ordinalityVariable", ordinalityVariable)
+                .toString();
     }
 }

@@ -121,6 +121,20 @@ public class TestCanonicalPlanGenerator
     }
 
     @Test
+    public void testUnnest()
+            throws Exception
+    {
+        assertSameCanonicalLeafSubPlan("" +
+                "SELECT a.custkey, t.e " +
+                "FROM (SELECT custkey, ARRAY[1, 2, 3] AS my_array FROM orders) a " +
+                "CROSS JOIN UNNEST(my_array) AS t(e)");
+        assertSameCanonicalLeafSubPlan("" +
+                "SELECT * " +
+                "FROM (SELECT custkey, ARRAY[1, 2, 3] AS my_array FROM orders) a " +
+                "CROSS JOIN UNNEST(my_array) WITH ORDINALITY AS t(e, ord)");
+    }
+
+    @Test
     public void testProject()
             throws Exception
     {

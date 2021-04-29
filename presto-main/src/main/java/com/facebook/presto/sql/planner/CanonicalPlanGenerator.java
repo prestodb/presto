@@ -30,6 +30,7 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
+import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -191,6 +192,45 @@ public class CanonicalPlanGenerator
                         .map(context::get)
                         .collect(toImmutableList()),
                 groupId));
+    }
+
+    @Override
+    public Optional<PlanNode> visitUnnest(UnnestNode node, Map<VariableReferenceExpression, VariableReferenceExpression> context)
+    {
+        Optional<PlanNode> source = node.getSource().accept(this, context);
+        if (!source.isPresent()) {
+            return Optional.empty();
+        }
+
+        // Generate canonical unnestVariables.
+        ImmutableMap.Builder<VariableReferenceExpression, List<VariableReferenceExpression>> newUnnestVariables = ImmutableMap.builder();
+        for (Map.Entry<VariableReferenceExpression, List<VariableReferenceExpression>> unnestVariable : node.getUnnestVariables().entrySet()) {
+            VariableReferenceExpression input = (VariableReferenceExpression) inlineVariables(context, unnestVariable.getKey());
+            ImmutableList.Builder<VariableReferenceExpression> newVariables = ImmutableList.builder();
+            for (VariableReferenceExpression variable : unnestVariable.getValue()) {
+                VariableReferenceExpression newVariable = variableAllocator.newVariable("unnest_field", variable.getType());
+                context.put(variable, newVariable);
+                newVariables.add(newVariable);
+            }
+            newUnnestVariables.put(input, newVariables.build());
+        }
+
+        // Generate canonical ordinality variable
+        Optional<VariableReferenceExpression> ordinalityVariable = node.getOrdinalityVariable()
+                .map(variable -> {
+                    VariableReferenceExpression newVariable = variableAllocator.newVariable("unnest_ordinality", variable.getType());
+                    context.put(variable, newVariable);
+                    return newVariable;
+                });
+
+        return Optional.of(new UnnestNode(
+                planNodeidAllocator.getNextId(),
+                source.get(),
+                node.getReplicateVariables().stream()
+                        .map(variable -> (VariableReferenceExpression) inlineVariables(context, variable))
+                        .collect(toImmutableList()),
+                newUnnestVariables.build(),
+                ordinalityVariable));
     }
 
     @Override
