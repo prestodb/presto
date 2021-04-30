@@ -27,6 +27,7 @@ public class PrestoS3ConfigurationUpdater
     private final String awsAccessKey;
     private final String awsSecretKey;
     private final String endpoint;
+    private final PrestoS3StorageClass s3StorageClass;
     private final PrestoS3SignerType signerType;
     private final boolean pathStyleAccess;
     private final boolean useInstanceCredentials;
@@ -58,6 +59,7 @@ public class PrestoS3ConfigurationUpdater
         this.awsAccessKey = config.getS3AwsAccessKey();
         this.awsSecretKey = config.getS3AwsSecretKey();
         this.endpoint = config.getS3Endpoint();
+        this.s3StorageClass = config.getS3StorageClass();
         this.signerType = config.getS3SignerType();
         this.pathStyleAccess = config.isS3PathStyleAccess();
         this.useInstanceCredentials = config.isS3UseInstanceCredentials();
@@ -101,6 +103,7 @@ public class PrestoS3ConfigurationUpdater
         if (endpoint != null) {
             config.set(S3_ENDPOINT, endpoint);
         }
+        config.set(S3_STORAGE_CLASS, s3StorageClass.name());
         if (signerType != null) {
             config.set(S3_SIGNER_TYPE, signerType.name());
         }
