@@ -21,6 +21,7 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.OperationTimer.OperationTiming;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
@@ -41,6 +42,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.SystemSessionProperties.isStatisticsCpuTimerEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -143,6 +145,9 @@ public class TableFinishOperator
     private final JsonCodec<TableCommitContext> tableCommitContextCodec;
     private final LifespanAndStageStateTracker lifespanAndStageStateTracker;
 
+    private final LocalMemoryContext systemMemoryContext;
+    private final AtomicLong operatorRetainedMemoryBytes = new AtomicLong();
+
     public TableFinishOperator(
             OperatorContext operatorContext,
             TableFinisher tableFinisher,
@@ -158,7 +163,8 @@ public class TableFinishOperator
         this.descriptor = requireNonNull(descriptor, "descriptor is null");
         this.statisticsCpuTimerEnabled = statisticsCpuTimerEnabled;
         this.tableCommitContextCodec = requireNonNull(tableCommitContextCodec, "tableCommitContextCodec is null");
-        this.lifespanAndStageStateTracker = new LifespanAndStageStateTracker(pageSinkCommitter);
+        this.lifespanAndStageStateTracker = new LifespanAndStageStateTracker(pageSinkCommitter, operatorRetainedMemoryBytes);
+        this.systemMemoryContext = operatorContext.localSystemMemoryContext();
 
         operatorContext.setInfoSupplier(this::getInfo);
     }
@@ -219,6 +225,7 @@ public class TableFinishOperator
             statisticsAggregationOperator.addInput(statisticsPage);
             timer.end(statisticsTiming);
         });
+        systemMemoryContext.setBytes(operatorRetainedMemoryBytes.get());
     }
 
     @Override
@@ -293,6 +300,7 @@ public class TableFinishOperator
             throws Exception
     {
         statisticsAggregationOperator.close();
+        systemMemoryContext.setBytes(0);
     }
 
     public interface TableFinisher
@@ -318,10 +326,14 @@ public class TableFinishOperator
 
         private final PageSinkCommitter pageSinkCommitter;
         private final List<ListenableFuture<Void>> commitFutures = new ArrayList<>();
+        private final AtomicLong operatorRetainedMemoryBytes;
 
-        LifespanAndStageStateTracker(PageSinkCommitter pageSinkCommitter)
+        LifespanAndStageStateTracker(
+                PageSinkCommitter pageSinkCommitter,
+                AtomicLong operatorRetainedMemoryBytes)
         {
             this.pageSinkCommitter = requireNonNull(pageSinkCommitter, "pageSinkCommitter is null");
+            this.operatorRetainedMemoryBytes = requireNonNull(operatorRetainedMemoryBytes, "operatorRetainedMemoryBytes is null");
         }
 
         public void commit()
@@ -357,14 +369,14 @@ public class TableFinishOperator
                     //  - The source fragment is grouped execution but not recoverable.
                     noCommitUnrecoverableLifespanAndStageStates.computeIfAbsent(
                             lifespanAndStage, ignored -> new LifespanAndStageState(
-                                    tableCommitContext.getTaskId(), false)).update(page);
+                                    tableCommitContext.getTaskId(), operatorRetainedMemoryBytes, false)).update(page);
                     return;
                 }
                 case TASK_COMMIT: {
                     // Case 2: Commit is required, but partial recovery is not supported
                     taskCommitUnrecoverableLifespanAndStageStates.computeIfAbsent(
                             lifespanAndStage, ignored -> new LifespanAndStageState(
-                                    tableCommitContext.getTaskId(), false)).update(page);
+                                    tableCommitContext.getTaskId(), operatorRetainedMemoryBytes, false)).update(page);
                     return;
                 }
                 case LIFESPAN_COMMIT: {
@@ -383,7 +395,7 @@ public class TableFinishOperator
                     Map<TaskId, LifespanAndStageState> lifespanStageStatesPerTask = uncommittedRecoverableLifespanAndStageStates.computeIfAbsent(lifespanAndStage, ignored -> new HashMap<>());
                     lifespanStageStatesPerTask.computeIfAbsent(
                             tableCommitContext.getTaskId(), ignored -> new LifespanAndStageState(
-                                    tableCommitContext.getTaskId(), true)).update(page);
+                                    tableCommitContext.getTaskId(), operatorRetainedMemoryBytes, true)).update(page);
 
                     if (tableCommitContext.isLastPage()) {
                         checkState(!committedRecoverableLifespanAndStages.containsKey(lifespanAndStage), "LifespanAndStage already finished");
@@ -499,18 +511,25 @@ public class TableFinishOperator
         {
             private final ImmutableList.Builder<Slice> fragmentBuilder = ImmutableList.builder();
             private final TaskId taskId;
+            private final AtomicLong operatorRetainedMemoryBytes;
 
+            private long retainedMemoryBytesForStatisticsPages;
             private long rowCount;
             private Optional<ImmutableList.Builder<Page>> statisticsPages;
 
-            public LifespanAndStageState(TaskId taskId, boolean trackStatisticsPages)
+            public LifespanAndStageState(
+                    TaskId taskId,
+                    AtomicLong operatorRetainedMemoryBytes,
+                    boolean trackStatisticsPages)
             {
                 this.taskId = requireNonNull(taskId, "taskId is null");
+                this.operatorRetainedMemoryBytes = requireNonNull(operatorRetainedMemoryBytes, "operatorRetainedMemoryBytes is null");
                 this.statisticsPages = trackStatisticsPages ? Optional.of(ImmutableList.builder()) : Optional.empty();
             }
 
             public void update(Page page)
             {
+                long memoryBytesDelta = 0;
                 Block rowCountBlock = page.getBlock(ROW_COUNT_CHANNEL);
                 Block fragmentBlock = page.getBlock(FRAGMENT_CHANNEL);
                 for (int position = 0; position < page.getPositionCount(); position++) {
@@ -518,12 +537,21 @@ public class TableFinishOperator
                         rowCount += BIGINT.getLong(rowCountBlock, position);
                     }
                     if (!fragmentBlock.isNull(position)) {
-                        fragmentBuilder.add(VARBINARY.getSlice(fragmentBlock, position));
+                        Slice fragment = VARBINARY.getSlice(fragmentBlock, position);
+                        fragmentBuilder.add(fragment);
+                        memoryBytesDelta += fragment.getRetainedSize();
                     }
                 }
                 if (statisticsPages.isPresent()) {
-                    extractStatisticsRows(page).ifPresent(statisticsPages.get()::add);
+                    Optional<Page> statisticsPage = extractStatisticsRows(page);
+                    if (statisticsPage.isPresent()) {
+                        statisticsPages.get().add(statisticsPage.get());
+                        long retainedSizeForStatisticsPage = statisticsPage.get().getRetainedSizeInBytes();
+                        retainedMemoryBytesForStatisticsPages += retainedSizeForStatisticsPage;
+                        memoryBytesDelta += retainedSizeForStatisticsPage;
+                    }
                 }
+                operatorRetainedMemoryBytes.addAndGet(memoryBytesDelta);
             }
 
             public long getRowCount()
@@ -550,6 +578,8 @@ public class TableFinishOperator
             public void resetStatisticsPages()
             {
                 statisticsPages = Optional.empty();
+                operatorRetainedMemoryBytes.addAndGet(-retainedMemoryBytesForStatisticsPages);
+                retainedMemoryBytesForStatisticsPages = 0;
             }
         }
     }
