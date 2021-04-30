@@ -46,6 +46,7 @@ import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.amazonaws.services.s3.model.SSEAwsKeyManagementParams;
+import com.amazonaws.services.s3.model.StorageClass;
 import com.amazonaws.services.s3.transfer.Transfer;
 import com.amazonaws.services.s3.transfer.TransferManager;
 import com.amazonaws.services.s3.transfer.TransferManagerBuilder;
@@ -127,6 +128,7 @@ import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_SSE_KMS_KEY_
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_SSE_TYPE;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_SSL_ENABLED;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_STAGING_DIRECTORY;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_STORAGE_CLASS;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_USER_AGENT_PREFIX;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_USER_AGENT_SUFFIX;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_USE_INSTANCE_CREDENTIALS;
@@ -187,6 +189,7 @@ public class PrestoS3FileSystem
     private long multiPartUploadMinPartSize;
     private PrestoS3AclType s3AclType;
     private boolean skipGlacierObjects;
+    private PrestoS3StorageClass s3StorageClass;
 
     @Override
     public void initialize(URI uri, Configuration conf)
@@ -227,6 +230,7 @@ public class PrestoS3FileSystem
         this.s3AclType = PrestoS3AclType.valueOf(conf.get(S3_ACL_TYPE, defaults.getS3AclType().name()));
         String userAgentPrefix = conf.get(S3_USER_AGENT_PREFIX, defaults.getS3UserAgentPrefix());
         this.skipGlacierObjects = conf.getBoolean(S3_SKIP_GLACIER_OBJECTS, defaults.isSkipGlacierObjects());
+        this.s3StorageClass = conf.getEnum(S3_STORAGE_CLASS, defaults.getS3StorageClass());
 
         ClientConfiguration configuration = new ClientConfiguration()
                 .withMaxErrorRetry(maxErrorRetries)
@@ -405,7 +409,17 @@ public class PrestoS3FileSystem
 
         String key = keyFromPath(qualifiedPath(path));
         return new FSDataOutputStream(
-                new PrestoS3OutputStream(s3, getBucketName(uri), key, tempFile, sseEnabled, sseType, sseKmsKeyId, multiPartUploadMinFileSize, multiPartUploadMinPartSize, s3AclType),
+                new PrestoS3OutputStream(s3,
+                        getBucketName(uri),
+                        key,
+                        tempFile,
+                        sseEnabled,
+                        sseType,
+                        sseKmsKeyId,
+                        multiPartUploadMinFileSize,
+                        multiPartUploadMinPartSize,
+                        s3AclType,
+                        s3StorageClass),
                 statistics);
     }
 
@@ -1159,6 +1173,7 @@ public class PrestoS3FileSystem
         private final PrestoS3SseType sseType;
         private final String sseKmsKeyId;
         private final CannedAccessControlList aclType;
+        private final StorageClass s3StorageClass;
 
         private boolean closed;
 
@@ -1172,7 +1187,8 @@ public class PrestoS3FileSystem
                 String sseKmsKeyId,
                 long multiPartUploadMinFileSize,
                 long multiPartUploadMinPartSize,
-                PrestoS3AclType aclType)
+                PrestoS3AclType aclType,
+                PrestoS3StorageClass s3StorageClass)
                 throws IOException
         {
             super(new BufferedOutputStream(Files.newOutputStream(requireNonNull(tempFile, "tempFile is null").toPath())));
@@ -1183,6 +1199,7 @@ public class PrestoS3FileSystem
                     .withMultipartUploadThreshold(multiPartUploadMinFileSize).build();
 
             requireNonNull(aclType, "aclType is null");
+            requireNonNull(s3StorageClass, "s3StorageClass is null");
             this.aclType = aclType.getCannedACL();
             this.host = requireNonNull(host, "host is null");
             this.key = requireNonNull(key, "key is null");
@@ -1190,6 +1207,7 @@ public class PrestoS3FileSystem
             this.sseEnabled = sseEnabled;
             this.sseType = requireNonNull(sseType, "sseType is null");
             this.sseKmsKeyId = sseKmsKeyId;
+            this.s3StorageClass = s3StorageClass.getS3StorageClass();
 
             log.debug("OutputStream for key '%s' using file: %s", key, tempFile);
         }
@@ -1241,6 +1259,7 @@ public class PrestoS3FileSystem
                             break;
                     }
                 }
+                request.withStorageClass(s3StorageClass);
 
                 request.withCannedAcl(aclType);
 
