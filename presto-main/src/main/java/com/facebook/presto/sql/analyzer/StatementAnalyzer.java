@@ -60,6 +60,7 @@ import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.AlterFunction;
 import com.facebook.presto.sql.tree.Analyze;
+import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.ComparisonExpression;
@@ -2680,58 +2681,55 @@ class StatementAnalyzer
          * @return true if the Query / QuerySpecification containing the analyzed
          * Limit or FetchFirst, must contain orderBy (i.e., for FetchFirst with ties).
          */
-        private boolean analyzeLimit(Node node)
+        private void analyzeLimit(Node node)
         {
             checkState(
                     node instanceof FetchFirst || node instanceof Limit,
                     "Invalid limit node type. Expected: FetchFirst or Limit. Actual: %s", node.getClass().getName());
-            if (node instanceof FetchFirst) {
-                return analyzeLimit((FetchFirst) node);
-            }
-            else {
-                return analyzeLimit((Limit) node);
-            }
-        }
 
-        private boolean analyzeLimit(FetchFirst node)
-        {
-            if (!node.getRowCount().isPresent()) {
-                analysis.setLimit(node, 1);
-            }
-            else {
-                long rowCount;
-                try {
-                    rowCount = Long.parseLong(node.getRowCount().get());
+            new AstVisitor<Void, Void>()
+            {
+                @Override
+                protected Void visitFetchFirst(FetchFirst node, Void context)
+                {
+                    if (!node.getRowCount().isPresent()) {
+                        analysis.setLimit(node, 1);
+                    }
+                    else {
+                        long rowCount;
+                        try {
+                            rowCount = Long.parseLong(node.getRowCount().get());
+                        }
+                        catch (NumberFormatException e) {
+                            throw new SemanticException(INVALID_FETCH_FIRST_ROW_COUNT, node, "Invalid FETCH FIRST row count: %s", node.getRowCount().get());
+                        }
+                        if (rowCount <= 0) {
+                            throw new SemanticException(INVALID_FETCH_FIRST_ROW_COUNT, node, "FETCH FIRST row count must be positive (actual value: %s)", rowCount);
+                        }
+                        analysis.setLimit(node, rowCount);
+                    }
+                    return null;
                 }
-                catch (NumberFormatException e) {
-                    throw new SemanticException(INVALID_FETCH_FIRST_ROW_COUNT, node, "Invalid FETCH FIRST row count: %s", node.getRowCount().get());
-                }
-                if (rowCount <= 0) {
-                    throw new SemanticException(INVALID_FETCH_FIRST_ROW_COUNT, node, "FETCH FIRST row count must be positive (actual value: %s)", rowCount);
-                }
-                analysis.setLimit(node, rowCount);
-            }
 
-            return node.isWithTies();
-        }
-
-        private boolean analyzeLimit(Limit node)
-        {
-            if (node.getLimit().equalsIgnoreCase("all")) {
-                analysis.setLimit(node, OptionalLong.empty());
-            }
-            else {
-                long rowCount;
-                try {
-                    rowCount = Long.parseLong(node.getLimit());
+                @Override
+                protected Void visitLimit(Limit node, Void context)
+                {
+                    if (node.getLimit().equalsIgnoreCase("all")) {
+                        analysis.setLimit(node, OptionalLong.empty());
+                    }
+                    else {
+                        long rowCount;
+                        try {
+                            rowCount = Long.parseLong(node.getLimit());
+                        }
+                        catch (NumberFormatException e) {
+                            throw new SemanticException(INVALID_LIMIT_ROW_COUNT, node, "Invalid LIMIT row count: %s", node.getLimit());
+                        }
+                        analysis.setLimit(node, rowCount);
+                    }
+                    return null;
                 }
-                catch (NumberFormatException e) {
-                    throw new SemanticException(INVALID_LIMIT_ROW_COUNT, node, "Invalid LIMIT row count: %s", node.getLimit());
-                }
-                analysis.setLimit(node, rowCount);
-            }
-
-            return false;
+            }.process(node, null);
         }
 
         private void verifySelectDistinct(QuerySpecification node, List<Expression> outputExpressions)

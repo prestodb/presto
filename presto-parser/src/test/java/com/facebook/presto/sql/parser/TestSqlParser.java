@@ -1067,6 +1067,12 @@ public class TestSqlParser
     }
 
     @Test
+    public void testSelectFetchFirstException()
+    {
+        assertInvalidStatement("SELECT * FROM t1 FETCH FIRST -1 ROWS ONLY",
+                "mismatched input '-'. Expecting: 'ROW', 'ROWS', <integer>");
+    }
+    @Test
     public void testSelectWithGroupBy()
     {
         assertStatement("SELECT * FROM table1 GROUP BY a",

@@ -15,6 +15,7 @@ package com.facebook.presto.verifier.framework;
 
 import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.sql.analyzer.SemanticException;
+import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FetchFirst;
@@ -173,49 +174,47 @@ class LimitQueryDeterminismAnalyzer
         checkState(
                 node instanceof FetchFirst || node instanceof Limit,
                 "Invalid limit node type. Expected: FetchFirst or Limit. Actual: %s", node.getClass().getName());
-        if (node instanceof FetchFirst) {
-            return analyzeLimit((FetchFirst) node);
-        }
-        else {
-            return analyzeLimit((Limit) node);
-        }
-    }
+        return new AstVisitor<String, Void>()
+        {
+            @Override
+            protected String visitFetchFirst(FetchFirst node, Void context)
+            {
+                if (!node.getRowCount().isPresent()) {
+                    return Long.toString(1);
+                }
+                else {
+                    long rowCount;
+                    try {
+                        rowCount = Long.parseLong(node.getRowCount().get());
+                    }
+                    catch (NumberFormatException e) {
+                        throw new SemanticException(INVALID_FETCH_FIRST_ROW_COUNT, node, "Invalid FETCH FIRST row count: %s", node.getRowCount().get());
+                    }
+                    if (rowCount <= 0) {
+                        throw new SemanticException(INVALID_FETCH_FIRST_ROW_COUNT, node, "FETCH FIRST row count must be positive (actual value: %s)", rowCount);
+                    }
+                    return Long.toString(rowCount);
+                }
+            }
 
-    private String analyzeLimit(FetchFirst node)
-    {
-        if (!node.getRowCount().isPresent()) {
-            return Long.toString(1);
-        }
-        else {
-            long rowCount;
-            try {
-                rowCount = Long.parseLong(node.getRowCount().get());
+            @Override
+            protected String visitLimit(Limit node, Void context)
+            {
+                if (node.getLimit().equalsIgnoreCase("all")) {
+                    return Long.toString(0);
+                }
+                else {
+                    long rowCount;
+                    try {
+                        rowCount = Long.parseLong(node.getLimit());
+                    }
+                    catch (NumberFormatException e) {
+                        throw new SemanticException(INVALID_LIMIT_ROW_COUNT, node, "Invalid LIMIT row count: %s", node.getLimit());
+                    }
+                    return Long.toString(rowCount);
+                }
             }
-            catch (NumberFormatException e) {
-                throw new SemanticException(INVALID_FETCH_FIRST_ROW_COUNT, node, "Invalid FETCH FIRST row count: %s", node.getRowCount().get());
-            }
-            if (rowCount <= 0) {
-                throw new SemanticException(INVALID_FETCH_FIRST_ROW_COUNT, node, "FETCH FIRST row count must be positive (actual value: %s)", rowCount);
-            }
-            return Long.toString(rowCount);
-        }
-    }
-
-    private String analyzeLimit(Limit node)
-    {
-        if (node.getLimit().equalsIgnoreCase("all")) {
-            return Long.toString(0);
-        }
-        else {
-            long rowCount;
-            try {
-                rowCount = Long.parseLong(node.getLimit());
-            }
-            catch (NumberFormatException e) {
-                throw new SemanticException(INVALID_LIMIT_ROW_COUNT, node, "Invalid LIMIT row count: %s", node.getLimit());
-            }
-            return Long.toString(rowCount);
-        }
+        }.process(node, null);
     }
 
     /**
@@ -367,7 +366,7 @@ class LimitQueryDeterminismAnalyzer
 
     private static boolean isLimitAll(String limitClause)
     {
-        return limitClause.toLowerCase(ENGLISH).equals("all");
+        return limitClause.toLowerCase(ENGLISH).equals("0");
     }
 
     private static class ColumnNameOrIndex
