@@ -62,13 +62,14 @@ public class SliceDictionaryColumnWriter
 
     public SliceDictionaryColumnWriter(
             int column,
+            int dwrfSequence,
             Type type,
             ColumnWriterOptions columnWriterOptions,
             Optional<DwrfDataEncryptor> dwrfEncryptor,
             OrcEncoding orcEncoding,
             MetadataWriter metadataWriter)
     {
-        super(column, type, columnWriterOptions, dwrfEncryptor, orcEncoding, metadataWriter);
+        super(column, dwrfSequence, type, columnWriterOptions, dwrfEncryptor, orcEncoding, metadataWriter);
         this.dictionaryDataStream = new ByteArrayOutputStream(columnWriterOptions, dwrfEncryptor, Stream.StreamKind.DICTIONARY_DATA);
         this.dictionaryLengthStream = createLengthOutputStream(columnWriterOptions, dwrfEncryptor, orcEncoding);
         this.stringStatisticsLimitInBytes = toIntExact(columnWriterOptions.getStringStatisticsLimit().toBytes());
@@ -253,7 +254,7 @@ public class SliceDictionaryColumnWriter
     protected ColumnWriter createDirectColumnWriter()
     {
         if (directColumnWriter == null) {
-            directColumnWriter = new SliceDirectColumnWriter(column, type, columnWriterOptions, dwrfEncryptor, orcEncoding, this::newStringStatisticsBuilder, metadataWriter);
+            directColumnWriter = new SliceDirectColumnWriter(column, dwrfSequence, type, columnWriterOptions, dwrfEncryptor, orcEncoding, this::newStringStatisticsBuilder, metadataWriter);
         }
         return directColumnWriter;
     }
@@ -268,6 +269,6 @@ public class SliceDictionaryColumnWriter
     @Override
     protected List<StreamDataOutput> getDictionaryStreams(int column)
     {
-        return ImmutableList.of(dictionaryLengthStream.getStreamDataOutput(column), dictionaryDataStream.getStreamDataOutput(column));
+        return ImmutableList.of(dictionaryLengthStream.getStreamDataOutput(column, dwrfSequence), dictionaryDataStream.getStreamDataOutput(column, dwrfSequence));
     }
 }

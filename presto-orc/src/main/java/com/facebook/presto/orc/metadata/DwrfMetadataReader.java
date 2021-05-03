@@ -299,10 +299,10 @@ public class DwrfMetadataReader
     {
         return new Stream(
                 stream.getColumn(),
+                stream.getSequence(),
                 toStreamKind(stream.getKind()),
                 toIntExact(stream.getLength()),
                 stream.getUseVInts(),
-                stream.getSequence(),
                 stream.hasOffset() ? Optional.of(stream.getOffset()) : Optional.empty());
     }
 
