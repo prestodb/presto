@@ -25,7 +25,7 @@ public interface ValueOutputStream<C extends StreamCheckpoint>
 
     List<C> getCheckpoints();
 
-    StreamDataOutput getStreamDataOutput(int column);
+    StreamDataOutput getStreamDataOutput(int column, int dwrfSequence);
 
     /**
      * This method returns the size of the flushed data plus any unflushed data.

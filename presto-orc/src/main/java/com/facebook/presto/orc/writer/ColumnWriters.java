@@ -39,6 +39,7 @@ public final class ColumnWriters
 
     public static ColumnWriter createColumnWriter(
             int columnIndex,
+            int dwrfSequence,
             List<OrcType> orcTypes,
             Type type,
             ColumnWriterOptions columnWriterOptions,
@@ -52,53 +53,54 @@ public final class ColumnWriters
         Optional<DwrfDataEncryptor> dwrfEncryptor = dwrfEncryptors.getEncryptorByNodeId(columnIndex);
         switch (orcType.getOrcTypeKind()) {
             case BOOLEAN:
-                return new BooleanColumnWriter(columnIndex, type, columnWriterOptions, dwrfEncryptor, metadataWriter);
+                return new BooleanColumnWriter(columnIndex, dwrfSequence, type, columnWriterOptions, dwrfEncryptor, metadataWriter);
 
             case FLOAT:
-                return new FloatColumnWriter(columnIndex, type, columnWriterOptions, dwrfEncryptor, metadataWriter);
+                return new FloatColumnWriter(columnIndex, dwrfSequence, type, columnWriterOptions, dwrfEncryptor, metadataWriter);
 
             case DOUBLE:
-                return new DoubleColumnWriter(columnIndex, type, columnWriterOptions, dwrfEncryptor, metadataWriter);
+                return new DoubleColumnWriter(columnIndex, dwrfSequence, type, columnWriterOptions, dwrfEncryptor, metadataWriter);
 
             case BYTE:
-                return new ByteColumnWriter(columnIndex, type, columnWriterOptions, dwrfEncryptor, metadataWriter);
+                return new ByteColumnWriter(columnIndex, dwrfSequence, type, columnWriterOptions, dwrfEncryptor, metadataWriter);
 
             case DATE:
                 checkArgument(orcEncoding != DWRF, "DWRF does not support %s type", type);
-                return new LongColumnWriter(columnIndex, type, columnWriterOptions, dwrfEncryptor, orcEncoding, DateStatisticsBuilder::new, metadataWriter);
+                return new LongColumnWriter(columnIndex, dwrfSequence, type, columnWriterOptions, dwrfEncryptor, orcEncoding, DateStatisticsBuilder::new, metadataWriter);
 
             case SHORT:
-                return new LongColumnWriter(columnIndex, type, columnWriterOptions, dwrfEncryptor, orcEncoding, IntegerStatisticsBuilder::new, metadataWriter);
+                return new LongColumnWriter(columnIndex, dwrfSequence, type, columnWriterOptions, dwrfEncryptor, orcEncoding, IntegerStatisticsBuilder::new, metadataWriter);
             case INT:
             case LONG:
                 if (columnWriterOptions.isIntegerDictionaryEncodingEnabled() && orcEncoding == DWRF) {
                     // ORC V1 does not support Integer Dictionary encoding. DWRF supports Integer dictionary encoding.
-                    return new LongDictionaryColumnWriter(columnIndex, type, columnWriterOptions, dwrfEncryptor, orcEncoding, metadataWriter);
+                    return new LongDictionaryColumnWriter(columnIndex, dwrfSequence, type, columnWriterOptions, dwrfEncryptor, orcEncoding, metadataWriter);
                 }
-                return new LongColumnWriter(columnIndex, type, columnWriterOptions, dwrfEncryptor, orcEncoding, IntegerStatisticsBuilder::new, metadataWriter);
+                return new LongColumnWriter(columnIndex, dwrfSequence, type, columnWriterOptions, dwrfEncryptor, orcEncoding, IntegerStatisticsBuilder::new, metadataWriter);
 
             case DECIMAL:
                 checkArgument(orcEncoding != DWRF, "DWRF does not support %s type", type);
-                return new DecimalColumnWriter(columnIndex, type, columnWriterOptions, orcEncoding, metadataWriter);
+                return new DecimalColumnWriter(columnIndex, dwrfSequence, type, columnWriterOptions, orcEncoding, metadataWriter);
 
             case TIMESTAMP:
-                return new TimestampColumnWriter(columnIndex, type, columnWriterOptions, dwrfEncryptor, orcEncoding, hiveStorageTimeZone, metadataWriter);
+                return new TimestampColumnWriter(columnIndex, dwrfSequence, type, columnWriterOptions, dwrfEncryptor, orcEncoding, hiveStorageTimeZone, metadataWriter);
 
             case BINARY:
-                return new SliceDirectColumnWriter(columnIndex, type, columnWriterOptions, dwrfEncryptor, orcEncoding, BinaryStatisticsBuilder::new, metadataWriter);
+                return new SliceDirectColumnWriter(columnIndex, dwrfSequence, type, columnWriterOptions, dwrfEncryptor, orcEncoding, BinaryStatisticsBuilder::new, metadataWriter);
 
             case CHAR:
                 checkArgument(orcEncoding != DWRF, "DWRF does not support %s type", type);
                 // fall through
             case VARCHAR:
             case STRING:
-                return new SliceDictionaryColumnWriter(columnIndex, type, columnWriterOptions, dwrfEncryptor, orcEncoding, metadataWriter);
+                return new SliceDictionaryColumnWriter(columnIndex, dwrfSequence, type, columnWriterOptions, dwrfEncryptor, orcEncoding, metadataWriter);
 
             case LIST: {
                 int fieldColumnIndex = orcType.getFieldTypeIndex(0);
                 Type fieldType = type.getTypeParameters().get(0);
                 ColumnWriter elementWriter = createColumnWriter(
                         fieldColumnIndex,
+                        dwrfSequence,
                         orcTypes,
                         fieldType,
                         columnWriterOptions,
@@ -106,12 +108,12 @@ public final class ColumnWriters
                         hiveStorageTimeZone,
                         dwrfEncryptors,
                         metadataWriter);
-                return new ListColumnWriter(columnIndex, columnWriterOptions, dwrfEncryptor, orcEncoding, elementWriter, metadataWriter);
+                return new ListColumnWriter(columnIndex, dwrfSequence, columnWriterOptions, dwrfEncryptor, orcEncoding, elementWriter, metadataWriter);
             }
-
             case MAP: {
                 ColumnWriter keyWriter = createColumnWriter(
                         orcType.getFieldTypeIndex(0),
+                        dwrfSequence,
                         orcTypes,
                         type.getTypeParameters().get(0),
                         columnWriterOptions,
@@ -121,6 +123,7 @@ public final class ColumnWriters
                         metadataWriter);
                 ColumnWriter valueWriter = createColumnWriter(
                         orcType.getFieldTypeIndex(1),
+                        dwrfSequence,
                         orcTypes,
                         type.getTypeParameters().get(1),
                         columnWriterOptions,
@@ -128,9 +131,8 @@ public final class ColumnWriters
                         hiveStorageTimeZone,
                         dwrfEncryptors,
                         metadataWriter);
-                return new MapColumnWriter(columnIndex, columnWriterOptions, dwrfEncryptor, orcEncoding, keyWriter, valueWriter, metadataWriter);
+                return new MapColumnWriter(columnIndex, dwrfSequence, columnWriterOptions, dwrfEncryptor, orcEncoding, keyWriter, valueWriter, metadataWriter);
             }
-
             case STRUCT: {
                 ImmutableList.Builder<ColumnWriter> fieldWriters = ImmutableList.builder();
                 for (int fieldId = 0; fieldId < orcType.getFieldCount(); fieldId++) {
@@ -138,6 +140,7 @@ public final class ColumnWriters
                     Type fieldType = type.getTypeParameters().get(fieldId);
                     fieldWriters.add(createColumnWriter(
                             fieldColumnIndex,
+                            dwrfSequence,
                             orcTypes,
                             fieldType,
                             columnWriterOptions,
@@ -146,7 +149,7 @@ public final class ColumnWriters
                             dwrfEncryptors,
                             metadataWriter));
                 }
-                return new StructColumnWriter(columnIndex, columnWriterOptions, dwrfEncryptor, fieldWriters.build(), metadataWriter);
+                return new StructColumnWriter(columnIndex, dwrfSequence, columnWriterOptions, dwrfEncryptor, fieldWriters.build(), metadataWriter);
             }
         }
 
