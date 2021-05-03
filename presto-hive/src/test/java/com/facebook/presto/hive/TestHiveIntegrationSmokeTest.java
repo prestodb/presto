@@ -2594,45 +2594,60 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testShowCreateTable()
     {
-        String createTableSql = format("" +
-                        "CREATE TABLE %s.%s.%s (\n" +
-                        "   c1 bigint,\n" +
-                        "   c2 double,\n" +
-                        "   \"c 3\" varchar,\n" +
-                        "   \"c'4\" array(bigint),\n" +
-                        "   c5 map(bigint, varchar)\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   format = 'RCBINARY'\n" +
-                        ")",
+        String createTableFormat = "CREATE TABLE %s.%s.%s (\n" +
+                "   %s bigint,\n" +
+                "   %s double,\n" +
+                "   \"c 3\" varchar,\n" +
+                "   \"c'4\" array(bigint),\n" +
+                "   %s map(bigint, varchar)\n" +
+                ")\n" +
+                "WITH (\n" +
+                "   format = 'RCBINARY'\n" +
+                ")";
+        String createTableSql = format(
+                createTableFormat,
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
-                "test_show_create_table");
-
+                "test_show_create_table",
+                "c1",
+                "c2",
+                "c5");
+        String expectedShowCreateTable = format(
+                createTableFormat,
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                "test_show_create_table",
+                "\"c1\"",
+                "\"c2\"",
+                "\"c5\"");
         assertUpdate(createTableSql);
         MaterializedResult actualResult = computeActual("SHOW CREATE TABLE test_show_create_table");
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
+        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), expectedShowCreateTable);
 
-        createTableSql = format("" +
-                        "CREATE TABLE %s.%s.%s (\n" +
-                        "   c1 bigint,\n" +
-                        "   \"c 2\" varchar,\n" +
-                        "   \"c'3\" array(bigint),\n" +
-                        "   c4 map(bigint, varchar) COMMENT 'comment test4',\n" +
-                        "   c5 double COMMENT 'comment test5'\n)\n" +
-                        "COMMENT 'test'\n" +
-                        "WITH (\n" +
-                        "   bucket_count = 5,\n" +
-                        "   bucketed_by = ARRAY['c1','c 2'],\n" +
-                        "   format = 'ORC',\n" +
-                        "   orc_bloom_filter_columns = ARRAY['c1','c2'],\n" +
-                        "   orc_bloom_filter_fpp = 7E-1,\n" +
-                        "   partitioned_by = ARRAY['c5'],\n" +
-                        "   sorted_by = ARRAY['c1','c 2 DESC']\n" +
-                        ")",
+        createTableFormat = "CREATE TABLE %s.%s.%s (\n" +
+                "   %s bigint,\n" +
+                "   \"c 2\" varchar,\n" +
+                "   \"c'3\" array(bigint),\n" +
+                "   %s map(bigint, varchar) COMMENT 'comment test4',\n" +
+                "   %s double COMMENT 'comment test5'\n)\n" +
+                "COMMENT 'test'\n" +
+                "WITH (\n" +
+                "   bucket_count = 5,\n" +
+                "   bucketed_by = ARRAY['c1','c 2'],\n" +
+                "   format = 'ORC',\n" +
+                "   orc_bloom_filter_columns = ARRAY['c1','c2'],\n" +
+                "   orc_bloom_filter_fpp = 7E-1,\n" +
+                "   partitioned_by = ARRAY['c5'],\n" +
+                "   sorted_by = ARRAY['c1','c 2 DESC']\n" +
+                ")";
+        createTableSql = format(
+                createTableFormat,
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
-                "\"test_show_create_table'2\"");
+                "\"test_show_create_table'2\"",
+                "\"c1\"",
+                "\"c2\"",
+                "\"c5\"");
         assertUpdate(createTableSql);
         actualResult = computeActual("SHOW CREATE TABLE \"test_show_create_table'2\"");
         assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
@@ -2648,7 +2663,7 @@ public class TestHiveIntegrationSmokeTest
 
         @Language("SQL") String createTableSql = format("" +
                         "CREATE TABLE %s.%s.test_create_external (\n" +
-                        "   name varchar\n" +
+                        "   \"name\" varchar\n" +
                         ")\n" +
                         "WITH (\n" +
                         "   external_location = '%s',\n" +
@@ -4744,8 +4759,8 @@ public class TestHiveIntegrationSmokeTest
     private String getAvroCreateTableSql(String tableName, String schemaFile)
     {
         return format("CREATE TABLE %s.%s.%s (\n" +
-                        "   dummy_col varchar,\n" +
-                        "   another_dummy_col varchar\n" +
+                        "   \"dummy_col\" varchar,\n" +
+                        "   \"another_dummy_col\" varchar\n" +
                         ")\n" +
                         "WITH (\n" +
                         "   avro_schema_url = '%s',\n" +

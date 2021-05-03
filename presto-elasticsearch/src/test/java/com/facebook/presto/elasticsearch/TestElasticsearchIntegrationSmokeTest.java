@@ -146,15 +146,15 @@ public class TestElasticsearchIntegrationSmokeTest
     {
         assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
                 .isEqualTo("CREATE TABLE elasticsearch.tpch.orders (\n" +
-                        "   clerk varchar,\n" +
-                        "   comment varchar,\n" +
-                        "   custkey bigint,\n" +
-                        "   orderdate timestamp,\n" +
-                        "   orderkey bigint,\n" +
-                        "   orderpriority varchar,\n" +
-                        "   orderstatus varchar,\n" +
-                        "   shippriority bigint,\n" +
-                        "   totalprice real\n" +
+                        "   \"clerk\" varchar,\n" +
+                        "   \"comment\" varchar,\n" +
+                        "   \"custkey\" bigint,\n" +
+                        "   \"orderdate\" timestamp,\n" +
+                        "   \"orderkey\" bigint,\n" +
+                        "   \"orderpriority\" varchar,\n" +
+                        "   \"orderstatus\" varchar,\n" +
+                        "   \"shippriority\" bigint,\n" +
+                        "   \"totalprice\" real\n" +
                         ")");
     }
 

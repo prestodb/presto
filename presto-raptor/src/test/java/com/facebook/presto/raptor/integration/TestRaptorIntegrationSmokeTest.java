@@ -579,13 +579,13 @@ public class TestRaptorIntegrationSmokeTest
     {
         String createTableSql = format("" +
                         "CREATE TABLE %s.%s.%s (\n" +
-                        "   c1 bigint,\n" +
-                        "   c2 double,\n" +
+                        "   \"c1\" bigint,\n" +
+                        "   \"c2\" double,\n" +
                         "   \"c 3\" varchar,\n" +
                         "   \"c'4\" array(bigint),\n" +
-                        "   c5 map(bigint, varchar),\n" +
-                        "   c6 bigint,\n" +
-                        "   c7 timestamp\n" +
+                        "   \"c5\" map(bigint, varchar),\n" +
+                        "   \"c6\" bigint,\n" +
+                        "   \"c7\" timestamp\n" +
                         ")\n" +
                         "WITH (\n" +
                         "   bucket_count = 32,\n" +
@@ -609,13 +609,13 @@ public class TestRaptorIntegrationSmokeTest
         // With organization enabled
         createTableSql = format("" +
                         "CREATE TABLE %s.%s.%s (\n" +
-                        "   c1 bigint,\n" +
-                        "   c2 double,\n" +
+                        "   \"c1\" bigint,\n" +
+                        "   \"c2\" double,\n" +
                         "   \"c 3\" varchar,\n" +
                         "   \"c'4\" array(bigint),\n" +
-                        "   c5 map(bigint, varchar),\n" +
-                        "   c6 bigint,\n" +
-                        "   c7 timestamp\n" +
+                        "   \"c5\" map(bigint, varchar),\n" +
+                        "   \"c6\" bigint,\n" +
+                        "   \"c7\" timestamp\n" +
                         ")\n" +
                         "WITH (\n" +
                         "   bucket_count = 32,\n" +
@@ -639,10 +639,10 @@ public class TestRaptorIntegrationSmokeTest
         createTableSql = format("" +
                         "CREATE TABLE %s.%s.%s (\n" +
                         "   \"c\"\"1\" bigint,\n" +
-                        "   c2 double,\n" +
+                        "   \"c2\" double,\n" +
                         "   \"c 3\" varchar,\n" +
                         "   \"c'4\" array(bigint),\n" +
-                        "   c5 map(bigint, varchar)\n" +
+                        "   \"c5\" map(bigint, varchar)\n" +
                         ")",
                 getSession().getCatalog().get(), getSession().getSchema().get(), "test_show_create_table_default");
         assertUpdate(createTableSql);

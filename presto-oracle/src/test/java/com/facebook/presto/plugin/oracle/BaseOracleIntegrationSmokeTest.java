@@ -70,15 +70,15 @@ public abstract class BaseOracleIntegrationSmokeTest
         assertThat((String) computeActual("SHOW CREATE TABLE orders").getOnlyValue())
                 // If the connector reports additional column properties, the expected value needs to be adjusted in the test subclass
                 .matches("CREATE TABLE \\w+\\.\\w+\\.orders \\Q(\n" +
-                        "   orderkey decimal(19, 0),\n" +
-                        "   custkey decimal(19, 0),\n" +
-                        "   orderstatus varchar(1),\n" +
-                        "   totalprice double,\n" +
-                        "   orderdate timestamp(3),\n" +
-                        "   orderpriority varchar(15),\n" +
-                        "   clerk varchar(15),\n" +
-                        "   shippriority decimal(10, 0),\n" +
-                        "   comment varchar(79)\n" +
+                        "   \"orderkey\" decimal(19, 0),\n" +
+                        "   \"custkey\" decimal(19, 0),\n" +
+                        "   \"orderstatus\" varchar(1),\n" +
+                        "   \"totalprice\" double,\n" +
+                        "   \"orderdate\" timestamp(3),\n" +
+                        "   \"orderpriority\" varchar(15),\n" +
+                        "   \"clerk\" varchar(15),\n" +
+                        "   \"shippriority\" decimal(10, 0),\n" +
+                        "   \"comment\" varchar(79)\n" +
                         ")");
     }
 }
