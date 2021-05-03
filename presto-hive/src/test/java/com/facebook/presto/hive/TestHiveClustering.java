@@ -13,11 +13,15 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.hive.TestHiveEventListenerPlugin.TestingHiveEventListener;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
+import com.facebook.presto.tests.DistributedQueryRunner;
+import com.facebook.presto.tests.ResultWithQueryId;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -26,7 +30,6 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
-import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.tpch.TpchTable.getTables;
 import static java.lang.String.format;
@@ -36,9 +39,11 @@ import static org.testng.Assert.assertTrue;
 public class TestHiveClustering
         extends AbstractTestDistributedQueries
 {
-    public TestHiveClustering()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createQueryRunner(getTables()));
+        return HiveQueryRunner.createQueryRunner(getTables());
     }
 
     @Override
@@ -75,10 +80,64 @@ public class TestHiveClustering
     }
 
     @Test
-    public void testCreateTable()
+    public void testCreateTableAsSelect()
     {
         String query = (
-                "CREATE TABLE hive_bucketed.tpch_bucketed.customer_test (\n" +
+                "CREATE TABLE hive_bucketed.tpch_bucketed.customer_copied \n" +
+                        " WITH (" +
+                        "    format = 'ORC',\n" +
+                        "    clustered_by = array['custkey'], \n" +
+                        "    cluster_count = array[10], \n" +
+                        "    distribution = array['150', '300', '450', '600', '750', '900', '1050', '1200', '1350']) \n" +
+                        " AS SELECT * FROM customer");
+
+        MaterializedResult result = computeActual(query);
+        assertEquals(result.getOnlyValue(), 1500L);
+
+        query = "SELECT custkey, COUNT(*) FROM hive_bucketed.tpch_bucketed.customer_copied GROUP BY custkey ORDER BY custkey";
+        result = computeActual(query);
+        assertEquals(result.getRowCount(), 1500L);
+
+        query = "SELECT name FROM hive_bucketed.tpch_bucketed.customer_copied WHERE custkey <= 100";
+        DistributedQueryRunner distributedQueryRunner = (DistributedQueryRunner) getQueryRunner();
+        ResultWithQueryId<MaterializedResult> resultResultWithQueryId = distributedQueryRunner.executeWithQueryId(getSession(), query);
+        QueryInfo queryInfo = distributedQueryRunner.getCoordinator().getQueryManager().getFullQueryInfo(resultResultWithQueryId.getQueryId());
+        assertEquals(
+                Math.ceil(queryInfo.getQueryStats().getProcessedInputDataSize().getValue()),
+                10.0);
+        assertEquals(
+                Math.ceil(queryInfo.getQueryStats().getRawInputDataSize().getValue()),
+                10.0);
+        assertEquals(queryInfo.getQueryStats().getOutputPositions(), 100L);
+
+        query = (
+                "CREATE TABLE hive_bucketed.tpch_bucketed.customer_copied_again \n" +
+                        " WITH (" +
+                        "    format = 'ORC',\n" +
+                        "    bucketed_by = array['custkey'], \n" +
+                        "    bucket_count = 11) \n" +
+                        " AS SELECT * FROM customer");
+
+        result = computeActual(query);
+        assertEquals(result.getOnlyValue(), 1500L);
+
+        query = "SELECT name FROM hive_bucketed.tpch_bucketed.customer_copied_again WHERE custkey <= 100";
+        resultResultWithQueryId = distributedQueryRunner.executeWithQueryId(getSession(), query);
+        queryInfo = distributedQueryRunner.getCoordinator().getQueryManager().getFullQueryInfo(resultResultWithQueryId.getQueryId());
+        assertEquals(
+                Math.ceil(queryInfo.getQueryStats().getProcessedInputDataSize().getValue()),
+                100.0);
+        assertEquals(
+                Math.ceil(queryInfo.getQueryStats().getRawInputDataSize().getValue()),
+                100.0);
+        assertEquals(queryInfo.getQueryStats().getOutputPositions(), 100L);
+    }
+
+    @Test
+    public void testCreateTableAndInsert()
+    {
+        String query = (
+                "CREATE TABLE hive_bucketed.tpch_bucketed.customer_created (\n" +
                         "    custkey bigint,\n" +
                         "    name varchar(25),\n" +
                         "    address varchar(40),\n" +
@@ -86,59 +145,101 @@ public class TestHiveClustering
                         "    phone varchar(15),\n" +
                         "    acctbal double,\n" +
                         "    mktsegment varchar(10),\n" +
-                        "    comment varchar(117)\n" +
+                        "    comment varchar(117), \n" +
+                        "    ds varchar(20)\n" +
                         " ) WITH (" +
-                        "    format = 'TEXTFILE',\n" +
+                        "    format = 'ORC',\n" +
+                        "    partitioned_by = array['ds'], \n" +
                         "    clustered_by = array['custkey'], \n" +
-                        "    cluster_count = array[11], \n" +
+                        "    cluster_count = array[10], \n" +
                         "    distribution = array['150', '300', '450', '600', '750', '900', '1050', '1200', '1350'])");
-
         MaterializedResult result = computeActual(query);
         assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), true);
-    }
 
-    @Test
-    public void testCreateTableAsSelect()
-    {
-        String query = (
-                "CREATE TABLE hive_bucketed.tpch_bucketed.customer_copied \n" +
-                        " WITH (" +
-                        "    format = 'TEXTFILE',\n" +
-                        "    clustered_by = array['custkey'], \n" +
-                        "    cluster_count = array[11], \n" +
-                        "    distribution = array['150', '300', '450', '600', '750', '900', '1050', '1200', '1350']) \n" +
-                        " AS SELECT * FROM customer");
-
-        MaterializedResult result = computeActual(query);
-        assertEquals(result.getOnlyValue(), 1500L);
-
-        query = "SELECT COUNT(*) FROM hive_bucketed.tpch_bucketed.customer_copied";
+        query = (
+                "Insert INTO hive_bucketed.tpch_bucketed.customer_created \n" +
+                "SELECT *, '2021-05-14' from hive_bucketed.tpch_bucketed.customer LIMIT 10");
         result = computeActual(query);
-        assertEquals(result.getOnlyValue(), 1500L);
+        assertEquals(result.getOnlyValue(), 10L);
 
-        query = "SELECT custkey, COUNT(*) FROM hive_bucketed.tpch_bucketed.customer_copied GROUP BY custkey ORDER BY custkey LIMIT 1 ";
+        query = "SELECT COUNT(*) FROM hive_bucketed.tpch_bucketed.customer_created";
+        result = computeActual(query);
+        assertEquals(result.getOnlyValue(), 10L);
+
+        query = (
+                "SELECT custkey, COUNT(*) FROM hive_bucketed.tpch_bucketed.customer_created \n" +
+                "GROUP BY custkey ORDER BY custkey LIMIT 1 ");
         result = computeActual(query);
         assertEquals(result.getRowCount(), 1L);
         assertEquals(result.getMaterializedRows().get(0).getField(1), 1L);
     }
 
     @Test
-    public void testInsert()
+    public void testMultipleClusterColumns()
     {
         String query = (
-                "Insert INTO hive_bucketed.tpch_bucketed.customer_copied \n" +
-                "SELECT * from customer");
+                "CREATE TABLE hive_bucketed.tpch_bucketed.customer_multiple \n" +
+                        " WITH (" +
+                        "    format = 'ORC',\n" +
+                        "    clustered_by = array['custkey', 'acctbal'], \n" +
+                        "    cluster_count = array[8, 8], \n" +
+                        "    distribution = array['150', '300', '450', '600', '750', '900', '1050',\n" +
+                        "    '81.06', '1317.56', '2292.67', '3274.3', '4344.52', '5527.61', '6557.51']) \n" +
+                        " AS SELECT * FROM customer");
 
         MaterializedResult result = computeActual(query);
         assertEquals(result.getOnlyValue(), 1500L);
 
-        query = "SELECT COUNT(*) FROM hive_bucketed.tpch_bucketed.customer_copied";
-        result = computeActual(query);
-        assertEquals(result.getOnlyValue(), 3000L);
+        query = "SELECT COUNT(*) FROM hive_bucketed.tpch_bucketed.customer_multiple WHERE custkey <= 100";
+        DistributedQueryRunner distributedQueryRunner = (DistributedQueryRunner) getQueryRunner();
+        ResultWithQueryId<MaterializedResult> resultResultWithQueryId = distributedQueryRunner.executeWithQueryId(getSession(), query);
+        QueryInfo queryInfo = distributedQueryRunner.getCoordinator().getQueryManager().getFullQueryInfo(resultResultWithQueryId.getQueryId());
+        assertEquals(
+                Math.ceil(queryInfo.getQueryStats().getProcessedInputDataSize().getValue()),
+                22.0);
+        assertEquals(
+                Math.ceil(queryInfo.getQueryStats().getRawInputDataSize().getValue()),
+                22.0);
 
-        query = "SELECT custkey, COUNT(*) FROM hive_bucketed.tpch_bucketed.customer_copied GROUP BY custkey ORDER BY custkey LIMIT 1 ";
+        query = "SELECT COUNT(*) FROM hive_bucketed.tpch_bucketed.customer_multiple WHERE acctbal <= 1000.0";
+        resultResultWithQueryId = distributedQueryRunner.executeWithQueryId(getSession(), query);
+        queryInfo = distributedQueryRunner.getCoordinator().getQueryManager().getFullQueryInfo(resultResultWithQueryId.getQueryId());
+        assertEquals(
+                Math.ceil(queryInfo.getQueryStats().getProcessedInputDataSize().getValue()),
+                43.0);
+        assertEquals(
+                Math.ceil(queryInfo.getQueryStats().getRawInputDataSize().getValue()),
+                43.0);
+
+        query = (
+                "CREATE TABLE hive_bucketed.tpch_bucketed.customer_multiple_again \n" +
+                        " WITH (" +
+                        "    format = 'ORC',\n" +
+                        "    bucketed_by = array['custkey', 'acctbal'], \n" +
+                        "    bucket_count = 64)\n" +
+                        " AS SELECT * FROM customer");
+
         result = computeActual(query);
-        assertEquals(result.getRowCount(), 1L);
-        assertEquals(result.getMaterializedRows().get(0).getField(1), 2L);
+        assertEquals(result.getOnlyValue(), 1500L);
+
+        query = "SELECT COUNT(*) FROM hive_bucketed.tpch_bucketed.customer_multiple_again WHERE custkey <= 100";
+        resultResultWithQueryId = distributedQueryRunner.executeWithQueryId(getSession(), query);
+        queryInfo = distributedQueryRunner.getCoordinator().getQueryManager().getFullQueryInfo(resultResultWithQueryId.getQueryId());
+        assertEquals(
+                Math.ceil(queryInfo.getQueryStats().getProcessedInputDataSize().getValue()),
+                153.0);
+        assertEquals(
+                Math.ceil(queryInfo.getQueryStats().getRawInputDataSize().getValue()),
+                153.0);
+
+        query = "SELECT COUNT(*) FROM hive_bucketed.tpch_bucketed.customer_multiple_again WHERE acctbal <= 1000.0";
+        resultResultWithQueryId = distributedQueryRunner.executeWithQueryId(getSession(), query);
+        queryInfo = distributedQueryRunner.getCoordinator().getQueryManager().getFullQueryInfo(resultResultWithQueryId.getQueryId());
+        assertEquals(
+                Math.ceil(queryInfo.getQueryStats().getProcessedInputDataSize().getValue()),
+                183.0);
+        assertEquals(
+                Math.ceil(queryInfo.getQueryStats().getRawInputDataSize().getValue()),
+                183.0);
     }
 }

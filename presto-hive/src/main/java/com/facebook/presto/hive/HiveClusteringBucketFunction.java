@@ -15,6 +15,8 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.hive.clustering.HiveClustering;
+import com.facebook.presto.hive.clustering.MortonCode;
 import com.facebook.presto.spi.BucketFunction;
 
 import java.util.List;
@@ -24,14 +26,15 @@ public class HiveClusteringBucketFunction
 {
     private final List<Integer> clusterCount;
     private final List<String> clusteredBy;
-    private final List<String> distribution;
+    private final List<Object> distribution;
     private final List<Type> types;
+    private final HiveClustering clustering;
 
     // TODO: Add logic to generate Z-Order based on these parameters.
     public static BucketFunction createHiveClusteringBucketFunction(
             List<Integer> clusterCount,
             List<String> clusteredBy,
-            List<String> distribution,
+            List<Object> distribution,
             List<Type> types)
     {
         return new HiveClusteringBucketFunction(
@@ -41,18 +44,19 @@ public class HiveClusteringBucketFunction
     private HiveClusteringBucketFunction(
             List<Integer> clusterCount,
             List<String> clusteredBy,
-            List<String> distribution,
+            List<Object> distribution,
             List<Type> types)
     {
         this.clusterCount = clusterCount;
         this.clusteredBy = clusteredBy;
         this.types = types;
         this.distribution = distribution;
+        this.clustering = new MortonCode(clusterCount, clusteredBy, distribution, types);
     }
 
     // TODO: Return Z-Order Address.
     public int getBucket(Page page, int position)
     {
-        return 0;
+        return clustering.getCluster(page, position);
     }
 }

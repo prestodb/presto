@@ -150,7 +150,7 @@ public class HiveTableProperties
                         ImmutableList.of(),
                         false,
                         value -> ImmutableList.copyOf(((Collection<?>) value).stream()
-                                .map(name -> ((String) name).toLowerCase(ENGLISH))
+                                .map(delimiter -> ((String) delimiter))
                                 .collect(Collectors.toList())),
                         value -> value),
                 new PropertyMetadata<>(
@@ -245,7 +245,7 @@ public class HiveTableProperties
 
         List<String> clusteredBy = getClusteredBy(tableProperties);
         List<Integer> clusterCount = getClusterCount(tableProperties);
-        List<String> distribution = getDistribution(tableProperties);
+        List<Object> distribution = getDistribution(tableProperties);
 
         if (doBucketing(bucketedBy)) {
             return getPropertyForBucketing(bucketedBy, sortedBy, bucketCount);
@@ -288,7 +288,7 @@ public class HiveTableProperties
             int bucketCount,
             List<String> clusteredBy,
             List<Integer> clusterCount,
-            List<String> distribution)
+            List<Object> distribution)
     {
         if (clusterCount.isEmpty() || distribution.isEmpty()) {
             throw new PrestoException(INVALID_TABLE_PROPERTY, "To do clustering, cluster_count and distribution must be specified");
@@ -329,9 +329,9 @@ public class HiveTableProperties
     }
 
     @SuppressWarnings("unchecked")
-    private static List<String> getDistribution(Map<String, Object> tableProperties)
+    private static List<Object> getDistribution(Map<String, Object> tableProperties)
     {
-        return (List<String>) tableProperties.get(DISTRIBUTION_PROPERTY);
+        return (List<Object>) tableProperties.get(DISTRIBUTION_PROPERTY);
     }
 
     @SuppressWarnings("unchecked")

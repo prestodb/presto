@@ -43,7 +43,7 @@ public class HiveBucketProperty
     private final Optional<List<Type>> types;
     private final Optional<List<String>> clusteredBy;
     private final Optional<List<Integer>> clusterCount;
-    private final Optional<List<String>> distribution;
+    private final Optional<List<Object>> distribution;
 
     @JsonCreator
     public HiveBucketProperty(
@@ -54,7 +54,7 @@ public class HiveBucketProperty
             @JsonProperty("types") Optional<List<Type>> types,
             @JsonProperty("clusteredBy") Optional<List<String>> clusteredBy,
             @JsonProperty("clusterCount") Optional<List<Integer>> clusterCount,
-            @JsonProperty("distribution") Optional<List<String>> distribution)
+            @JsonProperty("distribution") Optional<List<Object>> distribution)
     {
         this.bucketedBy = ImmutableList.copyOf(requireNonNull(bucketedBy, "bucketedBy is null"));
         this.bucketCount = bucketCount;
@@ -163,7 +163,7 @@ public class HiveBucketProperty
     }
 
     @JsonProperty
-    public Optional<List<String>> getDistribution()
+    public Optional<List<Object>> getDistribution()
     {
         return distribution;
     }

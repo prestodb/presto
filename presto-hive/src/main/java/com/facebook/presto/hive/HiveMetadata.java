@@ -131,6 +131,7 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -266,6 +267,9 @@ import static com.facebook.presto.hive.HiveUtil.columnExtraInfo;
 import static com.facebook.presto.hive.HiveUtil.decodeMaterializedViewData;
 import static com.facebook.presto.hive.HiveUtil.decodeViewData;
 import static com.facebook.presto.hive.HiveUtil.deserializeZstdCompressed;
+import static com.facebook.presto.hive.HiveUtil.encodeClusterCount;
+import static com.facebook.presto.hive.HiveUtil.encodeClusteredBy;
+import static com.facebook.presto.hive.HiveUtil.encodeDistribution;
 import static com.facebook.presto.hive.HiveUtil.encodeMaterializedViewData;
 import static com.facebook.presto.hive.HiveUtil.encodeViewData;
 import static com.facebook.presto.hive.HiveUtil.getPartitionKeyColumnHandles;
@@ -1656,6 +1660,7 @@ public class HiveMetadata
 
         partitionUpdates = PartitionUpdate.mergePartitionUpdates(partitionUpdates);
 
+        Map<String, String> bucketingProperties = new HashMap<>();
         if (handle.getBucketProperty().isPresent()) {
             ImmutableList<PartitionUpdate> partitionUpdatesForMissingBuckets = computePartitionUpdatesForMissingBuckets(
                     session,
@@ -1677,6 +1682,9 @@ public class HiveMetadata
                         handle.getCompressionCodec(),
                         getSchema(partition, table));
             }
+
+            // Attach clustering information to partition properties.
+            attachClusteringInfoIfAny(bucketingProperties, handle.getBucketProperty().get());
         }
 
         Map<String, Type> columnTypes = handle.getInputColumns().stream()
@@ -1706,6 +1714,7 @@ public class HiveMetadata
         }
         for (PartitionUpdate update : partitionUpdates) {
             Map<String, String> partitionParameters = partitionEncryptionParameters;
+            partitionParameters.putAll(bucketingProperties);
             if (isPreferManifestsToListFiles(session) && isFileRenamingEnabled(session)) {
                 // Store list of file names and sizes in partition metadata when prefer_manifests_to_list_files and file_renaming_enabled are set to true
                 partitionParameters = updatePartitionMetadataWithFileNamesAndSizes(update, partitionParameters);
@@ -1731,6 +1740,29 @@ public class HiveMetadata
                 partitionUpdates.stream()
                         .map(PartitionUpdate::getName)
                         .collect(Collectors.toList())));
+    }
+
+    private static void attachClusteringInfoIfAny(
+            Map<String, String> partitionParameters, HiveBucketProperty bucketProperty)
+    {
+        if (bucketProperty.getDistribution().isPresent()) {
+            checkArgument(bucketProperty.getClusterCount().isPresent(), "cluster count is missing");
+            checkArgument(bucketProperty.getClusteredBy().isPresent(), "cluster columns are missing");
+
+            partitionParameters.put(
+                    "cluster_count", encodeClusterCount(bucketProperty.getClusterCount().get()));
+            partitionParameters.put(
+                    "clustered_by", encodeClusteredBy(bucketProperty.getClusteredBy().get()));
+
+            try {
+                partitionParameters.put(
+                        "distribution", encodeDistribution(bucketProperty.getDistribution().get()));
+            }
+            catch (IOException e) {
+                // TODO: Better error handling.
+                throw new RuntimeException(e.getMessage());
+            }
+        }
     }
 
     public static boolean shouldCreateFilesForMissingBuckets(Table table, ConnectorSession session)
@@ -1963,6 +1995,7 @@ public class HiveMetadata
             throw new PrestoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Table format changed during insert");
         }
 
+        Map<String, String> clusteringParamters = new HashMap<>();
         if (handle.getBucketProperty().isPresent()) {
             ImmutableList<PartitionUpdate> partitionUpdatesForMissingBuckets = computePartitionUpdatesForMissingBuckets(
                     session,
@@ -1991,6 +2024,7 @@ public class HiveMetadata
                         handle.getCompressionCodec(),
                         getSchema(partition, table.get()));
             }
+            attachClusteringInfoIfAny(clusteringParamters, handle.getBucketProperty().get());
         }
 
         List<String> partitionedBy = table.get().getPartitionColumns().stream()
@@ -2047,6 +2081,11 @@ public class HiveMetadata
                 Map<String, String> extraPartitionMetadata = handle.getEncryptionInformation()
                         .map(encryptionInfo -> encryptionInfo.getDwrfEncryptionMetadata().map(DwrfEncryptionMetadata::getExtraMetadata).orElseGet(ImmutableMap::of))
                         .orElseGet(ImmutableMap::of);
+
+                // Store clustering parameters into partition parameters
+                extraPartitionMetadata = Stream.concat(
+                        extraPartitionMetadata.entrySet().stream(), clusteringParamters.entrySet().stream())
+                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
                 if (isPreferManifestsToListFiles(session) && isFileRenamingEnabled(session)) {
                     // Store list of file names and sizes in partition metadata when prefer_manifests_to_list_files and file_renaming_enabled are set to true
@@ -2738,7 +2777,7 @@ public class HiveMetadata
                                 .collect(toImmutableList());
                         List<String> clusteredBy = bucketProperty.getClusteredBy().get();
                         List<Integer> clusterCount = bucketProperty.getClusterCount().get();
-                        List<String> distribution = bucketProperty.getDistribution().get();
+                        List<Object> distribution = bucketProperty.getDistribution().get();
 
                         partitioningHandle = createClusteringPartitioningHandle(
                                 columnTypes, maxCompatibleBucketCount, clusteredBy, clusterCount, distribution);

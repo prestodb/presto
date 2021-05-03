@@ -42,7 +42,7 @@ public class HivePartitioningHandle
 
     private final Optional<List<String>> clusteredBy;
     private final Optional<List<Integer>> clusterCount;
-    private final Optional<List<String>> distribution;
+    private final Optional<List<Object>> distribution;
 
     public static HivePartitioningHandle createHiveCompatiblePartitioningHandle(
             int bucketCount,
@@ -81,7 +81,7 @@ public class HivePartitioningHandle
             OptionalInt maxCompatibleBucketCount,
             List<String> clusteredBy,
             List<Integer> clusterCount,
-            List<String> distribution)
+            List<Object> distribution)
     {
         return new HivePartitioningHandle(
                 0,
@@ -103,9 +103,9 @@ public class HivePartitioningHandle
             @JsonProperty("types") Optional<List<Type>> types,
             @JsonProperty("clusteredBy") Optional<List<String>> clusteredBy,
             @JsonProperty("clusterCount") Optional<List<Integer>> clusterCount,
-            @JsonProperty("distribution")Optional<List<String>> distribution)
+            @JsonProperty("distribution")Optional<List<Object>> distribution)
     {
-        this.bucketCount = bucketCount;
+        this.bucketCount = (bucketFunctionType == HIVE_CLUSTERING ? getMergedClusterCount(clusterCount.get()) : bucketCount);
         this.maxCompatibleBucketCount = maxCompatibleBucketCount;
         this.bucketFunctionType = requireNonNull(bucketFunctionType, "bucketFunctionType is null");
         this.hiveTypes = requireNonNull(hiveTypes, "hiveTypes is null");
@@ -127,11 +127,7 @@ public class HivePartitioningHandle
     @JsonProperty
     public int getBucketCount()
     {
-        if (bucketFunctionType == HIVE_COMPATIBLE || bucketFunctionType == PRESTO_NATIVE) {
-            return bucketCount;
-        }
-
-        return getMergedClusterCount(clusterCount.get());
+        return bucketCount;
     }
 
     // TODO: Consolidate the same logic in HiveBucktProperty.
@@ -187,7 +183,7 @@ public class HivePartitioningHandle
     }
 
     @JsonProperty
-    public List<String> getDistribution()
+    public List<Object> getDistribution()
     {
         if (distribution.isPresent()) {
             return distribution.get();

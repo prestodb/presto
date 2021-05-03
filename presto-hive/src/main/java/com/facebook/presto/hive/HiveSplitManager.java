@@ -479,15 +479,26 @@ public class HiveSplitManager
                             .map(HiveColumnHandle::getName)
                             .collect(toImmutableList());
                     List<String> partitionBucketColumns = partitionBucketProperty.get().getBucketedBy();
-                    if (!tableBucketColumns.equals(partitionBucketColumns) || !isBucketCountCompatible(tableBucketCount, partitionBucketCount)) {
-                        throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, format(
-                                "Hive table (%s) bucketing (columns=%s, buckets=%s) is not compatible with partition (%s) bucketing (columns=%s, buckets=%s)",
-                                hivePartition.getTableName(),
-                                tableBucketColumns,
-                                tableBucketCount,
-                                hivePartition.getPartitionId(),
-                                partitionBucketColumns,
-                                partitionBucketCount));
+
+                    HiveBucketProperty bucketProperty = table.getStorage().getBucketProperty().get();
+                    if (bucketProperty.getBucketFunctionType() != BucketFunctionType.HIVE_CLUSTERING) {
+                        // TODO: We just skip the compare here since current partition metadata does
+                        // not have clustering information. After we store clustering into partition
+                        // metadata later, we can compare.
+                        if (!tableBucketColumns.equals(partitionBucketColumns) ||
+                                !isBucketCountCompatible(tableBucketCount, partitionBucketCount)) {
+                            String errorMessage = (
+                                    "Hive table (%s) bucketing (columns=%s, buckets=%s) is not compatible " +
+                                    "with partition (%s) bucketing (columns=%s, buckets=%s)");
+                            throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, format(
+                                    errorMessage,
+                                    hivePartition.getTableName(),
+                                    tableBucketColumns,
+                                    tableBucketCount,
+                                    hivePartition.getPartitionId(),
+                                    partitionBucketColumns,
+                                    partitionBucketCount));
+                        }
                     }
                 }
 

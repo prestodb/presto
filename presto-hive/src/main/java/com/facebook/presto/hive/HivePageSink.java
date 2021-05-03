@@ -91,7 +91,7 @@ public class HivePageSink
     private final int[] dataColumnInputIndex; // ordinal of columns (not counting sample weight column)
     private final int[] partitionColumnsInputIndex; // ordinal of columns (not counting sample weight column)
 
-    private final int[] bucketColumns;
+    private int[] bucketColumns;
     private final BucketFunction bucketFunction;
 
     private final HiveWriterPagePartitioner pagePartitioner;
@@ -193,7 +193,9 @@ public class HivePageSink
                     bucketFunction = createPrestoNativeBucketFunction(bucketCount, bucketProperty.get().getTypes().get());
                     break;
                 case HIVE_CLUSTERING:
-                    List<Type> types = bucketProperty.get().getBucketedBy().stream()
+                    bucketColumns = bucketProperty.get().getClusteredBy().get().stream()
+                            .mapToInt(dataColumnNameToIdMap::get).toArray();
+                    List<Type> types = bucketProperty.get().getClusteredBy().get().stream()
                             .map(dataColumnNameToType::get)
                             .collect(toImmutableList());
                     bucketFunction = createHiveClusteringBucketFunction(

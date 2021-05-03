@@ -61,7 +61,7 @@ public class HiveNodePartitioningProvider
             case HIVE_CLUSTERING:
                 List<Integer> clusterCount = handle.getClusterCount();
                 List<String> clusteredBy = handle.getClusteredBy();
-                List<String> distribution = handle.getDistribution();
+                List<Object> distribution = handle.getDistribution();
                 return createHiveClusteringBucketFunction(
                         clusterCount, clusteredBy, distribution, handle.getTypes().get());
             default:
