@@ -233,6 +233,7 @@ public class TestHivePageSink
                 0,
                 outputFile.length(),
                 outputFile.length(),
+                outputFile.lastModified(),
                 new Storage(
                         StorageFormat.create(config.getHiveStorageFormat().getSerDe(), config.getHiveStorageFormat().getInputFormat(), config.getHiveStorageFormat().getOutputFormat()),
                         "location",
