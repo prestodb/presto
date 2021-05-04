@@ -42,7 +42,7 @@ jobs:
       - name: Maven Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./mvnw install -B -V -T C1 -DskipTests -P ci -pl '!:presto-server-rpm'
+          $RETRY ./mvnw install -B -V -T C1 -DskipTests -P ci -pl '!:presto-server-rpm'
       - name: Test Server RPM
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
