@@ -1962,6 +1962,14 @@
                         <nexusUrl>https://oss.sonatype.org/</nexusUrl>
                     </configuration>
                 </plugin>
+
+                <plugin>
+                    <groupId>com.facebook.presto</groupId>
+                    <artifactId>presto-maven-plugin</artifactId>
+                    <version>0.4</version>
+                    <extensions>true</extensions>
+                </plugin>
+
             </plugins>
         </pluginManagement>
 
@@ -1969,8 +1977,6 @@
             <plugin>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-maven-plugin</artifactId>
-                <version>0.3</version>
-                <extensions>true</extensions>
             </plugin>
 
             <plugin>
