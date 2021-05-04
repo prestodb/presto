@@ -187,7 +187,7 @@ public class SliceDirectColumnWriter
     }
 
     @Override
-    public List<StreamDataOutput> getIndexStreams()
+    public List<StreamDataOutput> getIndexStreams(Optional<List<BooleanStreamCheckpoint>> dwrfFlatMapStreamCheckpoints)
             throws IOException
     {
         checkState(closed);
@@ -203,7 +203,8 @@ public class SliceDirectColumnWriter
             LongStreamCheckpoint lengthCheckpoint = lengthCheckpoints.get(groupId);
             ByteArrayStreamCheckpoint dataCheckpoint = dataCheckpoints.get(groupId);
             Optional<BooleanStreamCheckpoint> presentCheckpoint = presentCheckpoints.map(checkpoints -> checkpoints.get(groupId));
-            List<Integer> positions = createSliceColumnPositionList(compressed, lengthCheckpoint, dataCheckpoint, presentCheckpoint);
+            Optional<BooleanStreamCheckpoint> dwrfFlatMapCheckpoint = dwrfFlatMapStreamCheckpoints.map(checkpoints -> checkpoints.get(groupId));
+            List<Integer> positions = createSliceColumnPositionList(compressed, lengthCheckpoint, dataCheckpoint, presentCheckpoint, dwrfFlatMapCheckpoint);
             rowGroupIndexes.add(new RowGroupIndex(positions, columnStatistics));
         }
 
@@ -216,9 +217,11 @@ public class SliceDirectColumnWriter
             boolean compressed,
             LongStreamCheckpoint lengthCheckpoint,
             ByteArrayStreamCheckpoint dataCheckpoint,
-            Optional<BooleanStreamCheckpoint> presentCheckpoint)
+            Optional<BooleanStreamCheckpoint> presentCheckpoint,
+            Optional<BooleanStreamCheckpoint> dwrfFlatMapCheckpoint)
     {
         ImmutableList.Builder<Integer> positionList = ImmutableList.builder();
+        dwrfFlatMapCheckpoint.ifPresent(booleanStreamCheckpoint -> positionList.addAll(booleanStreamCheckpoint.toPositionList(compressed)));
         presentCheckpoint.ifPresent(booleanStreamCheckpoint -> positionList.addAll(booleanStreamCheckpoint.toPositionList(compressed)));
         positionList.addAll(dataCheckpoint.toPositionList(compressed));
         positionList.addAll(lengthCheckpoint.toPositionList(compressed));
