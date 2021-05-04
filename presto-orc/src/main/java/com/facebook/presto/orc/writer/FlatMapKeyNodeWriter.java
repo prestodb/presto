@@ -2,12 +2,15 @@ package com.facebook.presto.orc.writer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Math.toIntExact;
+
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.orc.ColumnWriterOptions;
 import com.facebook.presto.orc.DwrfDataEncryptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.CompressedMetadataWriter;
 import com.facebook.presto.orc.metadata.MetadataWriter;
+import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.stream.BooleanOutputStream;
 import com.facebook.presto.orc.stream.StreamDataOutput;
@@ -33,6 +36,7 @@ public class FlatMapKeyNodeWriter
     private final CompressedMetadataWriter metadataWriter;
     private final List<ColumnStatistics> rowGroupColumnStatistics = new ArrayList<>();
     private boolean closed;
+    private int nonNullValueCount;
 
     public int getSequence()
     {
@@ -82,6 +86,7 @@ public class FlatMapKeyNodeWriter
     @Override
     public void writeBlock(Block block)
     {
+        this.nonNullValueCount++;
         this.inMapStream.writeBoolean(true);
         valueWriter.writeBlock(block);
     }
@@ -126,7 +131,21 @@ public class FlatMapKeyNodeWriter
     public List<StreamDataOutput> getDataStreams()
     {
         checkState(closed);
-        return ImmutableList.of();
+        ImmutableList.Builder<StreamDataOutput> outputDataStreams = ImmutableList.builder();
+        StreamDataOutput inMapStreamDataOutput = inMapStream.getStreamDataOutput(column);
+        // rewrite the DATA stream created by the boolean output stream to a IN_MAP stream
+        Stream stream = new Stream(column, Stream.StreamKind.IN_MAP,
+                toIntExact(inMapStreamDataOutput.size()),
+                inMapStreamDataOutput.getStream().isUseVInts(),
+                sequence, Optional.empty());
+        outputDataStreams.add(new StreamDataOutput(
+                sliceOutput -> {
+                    inMapStreamDataOutput.writeData(sliceOutput);
+                    return stream.getLength();
+                },
+                stream));
+        outputDataStreams.addAll(valueWriter.getDataStreams());
+        return outputDataStreams.build();
     }
 
     public long getBufferedBytes()
@@ -143,6 +162,7 @@ public class FlatMapKeyNodeWriter
 
     public void reset() {
         closed = false;
+        nonNullValueCount = 0;
         valueWriter.reset();
         inMapStream.reset();
         rowGroupColumnStatistics.clear();

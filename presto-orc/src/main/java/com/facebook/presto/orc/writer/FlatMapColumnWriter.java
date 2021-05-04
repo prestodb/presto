@@ -21,11 +21,15 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.ColumnWriterOptions;
 import com.facebook.presto.orc.DwrfDataEncryptor;
 import com.facebook.presto.orc.OrcEncoding;
+import com.facebook.presto.orc.checkpoint.BooleanStreamCheckpoint;
+import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.CompressedMetadataWriter;
 import com.facebook.presto.orc.metadata.MetadataWriter;
 
 import com.facebook.presto.orc.metadata.OrcType;
+import com.facebook.presto.orc.metadata.RowGroupIndex;
+import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.metadata.statistics.IntegerStatisticsBuilder;
 import com.facebook.presto.orc.metadata.statistics.StatisticsBuilder;
@@ -35,8 +39,10 @@ import com.facebook.presto.orc.stream.PresentOutputStream;
 import com.facebook.presto.orc.stream.StreamDataOutput;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -53,6 +59,7 @@ import static com.facebook.presto.orc.stream.LongOutputStream.createLengthOutput
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.toIntExact;
+import static java.util.stream.Collectors.toList;
 
 public class FlatMapColumnWriter implements ColumnWriter
 {
@@ -91,6 +98,7 @@ public class FlatMapColumnWriter implements ColumnWriter
     private final Supplier<StatisticsBuilder> statisticsBuilderSupplier;
 
     private final List<ColumnStatistics> rowGroupColumnStatistics = new ArrayList<>();
+    private final List<ColumnStatistics> keyRowGroupColumnStatistics = new ArrayList<>();
     private long columnStatisticsRetainedSizeInBytes;
 
     private int nonNullValueCount;
@@ -169,13 +177,17 @@ public class FlatMapColumnWriter implements ColumnWriter
     @Override
     public List<ColumnWriter> getNestedColumnWriters()
     {
-        return ImmutableList.of();
+        return this.blockWriter.getNestedColumnWriters();
     }
 
     @Override
     public Map<Integer, ColumnEncoding> getColumnEncodings()
     {
-        return ImmutableMap.of();
+        ImmutableMap.Builder<Integer, ColumnEncoding> encodings = ImmutableMap.builder();
+        encodings.put(column, columnEncoding);
+        encodings.put(keyColumnId, keyColumnEncoding);
+        encodings.putAll(this.blockWriter.getColumnEncodings());
+        return encodings.build();
     }
 
     @Override
@@ -210,7 +222,31 @@ public class FlatMapColumnWriter implements ColumnWriter
     public Map<Integer, ColumnStatistics> finishRowGroup()
     {
         checkState(!closed);
-        return ImmutableMap.of();
+
+        /* Map Type column statistics is just the nonNullValueCount */
+        ColumnStatistics statistics = new ColumnStatistics((long) nonNullValueCount, 0, null, null, null, null, null, null, null, null);
+        rowGroupColumnStatistics.add(statistics);
+        columnStatisticsRetainedSizeInBytes += statistics.getRetainedSizeInBytes();
+        nonNullValueCount = 0;
+
+        ImmutableMap.Builder<Integer, ColumnStatistics> columnStatistics = ImmutableMap.builder();
+        /* Add statistics for map type */
+        columnStatistics.put(column, statistics);
+
+        /* Add statistics for the key Type */
+        ColumnStatistics keyStatistics = statisticsBuilder.buildColumnStatistics();
+        keyRowGroupColumnStatistics.add(keyStatistics);
+        columnStatisticsRetainedSizeInBytes += keyStatistics.getRetainedSizeInBytes();
+        columnStatistics.put(keyColumnId, keyStatistics);
+        statisticsBuilder = statisticsBuilderSupplier.get();
+
+        /* Add statistics for the value Type */
+        columnStatistics.put(valueColumnId,
+                ColumnStatistics.mergeColumnStatistics(
+                        this.blockWriter.finishRowGroup().entrySet().stream().
+                                map(entry -> entry.getValue()).
+                                collect(toList())));
+        return columnStatistics.build();
     }
 
     @Override
@@ -226,7 +262,18 @@ public class FlatMapColumnWriter implements ColumnWriter
     public Map<Integer, ColumnStatistics> getColumnStripeStatistics()
     {
         checkState(closed);
-        return ImmutableMap.of();
+        ImmutableMap.Builder<Integer, ColumnStatistics> columnStatistics = ImmutableMap.builder();
+        /* Add stats for map type */
+        columnStatistics.put(column, ColumnStatistics.mergeColumnStatistics(rowGroupColumnStatistics));
+        /* add stats for key type */
+        columnStatistics.put(keyColumnId, ColumnStatistics.mergeColumnStatistics(keyRowGroupColumnStatistics));
+        /* add stats for value type */
+        columnStatistics.put(valueColumnId,
+                ColumnStatistics.mergeColumnStatistics(
+                        this.blockWriter.getColumnStripeStatistics().entrySet().stream().
+                                map(entry -> entry.getValue()).
+                                collect(toList())));
+        return columnStatistics.build();
     }
 
     /**
@@ -236,11 +283,44 @@ public class FlatMapColumnWriter implements ColumnWriter
      */
     @Override
     public List<StreamDataOutput> getIndexStreams()
+            throws IOException
     {
         checkState(closed);
-        return ImmutableList.of();
+
+        ImmutableList.Builder<RowGroupIndex> rowGroupIndexes = ImmutableList.builder();
+
+        /* Create the ROW INDEX Stream for the MAP type */
+        List<LongStreamCheckpoint> lengthCheckpoints = lengthStream.getCheckpoints();
+        Optional<List<BooleanStreamCheckpoint>> presentCheckpoints = presentStream.getCheckpoints();
+        for (int i = 0; i < rowGroupColumnStatistics.size(); i++) {
+            int groupId = i;
+            ColumnStatistics columnStatistics = rowGroupColumnStatistics.get(groupId);
+            LongStreamCheckpoint lengthCheckpoint = lengthCheckpoints.get(groupId);
+            Optional<BooleanStreamCheckpoint> presentCheckpoint = presentCheckpoints.map(checkpoints -> checkpoints.get(groupId));
+            List<Integer> positions = createArrayColumnPositionList(compressed, lengthCheckpoint, presentCheckpoint);
+            rowGroupIndexes.add(new RowGroupIndex(positions, columnStatistics));
+        }
+        Slice slice = metadataWriter.writeRowIndexes(rowGroupIndexes.build());
+        Stream stream = new Stream(column, Stream.StreamKind.ROW_INDEX, slice.length(), false, sequence, Optional.empty());
+        ImmutableList.Builder<StreamDataOutput> indexStreams = ImmutableList.builder();
+        indexStreams.add(new StreamDataOutput(slice, stream));
+
+        /* There are no ROW_INDEX streams for key type in Flat Maps
+         * Instead each sequence in value type has a ROW_INDEX stream  */
+        indexStreams.addAll(this.blockWriter.getIndexStreams());
+        return indexStreams.build();
     }
 
+    private static List<Integer> createArrayColumnPositionList(
+            boolean compressed,
+            LongStreamCheckpoint lengthCheckpoint,
+            Optional<BooleanStreamCheckpoint> presentCheckpoint)
+    {
+        ImmutableList.Builder<Integer> positionList = ImmutableList.builder();
+        presentCheckpoint.ifPresent(booleanStreamCheckpoint -> positionList.addAll(booleanStreamCheckpoint.toPositionList(compressed)));
+        positionList.addAll(lengthCheckpoint.toPositionList(compressed));
+        return positionList.build();
+    }
 
     /**
      * Get the data streams to be written.
@@ -249,7 +329,11 @@ public class FlatMapColumnWriter implements ColumnWriter
     public List<StreamDataOutput> getDataStreams()
     {
         checkState(closed);
-        return ImmutableList.of();
+        ImmutableList.Builder<StreamDataOutput> outputDataStreams = ImmutableList.builder();
+        outputDataStreams.addAll(this.blockWriter.getDataStreams());
+        /* The Map type only records the PRESENT Stream  as a DATA Stream */
+        presentStream.getStreamDataOutput(column).ifPresent(outputDataStreams::add);
+        return outputDataStreams.build();
     }
 
     /**

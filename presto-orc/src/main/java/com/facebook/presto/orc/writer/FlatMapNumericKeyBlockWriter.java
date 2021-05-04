@@ -8,6 +8,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.ColumnWriterOptions;
 import com.facebook.presto.orc.DwrfDataEncryptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
+import com.facebook.presto.orc.metadata.DwrfSequenceEncoding;
 import com.facebook.presto.orc.metadata.MetadataWriter;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
@@ -17,15 +18,21 @@ import com.google.common.collect.ImmutableMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
+import static com.facebook.presto.orc.metadata.DwrfMetadataWriter.getIntKeyInfo;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Locale.ENGLISH;
+import static java.util.stream.Collectors.toList;
 
 public class FlatMapNumericKeyBlockWriter
         implements FlatMapBlockWriter
@@ -149,13 +156,29 @@ public class FlatMapNumericKeyBlockWriter
     @Override
     public List<ColumnWriter> getNestedColumnWriters()
     {
-        return ImmutableList.of();
+        ImmutableList.Builder<ColumnWriter> columnWriters = ImmutableList.builder();
+        BiConsumer<Long, FlatMapKeyNodeWriter> biConsumer = (key,value) -> columnWriters.addAll(value.getNestedColumnWriters());
+        keyToKeyNode.forEach(biConsumer);
+        return columnWriters.build();
     }
 
     @Override
     public Map<Integer, ColumnEncoding> getColumnEncodings()
     {
-        return ImmutableMap.of();
+        ImmutableMap.Builder<Integer, ColumnEncoding> encodings = ImmutableMap.builder();
+
+        /* Build the additionalEncodings for each of the sequences */
+        SortedMap<Integer, DwrfSequenceEncoding> additionalEncodings = new TreeMap<Integer, DwrfSequenceEncoding>();
+        BiConsumer<Long, FlatMapKeyNodeWriter> biConsumer = (key,value) -> {
+            Map<Integer, ColumnEncoding> valueEncodings = value.getColumnEncodings();
+            for(Map.Entry<Integer, ColumnEncoding> entry : valueEncodings.entrySet()) {
+                additionalEncodings.put(entry.getKey(), new DwrfSequenceEncoding(getIntKeyInfo(key), entry.getValue()));
+            }
+        };
+        keyToKeyNode.forEach(biConsumer);
+        ColumnEncoding valueColumnEncoding = new ColumnEncoding(DIRECT, 0, Optional.of(additionalEncodings));
+        encodings.put(this.valueColumnId, valueColumnEncoding);
+        return encodings.build();
     }
 
     @Override
@@ -175,7 +198,14 @@ public class FlatMapNumericKeyBlockWriter
     @Override
     public Map<Integer, ColumnStatistics> finishRowGroup()
     {
-        return ImmutableMap.of();
+        ImmutableList.Builder<ColumnStatistics> columnStatistics = ImmutableList.builder();
+        BiConsumer<Long, FlatMapKeyNodeWriter> biConsumer = (key,value) -> {
+            columnStatistics.addAll(
+                    value.finishRowGroup().entrySet().stream().map(entry -> entry.getValue()).collect(toList())
+            );
+        };
+        keyToKeyNode.forEach(biConsumer);
+        return ImmutableMap.of(valueColumnId, ColumnStatistics.mergeColumnStatistics(columnStatistics.build()));
     }
 
     @Override
@@ -190,7 +220,14 @@ public class FlatMapNumericKeyBlockWriter
     public Map<Integer, ColumnStatistics> getColumnStripeStatistics()
     {
         checkState(closed);
-        return ImmutableMap.of();
+        ImmutableList.Builder<ColumnStatistics> columnStatistics = ImmutableList.builder();
+        BiConsumer<Long, FlatMapKeyNodeWriter> biConsumer = (key,value) -> {
+            columnStatistics.addAll(
+                    value.getColumnStripeStatistics().entrySet().stream().map(entry -> entry.getValue()).collect(toList())
+            );
+        };
+        keyToKeyNode.forEach(biConsumer);
+        return ImmutableMap.of(valueColumnId, ColumnStatistics.mergeColumnStatistics(columnStatistics.build()));
     }
 
     /**
@@ -202,7 +239,22 @@ public class FlatMapNumericKeyBlockWriter
     public List<StreamDataOutput> getIndexStreams()
     {
         checkState(closed);
-        return ImmutableList.of();
+        ImmutableList.Builder<StreamDataOutput> indexStreams = ImmutableList.builder();
+        BiConsumer<Long, FlatMapKeyNodeWriter> biConsumer = (key,value) -> {
+            try {
+                indexStreams.addAll(value.getIndexStreams());
+            }
+            catch (IOException e) {
+                try {
+                    throw e;
+                }
+                catch (IOException ioException) {
+                    ioException.printStackTrace();
+                }
+            }
+        };
+        keyToKeyNode.forEach(biConsumer);
+        return indexStreams.build();
     }
 
     /**
@@ -212,7 +264,11 @@ public class FlatMapNumericKeyBlockWriter
     public List<StreamDataOutput> getDataStreams()
     {
         checkState(closed);
-        return ImmutableList.of();
+        ImmutableList.Builder<StreamDataOutput> outputDataStreams = ImmutableList.builder();
+
+        BiConsumer<Long, FlatMapKeyNodeWriter> biConsumer = (key,value) -> outputDataStreams.addAll(value.getDataStreams());
+        keyToKeyNode.forEach(biConsumer);
+        return outputDataStreams.build();
     }
 
     /**
