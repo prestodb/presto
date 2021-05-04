@@ -18,6 +18,7 @@ import com.facebook.presto.orc.ColumnWriterOptions;
 import com.facebook.presto.orc.DwrfDataEncryptor;
 import com.facebook.presto.orc.DwrfEncryptionInfo;
 import com.facebook.presto.orc.OrcEncoding;
+import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.MetadataWriter;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.statistics.BinaryStatisticsBuilder;
@@ -108,27 +109,51 @@ public final class ColumnWriters
                         metadataWriter);
                 return new ListColumnWriter(columnIndex, columnWriterOptions, dwrfEncryptor, orcEncoding, elementWriter, metadataWriter);
             }
-
             case MAP: {
-                ColumnWriter keyWriter = createColumnWriter(
-                        orcType.getFieldTypeIndex(0),
-                        orcTypes,
-                        type.getTypeParameters().get(0),
-                        columnWriterOptions,
-                        orcEncoding,
-                        hiveStorageTimeZone,
-                        dwrfEncryptors,
-                        metadataWriter);
-                ColumnWriter valueWriter = createColumnWriter(
-                        orcType.getFieldTypeIndex(1),
-                        orcTypes,
-                        type.getTypeParameters().get(1),
-                        columnWriterOptions,
-                        orcEncoding,
-                        hiveStorageTimeZone,
-                        dwrfEncryptors,
-                        metadataWriter);
-                return new MapColumnWriter(columnIndex, columnWriterOptions, dwrfEncryptor, orcEncoding, keyWriter, valueWriter, metadataWriter);
+                boolean shouldFlattenColumn = columnWriterOptions.getMapFlattenColumnsList().contains(columnIndex);
+                if (!shouldFlattenColumn){
+                    ColumnWriter keyWriter = createColumnWriter(
+                            orcType.getFieldTypeIndex(0),
+                            orcTypes,
+                            type.getTypeParameters().get(0),
+                            columnWriterOptions,
+                            orcEncoding,
+                            hiveStorageTimeZone,
+                            dwrfEncryptors,
+                            metadataWriter);
+                    ColumnWriter valueWriter = createColumnWriter(
+                            orcType.getFieldTypeIndex(1),
+                            orcTypes,
+                            type.getTypeParameters().get(1),
+                            columnWriterOptions,
+                            orcEncoding,
+                            hiveStorageTimeZone,
+                            dwrfEncryptors,
+                            metadataWriter);
+                    return new MapColumnWriter(columnIndex, columnWriterOptions, dwrfEncryptor, orcEncoding, keyWriter, valueWriter, metadataWriter);
+                }
+                else {
+                    ColumnWriterFactory valueWriterfactory =
+                            new ColumnWriterFactory()
+                                    .setColumnIndex(orcType.getFieldTypeIndex(1))
+                                    .setOrcTypes(orcTypes)
+                                    .setType(type.getTypeParameters().get(1))
+                                    .setColumnWriterOptions(columnWriterOptions)
+                                    .setOrcEncoding(orcEncoding)
+                                    .setHiveStorageTimeZone(hiveStorageTimeZone)
+                                    .setDwrfEncryptors(dwrfEncryptors)
+                                    .setMetadataWriter(metadataWriter);
+                    return new FlatMapColumnWriter(
+                            columnIndex,
+                            ColumnEncoding.DEFAULT_SEQUENCE_ID,
+                            columnWriterOptions,
+                            dwrfEncryptor,
+                            orcEncoding,
+                            metadataWriter,
+                            type,
+                            orcTypes,
+                            valueWriterfactory);
+                }
             }
 
             case STRUCT: {

@@ -277,6 +277,8 @@ public class DwrfMetadataWriter
                 return DwrfProto.Stream.Kind.DICTIONARY_COUNT;
             case ROW_INDEX:
                 return DwrfProto.Stream.Kind.ROW_INDEX;
+            case IN_MAP:
+                return DwrfProto.Stream.Kind.IN_MAP;
         }
         throw new IllegalArgumentException("Unsupported stream kind: " + streamKind);
     }
@@ -302,6 +304,8 @@ public class DwrfMetadataWriter
                 return DwrfProto.ColumnEncoding.Kind.DIRECT;
             case DICTIONARY:
                 return DwrfProto.ColumnEncoding.Kind.DICTIONARY;
+            case DWRF_MAP_FLAT:
+                return DwrfProto.ColumnEncoding.Kind.MAP_FLAT;
         }
         throw new IllegalArgumentException("Unsupported column encoding kind: " + columnEncodingKind);
     }

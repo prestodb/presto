@@ -16,6 +16,7 @@ package com.facebook.presto.orc;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import io.airlift.units.DataSize;
 
+import java.util.List;
 import java.util.OptionalInt;
 
 import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_MAX_COMPRESSION_BUFFER_SIZE;
@@ -30,13 +31,15 @@ public class ColumnWriterOptions
     private final int compressionMaxBufferSize;
     private final DataSize stringStatisticsLimit;
     private final boolean integerDictionaryEncodingEnabled;
+    private final List<Integer> mapFlattenColumnsList;
 
     public ColumnWriterOptions(
             CompressionKind compressionKind,
             OptionalInt compressionLevel,
             DataSize compressionMaxBufferSize,
             DataSize stringStatisticsLimit,
-            boolean integerDictionaryEncodingEnabled)
+            boolean integerDictionaryEncodingEnabled,
+            List<Integer> mapFlattenColumnsList)
     {
         this.compressionKind = requireNonNull(compressionKind, "compressionKind is null");
         this.compressionLevel = requireNonNull(compressionLevel, "compressionLevel is null");
@@ -44,6 +47,7 @@ public class ColumnWriterOptions
         this.compressionMaxBufferSize = toIntExact(compressionMaxBufferSize.toBytes());
         this.stringStatisticsLimit = requireNonNull(stringStatisticsLimit, "stringStatisticsLimit is null");
         this.integerDictionaryEncodingEnabled = integerDictionaryEncodingEnabled;
+        this.mapFlattenColumnsList = mapFlattenColumnsList;
     }
 
     public CompressionKind getCompressionKind()
@@ -71,6 +75,10 @@ public class ColumnWriterOptions
         return integerDictionaryEncodingEnabled;
     }
 
+    public List<Integer> getMapFlattenColumnsList() {
+        return mapFlattenColumnsList;
+    }
+
     public static Builder builder()
     {
         return new Builder();
@@ -83,6 +91,7 @@ public class ColumnWriterOptions
         private DataSize compressionMaxBufferSize = DEFAULT_MAX_COMPRESSION_BUFFER_SIZE;
         private DataSize stringStatisticsLimit = DEFAULT_MAX_STRING_STATISTICS_LIMIT;
         private boolean integerDictionaryEncodingEnabled;
+        private List<Integer> mapFlattenColumnsList;
 
         private Builder() {}
 
@@ -116,9 +125,15 @@ public class ColumnWriterOptions
             return this;
         }
 
+        public Builder setMapFlattenColumnsList(List<Integer> mapFlattenColumnsList)
+        {
+            this.mapFlattenColumnsList = mapFlattenColumnsList;
+            return this;
+        }
+
         public ColumnWriterOptions build()
         {
-            return new ColumnWriterOptions(compressionKind, compressionLevel, compressionMaxBufferSize, stringStatisticsLimit, integerDictionaryEncodingEnabled);
+            return new ColumnWriterOptions(compressionKind, compressionLevel, compressionMaxBufferSize, stringStatisticsLimit, integerDictionaryEncodingEnabled, mapFlattenColumnsList);
         }
     }
 }
