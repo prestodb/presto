@@ -122,7 +122,9 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.tpch.TpchTable.CUSTOMER;
 import static io.airlift.tpch.TpchTable.LINE_ITEM;
+import static io.airlift.tpch.TpchTable.NATION;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -137,7 +139,10 @@ public class TestHiveLogicalPlanner
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return HiveQueryRunner.createQueryRunner(ImmutableList.of(ORDERS, LINE_ITEM), ImmutableMap.of("experimental.pushdown-subfields-enabled", "true"), Optional.empty());
+        return HiveQueryRunner.createQueryRunner(
+                ImmutableList.of(ORDERS, LINE_ITEM, CUSTOMER, NATION),
+                ImmutableMap.of("experimental.pushdown-subfields-enabled", "true"),
+                Optional.empty());
     }
 
     @Test
@@ -1216,6 +1221,46 @@ public class TestHiveLogicalPlanner
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS " + view);
             queryRunner.execute("DROP TABLE IF EXISTS " + baseTable);
+        }
+    }
+
+    @Test(enabled = false)
+    public void testMaterializedViewJoinsWithOneTableAlias()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        String view = "view_join_with_one_alias";
+        String table1 = "nation_partitioned_join_with_one_alias";
+        String table2 = "customer_partitioned_join_with_one_alias";
+        try {
+            queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['nationkey', 'regionkey']) AS " +
+                    "SELECT name, nationkey, regionkey FROM nation", table1));
+
+            queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['nationkey']) AS SELECT custkey," +
+                    " name, mktsegment, nationkey FROM customer", table2));
+
+            assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['marketsegment', " +
+                            "'nationkey', 'regionkey']) AS SELECT %s.name AS nationname, " +
+                            "customer.custkey, customer.name AS customername, UPPER(customer.mktsegment) AS marketsegment, customer.nationkey, regionkey " +
+                            "FROM %s JOIN %s customer ON (%s.nationkey = customer.nationkey)",
+                    view, table1, table1, table2, table1));
+
+            assertUpdate(format("INSERT INTO %s(nationname, custkey, customername, marketsegment, nationkey, regionkey) " +
+                            "SELECT %s.name AS nationname, customer.custkey, customer.name AS customername, UPPER(customer.mktsegment) " +
+                            "AS marketsegment, customer.nationkey, regionkey FROM %s JOIN %s customer ON (%s.nationkey = customer.nationkey) " +
+                            "WHERE customer.nationkey != 24 and %s.regionkey != 1",
+                    view, table1, table1, table2, table1, table1), 1200);
+
+            String viewQuery = format("SELECT nationname, custkey from %s", view);
+            String baseQuery = format("SELECT %s.name AS nationname, customer.custkey FROM %s JOIN %s customer ON (%s.nationkey = customer.nationkey)",
+                    table1, table1, table2, table1);
+
+            // getExplainPlan(viewQuery, LOGICAL);
+            assertEquals(computeActual(viewQuery).getRowCount(), computeActual(baseQuery).getRowCount());
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS " + view);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table1);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table2);
         }
     }
 
