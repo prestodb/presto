@@ -347,13 +347,13 @@ public abstract class DictionaryColumnWriter
     }
 
     @Override
-    public List<StreamDataOutput> getIndexStreams()
+    public List<StreamDataOutput> getIndexStreams(Optional<List<BooleanStreamCheckpoint>> inMapStreamCheckpoints)
             throws IOException
     {
         checkState(closed);
 
         if (directEncoded) {
-            return getDirectColumnWriter().getIndexStreams();
+            return getDirectColumnWriter().getIndexStreams(inMapStreamCheckpoints);
         }
 
         ImmutableList.Builder<RowGroupIndex> rowGroupIndexes = ImmutableList.builder();
@@ -364,7 +364,8 @@ public abstract class DictionaryColumnWriter
             ColumnStatistics columnStatistics = rowGroups.get(groupId).getColumnStatistics();
             LongStreamCheckpoint dataCheckpoint = dataCheckpoints.get(groupId);
             Optional<BooleanStreamCheckpoint> presentCheckpoint = presentCheckpoints.map(checkpoints -> checkpoints.get(groupId));
-            List<Integer> positions = createSliceColumnPositionList(columnWriterOptions.getCompressionKind() != NONE, dataCheckpoint, presentCheckpoint);
+            Optional<BooleanStreamCheckpoint> inMapCheckpoint = inMapStreamCheckpoints.map(checkpoints -> checkpoints.get(groupId));
+            List<Integer> positions = createSliceColumnPositionList(columnWriterOptions.getCompressionKind() != NONE, dataCheckpoint, presentCheckpoint, inMapCheckpoint);
             rowGroupIndexes.add(new RowGroupIndex(positions, columnStatistics));
         }
 
@@ -376,9 +377,11 @@ public abstract class DictionaryColumnWriter
     private static List<Integer> createSliceColumnPositionList(
             boolean compressed,
             LongStreamCheckpoint dataCheckpoint,
-            Optional<BooleanStreamCheckpoint> presentCheckpoint)
+            Optional<BooleanStreamCheckpoint> presentCheckpoint,
+            Optional<BooleanStreamCheckpoint> inMapCheckpoint)
     {
         ImmutableList.Builder<Integer> positionList = ImmutableList.builder();
+        inMapCheckpoint.ifPresent(booleanStreamCheckpoint -> positionList.addAll(booleanStreamCheckpoint.toPositionList(compressed)));
         presentCheckpoint.ifPresent(booleanStreamCheckpoint -> positionList.addAll(booleanStreamCheckpoint.toPositionList(compressed)));
         positionList.addAll(dataCheckpoint.toPositionList(compressed));
         return positionList.build();

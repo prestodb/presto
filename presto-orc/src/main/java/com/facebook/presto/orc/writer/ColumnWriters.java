@@ -111,27 +111,52 @@ public final class ColumnWriters
                 return new ListColumnWriter(columnIndex, dwrfSequence, columnWriterOptions, dwrfEncryptor, orcEncoding, elementWriter, metadataWriter);
             }
             case MAP: {
-                ColumnWriter keyWriter = createColumnWriter(
-                        orcType.getFieldTypeIndex(0),
-                        dwrfSequence,
-                        orcTypes,
-                        type.getTypeParameters().get(0),
-                        columnWriterOptions,
-                        orcEncoding,
-                        hiveStorageTimeZone,
-                        dwrfEncryptors,
-                        metadataWriter);
-                ColumnWriter valueWriter = createColumnWriter(
-                        orcType.getFieldTypeIndex(1),
-                        dwrfSequence,
-                        orcTypes,
-                        type.getTypeParameters().get(1),
-                        columnWriterOptions,
-                        orcEncoding,
-                        hiveStorageTimeZone,
-                        dwrfEncryptors,
-                        metadataWriter);
-                return new MapColumnWriter(columnIndex, dwrfSequence, columnWriterOptions, dwrfEncryptor, orcEncoding, keyWriter, valueWriter, metadataWriter);
+                /* TODO : Remove the code here. Adding this to test locally that we can perform end to end testing for the next PR */
+                boolean isFlatMapColumn = true || columnWriterOptions.getFlatMapColumns().contains(columnIndex);
+                if (!isFlatMapColumn) {
+                    ColumnWriter keyWriter = createColumnWriter(
+                            orcType.getFieldTypeIndex(0),
+                            dwrfSequence,
+                            orcTypes,
+                            type.getTypeParameters().get(0),
+                            columnWriterOptions,
+                            orcEncoding,
+                            hiveStorageTimeZone,
+                            dwrfEncryptors,
+                            metadataWriter);
+                    ColumnWriter valueWriter = createColumnWriter(
+                            orcType.getFieldTypeIndex(1),
+                            dwrfSequence,
+                            orcTypes,
+                            type.getTypeParameters().get(1),
+                            columnWriterOptions,
+                            orcEncoding,
+                            hiveStorageTimeZone,
+                            dwrfEncryptors,
+                            metadataWriter);
+                    return new MapColumnWriter(columnIndex, dwrfSequence, columnWriterOptions, dwrfEncryptor, orcEncoding, keyWriter, valueWriter, metadataWriter);
+                }
+                else {
+                    FlatMapValueWriterFactory valueWriterfactory =
+                            new FlatMapValueWriterFactory(
+                                orcType.getFieldTypeIndex(1),
+                                orcTypes,
+                                type.getTypeParameters().get(1),
+                                columnWriterOptions,
+                                orcEncoding,
+                                hiveStorageTimeZone,
+                                dwrfEncryptors,
+                                metadataWriter);
+                    return new FlatMapColumnWriter(
+                            columnIndex,
+                            columnWriterOptions,
+                            dwrfEncryptor,
+                            orcEncoding,
+                            metadataWriter,
+                            type,
+                            orcTypes,
+                            valueWriterfactory);
+                }
             }
             case STRUCT: {
                 ImmutableList.Builder<ColumnWriter> fieldWriters = ImmutableList.builder();

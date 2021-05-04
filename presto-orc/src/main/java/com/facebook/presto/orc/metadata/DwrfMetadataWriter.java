@@ -32,11 +32,13 @@ import io.airlift.slice.SliceOutput;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.SortedMap;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.orc.metadata.ColumnEncoding.DEFAULT_SEQUENCE_ID;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Math.toIntExact;
@@ -239,6 +241,7 @@ public class DwrfMetadataWriter
                         .collect(toImmutableList()))
                 .addAllColumns(footer.getColumnEncodings().entrySet().stream()
                         .map(entry -> toColumnEncoding(entry.getKey(), entry.getValue()))
+                        .flatMap(Collection::stream)
                         .collect(toImmutableList()))
                 .addAllEncryptedGroups(footer.getStripeEncryptionGroups().stream()
                         .map(group -> ByteString.copyFrom(group.getBytes()))
@@ -278,21 +281,49 @@ public class DwrfMetadataWriter
                 return DwrfProto.Stream.Kind.DICTIONARY_COUNT;
             case ROW_INDEX:
                 return DwrfProto.Stream.Kind.ROW_INDEX;
+            case IN_MAP:
+                return DwrfProto.Stream.Kind.IN_MAP;
         }
         throw new IllegalArgumentException("Unsupported stream kind: " + streamKind);
     }
 
-    public static DwrfProto.ColumnEncoding toColumnEncoding(int columnId, ColumnEncoding columnEncoding)
+    private static DwrfProto.ColumnEncoding.Builder getColumnEncodingBuilder(int columnId, int dwrfSequence, ColumnEncoding columnEncoding)
     {
-        checkArgument(
-                !columnEncoding.getAdditionalSequenceEncodings().isPresent(),
-                "DWRF writer doesn't support writing columns with non-zero sequence IDs: " + columnEncoding);
-
         return DwrfProto.ColumnEncoding.newBuilder()
                 .setKind(toColumnEncodingKind(columnEncoding.getColumnEncodingKind()))
                 .setDictionarySize(columnEncoding.getDictionarySize())
                 .setColumn(columnId)
-                .setSequence(0)
+                .setSequence(dwrfSequence);
+    }
+
+    private static List<DwrfProto.ColumnEncoding> toColumnEncoding(int columnId, ColumnEncoding columnEncoding)
+    {
+        ImmutableList.Builder<DwrfProto.ColumnEncoding> encodings = ImmutableList.builder();
+        encodings.add(getColumnEncodingBuilder(columnId, DEFAULT_SEQUENCE_ID, columnEncoding).build());
+
+        if (columnEncoding.getAdditionalSequenceEncodings().isPresent()) {
+            SortedMap<Integer, DwrfSequenceEncoding> sequenceEncodings = columnEncoding.getAdditionalSequenceEncodings().get();
+            for (Entry<Integer, DwrfSequenceEncoding> sequenceEncodingEntry : sequenceEncodings.entrySet()) {
+                ColumnEncoding sequenceColumnEncoding = sequenceEncodingEntry.getValue().getValueEncoding();
+                encodings.add(getColumnEncodingBuilder(columnId, sequenceEncodingEntry.getKey(), sequenceColumnEncoding)
+                        .setKey(sequenceEncodingEntry.getValue().getKey())
+                        .build());
+            }
+        }
+        return encodings.build();
+    }
+
+    public static DwrfProto.KeyInfo getIntKeyInfo(long key)
+    {
+        return DwrfProto.KeyInfo.newBuilder()
+                .setIntKey(key)
+                .build();
+    }
+
+    public static DwrfProto.KeyInfo getBytesKeyInfo(ByteString key)
+    {
+        return DwrfProto.KeyInfo.newBuilder()
+                .setBytesKey(key)
                 .build();
     }
 
@@ -303,6 +334,8 @@ public class DwrfMetadataWriter
                 return DwrfProto.ColumnEncoding.Kind.DIRECT;
             case DICTIONARY:
                 return DwrfProto.ColumnEncoding.Kind.DICTIONARY;
+            case DWRF_MAP_FLAT:
+                return DwrfProto.ColumnEncoding.Kind.MAP_FLAT;
         }
         throw new IllegalArgumentException("Unsupported column encoding kind: " + columnEncodingKind);
     }
@@ -387,6 +420,7 @@ public class DwrfMetadataWriter
                 .addAllEncoding(stripeEncryptionGroup.getColumnEncodings().entrySet()
                         .stream()
                         .map(entry -> toColumnEncoding(entry.getKey(), entry.getValue()))
+                        .flatMap(Collection::stream)
                         .collect(toImmutableList()))
                 .build();
     }
