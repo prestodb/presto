@@ -130,8 +130,10 @@ import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveColumnHandle.MAX_PARTITION_KEY_COLUMN_INDEX;
 import static com.facebook.presto.hive.HiveColumnHandle.bucketColumnHandle;
+import static com.facebook.presto.hive.HiveColumnHandle.fileModifiedTimeColumnHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.fileSizeColumnHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.isBucketColumnHandle;
+import static com.facebook.presto.hive.HiveColumnHandle.isFileModifiedTimeColumnHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.isFileSizeColumnHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.isPathColumnHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.pathColumnHandle;
@@ -890,6 +892,7 @@ public final class HiveUtil
             columns.add(bucketColumnHandle());
         }
         columns.add(fileSizeColumnHandle());
+        columns.add(fileModifiedTimeColumnHandle());
 
         return columns.build();
     }
@@ -934,7 +937,7 @@ public final class HiveUtil
         return partitionKey ? "partition key" : null;
     }
 
-    public static Optional<String> getPrefilledColumnValue(HiveColumnHandle columnHandle, HivePartitionKey partitionKey, Path path, OptionalInt bucketNumber, long fileSize)
+    public static Optional<String> getPrefilledColumnValue(HiveColumnHandle columnHandle, HivePartitionKey partitionKey, Path path, OptionalInt bucketNumber, long fileSize, long fileModifiedTime)
     {
         if (partitionKey != null) {
             return partitionKey.getValue();
@@ -950,6 +953,9 @@ public final class HiveUtil
         }
         if (isFileSizeColumnHandle(columnHandle)) {
             return Optional.of(String.valueOf(fileSize));
+        }
+        if (isFileModifiedTimeColumnHandle(columnHandle)) {
+            return Optional.of(String.valueOf(fileModifiedTime));
         }
 
         throw new PrestoException(NOT_SUPPORTED, "unsupported hidden column: " + columnHandle);

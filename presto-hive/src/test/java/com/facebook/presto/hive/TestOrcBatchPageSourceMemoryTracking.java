@@ -87,6 +87,7 @@ import java.io.File;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -460,6 +461,7 @@ public class TestOrcBatchPageSourceMemoryTracking
                     fileSplit.getStart(),
                     fileSplit.getLength(),
                     fileSplit.getLength(),
+                    Instant.now().toEpochMilli(),
                     storage,
                     TupleDomain.all(),
                     columns,
