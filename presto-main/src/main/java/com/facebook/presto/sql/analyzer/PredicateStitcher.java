@@ -32,12 +32,13 @@ import java.util.Optional;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
+import static com.facebook.presto.sql.QueryUtil.identifier;
 import static com.facebook.presto.sql.QueryUtil.selectList;
 import static com.facebook.presto.sql.QueryUtil.subquery;
 import static java.util.Objects.requireNonNull;
 
 public class PredicateStitcher
-        extends AstVisitor<Node, Void>
+        extends AstVisitor<Node, PredicateStitcher.PredicateStitcherContext>
 {
     private final Map<SchemaTableName, Expression> predicates;
     private final Session session;
@@ -49,13 +50,13 @@ public class PredicateStitcher
     }
 
     @Override
-    public Node process(Node node, Void context)
+    public Node process(Node node, PredicateStitcherContext context)
     {
         return super.process(node, context);
     }
 
     @Override
-    protected Node visitQuery(Query node, Void context)
+    protected Node visitQuery(Query node, PredicateStitcherContext context)
     {
         return new Query(
                 node.getWith(),
@@ -65,7 +66,7 @@ public class PredicateStitcher
     }
 
     @Override
-    protected Node visitQuerySpecification(QuerySpecification node, Void context)
+    protected Node visitQuerySpecification(QuerySpecification node, PredicateStitcherContext context)
     {
         if (node.getFrom().isPresent()) {
             return new QuerySpecification(
@@ -81,7 +82,7 @@ public class PredicateStitcher
     }
 
     @Override
-    protected Node visitJoin(Join node, Void context)
+    protected Node visitJoin(Join node, PredicateStitcherContext context)
     {
         Relation rewrittenLeft = (Relation) process(node.getLeft(), context);
         Relation rewrittenRight = (Relation) process(node.getRight(), context);
@@ -89,13 +90,16 @@ public class PredicateStitcher
     }
 
     @Override
-    protected Node visitAliasedRelation(AliasedRelation node, Void context)
+    protected Node visitAliasedRelation(AliasedRelation node, PredicateStitcherContext context)
     {
-        return new AliasedRelation((Relation) process(node.getRelation(), context), node.getAlias(), node.getColumnNames());
+        context.setCreateAlias(false);
+        AliasedRelation aliasedRelation = new AliasedRelation((Relation) process(node.getRelation(), context), node.getAlias(), node.getColumnNames());
+        context.setCreateAlias(true);
+        return aliasedRelation;
     }
 
     @Override
-    protected Node visitTable(Table table, Void context)
+    protected Node visitTable(Table table, PredicateStitcherContext context)
     {
         SchemaTableName schemaTableName = toSchemaTableName(createQualifiedObjectName(session, table, table.getName()));
         if (!predicates.containsKey(schemaTableName)) {
@@ -111,6 +115,25 @@ public class PredicateStitcher
                 Optional.empty(),
                 Optional.empty());
 
-        return subquery(new Query(Optional.empty(), queryWithPredicateStitching, Optional.empty(), Optional.empty()));
+        Relation subquery = subquery(new Query(Optional.empty(), queryWithPredicateStitching, Optional.empty(), Optional.empty()));
+        if (context.isCreateAlias()) {
+            return new AliasedRelation(subquery, identifier(schemaTableName.getTableName()), null);
+        }
+        return subquery;
+    }
+
+    protected static final class PredicateStitcherContext
+    {
+        private boolean createAlias = true;
+
+        public boolean isCreateAlias()
+        {
+            return createAlias;
+        }
+
+        public void setCreateAlias(boolean createAlias)
+        {
+            this.createAlias = createAlias;
+        }
     }
 }

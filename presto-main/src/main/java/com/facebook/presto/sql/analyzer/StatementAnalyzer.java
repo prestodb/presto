@@ -202,6 +202,7 @@ import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractAggreg
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractExpressions;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractWindowFunctions;
 import static com.facebook.presto.sql.analyzer.MaterializedViewPlanValidator.MaterializedViewPlanValidatorContext;
+import static com.facebook.presto.sql.analyzer.PredicateStitcher.PredicateStitcherContext;
 import static com.facebook.presto.sql.analyzer.ScopeReferenceExtractor.hasReferencesToScope;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_NAME_NOT_SPECIFIED;
@@ -1209,7 +1210,7 @@ class StatementAnalyzer
             // TODO: consider materialized view predicates https://github.com/prestodb/presto/issues/16034
             Map<SchemaTableName, Expression> partitionPredicates = generatePartitionPredicate(materializedViewStatus.getPartitionsFromBaseTables());
 
-            Node predicateStitchedNode = new PredicateStitcher(session, partitionPredicates).process(createSqlQuerySpecification);
+            Node predicateStitchedNode = new PredicateStitcher(session, partitionPredicates).process(createSqlQuerySpecification, new PredicateStitcherContext());
             checkState(predicateStitchedNode instanceof QuerySpecification);
             QuerySpecification createSqlSpecificationWithPredicates = (QuerySpecification) predicateStitchedNode;
 
