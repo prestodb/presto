@@ -31,6 +31,7 @@ import com.facebook.presto.type.LiteralParameter;
 import com.google.common.primitives.Doubles;
 import io.airlift.slice.Slice;
 import org.apache.commons.math3.distribution.BetaDistribution;
+import org.apache.commons.math3.distribution.BinomialDistribution;
 import org.apache.commons.math3.distribution.ChiSquaredDistribution;
 import org.apache.commons.math3.special.Erf;
 
@@ -214,6 +215,20 @@ public final class MathFunctions
     public static double atan2(@SqlType(StandardTypes.DOUBLE) double num1, @SqlType(StandardTypes.DOUBLE) double num2)
     {
         return Math.atan2(num1, num2);
+    }
+
+    @Description("Binomial cdf given numberOfTrials, successProbability, and a value")
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double binomialCdf(
+            @SqlType(StandardTypes.INTEGER) long numberOfTrials,
+            @SqlType(StandardTypes.DOUBLE) double successProbability,
+            @SqlType(StandardTypes.INTEGER) long value)
+    {
+        checkCondition(successProbability >= 0 && successProbability <= 1, INVALID_FUNCTION_ARGUMENT, "successProbability must be in the interval [0, 1]");
+        checkCondition(numberOfTrials > 0, INVALID_FUNCTION_ARGUMENT, "numberOfTrials must be greater than 0");
+        BinomialDistribution distribution = new BinomialDistribution(null, (int) numberOfTrials, successProbability);
+        return distribution.cumulativeProbability((int) value);
     }
 
     @Description("cube root")
@@ -501,6 +516,21 @@ public final class MathFunctions
     public static long floorFloat(@SqlType(StandardTypes.REAL) long num)
     {
         return floatToRawIntBits((float) floor(intBitsToFloat((int) num)));
+    }
+
+    @Description("inverse of Binomial cdf given numberOfTrials, successProbability parameters and p")
+    @ScalarFunction
+    @SqlType(StandardTypes.INTEGER)
+    public static long inverseBinomialCdf(
+            @SqlType(StandardTypes.INTEGER) long numberOfTrials,
+            @SqlType(StandardTypes.DOUBLE) double successProbability,
+            @SqlType(StandardTypes.DOUBLE) double p)
+    {
+        checkCondition(p >= 0 && p <= 1, INVALID_FUNCTION_ARGUMENT, "p must be in the interval [0, 1]");
+        checkCondition(successProbability >= 0 && successProbability <= 1, INVALID_FUNCTION_ARGUMENT, "successProbability must be in the interval [0, 1]");
+        checkCondition(numberOfTrials > 0, INVALID_FUNCTION_ARGUMENT, "numberOfTrials must be greater than 0");
+        BinomialDistribution distribution = new BinomialDistribution(null, (int) numberOfTrials, successProbability);
+        return distribution.inverseCumulativeProbability(p);
     }
 
     @Description("natural logarithm")

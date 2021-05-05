@@ -1344,6 +1344,35 @@ public class TestMathFunctions
     }
 
     @Test
+    public void testBinomialCdf()
+            throws Exception
+    {
+        assertFunction("binomial_cdf(5, 0.5, 5)", DOUBLE, 1.0);
+        assertFunction("binomial_cdf(5, 0.5, 0)", DOUBLE, 0.03125);
+        assertFunction("binomial_cdf(5, 0.5, 3)", DOUBLE, 0.8125);
+        assertFunction("binomial_cdf(20, 1.0, 0)", DOUBLE, 0.0);
+
+        assertInvalidFunction("binomial_cdf(5, -0.5, 3)", "successProbability must be in the interval [0, 1]");
+        assertInvalidFunction("binomial_cdf(5, 1.5, 3)", "successProbability must be in the interval [0, 1]");
+        assertInvalidFunction("binomial_cdf(-5, 0.5, 3)", "numberOfTrials must be greater than 0");
+    }
+
+    @Test
+    public void testInverseBinomialCdf()
+            throws Exception
+    {
+        assertFunction("inverse_binomial_cdf(20, 0.5, 0.5)", INTEGER, 10);
+        assertFunction("inverse_binomial_cdf(20, 0.5, 0.0)", INTEGER, 0);
+        assertFunction("inverse_binomial_cdf(20, 0.5, 1.0)", INTEGER, 20);
+
+        assertInvalidFunction("inverse_binomial_cdf(5, -0.5, 0.3)", "successProbability must be in the interval [0, 1]");
+        assertInvalidFunction("inverse_binomial_cdf(5, 1.5, 0.3)", "successProbability must be in the interval [0, 1]");
+        assertInvalidFunction("inverse_binomial_cdf(5, 0.5, -3.0)", "p must be in the interval [0, 1]");
+        assertInvalidFunction("inverse_binomial_cdf(5, 0.5, 3.0)", "p must be in the interval [0, 1]");
+        assertInvalidFunction("inverse_binomial_cdf(-5, 0.5, 0.3)", "numberOfTrials must be greater than 0");
+    }
+
+    @Test
     public void testInverseBetaCdf()
     {
         assertFunction("inverse_beta_cdf(3, 3.6, 0.0)", DOUBLE, 0.0);
