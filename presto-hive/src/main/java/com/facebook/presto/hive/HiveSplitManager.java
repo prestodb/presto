@@ -506,7 +506,7 @@ public class HiveSplitManager
                                 Optional.of(partition),
                                 partitionSchemaDifference.build(),
                                 encryptionInformation,
-                                partitionSplitInfo.get(partitionName).getRedundantColumnDomains()));
+                                partitionSplitInfo.get(hivePartition.getPartitionId()).getRedundantColumnDomains()));
             }
             if (unreadablePartitionsSkipped > 0) {
                 StringBuilder warningMessage = new StringBuilder(format("Table '%s' has %s out of %s partitions unreadable: ", tableName, unreadablePartitionsSkipped, partitionBatch.size()));
