@@ -22,6 +22,12 @@ Mathematical Functions
 
     Returns the absolute value of ``x``.
 
+.. function:: binomial_cdf(numberOfTrials, successProbability, value) -> double
+
+    Compute the Binomial cdf with given numberOfTrials and successProbability (for a single trial):  P(N < value).
+    The successProbability must be real value in [0, 1], numberOfTrials and value must be
+    positive integers with numberOfTrials greater or equal to value.
+
 .. function:: cbrt(x) -> double
 
     Returns the cube root of ``x``.
@@ -65,6 +71,13 @@ Mathematical Functions
 .. function:: from_base(string, radix) -> bigint
 
     Returns the value of ``string`` interpreted as a base-``radix`` number.
+
+.. function:: inverse_binomial_cdf(numberOfTrials, successProbability, p) -> int
+
+    Compute the inverse of the Binomial cdf with given numberOfTrials and successProbability (of a single trial) the
+    cumulative probability (p):  P(N <= n).
+    The successProbability and p must be real values in [0, 1] and the numberOfTrials must be
+    a positive integer.
 
 .. function:: inverse_chi_squared_cdf(df, p) -> double
 
