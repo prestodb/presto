@@ -31,6 +31,7 @@ public class PushLimitThroughMarkDistinct
 {
     private static final Capture<MarkDistinctNode> CHILD = newCapture();
 
+    // Applies to both limit with ties and limit without ties.
     private static final Pattern<LimitNode> PATTERN = limit()
             .with(source().matching(markDistinct().capturedAs(CHILD)));
 

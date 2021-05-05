@@ -54,6 +54,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_SET_
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_COLUMN;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ORDER_BY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MULTIPLE_FIELDS_FROM_SUBQUERY;
@@ -343,10 +344,20 @@ public class TestAnalyzer
         assertFails(INVALID_OFFSET_ROW_COUNT, "SELECT * FROM t1 OFFSET 987654321098765432109876543210 ROWS");
     }
 
+    @Test
     public void testFetchFirstInvalidRowCount()
     {
         assertFails(INVALID_FETCH_FIRST_ROW_COUNT, "SELECT * FROM t1 FETCH FIRST 987654321098765432109876543210 ROWS ONLY");
         assertFails(INVALID_FETCH_FIRST_ROW_COUNT, "SELECT * FROM t1 FETCH FIRST 0 ROWS ONLY");
+    }
+
+    @Test
+    public void testFetchFirstWithTiesMissingOrderBy()
+    {
+        assertFails(MISSING_ORDER_BY, "SELECT * FROM t1 FETCH FIRST 5 ROWS WITH TIES");
+
+        // ORDER BY clause must be in the same scope as FETCH FIRST WITH TIES
+        assertFails(MISSING_ORDER_BY, "SELECT * FROM (SELECT * FROM (values 1, 3, 2) t(a) ORDER BY a) FETCH FIRST 5 ROWS WITH TIES");
     }
 
     @Test

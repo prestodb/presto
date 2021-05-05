@@ -541,12 +541,17 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern limit(long limit, PlanMatchPattern source)
     {
-        return limit(limit, false, source);
+        return limit(limit, ImmutableList.of(), source);
     }
 
-    public static PlanMatchPattern limit(long limit, boolean partial, PlanMatchPattern source)
+    public static PlanMatchPattern limit(long limit, List<Ordering> tiesResolvers, PlanMatchPattern source)
     {
-        return node(LimitNode.class, source).with(new LimitMatcher(limit, partial));
+        return limit(limit, tiesResolvers, false, source);
+    }
+
+    public static PlanMatchPattern limit(long limit, List<Ordering> tiesResolvers, boolean partial, PlanMatchPattern source)
+    {
+        return node(LimitNode.class, source).with(new LimitMatcher(limit, tiesResolvers, partial));
     }
 
     public static PlanMatchPattern enforceSingleRow(PlanMatchPattern source)

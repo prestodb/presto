@@ -18,6 +18,7 @@ import com.facebook.presto.expressions.RowExpressionRewriter;
 import com.facebook.presto.expressions.RowExpressionTreeRewriter;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
+import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -131,15 +132,29 @@ public class SymbolMapper
         }, value);
     }
 
+    public LimitNode map(LimitNode node, PlanNode source)
+    {
+        return new LimitNode(
+                node.getId(),
+                source,
+                node.getCount(),
+                node.getTiesResolvingScheme().map(this::map),
+                node.getStep());
+    }
+
     public OrderingScheme map(OrderingScheme orderingScheme)
     {
         // SymbolMapper inlines symbol with multiple level reference (SymbolInliner only inline single level).
         ImmutableList.Builder<VariableReferenceExpression> orderBy = ImmutableList.builder();
         ImmutableMap.Builder<VariableReferenceExpression, SortOrder> ordering = ImmutableMap.builder();
+        Set<VariableReferenceExpression> added = new HashSet<>(orderingScheme.getOrderBy().size());
+
         for (VariableReferenceExpression variable : orderingScheme.getOrderByVariables()) {
             VariableReferenceExpression translated = map(variable);
-            orderBy.add(translated);
-            ordering.put(translated, orderingScheme.getOrdering(variable));
+            if (added.add(translated)) {
+                orderBy.add(translated);
+                ordering.put(translated, orderingScheme.getOrdering(variable));
+            }
         }
 
         ImmutableMap<VariableReferenceExpression, SortOrder> orderingMap = ordering.build();

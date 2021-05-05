@@ -242,6 +242,10 @@ public class AddLocalExchanges
         @Override
         public PlanWithProperties visitLimit(LimitNode node, StreamPreferredProperties parentPreferences)
         {
+            if (node.isWithTies()) {
+                throw new IllegalStateException("Unexpected node: LimitNode with ties");
+            }
+
             if (node.isPartial()) {
                 return planAndEnforceChildren(
                         node,

@@ -14,10 +14,13 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.plan.LimitNode;
+import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.Optional;
 import java.util.Set;
@@ -36,6 +39,13 @@ public class PruneLimitColumns
     @Override
     protected Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, PlanVariableAllocator variableAllocator, LimitNode limitNode, Set<VariableReferenceExpression> referencedOutputs)
     {
-        return restrictChildOutputs(idAllocator, limitNode, referencedOutputs);
+        Set<VariableReferenceExpression> prunedLimitInputs = ImmutableSet.<VariableReferenceExpression>builder()
+                .addAll(referencedOutputs)
+                .addAll(limitNode.getTiesResolvingScheme()
+                        .map(OrderingScheme::getOrderByVariables)
+                        .orElse(ImmutableList.of()))
+                .build();
+
+        return restrictChildOutputs(idAllocator, limitNode, prunedLimitInputs);
     }
 }

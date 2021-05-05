@@ -47,8 +47,8 @@ public class TestPushLimitThroughUnion
                 .matches(
                         limit(1,
                                 union(
-                                        limit(1, true, values("a")),
-                                        limit(1, true, values("b")))));
+                                        limit(1, ImmutableList.of(), true, values("a")),
+                                        limit(1, ImmutableList.of(), true, values("b")))));
     }
 
     @Test
@@ -84,6 +84,29 @@ public class TestPushLimitThroughUnion
                                     ImmutableList.of(
                                             p.limit(1, p.values(5, a)),
                                             p.limit(1, p.values(5, b)))));
+                })
+                .doesNotFire();
+    }
+
+    @Test
+    public void testDoNotPushLimitWithTies()
+    {
+        tester().assertThat(new PushLimitThroughUnion())
+                .on(p -> {
+                    VariableReferenceExpression a = p.variable("a");
+                    VariableReferenceExpression b = p.variable("b");
+                    VariableReferenceExpression c = p.variable("c");
+                    return p.limit(
+                            1,
+                            ImmutableList.of(c),
+                            p.union(
+                                    ImmutableListMultimap.<VariableReferenceExpression, VariableReferenceExpression>builder()
+                                            .put(c, a)
+                                            .put(c, b)
+                                            .build(),
+                                    ImmutableList.of(
+                                            p.values(10, a),
+                                            p.values(10, b))));
                 })
                 .doesNotFire();
     }

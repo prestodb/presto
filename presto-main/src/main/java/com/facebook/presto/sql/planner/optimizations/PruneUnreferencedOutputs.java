@@ -25,6 +25,7 @@ import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IntersectNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
+import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
@@ -596,7 +597,8 @@ public class PruneUnreferencedOutputs
         public PlanNode visitLimit(LimitNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
             ImmutableSet.Builder<VariableReferenceExpression> expectedInputs = ImmutableSet.<VariableReferenceExpression>builder()
-                    .addAll(context.get());
+                    .addAll(context.get())
+                    .addAll(node.getTiesResolvingScheme().map(OrderingScheme::getOrderByVariables).orElse(ImmutableList.of()));
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
             return new LimitNode(node.getId(), source, node.getCount(), node.getStep());
         }

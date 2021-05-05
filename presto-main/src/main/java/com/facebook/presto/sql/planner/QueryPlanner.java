@@ -51,6 +51,7 @@ import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FetchFirst;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -146,9 +147,10 @@ class QueryPlanner
         List<Expression> outputs = analysis.getOutputExpressions(query);
         builder = handleSubqueries(builder, query, outputs);
         builder = project(builder, Iterables.concat(orderBy, outputs));
-        builder = sort(builder, query);
+        Optional<OrderingScheme> orderingScheme = orderingScheme(builder, query.getOrderBy(), analysis.getOrderByExpressions(query));
+        builder = sort(builder, orderingScheme);
         builder = offset(builder, query.getOffset());
-        builder = limit(builder, query);
+        builder = limit(builder, query.getLimit(), orderingScheme);
         builder = project(builder, analysis.getOutputExpressions(query));
 
         return new RelationPlan(builder.getRoot(), analysis.getScope(query), computeOutputs(builder, analysis.getOutputExpressions(query)));
@@ -194,9 +196,10 @@ class QueryPlanner
         builder = project(builder, Iterables.concat(orderBy, outputs));
 
         builder = distinct(builder, node);
-        builder = sort(builder, node);
+        Optional<OrderingScheme> orderingScheme = orderingScheme(builder, node.getOrderBy(), analysis.getOrderByExpressions(node));
+        builder = sort(builder, orderingScheme);
         builder = offset(builder, node.getOffset());
-        builder = limit(builder, node);
+        builder = limit(builder, node.getLimit(), orderingScheme);
         builder = project(builder, outputs);
 
         return new RelationPlan(builder.getRoot(), analysis.getScope(node), computeOutputs(builder, outputs));
@@ -887,29 +890,17 @@ class QueryPlanner
         return subPlan;
     }
 
-    private PlanBuilder sort(PlanBuilder subPlan, Query node)
-    {
-        return sort(subPlan, node.getOrderBy(), analysis.getOrderByExpressions(node));
-    }
-
-    private PlanBuilder sort(PlanBuilder subPlan, QuerySpecification node)
-    {
-        return sort(subPlan, node.getOrderBy(), analysis.getOrderByExpressions(node));
-    }
-
-    private PlanBuilder sort(PlanBuilder subPlan, Optional<OrderBy> orderBy, List<Expression> orderByExpressions)
+    private Optional<OrderingScheme> orderingScheme(PlanBuilder subPlan, Optional<OrderBy> orderBy, List<Expression> orderByExpressions)
     {
         if (!orderBy.isPresent() || (isSkipRedundantSort(session)) && analysis.isOrderByRedundant(orderBy.get())) {
-            return subPlan;
+            return Optional.empty();
         }
 
-        PlanNode planNode;
         OrderingScheme orderingScheme = toOrderingScheme(
                 orderByExpressions.stream().map(subPlan::translate).collect(toImmutableList()),
                 orderBy.get().getSortItems().stream().map(PlannerUtils::toSortOrder).collect(toImmutableList()));
-        planNode = new SortNode(idAllocator.getNextId(), subPlan.getRoot(), orderingScheme, false);
 
-        return subPlan.withNewRoot(planNode);
+        return Optional.of(orderingScheme);
     }
 
     private PlanBuilder offset(PlanBuilder subPlan, Optional<Offset> offset)
@@ -925,26 +916,35 @@ class QueryPlanner
                         analysis.getOffset(offset.get())));
     }
 
-    private PlanBuilder limit(PlanBuilder subPlan, Query node)
+    private PlanBuilder sort(PlanBuilder subPlan, Optional<OrderingScheme> orderingScheme)
     {
-        return limit(subPlan, node.getLimit());
+        if (!orderingScheme.isPresent()) {
+            return subPlan;
+        }
+        return subPlan.withNewRoot(
+                new SortNode(
+                        idAllocator.getNextId(),
+                        subPlan.getRoot(),
+                        orderingScheme.get(),
+                        false));
     }
 
-    private PlanBuilder limit(PlanBuilder subPlan, QuerySpecification node)
-    {
-        return limit(subPlan, node.getLimit());
-    }
-
-    private PlanBuilder limit(PlanBuilder subPlan, Optional<Node> limit)
+    private PlanBuilder limit(PlanBuilder subPlan, Optional<Node> limit, Optional<OrderingScheme> orderingScheme)
     {
         if (limit.isPresent() && analysis.getLimit(limit.get()).isPresent()) {
+            Optional<OrderingScheme> tiesResolvingScheme = Optional.empty();
+            if (limit.get() instanceof FetchFirst && ((FetchFirst) limit.get()).isWithTies()) {
+                tiesResolvingScheme = orderingScheme;
+            }
             return subPlan.withNewRoot(
                     new LimitNode(
                             idAllocator.getNextId(),
                             subPlan.getRoot(),
                             analysis.getLimit(limit.get()).getAsLong(),
+                            tiesResolvingScheme,
                             FINAL));
         }
+
         return subPlan;
     }
 

@@ -43,6 +43,14 @@ public class PushLimitThroughSemiJoin
     @Override
     public Result apply(LimitNode parent, Captures captures, Context context)
     {
-        return Result.ofPlanNode(transpose(parent, captures.get(CHILD)));
+        SemiJoinNode semiJoinNode = captures.get(CHILD);
+
+        if (parent.isWithTies()) {
+            // do not push down Limit if ties depend on symbol produced by SemiJoin
+            if (parent.getTiesResolvingScheme().get().getOrderBy().contains(semiJoinNode.getSemiJoinOutput())) {
+                return Result.empty();
+            }
+        }
+        return Result.ofPlanNode(transpose(parent, semiJoinNode));
     }
 }

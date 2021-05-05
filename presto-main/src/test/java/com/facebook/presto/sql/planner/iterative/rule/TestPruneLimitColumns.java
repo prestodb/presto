@@ -17,6 +17,7 @@ import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -54,6 +55,20 @@ public class TestPruneLimitColumns
     {
         tester().assertThat(new PruneLimitColumns())
                 .on(p -> buildProjectedLimit(p, alwaysTrue()))
+                .doesNotFire();
+    }
+
+    @Test
+    public void doNotPruneLimitWithTies()
+    {
+        tester().assertThat(new PruneLimitColumns())
+                .on(p -> {
+                    VariableReferenceExpression a = p.variable("a");
+                    VariableReferenceExpression b = p.variable("b");
+                    return p.project(
+                            identityAssignmentsAsSymbolReferences(ImmutableList.of(b)),
+                            p.limit(1, ImmutableList.of(a), p.values(a, b)));
+                })
                 .doesNotFire();
     }
 

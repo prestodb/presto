@@ -32,6 +32,7 @@ public class MergeLimitWithDistinct
     private static final Capture<AggregationNode> CHILD = newCapture();
 
     private static final Pattern<LimitNode> PATTERN = limit()
+            .matching(limit -> !limit.isWithTies())
             .with(source().matching(aggregation().capturedAs(CHILD)
                     .matching(MergeLimitWithDistinct::isDistinct)));
 

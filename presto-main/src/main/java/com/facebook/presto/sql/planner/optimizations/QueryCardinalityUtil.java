@@ -159,13 +159,28 @@ public final class QueryCardinalityUtil
         @Override
         public Range<Long> visitLimit(LimitNode node, Void context)
         {
-            Range<Long> sourceCardinalityRange = node.getSource().accept(this, null);
-            long upper = node.getCount();
-            if (sourceCardinalityRange.hasUpperBound()) {
-                upper = min(sourceCardinalityRange.upperEndpoint(), node.getCount());
+            if (node.isWithTies()) {
+                Range<Long> sourceCardinalityRange = node.getSource().accept(this, null);
+                long lower = min(node.getCount(), sourceCardinalityRange.lowerEndpoint());
+                if (sourceCardinalityRange.hasUpperBound()) {
+                    return Range.closed(lower, sourceCardinalityRange.upperEndpoint());
+                }
+                else {
+                    return Range.atLeast(lower);
+                }
             }
-            long lower = min(upper, sourceCardinalityRange.lowerEndpoint());
-            return Range.closed(lower, upper);
+
+            return applyLimit(node.getSource(), node.getCount());
+        }
+
+        private Range<Long> applyLimit(PlanNode node, long limit)
+        {
+            Range<Long> sourceCardinalityRange = node.accept(this, null);
+            if (sourceCardinalityRange.hasUpperBound()) {
+                limit = min(sourceCardinalityRange.upperEndpoint(), limit);
+            }
+            long lower = min(limit, sourceCardinalityRange.lowerEndpoint());
+            return Range.closed(lower, limit);
         }
     }
 }

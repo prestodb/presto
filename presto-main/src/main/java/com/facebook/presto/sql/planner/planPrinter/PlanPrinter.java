@@ -548,7 +548,7 @@ public class PlanPrinter
         {
             addNode(node,
                     format("Limit%s", node.isPartial() ? "Partial" : ""),
-                    format("[%s]", node.getCount()));
+                    format("[%s%s]", node.getCount(), node.isWithTies() ? "+ties" : ""));
             return processChildren(node, context);
         }
 

@@ -235,6 +235,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ATTRIBU
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_COLUMN;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_MATERIALIZED_VIEW;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ORDER_BY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_WINDOW_FUNCTION;
@@ -1094,7 +1095,10 @@ class StatementAnalyzer
             }
 
             if (node.getLimit().isPresent()) {
-                analyzeLimit(node.getLimit().get());
+                boolean requiresOrderBy = analyzeLimit(node.getLimit().get());
+                if (requiresOrderBy && !node.getOrderBy().isPresent()) {
+                    throw new SemanticException(MISSING_ORDER_BY, node.getLimit().get(), "FETCH FIRST WITH TIES clause requires ORDER BY");
+                }
             }
             // Input fields == Output fields
             analysis.setOutputExpressions(node, descriptorToFields(queryBodyScope));
@@ -1547,7 +1551,10 @@ class StatementAnalyzer
             analysis.setOrderByExpressions(node, orderByExpressions);
 
             if (node.getLimit().isPresent()) {
-                analyzeLimit(node.getLimit().get());
+                boolean requiresOrderBy = analyzeLimit(node.getLimit().get());
+                if (requiresOrderBy && !node.getOrderBy().isPresent()) {
+                    throw new SemanticException(MISSING_ORDER_BY, node.getLimit().get(), "FETCH FIRST WITH TIES clause requires ORDER BY");
+                }
             }
 
             List<Expression> sourceExpressions = new ArrayList<>(outputExpressions);
@@ -2681,16 +2688,16 @@ class StatementAnalyzer
          * @return true if the Query / QuerySpecification containing the analyzed
          * Limit or FetchFirst, must contain orderBy (i.e., for FetchFirst with ties).
          */
-        private void analyzeLimit(Node node)
+        private boolean analyzeLimit(Node node)
         {
             checkState(
                     node instanceof FetchFirst || node instanceof Limit,
                     "Invalid limit node type. Expected: FetchFirst or Limit. Actual: %s", node.getClass().getName());
 
-            new AstVisitor<Void, Void>()
+            return new AstVisitor<Boolean, Void>()
             {
                 @Override
-                protected Void visitFetchFirst(FetchFirst node, Void context)
+                protected Boolean visitFetchFirst(FetchFirst node, Void context)
                 {
                     if (!node.getRowCount().isPresent()) {
                         analysis.setLimit(node, 1);
@@ -2708,11 +2715,16 @@ class StatementAnalyzer
                         }
                         analysis.setLimit(node, rowCount);
                     }
-                    return null;
+
+                    if (node.isWithTies()) {
+                        return true;
+                    }
+
+                    return false;
                 }
 
                 @Override
-                protected Void visitLimit(Limit node, Void context)
+                protected Boolean visitLimit(Limit node, Void context)
                 {
                     if (node.getLimit().equalsIgnoreCase("all")) {
                         analysis.setLimit(node, OptionalLong.empty());
@@ -2727,7 +2739,7 @@ class StatementAnalyzer
                         }
                         analysis.setLimit(node, rowCount);
                     }
-                    return null;
+                    return false;
                 }
             }.process(node, null);
         }

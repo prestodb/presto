@@ -709,7 +709,7 @@ class AstBuilder
 
         Optional<Node> limit = Optional.empty();
         if (context.FETCH() != null) {
-            limit = Optional.of(new FetchFirst(getTextIfPresent(context.fetchFirst)));
+            limit = Optional.of(new FetchFirst(Optional.of(getLocation(context.FETCH())), getTextIfPresent(context.fetchFirst), context.TIES() != null));
         }
         else if (context.LIMIT() != null) {
             limit = Optional.of(new Limit(Optional.of(getLocation(context.LIMIT())), getTextIfPresent(context.limit).orElseThrow(() -> new IllegalStateException("Missing LIMIT value"))));

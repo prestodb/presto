@@ -22,6 +22,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -46,20 +47,29 @@ public final class LimitNode
 
     private final PlanNode source;
     private final long count;
+    private final Optional<OrderingScheme> tiesResolvingScheme;
     private final Step step;
+
+    public LimitNode(PlanNodeId id, PlanNode source, long count, Step partial)
+    {
+        this(id, source, count, Optional.empty(), partial);
+    }
 
     @JsonCreator
     public LimitNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("count") long count,
+            @JsonProperty("tiesResolvingScheme") Optional<OrderingScheme> tiesResolvingScheme,
             @JsonProperty("step") Step step)
     {
         super(id);
         checkCondition(count >= 0, INVALID_FUNCTION_ARGUMENT, "count must be greater than or equal to zero");
+        requireNonNull(tiesResolvingScheme, "tiesResolvingScheme is null");
 
         this.source = requireNonNull(source, "source is null");
         this.count = count;
+        this.tiesResolvingScheme = requireNonNull(tiesResolvingScheme, "tiesResolvingScheme is null");
         this.step = requireNonNull(step, "step is null");
     }
 
@@ -85,6 +95,17 @@ public final class LimitNode
     public long getCount()
     {
         return count;
+    }
+
+    public boolean isWithTies()
+    {
+        return tiesResolvingScheme.isPresent();
+    }
+
+    @JsonProperty
+    public Optional<OrderingScheme> getTiesResolvingScheme()
+    {
+        return tiesResolvingScheme;
     }
 
     @JsonProperty
@@ -114,7 +135,7 @@ public final class LimitNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkCondition(newChildren != null && newChildren.size() == 1, GENERIC_INTERNAL_ERROR, "Expect exactly 1 child PlanNode");
-        return new LimitNode(getId(), newChildren.get(0), count, getStep());
+        return new LimitNode(getId(), newChildren.get(0), count, tiesResolvingScheme, getStep());
     }
 
     private static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, String message)

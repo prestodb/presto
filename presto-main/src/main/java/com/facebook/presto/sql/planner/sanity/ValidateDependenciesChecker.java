@@ -349,6 +349,7 @@ public final class ValidateDependenciesChecker
         @Override
         public Void visitLimit(LimitNode node, Set<VariableReferenceExpression> boundVariables)
         {
+            checkState(!node.isWithTies(), "Unexpected node: LimitNode with ties.");
             PlanNode source = node.getSource();
             source.accept(this, boundVariables); // visit child
 

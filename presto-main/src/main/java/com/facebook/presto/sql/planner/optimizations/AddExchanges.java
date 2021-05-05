@@ -538,6 +538,10 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitLimit(LimitNode node, PreferredProperties preferredProperties)
         {
+            if (node.isWithTies()) {
+                throw new IllegalStateException("Unexpected node: LimitNode with ties");
+            }
+
             PlanWithProperties child = planChild(node, PreferredProperties.any());
 
             if (!child.getProperties().isSingleNode()) {

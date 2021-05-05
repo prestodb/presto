@@ -41,6 +41,22 @@ public class TestPushLimitThroughMarkDistinct
     }
 
     @Test
+    public void testPushLimitWithTies()
+    {
+        tester().assertThat(new PushLimitThroughMarkDistinct())
+                .on(p ->
+                        p.limit(
+                                1,
+                                ImmutableList.of(p.variable("foo")),
+                                p.markDistinct(
+                                        p.variable("foo"), ImmutableList.of(p.variable("bar")), p.values())))
+                .matches(
+                        node(MarkDistinctNode.class,
+                                node(LimitNode.class,
+                                        node(ValuesNode.class))));
+    }
+
+    @Test
     public void testDoesNotFire()
     {
         tester().assertThat(new PushLimitThroughMarkDistinct())

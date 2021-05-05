@@ -55,6 +55,7 @@ public class PushLimitThroughUnion
     private static final Capture<UnionNode> CHILD = newCapture();
 
     private static final Pattern<LimitNode> PATTERN = limit()
+            .matching(limit -> !limit.isWithTies())
             .with(source().matching(union().capturedAs(CHILD)));
 
     @Override

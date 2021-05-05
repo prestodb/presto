@@ -1064,6 +1064,48 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         Optional.of(new FetchFirst(Optional.empty()))));
+
+        assertStatement("SELECT * FROM (VALUES (1, '1'), (2, '2')) FETCH FIRST ROW WITH TIES",
+                simpleQuery(selectList(new AllColumns()),
+                        subquery(valuesQuery),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.of(new FetchFirst(Optional.empty(), true))));
+
+        assertStatement("SELECT * FROM table1 FETCH FIRST 2 ROWS WITH TIES",
+                new Query(
+                        Optional.empty(),
+                        new QuerySpecification(
+                                selectList(new AllColumns()),
+                                Optional.of(new Table(QualifiedName.of("table1"))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.of(new FetchFirst("2", true))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertStatement("SELECT * FROM table1 FETCH NEXT ROW WITH TIES",
+                new Query(
+                        Optional.empty(),
+                        new QuerySpecification(
+                                selectList(new AllColumns()),
+                                Optional.of(new Table(QualifiedName.of("table1"))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.of(new FetchFirst(Optional.empty(), true))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
     }
 
     @Test

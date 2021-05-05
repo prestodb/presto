@@ -32,6 +32,7 @@ public class MergeLimitWithSort
     private static final Capture<SortNode> CHILD = newCapture();
 
     private static final Pattern<LimitNode> PATTERN = limit()
+            .matching(limit -> !limit.isWithTies())
             .with(source().matching(sort().capturedAs(CHILD)));
 
     @Override
