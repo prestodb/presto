@@ -2797,9 +2797,17 @@ public class HiveMetadata
     {
         BucketFunctionType bucketFunctionType = getBucketFunctionTypeForExchange(session);
 
-        if (isUsePageFileForHiveUnsupportedType(session)
-                && !partitionTypes.stream().allMatch(HiveTypeTranslator::isSupportedHiveType)) {
-            bucketFunctionType = PRESTO_NATIVE;
+        if (isUsePageFileForHiveUnsupportedType(session)) {
+            if (!partitionTypes.stream()
+                    .allMatch(HiveTypeTranslator::isSupportedHiveType)) {
+                bucketFunctionType = PRESTO_NATIVE;
+            }
+        }
+        else if (getTemporaryTableStorageFormat(session) == ORC) {
+            // In this case, ORC is either default format or chosen by user. It should not be reset to PAGEFILE.
+            // ORC format should not be mixed with PRESTO_NATIVE as ORC compression may reuse PRESTO_NATIVE for compression
+            // which leads to hash collision
+            bucketFunctionType = HIVE_COMPATIBLE;
         }
 
         switch (bucketFunctionType) {
