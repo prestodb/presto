@@ -123,6 +123,12 @@ public class TaskResource
         this.planFragmentCodec = planFragmentJsonCodec;
     }
 
+    /**
+     * resource related
+     *
+     * Get all the tasks running on the current worker.
+     * It is useful for debugging purpose.
+     */
     @GET
     @Consumes({APPLICATION_JSON, APPLICATION_JACKSON_SMILE})
     @Produces({APPLICATION_JSON, APPLICATION_JACKSON_SMILE})
@@ -135,6 +141,13 @@ public class TaskResource
         return allTaskInfo;
     }
 
+    /**
+     * scheduling related
+     *
+     * The coordinator requests to create a new task on the current worker with a plan fragment.
+     * The plan fragment will be sent only for the first time.
+     * The coordinator will update the task with new splits through the same end point without plan fragment.
+     */
     @POST
     @Path("{taskId}")
     @Consumes({APPLICATION_JSON, APPLICATION_JACKSON_SMILE})
@@ -158,6 +171,13 @@ public class TaskResource
         return Response.ok().entity(taskInfo).build();
     }
 
+    /**
+     * resource related
+     *
+     * The coordinator (in the background) continuously gets the task information given a specific task id.
+     * One purpose is to summarize stats.
+     * The frequency is low to collect rich stats from workers.
+     */
     @GET
     @Path("{taskId}")
     @Consumes({APPLICATION_JSON, APPLICATION_JACKSON_SMILE})
@@ -197,6 +217,13 @@ public class TaskResource
                 .withTimeout(timeout);
     }
 
+    /**
+     * scheduling related
+     *
+     * The coordinator (in the background) continuously gets the task status given a specific task id.
+     * The frequency is high (and actually continuous without an interval) to check the current task status.
+     * This is critical to scheduling. For example, if a task has done, the scheduler should not schedule more splits to it.
+     */
     @GET
     @Path("{taskId}/status")
     @Consumes({APPLICATION_JSON, APPLICATION_JACKSON_SMILE, APPLICATION_THRIFT_BINARY, APPLICATION_THRIFT_COMPACT, APPLICATION_THRIFT_FB_COMPACT})
@@ -232,6 +259,12 @@ public class TaskResource
                 .withTimeout(timeout);
     }
 
+    /**
+     * for write path only
+     *
+     * a channel for workers to receive metadata related information from coordinator.
+     * An example use case is to rename the file.
+     */
     @POST
     @Path("{taskId}/metadataresults")
     @Consumes({APPLICATION_JSON, APPLICATION_JACKSON_SMILE})
@@ -242,6 +275,12 @@ public class TaskResource
         return Response.ok().build();
     }
 
+    /**
+     * scheduling related
+     *
+     * Force to stop the task specified.
+     * For example, when a query is canceled or failed, the coordinator will clean up the tasks
+     */
     @DELETE
     @Path("{taskId}")
     @Consumes({APPLICATION_JSON, APPLICATION_JACKSON_SMILE})
@@ -267,6 +306,12 @@ public class TaskResource
         return taskInfo;
     }
 
+    /**
+     * shuffle related
+     *
+     * The downstream task gets the output data from a buffer from the specific upstream task.
+     * The downstream will also acknowledge the previously received data within the same call.
+     */
     @GET
     @Path("{taskId}/results/{bufferId}/{token}")
     @Produces(PRESTO_PAGES)
@@ -326,6 +371,12 @@ public class TaskResource
         asyncResponse.register((CompletionCallback) throwable -> resultsRequestTime.add(Duration.nanosSince(start)));
     }
 
+    /**
+     * shuffle related
+     *
+     * When the downstream task receives the data, it will (optionally) sends out acknowledgement to the upstream task.
+     * The upstream task will remove the data from the buffer.
+     */
     @GET
     @Path("{taskId}/results/{bufferId}/{token}/acknowledge")
     public void acknowledgeResults(
@@ -339,6 +390,12 @@ public class TaskResource
         taskManager.acknowledgeTaskResults(taskId, bufferId, token);
     }
 
+    /**
+     * shuffle related
+     *
+     * The downstream task has the option to close a buffer in the upstream task if it does not require more data.
+     * This could happen if the downstream task aborts.
+     */
     @DELETE
     @Path("{taskId}/results/{bufferId}")
     @Produces(APPLICATION_JSON)
@@ -350,6 +407,12 @@ public class TaskResource
         taskManager.abortTaskResults(taskId, bufferId);
     }
 
+    /**
+     * the last worker-to-coordinator shuffle related
+     *
+     * The coordinator will shutdown remote sources to prevent a burst of requests.
+     * Overall, this helps to reduce HTTP communication on finished tasks.
+     */
     @DELETE
     @Path("{taskId}/remote-source/{remoteSourceTaskId}")
     public void removeRemoteSource(@PathParam("taskId") TaskId taskId, @PathParam("remoteSourceTaskId") TaskId remoteSourceTaskId)
