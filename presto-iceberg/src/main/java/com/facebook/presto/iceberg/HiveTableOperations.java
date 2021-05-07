@@ -238,10 +238,10 @@ public class HiveTableOperations
                         .build(),
                 ImmutableMultimap.of());
         if (base == null) {
-            metastore.createTable(table, privileges);
+            metastore.createTable(null, table, privileges);
         }
         else {
-            metastore.replaceTable(database, tableName, table, privileges);
+            metastore.replaceTable(null, database, tableName, table, privileges);
         }
 
         shouldRefresh = true;
@@ -280,7 +280,7 @@ public class HiveTableOperations
 
     private Table getTable()
     {
-        return metastore.getTable(database, tableName)
+        return metastore.getTable(null, database, tableName)
                 .orElseThrow(() -> new TableNotFoundException(getSchemaTableName()));
     }
 

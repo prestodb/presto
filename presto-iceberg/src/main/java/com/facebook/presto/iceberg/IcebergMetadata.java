@@ -23,6 +23,7 @@ import com.facebook.presto.hive.HiveWrittenPartitions;
 import com.facebook.presto.hive.TableAlreadyExistsException;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -139,7 +140,8 @@ public class IcebergMetadata
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
-        return metastore.getAllDatabases();
+        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity());
+        return metastore.getAllDatabases(metastoreContext);
     }
 
     @Override
@@ -148,7 +150,8 @@ public class IcebergMetadata
         IcebergTableName name = IcebergTableName.from(tableName.getTableName());
         verify(name.getTableType() == DATA, "Wrong table type: " + name.getTableType());
 
-        Optional<Table> hiveTable = metastore.getTable(tableName.getSchemaName(), name.getTableName());
+        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity());
+        Optional<Table> hiveTable = metastore.getTable(metastoreContext, tableName.getSchemaName(), name.getTableName());
         if (!hiveTable.isPresent()) {
             return null;
         }
@@ -191,7 +194,8 @@ public class IcebergMetadata
     {
         IcebergTableName name = IcebergTableName.from(tableName.getTableName());
 
-        Optional<Table> hiveTable = metastore.getTable(tableName.getSchemaName(), name.getTableName());
+        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity());
+        Optional<Table> hiveTable = metastore.getTable(metastoreContext, tableName.getSchemaName(), name.getTableName());
         if (!hiveTable.isPresent() || !isIcebergTable(hiveTable.get())) {
             return Optional.empty();
         }
@@ -229,7 +233,11 @@ public class IcebergMetadata
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
-        return metastore.getAllTables(schemaName.get()).orElseGet(metastore::getAllDatabases).stream()
+        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity());
+        return metastore
+                .getAllTables(metastoreContext, schemaName.get())
+                .orElseGet(() -> metastore.getAllDatabases(metastoreContext))
+                .stream()
                 .map(table -> new SchemaTableName(schemaName.get(), table))
                 .collect(toList());
     }
@@ -290,7 +298,8 @@ public class IcebergMetadata
                 .setOwnerName(session.getUser())
                 .build();
 
-        metastore.createDatabase(database);
+        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity());
+        metastore.createDatabase(metastoreContext, database);
     }
 
     @Override
@@ -301,13 +310,15 @@ public class IcebergMetadata
                 !listViews(session, Optional.of(schemaName)).isEmpty()) {
             throw new PrestoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + schemaName);
         }
-        metastore.dropDatabase(schemaName);
+        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity());
+        metastore.dropDatabase(metastoreContext, schemaName);
     }
 
     @Override
     public void renameSchema(ConnectorSession session, String source, String target)
     {
-        metastore.renameDatabase(source, target);
+        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity());
+        metastore.renameDatabase(metastoreContext, source, target);
     }
 
     @Override
@@ -328,7 +339,8 @@ public class IcebergMetadata
 
         PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()));
 
-        Database database = metastore.getDatabase(schemaName)
+        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity());
+        Database database = metastore.getDatabase(metastoreContext, schemaName)
                 .orElseThrow(() -> new SchemaNotFoundException(schemaName));
 
         HdfsContext hdfsContext = new HdfsContext(session, schemaName, tableName);
@@ -445,14 +457,16 @@ public class IcebergMetadata
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
-        metastore.dropTable(handle.getSchemaName(), handle.getTableName(), true);
+        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity());
+        metastore.dropTable(metastoreContext, handle.getSchemaName(), handle.getTableName(), true);
     }
 
     @Override
     public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTable)
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
-        metastore.renameTable(handle.getSchemaName(), handle.getTableName(), newTable.getSchemaName(), newTable.getTableName());
+        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity());
+        metastore.renameTable(metastoreContext, handle.getSchemaName(), handle.getTableName(), newTable.getSchemaName(), newTable.getTableName());
     }
 
     @Override
@@ -483,7 +497,8 @@ public class IcebergMetadata
 
     private ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName table)
     {
-        if (!metastore.getTable(table.getSchemaName(), table.getTableName()).isPresent()) {
+        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity());
+        if (!metastore.getTable(metastoreContext, table.getSchemaName(), table.getTableName()).isPresent()) {
             throw new TableNotFoundException(table);
         }
 
