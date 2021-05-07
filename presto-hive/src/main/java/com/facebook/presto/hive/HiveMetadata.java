@@ -1341,7 +1341,7 @@ public class HiveMetadata
         return tableBuilder.build();
     }
 
-    private static PrincipalPrivileges buildInitialPrivilegeSet(String tableOwner)
+    public static PrincipalPrivileges buildInitialPrivilegeSet(String tableOwner)
     {
         PrestoPrincipal owner = new PrestoPrincipal(USER, tableOwner);
         return new PrincipalPrivileges(
