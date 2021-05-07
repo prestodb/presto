@@ -28,6 +28,7 @@ import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
+import java.util.TimeZone;
 import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
@@ -118,6 +119,69 @@ public class HiveMetadataFactory
                 stagingFileCommitter,
                 zeroRowFileCreator,
                 nodeVersion.toString(),
+                partitionObjectBuilder,
+                encryptionInformationProvider,
+                hivePartitionStats,
+                hiveFileRenamer);
+    }
+
+    public HiveMetadataFactory(
+            ExtendedHiveMetastore metastore,
+            HdfsEnvironment hdfsEnvironment,
+            HivePartitionManager partitionManager,
+            TimeZone timeZone,
+            boolean allowCorruptWritesForTesting,
+            boolean skipDeletionForAlter,
+            boolean skipTargetCleanupOnRollback,
+            boolean writesToNonManagedTablesEnabled,
+            boolean createsOfNonManagedTablesEnabled,
+            boolean undoMetastoreOperationsEnabled,
+            int maxPartitionBatchSize,
+            long perTransactionCacheMaximumSize,
+            boolean metastoreImpersonationEnabled,
+            TypeManager typeManager,
+            LocationService locationService,
+            StandardFunctionResolution functionResolution,
+            RowExpressionService rowExpressionService,
+            FilterStatsCalculatorService filterStatsCalculatorService,
+            TableParameterCodec tableParameterCodec,
+            JsonCodec<PartitionUpdate> partitionUpdateCodec,
+            ListeningExecutorService fileRenameExecutor,
+            TypeTranslator typeTranslator,
+            StagingFileCommitter stagingFileCommitter,
+            ZeroRowFileCreator zeroRowFileCreator,
+            String prestoVersion,
+            PartitionObjectBuilder partitionObjectBuilder,
+            HiveEncryptionInformationProvider encryptionInformationProvider,
+            HivePartitionStats hivePartitionStats,
+            HiveFileRenamer hiveFileRenamer)
+    {
+        this(
+                metastore,
+                hdfsEnvironment,
+                partitionManager,
+                DateTimeZone.forID(timeZone.getID()),
+                allowCorruptWritesForTesting,
+                skipDeletionForAlter,
+                skipTargetCleanupOnRollback,
+                writesToNonManagedTablesEnabled,
+                createsOfNonManagedTablesEnabled,
+                undoMetastoreOperationsEnabled,
+                maxPartitionBatchSize,
+                perTransactionCacheMaximumSize,
+                metastoreImpersonationEnabled,
+                typeManager,
+                locationService,
+                functionResolution,
+                rowExpressionService,
+                filterStatsCalculatorService,
+                tableParameterCodec,
+                partitionUpdateCodec,
+                fileRenameExecutor,
+                typeTranslator,
+                stagingFileCommitter,
+                zeroRowFileCreator,
+                prestoVersion,
                 partitionObjectBuilder,
                 encryptionInformationProvider,
                 hivePartitionStats,
