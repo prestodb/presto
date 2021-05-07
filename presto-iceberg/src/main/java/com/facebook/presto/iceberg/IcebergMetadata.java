@@ -356,7 +356,15 @@ public class IcebergMetadata
             targetPath = resultPath.toString();
         }
 
-        TableOperations operations = new HiveTableOperations(metastore, hdfsEnvironment, hdfsContext, schemaName, tableName, session.getUser(), targetPath);
+        TableOperations operations = new HiveTableOperations(
+                metastore,
+                new MetastoreContext(session.getIdentity()),
+                hdfsEnvironment,
+                hdfsContext,
+                schemaName,
+                tableName,
+                session.getUser(),
+                targetPath);
         if (operations.current() != null) {
             throw new TableAlreadyExistsException(schemaTableName);
         }
