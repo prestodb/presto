@@ -47,7 +47,6 @@ import com.facebook.presto.execution.ExplainAnalyzeContext;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.MemoryRevokingScheduler;
 import com.facebook.presto.execution.NodeTaskMap;
-import com.facebook.presto.execution.QueryLimitMemoryRevokingScheduler;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.SqlTaskManager;
 import com.facebook.presto.execution.StageInfo;
@@ -393,9 +392,6 @@ public class ServerMainModule
         switch (taskSpillingStrategy) {
             case PER_TASK_MEMORY_THRESHOLD:
                 binder.bind(TaskThresholdMemoryRevokingScheduler.class).in(Scopes.SINGLETON);
-                break;
-            case PER_QUERY_MEMORY_LIMIT:
-                binder.bind(QueryLimitMemoryRevokingScheduler.class).in(Scopes.SINGLETON);
                 break;
             default:
                 binder.bind(MemoryRevokingScheduler.class).in(Scopes.SINGLETON);
