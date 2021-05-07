@@ -530,7 +530,8 @@ public final class HiveUtil
     public static NullableValue parsePartitionValue(String partitionName, String value, Type type, DateTimeZone timeZone)
     {
         verifyPartitionTypeSupported(partitionName, type);
-        boolean isNull = HIVE_DEFAULT_DYNAMIC_PARTITION.equals(value) || isHiveNull(value.getBytes(UTF_8));
+
+        boolean isNull = HIVE_DEFAULT_DYNAMIC_PARTITION.equals(value);
 
         if (type instanceof DecimalType) {
             DecimalType decimalType = (DecimalType) type;
