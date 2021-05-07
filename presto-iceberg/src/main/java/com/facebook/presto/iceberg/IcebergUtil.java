@@ -17,6 +17,7 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -61,7 +62,13 @@ final class IcebergUtil
     public static Table getIcebergTable(ExtendedHiveMetastore metastore, HdfsEnvironment hdfsEnvironment, ConnectorSession session, SchemaTableName table)
     {
         HdfsContext hdfsContext = new HdfsContext(session, table.getSchemaName(), table.getTableName());
-        TableOperations operations = new HiveTableOperations(metastore, hdfsEnvironment, hdfsContext, table.getSchemaName(), table.getTableName());
+        TableOperations operations = new HiveTableOperations(
+                metastore,
+                new MetastoreContext(session.getIdentity()),
+                hdfsEnvironment,
+                hdfsContext,
+                table.getSchemaName(),
+                table.getTableName());
         return new BaseTable(operations, quotedTableName(table));
     }
 
