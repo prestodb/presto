@@ -210,6 +210,41 @@ Property Name                                      Description                  
 
 ======================================= ============================================================ ============
 
+AWS Glue Catalog Configuration Properties
+-----------------------------------------
+
+==================================================== ============================================================
+Property Name                                        Description
+==================================================== ============================================================
+``hive.metastore.glue.region``                       AWS region of the Glue Catalog. This is required when not
+                                                     running in EC2, or when the catalog is in a different region.
+                                                     Example: ``us-east-1``
+
+``hive.metastore.glue.pin-client-to-current-region`` Pin Glue requests to the same region as the EC2 instance
+                                                     where Presto is running (defaults to ``false``).
+
+``hive.metastore.glue.max-connections``              Max number of concurrent connections to Glue
+                                                     (defaults to ``5``).
+
+``hive.metastore.glue.max-error-retries``            Maximum number of error retries for the Glue client,
+                                                     defaults to ``10``.
+
+``hive.metastore.glue.default-warehouse-dir``        Hive Glue metastore default warehouse directory
+
+``hive.metastore.glue.catalogid``                    The ID of the Glue Catalog in which the metadata database
+                                                     resides.
+
+``hive.metastore.glue.endpoint-url``                 Glue API endpoint URL (optional).
+                                                     Example: ``https://glue.us-east-1.amazonaws.com``
+
+``hive.metastore.glue.partitions-segments``          Number of segments for partitioned Glue tables.
+
+``hive.metastore.glue.get-partition-threads``        Number of threads for parallel partition fetches from Glue.
+
+``hive.metastore.glue.iam-role``                     ARN of an IAM role to assume when connecting to the Glue
+                                                     Catalog.
+==================================================== ============================================================
+
 .. _s3selectpushdown:
 
 Amazon S3 Configuration
