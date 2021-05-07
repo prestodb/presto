@@ -20,7 +20,6 @@ import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
-import com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import com.facebook.presto.hive.metastore.PrestoTableType;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
 import com.facebook.presto.hive.metastore.StorageFormat;
@@ -57,6 +56,10 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.hive.HiveMetadata.TABLE_COMMENT;
+import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.DELETE;
+import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.INSERT;
+import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
+import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.UPDATE;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static com.facebook.presto.iceberg.IcebergUtil.isIcebergTable;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
@@ -219,8 +222,8 @@ public class HiveTableOperations
             try {
                 io().deleteFile(newMetadataLocation);
             }
-            catch (RuntimeException ex) {
-                e.addSuppressed(ex);
+            catch (RuntimeException exception) {
+                e.addSuppressed(exception);
             }
             throw e;
         }
@@ -228,10 +231,10 @@ public class HiveTableOperations
         PrestoPrincipal owner = new PrestoPrincipal(USER, table.getOwner());
         PrincipalPrivileges privileges = new PrincipalPrivileges(
                 ImmutableMultimap.<String, HivePrivilegeInfo>builder()
-                        .put(table.getOwner(), new HivePrivilegeInfo(HivePrivilege.SELECT, true, owner, owner))
-                        .put(table.getOwner(), new HivePrivilegeInfo(HivePrivilege.INSERT, true, owner, owner))
-                        .put(table.getOwner(), new HivePrivilegeInfo(HivePrivilege.UPDATE, true, owner, owner))
-                        .put(table.getOwner(), new HivePrivilegeInfo(HivePrivilege.DELETE, true, owner, owner))
+                        .put(table.getOwner(), new HivePrivilegeInfo(SELECT, true, owner, owner))
+                        .put(table.getOwner(), new HivePrivilegeInfo(INSERT, true, owner, owner))
+                        .put(table.getOwner(), new HivePrivilegeInfo(UPDATE, true, owner, owner))
+                        .put(table.getOwner(), new HivePrivilegeInfo(DELETE, true, owner, owner))
                         .build(),
                 ImmutableMultimap.of());
         if (base == null) {
