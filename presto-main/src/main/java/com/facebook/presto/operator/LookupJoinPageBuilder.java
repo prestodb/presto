@@ -140,7 +140,7 @@ public class LookupJoinPageBuilder
     {
         int position = probe.getPosition();
         verify(position >= 0);
-        int previousPosition = probeIndexBuilder.isEmpty() ? -1 : probeIndexBuilder.get(probeIndexBuilder.size() - 1);
+        int previousPosition = probeIndexBuilder.isEmpty() ? -1 : probeIndexBuilder.getInt(probeIndexBuilder.size() - 1);
         // positions to be appended should be in ascending order
         verify(previousPosition <= position);
         isSequentialProbeIndices &= position == previousPosition + 1 || previousPosition == -1;
