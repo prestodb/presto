@@ -15,14 +15,18 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.presto.spi.PrestoException;
 
-import java.util.Locale;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.facebook.presto.iceberg.TableType.DATA;
+import static com.facebook.presto.iceberg.TableType.FILES;
+import static com.facebook.presto.iceberg.TableType.MANIFESTS;
+import static com.facebook.presto.iceberg.TableType.PARTITIONS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
+import static java.util.Locale.ROOT;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergTableName
@@ -60,7 +64,7 @@ public class IcebergTableName
 
     public String getTableNameWithType()
     {
-        return tableName + "$" + tableType.name().toLowerCase(Locale.ROOT);
+        return tableName + "$" + tableType.name().toLowerCase(ROOT);
     }
 
     @Override
@@ -78,13 +82,13 @@ public class IcebergTableName
 
         String table = match.group("table");
         String typeString = match.group("type");
-        String ver1 = match.group("ver1");
-        String ver2 = match.group("ver2");
+        String version1 = match.group("ver1");
+        String version2 = match.group("ver2");
 
-        TableType type = TableType.DATA;
+        TableType type = DATA;
         if (typeString != null) {
             try {
-                type = TableType.valueOf(typeString.toUpperCase(Locale.ROOT));
+                type = TableType.valueOf(typeString.toUpperCase(ROOT));
             }
             catch (IllegalArgumentException e) {
                 throw new PrestoException(NOT_SUPPORTED, format("Invalid Iceberg table name (unknown type '%s'): %s", typeString, name));
@@ -92,18 +96,18 @@ public class IcebergTableName
         }
 
         Optional<Long> version = Optional.empty();
-        if (type == TableType.DATA || type == TableType.PARTITIONS || type == TableType.MANIFESTS || type == TableType.FILES) {
-            if (ver1 != null && ver2 != null) {
+        if (type == DATA || type == PARTITIONS || type == MANIFESTS || type == FILES) {
+            if (version1 != null && version2 != null) {
                 throw new PrestoException(NOT_SUPPORTED, "Invalid Iceberg table name (cannot specify two @ versions): " + name);
             }
-            if (ver1 != null) {
-                version = Optional.of(parseLong(ver1));
+            if (version1 != null) {
+                version = Optional.of(parseLong(version1));
             }
-            else if (ver2 != null) {
-                version = Optional.of(parseLong(ver2));
+            else if (version2 != null) {
+                version = Optional.of(parseLong(version2));
             }
         }
-        else if (ver1 != null || ver2 != null) {
+        else if (version1 != null || version2 != null) {
             throw new PrestoException(NOT_SUPPORTED, format("Invalid Iceberg table name (cannot use @ version with table type '%s'): %s", type, name));
         }
 
