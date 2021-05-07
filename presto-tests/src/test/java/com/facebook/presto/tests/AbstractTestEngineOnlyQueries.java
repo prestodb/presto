@@ -92,4 +92,29 @@ public abstract class AbstractTestEngineOnlyQueries
         assertEquals(computeScalar(sql), localTimeThatDidNotOccurOn19700101); // this tests Presto and the QueryRunner
         assertQuery(sql); // this tests H2QueryRunner
     }
+
+    @Test
+    public void testFetchFirstWithTies()
+    {
+        String values = "(VALUES 1, 1, 1, 0, 0, 0, 2, 2, 2) AS t(x)";
+
+        assertQuery("SELECT x FROM " + values + " ORDER BY x FETCH FIRST 4 ROWS WITH TIES", "VALUES 0, 0, 0, 1, 1, 1");
+        assertQuery("SELECT x FROM " + values + " ORDER BY x FETCH FIRST ROW WITH TIES", "VALUES 0, 0, 0");
+        assertQuery("SELECT x FROM " + values + " ORDER BY x FETCH FIRST 20 ROWS WITH TIES", "VALUES 0, 0, 0, 1, 1, 1, 2, 2, 2");
+
+        assertQuery("SELECT x FROM " + values + " ORDER BY x OFFSET 2 ROWS FETCH NEXT 2 ROWS WITH TIES", "VALUES 0, 1, 1, 1");
+
+        assertQueryReturnsEmptyResult("SELECT x FROM " + values + " ORDER BY x OFFSET 20 ROWS FETCH NEXT 2 ROWS WITH TIES");
+
+        assertQueryFails("SELECT x FROM " + values + " FETCH FIRST 4 ROWS WITH TIES", "line 1:58: FETCH FIRST WITH TIES clause requires ORDER BY");
+        assertQueryFails(
+                "SELECT x FROM (SELECT a FROM (VALUES 3, 2, 1, 1, 0) t(a) ORDER BY a) t1(x) FETCH FIRST 2 ROWS WITH TIES",
+                "line 1:76: FETCH FIRST WITH TIES clause requires ORDER BY");
+
+        String valuesMultiColumn = "(VALUES ('b', 0), ('b', 0), ('a', 1), ('a', 0), ('b', 1)) AS t(x, y)";
+
+        // if ORDER BY uses multiple symbols, then TIES are resolved basing on multiple symbols too
+        assertQuery("SELECT x, y FROM " + valuesMultiColumn + " ORDER BY x, y FETCH FIRST 3 ROWS WITH TIES", "VALUES ('a', 0), ('a', 1), ('b', 0), ('b', 0)");
+        assertQuery("SELECT x, y FROM " + valuesMultiColumn + " ORDER BY x DESC, y FETCH FIRST ROW WITH TIES", "VALUES ('b', 0), ('b', 0)");
+    }
 }
