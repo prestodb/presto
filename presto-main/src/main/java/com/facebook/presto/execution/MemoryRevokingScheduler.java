@@ -29,7 +29,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 
-import javax.annotation.Nullable;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
@@ -40,7 +39,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
@@ -50,7 +48,6 @@ import static com.facebook.presto.sql.analyzer.FeaturesConfig.TaskSpillingStrate
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class MemoryRevokingScheduler
 {
@@ -66,9 +63,6 @@ public class MemoryRevokingScheduler
     private final TaskSpillingStrategy spillingStrategy;
 
     private final MemoryPoolListener memoryPoolListener = this::onMemoryReserved;
-
-    @Nullable
-    private ScheduledFuture<?> scheduledFuture;
 
     private final AtomicBoolean checkPending = new AtomicBoolean();
 
@@ -120,30 +114,12 @@ public class MemoryRevokingScheduler
     @PostConstruct
     public void start()
     {
-        registerPeriodicCheck();
         registerPoolListeners();
-    }
-
-    private void registerPeriodicCheck()
-    {
-        this.scheduledFuture = taskManagementExecutor.scheduleWithFixedDelay(() -> {
-            try {
-                requestMemoryRevokingIfNeeded();
-            }
-            catch (Exception e) {
-                log.error(e, "Error requesting system memory revoking");
-            }
-        }, 1, 1, SECONDS);
     }
 
     @PreDestroy
     public void stop()
     {
-        if (scheduledFuture != null) {
-            scheduledFuture.cancel(true);
-            scheduledFuture = null;
-        }
-
         memoryPools.forEach(memoryPool -> memoryPool.removeListener(memoryPoolListener));
     }
 
