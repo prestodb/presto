@@ -20,6 +20,7 @@ import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
+import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.PrestoTableType;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
 import com.facebook.presto.hive.metastore.StorageFormat;
@@ -92,6 +93,7 @@ public class HiveTableOperations
             FileOutputFormat.class.getName());
 
     private final ExtendedHiveMetastore metastore;
+    private final MetastoreContext metastoreContext;
     private final String database;
     private final String tableName;
     private final Optional<String> owner;
@@ -103,25 +105,54 @@ public class HiveTableOperations
     private boolean shouldRefresh = true;
     private int version = -1;
 
-    public HiveTableOperations(ExtendedHiveMetastore metastore, HdfsEnvironment hdfsEnvironment, HdfsContext hdfsContext, String database, String table)
-    {
-        this(new HdfsFileIO(hdfsEnvironment, hdfsContext), metastore, database, table, Optional.empty(), Optional.empty());
-    }
-
-    public HiveTableOperations(ExtendedHiveMetastore metastore, HdfsEnvironment hdfsEnvironment, HdfsContext hdfsContext, String database, String table, String owner, String location)
+    public HiveTableOperations(
+            ExtendedHiveMetastore metastore,
+            MetastoreContext metastoreContext,
+            HdfsEnvironment hdfsEnvironment,
+            HdfsContext hdfsContext,
+            String database,
+            String table)
     {
         this(new HdfsFileIO(hdfsEnvironment, hdfsContext),
                 metastore,
+                metastoreContext,
+                database,
+                table,
+                Optional.empty(),
+                Optional.empty());
+    }
+
+    public HiveTableOperations(
+            ExtendedHiveMetastore metastore,
+            MetastoreContext metastoreContext,
+            HdfsEnvironment hdfsEnvironment,
+            HdfsContext hdfsContext,
+            String database,
+            String table,
+            String owner,
+            String location)
+    {
+        this(new HdfsFileIO(hdfsEnvironment, hdfsContext),
+                metastore,
+                metastoreContext,
                 database,
                 table,
                 Optional.of(requireNonNull(owner, "owner is null")),
                 Optional.of(requireNonNull(location, "location is null")));
     }
 
-    private HiveTableOperations(FileIO fileIO, ExtendedHiveMetastore metastore, String database, String table, Optional<String> owner, Optional<String> location)
+    private HiveTableOperations(
+            FileIO fileIO,
+            ExtendedHiveMetastore metastore,
+            MetastoreContext metastoreContext,
+            String database,
+            String table,
+            Optional<String> owner,
+            Optional<String> location)
     {
         this.fileIO = requireNonNull(fileIO, "fileIO is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
+        this.metastoreContext = requireNonNull(metastoreContext, "metastore context is null");
         this.database = requireNonNull(database, "database is null");
         this.tableName = requireNonNull(table, "table is null");
         this.owner = requireNonNull(owner, "owner is null");
@@ -238,10 +269,10 @@ public class HiveTableOperations
                         .build(),
                 ImmutableMultimap.of());
         if (base == null) {
-            metastore.createTable(null, table, privileges);
+            metastore.createTable(metastoreContext, table, privileges);
         }
         else {
-            metastore.replaceTable(null, database, tableName, table, privileges);
+            metastore.replaceTable(metastoreContext, database, tableName, table, privileges);
         }
 
         shouldRefresh = true;
@@ -280,7 +311,7 @@ public class HiveTableOperations
 
     private Table getTable()
     {
-        return metastore.getTable(null, database, tableName)
+        return metastore.getTable(metastoreContext, database, tableName)
                 .orElseThrow(() -> new TableNotFoundException(getSchemaTableName()));
     }
 
