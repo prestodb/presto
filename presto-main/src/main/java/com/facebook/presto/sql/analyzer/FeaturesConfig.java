@@ -81,6 +81,7 @@ public class FeaturesConfig
     private boolean spatialJoinsEnabled = true;
     private boolean fastInequalityJoins = true;
     private TaskSpillingStrategy taskSpillingStrategy = ORDER_BY_CREATE_TIME;
+    private boolean queryLimitSpillEnabled;
     private SingleStreamSpillerChoice singleStreamSpillerChoice = SingleStreamSpillerChoice.LOCAL_FILE;
     private String spillerTempStorage = "local";
     private DataSize maxRevocableMemoryPerTask = new DataSize(500, MEGABYTE);
@@ -253,7 +254,6 @@ public class FeaturesConfig
         ORDER_BY_CREATE_TIME, // When spilling is triggered, revoke tasks in order of oldest to newest
         ORDER_BY_REVOCABLE_BYTES, // When spilling is triggered, revoke tasks by most allocated revocable memory to least allocated revocable memory
         PER_TASK_MEMORY_THRESHOLD, // Spill any task after it reaches the per task memory threshold defined by experimental.spiller.max-revocable-task-memory
-        PER_QUERY_MEMORY_LIMIT // Spill whenever a query's combined revocable, system, and user memory exceeds the per-node total memory limit
     }
 
     public enum SingleStreamSpillerChoice
@@ -572,6 +572,19 @@ public class FeaturesConfig
     {
         this.taskSpillingStrategy = taskSpillingStrategy;
         return this;
+    }
+
+    @Config("experimental.query-limit-spill-enabled")
+    @ConfigDescription("Spill whenever the total memory used by the query (including revocable and non-revocable memory) exceeds maxTotalMemoryPerNode")
+    public FeaturesConfig setQueryLimitSpillEnabled(boolean queryLimitSpillEnabled)
+    {
+        this.queryLimitSpillEnabled = queryLimitSpillEnabled;
+        return this;
+    }
+
+    public boolean isQueryLimitSpillEnabled()
+    {
+        return queryLimitSpillEnabled;
     }
 
     public SingleStreamSpillerChoice getSingleStreamSpillerChoice()
