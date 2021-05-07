@@ -14,6 +14,7 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.HdfsContext;
@@ -112,6 +113,8 @@ import static org.apache.iceberg.Transactions.createTableTransaction;
 public class IcebergMetadata
         implements ConnectorMetadata
 {
+    private static final Logger log = Logger.get(IcebergMetadata.class);
+
     private final ExtendedHiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
     private final TypeManager typeManager;
@@ -258,10 +261,10 @@ public class IcebergMetadata
                 columns.put(table, getTableMetadata(session, table).getColumns());
             }
             catch (TableNotFoundException e) {
-                // table disappeared during listing operation
+                log.warn(String.format("table disappeared during listing operation: %s", e.getMessage()));
             }
             catch (UnknownTableTypeException e) {
-                // ignore table of unknown type
+                log.warn(String.format("%s: Unknown table type of table %s", e.getMessage(), table.getTableName()));
             }
         }
         return columns.build();

@@ -71,8 +71,8 @@ public class IcebergPageSource
         requireNonNull(partitionKeys, "partitionKeys is null");
         this.delegate = requireNonNull(delegate, "delegate is null");
 
-        this.prefilledBlocks = new Block[size];
-        this.delegateIndexes = new int[size];
+        prefilledBlocks = new Block[size];
+        delegateIndexes = new int[size];
 
         int outputIndex = 0;
         int delegateIndex = 0;
