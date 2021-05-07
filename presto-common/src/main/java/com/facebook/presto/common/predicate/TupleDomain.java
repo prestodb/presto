@@ -254,7 +254,11 @@ public final class TupleDomain<T>
                 intersected.put(entry.getKey(), entry.getValue());
             }
             else {
-                intersected.put(entry.getKey(), intersectionDomain.intersect(entry.getValue()));
+                Domain intersect = intersectionDomain.intersect(entry.getValue());
+                if (intersect.isNone()) {
+                    return TupleDomain.none();
+                }
+                intersected.put(entry.getKey(), intersect);
             }
         }
         return withColumnDomains(intersected);
@@ -306,6 +310,9 @@ public final class TupleDomain<T>
         Iterator<TupleDomain<T>> domains = tupleDomains.iterator();
         while (domains.hasNext()) {
             TupleDomain<T> domain = domains.next();
+            if (domain.isAll()) {
+                return TupleDomain.all();
+            }
             if (!domain.isNone()) {
                 found = true;
                 commonColumns.addAll(domain.getDomains().get().keySet());
