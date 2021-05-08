@@ -111,28 +111,9 @@ public final class ParquetCompressionUtils
 
     private static Slice decompressLz4(Slice input, int uncompressedSize)
     {
-        Lz4Decompressor decompressor = new Lz4Decompressor();
-        long totalDecompressedCount = 0;
-        // over allocate buffer which makes decompression easier
-        byte[] output = new byte[uncompressedSize + SIZE_OF_LONG];
-        int outputOffset = 0;
-        int inputOffset = 0;
-        int cumulativeUncompressedBlockLength = 0;
-
-        while (totalDecompressedCount < uncompressedSize) {
-            if (totalDecompressedCount == cumulativeUncompressedBlockLength) {
-                cumulativeUncompressedBlockLength += Integer.reverseBytes(input.getInt(inputOffset));
-                inputOffset += SIZE_OF_INT;
-            }
-            int compressedChunkLength = Integer.reverseBytes(input.getInt(inputOffset));
-            inputOffset += SIZE_OF_INT;
-            int decompressionSize = decompress(decompressor, input, inputOffset, compressedChunkLength, output, outputOffset);
-            totalDecompressedCount += decompressionSize;
-            outputOffset += decompressionSize;
-            inputOffset += compressedChunkLength;
-        }
-        checkArgument(outputOffset == uncompressedSize);
-        return wrappedBuffer(output, 0, uncompressedSize);
+        byte[] buffer = new byte[uncompressedSize];
+        decompress(new Lz4Decompressor(), input, 0, input.length(), buffer, 0);
+        return wrappedBuffer(buffer);
     }
 
     private static Slice decompressLZO(Slice input, int uncompressedSize)
