@@ -36,6 +36,7 @@ public class ClientSession
 {
     private final URI server;
     private final String user;
+    private final Optional<String> sessionUser;
     private final String source;
     private final Optional<String> traceToken;
     private final Set<String> clientTags;
@@ -67,6 +68,7 @@ public class ClientSession
     public ClientSession(
             URI server,
             String user,
+            Optional<String> sessionUser,
             String source,
             Optional<String> traceToken,
             Set<String> clientTags,
@@ -85,6 +87,7 @@ public class ClientSession
     {
         this.server = requireNonNull(server, "server is null");
         this.user = user;
+        this.sessionUser = sessionUser;
         this.source = source;
         this.traceToken = requireNonNull(traceToken, "traceToken is null");
         this.clientTags = ImmutableSet.copyOf(requireNonNull(clientTags, "clientTags is null"));
@@ -138,6 +141,11 @@ public class ClientSession
     public String getUser()
     {
         return user;
+    }
+
+    public Optional<String> getSessionUser()
+    {
+        return sessionUser;
     }
 
     public String getSource()
@@ -229,6 +237,7 @@ public class ClientSession
         return toStringHelper(this)
                 .add("server", server)
                 .add("user", user)
+                .add("sessionUser", sessionUser)
                 .add("clientTags", clientTags)
                 .add("clientInfo", clientInfo)
                 .add("catalog", catalog)
@@ -337,6 +346,7 @@ public class ClientSession
             return new ClientSession(
                     server,
                     user,
+                    Optional.empty(),
                     source,
                     traceToken,
                     clientTags,

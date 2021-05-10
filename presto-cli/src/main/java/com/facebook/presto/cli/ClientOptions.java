@@ -156,6 +156,7 @@ public class ClientOptions
         return new ClientSession(
                 parseServer(server),
                 user,
+                Optional.empty(),
                 source,
                 Optional.empty(),
                 parseClientTags(clientTags),
