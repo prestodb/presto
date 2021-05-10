@@ -51,6 +51,7 @@ import static com.facebook.presto.jdbc.ConnectionProperties.KERBEROS_PRINCIPAL;
 import static com.facebook.presto.jdbc.ConnectionProperties.KERBEROS_REMOTE_SERVICE_NAME;
 import static com.facebook.presto.jdbc.ConnectionProperties.KERBEROS_USE_CANONICAL_HOSTNAME;
 import static com.facebook.presto.jdbc.ConnectionProperties.PASSWORD;
+import static com.facebook.presto.jdbc.ConnectionProperties.SESSION_USER;
 import static com.facebook.presto.jdbc.ConnectionProperties.SOCKS_PROXY;
 import static com.facebook.presto.jdbc.ConnectionProperties.SSL;
 import static com.facebook.presto.jdbc.ConnectionProperties.SSL_ALLOW_SELF_SIGNED_CERT;
@@ -83,6 +84,12 @@ final class PrestoDriverUri
     private String schema;
 
     private final boolean useSecureConnection;
+
+    private static final boolean DEBUG_SESSION_USER;
+
+    static {
+        DEBUG_SESSION_USER = "true".equalsIgnoreCase(System.getenv("OKERA_DEBUG_SESSION_USER"));
+    }
 
     public PrestoDriverUri(String url, Properties driverProperties)
             throws SQLException
@@ -129,6 +136,16 @@ final class PrestoDriverUri
             throws SQLException
     {
         return USER.getRequiredValue(properties);
+    }
+
+    public Optional<String> getSessionUser()
+            throws SQLException
+    {
+        Optional<String> user = SESSION_USER.getValue(properties);
+        if (DEBUG_SESSION_USER && user.isPresent()) {
+            throw new SQLException("DEBUG MODE: session user detected. Explicitly failing the request. User: " + user);
+        }
+        return user;
     }
 
     public Optional<String> getApplicationNamePrefix()

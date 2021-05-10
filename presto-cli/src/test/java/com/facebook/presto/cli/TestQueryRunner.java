@@ -85,6 +85,7 @@ public class TestQueryRunner
                 new ClientSession(
                         server.url("/").uri(),
                         "user",
+                        Optional.empty(),
                         "source",
                         Optional.empty(),
                         ImmutableSet.of(),

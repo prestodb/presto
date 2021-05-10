@@ -84,6 +84,7 @@ public class PrestoConnection
     private final URI jdbcUri;
     private final URI httpUri;
     private final String user;
+    private final Optional<String> sessionUser;
     private final Map<String, String> extraCredentials;
     private final Optional<String> applicationNamePrefix;
     private final Map<String, String> clientInfo = new ConcurrentHashMap<>();
@@ -103,6 +104,7 @@ public class PrestoConnection
         this.schema.set(uri.getSchema());
         this.catalog.set(uri.getCatalog());
         this.user = uri.getUser();
+        this.sessionUser = uri.getSessionUser();
         this.applicationNamePrefix = uri.getApplicationNamePrefix();
 
         this.extraCredentials = uri.getExtraCredentials();
@@ -692,6 +694,7 @@ public class PrestoConnection
         ClientSession session = new ClientSession(
                 httpUri,
                 user,
+                sessionUser,
                 source,
                 traceToken,
                 ImmutableSet.copyOf(clientTags),
