@@ -28,7 +28,7 @@ import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
-import java.util.TimeZone;
+import java.time.ZoneId;
 import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
@@ -129,7 +129,7 @@ public class HiveMetadataFactory
             ExtendedHiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             HivePartitionManager partitionManager,
-            TimeZone timeZone,
+            ZoneId zoneId,
             boolean allowCorruptWritesForTesting,
             boolean skipDeletionForAlter,
             boolean skipTargetCleanupOnRollback,
@@ -160,7 +160,7 @@ public class HiveMetadataFactory
                 metastore,
                 hdfsEnvironment,
                 partitionManager,
-                DateTimeZone.forID(timeZone.getID()),
+                DateTimeZone.forID(zoneId.getId()),
                 allowCorruptWritesForTesting,
                 skipDeletionForAlter,
                 skipTargetCleanupOnRollback,
