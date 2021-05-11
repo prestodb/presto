@@ -54,10 +54,127 @@ public class BenchmarkSortedRangeSet
         return build;
     }
 
+    @Benchmark
+    public List<Boolean> equalsSmall(Data data)
+    {
+        return benchmarkEquals(data.smallRanges);
+    }
+
+    @Benchmark
+    public List<Boolean> equalsLarge(Data data)
+    {
+        return benchmarkEquals(data.largeRanges);
+    }
+
+    private List<Boolean> benchmarkEquals(List<SortedRangeSet> dataRanges)
+    {
+        List<Boolean> result = new ArrayList<>(dataRanges.size() - 1);
+        for (int index = 0; index < dataRanges.size() - 1; index++) {
+            result.add(dataRanges.get(index).equals(dataRanges.get(index + 1)));
+        }
+        return result;
+    }
+
+    @Benchmark
+    public List<SortedRangeSet> unionSmall(Data data)
+    {
+        return benchmarkUnion(data.smallRanges);
+    }
+
+    @Benchmark
+    public List<SortedRangeSet> unionLarge(Data data)
+    {
+        return benchmarkUnion(data.largeRanges);
+    }
+
+    private List<SortedRangeSet> benchmarkUnion(List<SortedRangeSet> dataRanges)
+    {
+        List<SortedRangeSet> result = new ArrayList<>(dataRanges.size() - 1);
+        for (int index = 0; index < dataRanges.size() - 1; index++) {
+            result.add(dataRanges.get(index).union(dataRanges.get(index + 1)));
+        }
+        return result;
+    }
+
+    @Benchmark
+    public List<Boolean> overlapsSmall(Data data)
+    {
+        return benchmarkOverlaps(data.smallRanges);
+    }
+
+    @Benchmark
+    public List<Boolean> overlapsLarge(Data data)
+    {
+        return benchmarkOverlaps(data.largeRanges);
+    }
+
+    private List<Boolean> benchmarkOverlaps(List<SortedRangeSet> dataRanges)
+    {
+        List<Boolean> result = new ArrayList<>(dataRanges.size() - 1);
+        for (int index = 0; index < dataRanges.size() - 1; index++) {
+            result.add(dataRanges.get(index).overlaps(dataRanges.get(index + 1)));
+        }
+        return result;
+    }
+
+    @Benchmark
+    public long containsValueSmall(Data data)
+    {
+        return benchmarkContainsValue(data.smallRanges);
+    }
+
+    @Benchmark
+    public long containsValueLarge(Data data)
+    {
+        return benchmarkContainsValue(data.largeRanges);
+    }
+
+    private long benchmarkContainsValue(List<SortedRangeSet> dataRanges)
+    {
+        int totalChecks = 5_000_000;
+        long testedValuesTo = 10_000;
+
+        long checksPerSet = totalChecks / dataRanges.size();
+        long step = testedValuesTo / checksPerSet;
+        long found = 0;
+        for (SortedRangeSet dataRange : dataRanges) {
+            for (long i = 0; i < testedValuesTo; i += step) {
+                boolean contained = dataRange.containsValue(i);
+                if (contained) {
+                    found++;
+                }
+            }
+        }
+        return found;
+    }
+
+    @Benchmark
+    public List<SortedRangeSet> complementSmall(Data data)
+    {
+        return benchmarkComplement(data.smallRanges);
+    }
+
+    @Benchmark
+    public List<SortedRangeSet> complementLarge(Data data)
+    {
+        return benchmarkComplement(data.largeRanges);
+    }
+
+    private List<SortedRangeSet> benchmarkComplement(List<SortedRangeSet> dataRanges)
+    {
+        List<SortedRangeSet> result = new ArrayList<>(dataRanges.size());
+        for (SortedRangeSet dataRange : dataRanges) {
+            result.add(dataRange.complement());
+        }
+        return result;
+    }
+
     @State(Scope.Thread)
     public static class Data
     {
         public List<Range> ranges;
+        public List<SortedRangeSet> smallRanges;
+        public List<SortedRangeSet> largeRanges;
 
         @Setup(Level.Iteration)
         public void init()
@@ -65,13 +182,34 @@ public class BenchmarkSortedRangeSet
             ranges = new ArrayList<>();
 
             int factor = 0;
-            for (int i = 0; i < 10000; i++) {
+            for (int i = 0; i < 10_000; i++) {
                 long from = ThreadLocalRandom.current().nextLong(100) + factor * 100;
                 long to = ThreadLocalRandom.current().nextLong(100) + (factor + 1) * 100;
                 factor++;
 
                 ranges.add(new Range(Marker.above(BIGINT, from), Marker.below(BIGINT, to)));
             }
+
+            smallRanges = generateRangeSets(500_000, 2);
+            largeRanges = generateRangeSets(5_000, 300);
+        }
+
+        private List<SortedRangeSet> generateRangeSets(int count, int size)
+        {
+            List<SortedRangeSet> sortedRangeSets = new ArrayList<>();
+            for (int i = 0; i < count; i++) {
+                sortedRangeSets.add(generateRangeSet(size));
+            }
+            return sortedRangeSets;
+        }
+
+        private SortedRangeSet generateRangeSet(int size)
+        {
+            List<Range> selectedRanges = new ArrayList<>();
+            for (int i = 0; i < size; i++) {
+                selectedRanges.add(ranges.get(ThreadLocalRandom.current().nextInt(ranges.size())));
+            }
+            return SortedRangeSet.copyOf(BIGINT, selectedRanges);
         }
     }
 
