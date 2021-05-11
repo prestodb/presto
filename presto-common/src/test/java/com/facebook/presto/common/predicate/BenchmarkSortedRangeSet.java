@@ -187,11 +187,11 @@ public class BenchmarkSortedRangeSet
         for (int index = 0; index < dataRanges.size(); index++) {
             int hash = 0;
             for (Range orderedRange : dataRanges.get(index).getRanges().getOrderedRanges()) {
-                if (orderedRange.getLow().getValueBlock().isPresent()) {
-                    hash = hash * 31 + orderedRange.getLow().getValue().hashCode();
+                if (!orderedRange.isLowUnbounded()) {
+                    hash = hash * 31 + orderedRange.getLowBoundedValue().hashCode();
                 }
-                if (orderedRange.getHigh().getValueBlock().isPresent()) {
-                    hash = hash * 31 + orderedRange.getHigh().getValue().hashCode();
+                if (!orderedRange.isHighUnbounded()) {
+                    hash = hash * 31 + orderedRange.getHighBoundedValue().hashCode();
                 }
             }
             result.add(hash);
