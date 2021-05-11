@@ -44,7 +44,6 @@ import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.isRemoteFunctionsEnabled;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
-import static com.facebook.presto.spi.function.FunctionImplementationType.THRIFT;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.REMOTE;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.UNKNOWN;
@@ -248,19 +247,17 @@ public class PlanRemotePojections
         public List<ProjectionContext> visitCall(CallExpression call, Void context)
         {
             FunctionMetadata functionMetadata = functionAndTypeManager.getFunctionMetadata(call.getFunctionHandle());
-            boolean local = !functionMetadata.getImplementationType().equals(THRIFT);
+            boolean local = !functionMetadata.getImplementationType().isExternal();
 
             // Break function arguments into local and remote projections first
-            ImmutableList.Builder<VariableReferenceExpression> newArgumentsBuilder = ImmutableList.builder();
-            List<ProjectionContext> processedArguments = processArguments(call.getArguments(), newArgumentsBuilder);
-            List<VariableReferenceExpression> newArguments = newArgumentsBuilder.build();
+            ImmutableList.Builder<RowExpression> newArgumentsBuilder = ImmutableList.builder();
+            List<ProjectionContext> processedArguments = processArguments(call.getArguments(), newArgumentsBuilder, local);
+            List<RowExpression> newArguments = newArgumentsBuilder.build();
             CallExpression newCall = new CallExpression(
                     call.getDisplayName(),
                     call.getFunctionHandle(),
                     call.getType(),
-                    newArguments.stream()
-                            .map(RowExpression.class::cast)
-                            .collect(toImmutableList()));
+                    newArguments);
 
             if (local) {
                 if (processedArguments.size() == 1 && !processedArguments.get(0).isRemote()) {
@@ -280,7 +277,7 @@ public class PlanRemotePojections
                                             call.getFunctionHandle(),
                                             call.getType(),
                                             newArguments.stream()
-                                                    .map(last.getProjections()::get)
+                                                    .map(argument -> argument instanceof VariableReferenceExpression ? last.getProjections().get(argument) : argument)
                                                     .collect(toImmutableList()))),
                             false));
                     return projectionContextBuilder.build();
@@ -306,7 +303,7 @@ public class PlanRemotePojections
         @Override
         public List<ProjectionContext> visitInputReference(InputReferenceExpression reference, Void context)
         {
-            return ImmutableList.of();
+            throw new IllegalStateException("Optimizers should not see InputReferenceExpression");
         }
 
         @Override
@@ -330,9 +327,9 @@ public class PlanRemotePojections
         @Override
         public List<ProjectionContext> visitSpecialForm(SpecialFormExpression specialForm, Void context)
         {
-            ImmutableList.Builder<VariableReferenceExpression> newArgumentsBuilder = ImmutableList.builder();
-            List<ProjectionContext> processedArguments = processArguments(specialForm.getArguments(), newArgumentsBuilder);
-            List<VariableReferenceExpression> newArguments = newArgumentsBuilder.build();
+            ImmutableList.Builder<RowExpression> newArgumentsBuilder = ImmutableList.builder();
+            List<ProjectionContext> processedArguments = processArguments(specialForm.getArguments(), newArgumentsBuilder, true);
+            List<RowExpression> newArguments = newArgumentsBuilder.build();
             if (processedArguments.size() == 1 && !processedArguments.get(0).isRemote()) {
                 // Arguments do not contain remote projection
                 return ImmutableList.of();
@@ -349,7 +346,7 @@ public class PlanRemotePojections
                                         specialForm.getForm(),
                                         specialForm.getType(),
                                         newArguments.stream()
-                                                .map(last.getProjections()::get)
+                                                .map(argument -> argument instanceof VariableReferenceExpression ? last.getProjections().get(argument) : argument)
                                                 .collect(toImmutableList()))),
                         false));
                 return projectionContextBuilder.build();
@@ -364,27 +361,30 @@ public class PlanRemotePojections
                                 new SpecialFormExpression(
                                         specialForm.getForm(),
                                         specialForm.getType(),
-                                        newArguments.stream()
-                                            .map(RowExpression.class::cast)
-                                            .collect(toImmutableList()))),
+                                        newArguments)),
                         false));
                 return projectionContextBuilder.build();
             }
         }
 
-        private List<ProjectionContext> processArguments(List<RowExpression> arguments, ImmutableList.Builder<VariableReferenceExpression> newArguments)
+        private List<ProjectionContext> processArguments(List<RowExpression> arguments, ImmutableList.Builder<RowExpression> newArguments, boolean local)
         {
             // Break function arguments into local and remote projections first
             ImmutableList.Builder<List<ProjectionContext>> argumentProjections = ImmutableList.builder();
 
             for (RowExpression argument : arguments) {
-                List<ProjectionContext> argumentProjection = argument.accept(this, null);
-                if (argumentProjection.isEmpty()) {
-                    VariableReferenceExpression variable = variableAllocator.newVariable(argument);
-                    argumentProjection = ImmutableList.of(new ProjectionContext(ImmutableMap.of(variable, argument), false));
+                if (local && argument instanceof ConstantExpression) {
+                    newArguments.add(argument);
                 }
-                argumentProjections.add(argumentProjection);
-                newArguments.add(getAssignedArgument(argumentProjection));
+                else {
+                    List<ProjectionContext> argumentProjection = argument.accept(this, null);
+                    if (argumentProjection.isEmpty()) {
+                        VariableReferenceExpression variable = variableAllocator.newVariable(argument);
+                        argumentProjection = ImmutableList.of(new ProjectionContext(ImmutableMap.of(variable, argument), false));
+                    }
+                    argumentProjections.add(argumentProjection);
+                    newArguments.add(getAssignedArgument(argumentProjection));
+                }
             }
             return mergeProjectionContexts(argumentProjections.build());
         }

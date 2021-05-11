@@ -20,6 +20,7 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.block.BlockSerdeUtil;
 import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.function.SqlFunctionResult;
 import com.facebook.presto.common.type.ParametricType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
@@ -964,7 +965,8 @@ public class BuiltInTypeAndFunctionNamespaceManager
                     sqlFunction.getRoutineCharacteristics().getLanguage(),
                     SQL,
                     function.isDeterministic(),
-                    function.isCalledOnNullInput());
+                    function.isCalledOnNullInput(),
+                    sqlFunction.getVersion());
         }
         else {
             return new FunctionMetadata(
@@ -979,7 +981,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
     }
 
     @Override
-    public final CompletableFuture<Block> executeFunction(FunctionHandle functionHandle, Page input, List<Integer> channels, TypeManager typeManager)
+    public final CompletableFuture<SqlFunctionResult> executeFunction(String source, FunctionHandle functionHandle, Page input, List<Integer> channels, TypeManager typeManager)
     {
         throw new IllegalStateException("Builtin function execution should be handled by the engine.");
     }

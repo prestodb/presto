@@ -37,6 +37,7 @@ import com.facebook.presto.sql.tree.DescribeInput;
 import com.facebook.presto.sql.tree.DescribeOutput;
 import com.facebook.presto.sql.tree.DropColumn;
 import com.facebook.presto.sql.tree.DropFunction;
+import com.facebook.presto.sql.tree.DropMaterializedView;
 import com.facebook.presto.sql.tree.DropRole;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
@@ -670,6 +671,18 @@ public final class SqlFormatter
         }
 
         @Override
+        protected Void visitDropMaterializedView(DropMaterializedView node, Integer context)
+        {
+            builder.append("DROP MATERIALIZED VIEW ");
+            if (node.isExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(node.getName());
+
+            return null;
+        }
+
+        @Override
         protected Void visitExplain(Explain node, Integer indent)
         {
             builder.append("EXPLAIN ");
@@ -766,6 +779,10 @@ public final class SqlFormatter
             }
             else if (node.getType() == ShowCreate.Type.VIEW) {
                 builder.append("SHOW CREATE VIEW ")
+                        .append(formatName(node.getName()));
+            }
+            else if (node.getType() == ShowCreate.Type.MATERIALIZED_VIEW) {
+                builder.append("SHOW CREATE MATERIALIZED VIEW ")
                         .append(formatName(node.getName()));
             }
 

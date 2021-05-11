@@ -19,6 +19,9 @@ import com.facebook.airlift.http.client.HttpUriBuilder;
 import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.http.client.ResponseHandler;
 import com.facebook.airlift.http.client.StatusResponseHandler.StatusResponse;
+import com.facebook.airlift.json.Codec;
+import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.json.smile.SmileCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.drift.transport.netty.codec.Protocol;
 import com.facebook.presto.Session;
@@ -46,9 +49,7 @@ import com.facebook.presto.server.RequestErrorTracker;
 import com.facebook.presto.server.SimpleHttpResponseCallback;
 import com.facebook.presto.server.SimpleHttpResponseHandler;
 import com.facebook.presto.server.TaskUpdateRequest;
-import com.facebook.presto.server.codec.Codec;
 import com.facebook.presto.server.smile.BaseResponse;
-import com.facebook.presto.server.smile.SmileCodec;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -98,6 +99,7 @@ import static com.facebook.airlift.http.client.Request.Builder.prepareDelete;
 import static com.facebook.airlift.http.client.Request.Builder.preparePost;
 import static com.facebook.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static com.facebook.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
+import static com.facebook.presto.SystemSessionProperties.getMaxUnacknowledgedSplitsPerTask;
 import static com.facebook.presto.execution.TaskInfo.createInitialTask;
 import static com.facebook.presto.execution.TaskState.ABORTED;
 import static com.facebook.presto.execution.TaskState.FAILED;
@@ -107,7 +109,6 @@ import static com.facebook.presto.server.RequestErrorTracker.taskRequestErrorTra
 import static com.facebook.presto.server.RequestHelpers.setContentTypeHeaders;
 import static com.facebook.presto.server.smile.AdaptingJsonResponseHandler.createAdaptingJsonResponseHandler;
 import static com.facebook.presto.server.smile.FullSmileResponseHandler.createFullSmileResponseHandler;
-import static com.facebook.presto.server.smile.JsonCodecWrapper.unwrapJsonCodec;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TASK_UPDATE_SIZE_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
@@ -196,6 +197,7 @@ public final class HttpRemoteTask
     private final boolean thriftTransportEnabled;
     private final Protocol thriftProtocol;
     private final int maxTaskUpdateSizeInBytes;
+    private final int maxUnacknowledgedSplits;
 
     private final TableWriteInfo tableWriteInfo;
 
@@ -278,6 +280,8 @@ public final class HttpRemoteTask
             this.thriftProtocol = thriftProtocol;
             this.tableWriteInfo = tableWriteInfo;
             this.maxTaskUpdateSizeInBytes = maxTaskUpdateSizeInBytes;
+            this.maxUnacknowledgedSplits = getMaxUnacknowledgedSplitsPerTask(session);
+            checkArgument(maxUnacknowledgedSplits > 0, "maxUnacknowledgedSplits must be > 0, found: %s", maxUnacknowledgedSplits);
 
             this.tableScanPlanNodeIds = ImmutableSet.copyOf(planFragment.getTableScanSchedulingOrder());
             this.remoteSourcePlanNodeIds = planFragment.getRemoteSourceNodes().stream()
@@ -555,6 +559,12 @@ public final class HttpRemoteTask
         return getPendingSourceSplitCount() + taskStatus.getQueuedPartitionedDrivers();
     }
 
+    @Override
+    public int getUnacknowledgedPartitionedSplitCount()
+    {
+        return getPendingSourceSplitCount();
+    }
+
     @SuppressWarnings("FieldAccessNotGuarded")
     private int getPendingSourceSplitCount()
     {
@@ -593,11 +603,11 @@ public final class HttpRemoteTask
 
     private synchronized void updateSplitQueueSpace()
     {
-        if (!whenSplitQueueHasSpaceThreshold.isPresent()) {
-            return;
-        }
-        splitQueueHasSpace = getQueuedPartitionedSplitCount() < whenSplitQueueHasSpaceThreshold.getAsInt();
-        if (splitQueueHasSpace) {
+        // Must check whether the unacknowledged split count threshold is reached even without listeners registered yet
+        splitQueueHasSpace = getUnacknowledgedPartitionedSplitCount() < maxUnacknowledgedSplits &&
+                (!whenSplitQueueHasSpaceThreshold.isPresent() || getQueuedPartitionedSplitCount() < whenSplitQueueHasSpaceThreshold.getAsInt());
+        // Only trigger notifications if a listener might be registered
+        if (splitQueueHasSpace && whenSplitQueueHasSpaceThreshold.isPresent()) {
             whenSplitQueueHasSpace.complete(null, executor);
         }
     }
@@ -640,9 +650,9 @@ public final class HttpRemoteTask
                 pendingSourceSplitCount -= removed;
             }
         }
-        updateSplitQueueSpace();
-
+        // Update stats before split queue space to ensure node stats are up to date before waking up the scheduler
         updateTaskStats();
+        updateSplitQueueSpace();
     }
 
     private void updateTaskInfo(TaskInfo taskInfo)
@@ -714,7 +724,7 @@ public final class HttpRemoteTask
             responseHandler = createFullSmileResponseHandler((SmileCodec<TaskInfo>) taskInfoCodec);
         }
         else {
-            responseHandler = createAdaptingJsonResponseHandler(unwrapJsonCodec(taskInfoCodec));
+            responseHandler = createAdaptingJsonResponseHandler((JsonCodec<TaskInfo>) taskInfoCodec);
         }
 
         updateErrorTracker.startRequest();
@@ -847,7 +857,7 @@ public final class HttpRemoteTask
             responseHandler = createFullSmileResponseHandler((SmileCodec<TaskInfo>) taskInfoCodec);
         }
         else {
-            responseHandler = createAdaptingJsonResponseHandler(unwrapJsonCodec(taskInfoCodec));
+            responseHandler = createAdaptingJsonResponseHandler((JsonCodec<TaskInfo>) taskInfoCodec);
         }
 
         Futures.addCallback(httpClient.executeAsync(request, responseHandler), new FutureCallback<BaseResponse<TaskInfo>>()

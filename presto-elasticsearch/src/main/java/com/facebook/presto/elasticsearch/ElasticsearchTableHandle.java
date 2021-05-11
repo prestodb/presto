@@ -26,19 +26,34 @@ import static java.util.Objects.requireNonNull;
 public final class ElasticsearchTableHandle
         implements ConnectorTableHandle
 {
+    public enum Type
+    {
+        SCAN,
+        QUERY
+    }
+
+    private final Type type;
     private final String schema;
     private final String index;
     private final Optional<String> query;
 
     @JsonCreator
     public ElasticsearchTableHandle(
+            @JsonProperty("type") Type type,
             @JsonProperty("schema") String schema,
             @JsonProperty("index") String index,
             @JsonProperty("query") Optional<String> query)
     {
+        this.type = requireNonNull(type, "type is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.index = requireNonNull(index, "index is null");
         this.query = requireNonNull(query, "query is null");
+    }
+
+    @JsonProperty
+    public Type getType()
+    {
+        return type;
     }
 
     @JsonProperty
@@ -62,7 +77,7 @@ public final class ElasticsearchTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(schema, index, query);
+        return Objects.hash(type, schema, index, query);
     }
 
     @Override
@@ -76,7 +91,8 @@ public final class ElasticsearchTableHandle
         }
 
         ElasticsearchTableHandle other = (ElasticsearchTableHandle) obj;
-        return Objects.equals(this.getSchema(), other.getSchema()) &&
+        return Objects.equals(this.type, other.getType()) &&
+                Objects.equals(this.getSchema(), other.getSchema()) &&
                 Objects.equals(this.getIndex(), other.getIndex()) &&
                 Objects.equals(this.getQuery(), other.getQuery());
     }
@@ -85,6 +101,7 @@ public final class ElasticsearchTableHandle
     public String toString()
     {
         return toStringHelper(this)
+                .add("type", getType())
                 .add("schema", getSchema())
                 .add("index", getIndex())
                 .add("query", getQuery())

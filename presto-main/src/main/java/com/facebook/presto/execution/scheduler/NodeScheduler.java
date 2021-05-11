@@ -14,6 +14,7 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.airlift.stats.CounterStat;
+import com.facebook.presto.Session;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionStats;
@@ -44,13 +45,16 @@ import java.net.UnknownHostException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
 import static com.facebook.airlift.concurrent.MoreFutures.whenAnyCompleteCancelOthers;
+import static com.facebook.presto.SystemSessionProperties.getMaxUnacknowledgedSplitsPerTask;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType;
+import static com.facebook.presto.metadata.InternalNode.NodeStatus.ALIVE;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Suppliers.memoizeWithExpiration;
@@ -132,18 +136,19 @@ public class NodeScheduler
         return counters.build();
     }
 
-    public NodeSelector createNodeSelector(ConnectorId connectorId)
+    public NodeSelector createNodeSelector(Session session, ConnectorId connectorId)
     {
-        return createNodeSelector(connectorId, Integer.MAX_VALUE);
+        return createNodeSelector(session, connectorId, Integer.MAX_VALUE);
     }
 
-    public NodeSelector createNodeSelector(ConnectorId connectorId, int maxTasksPerStage)
+    public NodeSelector createNodeSelector(Session session, ConnectorId connectorId, int maxTasksPerStage)
     {
         // this supplier is thread-safe. TODO: this logic should probably move to the scheduler since the choice of which node to run in should be
         // done as close to when the the split is about to be scheduled
         Supplier<NodeMap> nodeMap = nodeMapRefreshInterval.toMillis() > 0 ?
                 memoizeWithExpiration(createNodeMapSupplier(connectorId), nodeMapRefreshInterval.toMillis(), MILLISECONDS) : createNodeMapSupplier(connectorId);
 
+        int maxUnacknowledgedSplitsPerTask = getMaxUnacknowledgedSplitsPerTask(requireNonNull(session, "session is null"));
         if (useNetworkTopology) {
             return new TopologyAwareNodeSelector(
                     nodeManager,
@@ -154,55 +159,60 @@ public class NodeScheduler
                     minCandidates,
                     maxSplitsPerNode,
                     maxPendingSplitsPerTask,
+                    maxUnacknowledgedSplitsPerTask,
                     topologicalSplitCounters,
                     networkLocationSegmentNames,
                     networkLocationCache);
         }
         else {
-            return new SimpleNodeSelector(nodeManager, nodeSelectionStats, nodeTaskMap, includeCoordinator, nodeMap, minCandidates, maxSplitsPerNode, maxPendingSplitsPerTask, maxTasksPerStage);
+            return new SimpleNodeSelector(nodeManager, nodeSelectionStats, nodeTaskMap, includeCoordinator, nodeMap, minCandidates, maxSplitsPerNode, maxPendingSplitsPerTask, maxUnacknowledgedSplitsPerTask, maxTasksPerStage);
         }
     }
 
     private Supplier<NodeMap> createNodeMapSupplier(ConnectorId connectorId)
     {
         return () -> {
-            ImmutableMap.Builder<String, InternalNode> byNodeId = ImmutableMap.builder();
-            ImmutableSetMultimap.Builder<HostAddress, InternalNode> byHostAndPort = ImmutableSetMultimap.builder();
-            ImmutableSetMultimap.Builder<InetAddress, InternalNode> byHost = ImmutableSetMultimap.builder();
-            ImmutableSetMultimap.Builder<NetworkLocation, InternalNode> workersByNetworkPath = ImmutableSetMultimap.builder();
+            ImmutableMap.Builder<String, InternalNode> activeNodesByNodeId = ImmutableMap.builder();
+            ImmutableSetMultimap.Builder<NetworkLocation, InternalNode> activeWorkersByNetworkPath = ImmutableSetMultimap.builder();
+            ImmutableSetMultimap.Builder<HostAddress, InternalNode> allNodesByHostAndPort = ImmutableSetMultimap.builder();
+            ImmutableSetMultimap.Builder<InetAddress, InternalNode> allNodesByHost = ImmutableSetMultimap.builder();
 
-            Set<InternalNode> nodes;
+            Set<InternalNode> activeNodes;
+            Set<InternalNode> allNodes;
             if (connectorId != null) {
-                nodes = nodeManager.getActiveConnectorNodes(connectorId);
+                activeNodes = nodeManager.getActiveConnectorNodes(connectorId);
+                allNodes = nodeManager.getAllConnectorNodes(connectorId);
             }
             else {
-                nodes = nodeManager.getNodes(ACTIVE);
+                activeNodes = nodeManager.getNodes(ACTIVE);
+                allNodes = activeNodes;
             }
 
             Set<String> coordinatorNodeIds = nodeManager.getCoordinators().stream()
                     .map(InternalNode::getNodeIdentifier)
                     .collect(toImmutableSet());
 
-            for (InternalNode node : nodes) {
-                byNodeId.put(node.getNodeIdentifier(), node);
-                if (useNetworkTopology && (includeCoordinator || !coordinatorNodeIds.contains(node.getNodeIdentifier()))) {
-                    NetworkLocation location = networkLocationCache.get(node.getHostAndPort());
-                    for (int i = 0; i <= location.getSegments().size(); i++) {
-                        workersByNetworkPath.put(location.subLocation(0, i), node);
+            for (InternalNode node : allNodes) {
+                if (node.getNodeStatus() == ALIVE) {
+                    activeNodesByNodeId.put(node.getNodeIdentifier(), node);
+                    if (useNetworkTopology && (includeCoordinator || !coordinatorNodeIds.contains(node.getNodeIdentifier()))) {
+                        NetworkLocation location = networkLocationCache.get(node.getHostAndPort());
+                        for (int i = 0; i <= location.getSegments().size(); i++) {
+                            activeWorkersByNetworkPath.put(location.subLocation(0, i), node);
+                        }
                     }
                 }
                 try {
-                    byHostAndPort.put(node.getHostAndPort(), node);
-
+                    allNodesByHostAndPort.put(node.getHostAndPort(), node);
                     InetAddress host = InetAddress.getByName(node.getInternalUri().getHost());
-                    byHost.put(host, node);
+                    allNodesByHost.put(host, node);
                 }
                 catch (UnknownHostException e) {
                     // ignore
                 }
             }
 
-            return new NodeMap(byNodeId.build(), byHostAndPort.build(), byHost.build(), workersByNetworkPath.build(), coordinatorNodeIds);
+            return new NodeMap(activeNodesByNodeId.build(), activeWorkersByNetworkPath.build(), coordinatorNodeIds, new LinkedList<>(activeNodes), new LinkedList<>(allNodes), allNodesByHost.build(), allNodesByHostAndPort.build());
         };
     }
 
@@ -222,7 +232,7 @@ public class NodeScheduler
 
     public static ResettableRandomizedIterator<InternalNode> randomizedNodes(NodeMap nodeMap, boolean includeCoordinator, Set<InternalNode> excludedNodes)
     {
-        ImmutableList<InternalNode> nodes = nodeMap.getNodesByHostAndPort().values().stream()
+        ImmutableList<InternalNode> nodes = nodeMap.getActiveNodes().stream()
                 .filter(node -> includeCoordinator || !nodeMap.getCoordinatorNodeIds().contains(node.getNodeIdentifier()))
                 .filter(node -> !excludedNodes.contains(node))
                 .collect(toImmutableList());
@@ -235,7 +245,7 @@ public class NodeScheduler
         Set<String> coordinatorIds = nodeMap.getCoordinatorNodeIds();
 
         for (HostAddress host : hosts) {
-            nodeMap.getNodesByHostAndPort().get(host).stream()
+            nodeMap.getAllNodesByHostAndPort().get(host).stream()
                     .filter(node -> includeCoordinator || !coordinatorIds.contains(node.getNodeIdentifier()))
                     .forEach(chosen::add);
 
@@ -250,7 +260,7 @@ public class NodeScheduler
 
             // consider a split with a host without a port as being accessible by all nodes in that host
             if (!host.hasPort()) {
-                nodeMap.getNodesByHost().get(address).stream()
+                nodeMap.getAllNodesByHost().get(address).stream()
                         .filter(node -> includeCoordinator || !coordinatorIds.contains(node.getNodeIdentifier()))
                         .forEach(chosen::add);
             }
@@ -263,7 +273,7 @@ public class NodeScheduler
                 // `coordinatorIds.contains(node.getNodeIdentifier())`. But checking the condition isn't necessary
                 // because every node satisfies it. Otherwise, `chosen` wouldn't have been empty.
 
-                nodeMap.getNodesByHostAndPort().get(host).stream()
+                nodeMap.getAllNodesByHostAndPort().get(host).stream()
                         .forEach(chosen::add);
 
                 InetAddress address;
@@ -277,7 +287,7 @@ public class NodeScheduler
 
                 // consider a split with a host without a port as being accessible by all nodes in that host
                 if (!host.hasPort()) {
-                    nodeMap.getNodesByHost().get(address).stream()
+                    nodeMap.getAllNodesByHost().get(address).stream()
                             .forEach(chosen::add);
                 }
             }
@@ -291,6 +301,7 @@ public class NodeScheduler
             NodeTaskMap nodeTaskMap,
             int maxSplitsPerNode,
             int maxPendingSplitsPerTask,
+            int maxUnacknowledgedSplitsPerTask,
             Set<Split> splits,
             List<RemoteTask> existingTasks,
             BucketNodeMap bucketNodeMap,
@@ -306,8 +317,7 @@ public class NodeScheduler
             boolean isCacheable = bucketNodeMap.isSplitCacheable(split);
 
             // if node is full, don't schedule now, which will push back on the scheduling of splits
-            if (assignmentStats.getTotalSplitCount(node) < maxSplitsPerNode ||
-                    assignmentStats.getQueuedSplitCountForStage(node) < maxPendingSplitsPerTask) {
+            if (!isDistributionNodeFull(assignmentStats, node, maxSplitsPerNode, maxPendingSplitsPerTask, maxUnacknowledgedSplitsPerTask)) {
                 if (isCacheable) {
                     split = new Split(split.getConnectorId(), split.getTransactionHandle(), split.getConnectorSplit(), split.getLifespan(), new SplitContext(true));
                     nodeSelectionStats.incrementBucketedPreferredNodeSelectedCount();
@@ -325,6 +335,12 @@ public class NodeScheduler
 
         ListenableFuture<?> blocked = toWhenHasSplitQueueSpaceFuture(blockedNodes, existingTasks, calculateLowWatermark(maxPendingSplitsPerTask));
         return new SplitPlacementResult(blocked, ImmutableMultimap.copyOf(assignments));
+    }
+
+    private static boolean isDistributionNodeFull(NodeAssignmentStats assignmentStats, InternalNode node, int maxSplitsPerNode, int maxPendingSplitsPerTask, int maxUnacknowledgedSplitsPerTask)
+    {
+        return assignmentStats.getUnacknowledgedSplitCountForStage(node) >= maxUnacknowledgedSplitsPerTask ||
+                (assignmentStats.getTotalSplitCount(node) >= maxSplitsPerNode && assignmentStats.getQueuedSplitCountForStage(node) >= maxPendingSplitsPerTask);
     }
 
     public static int calculateLowWatermark(int maxPendingSplitsPerTask)

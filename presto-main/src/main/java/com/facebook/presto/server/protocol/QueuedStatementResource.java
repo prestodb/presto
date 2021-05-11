@@ -26,6 +26,7 @@ import com.facebook.presto.server.HttpRequestSessionContext;
 import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.server.SessionContext;
 import com.facebook.presto.spi.ErrorCode;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.google.common.collect.ImmutableList;
@@ -57,10 +58,10 @@ import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
 
 import java.net.URI;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
@@ -72,6 +73,7 @@ import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.server.security.RoleType.USER;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.RETRY_QUERY_NOT_FOUND;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
@@ -109,7 +111,8 @@ public class QueuedStatementResource
     private final Executor responseExecutor;
     private final ScheduledExecutorService timeoutExecutor;
 
-    private final ConcurrentMap<QueryId, Query> queries = new ConcurrentHashMap<>();
+    private final Map<QueryId, Query> queries = new ConcurrentHashMap<>();          // a mapping from current query id to current query
+    private final Map<QueryId, Query> retriedQueries = new ConcurrentHashMap<>();   // a mapping from old to-be-retried query id to the current retry query
     private final ScheduledExecutorService queryPurger = newSingleThreadScheduledExecutor(threadsNamed("dispatch-query-purger"));
     private final boolean compressionEnabled;
 
@@ -135,16 +138,8 @@ public class QueuedStatementResource
                 () -> {
                     try {
                         // snapshot the queries before checking states to avoid registration race
-                        for (Entry<QueryId, Query> entry : ImmutableSet.copyOf(queries.entrySet())) {
-                            if (!entry.getValue().isSubmissionFinished()) {
-                                continue;
-                            }
-
-                            // forget about this query if the query manager is no longer tracking it
-                            if (!dispatchManager.isQueryPresent(entry.getKey())) {
-                                queries.remove(entry.getKey());
-                            }
-                        }
+                        purgeQueries(queries);
+                        purgeQueries(retriedQueries);
                     }
                     catch (Throwable e) {
                         log.error(e, "Error removing old queries");
@@ -175,8 +170,46 @@ public class QueuedStatementResource
         }
 
         SessionContext sessionContext = new HttpRequestSessionContext(servletRequest, sqlParserOptions);
-        Query query = new Query(statement, sessionContext, dispatchManager, queryResultsProvider, timeoutExecutor);
+        Query query = new Query(statement, sessionContext, dispatchManager, queryResultsProvider, 0);
         queries.put(query.getQueryId(), query);
+
+        return withCompressionConfiguration(Response.ok(query.getInitialQueryResults(uriInfo, xForwardedProto)), compressionEnabled).build();
+    }
+
+    @GET
+    @Path("/v1/statement/queued/retry/{queryId}")
+    @Produces(APPLICATION_JSON)
+    public Response retryFailedQuery(
+            @PathParam("queryId") QueryId queryId,
+            @HeaderParam(X_FORWARDED_PROTO) String xForwardedProto,
+            @Context UriInfo uriInfo)
+    {
+        Query failedQuery = queries.get(queryId);
+
+        if (failedQuery == null) {
+            // TODO: purge retryable queries slower than normal ones
+            throw new PrestoException(RETRY_QUERY_NOT_FOUND, "failed to find the query to retry with ID " + queryId);
+        }
+
+        int retryCount = failedQuery.getRetryCount() + 1;
+        Query query = new Query(
+                "-- retry query " + queryId + "; attempt: " + retryCount + "\n" + failedQuery.getQuery(),
+                failedQuery.getSessionContext(),
+                dispatchManager,
+                queryResultsProvider,
+                retryCount);
+
+        retriedQueries.putIfAbsent(queryId, query);
+        synchronized (retriedQueries.get(queryId)) {
+            if (retriedQueries.get(queryId).getQueryId().equals(query.getQueryId())) {
+                queries.put(query.getQueryId(), query);
+            }
+            else {
+                // other thread has already created the new retry query
+                // use the existing one
+                query = retriedQueries.get(queryId);
+            }
+        }
 
         return withCompressionConfiguration(Response.ok(query.getInitialQueryResults(uriInfo, xForwardedProto)), compressionEnabled).build();
     }
@@ -229,6 +262,20 @@ public class QueuedStatementResource
             throw badRequest(NOT_FOUND, "Query not found");
         }
         return query;
+    }
+
+    private void purgeQueries(Map<QueryId, Query> queries)
+    {
+        for (Entry<QueryId, Query> entry : ImmutableSet.copyOf(queries.entrySet())) {
+            if (!entry.getValue().isSubmissionFinished()) {
+                continue;
+            }
+
+            // forget about this query if the query manager is no longer tracking it
+            if (!dispatchManager.isQueryPresent(entry.getKey())) {
+                queries.remove(entry.getKey());
+            }
+        }
     }
 
     private static URI getQueryHtmlUri(QueryId queryId, UriInfo uriInfo, String xForwardedProto)
@@ -309,27 +356,37 @@ public class QueuedStatementResource
         private final SessionContext sessionContext;
         private final DispatchManager dispatchManager;
         private final LocalQueryProvider queryProvider;
-        private final ScheduledExecutorService timeoutExecutor;
         private final QueryId queryId;
         private final String slug = "x" + randomUUID().toString().toLowerCase(ENGLISH).replace("-", "");
         private final AtomicLong lastToken = new AtomicLong();
+        private final int retryCount;
 
         @GuardedBy("this")
         private ListenableFuture<?> querySubmissionFuture;
 
-        public Query(String query, SessionContext sessionContext, DispatchManager dispatchManager, LocalQueryProvider queryResultsProvider, ScheduledExecutorService timeoutExecutor)
+        public Query(String query, SessionContext sessionContext, DispatchManager dispatchManager, LocalQueryProvider queryResultsProvider, int retryCount)
         {
             this.query = requireNonNull(query, "query is null");
             this.sessionContext = requireNonNull(sessionContext, "sessionContext is null");
             this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
             this.queryProvider = requireNonNull(queryResultsProvider, "queryExecutor is null");
-            this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
             this.queryId = dispatchManager.createQueryId();
+            this.retryCount = retryCount;
         }
 
         public QueryId getQueryId()
         {
             return queryId;
+        }
+
+        public String getQuery()
+        {
+            return query;
+        }
+
+        public SessionContext getSessionContext()
+        {
+            return sessionContext;
         }
 
         public String getSlug()
@@ -342,6 +399,11 @@ public class QueuedStatementResource
             return lastToken.get();
         }
 
+        public int getRetryCount()
+        {
+            return retryCount;
+        }
+
         public synchronized boolean isSubmissionFinished()
         {
             return querySubmissionFuture != null && querySubmissionFuture.isDone();
@@ -352,7 +414,7 @@ public class QueuedStatementResource
             // if query query submission has not finished, wait for it to finish
             synchronized (this) {
                 if (querySubmissionFuture == null) {
-                    querySubmissionFuture = dispatchManager.createQuery(queryId, slug, sessionContext, query);
+                    querySubmissionFuture = dispatchManager.createQuery(queryId, slug, retryCount, sessionContext, query);
                 }
                 if (!querySubmissionFuture.isDone()) {
                     return querySubmissionFuture;
@@ -471,6 +533,7 @@ public class QueuedStatementResource
                     errorCode.getCode(),
                     errorCode.getName(),
                     errorCode.getType().toString(),
+                    errorCode.isRetriable(),
                     executionFailureInfo.getErrorLocation(),
                     executionFailureInfo.toFailureInfo());
         }

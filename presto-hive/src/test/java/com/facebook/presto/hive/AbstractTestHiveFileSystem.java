@@ -26,6 +26,7 @@ import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HivePartitionMutator;
+import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.metastore.thrift.BridgingHiveMetastore;
@@ -182,7 +183,7 @@ public abstract class AbstractTestHiveFileSystem
 
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
         metastoreClient = new TestingHiveMetastore(
-                new BridgingHiveMetastore(new ThriftHiveMetastore(hiveCluster), new HivePartitionMutator()),
+                new BridgingHiveMetastore(new ThriftHiveMetastore(hiveCluster, metastoreClientConfig), new HivePartitionMutator()),
                 executor,
                 metastoreClientConfig,
                 getBasePath(),
@@ -383,12 +384,12 @@ public abstract class AbstractTestHiveFileSystem
                 // CSV supports only unbounded VARCHAR type
                 continue;
             }
-            createTable(temporaryCreateTable, storageFormat);
+            createTable(new MetastoreContext("test_user"), temporaryCreateTable, storageFormat);
             dropTable(temporaryCreateTable);
         }
     }
 
-    private void createTable(SchemaTableName tableName, HiveStorageFormat storageFormat)
+    private void createTable(MetastoreContext metastoreContext, SchemaTableName tableName, HiveStorageFormat storageFormat)
             throws Exception
     {
         List<ColumnMetadata> columns = ImmutableList.<ColumnMetadata>builder()
@@ -425,6 +426,7 @@ public abstract class AbstractTestHiveFileSystem
             // We work around that by using a dummy location when creating the
             // table and update it here to the correct location.
             metastoreClient.updateTableLocation(
+                    metastoreContext,
                     database,
                     tableName.getTableName(),
                     locationService.getTableWriteInfo(((HiveOutputTableHandle) outputHandle).getLocationHandle()).getTargetPath().toString());
@@ -499,41 +501,41 @@ public abstract class AbstractTestHiveFileSystem
         }
 
         @Override
-        public Optional<Database> getDatabase(String databaseName)
+        public Optional<Database> getDatabase(MetastoreContext metastoreContext, String databaseName)
         {
-            return super.getDatabase(databaseName)
+            return super.getDatabase(metastoreContext, databaseName)
                     .map(database -> Database.builder(database)
                             .setLocation(Optional.of(basePath.toString()))
                             .build());
         }
 
         @Override
-        public void createTable(Table table, PrincipalPrivileges privileges)
+        public void createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges privileges)
         {
             // hack to work around the metastore not being configured for S3 or other FS
             Table.Builder tableBuilder = Table.builder(table);
             tableBuilder.getStorageBuilder().setLocation("/");
-            super.createTable(tableBuilder.build(), privileges);
+            super.createTable(metastoreContext, tableBuilder.build(), privileges);
         }
 
         @Override
-        public void dropTable(String databaseName, String tableName, boolean deleteData)
+        public void dropTable(MetastoreContext metastoreContext, String databaseName, String tableName, boolean deleteData)
         {
             try {
-                Optional<Table> table = getTable(databaseName, tableName);
+                Optional<Table> table = getTable(metastoreContext, databaseName, tableName);
                 if (!table.isPresent()) {
                     throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
                 }
 
                 // hack to work around the metastore not being configured for S3 or other FS
-                List<String> locations = listAllDataPaths(databaseName, tableName);
+                List<String> locations = listAllDataPaths(metastoreContext, databaseName, tableName);
 
                 Table.Builder tableBuilder = Table.builder(table.get());
                 tableBuilder.getStorageBuilder().setLocation("/");
 
                 // drop table
-                replaceTable(databaseName, tableName, tableBuilder.build(), new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of()));
-                delegate.dropTable(databaseName, tableName, false);
+                replaceTable(metastoreContext, databaseName, tableName, tableBuilder.build(), new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of()));
+                delegate.dropTable(metastoreContext, databaseName, tableName, false);
 
                 // drop data
                 if (deleteData) {
@@ -551,9 +553,9 @@ public abstract class AbstractTestHiveFileSystem
             }
         }
 
-        public void updateTableLocation(String databaseName, String tableName, String location)
+        public void updateTableLocation(MetastoreContext metastoreContext, String databaseName, String tableName, String location)
         {
-            Optional<Table> table = getTable(databaseName, tableName);
+            Optional<Table> table = getTable(metastoreContext, databaseName, tableName);
             if (!table.isPresent()) {
                 throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
             }
@@ -562,13 +564,13 @@ public abstract class AbstractTestHiveFileSystem
             tableBuilder.getStorageBuilder().setLocation(location);
 
             // NOTE: this clears the permissions
-            replaceTable(databaseName, tableName, tableBuilder.build(), new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of()));
+            replaceTable(metastoreContext, databaseName, tableName, tableBuilder.build(), new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of()));
         }
 
-        private List<String> listAllDataPaths(String schemaName, String tableName)
+        private List<String> listAllDataPaths(MetastoreContext metastoreContext, String schemaName, String tableName)
         {
             ImmutableList.Builder<String> locations = ImmutableList.builder();
-            Table table = getTable(schemaName, tableName).get();
+            Table table = getTable(metastoreContext, schemaName, tableName).get();
             if (table.getStorage().getLocation() != null) {
                 // For partitioned table, there should be nothing directly under this directory.
                 // But including this location in the set makes the directory content assert more
@@ -576,9 +578,9 @@ public abstract class AbstractTestHiveFileSystem
                 locations.add(table.getStorage().getLocation());
             }
 
-            Optional<List<String>> partitionNames = getPartitionNames(schemaName, tableName);
+            Optional<List<String>> partitionNames = getPartitionNames(metastoreContext, schemaName, tableName);
             if (partitionNames.isPresent()) {
-                getPartitionsByNames(schemaName, tableName, partitionNames.get()).values().stream()
+                getPartitionsByNames(metastoreContext, schemaName, tableName, partitionNames.get()).values().stream()
                         .map(Optional::get)
                         .map(partition -> partition.getStorage().getLocation())
                         .filter(location -> !location.startsWith(table.getStorage().getLocation()))

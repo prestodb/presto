@@ -48,6 +48,7 @@ import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -59,6 +60,7 @@ import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.metastore.ProtectMode;
+import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.io.Text;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormatter;
@@ -102,6 +104,7 @@ import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_N
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_TRUE_VALUES;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.TOTAL_SIZE_IN_BYTES;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Strings.padEnd;
 import static com.google.common.io.BaseEncoding.base16;
@@ -112,6 +115,7 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.common.FileUtils.unescapePathName;
 import static org.apache.hadoop.hive.metastore.ColumnType.typeToThriftType;
 import static org.apache.hadoop.hive.metastore.ProtectMode.getProtectModeFromString;
+import static org.apache.hadoop.hive.metastore.Warehouse.makeSpecFromName;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.BUCKET_COUNT;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.BUCKET_FIELD_NAME;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
@@ -131,6 +135,7 @@ public class MetastoreUtil
     public static final String PRESTO_OFFLINE = "presto_offline";
     public static final String AVRO_SCHEMA_URL_KEY = "avro.schema.url";
     public static final String PRESTO_VIEW_FLAG = "presto_view";
+    public static final String PRESTO_MATERIALIZED_VIEW_FLAG = "presto_materialized_view";
     public static final String PRESTO_QUERY_ID_NAME = "presto_query_id";
     public static final String HIVE_DEFAULT_DYNAMIC_PARTITION = "__HIVE_DEFAULT_PARTITION__";
     @SuppressWarnings("OctalInteger")
@@ -408,9 +413,9 @@ public class MetastoreUtil
         }
     }
 
-    public static void verifyCanDropColumn(ExtendedHiveMetastore metastore, String databaseName, String tableName, String columnName)
+    public static void verifyCanDropColumn(ExtendedHiveMetastore metastore, MetastoreContext metastoreContext, String databaseName, String tableName, String columnName)
     {
-        Table table = metastore.getTable(databaseName, tableName)
+        Table table = metastore.getTable(metastoreContext, databaseName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
 
         if (table.getPartitionColumns().stream().anyMatch(column -> column.getName().equals(columnName))) {
@@ -443,6 +448,17 @@ public class MetastoreUtil
         }
     }
 
+    // TODO: https://github.com/prestodb/presto/issues/15974
+    public static Map<String, String> toPartitionNamesAndValues(String partitionName)
+    {
+        try {
+            return ImmutableMap.copyOf(makeSpecFromName(partitionName));
+        }
+        catch (MetaException e) {
+            throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, "Invalid partition name: " + partitionName);
+        }
+    }
+
     public static List<String> toPartitionValues(String partitionName)
     {
         // mimics Warehouse.makeValsFromName
@@ -468,10 +484,18 @@ public class MetastoreUtil
 
     public static List<String> extractPartitionValues(String partitionName)
     {
+        return extractPartitionValues(partitionName, Optional.empty());
+    }
+
+    public static List<String> extractPartitionValues(String partitionName, Optional<List<String>> partitionColumnNames)
+    {
         ImmutableList.Builder<String> values = ImmutableList.builder();
+        ImmutableList.Builder<String> keys = ImmutableList.builder();
 
         boolean inKey = true;
         int valueStart = -1;
+        int keyStart = 0;
+        int keyEnd = -1;
         for (int i = 0; i < partitionName.length(); i++) {
             char current = partitionName.charAt(i);
             if (inKey) {
@@ -479,19 +503,29 @@ public class MetastoreUtil
                 if (current == '=') {
                     inKey = false;
                     valueStart = i + 1;
+                    keyEnd = i;
                 }
             }
             else if (current == '/') {
                 checkArgument(valueStart != -1, "Invalid partition spec: %s", partitionName);
                 values.add(unescapePathName(partitionName.substring(valueStart, i)));
+                keys.add(unescapePathName(partitionName.substring(keyStart, keyEnd)));
                 inKey = true;
                 valueStart = -1;
+                keyStart = i + 1;
             }
         }
         checkArgument(!inKey, "Invalid partition spec: %s", partitionName);
         values.add(unescapePathName(partitionName.substring(valueStart, partitionName.length())));
+        keys.add(unescapePathName(partitionName.substring(keyStart, keyEnd)));
 
-        return values.build();
+        if (!partitionColumnNames.isPresent() || partitionColumnNames.get().size() == 1) {
+            return values.build();
+        }
+        ImmutableList.Builder<String> orderedValues = ImmutableList.builder();
+        partitionColumnNames.get()
+                .forEach(columnName -> orderedValues.add(values.build().get(keys.build().indexOf(columnName))));
+        return orderedValues.build();
     }
 
     public static List<String> createPartitionValues(List<Type> partitionColumnTypes, Page partitionColumns, int position)
@@ -652,6 +686,17 @@ public class MetastoreUtil
     public static boolean isPrestoView(Table table)
     {
         return "true".equals(table.getParameters().get(PRESTO_VIEW_FLAG));
+    }
+
+    public static boolean isPrestoMaterializedView(Table table)
+    {
+        if ("true".equals(table.getParameters().get(PRESTO_MATERIALIZED_VIEW_FLAG))) {
+            checkState(
+                    !table.getViewOriginalText().map(Strings::isNullOrEmpty).orElse(true),
+                    "viewOriginalText field is not set for the Table metadata of materialized view %s.", table.getTableName());
+            return true;
+        }
+        return false;
     }
 
     private static String getRenameErrorMessage(Path source, Path target)

@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.249-SNAPSHOT</version>
+        <version>0.254-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-main</artifactId>
@@ -274,11 +274,6 @@
         <dependency>
             <groupId>com.fasterxml.jackson.module</groupId>
             <artifactId>jackson-module-afterburner</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.fasterxml.jackson.dataformat</groupId>
-            <artifactId>jackson-dataformat-smile</artifactId>
         </dependency>
 
         <dependency>

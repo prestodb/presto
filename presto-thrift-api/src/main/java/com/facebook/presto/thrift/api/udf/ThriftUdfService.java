@@ -22,9 +22,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 public interface ThriftUdfService
 {
     @ThriftMethod
-    ListenableFuture<ThriftUdfResult> invokeUdf(
-            ThriftFunctionHandle functionHandle,
-            ThriftUdfPage inputs)
+    ListenableFuture<ThriftUdfResult> invokeUdf(ThriftUdfRequest request)
             throws TException,
             ThriftUdfServiceException;
 }

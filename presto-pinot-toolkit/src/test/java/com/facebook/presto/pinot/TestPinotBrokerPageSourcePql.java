@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.pinot;
 
-import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.pinot.query.PinotQueryGenerator;
@@ -44,7 +44,7 @@ public class TestPinotBrokerPageSourcePql
         extends TestPinotQueryBase
 {
     private static PinotTableHandle pinotTable = new PinotTableHandle("connId", "schema", "tbl");
-    private final ObjectMapper objectMapper = new ObjectMapperProvider().get();
+    private final ObjectMapper objectMapper = new JsonObjectMapperProvider().get();
     private static PinotColumnHandle jobState = new PinotColumnHandle("jobState", VARCHAR, PinotColumnHandle.PinotColumnType.REGULAR);
 
     private static class PqlParsedInfo

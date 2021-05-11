@@ -19,6 +19,7 @@ import com.facebook.airlift.stats.TestingGcMonitor;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.execution.TestSqlTaskManager.MockExchangeClientSupplier;
 import com.facebook.presto.execution.buffer.OutputBuffers;
+import com.facebook.presto.execution.buffer.SpoolingOutputBufferFactory;
 import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.memory.MemoryPool;
@@ -75,6 +76,7 @@ import static com.facebook.presto.sql.analyzer.FeaturesConfig.TaskSpillingStrate
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.TaskSpillingStrategy.ORDER_BY_REVOCABLE_BYTES;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
@@ -458,6 +460,91 @@ public class TestMemoryRevokingScheduler
         assertMemoryRevokingRequestedFor(operatorContext2);
     }
 
+    @Test
+    public void testQueryLimitMemoryRevokingScheduler()
+            throws Exception
+    {
+        // The various tasks created here use a small amount of system memory independent of what's set explicitly
+        // in this test. Triggering spilling based on differences of thousands of bytes rather than hundreds
+        // makes the test resilient to any noise that creates.
+
+        // There can still be a race condition where some of these allocations are made when the total memory is above
+        // the spill threshold, but in revokeMemory() some memory is reduced between when we get the total memory usage
+        // and when we get the task memory usage.  This can cause some extra spilling.
+        // To prevent flakiness in the test, we reset revoke memory requested for all operators, even if only one spilled.
+
+        QueryId queryId = new QueryId("query");
+        SqlTask sqlTask1 = newSqlTask(queryId);
+        TestOperatorContext operatorContext11 = createTestingOperatorContexts(sqlTask1, "operator11");
+        TestOperatorContext operatorContext12 = createTestingOperatorContexts(sqlTask1, "operator12");
+
+        SqlTask sqlTask2 = newSqlTask(queryId);
+        TestOperatorContext operatorContext2 = createTestingOperatorContexts(sqlTask2, "operator2");
+
+        allOperatorContexts = ImmutableSet.of(operatorContext11, operatorContext12, operatorContext2);
+        QueryLimitMemoryRevokingScheduler scheduler = new QueryLimitMemoryRevokingScheduler(singletonList(memoryPool), queryContexts::get, executor);
+        scheduler.registerPoolListeners();
+
+        assertMemoryRevokingNotRequested();
+
+        operatorContext11.localRevocableMemoryContext().setBytes(150_000);
+        operatorContext2.localRevocableMemoryContext().setBytes(100_000);
+        // at this point, Task1 = 150k total bytes, Task2 = 100k total bytes
+
+        // this ensures that we are waiting for the memory revocation listener and not using polling-based revoking
+        awaitAsynchronousCallbacksRun();
+        assertMemoryRevokingNotRequested();
+
+        operatorContext12.localRevocableMemoryContext().setBytes(300_000);
+        // at this point, Task1 =  450k total bytes, Task2 = 100k total bytes
+
+        awaitAsynchronousCallbacksRun();
+        // only operator11 should revoke since we need to revoke only 50k bytes
+        // limit - (task1 + task2) => 500k - (450k + 100k) = 50k byte to revoke
+        assertMemoryRevokingRequestedFor(operatorContext11);
+
+        // revoke all bytes in operator11
+        operatorContext11.localRevocableMemoryContext().setBytes(0);
+        // at this point, Task1 = 300k total bytes, Task2 = 100k total bytes
+        awaitAsynchronousCallbacksRun();
+        operatorContext11.resetMemoryRevokingRequested();
+        operatorContext12.resetMemoryRevokingRequested();
+        operatorContext2.resetMemoryRevokingRequested();
+        assertMemoryRevokingNotRequested();
+
+        operatorContext11.localRevocableMemoryContext().setBytes(20_000);
+        // at this point, Task1 = 320,000 total bytes (oc11 - 20k, oc12 - 300k), Task2 = 100k total bytes
+        awaitAsynchronousCallbacksRun();
+        assertMemoryRevokingNotRequested();
+
+        operatorContext2.localSystemMemoryContext().setBytes(150_000);
+        // at this point, Task1 = 320K total bytes, Task2 = 250K total bytes
+        // both operator11 and operator 12 are revoking since we revoke in order of operator creation within the task until we are below the memory revoking threshold
+        awaitAsynchronousCallbacksRun();
+        assertMemoryRevokingRequestedFor(operatorContext11, operatorContext12);
+
+        operatorContext11.localRevocableMemoryContext().setBytes(0);
+        operatorContext12.localRevocableMemoryContext().setBytes(0);
+        awaitAsynchronousCallbacksRun();
+        operatorContext11.resetMemoryRevokingRequested();
+        operatorContext12.resetMemoryRevokingRequested();
+        operatorContext2.resetMemoryRevokingRequested();
+        assertMemoryRevokingNotRequested();
+
+        operatorContext11.localRevocableMemoryContext().setBytes(50_000);
+        operatorContext12.localRevocableMemoryContext().setBytes(50_000);
+        operatorContext2.localSystemMemoryContext().setBytes(150_000);
+        operatorContext2.localRevocableMemoryContext().setBytes(150_000);
+        awaitAsynchronousCallbacksRun();
+        assertMemoryRevokingNotRequested(); // no need to revoke
+        // at this point, Task1 = 75k total bytes, Task2 = 300k total bytes (150k revocable, 150k system)
+
+        operatorContext12.localUserMemoryContext().setBytes(300_000);
+        // at this point, Task1 = 400K total bytes (100k revocable, 300k user), Task2 = 300k total bytes (150k revocable, 150k system)
+        awaitAsynchronousCallbacksRun();
+        assertMemoryRevokingRequestedFor(operatorContext2, operatorContext11);
+    }
+
     private OperatorContext createContexts(SqlTask sqlTask)
     {
         TaskContext taskContext = getOrCreateTaskContext(sqlTask);
@@ -574,15 +661,16 @@ public class TestMemoryRevokingScheduler
                 executor,
                 Functions.identity(),
                 new DataSize(32, MEGABYTE),
-                new CounterStat());
+                new CounterStat(),
+                new SpoolingOutputBufferFactory(new FeaturesConfig()));
     }
 
     private QueryContext getOrCreateQueryContext(QueryId queryId)
     {
         return queryContexts.computeIfAbsent(queryId, id -> new QueryContext(id,
-                new DataSize(1, MEGABYTE),
-                new DataSize(2, MEGABYTE),
-                new DataSize(1, MEGABYTE),
+                new DataSize(500, KILOBYTE),
+                new DataSize(500, KILOBYTE),
+                new DataSize(500, KILOBYTE),
                 new DataSize(1, GIGABYTE),
                 memoryPool,
                 new TestingGcMonitor(),

@@ -58,6 +58,7 @@ import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectN
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
+import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
@@ -218,7 +219,7 @@ public class TestFunctionAndTypeManager
                 "",
                 RoutineCharacteristics.builder().build(),
                 "",
-                Optional.empty());
+                notVersioned());
 
         SqlFunctionId varcharSignature = new SqlFunctionId(QualifiedObjectName.valueOf("presto.default.foo"), ImmutableList.of(parseTypeSignature("varchar")));
         SqlInvokedFunction varcharFunction = new SqlInvokedFunction(
@@ -228,7 +229,7 @@ public class TestFunctionAndTypeManager
                 "",
                 RoutineCharacteristics.builder().build(),
                 "",
-                Optional.empty());
+                notVersioned());
 
         Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions = ImmutableMap.of(bigintSignature, bigintFunction, varcharSignature, varcharFunction);
 

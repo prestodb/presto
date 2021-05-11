@@ -29,11 +29,12 @@ public class AlluxioCacheConfig
     private String metricsDomain = "com.facebook.alluxio";
     private DataSize maxCacheSize = new DataSize(2, GIGABYTE);
     private boolean configValidationEnabled;
-    private boolean timeoutEnabled;
+    private boolean timeoutEnabled = true;
     private boolean cacheQuotaEnabled;
     private Duration timeoutDuration = new Duration(60, SECONDS);
     private int timeoutThreads = 64;
-    private int evictionRetries;
+    private int evictionRetries = 10;
+    private EvictionPolicy evictionPolicy = EvictionPolicy.LRU;
 
     public boolean isMetricsCollectionEnabled()
     {
@@ -162,6 +163,19 @@ public class AlluxioCacheConfig
     public AlluxioCacheConfig setEvictionRetries(int evictionRetries)
     {
         this.evictionRetries = evictionRetries;
+        return this;
+    }
+
+    public EvictionPolicy getEvictionPolicy()
+    {
+        return evictionPolicy;
+    }
+
+    @Config("cache.alluxio.eviction-policy")
+    @ConfigDescription("The cache eviction policy")
+    public AlluxioCacheConfig setEvictionPolicy(EvictionPolicy evictionPolicy)
+    {
+        this.evictionPolicy = evictionPolicy;
         return this;
     }
 

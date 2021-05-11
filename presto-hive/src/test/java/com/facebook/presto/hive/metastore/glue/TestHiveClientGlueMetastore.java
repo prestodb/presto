@@ -22,6 +22,7 @@ import com.facebook.presto.hive.HiveHdfsConfiguration;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.AfterClass;
@@ -129,7 +130,7 @@ public class TestHiveClientGlueMetastore
     {
         try {
             createDummyPartitionedTable(tablePartitionFormat, CREATE_TABLE_COLUMNS_PARTITIONED);
-            Optional<List<String>> partitionNames = getMetastoreClient().getPartitionNames(tablePartitionFormat.getSchemaName(), tablePartitionFormat.getTableName());
+            Optional<List<String>> partitionNames = getMetastoreClient().getPartitionNames(new MetastoreContext("test_user"), tablePartitionFormat.getSchemaName(), tablePartitionFormat.getTableName());
             assertTrue(partitionNames.isPresent());
             assertEquals(partitionNames.get(), ImmutableList.of("ds=2016-01-01", "ds=2016-01-02"));
         }

@@ -49,6 +49,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_JOINS_WITH_EMPTY_SOURCES;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DecimalType.createDecimalType;
@@ -153,7 +154,7 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void selectLargeInterval()
+    public void testSelectLargeInterval()
     {
         MaterializedResult result = computeActual("SELECT INTERVAL '30' DAY");
         assertEquals(result.getRowCount(), 1);
@@ -165,7 +166,77 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void selectNull()
+    public void testEmptyJoins()
+    {
+        Session sessionWithEmptyJoin = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_JOINS_WITH_EMPTY_SOURCES, "true")
+                .build();
+        Session sessionWithoutEmptyJoin = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_JOINS_WITH_EMPTY_SOURCES, "false")
+                .build();
+        emptyJoinQueries(sessionWithEmptyJoin);
+        emptyJoinQueries(sessionWithoutEmptyJoin);
+    }
+
+    private void emptyJoinQueries(Session session)
+    {
+        // Empty predicate and inner join
+        assertQuery(session, "select 1 from (select * from orders where 1 = 0) DT join customer on DT.custkey=customer.custkey",
+                "select 1 from orders where 1 =0");
+
+        // Empty non-null producing side for outer join.
+        assertQuery(session, "select 1 from (select * from orders where 1 = 0) DT left outer join customer on DT.custkey=customer.custkey",
+                "select 1 from orders where 1 =0");
+
+        // 3 way join with empty non-null producing side for outer join
+        assertQuery(session, "select 1 from (select * from orders where 1 = 0) DT"
+                        + " left outer join customer C1 on DT.custkey=C1.custkey"
+                        + " left outer join customer C2 on C1.custkey=C2.custkey",
+                "select 1 from orders where 1 =0");
+
+        // Zero limit
+        assertQuery(session, "select 1 from (select * from orders LIMIT 0) DT join customer on DT.custkey=customer.custkey",
+                "select 1 from orders where 1 =0");
+
+        // Negative test.
+        assertQuery(session, "select 1 from (select * from orders) DT join customer on DT.custkey=customer.custkey",
+                "select 1 from orders");
+
+        // Empty null producing side for outer join.
+        assertQuery(session, "select 1 from (select * from orders) ORD left outer join (select custkey from customer where 1=0) " +
+                        "CUST on ORD.custkey=CUST.custkey",
+                "select 1 from orders");
+
+        // Empty null producing side for left outer join with constant field.
+        assertQuery(session, "select One from (select * from orders) ORD left outer join (select 1 as One, custkey from customer where 1=0) " +
+                        "CUST on ORD.custkey=CUST.custkey",
+                "select null as One from orders");
+
+        // Empty null producing side for right outer join with constant field.
+        assertQuery(session, "select One from (select 1 as One, custkey from customer where 1=0) CUST right outer join (select * from orders) ORD " +
+                        " ON ORD.custkey=CUST.custkey",
+                "select null as One from orders");
+
+        // 3 way join with mix of left and right outer joins. DT left outer join C1 right outer join O2.
+        // DT is empty which produces DT right outer join O2 which produce O2 as final result.
+        assertQuery(session, "select 1 from (select * from orders where 1 = 0) DT"
+                        + " left outer join customer C1 on DT.custkey=C1.custkey"
+                        + " right outer join orders O2 on C1.custkey=O2.custkey",
+                "select 1 from orders");
+
+        // Empty side for full outer join.
+        assertQuery(session, "select 1 from (select * from orders) ORD full outer join (select custkey from customer where 1=0) " +
+                        "CUST on ORD.custkey=CUST.custkey",
+                "select 1 from orders");
+
+        // Empty side for full outer join as input to aggregation.
+        assertQuery(session, "select count(*), orderkey from (select * from orders) ORD full outer join (select custkey from customer where 1=0) " +
+                        "CUST on ORD.custkey=CUST.custkey group by orderkey order by orderkey",
+                "select count(*), orderkey from orders group by orderkey order by orderkey");
+    }
+
+    @Test
+    public void testSelectNull()
     {
         assertQuery("SELECT NULL");
     }
@@ -1154,6 +1225,11 @@ public abstract class AbstractTestQueries
         assertQuery(
                 "SELECT a, sum(b), grouping(a) FROM (VALUES ('h', 11, 0), ('k', 7, 0)) AS t (a, b, c) GROUP BY GROUPING SETS (a)",
                 "VALUES ('h', 11, 0), ('k', 7, 0)");
+
+        // Grouping sets with limit
+        assertQuery(
+                "SELECT a, sum(b) as sum FROM (VALUES ('h', 11), ('h', 12), ('k', 7)) AS t (a, b) GROUP BY GROUPING SETS ((), a) order by sum limit 1",
+                "VALUES ('k',7)");
 
         assertQuery(
                 "SELECT a, b, sum(c), grouping(a, b) FROM (VALUES ('h', 'j', 11), ('k', 'l', 7) ) AS t (a, b, c) GROUP BY GROUPING SETS ( (a), (b)) HAVING grouping(a, b) > 1 ",
@@ -3421,12 +3497,9 @@ public abstract class AbstractTestQueries
         // two level of nesting
         assertQuery("SELECT * FROM nation n WHERE 2 = (SELECT (SELECT 2 * n.nationkey))");
 
-        // redundant LIMIT in subquery
-        assertQuery("SELECT (SELECT count(*) FROM (VALUES (7,1)) t(orderkey, value) WHERE orderkey = corr_key LIMIT 1) FROM (values 7) t(corr_key)");
-
         // explicit LIMIT in subquery
         assertQueryFails(
-                "SELECT (SELECT count(*) FROM (VALUES (7,1)) t(orderkey, value) WHERE orderkey = corr_key GROUP BY value LIMIT 2) FROM (values 7) t(corr_key)",
+                "SELECT (SELECT count(*) FROM (VALUES (7,1)) t(orderkey, value) WHERE orderkey = corr_key LIMIT 1) FROM (values 7) t(corr_key)",
                 "line 1:9: Given correlated subquery is not supported");
     }
 

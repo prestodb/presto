@@ -15,15 +15,12 @@ package com.facebook.presto.resourceGroups.db;
 
 import com.facebook.airlift.configuration.testing.ConfigAssertions;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
-import static java.util.concurrent.TimeUnit.HOURS;
-import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class TestDbResourceGroupConfig
 {
@@ -31,9 +28,7 @@ public class TestDbResourceGroupConfig
     public void testDefaults()
     {
         assertRecordedDefaults(ConfigAssertions.recordDefaults(DbResourceGroupConfig.class)
-                .setConfigDbUrl(null)
-                .setMaxRefreshInterval(new Duration(1, HOURS))
-                .setExactMatchSelectorEnabled(false));
+                .setConfigDbUrl(null));
     }
 
     @Test
@@ -41,13 +36,9 @@ public class TestDbResourceGroupConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("resource-groups.config-db-url", "jdbc:mysql//localhost:3306/config?user=presto_admin")
-                .put("resource-groups.max-refresh-interval", "1m")
-                .put("resource-groups.exact-match-selector-enabled", "true")
                 .build();
         DbResourceGroupConfig expected = new DbResourceGroupConfig()
-                .setConfigDbUrl("jdbc:mysql//localhost:3306/config?user=presto_admin")
-                .setMaxRefreshInterval(new Duration(1, MINUTES))
-                .setExactMatchSelectorEnabled(true);
+                .setConfigDbUrl("jdbc:mysql//localhost:3306/config?user=presto_admin");
 
         assertFullMapping(properties, expected);
     }

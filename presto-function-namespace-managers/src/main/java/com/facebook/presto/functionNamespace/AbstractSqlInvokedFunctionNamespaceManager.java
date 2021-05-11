@@ -16,8 +16,8 @@ package com.facebook.presto.functionNamespace;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.QualifiedObjectName;
-import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.common.function.SqlFunctionResult;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.UserDefinedType;
 import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutors;
@@ -211,11 +211,12 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
     }
 
     @Override
-    public CompletableFuture<Block> executeFunction(FunctionHandle functionHandle, Page input, List<Integer> channels, TypeManager typeManager)
+    public CompletableFuture<SqlFunctionResult> executeFunction(String source, FunctionHandle functionHandle, Page input, List<Integer> channels, TypeManager typeManager)
     {
         checkArgument(functionHandle instanceof SqlFunctionHandle, format("Expect SqlFunctionHandle, got %s", functionHandle.getClass()));
         FunctionMetadata functionMetadata = getFunctionMetadata(functionHandle);
         return sqlFunctionExecutors.executeFunction(
+                source,
                 getScalarFunctionImplementation(functionHandle),
                 input,
                 channels,
@@ -277,7 +278,8 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
                 function.getRoutineCharacteristics().getLanguage(),
                 getFunctionImplementationType(function),
                 function.isDeterministic(),
-                function.isCalledOnNullInput());
+                function.isCalledOnNullInput(),
+                function.getVersion());
     }
 
     protected FunctionImplementationType getFunctionImplementationType(SqlInvokedFunction function)

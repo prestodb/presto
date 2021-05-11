@@ -161,6 +161,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
+import static org.apache.hadoop.hive.serde.serdeConstants.COLLECTION_DELIM;
 import static org.apache.hadoop.hive.serde.serdeConstants.DECIMAL_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_ALL_COLUMNS;
@@ -174,6 +175,8 @@ public final class HiveUtil
 
     private static final String VIEW_PREFIX = "/* Presto View: ";
     private static final String VIEW_SUFFIX = " */";
+    private static final String MATERIALIZED_VIEW_PREFIX = "/* Presto Materialized View: ";
+    private static final String MATERIALIZED_VIEW_SUFFIX = " */";
 
     private static final DateTimeFormatter HIVE_DATE_PARSER = ISODateTimeFormat.date().withZoneUTC();
     private static final DateTimeFormatter HIVE_TIMESTAMP_PARSER;
@@ -432,6 +435,14 @@ public final class HiveUtil
     {
         String name = getDeserializerClassName(schema);
 
+        // for collection delimiter, Hive 1.x, 2.x uses "colelction.delim" but Hive 3.x uses "collection.delim"
+        // see also https://issues.apache.org/jira/browse/HIVE-16922
+        if (name.equals("org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe")) {
+            if (schema.containsKey("colelction.delim") && !schema.containsKey(COLLECTION_DELIM)) {
+                schema.put(COLLECTION_DELIM, schema.getProperty("colelction.delim"));
+            }
+        }
+
         Deserializer deserializer = createDeserializer(getDeserializerClass(name));
         initializeDeserializer(configuration, deserializer, schema);
         return deserializer;
@@ -519,7 +530,8 @@ public final class HiveUtil
     public static NullableValue parsePartitionValue(String partitionName, String value, Type type, DateTimeZone timeZone)
     {
         verifyPartitionTypeSupported(partitionName, type);
-        boolean isNull = HIVE_DEFAULT_DYNAMIC_PARTITION.equals(value) || isHiveNull(value.getBytes(UTF_8));
+
+        boolean isNull = HIVE_DEFAULT_DYNAMIC_PARTITION.equals(value);
 
         if (type instanceof DecimalType) {
             DecimalType decimalType = (DecimalType) type;
@@ -643,15 +655,35 @@ public final class HiveUtil
 
     public static String encodeViewData(String data)
     {
-        return VIEW_PREFIX + Base64.getEncoder().encodeToString(data.getBytes(UTF_8)) + VIEW_SUFFIX;
+        return encodeView(data, VIEW_PREFIX, VIEW_SUFFIX);
     }
 
     public static String decodeViewData(String data)
     {
-        checkCondition(data.startsWith(VIEW_PREFIX), HIVE_INVALID_VIEW_DATA, "View data missing prefix: %s", data);
-        checkCondition(data.endsWith(VIEW_SUFFIX), HIVE_INVALID_VIEW_DATA, "View data missing suffix: %s", data);
-        data = data.substring(VIEW_PREFIX.length());
-        data = data.substring(0, data.length() - VIEW_SUFFIX.length());
+        return decodeView(data, VIEW_PREFIX, VIEW_SUFFIX);
+    }
+
+    public static String encodeMaterializedViewData(String data)
+    {
+        return encodeView(data, MATERIALIZED_VIEW_PREFIX, MATERIALIZED_VIEW_SUFFIX);
+    }
+
+    public static String decodeMaterializedViewData(String data)
+    {
+        return decodeView(data, MATERIALIZED_VIEW_PREFIX, MATERIALIZED_VIEW_SUFFIX);
+    }
+
+    private static String encodeView(String data, String prefix, String suffix)
+    {
+        return prefix + Base64.getEncoder().encodeToString(data.getBytes(UTF_8)) + suffix;
+    }
+
+    private static String decodeView(String data, String prefix, String suffix)
+    {
+        checkCondition(data.startsWith(prefix), HIVE_INVALID_VIEW_DATA, "View data missing prefix: %s", data);
+        checkCondition(data.endsWith(suffix), HIVE_INVALID_VIEW_DATA, "View data missing suffix: %s", data);
+        data = data.substring(prefix.length());
+        data = data.substring(0, data.length() - suffix.length());
         return new String(Base64.getDecoder().decode(data), UTF_8);
     }
 

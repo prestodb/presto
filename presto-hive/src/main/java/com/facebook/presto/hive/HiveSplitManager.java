@@ -29,6 +29,7 @@ import com.facebook.presto.hive.metastore.DecimalStatistics;
 import com.facebook.presto.hive.metastore.DoubleStatistics;
 import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.IntegerStatistics;
+import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
@@ -216,7 +217,7 @@ public class HiveSplitManager
             throw new PrestoException(HIVE_TRANSACTION_NOT_FOUND, format("Transaction not found: %s", transaction));
         }
         SemiTransactionalHiveMetastore metastore = metadata.getMetastore();
-        Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName())
+        Table table = metastore.getTable(new MetastoreContext(session.getIdentity()), tableName.getSchemaName(), tableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
 
         if (!isOfflineDataDebugModeEnabled(session)) {
@@ -505,7 +506,7 @@ public class HiveSplitManager
                                 Optional.of(partition),
                                 partitionSchemaDifference.build(),
                                 encryptionInformation,
-                                partitionSplitInfo.get(partitionName).getRedundantColumnDomains()));
+                                partitionSplitInfo.get(hivePartition.getPartitionId()).getRedundantColumnDomains()));
             }
             if (unreadablePartitionsSkipped > 0) {
                 StringBuilder warningMessage = new StringBuilder(format("Table '%s' has %s out of %s partitions unreadable: ", tableName, unreadablePartitionsSkipped, partitionBatch.size()));
@@ -527,13 +528,16 @@ public class HiveSplitManager
             Map<String, HiveColumnHandle> predicateColumns,
             Optional<Map<Subfield, Domain>> domains)
     {
+        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity());
         Map<String, Optional<Partition>> partitions = metastore.getPartitionsByNames(
+                metastoreContext,
                 tableName.getSchemaName(),
                 tableName.getTableName(),
                 Lists.transform(partitionBatch, HivePartition::getPartitionId));
         Map<String, PartitionStatistics> partitionStatistics = ImmutableMap.of();
         if (domains.isPresent() && isPartitionStatisticsBasedOptimizationEnabled(session)) {
             partitionStatistics = metastore.getPartitionStatistics(
+                    metastoreContext,
                     tableName.getSchemaName(),
                     tableName.getTableName(),
                     partitionBatch.stream()
@@ -553,8 +557,9 @@ public class HiveSplitManager
                 for (Map.Entry<String, HiveColumnHandle> predicateColumnEntry : predicateColumns.entrySet()) {
                     if (columnStatistics.containsKey(predicateColumnEntry.getKey())) {
                         Optional<ValueSet> columnsStatisticsValueSet = getColumnStatisticsValueSet(columnStatistics.get(predicateColumnEntry.getKey()), predicateColumnEntry.getValue().getHiveType());
-                        if (columnsStatisticsValueSet.isPresent()) {
-                            ValueSet columnPredicateValueSet = domains.get().get(new Subfield(predicateColumnEntry.getKey())).getValues();
+                        Subfield subfield = new Subfield(predicateColumnEntry.getKey());
+                        if (columnsStatisticsValueSet.isPresent() && domains.get().containsKey(subfield)) {
+                            ValueSet columnPredicateValueSet = domains.get().get(subfield).getValues();
                             if (!columnPredicateValueSet.overlaps(columnsStatisticsValueSet.get())) {
                                 pruned = true;
                                 break;

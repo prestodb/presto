@@ -18,6 +18,7 @@ import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.security.Identity;
@@ -53,6 +54,7 @@ import javax.annotation.concurrent.Immutable;
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -63,9 +65,14 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.isCheckAccessControlOnUtilizedColumnsOnly;
+import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
+import static com.facebook.presto.sql.analyzer.Analysis.MaterializedViewAnalysisState.NOT_VISITED;
+import static com.facebook.presto.sql.analyzer.Analysis.MaterializedViewAnalysisState.VISITED;
+import static com.facebook.presto.sql.analyzer.Analysis.MaterializedViewAnalysisState.VISITING;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Multimaps.forMap;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
@@ -143,6 +150,9 @@ public class Analysis
 
     // for recursive view detection
     private final Deque<Table> tablesForView = new ArrayDeque<>();
+
+    // for materialized view analysis state detection, state is used to identify if materialized view has been expanded or in-process.
+    private final Map<Table, MaterializedViewAnalysisState> materializedViewAnalysisStateMap = new HashMap<>();
 
     public Analysis(@Nullable Statement root, List<Expression> parameters, boolean isDescribe)
     {
@@ -463,6 +473,11 @@ public class Analysis
         return unmodifiableCollection(tables.values());
     }
 
+    public List<Table> getTableNodes()
+    {
+        return tables.keySet().stream().map(NodeRef::getNode).collect(toImmutableList());
+    }
+
     public void registerTable(Table table, TableHandle handle)
     {
         tables.put(NodeRef.of(table), handle);
@@ -617,6 +632,32 @@ public class Analysis
         tablesForView.pop();
     }
 
+    public void registerMaterializedViewForAnalysis(Table materializedView)
+    {
+        requireNonNull(materializedView, "materializedView is null");
+        if (materializedViewAnalysisStateMap.containsKey(materializedView)) {
+            materializedViewAnalysisStateMap.put(materializedView, VISITED);
+        }
+        else {
+            materializedViewAnalysisStateMap.put(materializedView, VISITING);
+        }
+    }
+
+    public void unregisterMaterializedViewForAnalysis(Table materializedView)
+    {
+        requireNonNull(materializedView, "materializedView is null");
+        checkState(
+                materializedViewAnalysisStateMap.containsKey(materializedView),
+                format("materializedViewAnalysisStateMap does not contain materialized view : %s", materializedView.getName()));
+        materializedViewAnalysisStateMap.remove(materializedView);
+    }
+
+    public MaterializedViewAnalysisState getMaterializedViewAnalysisState(Table materializedView)
+    {
+        requireNonNull(materializedView, "materializedView is null");
+        return materializedViewAnalysisStateMap.getOrDefault(materializedView, NOT_VISITED);
+    }
+
     public boolean hasTableInView(Table tableReference)
     {
         return tablesForView.contains(tableReference);
@@ -707,6 +748,15 @@ public class Analysis
     public boolean isOrderByRedundant(OrderBy orderBy)
     {
         return redundantOrderBy.contains(NodeRef.of(orderBy));
+    }
+
+    public Map<String, Map<SchemaTableName, String>> getOriginalColumnMapping(Node node)
+    {
+        return getOutputDescriptor(node).getVisibleFields().stream()
+                .filter(field -> field.getOriginTable().isPresent() && field.getOriginColumnName().isPresent())
+                .collect(toImmutableMap(
+                        field -> field.getName().get(),
+                        field -> ImmutableMap.of(toSchemaTableName(field.getOriginTable().get()), field.getOriginColumnName().get())));
     }
 
     @Immutable
@@ -808,6 +858,35 @@ public class Analysis
         public List<Expression> getComplexExpressions()
         {
             return complexExpressions;
+        }
+    }
+
+    public enum MaterializedViewAnalysisState
+    {
+        NOT_VISITED(0),
+        VISITING(1),
+        VISITED(2);
+
+        private final int value;
+
+        MaterializedViewAnalysisState(int value)
+        {
+            this.value = value;
+        }
+
+        public boolean isNotVisited()
+        {
+            return this.value == NOT_VISITED.value;
+        }
+
+        public boolean isVisited()
+        {
+            return this.value == VISITED.value;
+        }
+
+        public boolean isVisiting()
+        {
+            return this.value == VISITING.value;
         }
     }
 

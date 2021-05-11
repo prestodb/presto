@@ -129,7 +129,7 @@ public class TestHiveClientConfig
                 .setTemporaryTableSchema("default")
                 .setTemporaryTableStorageFormat(ORC)
                 .setTemporaryTableCompressionCodec(SNAPPY)
-                .setCreateEmptyBucketFilesForTemporaryTable(true)
+                .setCreateEmptyBucketFilesForTemporaryTable(false)
                 .setUsePageFileForHiveUnsupportedType(true)
                 .setPushdownFilterEnabled(false)
                 .setZstdJniDecompressionEnabled(false)
@@ -149,7 +149,8 @@ public class TestHiveClientConfig
                 .setPartialAggregationPushdownForVariableLengthDatatypesEnabled(false)
                 .setFileRenamingEnabled(false)
                 .setPreferManifestsToListFiles(false)
-                .setManifestVerificationEnabled(false));
+                .setManifestVerificationEnabled(false)
+                .setUndoMetastoreOperationsEnabled(true));
     }
 
     @Test
@@ -239,7 +240,7 @@ public class TestHiveClientConfig
                 .put("hive.temporary-table-schema", "other")
                 .put("hive.temporary-table-storage-format", "DWRF")
                 .put("hive.temporary-table-compression-codec", "NONE")
-                .put("hive.create-empty-bucket-files-for-temporary-table", "false")
+                .put("hive.create-empty-bucket-files-for-temporary-table", "true")
                 .put("hive.use-pagefile-for-hive-unsupported-type", "false")
                 .put("hive.pushdown-filter-enabled", "true")
                 .put("hive.range-filters-on-subscripts-enabled", "true")
@@ -260,6 +261,7 @@ public class TestHiveClientConfig
                 .put("hive.file_renaming_enabled", "true")
                 .put("hive.prefer-manifests-to-list-files", "true")
                 .put("hive.manifest-verification-enabled", "true")
+                .put("hive.undo-metastore-operations-enabled", "false")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -346,7 +348,7 @@ public class TestHiveClientConfig
                 .setTemporaryTableSchema("other")
                 .setTemporaryTableStorageFormat(DWRF)
                 .setTemporaryTableCompressionCodec(NONE)
-                .setCreateEmptyBucketFilesForTemporaryTable(false)
+                .setCreateEmptyBucketFilesForTemporaryTable(true)
                 .setUsePageFileForHiveUnsupportedType(false)
                 .setPushdownFilterEnabled(true)
                 .setZstdJniDecompressionEnabled(true)
@@ -366,7 +368,8 @@ public class TestHiveClientConfig
                 .setPartialAggregationPushdownForVariableLengthDatatypesEnabled(true)
                 .setFileRenamingEnabled(true)
                 .setPreferManifestsToListFiles(true)
-                .setManifestVerificationEnabled(true);
+                .setManifestVerificationEnabled(true)
+                .setUndoMetastoreOperationsEnabled(false);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

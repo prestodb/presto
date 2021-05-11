@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.predicate.TupleDomain;
@@ -190,7 +190,7 @@ public final class TaskTestUtils
     {
         return new SplitMonitor(
                 new EventListenerManager(),
-                new ObjectMapperProvider().get());
+                new JsonObjectMapperProvider().get());
     }
 
     public static QueryStateMachine createQueryStateMachine(

@@ -562,6 +562,17 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
+    protected R visitCreateMaterializedView(CreateMaterializedView node, C context)
+    {
+        process(node.getQuery(), context);
+        for (Property property : node.getProperties()) {
+            process(property, context);
+        }
+
+        return null;
+    }
+
+    @Override
     protected R visitSetSession(SetSession node, C context)
     {
         process(node.getValue(), context);

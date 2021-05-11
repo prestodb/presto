@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.Column;
+import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
@@ -111,7 +112,7 @@ public class SyncPartitionMetadataProcedure
         SemiTransactionalHiveMetastore metastore = hiveMetadataFactory.get().getMetastore();
         SchemaTableName schemaTableName = new SchemaTableName(schemaName, tableName);
 
-        Table table = metastore.getTable(schemaName, tableName)
+        Table table = metastore.getTable(new MetastoreContext(session.getIdentity()), schemaName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(schemaTableName));
         if (table.getPartitionColumns().isEmpty()) {
             throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, "Table is not partitioned: " + schemaTableName);
@@ -124,7 +125,7 @@ public class SyncPartitionMetadataProcedure
 
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(context, tableLocation);
-            List<String> partitionsInMetastore = metastore.getPartitionNames(schemaName, tableName)
+            List<String> partitionsInMetastore = metastore.getPartitionNames(new MetastoreContext(session.getIdentity()), schemaName, tableName)
                     .orElseThrow(() -> new TableNotFoundException(schemaTableName));
             List<String> partitionsInFileSystem = listDirectory(fileSystem, fileSystem.getFileStatus(tableLocation), table.getPartitionColumns(), table.getPartitionColumns().size(), caseSensitive).stream()
                     .map(fileStatus -> fileStatus.getPath().toUri())

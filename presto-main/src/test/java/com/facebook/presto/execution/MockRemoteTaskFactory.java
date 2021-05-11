@@ -21,6 +21,7 @@ import com.facebook.presto.execution.NodeTaskMap.NodeStatsTracker;
 import com.facebook.presto.execution.buffer.LazyOutputBuffer;
 import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.execution.buffer.OutputBuffers;
+import com.facebook.presto.execution.buffer.SpoolingOutputBufferFactory;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.memory.MemoryPool;
 import com.facebook.presto.memory.QueryContext;
@@ -38,6 +39,7 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spiller.SpillSpaceTracker;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -85,6 +87,7 @@ import static com.facebook.presto.metadata.MetadataUpdates.DEFAULT_METADATA_UPDA
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static com.facebook.presto.util.Failures.toFailures;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
@@ -181,6 +184,11 @@ public class MockRemoteTaskFactory
         private int runningDrivers;
 
         @GuardedBy("this")
+        private int maxUnacknowledgedSplits = Integer.MAX_VALUE;
+        @GuardedBy("this")
+        private int unacknowledgedSplits;
+
+        @GuardedBy("this")
         private SettableFuture<?> whenSplitQueueHasSpace = SettableFuture.create();
 
         private final NodeStatsTracker nodeStatsTracker;
@@ -224,7 +232,8 @@ public class MockRemoteTaskFactory
                     TASK_INSTANCE_ID.toString(),
                     executor,
                     new DataSize(1, BYTE),
-                    () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"));
+                    () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
+                    new SpoolingOutputBufferFactory(new FeaturesConfig()));
 
             this.fragment = requireNonNull(fragment, "fragment is null");
             this.nodeId = requireNonNull(nodeId, "nodeId is null");
@@ -339,7 +348,7 @@ public class MockRemoteTaskFactory
 
         private synchronized void updateSplitQueueSpace()
         {
-            if (getQueuedPartitionedSplitCount() < 9) {
+            if (unacknowledgedSplits < maxUnacknowledgedSplits && getQueuedPartitionedSplitCount() < 9) {
                 if (!whenSplitQueueHasSpace.isDone()) {
                     whenSplitQueueHasSpace.set(null);
                 }
@@ -366,6 +375,7 @@ public class MockRemoteTaskFactory
 
         public synchronized void clearSplits()
         {
+            unacknowledgedSplits = 0;
             splits.clear();
             updateTaskStats();
             runningDrivers = 0;
@@ -376,6 +386,20 @@ public class MockRemoteTaskFactory
         {
             runningDrivers = splits.size();
             runningDrivers = Math.min(runningDrivers, maxRunning);
+            updateSplitQueueSpace();
+        }
+
+        public synchronized void setMaxUnacknowledgedSplits(int maxUnacknowledgedSplits)
+        {
+            checkArgument(maxUnacknowledgedSplits > 0);
+            this.maxUnacknowledgedSplits = maxUnacknowledgedSplits;
+            updateSplitQueueSpace();
+        }
+
+        public synchronized void setUnacknowledgedSplits(int unacknowledgedSplits)
+        {
+            checkArgument(unacknowledgedSplits >= 0);
+            this.unacknowledgedSplits = unacknowledgedSplits;
             updateSplitQueueSpace();
         }
 
@@ -494,6 +518,12 @@ public class MockRemoteTaskFactory
                 return 0;
             }
             return getPartitionedSplitCount() - runningDrivers;
+        }
+
+        @Override
+        public synchronized int getUnacknowledgedPartitionedSplitCount()
+        {
+            return unacknowledgedSplits;
         }
     }
 }

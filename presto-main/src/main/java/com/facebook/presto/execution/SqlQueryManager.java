@@ -207,6 +207,12 @@ public class SqlQueryManager
         return queryTracker.getQuery(queryId).getSlug().equals(slug);
     }
 
+    @Override
+    public int getQueryRetryCount(QueryId queryId)
+    {
+        return queryTracker.getQuery(queryId).getRetryCount();
+    }
+
     public Plan getQueryPlan(QueryId queryId)
     {
         return queryTracker.getQuery(queryId).getQueryPlan();

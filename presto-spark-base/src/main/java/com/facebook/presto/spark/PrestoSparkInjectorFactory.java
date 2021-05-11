@@ -15,6 +15,7 @@ package com.facebook.presto.spark;
 
 import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.json.JsonModule;
+import com.facebook.airlift.json.smile.SmileModule;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.eventlistener.EventListenerModule;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
@@ -131,6 +132,7 @@ public class PrestoSparkInjectorFactory
         ImmutableList.Builder<Module> modules = ImmutableList.builder();
         modules.add(
                 new JsonModule(),
+                new SmileModule(),
                 new EventListenerModule(),
                 new PrestoSparkModule(sparkProcessType, sqlParserOptions),
                 new WarningCollectorModule());
@@ -182,6 +184,9 @@ public class PrestoSparkInjectorFactory
 
                 if (tempStorageProperties.isPresent()) {
                     injector.getInstance(TempStorageManager.class).loadTempStorages(tempStorageProperties.get());
+                }
+                else {
+                    injector.getInstance(TempStorageManager.class).loadTempStorages();
                 }
             }
 

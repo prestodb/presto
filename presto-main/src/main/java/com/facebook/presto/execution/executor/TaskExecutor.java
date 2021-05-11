@@ -849,13 +849,13 @@ public class TaskExecutor
         //
         // 2 splits have been continuously active for more than 600.00ms seconds
         //
-        // "20180907_054754_00000_88xi4.1.0-2" tid=99
+        // "20180907_054754_00000_88xi4.1.0-2" tid=99 status=running detail=Split 20210429_154412_56509_f63i2.27.0.22-0 {path=hdfs://ns-prod/user/hive/freight_analytics.db/analytics_loads/000002_0, start=67108864, length=67108864, fileSize=531637256, hosts=[], database=freight_analytics, table=analytics_loads, forceLocalScheduling=false, partitionName=<UNPARTITIONED>, s3SelectPushdownEnabled=false} (start = 2.3639101134349113E10, wall = 34 ms, cpu = 0 ms, wait = 189 ms, calls = 1)
         // at java.util.Formatter$FormatSpecifier.<init>(Formatter.java:2708)
         // at java.util.Formatter.parse(Formatter.java:2560)
         // at java.util.Formatter.format(Formatter.java:2501)
         // at ... (more lines of stacktrace)
         //
-        // "20180907_054754_00000_88xi4.1.0-3" tid=106
+        // "20180907_054754_00000_88xi4.1.0-3" tid=106 status=running detail=Error processing Split 20210423_234231_69820_3jigi.2.0.19-43 (start = 2.3149319001729774E10, wall = 143673 ms, cpu = 51060 ms, wait = 34701 ms, calls = 70)
         // at java.util.Formatter$FormatSpecifier.<init>(Formatter.java:2709)
         // at java.util.Formatter.parse(Formatter.java:2560)
         // at java.util.Formatter.format(Formatter.java:2501)
@@ -868,7 +868,7 @@ public class TaskExecutor
             if (duration.compareTo(LONG_SPLIT_WARNING_THRESHOLD) >= 0) {
                 maxActiveSplitCount++;
                 stackTrace.append("\n");
-                stackTrace.append(String.format("\"%s\" tid=%s status=%s", splitInfo.getThreadId(), splitInfo.getThread().getId(), splitInfo.isFinished() ? "finished" : "running")).append("\n");
+                stackTrace.append(String.format("\"%s\" tid=%s status=%s detail=%s", splitInfo.getThreadId(), splitInfo.getThread().getId(), splitInfo.isFinished() ? "finished" : "running", splitInfo.getSplitInfo())).append("\n");
                 for (StackTraceElement traceElement : splitInfo.getThread().getStackTrace()) {
                     stackTrace.append("\tat ").append(traceElement).append("\n");
                 }
@@ -937,6 +937,11 @@ public class TaskExecutor
         public boolean isFinished()
         {
             return split.isFinished();
+        }
+
+        public String getSplitInfo()
+        {
+            return split.getInfo();
         }
 
         @Override

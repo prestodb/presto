@@ -33,17 +33,24 @@ public class ThriftSerializedPage
     private final int positionCount;
     private final int uncompressedSizeInBytes;
     private final byte pageCodecMarkers;
+    private final long checksum;
 
     public ThriftSerializedPage(SerializedPage serializedPage)
     {
-        this(serializedPage.getSlice(), serializedPage.getPageCodecMarkers(), serializedPage.getPositionCount(), serializedPage.getUncompressedSizeInBytes());
+        this(
+                serializedPage.getSlice(),
+                serializedPage.getPageCodecMarkers(),
+                serializedPage.getPositionCount(),
+                serializedPage.getUncompressedSizeInBytes(),
+                serializedPage.getChecksum());
     }
 
     private ThriftSerializedPage(
             Slice slice,
             byte pageCodecMarkers,
             int positionCount,
-            int uncompressedSizeInBytes)
+            int uncompressedSizeInBytes,
+            long checksum)
     {
         this.slice = requireNonNull(slice, "slice is null");
         this.positionCount = positionCount;
@@ -59,6 +66,7 @@ public class ThriftSerializedPage
                 checkArgument(uncompressedSizeInBytes == slice.length(), "uncompressed size must be equal to slice length when uncompressed");
             }
         }
+        this.checksum = checksum;
     }
 
     /**
@@ -69,9 +77,10 @@ public class ThriftSerializedPage
             byte[] data,
             byte pageCodecMarkers,
             int positionCount,
-            int uncompressedSizeInBytes)
+            int uncompressedSizeInBytes,
+            long checksum)
     {
-        this(Slices.wrappedBuffer(data), pageCodecMarkers, positionCount, uncompressedSizeInBytes);
+        this(Slices.wrappedBuffer(data), pageCodecMarkers, positionCount, uncompressedSizeInBytes, checksum);
     }
 
     @ThriftField(1)
@@ -105,8 +114,14 @@ public class ThriftSerializedPage
         return uncompressedSizeInBytes;
     }
 
+    @ThriftField(5)
+    public long getChecksum()
+    {
+        return checksum;
+    }
+
     public SerializedPage toSerializedPage()
     {
-        return new SerializedPage(slice, pageCodecMarkers, positionCount, uncompressedSizeInBytes);
+        return new SerializedPage(slice, pageCodecMarkers, positionCount, uncompressedSizeInBytes, checksum);
     }
 }

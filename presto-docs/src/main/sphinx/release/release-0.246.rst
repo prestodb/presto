@@ -2,6 +2,10 @@
 Release 0.246
 =============
 
+.. warning::
+    There is a bug causing ``SORT`` or``LIMIT`` to be incorrectly eliminated when using ``GROUPING SETS (())`, ``CUBE`` or ``ROLLUP``,
+    first introduced in 0.246 by :pr:`14915`
+
 **Details**
 ===========
 

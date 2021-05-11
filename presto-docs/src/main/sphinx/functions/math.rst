@@ -22,6 +22,12 @@ Mathematical Functions
 
     Returns the absolute value of ``x``.
 
+.. function:: binomial_cdf(numberOfTrials, successProbability, value) -> double
+
+    Compute the Binomial cdf with given numberOfTrials and successProbability (for a single trial):  P(N < value).
+    The successProbability must be real value in [0, 1], numberOfTrials and value must be
+    positive integers with numberOfTrials greater or equal to value.
+
 .. function:: cbrt(x) -> double
 
     Returns the cube root of ``x``.
@@ -33,6 +39,12 @@ Mathematical Functions
 .. function:: ceiling(x) -> [same as input]
 
     Returns ``x`` rounded up to the nearest integer.
+
+.. function:: chi_squared_cdf(df, value) -> double
+
+    Compute the Chi-square cdf with given df (degrees of freedom) parameter:  P(N < value; df).
+    The df parameter must be positive real numbers and value must be a real value.
+    The value must be non-negative.
 
 .. function:: cosine_similarity(x, y) -> double
 
@@ -59,6 +71,19 @@ Mathematical Functions
 .. function:: from_base(string, radix) -> bigint
 
     Returns the value of ``string`` interpreted as a base-``radix`` number.
+
+.. function:: inverse_binomial_cdf(numberOfTrials, successProbability, p) -> int
+
+    Compute the inverse of the Binomial cdf with given numberOfTrials and successProbability (of a single trial) the
+    cumulative probability (p):  P(N <= n).
+    The successProbability and p must be real values in [0, 1] and the numberOfTrials must be
+    a positive integer.
+
+.. function:: inverse_chi_squared_cdf(df, p) -> double
+
+    Compute the inverse of the Chi-square cdf with given df (degrees of freedom) parameter for the cumulative
+    probability (p): P(N < n). The df parameter must be positive real values.
+    The probability p must lie on the interval [0, 1].
 
 .. function:: inverse_normal_cdf(mean, sd, p) -> double
 

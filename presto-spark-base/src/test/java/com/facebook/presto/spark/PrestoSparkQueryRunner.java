@@ -30,6 +30,7 @@ import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
@@ -146,10 +147,15 @@ public class PrestoSparkQueryRunner
 
     public static PrestoSparkQueryRunner createHivePrestoSparkQueryRunner(Iterable<TpchTable<?>> tables)
     {
-        PrestoSparkQueryRunner queryRunner = new PrestoSparkQueryRunner("hive");
+        return createHivePrestoSparkQueryRunner(tables, ImmutableMap.of());
+    }
+
+    public static PrestoSparkQueryRunner createHivePrestoSparkQueryRunner(Iterable<TpchTable<?>> tables, Map<String, String> additionalConfigProperties)
+    {
+        PrestoSparkQueryRunner queryRunner = new PrestoSparkQueryRunner("hive", additionalConfigProperties);
         ExtendedHiveMetastore metastore = queryRunner.getMetastore();
-        if (!metastore.getDatabase("tpch").isPresent()) {
-            metastore.createDatabase(createDatabaseMetastoreObject("tpch"));
+        if (!metastore.getDatabase(new MetastoreContext("test_user"), "tpch").isPresent()) {
+            metastore.createDatabase(new MetastoreContext("test_user"), createDatabaseMetastoreObject("tpch"));
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, queryRunner.getDefaultSession(), tables);
             copyTpchTablesBucketed(queryRunner, "tpch", TINY_SCHEMA_NAME, queryRunner.getDefaultSession(), tables);
         }
@@ -190,15 +196,20 @@ public class PrestoSparkQueryRunner
         log.info("Imported %s rows for %s in %s", rows, tableName, nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 
-    public PrestoSparkQueryRunner(String defaultCatalog)
+    public PrestoSparkQueryRunner(String defaultCatalog, Map<String, String> additionalConfigProperties)
     {
         setupLogging();
 
+        ImmutableMap.Builder<String, String> configProperties = ImmutableMap.builder();
+        configProperties.put("presto.version", "testversion");
+        configProperties.put("query.hash-partition-count", Integer.toString(NODE_COUNT * 2));
+        configProperties.put("task.writer-count", Integer.toString(2));
+        configProperties.put("task.partitioned-writer-count", Integer.toString(4));
+        configProperties.putAll(additionalConfigProperties);
+
         PrestoSparkInjectorFactory injectorFactory = new PrestoSparkInjectorFactory(
                 DRIVER,
-                ImmutableMap.of(
-                        "presto.version", "testversion",
-                        "query.hash-partition-count", Integer.toString(NODE_COUNT * 2)),
+                configProperties.build(),
                 ImmutableMap.of(),
                 Optional.empty(),
                 Optional.empty(),
@@ -251,7 +262,7 @@ public class PrestoSparkQueryRunner
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
 
         this.metastore = new FileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test");
-        metastore.createDatabase(createDatabaseMetastoreObject("hive_test"));
+        metastore.createDatabase(new MetastoreContext("test_user"), createDatabaseMetastoreObject("hive_test"));
         pluginManager.installPlugin(new HivePlugin("hive", Optional.of(metastore)));
 
         connectorManager.createConnection("hive", "hive", ImmutableMap.of());
@@ -277,7 +288,6 @@ public class PrestoSparkQueryRunner
         Logging logging = Logging.initialize();
         logging.setLevel("org.apache.spark", WARN);
         logging.setLevel("org.spark_project", WARN);
-        logging.setLevel("com.facebook.presto.spark", WARN);
         logging.setLevel("com.facebook.presto.spark", WARN);
         logging.setLevel("org.apache.spark.util.ClosureCleaner", ERROR);
         logging.setLevel("com.facebook.presto.security.AccessControlManager", WARN);
@@ -367,6 +377,8 @@ public class PrestoSparkQueryRunner
                 sparkContext,
                 createSessionInfo(session),
                 Optional.of(sql),
+                Optional.empty(),
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 new TestingPrestoSparkTaskExecutorFactoryProvider(instanceId),

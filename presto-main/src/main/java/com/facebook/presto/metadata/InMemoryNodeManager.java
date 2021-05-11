@@ -100,13 +100,20 @@ public class InMemoryNodeManager
     }
 
     @Override
+    public Set<InternalNode> getAllConnectorNodes(ConnectorId connectorId)
+    {
+        return getActiveConnectorNodes(connectorId);
+    }
+
+    @Override
     public AllNodes getAllNodes()
     {
         return new AllNodes(
                 ImmutableSet.<InternalNode>builder().add(localNode).addAll(remoteNodes.values()).build(),
                 ImmutableSet.of(),
                 ImmutableSet.of(),
-                concat(Stream.of(localNode), remoteNodes.values().stream().filter(InternalNode::isCoordinator)).collect(toImmutableSet()));
+                concat(Stream.of(localNode), remoteNodes.values().stream().filter(InternalNode::isCoordinator)).collect(toImmutableSet()),
+                concat(Stream.of(localNode), remoteNodes.values().stream().filter(InternalNode::isResourceManager)).collect(toImmutableSet()));
     }
 
     @Override
@@ -119,14 +126,13 @@ public class InMemoryNodeManager
     public Set<InternalNode> getCoordinators()
     {
         // always use localNode as coordinator
-        return ImmutableSet.of(localNode);
+        return getAllNodes().getActiveCoordinators();
     }
 
     @Override
     public Set<InternalNode> getResourceManagers()
     {
-        // always use localNode as resource manager
-        return ImmutableSet.of(localNode);
+        return getAllNodes().getActiveResourceManagers();
     }
 
     @Override

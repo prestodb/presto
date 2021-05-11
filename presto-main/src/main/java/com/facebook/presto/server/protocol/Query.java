@@ -19,6 +19,7 @@ import com.facebook.presto.client.Column;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
+import com.facebook.presto.client.StatementStats;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.BooleanType;
@@ -39,6 +40,8 @@ import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.transaction.TransactionId;
+import com.facebook.presto.transaction.TransactionInfo;
+import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -68,10 +71,13 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.airlift.concurrent.MoreFutures.addTimeout;
+import static com.facebook.presto.SystemSessionProperties.getQueryRetryLimit;
+import static com.facebook.presto.SystemSessionProperties.getQueryRetryMaxExecutionTime;
 import static com.facebook.presto.SystemSessionProperties.getTargetResultSize;
 import static com.facebook.presto.SystemSessionProperties.isExchangeChecksumEnabled;
 import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionEnabled;
 import static com.facebook.presto.execution.QueryState.FAILED;
+import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.server.protocol.QueryResourceUtil.toStatementStats;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.util.Failures.toFailure;
@@ -89,6 +95,7 @@ class Query
     private static final Logger log = Logger.get(Query.class);
 
     private final QueryManager queryManager;
+    private final TransactionManager transactionManager;
     private final QueryId queryId;
     private final Session session;
     private final String slug;
@@ -100,6 +107,7 @@ class Query
     private final ScheduledExecutorService timeoutExecutor;
 
     private final PagesSerde serde;
+    private final RetryCircuitBreaker retryCircuitBreaker;
 
     @GuardedBy("this")
     private OptionalLong nextToken = OptionalLong.of(0);
@@ -147,6 +155,9 @@ class Query
     private Long updateCount;
 
     @GuardedBy("this")
+    private boolean hasProducedResult;
+
+    @GuardedBy("this")
     private Map<SqlFunctionId, SqlInvokedFunction> addedSessionFunctions = ImmutableMap.of();
 
     @GuardedBy("this")
@@ -156,12 +167,14 @@ class Query
             Session session,
             String slug,
             QueryManager queryManager,
+            TransactionManager transactionManager,
             ExchangeClient exchangeClient,
             Executor dataProcessorExecutor,
             ScheduledExecutorService timeoutExecutor,
-            BlockEncodingSerde blockEncodingSerde)
+            BlockEncodingSerde blockEncodingSerde,
+            RetryCircuitBreaker retryCircuitBreaker)
     {
-        Query result = new Query(session, slug, queryManager, exchangeClient, dataProcessorExecutor, timeoutExecutor, blockEncodingSerde);
+        Query result = new Query(session, slug, queryManager, transactionManager, exchangeClient, dataProcessorExecutor, timeoutExecutor, blockEncodingSerde, retryCircuitBreaker);
 
         result.queryManager.addOutputInfoListener(result.getQueryId(), result::setQueryOutputInfo);
 
@@ -179,20 +192,25 @@ class Query
             Session session,
             String slug,
             QueryManager queryManager,
+            TransactionManager transactionManager,
             ExchangeClient exchangeClient,
             Executor resultsProcessorExecutor,
             ScheduledExecutorService timeoutExecutor,
-            BlockEncodingSerde blockEncodingSerde)
+            BlockEncodingSerde blockEncodingSerde,
+            RetryCircuitBreaker retryCircuitBreaker)
     {
         requireNonNull(session, "session is null");
         requireNonNull(slug, "slug is null");
         requireNonNull(queryManager, "queryManager is null");
+        requireNonNull(transactionManager, "transactionManager is null");
         requireNonNull(exchangeClient, "exchangeClient is null");
         requireNonNull(resultsProcessorExecutor, "resultsProcessorExecutor is null");
         requireNonNull(timeoutExecutor, "timeoutExecutor is null");
         requireNonNull(blockEncodingSerde, "serde is null");
+        requireNonNull(retryCircuitBreaker, "retryCircuitBreaker is null");
 
         this.queryManager = queryManager;
+        this.transactionManager = transactionManager;
 
         this.queryId = session.getQueryId();
         this.session = session;
@@ -201,7 +219,8 @@ class Query
         this.resultsProcessorExecutor = resultsProcessorExecutor;
         this.timeoutExecutor = timeoutExecutor;
 
-        serde = new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session), isExchangeChecksumEnabled(session)).createPagesSerde();
+        this.serde = new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session), isExchangeChecksumEnabled(session)).createPagesSerde();
+        this.retryCircuitBreaker = retryCircuitBreaker;
     }
 
     public void cancel()
@@ -296,7 +315,7 @@ class Query
                 timeoutExecutor);
 
         // when state changes, fetch the next result
-        return Futures.transform(futureStateChange, ignored -> getNextResult(token, uriInfo, scheme, targetResultSize), resultsProcessorExecutor);
+        return Futures.transform(futureStateChange, ignored -> getNextResultWithRetry(token, uriInfo, scheme, targetResultSize), resultsProcessorExecutor);
     }
 
     private synchronized ListenableFuture<?> getFutureStateChange()
@@ -349,6 +368,50 @@ class Query
         return Optional.empty();
     }
 
+    private synchronized QueryResults getNextResultWithRetry(long token, UriInfo uriInfo, String scheme, DataSize targetResultSize)
+    {
+        QueryResults queryResults = getNextResult(token, uriInfo, scheme, targetResultSize);
+        if (queryResults.getError() == null || !queryResults.getError().isRetriable()) {
+            return queryResults;
+        }
+
+        // check if we have exceeded the global limit
+        retryCircuitBreaker.incrementFailure();
+        if (!retryCircuitBreaker.isRetryAllowed() || hasProducedResult) {
+            return queryResults;
+        }
+
+        // check if we have exceeded the local limit
+        if (queryManager.getQueryRetryCount(queryId) >= getQueryRetryLimit(session) ||
+                queryManager.getQueryInfo(queryId).getQueryStats().getExecutionTime().toMillis() > getQueryRetryMaxExecutionTime(session).toMillis()) {
+            return queryResults;
+        }
+
+        // no support for transactions
+        if (session.getTransactionId().isPresent() &&
+                !transactionManager.getOptionalTransactionInfo(session.getRequiredTransactionId()).map(TransactionInfo::isAutoCommitContext).orElse(true)) {
+            return queryResults;
+        }
+
+        // build a new query with next uri
+        // we expect failed nodes have been removed from discovery server upon query failure
+        return new QueryResults(
+                queryId.toString(),
+                queryResults.getInfoUri(),
+                queryResults.getPartialCancelUri(),
+                createRetryUri(scheme, uriInfo),
+                queryResults.getColumns(),
+                null,
+                StatementStats.builder()
+                        .setState(QUEUED.toString())
+                        .setQueued(true)
+                        .build(),
+                null,
+                ImmutableList.of(),
+                queryResults.getUpdateType(),
+                queryResults.getUpdateCount());
+    }
+
     private synchronized QueryResults getNextResult(long token, UriInfo uriInfo, String scheme, DataSize targetResultSize)
     {
         // check if the result for the token have already been created
@@ -390,6 +453,7 @@ class Query
             if (rows > 0) {
                 // client implementations do not properly handle empty list of data
                 data = Iterables.concat(pages.build());
+                hasProducedResult = true;
             }
         }
         catch (Throwable cause) {
@@ -540,6 +604,20 @@ class Query
         return uri.build();
     }
 
+    private synchronized URI createRetryUri(String scheme, UriInfo uriInfo)
+    {
+        UriBuilder uri = uriInfo.getBaseUriBuilder()
+                .scheme(scheme)
+                .replacePath("/v1/statement/queued/retry")
+                .path(queryId.toString())
+                .replaceQuery("");
+        Optional<DataSize> targetResultSize = getTargetResultSize(session);
+        if (targetResultSize.isPresent()) {
+            uri = uri.queryParam("targetResultSize", targetResultSize.get());
+        }
+        return uri.build();
+    }
+
     private static URI findCancelableLeafStage(QueryInfo queryInfo)
     {
         // if query is running, find the leaf-most running stage
@@ -596,6 +674,7 @@ class Query
                 errorCode.getCode(),
                 errorCode.getName(),
                 errorCode.getType().toString(),
+                errorCode.isRetriable(),
                 failure.getErrorLocation(),
                 failure);
     }

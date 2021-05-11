@@ -15,6 +15,7 @@ package com.facebook.presto.orc.writer;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.orc.ColumnWriterOptions;
 import com.facebook.presto.orc.DwrfDataEncryptor;
 import com.facebook.presto.orc.OrcEncoding;
 import com.facebook.presto.orc.checkpoint.BooleanStreamCheckpoint;
@@ -22,7 +23,6 @@ import com.facebook.presto.orc.checkpoint.ByteArrayStreamCheckpoint;
 import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.CompressedMetadataWriter;
-import com.facebook.presto.orc.metadata.CompressionParameters;
 import com.facebook.presto.orc.metadata.MetadataWriter;
 import com.facebook.presto.orc.metadata.RowGroupIndex;
 import com.facebook.presto.orc.metadata.Stream;
@@ -78,24 +78,24 @@ public class SliceDirectColumnWriter
     public SliceDirectColumnWriter(
             int column,
             Type type,
-            CompressionParameters compressionParameters,
+            ColumnWriterOptions columnWriterOptions,
             Optional<DwrfDataEncryptor> dwrfEncryptor,
             OrcEncoding orcEncoding,
             Supplier<SliceColumnStatisticsBuilder> statisticsBuilderSupplier,
             MetadataWriter metadataWriter)
     {
         checkArgument(column >= 0, "column is negative");
-        requireNonNull(compressionParameters, "compressionParameters is null");
+        requireNonNull(columnWriterOptions, "columnWriterOptions is null");
         requireNonNull(dwrfEncryptor, "dwrfEncryptor is null");
         requireNonNull(metadataWriter, "metadataWriter is null");
         this.column = column;
         this.type = requireNonNull(type, "type is null");
-        this.compressed = compressionParameters.getKind() != NONE;
+        this.compressed = columnWriterOptions.getCompressionKind() != NONE;
         this.columnEncoding = new ColumnEncoding(orcEncoding == DWRF ? DIRECT : DIRECT_V2, 0);
-        this.lengthStream = createLengthOutputStream(compressionParameters, dwrfEncryptor, orcEncoding);
-        this.dataStream = new ByteArrayOutputStream(compressionParameters, dwrfEncryptor);
-        this.presentStream = new PresentOutputStream(compressionParameters, dwrfEncryptor);
-        this.metadataWriter = new CompressedMetadataWriter(metadataWriter, compressionParameters, dwrfEncryptor);
+        this.lengthStream = createLengthOutputStream(columnWriterOptions, dwrfEncryptor, orcEncoding);
+        this.dataStream = new ByteArrayOutputStream(columnWriterOptions, dwrfEncryptor);
+        this.presentStream = new PresentOutputStream(columnWriterOptions, dwrfEncryptor);
+        this.metadataWriter = new CompressedMetadataWriter(metadataWriter, columnWriterOptions, dwrfEncryptor);
         this.statisticsBuilderSupplier = statisticsBuilderSupplier;
         statisticsBuilder = statisticsBuilderSupplier.get();
     }
@@ -123,18 +123,33 @@ public class SliceDirectColumnWriter
 
         // record nulls
         for (int position = 0; position < block.getPositionCount(); position++) {
-            presentStream.writeBoolean(!block.isNull(position));
+            writePresentValue(!block.isNull(position));
         }
 
         // record values
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (!block.isNull(position)) {
                 Slice value = type.getSlice(block, position);
-                lengthStream.writeLong(value.length());
-                dataStream.writeSlice(value);
-                statisticsBuilder.addValue(value);
+                writeSlice(value);
             }
         }
+    }
+
+    void writePresentValue(boolean value)
+    {
+        presentStream.writeBoolean(value);
+    }
+
+    void writeSlice(Slice value)
+    {
+        writeSlice(value, 0, value.length());
+    }
+
+    void writeSlice(Slice slice, int sourceIndex, int length)
+    {
+        lengthStream.writeLong(length);
+        dataStream.writeSlice(slice, sourceIndex, length);
+        statisticsBuilder.addValue(slice, sourceIndex, length);
     }
 
     @Override

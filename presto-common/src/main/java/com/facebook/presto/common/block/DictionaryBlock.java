@@ -264,14 +264,25 @@ public class DictionaryBlock
         }
 
         long sizeInBytes = 0;
-        long[] seenSizes = new long[dictionary.getPositionCount()];
-        Arrays.fill(seenSizes, -1L);
-        for (int i = positionOffset; i < positionOffset + length; i++) {
-            int position = getId(i);
-            if (seenSizes[position] < 0) {
-                seenSizes[position] = dictionary.getRegionLogicalSizeInBytes(position, 1);
+        // Dictionary Block may contain large number of keys and small region length may be requested.
+        // If the length is less than keys the cache is likely to be not used.
+        if (length > dictionary.getPositionCount()) {
+            // Cache code path.
+            long[] seenSizes = new long[dictionary.getPositionCount()];
+            Arrays.fill(seenSizes, -1L);
+            for (int i = positionOffset; i < positionOffset + length; i++) {
+                int position = getId(i);
+                if (seenSizes[position] < 0) {
+                    seenSizes[position] = dictionary.getRegionLogicalSizeInBytes(position, 1);
+                }
+                sizeInBytes += seenSizes[position];
             }
-            sizeInBytes += seenSizes[position];
+        }
+        else {
+            // In-place code path.
+            for (int i = positionOffset; i < positionOffset + length; i++) {
+                sizeInBytes += dictionary.getRegionLogicalSizeInBytes(getId(i), 1);
+            }
         }
 
         if (positionOffset == 0 && length == getPositionCount()) {

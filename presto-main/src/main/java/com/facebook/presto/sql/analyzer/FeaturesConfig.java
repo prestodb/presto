@@ -110,6 +110,8 @@ public class FeaturesConfig
     private boolean forceSingleNodeOutput = true;
     private boolean pagesIndexEagerCompactionEnabled;
     private boolean distributedSort = true;
+    private boolean optimizeJoinsWithEmptySources;
+    private boolean logFormattedQueryEnabled;
 
     private boolean dictionaryAggregation;
 
@@ -176,11 +178,20 @@ public class FeaturesConfig
     private boolean skipRedundantSort = true;
     private boolean isAllowWindowOrderByLiterals = true;
 
+    private boolean spoolingOutputBufferEnabled;
+    private DataSize spoolingOutputBufferThreshold = new DataSize(8, MEGABYTE);
+    private String spoolingOutputBufferTempStorage = "local";
+
     private String warnOnNoTableLayoutFilter = "";
 
     private PartitioningPrecisionStrategy partitioningPrecisionStrategy = PartitioningPrecisionStrategy.AUTOMATIC;
 
     private boolean enforceFixedDistributionForOutputOperator;
+    private boolean prestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled;
+
+    private boolean partialResultsEnabled;
+    private double partialResultsCompletionRatioThreshold = 0.5;
+    private double partialResultsMaxExecutionTimeMultiplier = 2.0;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -241,7 +252,8 @@ public class FeaturesConfig
     {
         ORDER_BY_CREATE_TIME, // When spilling is triggered, revoke tasks in order of oldest to newest
         ORDER_BY_REVOCABLE_BYTES, // When spilling is triggered, revoke tasks by most allocated revocable memory to least allocated revocable memory
-        PER_TASK_MEMORY_THRESHOLD // Spill any task after it reaches the per task memory threshold defined by experimental.spiller.max-revocable-task-memory
+        PER_TASK_MEMORY_THRESHOLD, // Spill any task after it reaches the per task memory threshold defined by experimental.spiller.max-revocable-task-memory
+        PER_QUERY_MEMORY_LIMIT // Spill whenever a query's combined revocable, system, and user memory exceeds the per-node total memory limit
     }
 
     public enum SingleStreamSpillerChoice
@@ -1528,6 +1540,118 @@ public class FeaturesConfig
     public FeaturesConfig setEnforceFixedDistributionForOutputOperator(boolean enforceFixedDistributionForOutputOperator)
     {
         this.enforceFixedDistributionForOutputOperator = enforceFixedDistributionForOutputOperator;
+        return this;
+    }
+
+    public boolean isEmptyJoinOptimization()
+    {
+        return optimizeJoinsWithEmptySources;
+    }
+
+    @Config("optimizer.optimize-joins-with-empty-sources")
+    public FeaturesConfig setEmptyJoinOptimization(boolean value)
+    {
+        this.optimizeJoinsWithEmptySources = value;
+        return this;
+    }
+
+    public boolean isLogFormattedQueryEnabled()
+    {
+        return logFormattedQueryEnabled;
+    }
+
+    @Config("log-formatted-query-enabled")
+    @ConfigDescription("Log formatted prepared query instead of raw query when enabled")
+    public FeaturesConfig setLogFormattedQueryEnabled(boolean logFormattedQueryEnabled)
+    {
+        this.logFormattedQueryEnabled = logFormattedQueryEnabled;
+        return this;
+    }
+
+    public boolean isSpoolingOutputBufferEnabled()
+    {
+        return spoolingOutputBufferEnabled;
+    }
+
+    @Config("spooling-output-buffer-enabled")
+    public FeaturesConfig setSpoolingOutputBufferEnabled(boolean value)
+    {
+        this.spoolingOutputBufferEnabled = value;
+        return this;
+    }
+
+    public DataSize getSpoolingOutputBufferThreshold()
+    {
+        return spoolingOutputBufferThreshold;
+    }
+
+    @Config("spooling-output-buffer-threshold")
+    public FeaturesConfig setSpoolingOutputBufferThreshold(DataSize spoolingOutputBufferThreshold)
+    {
+        this.spoolingOutputBufferThreshold = spoolingOutputBufferThreshold;
+        return this;
+    }
+
+    public String getSpoolingOutputBufferTempStorage()
+    {
+        return spoolingOutputBufferTempStorage;
+    }
+
+    @Config("spooling-output-buffer-temp-storage")
+    public FeaturesConfig setSpoolingOutputBufferTempStorage(String spoolingOutputBufferTempStorage)
+    {
+        this.spoolingOutputBufferTempStorage = spoolingOutputBufferTempStorage;
+        return this;
+    }
+
+    public boolean isPrestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled()
+    {
+        return prestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled;
+    }
+
+    @Config("spark.assign-bucket-to-partition-for-partitioned-table-write-enabled")
+    public FeaturesConfig setPrestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled(boolean prestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled)
+    {
+        this.prestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled = prestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled;
+        return this;
+    }
+
+    public boolean isPartialResultsEnabled()
+    {
+        return partialResultsEnabled;
+    }
+
+    @Config("partial-results-enabled")
+    @ConfigDescription("Enable returning partial results. Please note that queries might not read all the data when this is enabled.")
+    public FeaturesConfig setPartialResultsEnabled(boolean partialResultsEnabled)
+    {
+        this.partialResultsEnabled = partialResultsEnabled;
+        return this;
+    }
+
+    public double getPartialResultsCompletionRatioThreshold()
+    {
+        return partialResultsCompletionRatioThreshold;
+    }
+
+    @Config("partial-results-completion-ratio-threshold")
+    @ConfigDescription("Minimum query completion ratio threshold for partial results")
+    public FeaturesConfig setPartialResultsCompletionRatioThreshold(double partialResultsCompletionRatioThreshold)
+    {
+        this.partialResultsCompletionRatioThreshold = partialResultsCompletionRatioThreshold;
+        return this;
+    }
+
+    public double getPartialResultsMaxExecutionTimeMultiplier()
+    {
+        return partialResultsMaxExecutionTimeMultiplier;
+    }
+
+    @Config("partial-results-max-execution-time-multiplier")
+    @ConfigDescription("This value is multiplied by the time taken to reach the completion ratio threshold and is set as max task end time")
+    public FeaturesConfig setPartialResultsMaxExecutionTimeMultiplier(double partialResultsMaxExecutionTimeMultiplier)
+    {
+        this.partialResultsMaxExecutionTimeMultiplier = partialResultsMaxExecutionTimeMultiplier;
         return this;
     }
 }

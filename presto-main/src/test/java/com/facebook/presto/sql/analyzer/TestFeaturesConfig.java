@@ -155,7 +155,16 @@ public class TestFeaturesConfig
                 .setInlineSqlFunctions(true)
                 .setCheckAccessControlOnUtilizedColumnsOnly(false)
                 .setAllowWindowOrderByLiterals(true)
-                .setEnforceFixedDistributionForOutputOperator(false));
+                .setEnforceFixedDistributionForOutputOperator(false)
+                .setEmptyJoinOptimization(false)
+                .setLogFormattedQueryEnabled(false)
+                .setSpoolingOutputBufferEnabled(false)
+                .setSpoolingOutputBufferThreshold(new DataSize(8, MEGABYTE))
+                .setSpoolingOutputBufferTempStorage("local")
+                .setPrestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled(false)
+                .setPartialResultsEnabled(false)
+                .setPartialResultsCompletionRatioThreshold(0.5)
+                .setPartialResultsMaxExecutionTimeMultiplier(2.0));
     }
 
     @Test
@@ -264,6 +273,15 @@ public class TestFeaturesConfig
                 .put("optimizer.skip-redundant-sort", "false")
                 .put("is-allow-window-order-by-literals", "false")
                 .put("enforce-fixed-distribution-for-output-operator", "true")
+                .put("optimizer.optimize-joins-with-empty-sources", "true")
+                .put("log-formatted-query-enabled", "true")
+                .put("spooling-output-buffer-enabled", "true")
+                .put("spooling-output-buffer-threshold", "16MB")
+                .put("spooling-output-buffer-temp-storage", "tempfs")
+                .put("spark.assign-bucket-to-partition-for-partitioned-table-write-enabled", "true")
+                .put("partial-results-enabled", "true")
+                .put("partial-results-completion-ratio-threshold", "0.9")
+                .put("partial-results-max-execution-time-multiplier", "1.5")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -369,7 +387,16 @@ public class TestFeaturesConfig
                 .setCheckAccessControlOnUtilizedColumnsOnly(true)
                 .setSkipRedundantSort(false)
                 .setAllowWindowOrderByLiterals(false)
-                .setEnforceFixedDistributionForOutputOperator(true);
+                .setEnforceFixedDistributionForOutputOperator(true)
+                .setEmptyJoinOptimization(true)
+                .setLogFormattedQueryEnabled(true)
+                .setSpoolingOutputBufferEnabled(true)
+                .setSpoolingOutputBufferThreshold(new DataSize(16, MEGABYTE))
+                .setSpoolingOutputBufferTempStorage("tempfs")
+                .setPrestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled(true)
+                .setPartialResultsEnabled(true)
+                .setPartialResultsCompletionRatioThreshold(0.9)
+                .setPartialResultsMaxExecutionTimeMultiplier(1.5);
         assertFullMapping(properties, expected);
     }
 

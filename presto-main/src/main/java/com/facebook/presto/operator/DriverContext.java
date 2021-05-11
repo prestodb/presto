@@ -382,6 +382,7 @@ public class DriverContext
             if (operator.getBlockedReason().isPresent()) {
                 builder.add(operator.getBlockedReason().get());
             }
+            totalCpuTime += operator.getAdditionalCpu().roundTo(NANOSECONDS);
         }
 
         return new DriverStats(

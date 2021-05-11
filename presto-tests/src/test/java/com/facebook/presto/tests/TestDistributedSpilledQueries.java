@@ -78,11 +78,4 @@ public class TestDistributedSpilledQueries
         // TODO: disabled until https://github.com/prestodb/presto/issues/8926 is resolved
         //       due to long running query test created many spill files on disk.
     }
-
-    @Test(enabled = false)
-    @Override
-    public void testCorrelatedNonAggregationScalarSubqueries()
-    {
-        // TODO: disable until https://github.com/prestodb/presto/issues/15542 is resolved
-    }
 }

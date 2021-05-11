@@ -33,7 +33,6 @@ import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -72,7 +71,6 @@ public class TempStorageManager
     public TempStorageManager(NodeManager nodeManager)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-        addTempStorageFactory(new LocalTempStorage.Factory());
     }
 
     public void addTempStorageFactory(TempStorageFactory tempStorageFactory)
@@ -82,6 +80,14 @@ public class TempStorageManager
         if (tempStorageFactories.putIfAbsent(tempStorageFactory.getName(), tempStorageFactory) != null) {
             throw new IllegalArgumentException(format("Temp Storage '%s' is already registered", tempStorageFactory.getName()));
         }
+    }
+
+    public TempStorage getTempStorage(String name)
+    {
+        TempStorage tempStorage = loadedTempStorages.get(name);
+        checkState(tempStorage != null, "tempStorage %s was not loaded", name);
+
+        return tempStorage;
     }
 
     public void loadTempStorages()

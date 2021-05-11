@@ -33,13 +33,13 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintEnumType.LongEnumMap;
 import static com.facebook.presto.common.type.StandardTypes.BIGINT_ENUM;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR_ENUM;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.VarcharEnumType.VarcharEnumMap;
+import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -495,6 +495,8 @@ public class TestSqlFunctions
         assertQuerySucceeds("CREATE FUNCTION testing.test.foo(x integer) RETURNS integer LANGUAGE JAVA EXTERNAL");
         assertQuery("SELECT testing.test.foo(cast(testing.test.foo(a) as varchar)) FROM (VALUES 1, 2, 3, 4) t(a)", "VALUES '1', '2', '3', '4'");
         assertQuery("SELECT testing.test.foo(cast(testing.test.foo(a) as varchar)) FROM (VALUES 1, 2, 3, 4) t(a) WHERE testing.test.foo(a) > 2", "VALUES '3', '4'");
+        assertQuerySucceeds("CREATE FUNCTION testing.test.foo() RETURNS integer LANGUAGE JAVA EXTERNAL");
+        assertQueryFails("SELECT testing.test.foo()", ".*ThriftUdfServiceException\\(GENERIC_INTERNAL_ERROR:0, NON-RETRYABLE\\): No input to echo");
     }
 
     @Test
@@ -514,7 +516,7 @@ public class TestSqlFunctions
                 "",
                 RoutineCharacteristics.builder().build(),
                 "RETURN x * 2",
-                Optional.empty());
+                notVersioned());
         return testSessionBuilder()
                 .addSessionFunction(bigintSignature, bigintFunction)
                 .build();

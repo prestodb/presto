@@ -5301,6 +5301,207 @@ public class TestHiveIntegrationSmokeTest
                 "\\QHive CSV storage format only supports VARCHAR (unbounded). Unsupported columns: i integer, bound varchar(10)\\E");
     }
 
+    @Test
+    public void testCreateMaterializedView()
+    {
+        computeActual("CREATE TABLE test_customer_base WITH (partitioned_by = ARRAY['nationkey']) " +
+                "AS SELECT custkey, name, address, nationkey FROM customer LIMIT 10");
+        computeActual("CREATE TABLE test_orders_base WITH (partitioned_by = ARRAY['orderstatus']) " +
+                "AS SELECT orderkey, custkey, totalprice, orderstatus FROM orders LIMIT 10");
+
+        // Test successful create
+        assertUpdate("CREATE MATERIALIZED VIEW test_customer_view WITH (partitioned_by = ARRAY['nationkey']" + retentionDays(30) + ") " +
+                "AS SELECT name, nationkey FROM test_customer_base");
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_customer_view"));
+        assertTableColumnNames("test_customer_view", "name", "nationkey");
+
+        // Test if exists
+        assertQueryFails(
+                "CREATE MATERIALIZED VIEW test_customer_view AS SELECT name FROM test_customer_base",
+                format(
+                ".* Materialized view '%s.%s.test_customer_view' already exists",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get()));
+        assertQuerySucceeds("CREATE MATERIALIZED VIEW IF NOT EXISTS test_customer_view AS SELECT name FROM test_customer_base");
+
+        // Test partition mapping
+        assertQueryFails(
+                "CREATE MATERIALIZED VIEW test_customer_view_no_partition " + withRetentionDays(30) + " AS SELECT name FROM test_customer_base",
+                ".*Unpartitioned materialized view is not supported.");
+        assertQueryFails(
+                "CREATE MATERIALIZED VIEW test_customer_view_no_direct_partition_mapped WITH (partitioned_by = ARRAY['nationkey']" + retentionDays(30) + ") " +
+                        "AS SELECT name, CAST(nationkey AS BIGINT) AS nationkey FROM test_customer_base",
+                format(".*Materialized view %s.test_customer_view_no_direct_partition_mapped must have at least partition to base table partition mapping for all base tables.",
+                        getSession().getSchema().get()));
+
+        // Test nested
+        assertQueryFails(
+                "CREATE MATERIALIZED VIEW test_customer_nested_view WITH (partitioned_by = ARRAY['nationkey']" + retentionDays(30) + ") " +
+                        "AS SELECT name, nationkey FROM test_customer_view",
+                format(".*CreateMaterializedView on a materialized view %s.%s.test_customer_view is not supported.",
+                        getSession().getCatalog().get(), getSession().getSchema().get()));
+
+        // Test query shape
+        assertUpdate("CREATE MATERIALIZED VIEW test_customer_agg_view WITH (partitioned_by = ARRAY['nationkey']" + retentionDays(30) + ") " +
+                "AS SELECT COUNT(DISTINCT name) AS num, nationkey FROM (SELECT name, nationkey FROM test_customer_base GROUP BY 1, 2) a GROUP BY nationkey");
+        assertUpdate("CREATE MATERIALIZED VIEW test_customer_union_view WITH (partitioned_by = ARRAY['nationkey']" + retentionDays(30) + ") " +
+                "AS SELECT name, nationkey FROM ( SELECT name, nationkey FROM test_customer_base WHERE nationkey = 1 UNION ALL " +
+                "SELECT name, nationkey FROM test_customer_base WHERE nationkey = 2)");
+        assertUpdate("CREATE MATERIALIZED VIEW test_customer_order_join_view WITH (partitioned_by = ARRAY['orderstatus', 'nationkey']" + retentionDays(30) + ") " +
+                "AS SELECT orders.totalprice, orders.orderstatus, customer.nationkey FROM test_customer_base customer JOIN " +
+                "test_orders_base orders ON orders.custkey = customer.custkey");
+        assertQueryFails(
+                "CREATE MATERIALIZED VIEW test_customer_order_join_view_no_base_partition_mapped WITH (partitioned_by = ARRAY['custkey']" + retentionDays(30) + ") " +
+                        "AS SELECT orders.totalprice, customer.nationkey, customer.custkey FROM test_customer_base customer JOIN " +
+                        "test_orders_base orders ON orders.custkey = customer.custkey",
+                format(".*Materialized view %s.test_customer_order_join_view_no_base_partition_mapped must have at least partition to base table partition " +
+                        "mapping for all base tables.", getSession().getSchema().get()));
+        assertQueryFails(
+                "CREATE MATERIALIZED VIEW test_customer_order_join_view_no_base_partition_mapped WITH (partitioned_by = ARRAY['nation_order']" + retentionDays(30) + ") " +
+                        "AS SELECT orders.totalprice, CONCAT(CAST(customer.nationkey AS VARCHAR), orders.orderstatus) AS nation_order " +
+                        "FROM test_customer_base customer JOIN test_orders_base orders ON orders.custkey = customer.custkey",
+                format(".*Materialized view %s.test_customer_order_join_view_no_base_partition_mapped must have at least partition to base table partition " +
+                        "mapping for all base tables.", getSession().getSchema().get()));
+
+        // Clean up
+        computeActual("DROP TABLE IF EXISTS test_customer_base");
+        computeActual("DROP TABLE IF EXISTS test_orders_base");
+    }
+
+    @Test
+    public void testShowCreateOnMaterializedView()
+    {
+        String createMaterializedViewSql = formatSqlText(format("CREATE MATERIALIZED VIEW %s.%s.test_customer_view_1\n" +
+                "WITH (\n" +
+                "   format = 'ORC'," +
+                "   partitioned_by = ARRAY['nationkey']\n" +
+                retentionDays(15) +
+                ") AS SELECT\n" +
+                "  name\n" +
+                ", nationkey\n" +
+                "FROM\n" +
+                "  test_customer_base_1",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get()));
+
+        computeActual("CREATE TABLE test_customer_base_1 WITH (partitioned_by = ARRAY['nationkey']) AS SELECT custkey, name, address, nationkey FROM customer LIMIT 10");
+        computeActual(createMaterializedViewSql);
+
+        MaterializedResult actualResult = computeActual("SHOW CREATE MATERIALIZED VIEW test_customer_view_1");
+        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createMaterializedViewSql.trim());
+
+        assertQueryFails(
+                "SHOW CREATE MATERIALIZED VIEW test_customer_base_1",
+                format(
+                        ".*Relation '%s.%s.test_customer_base_1' is a table, not a materialized view",
+                        getSession().getCatalog().get(),
+                        getSession().getSchema().get()));
+        assertQueryFails(
+                "SHOW CREATE VIEW test_customer_view_1",
+                format(
+                        ".*Relation '%s.%s.test_customer_view_1' is a materialized view, not a view",
+                        getSession().getCatalog().get(),
+                        getSession().getSchema().get()));
+        assertQueryFails(
+                "SHOW CREATE TABLE test_customer_view_1",
+                format(
+                        ".*Relation '%s.%s.test_customer_view_1' is a materialized view, not a table",
+                        getSession().getCatalog().get(),
+                        getSession().getSchema().get()));
+
+        // Clean up
+        computeActual("DROP TABLE IF EXISTS test_customer_base_1");
+    }
+
+    @Test
+    public void testAlterOnMaterializedView()
+    {
+        computeActual("CREATE TABLE test_customer_base_2 WITH (partitioned_by = ARRAY['nationkey']) AS SELECT custkey, name, address, nationkey FROM customer LIMIT 10");
+        computeActual("CREATE MATERIALIZED VIEW test_customer_view_2 WITH (partitioned_by = ARRAY['nationkey']" + retentionDays(30) + ") " +
+                "AS SELECT name, nationkey FROM test_customer_base_2");
+
+        assertQueryFails(
+                "ALTER TABLE test_customer_view_2 RENAME TO test_customer_view_new",
+                format(
+                        ".*'%s.%s.test_customer_view_2' is a materialized view, and rename is not supported",
+                        getSession().getCatalog().get(),
+                        getSession().getSchema().get()));
+        assertQueryFails(
+                "ALTER TABLE test_customer_view_2 ADD COLUMN timezone VARCHAR",
+                format(
+                        ".*'%s.%s.test_customer_view_2' is a materialized view, and add column is not supported",
+                        getSession().getCatalog().get(),
+                        getSession().getSchema().get()));
+        assertQueryFails(
+                "ALTER TABLE test_customer_view_2 DROP COLUMN address",
+                format(".*'%s.%s.test_customer_view_2' is a materialized view, and drop column is not supported",
+                        getSession().getCatalog().get(),
+                        getSession().getSchema().get()));
+        assertQueryFails(
+                "ALTER TABLE test_customer_view_2 RENAME COLUMN name TO custname",
+                format(".*'%s.%s.test_customer_view_2' is a materialized view, and rename column is not supported",
+                        getSession().getCatalog().get(),
+                        getSession().getSchema().get()));
+
+        // Clean up
+        computeActual("DROP TABLE IF EXISTS test_customer_base_2");
+    }
+
+    @Test
+    public void testInsertDeleteOnMaterializedView()
+    {
+        computeActual("CREATE TABLE test_customer_base_3 WITH (partitioned_by = ARRAY['nationkey']) AS SELECT custkey, name, address, nationkey FROM customer LIMIT 10");
+        computeActual("CREATE MATERIALIZED VIEW test_customer_view_3 WITH (partitioned_by = ARRAY['nationkey']" + retentionDays(30) + ") " +
+                "AS SELECT name, nationkey FROM test_customer_base_3");
+
+        assertQueryFails(
+                "INSERT INTO test_customer_view_3 SELECT name, nationkey FROM test_customer_base_2",
+                ".*Inserting into materialized views is not supported");
+        assertQueryFails(
+                "DELETE FROM test_customer_view_3",
+                ".*Deleting from materialized views is not supported");
+
+        // Clean up
+        computeActual("DROP TABLE IF EXISTS test_customer_base_3");
+    }
+
+    @Test
+    public void testDropMaterializedView()
+    {
+        computeActual("CREATE TABLE test_customer_base_4 WITH (partitioned_by = ARRAY['nationkey']) AS SELECT custkey, name, address, nationkey FROM customer LIMIT 10");
+        computeActual("CREATE MATERIALIZED VIEW test_customer_view_4 WITH (partitioned_by = ARRAY['nationkey']" + retentionDays(30) + ") " +
+                "AS SELECT name, nationkey FROM test_customer_base_4");
+
+        assertQueryFails(
+                "DROP TABLE test_customer_view_4",
+                format(
+                        ".*'%s.%s.test_customer_view_4' is a materialized view, not a table. Use DROP MATERIALIZED VIEW to drop.",
+                        getSession().getCatalog().get(),
+                        getSession().getSchema().get()));
+        assertQueryFails(
+                "DROP VIEW test_customer_view_4",
+                format(
+                        ".*View '%s.%s.test_customer_view_4' does not exist",
+                        getSession().getCatalog().get(),
+                        getSession().getSchema().get()));
+
+        assertUpdate("DROP MATERIALIZED VIEW test_customer_view_4");
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_customer_view_4"));
+
+        // Clean up
+        computeActual("DROP TABLE IF EXISTS test_customer_base_4");
+    }
+
+    protected String retentionDays(int days)
+    {
+        return "";
+    }
+
+    protected String withRetentionDays(int days)
+    {
+        return "";
+    }
+
     private Session getParallelWriteSession()
     {
         return Session.builder(getSession())

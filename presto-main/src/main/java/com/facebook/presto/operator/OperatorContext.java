@@ -71,6 +71,8 @@ public class OperatorContext
     private final CounterStat outputDataSize = new CounterStat();
     private final CounterStat outputPositions = new CounterStat();
 
+    private final AtomicLong additionalCpuNanos = new AtomicLong();
+
     private final AtomicLong physicalWrittenDataSize = new AtomicLong();
 
     private final AtomicReference<SettableFuture<?>> memoryFuture;
@@ -204,6 +206,11 @@ public class OperatorContext
         physicalWrittenDataSize.getAndAdd(sizeInBytes);
     }
 
+    public void recordAdditionalCpu(long cpuTimeNanos)
+    {
+        this.additionalCpuNanos.getAndAdd(cpuTimeNanos);
+    }
+
     public void recordBlocked(ListenableFuture<?> blocked)
     {
         requireNonNull(blocked, "blocked is null");
@@ -290,7 +297,7 @@ public class OperatorContext
     // listen to revocable memory allocations and call any listeners waiting on task memory allocation
     private void updateTaskRevocableMemoryReservation()
     {
-        driverContext.getPipelineContext().getTaskContext().getQueryContext().getMemoryPool().onTaskMemoryReserved(driverContext.getTaskId());
+        driverContext.getPipelineContext().getTaskContext().getQueryContext().getMemoryPool().onTaskRevocableMemoryReserved(driverContext.getTaskId());
     }
 
     public long getReservedRevocableBytes()
@@ -481,6 +488,7 @@ public class OperatorContext
 
                 succinctBytes(physicalWrittenDataSize.get()),
 
+                succinctNanos(additionalCpuNanos.get()),
                 succinctNanos(blockedWallNanos.get()),
 
                 finishTiming.getCalls(),

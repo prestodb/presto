@@ -17,11 +17,8 @@ import com.facebook.presto.Session;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.FilterNode;
-import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.PlanNode;
-import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
-import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
@@ -36,7 +33,6 @@ import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
-import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.tests.QueryTemplate;
@@ -51,10 +47,13 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_SORT;
+import static com.facebook.presto.SystemSessionProperties.ENFORCE_FIXED_DISTRIBUTION_FOR_OUTPUT_OPERATOR;
 import static com.facebook.presto.SystemSessionProperties.FORCE_SINGLE_NODE_OUTPUT;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
+import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_JOINS_WITH_EMPTY_SOURCES;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_NULLS_IN_JOINS;
+import static com.facebook.presto.SystemSessionProperties.TASK_CONCURRENCY;
 import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_LAST;
 import static com.facebook.presto.common.predicate.Domain.singleValue;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -63,7 +62,6 @@ import static com.facebook.presto.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
-import static com.facebook.presto.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyNot;
@@ -502,9 +500,9 @@ public class TestLogicalPlanner
         // same query used for left, right and complex join condition
         assertEquals(
                 countOfMatchingNodes(
-                        plan("SELECT * FROM orders o1 JOIN orders o2 ON o1.orderkey = (SELECT 1) AND o2.orderkey = (SELECT 1) AND o1.orderkey + o2.orderkey = (SELECT 1)"),
+                        plan("SELECT * FROM orders o1 JOIN orders o2 ON o1.orderkey = (SELECT 1) AND o2.orderkey = (SELECT 1) AND o1.orderkey + o2.orderkey = (SELECT 2)"),
                         EnforceSingleRowNode.class::isInstance),
-                1);
+                2);
     }
 
     @Test
@@ -588,7 +586,7 @@ public class TestLogicalPlanner
     private void assertPlanContainsNoApplyOrAnyJoin(String sql)
     {
         assertFalse(
-                searchFrom(plan(sql, OPTIMIZED).getRoot())
+                searchFrom(plan(sql, LogicalPlanner.Stage.OPTIMIZED).getRoot())
                         .where(isInstanceOfAny(ApplyNode.class, JoinNode.class, IndexJoinNode.class, SemiJoinNode.class, LateralJoinNode.class))
                         .matches(),
                 "Unexpected node for query: " + sql);
@@ -599,7 +597,7 @@ public class TestLogicalPlanner
     {
         assertPlan(
                 "SELECT orderkey FROM orders WHERE 3 = (SELECT orderkey)",
-                OPTIMIZED,
+                LogicalPlanner.Stage.OPTIMIZED,
                 any(
                         filter(
                                 "X = BIGINT '3'",
@@ -757,7 +755,7 @@ public class TestLogicalPlanner
         assertPlan(
                 "SELECT orderkey FROM orders o " +
                         "WHERE 3 IN (SELECT o.custkey FROM lineitem l WHERE (SELECT l.orderkey = o.orderkey))",
-                OPTIMIZED,
+                LogicalPlanner.Stage.OPTIMIZED,
                 anyTree(
                         filter("OUTER_FILTER",
                                 apply(ImmutableList.of("C", "O"),
@@ -1017,6 +1015,140 @@ public class TestLogicalPlanner
     }
 
     @Test
+    public void testEmptyJoins()
+    {
+        Session applyEmptyJoinOptimization = Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(OPTIMIZE_JOINS_WITH_EMPTY_SOURCES, Boolean.toString(true))
+                .build();
+
+        // Right child empty.
+        assertPlanWithSession(
+                "SELECT orderkey FROM orders join (select custkey from orders where 1=0) on 1=1",
+                applyEmptyJoinOptimization, true,
+                output(
+                        values("orderkey_0")));
+
+        // Left child empty with empty predicate
+        assertPlanWithSession(
+                "SELECT orderkey FROM (select custkey from orders where 1=0) join orders on 1=1",
+                applyEmptyJoinOptimization, true,
+                output(
+                        values("orderkey_0")));
+
+        // Three way join with empty middle child.
+        assertPlanWithSession(
+                "SELECT O1.orderkey FROM orders O1 join (select custkey C from orders where 1=0) ON O1.custkey = C join orders on 1=1",
+                applyEmptyJoinOptimization, true,
+                output(
+                        values("orderkey_0")));
+
+        // Three way join with empty middle child and aggregate children.
+        assertPlanWithSession(
+                "SELECT O1 FROM (select orderkey O1 from orders group by orderkey) join (select custkey C from orders where 1=0) ON O1 = C join orders on 1=1",
+                applyEmptyJoinOptimization, true,
+                output(
+                        values("orderkey_0")));
+
+        // Three way join with empty right child.
+        assertPlanWithSession(
+                "SELECT O1.orderkey FROM orders O1 join orders O2 ON 1=1 join (select custkey C from orders where 1=0) ON O1.custkey = C",
+                applyEmptyJoinOptimization, true,
+                output(
+                        values("orderkey_0")));
+
+        // Limit query with empty left child.
+        assertPlanWithSession(
+                "WITH DT AS (SELECT orderkey FROM (select custkey from orders where 1=0) join orders on 1=1) SELECT * FROM DT LIMIT 2",
+                applyEmptyJoinOptimization, true,
+                output(limit(2, values("orderkey_0"))));
+
+        // Left child empty with zero limit
+        assertPlanWithSession(
+                "SELECT orderkey FROM (select custkey from orders limit 0) join orders on 1=1",
+                applyEmptyJoinOptimization, true,
+                output(
+                        values("orderkey_0")));
+
+        // Left child empty with zero Sample
+        assertPlanWithSession(
+                "SELECT orderkey FROM (select custkey from orders TABLESAMPLE BERNOULLI (0)) join orders on 1=1",
+                applyEmptyJoinOptimization, true,
+                output(values("orderkey_0")));
+
+        // Empty left child with left outer join
+        assertPlanWithSession(
+                "WITH DT AS (SELECT orderkey FROM (select custkey C from orders limit 0) left outer join orders on orderkey=C) SELECT * FROM DT LIMIT 2",
+                applyEmptyJoinOptimization, true,
+                output(limit(2, values("orderkey_0"))));
+
+        // 3 way join with empty non-null producing side for outer join
+        assertPlanWithSession(
+                "WITH DT AS (SELECT orderkey FROM (select custkey C from orders limit 0) left outer join orders on orderkey=C  " +
+                        " left outer join customer C2 on C2.custkey = C) " +
+                        " SELECT * FROM DT LIMIT 2",
+                applyEmptyJoinOptimization, true,
+                output(limit(2, values("orderkey_0"))));
+
+        // Empty right child with right outer join
+        assertPlanWithSession(
+                "WITH DT AS (SELECT orderkey FROM orders right outer join (select custkey C from orders limit 0) on orderkey=C) SELECT * FROM DT LIMIT 2",
+                applyEmptyJoinOptimization, true,
+                output(limit(2, values("orderkey_0"))));
+
+        // Empty right child with no projections and left outer join
+        assertPlanWithSession(
+                "WITH DT AS (SELECT orderkey FROM orders left outer join (select custkey C from orders limit 0) on orderkey=C) SELECT * FROM DT",
+                applyEmptyJoinOptimization, true,
+                output(node(TableScanNode.class)));
+
+        // Empty left child with projections and right outer join
+        assertPlanWithSession(
+                "WITH DT AS (SELECT C, orderkey FROM (select custkey C from orders limit 0) right outer join orders on orderkey=C) SELECT * FROM DT",
+                applyEmptyJoinOptimization, true,
+                output(project(node(TableScanNode.class))));
+
+        // Empty right child with projections and left outer join
+        assertPlanWithSession(
+                "WITH DT AS (SELECT orderkey, C FROM orders left outer join (select custkey C from orders limit 0) on orderkey=C) SELECT * FROM DT",
+                applyEmptyJoinOptimization, true,
+                output(project(node(TableScanNode.class))));
+
+        // Empty right child with projections and full outer join
+        assertPlanWithSession(
+                "WITH DT AS (SELECT orderkey, C FROM orders full outer join (select custkey C from orders limit 0) on orderkey=C) SELECT * FROM DT",
+                applyEmptyJoinOptimization, true,
+                output(project(node(TableScanNode.class))));
+
+        // Both Left and Right child empty and full outer join.
+        assertPlanWithSession(
+                "SELECt orderkey,custkey FROM (SELECT orderkey FROM orders where 1=0) full outer join (select custkey from orders where 1=0) on orderkey=custkey",
+                applyEmptyJoinOptimization, true,
+                output(
+                        values("orderkey_0", "custkey_0")));
+
+        // Negative tests. Both children are not empty
+        assertPlanWithSession(
+                "SELECT orderkey FROM (select custkey as C from orders where 1>0) join orders on orderkey=C",
+                applyEmptyJoinOptimization, true,
+                output(
+                        node(JoinNode.class,
+                                anyTree(node(TableScanNode.class)),
+                                anyTree(node(TableScanNode.class)))));
+        assertPlanWithSession(
+                "SELECT orderkey FROM (select custkey as C from orders TABLESAMPLE BERNOULLI (1)) join orders on orderkey=C",
+                applyEmptyJoinOptimization, true,
+                output(
+                        node(JoinNode.class,
+                                anyTree(node(TableScanNode.class)),
+                                anyTree(node(TableScanNode.class)))));
+
+        // Negative test with optimization off
+        assertPlan(
+                "SELECT C, orderkey FROM (select orderkey as C from orders where 1=0) join orders on 1=1",
+                output(node(JoinNode.class, values("orderkey_0"), values("orderkey_3"))));
+    }
+
+    @Test
     public void testLimitZero()
     {
         assertPlan(
@@ -1081,7 +1213,14 @@ public class TestLogicalPlanner
                         "    SUM(REDUCE(col1, ROW(0),(l, r) -> l, x -> 1)) " +
                         "  )",
                 output(
-                        (values("col1"))));
+                        project(
+                                exchange(
+                                        exchange(
+                                                sort(
+                                                        exchange(
+                                                                project(
+                                                                        aggregation(ImmutableMap.of(),
+                                                                                project(values("col1")))))))))));
     }
 
     @Test
@@ -1144,100 +1283,50 @@ public class TestLogicalPlanner
     }
 
     @Test
-    public void testRedundantLimitNodeRemoval()
+    public void testEnforceFixedDistributionForOutputOperator()
     {
-        String query = "SELECT count(*) FROM orders LIMIT 10";
-        assertFalse(
-                searchFrom(plan(query, OPTIMIZED).getRoot())
-                        .where(LimitNode.class::isInstance)
-                        .matches(),
-                format("Unexpected limit node for query: '%s'", query));
+        Session session = Session.builder(this.getQueryRunner().getDefaultSession())
+                // enable concurrency (default is 1)
+                .setSystemProperty(TASK_CONCURRENCY, "2")
+                .setSystemProperty(ENFORCE_FIXED_DISTRIBUTION_FOR_OUTPUT_OPERATOR, "true")
+                .build();
 
-        assertPlan(
-                "SELECT orderkey, count(*) FROM orders GROUP BY orderkey LIMIT 10",
-                output(
-                        limit(10,
-                                anyTree(
-                                        tableScan("orders")))));
-
-        assertPlan(
-                "SELECT * FROM (VALUES 1,2,3,4,5,6) AS t1 LIMIT 10",
-                output(
-                        values(ImmutableList.of("x"))));
-    }
-
-    @Test
-    public void testRemoveSingleRowSort()
-    {
-        String query = "SELECT count(*) FROM orders ORDER BY 1";
-        assertFalse(
-                searchFrom(plan(query, OPTIMIZED).getRoot())
-                        .where(isInstanceOfAny(SortNode.class))
-                        .matches(),
-                format("Unexpected sort node for query: '%s'", query));
-
-        assertPlan(
-                "SELECT orderkey, count(*) FROM orders GROUP BY orderkey ORDER BY 1",
+        // simple group by
+        assertDistributedPlan(
+                "SELECT orderstatus, sum(totalprice) FROM orders GROUP BY orderstatus",
+                session,
                 anyTree(
-                        node(SortNode.class,
-                                anyTree(
-                                        tableScan("orders")))));
-    }
+                        aggregation(
+                                ImmutableMap.of("final_sum", functionCall("sum", ImmutableList.of("partial_sum"))),
+                                FINAL,
+                                exchange(LOCAL, REPARTITION,
+                                        exchange(REMOTE_STREAMING, REPARTITION,
+                                                exchange(LOCAL, REPARTITION,
+                                                        aggregation(
+                                                                ImmutableMap.of("partial_sum", functionCall("sum", ImmutableList.of("totalprice"))),
+                                                                PARTIAL,
+                                                                project(tableScan("orders", ImmutableMap.of("totalprice", "totalprice"))))))))));
 
-    @Test
-    public void testRedundantTopNNodeRemoval()
-    {
-        String query = "SELECT count(*) FROM orders ORDER BY 1 LIMIT 10";
-        assertFalse(
-                searchFrom(plan(query, OPTIMIZED).getRoot())
-                        .where(isInstanceOfAny(TopNNode.class, SortNode.class))
-                        .matches(),
-                format("Unexpected TopN node for query: '%s'", query));
+        assertDistributedPlan(
+                "SELECT orderstatus FROM (SELECT orderstatus, row_number() OVER (PARTITION BY orderstatus ORDER BY custkey) n FROM orders) WHERE n = 1",
+                session,
+                anyTree(
+                        topNRowNumber(topNRowNumber -> topNRowNumber
+                                        .specification(
+                                                ImmutableList.of("orderstatus"),
+                                                ImmutableList.of("custkey"),
+                                                ImmutableMap.of("custkey", ASC_NULLS_LAST))
+                                        .partial(false),
+                                exchange(LOCAL, REPARTITION,
+                                        exchange(REMOTE_STREAMING, REPARTITION,
+                                                exchange(LOCAL, REPARTITION,
+                                                        topNRowNumber(topNRowNumber -> topNRowNumber
+                                                                        .specification(
+                                                                                ImmutableList.of("orderstatus"),
+                                                                                ImmutableList.of("custkey"),
+                                                                                ImmutableMap.of("custkey", ASC_NULLS_LAST))
+                                                                        .partial(true),
 
-        assertPlan(
-                "SELECT orderkey, count(*) FROM orders GROUP BY orderkey ORDER BY 1 LIMIT 10",
-                output(
-                        node(TopNNode.class,
-                                anyTree(
-                                        tableScan("orders")))));
-
-        assertPlan(
-                "SELECT orderkey, count(*) FROM orders GROUP BY orderkey ORDER BY 1 LIMIT 0",
-                output(
-                        node(ValuesNode.class)));
-
-        query = "SELECT * FROM (VALUES 1,2,3,4,5,6) AS t1 ORDER BY 1 LIMIT 10";
-        assertPlan(
-                query,
-                output(
-                        node(TopNNode.class,
-                                node(TopNNode.class,
-                                        node(ValuesNode.class)))));
-    }
-
-    @Test
-    public void testRedundantDistinctLimitNodeRemoval()
-    {
-        String query = "SELECT distinct(c) FROM (SELECT count(*) as c FROM orders) LIMIT 10";
-        assertFalse(
-                searchFrom(plan(query, OPTIMIZED).getRoot())
-                        .where(isInstanceOfAny(DistinctLimitNode.class))
-                        .matches(),
-                format("Unexpected DistinctLimit node for query: '%s'", query));
-
-        assertPlan(
-                "SELECT distinct(c) FROM (SELECT count(*) as c FROM orders GROUP BY orderkey) LIMIT 10",
-                output(
-                        node(DistinctLimitNode.class,
-                                anyTree(
-                                        tableScan("orders")))));
-
-        assertPlan(
-                "SELECT distinct(id) FROM (VALUES 1, 2, 3, 4, 5, 6) as t1 (id) LIMIT 10",
-                output(
-                        node(ProjectNode.class,
-                                node(AggregationNode.class,
-                                        node(ProjectNode.class,
-                                                values(ImmutableList.of("x")))))));
+                                                                project(tableScan("orders", ImmutableMap.of("orderstatus", "orderstatus", "custkey", "custkey"))))))))));
     }
 }

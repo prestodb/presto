@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spark.util;
 
+import com.facebook.airlift.json.Codec;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage;
 import com.facebook.presto.spi.page.PageCompressor;
@@ -20,15 +21,19 @@ import com.facebook.presto.spi.page.PageDecompressor;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.github.luben.zstd.Zstd;
+import com.github.luben.zstd.ZstdInputStreamNoFinalizer;
+import com.github.luben.zstd.ZstdOutputStreamNoFinalizer;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.apache.spark.SparkException;
 import org.apache.spark.api.java.JavaFutureAction;
+import scala.reflect.ClassTag;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.util.Optional;
@@ -59,7 +64,8 @@ public class PrestoSparkUtils
                 compactArray(slice.byteArray(), slice.byteArrayOffset(), slice.length()),
                 serializedPage.getPositionCount(),
                 serializedPage.getUncompressedSizeInBytes(),
-                serializedPage.getPageCodecMarkers());
+                serializedPage.getPageCodecMarkers(),
+                serializedPage.getChecksum());
     }
 
     public static SerializedPage toSerializedPage(PrestoSparkSerializedPage prestoSparkSerializedPage)
@@ -68,7 +74,8 @@ public class PrestoSparkUtils
                 Slices.wrappedBuffer(prestoSparkSerializedPage.getBytes()),
                 prestoSparkSerializedPage.getPageCodecMarkers(),
                 toIntExact(prestoSparkSerializedPage.getPositionCount()),
-                prestoSparkSerializedPage.getUncompressedSizeInBytes());
+                prestoSparkSerializedPage.getUncompressedSizeInBytes(),
+                prestoSparkSerializedPage.getChecksum());
     }
 
     public static byte[] compress(byte[] bytes)
@@ -91,6 +98,31 @@ public class PrestoSparkUtils
             throw new UncheckedIOException(e);
         }
         return output.toByteArray();
+    }
+
+    public static <T> byte[] serializeZstdCompressed(Codec<T> codec, T instance)
+    {
+        try (ByteArrayOutputStream output = new ByteArrayOutputStream();
+                ZstdOutputStreamNoFinalizer zstdOutput = new ZstdOutputStreamNoFinalizer(output)) {
+            codec.writeBytes(zstdOutput, instance);
+            zstdOutput.close();
+            output.close();
+            return output.toByteArray();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    public static <T> T deserializeZstdCompressed(Codec<T> codec, byte[] bytes)
+    {
+        try (InputStream input = new ByteArrayInputStream(bytes);
+                ZstdInputStreamNoFinalizer zstdInput = new ZstdInputStreamNoFinalizer(input)) {
+            return codec.readBytes(zstdInput);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     public static PagesSerde createPagesSerde(BlockEncodingManager blockEncodingManager)
@@ -216,5 +248,10 @@ public class PrestoSparkUtils
                 action.cancel(true);
             }
         }
+    }
+
+    public static <T> ClassTag<T> classTag(Class<T> clazz)
+    {
+        return scala.reflect.ClassTag$.MODULE$.apply(clazz);
     }
 }

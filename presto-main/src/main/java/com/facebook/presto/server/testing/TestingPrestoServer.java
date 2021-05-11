@@ -27,6 +27,7 @@ import com.facebook.airlift.http.server.testing.TestingHttpServerModule;
 import com.facebook.airlift.jaxrs.JaxrsModule;
 import com.facebook.airlift.jmx.testing.TestingJmxModule;
 import com.facebook.airlift.json.JsonModule;
+import com.facebook.airlift.json.smile.SmileModule;
 import com.facebook.airlift.node.testing.TestingNodeModule;
 import com.facebook.airlift.tracetoken.TraceTokenModule;
 import com.facebook.drift.server.DriftServer;
@@ -56,7 +57,6 @@ import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.server.ServerMainModule;
 import com.facebook.presto.server.ShutdownAction;
 import com.facebook.presto.server.security.ServerSecurityModule;
-import com.facebook.presto.server.smile.SmileModule;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.QueryId;
@@ -169,12 +169,12 @@ public class TestingPrestoServer
         private final CountDownLatch shutdownCalled = new CountDownLatch(1);
 
         @GuardedBy("this")
-        private boolean isWorkerShutdown;
+        private boolean isShutdown;
 
         @Override
         public synchronized void onShutdown()
         {
-            isWorkerShutdown = true;
+            isShutdown = true;
             shutdownCalled.countDown();
         }
 
@@ -184,9 +184,9 @@ public class TestingPrestoServer
             shutdownCalled.await(millis, MILLISECONDS);
         }
 
-        public synchronized boolean isWorkerShutdown()
+        public synchronized boolean isShutdown()
         {
-            return isWorkerShutdown;
+            return isShutdown;
         }
     }
 
