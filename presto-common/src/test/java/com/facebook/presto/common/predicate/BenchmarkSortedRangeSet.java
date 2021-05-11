@@ -29,6 +29,7 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
+import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -241,6 +242,33 @@ public class BenchmarkSortedRangeSet
             }
             return SortedRangeSet.copyOf(BIGINT, selectedRanges);
         }
+    }
+
+    @Test
+    public void test()
+    {
+        Data data = new Data();
+        data.init();
+
+        benchmarkBuilder(data);
+
+        equalsSmall(data);
+        equalsLarge(data);
+
+        unionSmall(data);
+        unionLarge(data);
+
+        overlapsSmall(data);
+        overlapsLarge(data);
+
+        containsValueSmall(data);
+        containsValueLarge(data);
+
+        complementSmall(data);
+        complementLarge(data);
+
+        getOrderedRangesSmall(data);
+        getOrderedRangesLarge(data);
     }
 
     public static void main(String[] args)
