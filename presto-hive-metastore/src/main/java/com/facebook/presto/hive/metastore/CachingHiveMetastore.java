@@ -891,7 +891,7 @@ public class CachingHiveMetastore
 
         public KeyAndContext(MetastoreContext context, T key)
         {
-            this.context = requireNonNull(context, "identity is null");
+            this.context = requireNonNull(context, "context is null");
             this.key = requireNonNull(key, "key is null");
         }
 
@@ -905,6 +905,9 @@ public class CachingHiveMetastore
             return key;
         }
 
+        // QueryId changes for every query. For caching to be effective across multiple queries, we should NOT include queryId,
+        // other fields of MetastoreContext in equals() and hashCode() methods below.
+        // But we should include username because we want the cache to be effective at per-user level when impersonation is enabled.
         @Override
         public boolean equals(Object o)
         {
@@ -915,7 +918,7 @@ public class CachingHiveMetastore
                 return false;
             }
             KeyAndContext<?> other = (KeyAndContext<?>) o;
-            return Objects.equals(context, other.context) &&
+            return Objects.equals(context.getUsername(), other.context.getUsername()) &&
                     Objects.equals(key, other.key);
         }
 
@@ -937,7 +940,7 @@ public class CachingHiveMetastore
 
     private <T> KeyAndContext<T> getCachingKey(MetastoreContext context, T key)
     {
-        MetastoreContext metastoreContext = metastoreImpersonationEnabled ? context : new MetastoreContext(NO_IMPERSONATION_USER);
+        MetastoreContext metastoreContext = metastoreImpersonationEnabled ? context : new MetastoreContext(NO_IMPERSONATION_USER, context.getQueryId(), context.getClientInfo(), context.getSource());
         return new KeyAndContext<>(metastoreContext, key);
     }
 
