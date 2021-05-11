@@ -169,6 +169,36 @@ public class BenchmarkSortedRangeSet
         return result;
     }
 
+    @Benchmark
+    public List<Integer> getOrderedRangesSmall(Data data)
+    {
+        return benchmarkGetOrderedRanges(data.smallRanges);
+    }
+
+    @Benchmark
+    public List<Integer> getOrderedRangesLarge(Data data)
+    {
+        return benchmarkGetOrderedRanges(data.largeRanges);
+    }
+
+    private List<Integer> benchmarkGetOrderedRanges(List<SortedRangeSet> dataRanges)
+    {
+        List<Integer> result = new ArrayList<>(dataRanges.size());
+        for (int index = 0; index < dataRanges.size(); index++) {
+            int hash = 0;
+            for (Range orderedRange : dataRanges.get(index).getRanges().getOrderedRanges()) {
+                if (orderedRange.getLow().getValueBlock().isPresent()) {
+                    hash = hash * 31 + orderedRange.getLow().getValue().hashCode();
+                }
+                if (orderedRange.getHigh().getValueBlock().isPresent()) {
+                    hash = hash * 31 + orderedRange.getHigh().getValue().hashCode();
+                }
+            }
+            result.add(hash);
+        }
+        return result;
+    }
+
     @State(Scope.Thread)
     public static class Data
     {
