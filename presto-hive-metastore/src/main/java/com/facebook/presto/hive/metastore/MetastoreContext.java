@@ -16,6 +16,7 @@ package com.facebook.presto.hive.metastore;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -23,16 +24,21 @@ import static java.util.Objects.requireNonNull;
 public class MetastoreContext
 {
     private final String username;
+    private final String queryId;
+    private final Optional<String> clientInfo;
+    private final Optional<String> source;
 
-    public MetastoreContext(ConnectorIdentity identity)
+    public MetastoreContext(ConnectorIdentity identity, String queryId, Optional<String> clientInfo, Optional<String> source)
     {
-        requireNonNull(identity, "identity is null");
-        this.username = requireNonNull(identity.getUser(), "identity.getUser() is null");
+        this(requireNonNull(identity, "identity is null").getUser(), queryId, clientInfo, source);
     }
 
-    public MetastoreContext(String username)
+    public MetastoreContext(String username, String queryId, Optional<String> clientInfo, Optional<String> source)
     {
         this.username = requireNonNull(username, "username is null");
+        this.queryId = requireNonNull(queryId, "queryId is null");
+        this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
+        this.source = requireNonNull(source, "source is null");
     }
 
     public String getUsername()
@@ -40,11 +46,29 @@ public class MetastoreContext
         return username;
     }
 
+    public String getQueryId()
+    {
+        return queryId;
+    }
+
+    public Optional<String> getClientInfo()
+    {
+        return clientInfo;
+    }
+
+    public Optional<String> getSource()
+    {
+        return source;
+    }
+
     @Override
     public String toString()
     {
         return toStringHelper(this)
                 .add("username", username)
+                .add("queryId", queryId)
+                .add("clientInfo", clientInfo.orElse(""))
+                .add("source", source.orElse(""))
                 .toString();
     }
 
@@ -59,12 +83,15 @@ public class MetastoreContext
         }
 
         MetastoreContext other = (MetastoreContext) o;
-        return Objects.equals(username, other.username);
+        return Objects.equals(username, other.username) &&
+                Objects.equals(queryId, other.queryId) &&
+                Objects.equals(clientInfo, other.clientInfo) &&
+                Objects.equals(source, other.source);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(username);
+        return Objects.hash(username, queryId, clientInfo, source);
     }
 }
