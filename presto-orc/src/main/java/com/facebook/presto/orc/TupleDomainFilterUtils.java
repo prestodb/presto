@@ -173,7 +173,7 @@ public class TupleDomainFilterUtils
         }
 
         Range lastRange = ranges.get(ranges.size() - 1);
-        if (!firstRange.getLow().isLowerUnbounded() || !lastRange.getHigh().isUpperUnbounded()) {
+        if (!firstRange.isLowUnbounded() || !lastRange.isHighUnbounded()) {
             return false;
         }
 

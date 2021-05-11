@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner.planPrinter;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.predicate.Domain;
-import com.facebook.presto.common.predicate.Marker;
 import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
@@ -1214,25 +1213,25 @@ public class PlanPrinter
                                 builder.append('[').append(value).append(']');
                             }
                             else {
-                                builder.append((range.getLow().getBound() == Marker.Bound.EXACTLY) ? '[' : '(');
+                                builder.append(range.isLowInclusive() ? '[' : '(');
 
-                                if (range.getLow().isLowerUnbounded()) {
+                                if (range.isLowUnbounded()) {
                                     builder.append("<min>");
                                 }
                                 else {
-                                    builder.append(castToVarchar(type, range.getLow().getValue(), functionAndTypeManager, session));
+                                    builder.append(castToVarchar(type, range.getLowBoundedValue(), functionAndTypeManager, session));
                                 }
 
                                 builder.append(", ");
 
-                                if (range.getHigh().isUpperUnbounded()) {
+                                if (range.isHighUnbounded()) {
                                     builder.append("<max>");
                                 }
                                 else {
-                                    builder.append(castToVarchar(type, range.getHigh().getValue(), functionAndTypeManager, session));
+                                    builder.append(castToVarchar(type, range.getHighBoundedValue(), functionAndTypeManager, session));
                                 }
 
-                                builder.append((range.getHigh().getBound() == Marker.Bound.EXACTLY) ? ']' : ')');
+                                builder.append(range.isHighInclusive() ? ']' : ')');
                             }
                             parts.add(builder.toString());
                         }

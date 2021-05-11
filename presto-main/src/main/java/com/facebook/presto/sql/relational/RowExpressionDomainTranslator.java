@@ -172,37 +172,25 @@ public final class RowExpressionDomainTranslator
                     functionAndTypeManager.resolveOperator(BETWEEN, fromTypes(reference.getType(), type, type)),
                     BOOLEAN,
                     reference,
-                    toRowExpression(range.getLow().getValue(), type),
-                    toRowExpression(range.getHigh().getValue(), type));
+                    toRowExpression(range.getLowBoundedValue(), type),
+                    toRowExpression(range.getHighBoundedValue(), type));
         }
 
         List<RowExpression> rangeConjuncts = new ArrayList<>();
-        if (!range.getLow().isLowerUnbounded()) {
-            switch (range.getLow().getBound()) {
-                case ABOVE:
-                    rangeConjuncts.add(greaterThan(reference, toRowExpression(range.getLow().getValue(), type)));
-                    break;
-                case EXACTLY:
-                    rangeConjuncts.add(greaterThanOrEqual(reference, toRowExpression(range.getLow().getValue(), type)));
-                    break;
-                case BELOW:
-                    throw new IllegalStateException("Low Marker should never use BELOW bound: " + range);
-                default:
-                    throw new AssertionError("Unhandled bound: " + range.getLow().getBound());
+        if (!range.isLowUnbounded()) {
+            if (range.isLowInclusive()) {
+                rangeConjuncts.add(greaterThanOrEqual(reference, toRowExpression(range.getLowBoundedValue(), type)));
+            }
+            else {
+                rangeConjuncts.add(greaterThan(reference, toRowExpression(range.getLowBoundedValue(), type)));
             }
         }
-        if (!range.getHigh().isUpperUnbounded()) {
-            switch (range.getHigh().getBound()) {
-                case ABOVE:
-                    throw new IllegalStateException("High Marker should never use ABOVE bound: " + range);
-                case EXACTLY:
-                    rangeConjuncts.add(lessThanOrEqual(reference, toRowExpression(range.getHigh().getValue(), type)));
-                    break;
-                case BELOW:
-                    rangeConjuncts.add(lessThan(reference, toRowExpression(range.getHigh().getValue(), type)));
-                    break;
-                default:
-                    throw new AssertionError("Unhandled bound: " + range.getHigh().getBound());
+        if (!range.isHighUnbounded()) {
+            if (range.isHighInclusive()) {
+                rangeConjuncts.add(lessThanOrEqual(reference, toRowExpression(range.getHighBoundedValue(), type)));
+            }
+            else {
+                rangeConjuncts.add(lessThan(reference, toRowExpression(range.getHighBoundedValue(), type)));
             }
         }
         // If rangeConjuncts is null, then the range was ALL, which should already have been checked for
