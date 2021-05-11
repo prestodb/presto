@@ -94,6 +94,7 @@ import static com.facebook.presto.hive.AbstractTestHiveClient.createTablePropert
 import static com.facebook.presto.hive.AbstractTestHiveClient.filterNonHiddenColumnHandles;
 import static com.facebook.presto.hive.AbstractTestHiveClient.filterNonHiddenColumnMetadata;
 import static com.facebook.presto.hive.AbstractTestHiveClient.getAllSplits;
+import static com.facebook.presto.hive.HiveQueryRunner.METASTORE_CONTEXT;
 import static com.facebook.presto.hive.HiveTestUtils.FILTER_STATS_CALCULATOR_SERVICE;
 import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_RESOLUTION;
@@ -384,7 +385,7 @@ public abstract class AbstractTestHiveFileSystem
                 // CSV supports only unbounded VARCHAR type
                 continue;
             }
-            createTable(new MetastoreContext("test_user"), temporaryCreateTable, storageFormat);
+            createTable(METASTORE_CONTEXT, temporaryCreateTable, storageFormat);
             dropTable(temporaryCreateTable);
         }
     }

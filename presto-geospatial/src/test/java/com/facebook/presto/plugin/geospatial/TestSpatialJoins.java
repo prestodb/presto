@@ -102,7 +102,7 @@ public class TestSpatialJoins
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
 
         FileHiveMetastore metastore = new FileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test");
-        metastore.createDatabase(new MetastoreContext("test_user"), Database.builder()
+        metastore.createDatabase(new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty()), Database.builder()
                 .setDatabaseName("default")
                 .setOwnerName("public")
                 .setOwnerType(PrincipalType.ROLE)

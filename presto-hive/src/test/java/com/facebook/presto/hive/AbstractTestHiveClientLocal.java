@@ -16,7 +16,6 @@ package com.facebook.presto.hive;
 import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
-import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
@@ -29,6 +28,7 @@ import org.testng.annotations.BeforeClass;
 import java.io.File;
 import java.io.IOException;
 
+import static com.facebook.presto.hive.HiveQueryRunner.METASTORE_CONTEXT;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.util.Objects.requireNonNull;
@@ -60,7 +60,7 @@ public abstract class AbstractTestHiveClientLocal
 
         ExtendedHiveMetastore metastore = createMetastore(tempDir);
 
-        metastore.createDatabase(new MetastoreContext("test_user"), Database.builder()
+        metastore.createDatabase(METASTORE_CONTEXT, Database.builder()
                 .setDatabaseName(testDbName)
                 .setOwnerName("public")
                 .setOwnerType(PrincipalType.ROLE)
@@ -78,7 +78,7 @@ public abstract class AbstractTestHiveClientLocal
             throws IOException
     {
         try {
-            getMetastoreClient().dropDatabase(new MetastoreContext("test_user"), testDbName);
+            getMetastoreClient().dropDatabase(METASTORE_CONTEXT, testDbName);
         }
         finally {
             deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);

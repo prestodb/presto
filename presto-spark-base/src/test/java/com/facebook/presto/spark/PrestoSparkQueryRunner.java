@@ -143,6 +143,8 @@ public class PrestoSparkQueryRunner
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
+    protected static final MetastoreContext METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty());
+
     public static PrestoSparkQueryRunner createHivePrestoSparkQueryRunner()
     {
         return createHivePrestoSparkQueryRunner(getTables());
@@ -157,8 +159,8 @@ public class PrestoSparkQueryRunner
     {
         PrestoSparkQueryRunner queryRunner = new PrestoSparkQueryRunner("hive", additionalConfigProperties);
         ExtendedHiveMetastore metastore = queryRunner.getMetastore();
-        if (!metastore.getDatabase(new MetastoreContext("test_user"), "tpch").isPresent()) {
-            metastore.createDatabase(new MetastoreContext("test_user"), createDatabaseMetastoreObject("tpch"));
+        if (!metastore.getDatabase(METASTORE_CONTEXT, "tpch").isPresent()) {
+            metastore.createDatabase(METASTORE_CONTEXT, createDatabaseMetastoreObject("tpch"));
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, queryRunner.getDefaultSession(), tables);
             copyTpchTablesBucketed(queryRunner, "tpch", TINY_SCHEMA_NAME, queryRunner.getDefaultSession(), tables);
         }
@@ -266,7 +268,7 @@ public class PrestoSparkQueryRunner
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
 
         this.metastore = new FileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test");
-        metastore.createDatabase(new MetastoreContext("test_user"), createDatabaseMetastoreObject("hive_test"));
+        metastore.createDatabase(METASTORE_CONTEXT, createDatabaseMetastoreObject("hive_test"));
         pluginManager.installPlugin(new HivePlugin("hive", Optional.of(metastore)));
 
         connectorManager.createConnection("hive", "hive", ImmutableMap.of());

@@ -217,7 +217,7 @@ public class HiveSplitManager
             throw new PrestoException(HIVE_TRANSACTION_NOT_FOUND, format("Transaction not found: %s", transaction));
         }
         SemiTransactionalHiveMetastore metastore = metadata.getMetastore();
-        Table table = metastore.getTable(new MetastoreContext(session.getIdentity()), tableName.getSchemaName(), tableName.getTableName())
+        Table table = metastore.getTable(new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource()), tableName.getSchemaName(), tableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
 
         if (!isOfflineDataDebugModeEnabled(session)) {
@@ -528,7 +528,7 @@ public class HiveSplitManager
             Map<String, HiveColumnHandle> predicateColumns,
             Optional<Map<Subfield, Domain>> domains)
     {
-        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity());
+        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource());
         Map<String, Optional<Partition>> partitions = metastore.getPartitionsByNames(
                 metastoreContext,
                 tableName.getSchemaName(),
