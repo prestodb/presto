@@ -63,16 +63,13 @@ public class LocalDispatchQuery
     private final Consumer<QueryExecution> querySubmitter;
     private final SettableFuture<?> submitted = SettableFuture.create();
 
-    private final boolean retry;
-
     public LocalDispatchQuery(
             QueryStateMachine stateMachine,
             QueryMonitor queryMonitor,
             ListenableFuture<QueryExecution> queryExecutionFuture,
             ClusterSizeMonitor clusterSizeMonitor,
             Executor queryExecutor,
-            Consumer<QueryExecution> querySubmitter,
-            boolean retry)
+            Consumer<QueryExecution> querySubmitter)
     {
         this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
         this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
@@ -80,7 +77,6 @@ public class LocalDispatchQuery
         this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
         this.querySubmitter = requireNonNull(querySubmitter, "querySubmitter is null");
-        this.retry = retry;
 
         addExceptionCallback(queryExecutionFuture, throwable -> {
             if (stateMachine.transitionToFailed(throwable)) {
@@ -263,12 +259,6 @@ public class LocalDispatchQuery
     public Optional<ErrorCode> getErrorCode()
     {
         return stateMachine.getFailureInfo().map(ExecutionFailureInfo::getErrorCode);
-    }
-
-    @Override
-    public boolean isRetry()
-    {
-        return retry;
     }
 
     @Override
