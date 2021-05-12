@@ -39,7 +39,7 @@ Presto comes with sample configuration that should work out-of-the-box for devel
 
 * Main Class: `com.facebook.presto.server.PrestoServer`
 * VM Options: `-ea -XX:+UseG1GC -XX:G1HeapRegionSize=32M -XX:+UseGCOverheadLimit -XX:+ExplicitGCInvokesConcurrent -Xmx2G -Dconfig=etc/config.properties -Dlog.levels-file=etc/log.properties`
-* Working directory: `$MODULE_DIR$`
+* Working directory: `$MODULE_WORKING_DIR$` or `$MODULE_DIR$`(Depends on the version of your IntelliJ)
 * Use classpath of module: `presto-main`
 
 The working directory should be the `presto-main` subdirectory. In IntelliJ, using `$MODULE_DIR$` accomplishes this automatically.
