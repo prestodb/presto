@@ -16,6 +16,7 @@ package com.facebook.presto.execution.resourceGroups;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -79,25 +80,23 @@ final class IndexedPriorityQueue<E>
     @Override
     public E poll()
     {
-        Iterator<Entry<E>> iterator = queue.iterator();
+        Iterator<E> iterator = iterator();
         if (!iterator.hasNext()) {
             return null;
         }
-        Entry<E> entry = iterator.next();
+        E value = iterator.next();
         iterator.remove();
-        checkState(index.remove(entry.getValue()) != null, "Failed to remove entry from index");
-        return entry.getValue();
+        return value;
     }
 
     @Override
     public E peek()
     {
-        Iterator<Entry<E>> iterator = queue.iterator();
+        Iterator<E> iterator = iterator();
         if (!iterator.hasNext()) {
             return null;
         }
-        Entry<E> entry = iterator.next();
-        return entry.getValue();
+        return iterator.next();
     }
 
     @Override
@@ -115,7 +114,7 @@ final class IndexedPriorityQueue<E>
     @Override
     public Iterator<E> iterator()
     {
-        return transform(queue.iterator(), Entry::getValue);
+        return new IndexedPriorityQueueIterator<>(queue, index);
     }
 
     private static final class Entry<E>
@@ -144,6 +143,61 @@ final class IndexedPriorityQueue<E>
         public long getGeneration()
         {
             return generation;
+        }
+    }
+
+    private static class IndexedPriorityQueueIterator<E>
+            implements Iterator<E>
+    {
+        private final Map<E, Entry<E>> index;
+        private final Iterator<E> queueIterator;
+
+        private boolean hasNext;
+        private boolean needsNext = true;
+        private boolean removeCalled = true;
+        private E value;
+
+        public IndexedPriorityQueueIterator(Set<Entry<E>> queue, Map<E, Entry<E>> index)
+        {
+            this.index = requireNonNull(index, "index is null");
+            requireNonNull(queue, "queue is null");
+            this.queueIterator = transform(queue.iterator(), Entry::getValue);
+        }
+
+        @Override
+        public boolean hasNext()
+        {
+            if (!needsNext) {
+                return hasNext;
+            }
+            hasNext = queueIterator.hasNext();
+            if (hasNext) {
+                value = queueIterator.next();
+            }
+            needsNext = false;
+            return hasNext;
+        }
+
+        @Override
+        public E next()
+        {
+            if (!hasNext()) {
+                throw new NoSuchElementException();
+            }
+            removeCalled = false;
+            needsNext = true;
+            return value;
+        }
+
+        @Override
+        public void remove()
+        {
+            if (removeCalled) {
+                throw new IllegalStateException();
+            }
+            removeCalled = true;
+            queueIterator.remove();
+            checkState(index.remove(value) != null, "Failed to remove entry from index");
         }
     }
 }
