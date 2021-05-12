@@ -65,7 +65,7 @@ public interface ValueSet
         throw new IllegalArgumentException("Cannot create discrete ValueSet with non-comparable type: " + type);
     }
 
-    static ValueSet copyOf(Type type, Collection<Object> values)
+    static ValueSet copyOf(Type type, Collection<?> values)
     {
         if (type.isOrderable()) {
             return SortedRangeSet.copyOf(type, values.stream()

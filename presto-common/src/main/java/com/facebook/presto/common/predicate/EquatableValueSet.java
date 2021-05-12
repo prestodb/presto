@@ -89,7 +89,7 @@ public class EquatableValueSet
         return new EquatableValueSet(type, true, set);
     }
 
-    static EquatableValueSet copyOf(Type type, Collection<Object> values)
+    static EquatableValueSet copyOf(Type type, Collection<?> values)
     {
         return new EquatableValueSet(type, true, values.stream()
                 .map(value -> ValueEntry.create(type, value))
