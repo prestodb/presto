@@ -32,6 +32,7 @@ import javax.annotation.concurrent.GuardedBy;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -164,7 +165,7 @@ public class PrestoSparkDiskPageInput
             }
             return pages.build();
         }
-        catch (IOException e) {
+        catch (UncheckedIOException | IOException e) {
             throw new PrestoException(STORAGE_ERROR, "Unable to read data from disk: ", e);
         }
     }
