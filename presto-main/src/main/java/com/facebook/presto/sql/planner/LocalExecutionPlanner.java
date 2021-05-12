@@ -44,6 +44,7 @@ import com.facebook.presto.expressions.DynamicFilters.DynamicFilterExtractResult
 import com.facebook.presto.expressions.DynamicFilters.DynamicFilterPlaceholder;
 import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.index.IndexManager;
+import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.metadata.AnalyzeTableHandle;
 import com.facebook.presto.metadata.ConnectorMetadataUpdaterManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
@@ -357,6 +358,7 @@ public class LocalExecutionPlanner
     private final LogicalRowExpressions logicalRowExpressions;
     private final FragmentResultCacheManager fragmentResultCacheManager;
     private final ObjectMapper objectMapper;
+    private final boolean tableFinishOperatorMemoryTrackingEnabled;
 
     private static final TypeSignature SPHERICAL_GEOGRAPHY_TYPE_SIGNATURE = parseTypeSignature("SphericalGeography");
 
@@ -375,6 +377,7 @@ public class LocalExecutionPlanner
             JoinFilterFunctionCompiler joinFilterFunctionCompiler,
             IndexJoinLookupStats indexJoinLookupStats,
             TaskManagerConfig taskManagerConfig,
+            MemoryManagerConfig memoryManagerConfig,
             SpillerFactory spillerFactory,
             SingleStreamSpillerFactory singleStreamSpillerFactory,
             PartitioningSpillerFactory partitioningSpillerFactory,
@@ -419,6 +422,7 @@ public class LocalExecutionPlanner
                 metadata.getFunctionAndTypeManager());
         this.fragmentResultCacheManager = requireNonNull(fragmentResultCacheManager, "fragmentResultCacheManager is null");
         this.objectMapper = requireNonNull(objectMapper, "objectMapper is null");
+        this.tableFinishOperatorMemoryTrackingEnabled = requireNonNull(memoryManagerConfig, "memoryManagerConfig is null").isTableFinishOperatorMemoryTrackingEnabled();
     }
 
     public LocalExecutionPlan plan(
@@ -2688,7 +2692,8 @@ public class LocalExecutionPlanner
                     statisticsAggregation,
                     descriptor,
                     session,
-                    tableCommitContextCodec);
+                    tableCommitContextCodec,
+                    tableFinishOperatorMemoryTrackingEnabled);
             Map<VariableReferenceExpression, Integer> layout = ImmutableMap.of(node.getOutputVariables().get(0), 0);
 
             return new PhysicalOperation(operatorFactory, layout, context, source);
