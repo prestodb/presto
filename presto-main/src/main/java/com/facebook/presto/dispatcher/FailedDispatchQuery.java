@@ -131,12 +131,6 @@ public class FailedDispatchQuery
     }
 
     @Override
-    public boolean isRetry()
-    {
-        return false;
-    }
-
-    @Override
     public void recordHeartbeat() {}
 
     @Override
