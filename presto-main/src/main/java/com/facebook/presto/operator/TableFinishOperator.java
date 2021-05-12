@@ -79,6 +79,7 @@ public class TableFinishOperator
         private final StatisticAggregationsDescriptor<Integer> descriptor;
         private final Session session;
         private final JsonCodec<TableCommitContext> tableCommitContextCodec;
+        private final boolean memoryTrackingEnabled;
 
         private boolean closed;
 
@@ -90,7 +91,8 @@ public class TableFinishOperator
                 OperatorFactory statisticsAggregationOperatorFactory,
                 StatisticAggregationsDescriptor<Integer> descriptor,
                 Session session,
-                JsonCodec<TableCommitContext> tableCommitContextCodec)
+                JsonCodec<TableCommitContext> tableCommitContextCodec,
+                boolean memoryTrackingEnabled)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -100,6 +102,7 @@ public class TableFinishOperator
             this.descriptor = requireNonNull(descriptor, "descriptor is null");
             this.session = requireNonNull(session, "session is null");
             this.tableCommitContextCodec = requireNonNull(tableCommitContextCodec, "tableCommitContextCodec is null");
+            this.memoryTrackingEnabled = memoryTrackingEnabled;
         }
 
         @Override
@@ -109,7 +112,15 @@ public class TableFinishOperator
             OperatorContext context = driverContext.addOperatorContext(operatorId, planNodeId, TableFinishOperator.class.getSimpleName());
             Operator statisticsAggregationOperator = statisticsAggregationOperatorFactory.createOperator(driverContext);
             boolean statisticsCpuTimerEnabled = !(statisticsAggregationOperator instanceof DevNullOperator) && isStatisticsCpuTimerEnabled(session);
-            return new TableFinishOperator(context, tableFinisher, pageSinkCommitter, statisticsAggregationOperator, descriptor, statisticsCpuTimerEnabled, tableCommitContextCodec);
+            return new TableFinishOperator(
+                    context,
+                    tableFinisher,
+                    pageSinkCommitter,
+                    statisticsAggregationOperator,
+                    descriptor,
+                    statisticsCpuTimerEnabled,
+                    memoryTrackingEnabled,
+                    tableCommitContextCodec);
         }
 
         @Override
@@ -121,7 +132,16 @@ public class TableFinishOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new TableFinishOperatorFactory(operatorId, planNodeId, tableFinisher, pageSinkCommitter, statisticsAggregationOperatorFactory, descriptor, session, tableCommitContextCodec);
+            return new TableFinishOperatorFactory(
+                    operatorId,
+                    planNodeId,
+                    tableFinisher,
+                    pageSinkCommitter,
+                    statisticsAggregationOperatorFactory,
+                    descriptor,
+                    session,
+                    tableCommitContextCodec,
+                    memoryTrackingEnabled);
         }
     }
 
@@ -141,6 +161,7 @@ public class TableFinishOperator
 
     private final OperationTiming statisticsTiming = new OperationTiming();
     private final boolean statisticsCpuTimerEnabled;
+    private final boolean memoryTrackingEnabled;
 
     private final JsonCodec<TableCommitContext> tableCommitContextCodec;
     private final LifespanAndStageStateTracker lifespanAndStageStateTracker;
@@ -155,6 +176,7 @@ public class TableFinishOperator
             Operator statisticsAggregationOperator,
             StatisticAggregationsDescriptor<Integer> descriptor,
             boolean statisticsCpuTimerEnabled,
+            boolean memoryTrackingEnabled,
             JsonCodec<TableCommitContext> tableCommitContextCodec)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
@@ -162,6 +184,7 @@ public class TableFinishOperator
         this.statisticsAggregationOperator = requireNonNull(statisticsAggregationOperator, "statisticsAggregationOperator is null");
         this.descriptor = requireNonNull(descriptor, "descriptor is null");
         this.statisticsCpuTimerEnabled = statisticsCpuTimerEnabled;
+        this.memoryTrackingEnabled = memoryTrackingEnabled;
         this.tableCommitContextCodec = requireNonNull(tableCommitContextCodec, "tableCommitContextCodec is null");
         this.lifespanAndStageStateTracker = new LifespanAndStageStateTracker(pageSinkCommitter, operatorRetainedMemoryBytes);
         this.systemMemoryContext = operatorContext.localSystemMemoryContext();
@@ -225,7 +248,9 @@ public class TableFinishOperator
             statisticsAggregationOperator.addInput(statisticsPage);
             timer.end(statisticsTiming);
         });
-        systemMemoryContext.setBytes(operatorRetainedMemoryBytes.get());
+        if (memoryTrackingEnabled) {
+            systemMemoryContext.setBytes(operatorRetainedMemoryBytes.get());
+        }
     }
 
     @Override

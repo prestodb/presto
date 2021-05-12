@@ -794,6 +794,7 @@ public class LocalQueryRunner
                 joinFilterFunctionCompiler,
                 new IndexJoinLookupStats(),
                 new TaskManagerConfig().setTaskConcurrency(4),
+                new MemoryManagerConfig(),
                 spillerFactory,
                 singleStreamSpillerFactory,
                 partitioningSpillerFactory,
