@@ -34,6 +34,8 @@ import com.facebook.presto.transaction.TransactionManager;
 import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 
 import javax.inject.Singleton;
 
@@ -41,6 +43,7 @@ import static com.facebook.airlift.configuration.ConditionalModule.installModule
 import static com.facebook.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static com.facebook.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
+import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static com.facebook.airlift.json.smile.SmileCodecBinder.smileCodecBinder;
 import static com.facebook.drift.server.guice.DriftServerBinder.driftServerBinder;
@@ -95,6 +98,8 @@ public class ResourceManagerModule
 
         httpClientBinder(binder).bindHttpClient("resourceManager", ForResourceManager.class);
         binder.bind(ResourceManagerProxy.class).in(Scopes.SINGLETON);
+        jsonBinder(binder).addSerializerBinding(Duration.class).to(DurationSerializer.class);
+        jsonBinder(binder).addSerializerBinding(DataSize.class).to(DataSizeSerializer.class);
     }
 
     @Provides
