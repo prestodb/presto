@@ -123,7 +123,6 @@ public class LocalDispatchQueryFactory
                 queryExecutionFuture,
                 clusterSizeMonitor,
                 executor,
-                queryManager::createQuery,
-                retryCount > 0);
+                queryManager::createQuery);
     }
 }
