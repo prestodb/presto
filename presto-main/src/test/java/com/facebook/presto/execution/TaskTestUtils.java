@@ -27,6 +27,7 @@ import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionStats;
 import com.facebook.presto.index.IndexManager;
+import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.metadata.ConnectorMetadataUpdaterManager;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
@@ -161,6 +162,7 @@ public final class TaskTestUtils
                 new JoinFilterFunctionCompiler(metadata),
                 new IndexJoinLookupStats(),
                 new TaskManagerConfig(),
+                new MemoryManagerConfig(),
                 new GenericSpillerFactory((types, spillContext, memoryContext) -> {
                     throw new UnsupportedOperationException();
                 }),

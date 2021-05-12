@@ -39,6 +39,7 @@ public class MemoryManagerConfig
     private DataSize softMaxQueryTotalMemory;
     private String lowMemoryKillerPolicy = LowMemoryKillerPolicy.NONE;
     private Duration killOnOutOfMemoryDelay = new Duration(5, MINUTES);
+    private boolean tableFinishOperatorMemoryTrackingEnabled;
 
     public String getLowMemoryKillerPolicy()
     {
@@ -128,6 +129,18 @@ public class MemoryManagerConfig
     public MemoryManagerConfig setSoftMaxQueryTotalMemory(DataSize softMaxQueryTotalMemory)
     {
         this.softMaxQueryTotalMemory = softMaxQueryTotalMemory;
+        return this;
+    }
+
+    public boolean isTableFinishOperatorMemoryTrackingEnabled()
+    {
+        return tableFinishOperatorMemoryTrackingEnabled;
+    }
+
+    @Config("table-finish-operator-memory-tracking-enabled")
+    public MemoryManagerConfig setTableFinishOperatorMemoryTrackingEnabled(boolean tableFinishOperatorMemoryTrackingEnabled)
+    {
+        this.tableFinishOperatorMemoryTrackingEnabled = tableFinishOperatorMemoryTrackingEnabled;
         return this;
     }
 
