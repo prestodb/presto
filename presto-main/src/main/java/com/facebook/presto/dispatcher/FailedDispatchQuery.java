@@ -102,6 +102,9 @@ public class FailedDispatchQuery
     }
 
     @Override
+    public void startWaitingForPrerequisites() {}
+
+    @Override
     public void startWaitingForResources() {}
 
     @Override

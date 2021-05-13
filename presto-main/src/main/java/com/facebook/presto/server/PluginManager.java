@@ -20,6 +20,7 @@ import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.type.ParametricType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.connector.ConnectorManager;
+import com.facebook.presto.dispatcher.QueryPrerequisitesManager;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.metadata.Metadata;
@@ -30,6 +31,7 @@ import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
 import com.facebook.presto.spi.function.FunctionNamespaceManagerFactory;
+import com.facebook.presto.spi.prerequisites.QueryPrerequisitesFactory;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.spi.security.PasswordAuthenticatorFactory;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
@@ -99,6 +101,7 @@ public class PluginManager
     private final BlockEncodingManager blockEncodingManager;
     private final TempStorageManager tempStorageManager;
     private final SessionPropertyDefaults sessionPropertyDefaults;
+    private final QueryPrerequisitesManager queryPrerequisitesManager;
     private final ArtifactResolver resolver;
     private final File installedPluginsDir;
     private final List<String> plugins;
@@ -118,6 +121,7 @@ public class PluginManager
             EventListenerManager eventListenerManager,
             BlockEncodingManager blockEncodingManager,
             TempStorageManager tempStorageManager,
+            QueryPrerequisitesManager queryPrerequisitesManager,
             SessionPropertyDefaults sessionPropertyDefaults)
     {
         requireNonNull(nodeInfo, "nodeInfo is null");
@@ -140,6 +144,7 @@ public class PluginManager
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
         this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
         this.tempStorageManager = requireNonNull(tempStorageManager, "tempStorageManager is null");
+        this.queryPrerequisitesManager = requireNonNull(queryPrerequisitesManager, "queryPrerequisitesManager is null");
         this.sessionPropertyDefaults = requireNonNull(sessionPropertyDefaults, "sessionPropertyDefaults is null");
         this.disabledConnectors = requireNonNull(config.getDisabledConnectors(), "disabledConnectors is null");
     }
@@ -256,6 +261,11 @@ public class PluginManager
         for (TempStorageFactory tempStorageFactory : plugin.getTempStorageFactories()) {
             log.info("Registering temp storage %s", tempStorageFactory.getName());
             tempStorageManager.addTempStorageFactory(tempStorageFactory);
+        }
+
+        for (QueryPrerequisitesFactory queryPrerequisitesFactory : plugin.getQueryPrerequisitesFactories()) {
+            log.info("Registering query prerequisite factory %s", queryPrerequisitesFactory.getName());
+            queryPrerequisitesManager.addQueryPrerequisitesFactory(queryPrerequisitesFactory);
         }
     }
 

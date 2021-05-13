@@ -35,6 +35,7 @@ import com.facebook.drift.transport.netty.server.DriftNettyServerTransport;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.dispatcher.DispatchManager;
+import com.facebook.presto.dispatcher.QueryPrerequisitesManagerModule;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
@@ -270,6 +271,7 @@ public class TestingPrestoServer
                 .add(new ServerSecurityModule())
                 .add(new ServerMainModule(parserOptions))
                 .add(new TestingWarningCollectorModule())
+                .add(new QueryPrerequisitesManagerModule())
                 .add(binder -> {
                     binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);
                     binder.bind(TestingEventListenerManager.class).in(Scopes.SINGLETON);
