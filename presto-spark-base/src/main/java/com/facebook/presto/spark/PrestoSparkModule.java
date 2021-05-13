@@ -38,6 +38,7 @@ import com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges;
 import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.StatsCalculatorModule;
 import com.facebook.presto.cost.TaskCountEstimator;
+import com.facebook.presto.dispatcher.QueryPrerequisitesManager;
 import com.facebook.presto.event.QueryMonitor;
 import com.facebook.presto.event.QueryMonitorConfig;
 import com.facebook.presto.event.SplitMonitor;
@@ -421,6 +422,7 @@ public class PrestoSparkModule
         binder.bind(new TypeLiteral<ResourceGroupManager<?>>() {}).to(new TypeLiteral<InternalResourceGroupManager<?>>() {});
         binder.bind(LegacyResourceGroupConfigurationManager.class).in(Scopes.SINGLETON);
         binder.bind(ClusterMemoryPoolManager.class).toInstance(((poolId, listener) -> {}));
+        binder.bind(QueryPrerequisitesManager.class).in(Scopes.SINGLETON);
 
         // TODO: Decouple and remove: required by SessionPropertyDefaults, PluginManager, InternalResourceGroupManager, ConnectorManager
         configBinder(binder).bindConfig(NodeConfig.class);

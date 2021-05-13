@@ -1230,6 +1230,14 @@ export class QueryDetail extends React.Component {
                             </tr>
                             <tr>
                                 <td className="info-title">
+                                    Prerequisites Wait Time
+                                </td>
+                                <td className="info-text">
+                                    {query.queryStats.waitingForPrerequisitesTime}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td className="info-title">
                                     Queued Time
                                 </td>
                                 <td className="info-text">
