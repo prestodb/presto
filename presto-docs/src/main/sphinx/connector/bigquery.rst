@@ -62,7 +62,7 @@ Authentication
 
 * Use a service account JSON key and ``GOOGLE_APPLICATION_CREDENTIALS`` as
   described `here <https://cloud.google.com/docs/authentication/getting-started>`_.
-* Set ``bigquery.credentials`` in the catalog properties file.
+* Set ``bigquery.credentials-key`` in the catalog properties file.
   It should contain the contents of the JSON file, encoded using base64.
 * Set ``bigquery.credentials-file`` in the catalog properties file.
   It should point to the location of the JSON file.
