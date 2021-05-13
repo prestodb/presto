@@ -14,7 +14,6 @@
 package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.StreamLayout.ByStreamSize;
-import com.google.common.annotations.VisibleForTesting;
 import io.airlift.units.DataSize;
 
 import java.util.OptionalInt;
@@ -28,17 +27,13 @@ import static java.util.Objects.requireNonNull;
 
 public class OrcWriterOptions
 {
-    private static final DataSize DEFAULT_STRIPE_MIN_SIZE = new DataSize(32, MEGABYTE);
-    private static final DataSize DEFAULT_STRIPE_MAX_SIZE = new DataSize(64, MEGABYTE);
-    private static final int DEFAULT_STRIPE_MAX_ROW_COUNT = 10_000_000;
-    private static final int DEFAULT_ROW_GROUP_MAX_ROW_COUNT = 10_000;
-    private static final DataSize DEFAULT_DICTIONARY_MAX_MEMORY = new DataSize(16, MEGABYTE);
-
-    @VisibleForTesting
-    static final DataSize DEFAULT_MAX_STRING_STATISTICS_LIMIT = new DataSize(64, BYTE);
-
-    @VisibleForTesting
-    static final DataSize DEFAULT_MAX_COMPRESSION_BUFFER_SIZE = new DataSize(256, KILOBYTE);
+    public static final DataSize DEFAULT_STRIPE_MIN_SIZE = new DataSize(32, MEGABYTE);
+    public static final DataSize DEFAULT_STRIPE_MAX_SIZE = new DataSize(64, MEGABYTE);
+    public static final int DEFAULT_STRIPE_MAX_ROW_COUNT = 10_000_000;
+    public static final int DEFAULT_ROW_GROUP_MAX_ROW_COUNT = 10_000;
+    public static final DataSize DEFAULT_DICTIONARY_MAX_MEMORY = new DataSize(16, MEGABYTE);
+    public static final DataSize DEFAULT_MAX_STRING_STATISTICS_LIMIT = new DataSize(64, BYTE);
+    public static final DataSize DEFAULT_MAX_COMPRESSION_BUFFER_SIZE = new DataSize(256, KILOBYTE);
 
     private final DataSize stripeMinSize;
     private final DataSize stripeMaxSize;
@@ -50,21 +45,6 @@ public class OrcWriterOptions
     private final OptionalInt compressionLevel;
     private final StreamLayout streamLayout;
     private final boolean integerDictionaryEncodingEnabled;
-
-    public OrcWriterOptions()
-    {
-        this(
-                DEFAULT_STRIPE_MIN_SIZE,
-                DEFAULT_STRIPE_MAX_SIZE,
-                DEFAULT_STRIPE_MAX_ROW_COUNT,
-                DEFAULT_ROW_GROUP_MAX_ROW_COUNT,
-                DEFAULT_DICTIONARY_MAX_MEMORY,
-                DEFAULT_MAX_STRING_STATISTICS_LIMIT,
-                DEFAULT_MAX_COMPRESSION_BUFFER_SIZE,
-                OptionalInt.empty(),
-                new ByStreamSize(),
-                false);
-    }
 
     private OrcWriterOptions(
             DataSize stripeMinSize,
@@ -150,156 +130,6 @@ public class OrcWriterOptions
         return integerDictionaryEncodingEnabled;
     }
 
-    public OrcWriterOptions withStripeMinSize(DataSize stripeMinSize)
-    {
-        return new OrcWriterOptions(
-                stripeMinSize,
-                stripeMaxSize,
-                stripeMaxRowCount,
-                rowGroupMaxRowCount,
-                dictionaryMaxMemory,
-                maxStringStatisticsLimit,
-                maxCompressionBufferSize,
-                compressionLevel,
-                streamLayout,
-                integerDictionaryEncodingEnabled);
-    }
-
-    public OrcWriterOptions withStripeMaxSize(DataSize stripeMaxSize)
-    {
-        return new OrcWriterOptions(
-                stripeMinSize,
-                stripeMaxSize,
-                stripeMaxRowCount,
-                rowGroupMaxRowCount,
-                dictionaryMaxMemory,
-                maxStringStatisticsLimit,
-                maxCompressionBufferSize,
-                compressionLevel,
-                streamLayout,
-                integerDictionaryEncodingEnabled);
-    }
-
-    public OrcWriterOptions withStripeMaxRowCount(int stripeMaxRowCount)
-    {
-        return new OrcWriterOptions(
-                stripeMinSize,
-                stripeMaxSize,
-                stripeMaxRowCount,
-                rowGroupMaxRowCount,
-                dictionaryMaxMemory,
-                maxStringStatisticsLimit,
-                maxCompressionBufferSize,
-                compressionLevel,
-                streamLayout,
-                integerDictionaryEncodingEnabled);
-    }
-
-    public OrcWriterOptions withRowGroupMaxRowCount(int rowGroupMaxRowCount)
-    {
-        return new OrcWriterOptions(
-                stripeMinSize,
-                stripeMaxSize,
-                stripeMaxRowCount,
-                rowGroupMaxRowCount,
-                dictionaryMaxMemory,
-                maxStringStatisticsLimit,
-                maxCompressionBufferSize,
-                compressionLevel,
-                streamLayout,
-                integerDictionaryEncodingEnabled);
-    }
-
-    public OrcWriterOptions withDictionaryMaxMemory(DataSize dictionaryMaxMemory)
-    {
-        return new OrcWriterOptions(
-                stripeMinSize,
-                stripeMaxSize,
-                stripeMaxRowCount,
-                rowGroupMaxRowCount,
-                dictionaryMaxMemory,
-                maxStringStatisticsLimit,
-                maxCompressionBufferSize,
-                compressionLevel,
-                streamLayout,
-                integerDictionaryEncodingEnabled);
-    }
-
-    public OrcWriterOptions withMaxStringStatisticsLimit(DataSize maxStringStatisticsLimit)
-    {
-        return new OrcWriterOptions(
-                stripeMinSize,
-                stripeMaxSize,
-                stripeMaxRowCount,
-                rowGroupMaxRowCount,
-                dictionaryMaxMemory,
-                maxStringStatisticsLimit,
-                maxCompressionBufferSize,
-                compressionLevel,
-                streamLayout,
-                integerDictionaryEncodingEnabled);
-    }
-
-    public OrcWriterOptions withMaxCompressionBufferSize(DataSize maxCompressionBufferSize)
-    {
-        return new OrcWriterOptions(
-                stripeMinSize,
-                stripeMaxSize,
-                stripeMaxRowCount,
-                rowGroupMaxRowCount,
-                dictionaryMaxMemory,
-                maxStringStatisticsLimit,
-                maxCompressionBufferSize,
-                compressionLevel,
-                streamLayout,
-                integerDictionaryEncodingEnabled);
-    }
-
-    public OrcWriterOptions withCompressionLevel(OptionalInt compressionLevel)
-    {
-        return new OrcWriterOptions(
-                stripeMinSize,
-                stripeMaxSize,
-                stripeMaxRowCount,
-                rowGroupMaxRowCount,
-                dictionaryMaxMemory,
-                maxStringStatisticsLimit,
-                maxCompressionBufferSize,
-                compressionLevel,
-                streamLayout,
-                integerDictionaryEncodingEnabled);
-    }
-
-    public OrcWriterOptions withStreamLayout(StreamLayout streamLayout)
-    {
-        return new OrcWriterOptions(
-                stripeMinSize,
-                stripeMaxSize,
-                stripeMaxRowCount,
-                rowGroupMaxRowCount,
-                dictionaryMaxMemory,
-                maxStringStatisticsLimit,
-                maxCompressionBufferSize,
-                compressionLevel,
-                streamLayout,
-                integerDictionaryEncodingEnabled);
-    }
-
-    public OrcWriterOptions withIntegerDictionaryEncodingEnabled(boolean integerDictionaryEncodingEnabled)
-    {
-        return new OrcWriterOptions(
-                stripeMinSize,
-                stripeMaxSize,
-                stripeMaxRowCount,
-                rowGroupMaxRowCount,
-                dictionaryMaxMemory,
-                maxStringStatisticsLimit,
-                maxCompressionBufferSize,
-                compressionLevel,
-                streamLayout,
-                integerDictionaryEncodingEnabled);
-    }
-
     @Override
     public String toString()
     {
@@ -315,5 +145,101 @@ public class OrcWriterOptions
                 .add("streamLayout", streamLayout)
                 .add("integerDictionaryEncodingEnabled", integerDictionaryEncodingEnabled)
                 .toString();
+    }
+
+    public static Builder builder()
+    {
+        return new Builder();
+    }
+
+    public static class Builder
+    {
+        private DataSize stripeMinSize = DEFAULT_STRIPE_MIN_SIZE;
+        private DataSize stripeMaxSize = DEFAULT_STRIPE_MAX_SIZE;
+        private int stripeMaxRowCount = DEFAULT_STRIPE_MAX_ROW_COUNT;
+        private int rowGroupMaxRowCount = DEFAULT_ROW_GROUP_MAX_ROW_COUNT;
+        private DataSize dictionaryMaxMemory = DEFAULT_DICTIONARY_MAX_MEMORY;
+        private DataSize maxStringStatisticsLimit = DEFAULT_MAX_STRING_STATISTICS_LIMIT;
+        private DataSize maxCompressionBufferSize = DEFAULT_MAX_COMPRESSION_BUFFER_SIZE;
+        private OptionalInt compressionLevel = OptionalInt.empty();
+        private StreamLayout streamLayout = new ByStreamSize();
+        private boolean integerDictionaryEncodingEnabled;
+
+        public Builder withStripeMinSize(DataSize stripeMinSize)
+        {
+            this.stripeMinSize = requireNonNull(stripeMinSize, "stripeMinSize is null");
+            return this;
+        }
+
+        public Builder withStripeMaxSize(DataSize stripeMaxSize)
+        {
+            this.stripeMaxSize = requireNonNull(stripeMaxSize, "stripeMaxSize is null");
+            return this;
+        }
+
+        public Builder withStripeMaxRowCount(int stripeMaxRowCount)
+        {
+            checkArgument(stripeMaxRowCount >= 1, "stripeMaxRowCount must be at least 1");
+            this.stripeMaxRowCount = stripeMaxRowCount;
+            return this;
+        }
+
+        public Builder withRowGroupMaxRowCount(int rowGroupMaxRowCount)
+        {
+            checkArgument(rowGroupMaxRowCount >= 1, "rowGroupMaxRowCount must be at least 1");
+            this.rowGroupMaxRowCount = rowGroupMaxRowCount;
+            return this;
+        }
+
+        public Builder withDictionaryMaxMemory(DataSize dictionaryMaxMemory)
+        {
+            this.dictionaryMaxMemory = requireNonNull(dictionaryMaxMemory, "dictionaryMaxMemory is null");
+            return this;
+        }
+
+        public Builder withMaxStringStatisticsLimit(DataSize maxStringStatisticsLimit)
+        {
+            this.maxStringStatisticsLimit = requireNonNull(maxStringStatisticsLimit, "maxStringStatisticsLimit is null");
+            return this;
+        }
+
+        public Builder withMaxCompressionBufferSize(DataSize maxCompressionBufferSize)
+        {
+            this.maxCompressionBufferSize = requireNonNull(maxCompressionBufferSize, "maxCompressionBufferSize is null");
+            return this;
+        }
+
+        public Builder withCompressionLevel(OptionalInt compressionLevel)
+        {
+            this.compressionLevel = requireNonNull(compressionLevel, "compressionLevel is null");
+            return this;
+        }
+
+        public Builder withStreamLayout(StreamLayout streamLayout)
+        {
+            this.streamLayout = requireNonNull(streamLayout, "streamLayout is null");
+            return this;
+        }
+
+        public Builder withIntegerDictionaryEncodingEnabled(boolean integerDictionaryEncodingEnabled)
+        {
+            this.integerDictionaryEncodingEnabled = integerDictionaryEncodingEnabled;
+            return this;
+        }
+
+        public OrcWriterOptions build()
+        {
+            return new OrcWriterOptions(
+                    stripeMinSize,
+                    stripeMaxSize,
+                    stripeMaxRowCount,
+                    rowGroupMaxRowCount,
+                    dictionaryMaxMemory,
+                    maxStringStatisticsLimit,
+                    maxCompressionBufferSize,
+                    compressionLevel,
+                    streamLayout,
+                    integerDictionaryEncodingEnabled);
+        }
     }
 }
