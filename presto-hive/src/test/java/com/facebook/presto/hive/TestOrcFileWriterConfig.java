@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.orc.OrcWriterOptions;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
@@ -25,6 +26,8 @@ import static com.facebook.airlift.configuration.testing.ConfigAssertions.record
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotSame;
 
 public class TestOrcFileWriterConfig
 {
@@ -64,5 +67,53 @@ public class TestOrcFileWriterConfig
                 .setMaxCompressionBufferSize(new DataSize(19, MEGABYTE));
 
         assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testWithNoOptionsSet()
+    {
+        OrcFileWriterConfig config = new OrcFileWriterConfig();
+        // should succeed.
+        config.toOrcWriterOptionsBuilder().build();
+    }
+
+    @Test
+    public void testOrcWriterOptionsBuilder()
+    {
+        DataSize stripeMinSize = new DataSize(10, MEGABYTE);
+        DataSize stripeMaxSize = new DataSize(50, MEGABYTE);
+        int stripeMaxRowCount = 1_000_000;
+        int rowGroupMaxRowCount = 15_000;
+        DataSize dictionaryMaxMemory = new DataSize(20, MEGABYTE);
+        DataSize stringStatisticsLimit = new DataSize(32, BYTE);
+        DataSize maxCompressionBufferSize = new DataSize(512, KILOBYTE);
+
+        OrcFileWriterConfig config = new OrcFileWriterConfig()
+                .setStripeMinSize(stripeMinSize)
+                .setStripeMaxSize(stripeMaxSize)
+                .setStripeMaxRowCount(stripeMaxRowCount)
+                .setRowGroupMaxRowCount(rowGroupMaxRowCount)
+                .setDictionaryMaxMemory(dictionaryMaxMemory)
+                .setStringStatisticsLimit(stringStatisticsLimit)
+                .setMaxCompressionBufferSize(maxCompressionBufferSize);
+
+        assertEquals(stripeMinSize, config.getStripeMinSize());
+        assertEquals(stripeMaxSize, config.getStripeMaxSize());
+        assertEquals(stripeMaxRowCount, config.getStripeMaxRowCount());
+        assertEquals(rowGroupMaxRowCount, config.getRowGroupMaxRowCount());
+        assertEquals(dictionaryMaxMemory, config.getDictionaryMaxMemory());
+        assertEquals(stringStatisticsLimit, config.getStringStatisticsLimit());
+        assertEquals(maxCompressionBufferSize, config.getMaxCompressionBufferSize());
+
+        assertNotSame(config.toOrcWriterOptionsBuilder(), config.toOrcWriterOptionsBuilder());
+        OrcWriterOptions options = config.toOrcWriterOptionsBuilder().build();
+
+        assertEquals(stripeMinSize, options.getStripeMinSize());
+        assertEquals(stripeMaxSize, options.getStripeMaxSize());
+        assertEquals(stripeMaxRowCount, options.getStripeMaxRowCount());
+        assertEquals(rowGroupMaxRowCount, options.getRowGroupMaxRowCount());
+        assertEquals(dictionaryMaxMemory, options.getDictionaryMaxMemory());
+        assertEquals(stringStatisticsLimit, options.getMaxStringStatisticsLimit());
+        assertEquals(maxCompressionBufferSize, options.getMaxCompressionBufferSize());
     }
 }
