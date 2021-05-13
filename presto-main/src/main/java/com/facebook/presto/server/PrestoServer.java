@@ -31,6 +31,8 @@ import com.facebook.airlift.node.NodeModule;
 import com.facebook.airlift.tracetoken.TraceTokenModule;
 import com.facebook.drift.server.DriftServer;
 import com.facebook.drift.transport.netty.server.DriftNettyServerTransport;
+import com.facebook.presto.dispatcher.QueryPrerequisitesManager;
+import com.facebook.presto.dispatcher.QueryPrerequisitesManagerModule;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.eventlistener.EventListenerModule;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
@@ -124,7 +126,8 @@ public class PrestoServer
                 new ServerMainModule(sqlParserOptions),
                 new GracefulShutdownModule(),
                 new WarningCollectorModule(),
-                new TempStorageModule());
+                new TempStorageModule(),
+                new QueryPrerequisitesManagerModule());
 
         modules.addAll(getAdditionalModules());
 
@@ -156,6 +159,7 @@ public class PrestoServer
             injector.getInstance(PasswordAuthenticatorManager.class).loadPasswordAuthenticator();
             injector.getInstance(EventListenerManager.class).loadConfiguredEventListener();
             injector.getInstance(TempStorageManager.class).loadTempStorages();
+            injector.getInstance(QueryPrerequisitesManager.class).loadQueryPrerequisites();
 
             injector.getInstance(Announcer.class).start();
 
