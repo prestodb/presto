@@ -80,12 +80,18 @@ public abstract class AbstractTestQueryFramework
             throws Exception
     {
         queryRunner = createQueryRunner();
-        expectedQueryRunner = new H2QueryRunner();
+        expectedQueryRunner = createExpectedQueryRunner();
         sqlParser = new SqlParser();
     }
 
     protected abstract QueryRunner createQueryRunner()
             throws Exception;
+
+    protected ExpectedQueryRunner createExpectedQueryRunner()
+            throws Exception
+    {
+        return new H2QueryRunner();
+    }
 
     @AfterClass(alwaysRun = true)
     public void close()
