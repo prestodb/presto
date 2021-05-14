@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.orc.metadata;
 
+import com.facebook.presto.orc.DwrfEncryptionProvider;
+import com.facebook.presto.orc.DwrfKeyProvider;
+import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
 import com.facebook.presto.orc.metadata.statistics.StringStatistics;
 import com.facebook.presto.orc.proto.DwrfProto;
@@ -22,6 +25,12 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.List;
+import java.util.Optional;
+
 import static com.facebook.presto.orc.metadata.OrcMetadataReader.maxStringTruncateToValidRange;
 import static com.facebook.presto.orc.metadata.OrcMetadataReader.minStringTruncateToValidRange;
 import static com.facebook.presto.orc.metadata.TestOrcMetadataReader.ALL_UTF8_SEQUENCES;
@@ -29,10 +38,119 @@ import static com.facebook.presto.orc.metadata.TestOrcMetadataReader.TEST_CODE_P
 import static com.facebook.presto.orc.metadata.TestOrcMetadataReader.concatSlice;
 import static io.airlift.slice.SliceUtf8.codePointToUtf8;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
 
 public class TestDwrfMetadataReader
 {
+    private final long footerLength = 10;
+    private final long compressionBlockSize = 8192;
+    private final DwrfMetadataReader dwrfMetadataReader = new DwrfMetadataReader();
+    private final DwrfProto.PostScript baseProtoPostScript = DwrfProto.PostScript.newBuilder()
+            .setWriterVersion(HiveWriterVersion.ORC_HIVE_8732.getOrcWriterVersion())
+            .setFooterLength(footerLength)
+            .setCompression(DwrfProto.CompressionKind.ZSTD)
+            .setCompressionBlockSize(compressionBlockSize)
+            .setCacheSize(12)
+            .setCacheMode(DwrfProto.StripeCacheMode.BOTH)
+            .build();
+
+    @Test
+    public void testReadPostScript()
+            throws IOException
+    {
+        byte[] data = baseProtoPostScript.toByteArray();
+
+        PostScript postScript = dwrfMetadataReader.readPostScript(data, 0, data.length);
+        assertEquals(postScript.getHiveWriterVersion(), HiveWriterVersion.ORC_HIVE_8732);
+        assertEquals(postScript.getFooterLength(), footerLength);
+        assertEquals(postScript.getCompression(), CompressionKind.ZSTD);
+        assertEquals(postScript.getCompressionBlockSize(), compressionBlockSize);
+        assertEquals(postScript.getDwrfStripeCacheLength().getAsInt(), 12);
+        assertEquals(postScript.getDwrfStripeCacheMode().get(), DwrfStripeCacheMode.INDEX_AND_FOOTER);
+    }
+
+    @Test
+    public void testReadPostScript_NoDwrfStripeCache()
+            throws IOException
+    {
+        DwrfProto.PostScript protoPostScript = baseProtoPostScript.toBuilder()
+                .clearCacheSize()
+                .clearCacheMode()
+                .build();
+        byte[] data = protoPostScript.toByteArray();
+
+        PostScript postScript = dwrfMetadataReader.readPostScript(data, 0, data.length);
+        assertFalse(postScript.getDwrfStripeCacheLength().isPresent());
+        assertFalse(postScript.getDwrfStripeCacheMode().isPresent());
+    }
+
+    @Test
+    public void testReadPostScript_MissingDwrfStripeCacheLength()
+            throws IOException
+    {
+        DwrfProto.PostScript protoPostScript = baseProtoPostScript.toBuilder()
+                .clearCacheSize()
+                .build();
+        byte[] data = protoPostScript.toByteArray();
+
+        PostScript postScript = dwrfMetadataReader.readPostScript(data, 0, data.length);
+        assertFalse(postScript.getDwrfStripeCacheLength().isPresent());
+        assertFalse(postScript.getDwrfStripeCacheMode().isPresent());
+    }
+
+    @Test
+    public void testReadPostScript_MissingDwrfStripeCacheMode()
+            throws IOException
+    {
+        DwrfProto.PostScript protoPostScript = baseProtoPostScript.toBuilder()
+                .clearCacheMode()
+                .build();
+        byte[] data = protoPostScript.toByteArray();
+
+        PostScript postScript = dwrfMetadataReader.readPostScript(data, 0, data.length);
+        assertFalse(postScript.getDwrfStripeCacheLength().isPresent());
+        assertFalse(postScript.getDwrfStripeCacheMode().isPresent());
+    }
+
+    @Test
+    public void testToStripeCacheMode()
+    {
+        assertEquals(DwrfMetadataReader.toStripeCacheMode(DwrfProto.StripeCacheMode.INDEX), DwrfStripeCacheMode.INDEX);
+        assertEquals(DwrfMetadataReader.toStripeCacheMode(DwrfProto.StripeCacheMode.FOOTER), DwrfStripeCacheMode.FOOTER);
+        assertEquals(DwrfMetadataReader.toStripeCacheMode(DwrfProto.StripeCacheMode.BOTH), DwrfStripeCacheMode.INDEX_AND_FOOTER);
+        assertEquals(DwrfMetadataReader.toStripeCacheMode(DwrfProto.StripeCacheMode.NA), DwrfStripeCacheMode.NONE);
+    }
+
+    @Test
+    public void testReadFooter()
+            throws IOException
+    {
+        long numberOfRows = 10;
+        int rowIndexStride = 11;
+        List<Integer> stripeCacheOffsets = ImmutableList.of(1, 2, 3);
+
+        DwrfProto.Footer protoFooter = DwrfProto.Footer.newBuilder()
+                .setNumberOfRows(numberOfRows)
+                .setRowIndexStride(rowIndexStride)
+                .addAllStripeCacheOffsets(stripeCacheOffsets)
+                .build();
+        byte[] data = protoFooter.toByteArray();
+        InputStream inputStream = new ByteArrayInputStream(data);
+        OrcDataSource orcDataSource = null; // orcDataSource only needed for encrypted files
+
+        Footer footer = dwrfMetadataReader.readFooter(HiveWriterVersion.ORC_HIVE_8732,
+                inputStream,
+                DwrfEncryptionProvider.NO_ENCRYPTION,
+                DwrfKeyProvider.EMPTY,
+                orcDataSource,
+                Optional.empty());
+
+        assertEquals(footer.getNumberOfRows(), numberOfRows);
+        assertEquals(footer.getRowsInRowGroup(), rowIndexStride);
+        assertEquals(footer.getDwrfStripeCacheOffsets().get(), stripeCacheOffsets);
+    }
+
     @Test
     public void testToStringStatistics()
     {
