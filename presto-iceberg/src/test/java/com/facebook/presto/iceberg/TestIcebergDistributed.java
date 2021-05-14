@@ -14,6 +14,7 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -26,9 +27,11 @@ import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 public class TestIcebergDistributed
         extends AbstractTestDistributedQueries
 {
-    public TestIcebergDistributed()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> IcebergQueryRunner.createIcebergQueryRunner(ImmutableMap.of()));
+        return IcebergQueryRunner.createIcebergQueryRunner(ImmutableMap.of());
     }
 
     @Override
