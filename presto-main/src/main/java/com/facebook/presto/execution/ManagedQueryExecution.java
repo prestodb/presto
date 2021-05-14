@@ -51,4 +51,6 @@ public interface ManagedQueryExecution
      * @return Returns non-empty value iff error has occurred and query failed state is visible.
      */
     Optional<ErrorCode> getErrorCode();
+
+    boolean isRetry();
 }
