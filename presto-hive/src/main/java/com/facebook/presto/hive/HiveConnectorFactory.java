@@ -25,6 +25,7 @@ import com.facebook.presto.hive.authentication.HiveAuthenticationModule;
 import com.facebook.presto.hive.gcs.HiveGcsModule;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HiveMetastoreModule;
+import com.facebook.presto.hive.oss.HiveOssModule;
 import com.facebook.presto.hive.s3.HiveS3Module;
 import com.facebook.presto.hive.security.HiveSecurityModule;
 import com.facebook.presto.hive.security.SystemTableAwareAccessControl;
@@ -111,6 +112,7 @@ public class HiveConnectorFactory
                     new HiveClientModule(catalogName),
                     new HiveS3Module(catalogName),
                     new HiveGcsModule(),
+                    new HiveOssModule(),
                     new HiveMetastoreModule(catalogName, metastore),
                     new HiveSecurityModule(),
                     new HiveAuthenticationModule(),

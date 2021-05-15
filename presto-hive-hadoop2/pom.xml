@@ -166,6 +166,7 @@
                             <ignoredResourcePatterns>
                                 <ignoredResourcePattern>parquet.thrift</ignoredResourcePattern>
                                 <ignoredResourcePattern>about.html</ignoredResourcePattern>
+                                <ignoredResourcePattern>mime.types</ignoredResourcePattern>
                             </ignoredResourcePatterns>
                             <ignoredClassPatterns>
                                 <ignoredClassPattern>shaded.parquet.it.unimi.dsi.fastutil.*</ignoredClassPattern>
@@ -196,6 +197,7 @@
                             <ignoredResourcePatterns>
                                 <ignoredResourcePattern>parquet.thrift</ignoredResourcePattern>
                                 <ignoredResourcePattern>about.html</ignoredResourcePattern>
+                                <ignoredResourcePattern>mime.types</ignoredResourcePattern>
                             </ignoredResourcePatterns>
                         </configuration>
                     </plugin>

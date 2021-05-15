@@ -37,6 +37,8 @@ import com.facebook.presto.hive.orc.DwrfSelectivePageSourceFactory;
 import com.facebook.presto.hive.orc.OrcBatchPageSourceFactory;
 import com.facebook.presto.hive.orc.OrcSelectivePageSourceFactory;
 import com.facebook.presto.hive.orc.TupleDomainFilterCache;
+import com.facebook.presto.hive.oss.HiveOssConfig;
+import com.facebook.presto.hive.oss.HiveOssConfigurationInitializer;
 import com.facebook.presto.hive.pagefile.PageFilePageSourceFactory;
 import com.facebook.presto.hive.pagefile.PageFileWriterFactory;
 import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
@@ -213,7 +215,8 @@ public final class HiveTestUtils
                         config,
                         metastoreClientConfig,
                         new PrestoS3ConfigurationUpdater(new HiveS3Config()),
-                        new HiveGcsConfigurationInitializer(new HiveGcsConfig())),
+                        new HiveGcsConfigurationInitializer(new HiveGcsConfig()),
+                        new HiveOssConfigurationInitializer(new HiveOssConfig())),
                 ImmutableSet.of());
         return new HdfsEnvironment(hdfsConfig, metastoreClientConfig, new NoHdfsAuthentication());
     }
