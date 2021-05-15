@@ -90,6 +90,7 @@ public class BenchmarkDriverOptions
         return new ClientSession(
                 parseServer(server),
                 user,
+                Optional.empty(),
                 "presto-benchmark",
                 Optional.empty(),
                 ImmutableSet.of(),

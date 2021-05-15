@@ -65,6 +65,7 @@ public class TestFinalQueryInfo
             ClientSession clientSession = new ClientSession(
                     queryRunner.getCoordinator().getBaseUrl(),
                     "user",
+                    Optional.empty(),
                     "source",
                     Optional.empty(),
                     ImmutableSet.of(),
