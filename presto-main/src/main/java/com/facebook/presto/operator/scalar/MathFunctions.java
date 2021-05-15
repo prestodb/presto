@@ -1363,6 +1363,20 @@ public final class MathFunctions
         return lower;
     }
 
+    @Description("The bucket name of a value given an array of bins and corresponding bin names")
+    @ScalarFunction("width_bucket")
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice widthBucket(@SqlType(StandardTypes.DOUBLE) double operand, @SqlType("array(double)") Block bins, @SqlType("array(varchar)") Block binNames)
+    {
+        int numberOfBins = bins.getPositionCount();
+        int numberOfBinNames = binNames.getPositionCount();
+
+        checkCondition(numberOfBinNames == numberOfBins + 1, INVALID_FUNCTION_ARGUMENT, "For N bins, N + 1 bin names are required.");
+
+        int binIndex = (int) widthBucket(operand, bins);
+        return VARCHAR.getSlice(binNames, binIndex);
+    }
+
     @Description("cosine similarity between the given sparse vectors")
     @ScalarFunction
     @SqlNullable

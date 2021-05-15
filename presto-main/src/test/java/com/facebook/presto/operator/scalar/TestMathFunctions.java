@@ -1290,6 +1290,22 @@ public class TestMathFunctions
     }
 
     @Test
+    public void testWidthBucketNamesArray()
+    {
+        assertFunction("width_bucket(3.14E0, array[0.0E0, 2.0E0, 4.0E0], array['a', 'b', 'c', 'd'])", VarcharType.VARCHAR, "c");
+        assertFunction("width_bucket(infinity(), array[0.0E0, 2.0E0, 4.0E0], array['a', 'b', 'c', 'd'])", VarcharType.VARCHAR, "d");
+        assertFunction("width_bucket(-1, array[0.0E0, 1.2E0, 3.3E0, 4.5E0], array['a', 'b', 'c', 'd', 'e'])", VarcharType.VARCHAR, "a");
+
+        // edge case of only a single bin
+        assertFunction("width_bucket(3.145E0, array[0.0E0], array['a', 'b'])", VarcharType.VARCHAR, "b");
+        assertFunction("width_bucket(-3.145E0, array[0.0E0], array['a', 'b'])", VarcharType.VARCHAR, "a");
+
+        // fail if number of binNames are not equal to number of bins + 1
+        assertInvalidFunction("width_bucket(3.145E0, array[0.0E0], array['a'])", "For N bins, N + 1 bin names are required.");
+        assertInvalidFunction("width_bucket(3.145E0, array[0.0E0], array['a', 'b', 'c'])", "For N bins, N + 1 bin names are required.");
+    }
+
+    @Test
     public void testCosineSimilarity()
     {
         assertFunction("cosine_similarity(map(array ['a', 'b'], array [1.0E0, 2.0E0]), map(array ['c', 'b'], array [1.0E0, 3.0E0]))",
