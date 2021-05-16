@@ -42,6 +42,7 @@ public class MergeLimitWithDistinct
     private static boolean isDistinct(AggregationNode node)
     {
         return node.getAggregations().isEmpty() &&
+                !node.getGroupingKeys().isEmpty() &&
                 node.getOutputVariables().size() == node.getGroupingKeys().size() &&
                 node.getOutputVariables().containsAll(node.getGroupingKeys());
     }

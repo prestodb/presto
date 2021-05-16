@@ -102,10 +102,6 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQuery("SELECT x FROM " + values + " ORDER BY x FETCH FIRST ROW WITH TIES", "VALUES 0, 0, 0");
         assertQuery("SELECT x FROM " + values + " ORDER BY x FETCH FIRST 20 ROWS WITH TIES", "VALUES 0, 0, 0, 1, 1, 1, 2, 2, 2");
 
-        assertQuery("SELECT x FROM " + values + " ORDER BY x OFFSET 2 ROWS FETCH NEXT 2 ROWS WITH TIES", "VALUES 0, 1, 1, 1");
-
-        assertQueryReturnsEmptyResult("SELECT x FROM " + values + " ORDER BY x OFFSET 20 ROWS FETCH NEXT 2 ROWS WITH TIES");
-
         assertQueryFails("SELECT x FROM " + values + " FETCH FIRST 4 ROWS WITH TIES", "line 1:58: FETCH FIRST WITH TIES clause requires ORDER BY");
         assertQueryFails(
                 "SELECT x FROM (SELECT a FROM (VALUES 3, 2, 1, 1, 0) t(a) ORDER BY a) t1(x) FETCH FIRST 2 ROWS WITH TIES",

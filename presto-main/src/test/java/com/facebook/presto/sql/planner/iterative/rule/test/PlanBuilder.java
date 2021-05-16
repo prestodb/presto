@@ -263,7 +263,8 @@ public class PlanBuilder
         Optional<OrderingScheme> tiesResolvingScheme = Optional.empty();
         if (!tiesResolvers.isEmpty()) {
             tiesResolvingScheme = Optional.of(
-                    new OrderingScheme(tiesResolvers.stream().map(variable -> new Ordering(variable, SortOrder.ASC_NULLS_FIRST)).collect(toImmutableList())));
+                    new OrderingScheme(
+                            tiesResolvers.stream().map(variable -> new Ordering(variable, SortOrder.ASC_NULLS_FIRST)).collect(toImmutableList())));
         }
         return new LimitNode(
                 idAllocator.getNextId(),
