@@ -393,6 +393,11 @@ public class QueryContext
         return peakNodeTotalMemory;
     }
 
+    public synchronized void setPeakNodeTotalMemory(long peakNodeTotalMemoryInBytes)
+    {
+        this.peakNodeTotalMemory = peakNodeTotalMemoryInBytes;
+    }
+
     private static class QueryMemoryReservationHandler
             implements MemoryReservationHandler
     {
