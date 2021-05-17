@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
@@ -20,6 +21,7 @@ import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.OffsetNode;
 
+import static com.facebook.presto.SystemSessionProperties.isOffsetClauseEnabled;
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.iterative.rule.Util.transpose;
 import static com.facebook.presto.sql.planner.plan.Patterns.offset;
@@ -50,6 +52,12 @@ public class PushOffsetThroughProject
                             // do not push offset through identity projection which could be there for column pruning purposes
                             .matching(projectNode -> !isIdentity(projectNode))
                             .capturedAs(CHILD)));
+
+    @Override
+    public boolean isEnabled(Session session)
+    {
+        return isOffsetClauseEnabled(session);
+    }
 
     @Override
     public Pattern<OffsetNode> getPattern()

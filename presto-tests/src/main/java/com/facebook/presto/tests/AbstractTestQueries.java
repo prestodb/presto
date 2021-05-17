@@ -49,6 +49,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_JOINS_WITH_EMPTY_SOURCES;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -1008,9 +1009,12 @@ public abstract class AbstractTestQueries
     @Test
     public void testOffset()
     {
+        Session localSession = Session.builder(getSession())
+                .setSystemProperty(OFFSET_CLAUSE_ENABLED, "true")
+                .build();
         String values = "(VALUES ('A', 3), ('D', 2), ('C', 1), ('B', 4)) AS t(x, y)";
 
-        MaterializedResult actual = computeActual("SELECT x FROM " + values + " OFFSET 2 ROWS");
+        MaterializedResult actual = computeActual(localSession, "SELECT x FROM " + values + " OFFSET 2 ROWS");
         MaterializedResult all = computeExpected("SELECT x FROM " + values, actual.getTypes());
 
         assertEquals(actual.getMaterializedRows().size(), 2);
@@ -1021,10 +1025,13 @@ public abstract class AbstractTestQueries
     @Test
     public void testOffsetEmptyResult()
     {
-        assertQueryReturnsEmptyResult("SELECT name FROM nation OFFSET 100 ROWS");
-        assertQueryReturnsEmptyResult("SELECT name FROM nation ORDER BY regionkey OFFSET 100 ROWS");
-        assertQueryReturnsEmptyResult("SELECT name FROM nation OFFSET 100 ROWS LIMIT 20");
-        assertQueryReturnsEmptyResult("SELECT name FROM nation ORDER BY regionkey OFFSET 100 ROWS LIMIT 20");
+        Session localSession = Session.builder(getSession())
+                .setSystemProperty(OFFSET_CLAUSE_ENABLED, "true")
+                .build();
+        assertQueryReturnsEmptyResult(localSession, "SELECT name FROM nation OFFSET 100 ROWS");
+        assertQueryReturnsEmptyResult(localSession, "SELECT name FROM nation ORDER BY regionkey OFFSET 100 ROWS");
+        assertQueryReturnsEmptyResult(localSession, "SELECT name FROM nation OFFSET 100 ROWS LIMIT 20");
+        assertQueryReturnsEmptyResult(localSession, "SELECT name FROM nation ORDER BY regionkey OFFSET 100 ROWS LIMIT 20");
     }
 
     @Test

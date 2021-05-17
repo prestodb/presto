@@ -19,6 +19,7 @@ import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.offset;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
@@ -33,6 +34,7 @@ public class TestPushOffsetThroughProject
     public void testPushdownOffsetNonIdentityProjection()
     {
         tester().assertThat(new PushOffsetThroughProject())
+                .setSystemProperty(OFFSET_CLAUSE_ENABLED, "true")
                 .on(p -> {
                     VariableReferenceExpression a = p.variable("a");
                     return p.offset(
@@ -51,6 +53,7 @@ public class TestPushOffsetThroughProject
     public void testDoNotPushdownOffsetThroughIdentityProjection()
     {
         tester().assertThat(new PushOffsetThroughProject())
+                .setSystemProperty(OFFSET_CLAUSE_ENABLED, "true")
                 .on(p -> {
                     VariableReferenceExpression a = p.variable("a");
                     return p.offset(
