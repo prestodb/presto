@@ -60,7 +60,6 @@ import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.metastore.ProtectMode;
-import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.io.Text;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormatter;
@@ -72,6 +71,7 @@ import java.io.IOException;
 import java.math.BigInteger;
 import java.sql.Date;
 import java.sql.Timestamp;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -116,7 +116,6 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.common.FileUtils.unescapePathName;
 import static org.apache.hadoop.hive.metastore.ColumnType.typeToThriftType;
 import static org.apache.hadoop.hive.metastore.ProtectMode.getProtectModeFromString;
-import static org.apache.hadoop.hive.metastore.Warehouse.makeSpecFromName;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.BUCKET_COUNT;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.BUCKET_FIELD_NAME;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
@@ -466,15 +465,12 @@ public class MetastoreUtil
         }
     }
 
-    // TODO: https://github.com/prestodb/presto/issues/15974
     public static Map<String, String> toPartitionNamesAndValues(String partitionName)
     {
-        try {
-            return ImmutableMap.copyOf(makeSpecFromName(partitionName));
-        }
-        catch (MetaException e) {
-            throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, "Invalid partition name: " + partitionName);
-        }
+        ImmutableMap.Builder<String, String> kvMap = ImmutableMap.builder();
+        List<Entry<String, String>> entries = extractPartitionNamesAndValues(partitionName);
+        entries.forEach(kvMap::put);
+        return kvMap.build();
     }
 
     public static List<String> toPartitionValues(String partitionName)
@@ -502,13 +498,27 @@ public class MetastoreUtil
 
     public static List<String> extractPartitionValues(String partitionName)
     {
-        return extractPartitionValues(partitionName, Optional.empty());
+        ImmutableList.Builder<String> values = ImmutableList.builder();
+        List<Entry<String, String>> entries = extractPartitionNamesAndValues(partitionName);
+        entries.forEach(entry -> values.add(entry.getValue()));
+        return values.build();
     }
 
     public static List<String> extractPartitionValues(String partitionName, Optional<List<String>> partitionColumnNames)
     {
-        ImmutableList.Builder<String> values = ImmutableList.builder();
-        ImmutableList.Builder<String> keys = ImmutableList.builder();
+        if (!partitionColumnNames.isPresent() || partitionColumnNames.get().size() == 1) {
+            return extractPartitionValues(partitionName);
+        }
+        ImmutableList.Builder<String> orderedValues = ImmutableList.builder();
+        Map<String, String> kvMap = toPartitionNamesAndValues(partitionName);
+        partitionColumnNames.get()
+                .forEach(columnName -> orderedValues.add(kvMap.get(columnName)));
+        return orderedValues.build();
+    }
+
+    private static List<Entry<String, String>> extractPartitionNamesAndValues(String partitionName)
+    {
+        ImmutableList.Builder<Entry<String, String>> entryBuilder = ImmutableList.builder();
 
         boolean inKey = true;
         int valueStart = -1;
@@ -526,24 +536,20 @@ public class MetastoreUtil
             }
             else if (current == '/') {
                 checkArgument(valueStart != -1, "Invalid partition spec: %s", partitionName);
-                values.add(unescapePathName(partitionName.substring(valueStart, i)));
-                keys.add(unescapePathName(partitionName.substring(keyStart, keyEnd)));
+                String value = unescapePathName(partitionName.substring(valueStart, i));
+                String key = unescapePathName(partitionName.substring(keyStart, keyEnd));
+                entryBuilder.add(new AbstractMap.SimpleImmutableEntry<>(key, value));
                 inKey = true;
                 valueStart = -1;
                 keyStart = i + 1;
             }
         }
         checkArgument(!inKey, "Invalid partition spec: %s", partitionName);
-        values.add(unescapePathName(partitionName.substring(valueStart, partitionName.length())));
-        keys.add(unescapePathName(partitionName.substring(keyStart, keyEnd)));
+        String value = unescapePathName(partitionName.substring(valueStart));
+        String key = unescapePathName(partitionName.substring(keyStart, keyEnd));
+        entryBuilder.add(new AbstractMap.SimpleImmutableEntry<>(key, value));
 
-        if (!partitionColumnNames.isPresent() || partitionColumnNames.get().size() == 1) {
-            return values.build();
-        }
-        ImmutableList.Builder<String> orderedValues = ImmutableList.builder();
-        partitionColumnNames.get()
-                .forEach(columnName -> orderedValues.add(values.build().get(keys.build().indexOf(columnName))));
-        return orderedValues.build();
+        return entryBuilder.build();
     }
 
     public static List<String> createPartitionValues(List<Type> partitionColumnTypes, Page partitionColumns, int position)
