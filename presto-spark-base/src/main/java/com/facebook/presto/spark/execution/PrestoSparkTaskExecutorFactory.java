@@ -403,6 +403,9 @@ public class PrestoSparkTaskExecutorFactory
                 false);
 
         memoryPool.addListener((pool, queryId, totalMemoryReservationBytes) -> {
+            if (totalMemoryReservationBytes > queryContext.getPeakNodeTotalMemory()) {
+                queryContext.setPeakNodeTotalMemory(totalMemoryReservationBytes);
+            }
             if (totalMemoryReservationBytes > maxTotalMemory.toBytes()) {
                 throw exceededLocalTotalMemoryLimit(
                         maxTotalMemory,
