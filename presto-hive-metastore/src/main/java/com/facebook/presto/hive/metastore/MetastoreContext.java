@@ -27,6 +27,7 @@ public class MetastoreContext
     private final String queryId;
     private final Optional<String> clientInfo;
     private final Optional<String> source;
+    private final boolean impersonationEnabled;
 
     public MetastoreContext(ConnectorIdentity identity, String queryId, Optional<String> clientInfo, Optional<String> source)
     {
@@ -35,10 +36,16 @@ public class MetastoreContext
 
     public MetastoreContext(String username, String queryId, Optional<String> clientInfo, Optional<String> source)
     {
+        this(username, queryId, clientInfo, source, false);
+    }
+
+    public MetastoreContext(String username, String queryId, Optional<String> clientInfo, Optional<String> source, boolean impersonationEnabled)
+    {
         this.username = requireNonNull(username, "username is null");
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
         this.source = requireNonNull(source, "source is null");
+        this.impersonationEnabled = impersonationEnabled;
     }
 
     public String getUsername()
@@ -61,6 +68,11 @@ public class MetastoreContext
         return source;
     }
 
+    public boolean isImpersonationEnabled()
+    {
+        return impersonationEnabled;
+    }
+
     @Override
     public String toString()
     {
@@ -69,6 +81,7 @@ public class MetastoreContext
                 .add("queryId", queryId)
                 .add("clientInfo", clientInfo.orElse(""))
                 .add("source", source.orElse(""))
+                .add("impersonationEnabled", Boolean.toString(impersonationEnabled))
                 .toString();
     }
 
@@ -86,12 +99,13 @@ public class MetastoreContext
         return Objects.equals(username, other.username) &&
                 Objects.equals(queryId, other.queryId) &&
                 Objects.equals(clientInfo, other.clientInfo) &&
-                Objects.equals(source, other.source);
+                Objects.equals(source, other.source) &&
+                impersonationEnabled == other.impersonationEnabled;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(username, queryId, clientInfo, source);
+        return Objects.hash(username, queryId, clientInfo, source, impersonationEnabled);
     }
 }
