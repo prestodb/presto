@@ -399,7 +399,7 @@ public class CachingHiveMetastore
     private Map<KeyAndContext<HivePartitionName>, PartitionStatistics> loadPartitionColumnStatistics(Iterable<? extends KeyAndContext<HivePartitionName>> keys)
     {
         SetMultimap<KeyAndContext<HiveTableName>, KeyAndContext<HivePartitionName>> tablePartitions = stream(keys)
-                .collect(toImmutableSetMultimap(nameKey -> new KeyAndContext<>(nameKey.getContext(), nameKey.getKey().getHiveTableName()), nameKey -> nameKey));
+                .collect(toImmutableSetMultimap(nameKey -> getCachingKey(nameKey.getContext(), nameKey.getKey().getHiveTableName()), nameKey -> nameKey));
         ImmutableMap.Builder<KeyAndContext<HivePartitionName>, PartitionStatistics> result = ImmutableMap.builder();
         tablePartitions.keySet().forEach(table -> {
             Set<String> partitionNames = tablePartitions.get(table).stream()
@@ -410,7 +410,7 @@ public class CachingHiveMetastore
                 if (!partitionStatistics.containsKey(partitionName)) {
                     throw new PrestoException(HIVE_PARTITION_DROPPED_DURING_QUERY, "Statistics result does not contain entry for partition: " + partitionName);
                 }
-                result.put(new KeyAndContext<>(table.getContext(), HivePartitionName.hivePartitionName(table.getKey(), partitionName)), partitionStatistics.get(partitionName));
+                result.put(getCachingKey(table.getContext(), HivePartitionName.hivePartitionName(table.getKey(), partitionName)), partitionStatistics.get(partitionName));
             }
         });
         return result.build();
@@ -973,14 +973,20 @@ public class CachingHiveMetastore
                 return false;
             }
             KeyAndContext<?> other = (KeyAndContext<?>) o;
-            return Objects.equals(context.getUsername(), other.context.getUsername()) &&
-                    Objects.equals(key, other.key);
+            if (context.isImpersonationEnabled()) {
+                return Objects.equals(context.getUsername(), other.context.getUsername()) &&
+                        Objects.equals(key, other.key);
+            }
+            return Objects.equals(key, other.key);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(context.getUsername(), key);
+            if (context.isImpersonationEnabled()) {
+                return Objects.hash(context.getUsername(), key);
+            }
+            return Objects.hash(key);
         }
 
         @Override
@@ -995,7 +1001,7 @@ public class CachingHiveMetastore
 
     private <T> KeyAndContext<T> getCachingKey(MetastoreContext context, T key)
     {
-        MetastoreContext metastoreContext = metastoreImpersonationEnabled ? context : new MetastoreContext(NO_IMPERSONATION_USER, context.getQueryId(), context.getClientInfo(), context.getSource());
+        MetastoreContext metastoreContext = metastoreImpersonationEnabled ? new MetastoreContext(context.getUsername(), context.getQueryId(), context.getClientInfo(), context.getSource(), true) : context;
         return new KeyAndContext<>(metastoreContext, key);
     }
 
