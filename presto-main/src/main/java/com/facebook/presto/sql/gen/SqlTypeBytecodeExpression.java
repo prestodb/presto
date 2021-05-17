@@ -113,7 +113,7 @@ public class SqlTypeBytecodeExpression
             return invoke("writeDouble", void.class, blockBuilder, value);
         }
         if (fromJavaElementType == Slice.class) {
-            return invoke("writeSlice", void.class, blockBuilder, value);
+            return invoke("writeSlice", void.class, blockBuilder, value.cast(Slice.class));
         }
         return invoke("writeObject", void.class, blockBuilder, value.cast(Object.class));
     }

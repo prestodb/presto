@@ -189,6 +189,23 @@ public class TestMinMaxByAggregation
     }
 
     @Test
+    public void testMinVarcharDouble()
+    {
+        InternalAggregationFunction function = getMinByAggregation(DOUBLE, VARCHAR);
+        assertAggregation(
+                function,
+                100.0,
+                createDoublesBlock(100.0, 1.0, 50.0, 2.0),
+                createStringsBlock("a", "b", "c", "d"));
+
+        assertAggregation(
+                function,
+                -1.0,
+                createDoublesBlock(100.0, 50.0, 2.0, -1.0),
+                createStringsBlock("x", "y", "z", "a"));
+    }
+
+    @Test
     public void testMinDoubleVarchar()
     {
         InternalAggregationFunction function = getMinByAggregation(VARCHAR, DOUBLE);
