@@ -115,6 +115,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.CRC32;
 
+import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalTotalMemoryLimit;
 import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxBroadcastMemory;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxMemoryPerNode;
@@ -138,7 +139,9 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.propagateIfPossible;
 import static com.google.common.collect.Iterables.getFirst;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Math.min;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 
@@ -400,6 +403,14 @@ public class PrestoSparkTaskExecutorFactory
                 false);
 
         memoryPool.addListener((pool, queryId, totalMemoryReservationBytes) -> {
+            if (totalMemoryReservationBytes > maxTotalMemory.toBytes()) {
+                throw exceededLocalTotalMemoryLimit(
+                        maxTotalMemory,
+                        queryContext.getAdditionalFailureInfo(totalMemoryReservationBytes, 0) +
+                                format("Total reserved memory: %s, Total revocable memory: %s",
+                                        succinctBytes(pool.getQueryMemoryReservation(queryId)),
+                                        succinctBytes(pool.getQueryRevocableMemoryReservation(queryId))));
+            }
             if (totalMemoryReservationBytes > pool.getMaxBytes() * memoryRevokingThreshold && memoryRevokePending.compareAndSet(false, true)) {
                 memoryUpdateExecutor.execute(() -> {
                     try {
@@ -581,7 +592,7 @@ public class PrestoSparkTaskExecutorFactory
             totalSerializedSizeInBytes += serializedTaskSource.getBytes().length;
             result.add(deserializeZstdCompressed(taskSourceCodec, serializedTaskSource.getBytes()));
         }
-        log.info("Total serialized size of all task sources: %s", DataSize.succinctBytes(totalSerializedSizeInBytes));
+        log.info("Total serialized size of all task sources: %s", succinctBytes(totalSerializedSizeInBytes));
         return result.build();
     }
 
