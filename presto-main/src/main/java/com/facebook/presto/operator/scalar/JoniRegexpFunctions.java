@@ -37,6 +37,7 @@ import io.airlift.slice.Slices;
 import java.nio.charset.StandardCharsets;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -63,7 +64,8 @@ public final class JoniRegexpFunctions
             offset = 0;
             matcher = pattern.matcher(source.getBytes());
         }
-        return matcher.search(offset, offset + source.length(), Option.DEFAULT) != -1;
+
+        return getMatchingOffset(matcher, offset, offset + source.length()) != -1;
     }
 
     @Description("removes substrings matching a regular expression")
@@ -93,7 +95,7 @@ public final class JoniRegexpFunctions
         int lastEnd = 0;
         int nextStart = 0; // nextStart is the same as lastEnd, unless the last match was zero-width. In such case, nextStart is lastEnd + 1.
         while (true) {
-            int offset = matcher.search(nextStart, source.length(), Option.DEFAULT);
+            int offset = getMatchingOffset(matcher, nextStart, source.length());
             if (offset == -1) {
                 break;
             }
@@ -215,7 +217,7 @@ public final class JoniRegexpFunctions
 
         int nextStart = 0;
         while (true) {
-            int offset = matcher.search(nextStart, source.length(), Option.DEFAULT);
+            int offset = getMatchingOffset(matcher, nextStart, source.length());
             if (offset == -1) {
                 break;
             }
@@ -260,7 +262,7 @@ public final class JoniRegexpFunctions
         validateGroup(groupIndex, matcher.getEagerRegion());
         int group = toIntExact(groupIndex);
 
-        int offset = matcher.search(0, source.length(), Option.DEFAULT);
+        int offset = getMatchingOffset(matcher, 0, source.length());
         if (offset == -1) {
             return null;
         }
@@ -288,7 +290,7 @@ public final class JoniRegexpFunctions
         int lastEnd = 0;
         int nextStart = 0;
         while (true) {
-            int offset = matcher.search(nextStart, source.length(), Option.DEFAULT);
+            int offset = getMatchingOffset(matcher, nextStart, source.length());
             if (offset == -1) {
                 break;
             }
@@ -305,6 +307,16 @@ public final class JoniRegexpFunctions
         VARCHAR.writeSlice(blockBuilder, source.slice(lastEnd, source.length() - lastEnd));
 
         return blockBuilder.build();
+    }
+
+    private static int getMatchingOffset(Matcher matcher, int at, int range)
+    {
+        try {
+            return matcher.searchInterruptible(at, range, Option.DEFAULT);
+        }
+        catch (InterruptedException interruptedException) {
+            throw new PrestoException(GENERIC_USER_ERROR, "Regexp matching interrupted");
+        }
     }
 
     private static void validateGroup(long group, Region region)
