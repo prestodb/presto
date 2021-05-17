@@ -165,6 +165,7 @@ public class TestFeaturesConfig
                 .setPrestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled(false)
                 .setPartialResultsEnabled(false)
                 .setPartialResultsCompletionRatioThreshold(0.5)
+                .setOffsetClauseEnabled(false)
                 .setPartialResultsMaxExecutionTimeMultiplier(2.0));
     }
 
@@ -284,6 +285,7 @@ public class TestFeaturesConfig
                 .put("partial-results-enabled", "true")
                 .put("partial-results-completion-ratio-threshold", "0.9")
                 .put("partial-results-max-execution-time-multiplier", "1.5")
+                .put("offset-clause-enabled", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -399,6 +401,7 @@ public class TestFeaturesConfig
                 .setPrestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled(true)
                 .setPartialResultsEnabled(true)
                 .setPartialResultsCompletionRatioThreshold(0.9)
+                .setOffsetClauseEnabled(true)
                 .setPartialResultsMaxExecutionTimeMultiplier(1.5);
         assertFullMapping(properties, expected);
     }

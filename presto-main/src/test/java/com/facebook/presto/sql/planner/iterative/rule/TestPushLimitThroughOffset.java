@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.limit;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.offset;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
@@ -27,6 +28,7 @@ public class TestPushLimitThroughOffset
     public void testPushdownLimitThroughOffset()
     {
         tester().assertThat(new PushLimitThroughOffset())
+                .setSystemProperty(OFFSET_CLAUSE_ENABLED, "true")
                 .on(p -> p.limit(
                         2,
                         p.offset(5, p.values())))
@@ -40,6 +42,7 @@ public class TestPushLimitThroughOffset
     public void doNotPushdownWhenRowCountOverflowsLong()
     {
         tester().assertThat(new PushLimitThroughOffset())
+                .setSystemProperty(OFFSET_CLAUSE_ENABLED, "true")
                 .on(p -> {
                     return p.limit(
                             Long.MAX_VALUE,

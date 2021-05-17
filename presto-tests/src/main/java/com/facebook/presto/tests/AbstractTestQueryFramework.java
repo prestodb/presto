@@ -245,6 +245,11 @@ public abstract class AbstractTestQueryFramework
         QueryAssertions.assertQueryReturnsEmptyResult(queryRunner, getSession(), sql);
     }
 
+    protected void assertQueryReturnsEmptyResult(Session session, @Language("SQL") String sql)
+    {
+        QueryAssertions.assertQueryReturnsEmptyResult(queryRunner, session, sql);
+    }
+
     protected void assertAccessAllowed(@Language("SQL") String sql, TestingPrivilege... deniedPrivileges)
     {
         assertAccessAllowed(getSession(), sql, deniedPrivileges);
