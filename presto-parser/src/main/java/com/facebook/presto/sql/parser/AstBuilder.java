@@ -707,7 +707,7 @@ class AstBuilder
 
         if (term instanceof QuerySpecification) {
             // When we have a simple query specification
-            // followed by order by limit, fold the order by and limit
+            // followed by order by, offset, limit, fold the order by and limit
             // clauses into the query specification (analyzer/planner
             // expects this structure to resolve references with respect
             // to columns defined in the query specification)

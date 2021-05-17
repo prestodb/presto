@@ -196,6 +196,8 @@ public class FeaturesConfig
     private double partialResultsCompletionRatioThreshold = 0.5;
     private double partialResultsMaxExecutionTimeMultiplier = 2.0;
 
+    private boolean offsetClauseEnabled;
+
     public enum PartitioningPrecisionStrategy
     {
         // Let Presto decide when to repartition
@@ -1693,6 +1695,19 @@ public class FeaturesConfig
     public FeaturesConfig setPartialResultsMaxExecutionTimeMultiplier(double partialResultsMaxExecutionTimeMultiplier)
     {
         this.partialResultsMaxExecutionTimeMultiplier = partialResultsMaxExecutionTimeMultiplier;
+        return this;
+    }
+
+    public boolean isOffsetClauseEnabled()
+    {
+        return offsetClauseEnabled;
+    }
+
+    @Config("offset-clause-enabled")
+    @ConfigDescription("Enable support for OFFSET clause")
+    public FeaturesConfig setOffsetClauseEnabled(boolean offsetClauseEnabled)
+    {
+        this.offsetClauseEnabled = offsetClauseEnabled;
         return this;
     }
 }

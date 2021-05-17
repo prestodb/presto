@@ -52,6 +52,7 @@ import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_SORT;
 import static com.facebook.presto.SystemSessionProperties.ENFORCE_FIXED_DISTRIBUTION_FOR_OUTPUT_OPERATOR;
 import static com.facebook.presto.SystemSessionProperties.FORCE_SINGLE_NODE_OUTPUT;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_JOINS_WITH_EMPTY_SOURCES;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_NULLS_IN_JOINS;
@@ -1337,8 +1338,12 @@ public class TestLogicalPlanner
     @Test
     public void testOffset()
     {
-        assertPlan(
-                "SELECT name FROM nation OFFSET 2 ROWS",
+        Session enableOffset = Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(OFFSET_CLAUSE_ENABLED, "true")
+                .build();
+        assertPlanWithSession("SELECT name FROM nation OFFSET 2 ROWS",
+                enableOffset,
+                true,
                 any(
                         strictProject(
                                 ImmutableMap.of("name", new ExpressionMatcher("name")),
@@ -1350,9 +1355,9 @@ public class TestLogicalPlanner
                                                 any(
                                                         tableScan("nation", ImmutableMap.of("NAME", "name"))))
                                                 .withAlias("row_num", new RowNumberSymbolMatcher())))));
-
-        assertPlan(
-                "SELECT name FROM nation ORDER BY regionkey OFFSET 2 ROWS",
+        assertPlanWithSession("SELECT name FROM nation ORDER BY regionkey OFFSET 2 ROWS",
+                enableOffset,
+                true,
                 any(
                         strictProject(
                                 ImmutableMap.of("name", new ExpressionMatcher("name")),
