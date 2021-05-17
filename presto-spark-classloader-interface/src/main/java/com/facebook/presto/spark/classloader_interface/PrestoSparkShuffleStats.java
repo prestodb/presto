@@ -16,7 +16,6 @@ package com.facebook.presto.spark.classloader_interface;
 import java.io.Serializable;
 
 import static java.util.Objects.requireNonNull;
-import static org.spark_project.guava.base.Preconditions.checkArgument;
 
 public class PrestoSparkShuffleStats
         implements Serializable
@@ -41,13 +40,9 @@ public class PrestoSparkShuffleStats
         this.fragmentId = fragmentId;
         this.taskId = taskId;
         this.operation = requireNonNull(operation, "operation is null");
-        checkArgument(processedRows >= 0, "processedRows must be greater than or equal to zero: %s", processedRows);
         this.processedRows = processedRows;
-        checkArgument(processedRowBatches >= 0, "processedRowBatches must be greater than or equal to zero: %s", processedRowBatches);
         this.processedRowBatches = processedRowBatches;
-        checkArgument(processedBytes >= 0, "processedBytes must be greater than or equal to zero: %s", processedBytes);
         this.processedBytes = processedBytes;
-        checkArgument(elapsedWallTimeMills >= 0, "elapsedWallTimeMills must be greater than or equal to zero: %s", elapsedWallTimeMills);
         this.elapsedWallTimeMills = elapsedWallTimeMills;
     }
 
