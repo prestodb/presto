@@ -13,19 +13,16 @@
  */
 package com.facebook.presto.operator.aggregation.minmaxby;
 
-import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.function.AccumulatorState;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.slice.Slice;
 
 import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.String.format;
 
 public final class TwoNullableValueStateMapping
 {
@@ -35,37 +32,30 @@ public final class TwoNullableValueStateMapping
 
     static {
         STATE_MAPPINGS = new ImmutableMap.Builder<List<Class<?>>, Class<? extends AccumulatorState>>()
-                .put(ImmutableList.of(boolean.class, Block.class), BooleanAndBlockPositionValueState.class)
                 .put(ImmutableList.of(boolean.class, boolean.class), BooleanBooleanState.class)
                 .put(ImmutableList.of(boolean.class, double.class), BooleanDoubleState.class)
                 .put(ImmutableList.of(boolean.class, long.class), BooleanLongState.class)
-                .put(ImmutableList.of(boolean.class, Slice.class), BooleanAndBlockPositionValueState.class)
+                .put(ImmutableList.of(boolean.class, Object.class), BooleanAndBlockPositionValueState.class)
                 .put(ImmutableList.of(double.class, boolean.class), DoubleBooleanState.class)
-                .put(ImmutableList.of(double.class, Block.class), DoubleAndBlockPositionValueState.class)
                 .put(ImmutableList.of(double.class, double.class), DoubleDoubleState.class)
                 .put(ImmutableList.of(double.class, long.class), DoubleLongState.class)
-                .put(ImmutableList.of(double.class, Slice.class), DoubleAndBlockPositionValueState.class)
-                .put(ImmutableList.of(long.class, Block.class), LongAndBlockPositionValueState.class)
+                .put(ImmutableList.of(double.class, Object.class), DoubleAndBlockPositionValueState.class)
                 .put(ImmutableList.of(long.class, boolean.class), LongBooleanState.class)
                 .put(ImmutableList.of(long.class, double.class), LongDoubleState.class)
                 .put(ImmutableList.of(long.class, long.class), LongLongState.class)
-                .put(ImmutableList.of(long.class, Slice.class), LongAndBlockPositionValueState.class)
-                .put(ImmutableList.of(Slice.class, boolean.class), SliceBooleanState.class)
-                .put(ImmutableList.of(Slice.class, Block.class), SliceAndBlockPositionValueState.class)
-                .put(ImmutableList.of(Slice.class, double.class), SliceDoubleState.class)
-                .put(ImmutableList.of(Slice.class, long.class), SliceLongState.class)
-                .put(ImmutableList.of(Slice.class, Slice.class), SliceAndBlockPositionValueState.class)
-                .put(ImmutableList.of(Block.class, boolean.class), BlockBooleanState.class)
-                .put(ImmutableList.of(Block.class, Block.class), BlockAndBlockPositionValueState.class)
-                .put(ImmutableList.of(Block.class, double.class), BlockDoubleState.class)
-                .put(ImmutableList.of(Block.class, long.class), BlockLongState.class)
-                .put(ImmutableList.of(Block.class, Slice.class), BlockAndBlockPositionValueState.class)
+                .put(ImmutableList.of(long.class, Object.class), LongAndBlockPositionValueState.class)
+                .put(ImmutableList.of(Object.class, boolean.class), ObjectBooleanState.class)
+                .put(ImmutableList.of(Object.class, double.class), ObjectDoubleState.class)
+                .put(ImmutableList.of(Object.class, long.class), ObjectLongState.class)
+                .put(ImmutableList.of(Object.class, Object.class), ObjectAndBlockPositionValueState.class)
                 .build();
     }
 
     public static Class<? extends AccumulatorState> getStateClass(Class<?> first, Class<?> second)
     {
-        List<Class<?>> key = ImmutableList.of(first, second);
+        List<Class<?>> key = ImmutableList.of(
+                first.isPrimitive() ? first : Object.class,
+                second.isPrimitive() ? second : Object.class);
         Class<? extends AccumulatorState> state = STATE_MAPPINGS.get(key);
         checkArgument(state != null, "Unsupported state type combination: (%s, %s)", first.getName(), second.getName());
         return state;
@@ -74,11 +64,6 @@ public final class TwoNullableValueStateMapping
     public static AccumulatorStateSerializer<?> getStateSerializer(Type firstType, Type secondType)
     {
         Class<?> firstJavaType = firstType.getJavaType();
-        Class<?> secondJavaType = secondType.getJavaType();
-
-        if (secondJavaType != Block.class && secondJavaType != Slice.class) {
-            throw new IllegalArgumentException(format("Unsupported state type combination: (%s, %s)", firstJavaType.getName(), secondJavaType.getName()));
-        }
         if (firstJavaType == boolean.class) {
             return new BooleanAndBlockPositionStateSerializer(firstType, secondType);
         }
@@ -88,12 +73,6 @@ public final class TwoNullableValueStateMapping
         if (firstJavaType == double.class) {
             return new DoubleAndBlockPositionStateSerializer(firstType, secondType);
         }
-        if (firstJavaType == Slice.class) {
-            return new SliceAndBlockPositionStateSerializer(firstType, secondType);
-        }
-        if (firstJavaType == Block.class) {
-            return new BlockAndBlockPositionStateSerializer(firstType, secondType);
-        }
-        throw new IllegalArgumentException(format("Unsupported state type combination: (%s, %s)", firstJavaType.getName(), secondJavaType.getName()));
+        return new ObjectAndBlockPositionStateSerializer(firstType, secondType);
     }
 }

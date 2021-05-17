@@ -29,7 +29,6 @@ import com.facebook.presto.spi.function.OperatorDependency;
 import com.facebook.presto.spi.function.OutputFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
-import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 
@@ -99,14 +98,14 @@ public final class ApproximateCountDistinctAggregation
     public static void input(
             @OperatorDependency(operator = XX_HASH_64, argumentTypes = {"T"}) MethodHandle methodHandle,
             @AggregationState HyperLogLogState state,
-            @SqlType("T") Slice value,
+            @SqlType("T") Object value,
             @SqlType(StandardTypes.DOUBLE) double maxStandardError)
     {
         HyperLogLog hll = HyperLogLogUtils.getOrCreateHyperLogLog(state, maxStandardError);
         state.addMemoryUsage(-hll.estimatedInMemorySize());
         long hash;
         try {
-            hash = (long) methodHandle.invokeExact(value);
+            hash = (long) methodHandle.invoke(value);
         }
         catch (Throwable t) {
             throw internalError(t);

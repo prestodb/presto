@@ -71,10 +71,8 @@ public class TestMinMaxByAggregation
 
         for (Type keyType : orderableTypes) {
             for (Type valueType : getTypes()) {
-                if (StateCompiler.getSupportedFieldTypes().contains(valueType.getJavaType())) {
-                    assertNotNull(getMinByAggregation(valueType, keyType));
-                    assertNotNull(getMaxByAggregation(valueType, keyType));
-                }
+                assertNotNull(getMinByAggregation(valueType, keyType));
+                assertNotNull(getMaxByAggregation(valueType, keyType));
             }
         }
     }

@@ -19,6 +19,7 @@ import com.facebook.presto.array.ByteBigArray;
 import com.facebook.presto.array.DoubleBigArray;
 import com.facebook.presto.array.IntBigArray;
 import com.facebook.presto.array.LongBigArray;
+import com.facebook.presto.array.ObjectBigArray;
 import com.facebook.presto.array.SliceBigArray;
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.ClassDefinition;
@@ -121,14 +122,7 @@ public class StateCompiler
         if (type.equals(Block.class)) {
             return BlockBigArray.class;
         }
-        // TODO: support more reference types
-        throw new IllegalArgumentException("Unsupported type: " + type.getName());
-    }
-
-    public static Set<Class<?>> getSupportedFieldTypes()
-    {
-        // byte.class and int.class are needed for TriStateBooleanState and Object/SliceBlockPositionState respectively
-        return ImmutableSet.of(byte.class, boolean.class, long.class, double.class, int.class, Slice.class, Block.class);
+        return ObjectBigArray.class;
     }
 
     public static <T> AccumulatorStateSerializer<T> generateStateSerializer(Class<T> clazz)
@@ -574,14 +568,12 @@ public class StateCompiler
     {
         ImmutableList.Builder<StateField> builder = ImmutableList.builder();
         final Set<Class<?>> primitiveClasses = ImmutableSet.of(byte.class, boolean.class, long.class, double.class, int.class);
-        Set<Class<?>> supportedClasses = getSupportedFieldTypes();
         for (Method method : clazz.getMethods()) {
             if (method.getName().equals("getEstimatedSize")) {
                 continue;
             }
             if (method.getName().startsWith("get")) {
                 Class<?> type = method.getReturnType();
-                checkArgument(supportedClasses.contains(type), type.getName() + " is not supported");
                 String name = method.getName().substring(3);
                 builder.add(new StateField(name, type, getInitialValue(method), method.getName(), Optional.ofNullable(fieldTypes.get(name))));
             }
@@ -712,7 +704,7 @@ public class StateCompiler
             checkArgument(sqlType != null, "sqlType is null");
             if (sqlType.isPresent()) {
                 checkArgument(
-                        (sqlType.get().getJavaType() == type) ||
+                        type.isAssignableFrom(sqlType.get().getJavaType()) ||
                                 ((type == byte.class) && TINYINT.equals(sqlType.get())) ||
                                 ((type == int.class) && INTEGER.equals(sqlType.get())),
                         "Stack type (%s) and provided sql type (%s) are incompatible", type.getName(), sqlType.get().getDisplayName());

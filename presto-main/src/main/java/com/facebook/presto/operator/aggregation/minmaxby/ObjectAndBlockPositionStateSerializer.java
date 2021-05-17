@@ -17,22 +17,22 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 
-class BlockAndBlockPositionStateSerializer
-        extends KeyAndBlockPositionValueStateSerializer<BlockAndBlockPositionValueState>
+class ObjectAndBlockPositionStateSerializer
+        extends KeyAndBlockPositionValueStateSerializer<ObjectAndBlockPositionValueState>
 {
-    BlockAndBlockPositionStateSerializer(Type firstType, Type secondType)
+    ObjectAndBlockPositionStateSerializer(Type firstType, Type secondType)
     {
         super(firstType, secondType);
     }
 
     @Override
-    void readFirstField(Block block, int position, BlockAndBlockPositionValueState state)
+    void readFirstField(Block block, int position, ObjectAndBlockPositionValueState state)
     {
-        state.setFirst((Block) firstType.getObject(block, position));
+        state.setFirst(firstType.getObject(block, position));
     }
 
     @Override
-    void writeFirstField(BlockBuilder out, BlockAndBlockPositionValueState state)
+    void writeFirstField(BlockBuilder out, ObjectAndBlockPositionValueState state)
     {
         firstType.writeObject(out, state.getFirst());
     }

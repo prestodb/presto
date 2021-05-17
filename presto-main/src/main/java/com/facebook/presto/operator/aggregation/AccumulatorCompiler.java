@@ -451,13 +451,8 @@ public class AccumulatorCompiler
                     else if (parameterType == Slice.class) {
                         expressions.add(index.invoke("getSlice", Slice.class, getChannel, position));
                     }
-                    else if (parameterType == Block.class) {
-                        // Even though the method signature requires a Block parameter, we can pass an Object here.
-                        // A runtime check will assert that the Object passed as a parameter is actually of type Block.
-                        expressions.add(index.invoke("getObject", Object.class, getChannel, position));
-                    }
                     else {
-                        throw new IllegalArgumentException(format("Unsupported parameter type: %s", parameterType));
+                        expressions.add(index.invoke("getObject", Object.class, getChannel, position));
                     }
 
                     inputChannel++;

@@ -193,7 +193,7 @@ public abstract class AbstractTestApproximateCountDistinct
                 type.writeSlice(blockBuilder, slice, 0, slice.length());
             }
             else {
-                throw new UnsupportedOperationException("not yet implemented: " + javaType);
+                type.writeObject(blockBuilder, value);
             }
         }
 

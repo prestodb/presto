@@ -13,12 +13,14 @@
  */
 package com.facebook.presto.operator.aggregation.minmaxby;
 
-import io.airlift.slice.Slice;
-
-public interface SliceAndBlockPositionValueState
-        extends KeyAndBlockPositionValueState
+public interface ObjectBooleanState
+        extends TwoNullableValueState
 {
-    Slice getFirst();
+    Object getFirst();
 
-    void setFirst(Slice first);
+    void setFirst(Object first);
+
+    boolean getSecond();
+
+    void setSecond(boolean second);
 }

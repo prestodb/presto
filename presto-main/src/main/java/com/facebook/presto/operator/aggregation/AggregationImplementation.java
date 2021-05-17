@@ -211,10 +211,10 @@ public class AggregationImplementation
             Class<?> methodDeclaredType = argumentNativeContainerTypes.get(i).getJavaType();
             boolean isCurrentBlockPosition = argumentNativeContainerTypes.get(i).isBlockPosition();
 
-            if (isCurrentBlockPosition && Block.class.isAssignableFrom(methodDeclaredType)) {
+            if (isCurrentBlockPosition && methodDeclaredType.isAssignableFrom(Block.class)) {
                 continue;
             }
-            if (!isCurrentBlockPosition && argumentType.isAssignableFrom(methodDeclaredType)) {
+            if (!isCurrentBlockPosition && methodDeclaredType.isAssignableFrom(argumentType)) {
                 continue;
             }
             return false;
