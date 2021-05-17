@@ -189,6 +189,7 @@ public final class SystemSessionProperties
     public static final String PARTIAL_RESULTS_ENABLED = "partial_results_enabled";
     public static final String PARTIAL_RESULTS_COMPLETION_RATIO_THRESHOLD = "partial_results_completion_ratio_threshold";
     public static final String PARTIAL_RESULTS_MAX_EXECUTION_TIME_MULTIPLIER = "partial_results_max_execution_time_multiplier";
+    public static final String OFFSET_CLAUSE_ENABLED = "offset_clause_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1010,6 +1011,11 @@ public final class SystemSessionProperties
                         "Minimum query completion ratio threshold for partial results",
                         featuresConfig.getPartialResultsCompletionRatioThreshold(),
                         false),
+                booleanProperty(
+                        OFFSET_CLAUSE_ENABLED,
+                        "Enable support for OFFSET clause",
+                        featuresConfig.isOffsetClauseEnabled(),
+                        true),
                 doubleProperty(
                         PARTIAL_RESULTS_MAX_EXECUTION_TIME_MULTIPLIER,
                         "This value is multiplied by the time taken to reach the completion ratio threshold and is set as max task end time",
@@ -1711,5 +1717,10 @@ public final class SystemSessionProperties
     public static double getPartialResultsMaxExecutionTimeMultiplier(Session session)
     {
         return session.getSystemProperty(PARTIAL_RESULTS_MAX_EXECUTION_TIME_MULTIPLIER, Double.class);
+    }
+
+    public static boolean isOffsetClauseEnabled(Session session)
+    {
+        return session.getSystemProperty(OFFSET_CLAUSE_ENABLED, Boolean.class);
     }
 }
