@@ -473,7 +473,7 @@ public class QueryContext
     }
 
     @GuardedBy("this")
-    private String getAdditionalFailureInfo(long allocated, long delta)
+    public String getAdditionalFailureInfo(long allocated, long delta)
     {
         Map<String, Long> queryAllocations = memoryPool.getTaggedMemoryAllocations(queryId);
 
