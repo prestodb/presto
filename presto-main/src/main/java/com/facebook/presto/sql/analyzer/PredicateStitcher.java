@@ -26,7 +26,12 @@ import com.facebook.presto.sql.tree.QueryBody;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.Table;
+import com.facebook.presto.sql.tree.TableSubquery;
+import com.facebook.presto.sql.tree.Union;
+import com.facebook.presto.sql.tree.With;
+import com.facebook.presto.sql.tree.WithQuery;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -35,6 +40,7 @@ import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
 import static com.facebook.presto.sql.QueryUtil.identifier;
 import static com.facebook.presto.sql.QueryUtil.selectList;
 import static com.facebook.presto.sql.QueryUtil.subquery;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class PredicateStitcher
@@ -58,11 +64,22 @@ public class PredicateStitcher
     @Override
     protected Node visitQuery(Query node, PredicateStitcherContext context)
     {
+        Optional<With> rewrittenWith = Optional.empty();
+        if (node.getWith().isPresent()) {
+            rewrittenWith = Optional.of((With) process(node.getWith().get(), context));
+        }
+
         return new Query(
-                node.getWith(),
+                rewrittenWith,
                 (QueryBody) process(node.getQueryBody(), context),
                 node.getOrderBy(),
                 node.getLimit());
+    }
+
+    @Override
+    protected Node visitTableSubquery(TableSubquery node, PredicateStitcherContext context)
+    {
+        return new TableSubquery((Query) process(node.getQuery(), context));
     }
 
     @Override
@@ -82,11 +99,35 @@ public class PredicateStitcher
     }
 
     @Override
+    protected Node visitWith(With node, PredicateStitcherContext context)
+    {
+        List<WithQuery> rewrittenWithQueries = node.getQueries().stream()
+                .map(withQuery -> (WithQuery) process(withQuery, context))
+                .collect(toImmutableList());
+        return new With(node.isRecursive(), rewrittenWithQueries);
+    }
+
+    @Override
+    protected Node visitWithQuery(WithQuery node, PredicateStitcherContext context)
+    {
+        return new WithQuery(node.getName(), (Query) process(node.getQuery(), context), node.getColumnNames());
+    }
+
+    @Override
     protected Node visitJoin(Join node, PredicateStitcherContext context)
     {
         Relation rewrittenLeft = (Relation) process(node.getLeft(), context);
         Relation rewrittenRight = (Relation) process(node.getRight(), context);
         return new Join(node.getType(), rewrittenLeft, rewrittenRight, node.getCriteria());
+    }
+
+    @Override
+    protected Node visitUnion(Union node, PredicateStitcherContext context)
+    {
+        List<Relation> rewrittenRelations = node.getRelations().stream()
+                .map(relation -> (Relation) process(relation, context))
+                .collect(toImmutableList());
+        return new Union(rewrittenRelations, node.isDistinct());
     }
 
     @Override
@@ -109,7 +150,7 @@ public class PredicateStitcher
         QuerySpecification queryWithPredicateStitching = new QuerySpecification(
                 selectList(new AllColumns()),
                 Optional.of(table),
-                Optional.of(predicates.remove(schemaTableName)),
+                Optional.of(predicates.get(schemaTableName)),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
