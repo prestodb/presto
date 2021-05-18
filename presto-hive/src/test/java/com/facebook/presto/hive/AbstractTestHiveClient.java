@@ -928,7 +928,8 @@ public abstract class AbstractTestHiveClient
                 Duration.valueOf("15s"),
                 10000,
                 false,
-                MetastoreCacheScope.ALL);
+                MetastoreCacheScope.ALL,
+                0.0);
 
         setup(databaseName, hiveClientConfig, cacheConfig, metastoreClientConfig, metastore);
     }

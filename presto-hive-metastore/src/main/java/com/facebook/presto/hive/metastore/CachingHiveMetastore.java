@@ -46,8 +46,10 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
 
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_CORRUPTED_PARTITION_CACHE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
 import static com.facebook.presto.hive.metastore.CachingHiveMetastore.MetastoreCacheScope.ALL;
 import static com.facebook.presto.hive.metastore.HivePartitionName.hivePartitionName;
@@ -65,6 +67,7 @@ import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMulti
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.collect.Streams.stream;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -97,8 +100,9 @@ public class CachingHiveMetastore
     private final LoadingCache<KeyAndContext<String>, Set<String>> rolesCache;
     private final LoadingCache<KeyAndContext<PrestoPrincipal>, Set<RoleGrant>> roleGrantsCache;
 
-    private final boolean partitionVersioningEnabled;
     private final boolean metastoreImpersonationEnabled;
+    private final boolean partitionVersioningEnabled;
+    private final double partitionCacheValidationPercentage;
 
     @Inject
     public CachingHiveMetastore(
@@ -114,7 +118,8 @@ public class CachingHiveMetastore
                 metastoreClientConfig.getMetastoreRefreshInterval(),
                 metastoreClientConfig.getMetastoreCacheMaximumSize(),
                 metastoreClientConfig.isPartitionVersioningEnabled(),
-                metastoreClientConfig.getMetastoreCacheScope());
+                metastoreClientConfig.getMetastoreCacheScope(),
+                metastoreClientConfig.getPartitionCacheValidationPercentage());
     }
 
     public CachingHiveMetastore(
@@ -125,7 +130,8 @@ public class CachingHiveMetastore
             Duration refreshInterval,
             long maximumSize,
             boolean partitionVersioningEnabled,
-            MetastoreCacheScope metastoreCacheScope)
+            MetastoreCacheScope metastoreCacheScope,
+            double partitionCacheValidationPercentage)
     {
         this(
                 delegate,
@@ -135,7 +141,8 @@ public class CachingHiveMetastore
                 refreshInterval.toMillis() >= cacheTtl.toMillis() ? OptionalLong.empty() : OptionalLong.of(refreshInterval.toMillis()),
                 maximumSize,
                 partitionVersioningEnabled,
-                metastoreCacheScope);
+                metastoreCacheScope,
+                partitionCacheValidationPercentage);
     }
 
     public static CachingHiveMetastore memoizeMetastore(ExtendedHiveMetastore delegate, boolean isMetastoreImpersonationEnabled, long maximumSize)
@@ -148,7 +155,8 @@ public class CachingHiveMetastore
                 OptionalLong.empty(),
                 maximumSize,
                 false,
-                ALL);
+                ALL,
+                0.0);
     }
 
     private CachingHiveMetastore(
@@ -159,12 +167,14 @@ public class CachingHiveMetastore
             OptionalLong refreshMills,
             long maximumSize,
             boolean partitionVersioningEnabled,
-            MetastoreCacheScope metastoreCacheScope)
+            MetastoreCacheScope metastoreCacheScope,
+            double partitionCacheValidationPercentage)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         requireNonNull(executor, "executor is null");
         this.metastoreImpersonationEnabled = metastoreImpersonationEnabled;
         this.partitionVersioningEnabled = partitionVersioningEnabled;
+        this.partitionCacheValidationPercentage = partitionCacheValidationPercentage;
 
         OptionalLong cacheExpiresAfterWriteMillis;
         OptionalLong cacheRefreshMills;
@@ -605,7 +615,12 @@ public class CachingHiveMetastore
     @Override
     public Optional<Partition> getPartition(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionValues)
     {
-        return get(partitionCache, getCachingKey(metastoreContext, hivePartitionName(databaseName, tableName, partitionValues)));
+        KeyAndContext<HivePartitionName> key = getCachingKey(metastoreContext, hivePartitionName(databaseName, tableName, partitionValues));
+        Optional<Partition> result = get(partitionCache, key);
+        if (isPartitionCacheValidationEnabled()) {
+            validatePartitionCache(key, result);
+        }
+        return result;
     }
 
     @Override
@@ -668,6 +683,43 @@ public class CachingHiveMetastore
                 });
     }
 
+    private boolean isPartitionCacheValidationEnabled()
+    {
+        return partitionCacheValidationPercentage > 0 &&
+                ThreadLocalRandom.current().nextDouble(100) < partitionCacheValidationPercentage;
+    }
+
+    private void validatePartitionCache(KeyAndContext<HivePartitionName> partitionName, Optional<Partition> partitionFromCache)
+    {
+        Optional<Partition> partitionFromMetastore = loadPartitionByName(partitionName);
+        if (!partitionFromCache.equals(partitionFromMetastore)) {
+            String errorMessage = format("Partition returned from cache is different from partition from Metastore.\nPartition name = %s.\nPartition from cache = %s\n Partition from Metastore = %s",
+                    partitionName,
+                    partitionFromCache,
+                    partitionFromMetastore);
+            throw new PrestoException(HIVE_CORRUPTED_PARTITION_CACHE, errorMessage);
+        }
+    }
+
+    private void validatePartitionCache(Map<KeyAndContext<HivePartitionName>, Optional<Partition>> actualResult)
+    {
+        Map<KeyAndContext<HivePartitionName>, Optional<Partition>> expectedResult = loadPartitionsByNames(actualResult.keySet());
+
+        for (Entry<KeyAndContext<HivePartitionName>, Optional<Partition>> entry : expectedResult.entrySet()) {
+            HivePartitionName partitionName = entry.getKey().getKey();
+            Optional<Partition> partitionFromCache = actualResult.get(entry.getKey());
+            Optional<Partition> partitionFromMetastore = entry.getValue();
+
+            if (!partitionFromCache.equals(partitionFromMetastore)) {
+                String errorMessage = format("Partition returned from cache is different from partition from Metastore.\nPartition name = %s.\nPartition from cache = %s\n Partition from Metastore = %s",
+                        partitionName,
+                        partitionFromCache,
+                        partitionFromMetastore);
+                throw new PrestoException(HIVE_CORRUPTED_PARTITION_CACHE, errorMessage);
+            }
+        }
+    }
+
     private List<String> loadPartitionNamesByFilter(KeyAndContext<PartitionFilter> partitionFilterKey)
     {
         return delegate.getPartitionNamesByFilter(
@@ -683,6 +735,9 @@ public class CachingHiveMetastore
         Iterable<KeyAndContext<HivePartitionName>> names = transform(partitionNames, name -> getCachingKey(metastoreContext, HivePartitionName.hivePartitionName(databaseName, tableName, name)));
 
         Map<KeyAndContext<HivePartitionName>, Optional<Partition>> all = getAll(partitionCache, names);
+        if (isPartitionCacheValidationEnabled()) {
+            validatePartitionCache(all);
+        }
         ImmutableMap.Builder<String, Optional<Partition>> partitionsByName = ImmutableMap.builder();
         for (Entry<KeyAndContext<HivePartitionName>, Optional<Partition>> entry : all.entrySet()) {
             partitionsByName.put(entry.getKey().getKey().getPartitionName().get(), entry.getValue());
