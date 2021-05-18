@@ -1038,6 +1038,7 @@ public class TestHiveLogicalPlanner
     }
 
     // TODO: plan verification https://github.com/prestodb/presto/issues/16031
+    // TODO: enable all materialized view tests after https://github.com/prestodb/presto/pull/15996
     @Test(enabled = false)
     public void testMaterializedViewOptimization()
     {
@@ -1066,7 +1067,40 @@ public class TestHiveLogicalPlanner
         }
     }
 
-    // enable after https://github.com/prestodb/presto/pull/15996
+    @Test(enabled = false)
+    public void testMaterializedViewOptimizationWithClause()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        String table = "test_orders_partitioned_with_clause";
+        String view = "test_view_orders_partitioned_with_clause";
+
+        try {
+            queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['ds']) AS " +
+                    "SELECT orderkey, orderpriority, '2020-01-01' as ds FROM orders WHERE orderkey < 1000 " +
+                    "UNION ALL " +
+                    "SELECT orderkey, orderpriority, '2019-01-02' as ds FROM orders WHERE orderkey > 1000", table));
+
+            String viewPart = format(
+                    "WITH X AS (SELECT orderkey, orderpriority, ds FROM %s), " +
+                            "Y AS (SELECT orderkey, orderpriority, ds FROM X), " +
+                            "Z AS (SELECT orderkey, orderpriority, ds FROM Y) " +
+                            "SELECT orderkey, orderpriority, ds FROM Z",
+                    table);
+
+            assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds']) AS %s", view, viewPart));
+            assertUpdate(format("INSERT INTO %s(orderkey, orderpriority, ds) %s where ds='2020-01-01'", view, viewPart), 255);
+
+            String viewQuery = format("SELECT orderkey from %s where orderkey < 10000", view);
+            String baseQuery = viewPart + " where orderkey < 10000";
+
+            assertEquals(computeActual(viewQuery).getRowCount(), computeActual(baseQuery).getRowCount());
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS " + view);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table);
+        }
+    }
+
     @Test(enabled = false)
     public void testMaterializedViewOptimizationFullyMaterialized()
     {
@@ -1183,6 +1217,65 @@ public class TestHiveLogicalPlanner
             String baseQuery = format("SELECT orderkey from %s where orderkey <  10000", baseTable);
             // getExplainPlan(viewQuery, LOGICAL);
 
+            assertEquals(computeActual(viewQuery).getRowCount(), computeActual(baseQuery).getRowCount());
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS " + view);
+            queryRunner.execute("DROP TABLE IF EXISTS " + baseTable);
+        }
+    }
+
+    @Test(enabled = false)
+    public void testMaterializedViewForUnionAll()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        String baseTable = "test_customer_union";
+        String view = "test_customer_view_union";
+        try {
+            computeActual(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['nationkey']) " +
+                    "AS SELECT custkey, name, address, nationkey FROM customer", baseTable));
+
+            String baseQuery = format(
+                    "SELECT name, custkey, nationkey FROM ( SELECT name, custkey, nationkey FROM %s WHERE custkey < 1000 UNION ALL " +
+                            "SELECT name, custkey, nationkey FROM %s WHERE custkey >= 1000)", baseTable, baseTable);
+
+            assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['nationkey']) " +
+                    "AS %s", view, baseQuery));
+
+            assertUpdate(format("INSERT INTO %s(name, custkey, nationkey) %s where nationkey < 10", view, baseQuery), 599);
+
+            String viewQuery = format("SELECT name, custkey, nationkey from %s", view);
+            assertEquals(computeActual(viewQuery).getRowCount(), computeActual(baseQuery).getRowCount());
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS " + view);
+            queryRunner.execute("DROP TABLE IF EXISTS " + baseTable);
+        }
+    }
+
+    @Test(enabled = false)
+    public void testMaterializedViewForGroupingSet()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        String baseTable = "test_lineitem_grouping_set";
+        String view = "test_view_lineitem_grouping_set";
+        try {
+            computeActual(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['shipmode']) " +
+                    "AS SELECT linenumber, quantity, shipmode FROM lineitem", baseTable));
+
+            assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['shipmode']) " +
+                            "AS SELECT linenumber, SUM(DISTINCT CAST(quantity AS BIGINT)) quantity, shipmode FROM %s " +
+                            "GROUP BY GROUPING SETS ((linenumber, shipmode), (shipmode))",
+                    view, baseTable));
+
+            assertUpdate(format("INSERT INTO %s(linenumber, quantity, shipmode) " +
+                            "SELECT linenumber, SUM(DISTINCT CAST(quantity AS BIGINT)) quantity, shipmode FROM %s where shipmode='RAIL' " +
+                            "GROUP BY GROUPING SETS ((linenumber, shipmode), (shipmode)) ",
+                    view, baseTable), 8);
+
+            String viewQuery = format("SELECT * FROM %s ", view);
+            String baseQuery = format("SELECT linenumber, SUM(DISTINCT CAST(quantity AS BIGINT)) quantity, shipmode FROM %s " +
+                    "GROUP BY GROUPING SETS ((linenumber, shipmode), (shipmode))", baseTable);
             assertEquals(computeActual(viewQuery).getRowCount(), computeActual(baseQuery).getRowCount());
         }
         finally {
