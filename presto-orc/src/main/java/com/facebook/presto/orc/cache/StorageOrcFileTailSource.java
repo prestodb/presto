@@ -45,6 +45,18 @@ public class StorageOrcFileTailSource
     private static final int CURRENT_MAJOR_VERSION = 0;
     private static final int CURRENT_MINOR_VERSION = 12;
 
+    private final int expectedFooterSize;
+
+    public StorageOrcFileTailSource()
+    {
+        this(EXPECTED_FOOTER_SIZE);
+    }
+
+    public StorageOrcFileTailSource(int expectedFooterSize)
+    {
+        this.expectedFooterSize = expectedFooterSize;
+    }
+
     @Override
     public OrcFileTail getOrcFileTail(OrcDataSource orcDataSource, MetadataReader metadataReader, Optional<OrcWriteValidation> writeValidation, boolean cacheable)
             throws IOException
@@ -55,7 +67,7 @@ public class StorageOrcFileTailSource
         }
 
         // Read the tail of the file
-        byte[] buffer = new byte[toIntExact(min(size, EXPECTED_FOOTER_SIZE))];
+        byte[] buffer = new byte[toIntExact(min(size, expectedFooterSize))];
         orcDataSource.readFully(size - buffer.length, buffer);
 
         // get length of PostScript - last byte of the file
