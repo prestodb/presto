@@ -18,6 +18,8 @@ import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcWriteValidation;
 import com.facebook.presto.orc.metadata.CompressionKind;
+import com.facebook.presto.orc.metadata.DwrfStripeCacheData;
+import com.facebook.presto.orc.metadata.DwrfStripeCacheMode;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.OrcFileTail;
 import com.facebook.presto.orc.metadata.PostScript;
@@ -45,16 +47,18 @@ public class StorageOrcFileTailSource
     private static final int CURRENT_MAJOR_VERSION = 0;
     private static final int CURRENT_MINOR_VERSION = 12;
 
+    private final boolean dwrfStripeCacheEnabled;
     private final int expectedFooterSize;
 
     public StorageOrcFileTailSource()
     {
-        this(EXPECTED_FOOTER_SIZE);
+        this(EXPECTED_FOOTER_SIZE, false);
     }
 
-    public StorageOrcFileTailSource(int expectedFooterSize)
+    public StorageOrcFileTailSource(int expectedFooterSize, boolean dwrfStripeCacheEnabled)
     {
         this.expectedFooterSize = expectedFooterSize;
+        this.dwrfStripeCacheEnabled = dwrfStripeCacheEnabled;
     }
 
     @Override
@@ -104,9 +108,27 @@ public class StorageOrcFileTailSource
         int footerSize = toIntExact(postScript.getFooterLength());
         int metadataSize = toIntExact(postScript.getMetadataLength());
 
+        if (footerSize < 0) {
+            throw new OrcCorruptionException(orcDataSource.getId(), "Invalid footer length %s", footerSize);
+        }
+        if (metadataSize < 0) {
+            throw new OrcCorruptionException(orcDataSource.getId(), "Invalid metadata length %s", metadataSize);
+        }
+
+        // read DWRF stripe cache only if this feature is enabled and it has meaningful data
+        boolean readDwrfStripeCache = dwrfStripeCacheEnabled
+                && postScript.getDwrfStripeCacheLength().isPresent()
+                && postScript.getDwrfStripeCacheMode().isPresent()
+                && postScript.getDwrfStripeCacheMode().get() != DwrfStripeCacheMode.NONE;
+        int dwrfStripeCacheSize = 0;
+        if (readDwrfStripeCache) {
+            dwrfStripeCacheSize = postScript.getDwrfStripeCacheLength().getAsInt();
+            checkSizes(orcDataSource, metadataSize, dwrfStripeCacheSize);
+        }
+
         // check if extra bytes need to be read
         Slice completeFooterSlice;
-        int completeFooterSize = footerSize + metadataSize + postScriptSize + SIZE_OF_BYTE;
+        int completeFooterSize = dwrfStripeCacheSize + metadataSize + footerSize + postScriptSize + SIZE_OF_BYTE;
         if (completeFooterSize > buffer.length) {
             // allocate a new buffer large enough for the complete footer
             byte[] newBuffer = new byte[completeFooterSize];
@@ -123,10 +145,22 @@ public class StorageOrcFileTailSource
             completeFooterSlice = Slices.wrappedBuffer(buffer, buffer.length - completeFooterSize, completeFooterSize);
         }
 
+        // metadataSize is set only for ORC files, dwrfStripeCacheSize is set only for DWRF files
+        // it should be safe to sum them up to find footer offset
+        // TAIL: [ ORC_METADATA{0,1} | DWRF_STRIPE_CACHE {0,1} ] + FOOTER + POST_SCRIPT + POST_SCRIPT_SIZE (1 byte)
+        int footerSliceOffset = metadataSize + dwrfStripeCacheSize;
+        Slice footerSlice = completeFooterSlice.slice(footerSliceOffset, footerSize);
         Slice metadataSlice = completeFooterSlice.slice(0, metadataSize);
-        Slice footerSlice = completeFooterSlice.slice(metadataSize, footerSize);
 
-        return new OrcFileTail(hiveWriterVersion, bufferSize, compressionKind, footerSlice, footerSize, metadataSlice, metadataSize);
+        // set DwrfStripeCacheData only if the stripe cache feature is enabled and the file has the stripe cache
+        Optional<DwrfStripeCacheData> dwrfStripeCacheData = Optional.empty();
+        if (readDwrfStripeCache) {
+            Slice dwrfStripeCacheSlice = completeFooterSlice.slice(0, dwrfStripeCacheSize);
+            DwrfStripeCacheMode stripeCacheMode = postScript.getDwrfStripeCacheMode().get();
+            dwrfStripeCacheData = Optional.of(new DwrfStripeCacheData(dwrfStripeCacheSlice, dwrfStripeCacheSize, stripeCacheMode));
+        }
+
+        return new OrcFileTail(hiveWriterVersion, bufferSize, compressionKind, footerSlice, footerSize, metadataSlice, metadataSize, dwrfStripeCacheData);
     }
 
     /**
@@ -162,6 +196,27 @@ public class StorageOrcFileTailSource
                         CURRENT_MAJOR_VERSION,
                         CURRENT_MINOR_VERSION);
             }
+        }
+    }
+
+    /**
+     * ORC metadata and DWRF stripe cache sizes are mutually exclusive because
+     * only ORC files have metadata, and only DWRF files have stripe cache.
+     * <p>
+     * Let's check that either both sizes are 0, or only one of them is
+     * greater than 0.
+     */
+    private static void checkSizes(OrcDataSource orcDataSource, int metadataSize, int dwrfStripeCacheSize)
+    {
+        if (metadataSize > 0 && dwrfStripeCacheSize > 0) {
+            throw new OrcCorruptionException(orcDataSource.getId(),
+                    "Invalid ORC metadata %s or DWRF stripe cache size %s",
+                    metadataSize,
+                    dwrfStripeCacheSize);
+        }
+
+        if (dwrfStripeCacheSize < 0) {
+            throw new OrcCorruptionException(orcDataSource.getId(), "Invalid DWRF stripe cache length %s", dwrfStripeCacheSize);
         }
     }
 }

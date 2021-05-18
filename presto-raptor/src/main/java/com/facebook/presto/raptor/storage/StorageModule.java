@@ -121,7 +121,7 @@ public class StorageModule
         if (orcCacheConfig.isFileTailCacheEnabled()) {
             Cache<OrcDataSourceId, OrcFileTail> cache = CacheBuilder.newBuilder()
                     .maximumWeight(orcCacheConfig.getFileTailCacheSize().toBytes())
-                    .weigher((id, tail) -> ((OrcFileTail) tail).getFooterSize() + ((OrcFileTail) tail).getMetadataSize())
+                    .weigher((id, tail) -> ((OrcFileTail) tail).getTotalSize())
                     .expireAfterAccess(orcCacheConfig.getFileTailCacheTtlSinceLastAccess().toMillis(), TimeUnit.MILLISECONDS)
                     .recordStats()
                     .build();
