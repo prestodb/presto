@@ -15,9 +15,13 @@ package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.orc.metadata.DwrfMetadataReader;
+import com.facebook.presto.orc.metadata.DwrfStripeCacheData;
 import com.facebook.presto.orc.metadata.MetadataReader;
+import com.facebook.presto.orc.metadata.OrcFileTail;
 import com.facebook.presto.orc.proto.DwrfProto;
 import com.facebook.presto.orc.protobuf.AbstractMessageLite;
+import com.facebook.presto.orc.protobuf.InvalidProtocolBufferException;
+import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -29,11 +33,18 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Optional;
 
+import static com.facebook.presto.orc.metadata.DwrfStripeCacheMode.INDEX_AND_FOOTER;
+import static com.facebook.presto.orc.proto.DwrfProto.CompressionKind.NONE;
+import static com.facebook.presto.orc.proto.DwrfProto.StripeCacheMode.BOTH;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestStorageOrcFileTailSource
 {
-    private static final DataSize DEFAULT_SIZE = new DataSize(1, DataSize.Unit.MEGABYTE);
+    private static final DataSize DEFAULT_SIZE = new DataSize(1, MEGABYTE);
+    private static final int FOOTER_READ_SIZE = (int) DEFAULT_SIZE.toBytes();
 
     private TempFile file;
     private MetadataReader metadataReader;
@@ -64,13 +75,13 @@ public class TestStorageOrcFileTailSource
         // write the post script
         DwrfProto.PostScript.Builder postScript = DwrfProto.PostScript.newBuilder()
                 .setFooterLength(0)
-                .setCompression(DwrfProto.CompressionKind.NONE);
+                .setCompression(NONE);
         writeTail(postScript, out);
         out.close();
 
         // read the OrcFileTail
         int expectedFooterSize = 567;
-        StorageOrcFileTailSource src = new StorageOrcFileTailSource(expectedFooterSize);
+        StorageOrcFileTailSource src = new StorageOrcFileTailSource(expectedFooterSize, false);
         TestingOrcDataSource orcDataSource = new TestingOrcDataSource(createFileOrcDataSource());
         src.getOrcFileTail(orcDataSource, metadataReader, Optional.empty(), false);
 
@@ -80,10 +91,122 @@ public class TestStorageOrcFileTailSource
         assertEquals(lastReadRange.getLength(), expectedFooterSize);
     }
 
+    @Test
+    public void testSkipDwrfStripeCacheIfDisabled()
+            throws IOException
+    {
+        // beef up the file size to make sure the file can fit the 100 byte long stripe cache
+        FileOutputStream out = new FileOutputStream(file.getFile());
+        out.write(new byte[100 * 1000]);
+
+        // write the footer and post script
+        DwrfProto.Footer.Builder footer = DwrfProto.Footer.newBuilder()
+                .addAllStripeCacheOffsets(ImmutableList.of(1, 2, 3));
+        DwrfProto.PostScript.Builder postScript = DwrfProto.PostScript.newBuilder()
+                .setCompression(NONE)
+                .setCacheMode(BOTH)
+                .setCacheSize(100);
+        int tailSize = writeTail(footer, postScript, out);
+        out.close();
+
+        // read the file tail with the disabled "read dwrf stripe cache" feature
+        StorageOrcFileTailSource src = new StorageOrcFileTailSource(tailSize, false);
+        TestingOrcDataSource orcDataSource = new TestingOrcDataSource(createFileOrcDataSource());
+        OrcFileTail orcFileTail = src.getOrcFileTail(orcDataSource, metadataReader, Optional.empty(), false);
+
+        assertEquals(orcFileTail.getMetadataSize(), 0);
+        DwrfProto.Footer actualFooter = readFooter(orcFileTail);
+        assertEquals(actualFooter, footer.build());
+
+        // make sure the stripe cache has not been read
+        assertFalse(orcFileTail.getDwrfStripeCacheData().isPresent());
+        assertEquals(orcDataSource.getReadCount(), 1);
+        DiskRange lastReadRange = orcDataSource.getLastReadRanges().get(0);
+        assertEquals(lastReadRange.getLength(), tailSize);
+    }
+
+    @Test
+    public void testReadDwrfStripeCacheIfEnabled()
+            throws IOException
+    {
+        FileOutputStream out = new FileOutputStream(file.getFile());
+
+        // write a fake stripe cache
+        byte[] stripeCache = new byte[100];
+        for (int i = 0; i < stripeCache.length; i++) {
+            stripeCache[i] = (byte) i;
+        }
+        out.write(stripeCache);
+
+        // write the footer and post script
+        DwrfProto.Footer.Builder footer = DwrfProto.Footer.newBuilder()
+                .addAllStripeCacheOffsets(ImmutableList.of(1, 2, 3));
+        DwrfProto.PostScript.Builder postScript = DwrfProto.PostScript.newBuilder()
+                .setCompression(NONE)
+                .setCacheMode(BOTH)
+                .setCacheSize(stripeCache.length);
+        writeTail(footer, postScript, out);
+        out.close();
+
+        // read the file tail with the enabled "read dwrf stripe cache" feature
+        StorageOrcFileTailSource src = new StorageOrcFileTailSource(FOOTER_READ_SIZE, true);
+        OrcDataSource orcDataSource = createFileOrcDataSource();
+        OrcFileTail orcFileTail = src.getOrcFileTail(orcDataSource, metadataReader, Optional.empty(), false);
+
+        assertEquals(orcFileTail.getMetadataSize(), 0);
+        DwrfProto.Footer actualFooter = readFooter(orcFileTail);
+        assertEquals(actualFooter, footer.build());
+
+        // make sure the stripe cache is loaded correctly
+        assertTrue(orcFileTail.getDwrfStripeCacheData().isPresent());
+        DwrfStripeCacheData dwrfStripeCacheData = orcFileTail.getDwrfStripeCacheData().get();
+        assertEquals(dwrfStripeCacheData.getDwrfStripeCacheMode(), INDEX_AND_FOOTER);
+        assertEquals(dwrfStripeCacheData.getDwrfStripeCacheSize(), stripeCache.length);
+        assertEquals(dwrfStripeCacheData.getDwrfStripeCacheSlice().getBytes(), stripeCache);
+    }
+
+    @Test
+    public void testReadDwrfStripeCacheIfEnabledButAbsent()
+            throws IOException
+    {
+        FileOutputStream out = new FileOutputStream(file.getFile());
+
+        // write the footer and post script
+        DwrfProto.Footer.Builder footer = DwrfProto.Footer.newBuilder();
+        DwrfProto.PostScript.Builder postScript = DwrfProto.PostScript.newBuilder()
+                .setCompression(NONE);
+        writeTail(footer, postScript, out);
+        out.close();
+
+        // read the file tail with the enabled "read dwrf stripe cache" feature
+        StorageOrcFileTailSource src = new StorageOrcFileTailSource(FOOTER_READ_SIZE, true);
+        OrcDataSource orcDataSource = createFileOrcDataSource();
+        OrcFileTail orcFileTail = src.getOrcFileTail(orcDataSource, metadataReader, Optional.empty(), false);
+
+        assertEquals(orcFileTail.getMetadataSize(), 0);
+        DwrfProto.Footer actualFooter = readFooter(orcFileTail);
+        assertEquals(actualFooter, footer.build());
+
+        // the feature is enabled, but file doesn't have the stripe cache
+        assertFalse(orcFileTail.getDwrfStripeCacheData().isPresent());
+    }
+
     private OrcDataSource createFileOrcDataSource()
             throws FileNotFoundException
     {
         return new FileOrcDataSource(file.getFile(), DEFAULT_SIZE, DEFAULT_SIZE, DEFAULT_SIZE, false);
+    }
+
+    /**
+     * Write footer + post script, and return the number of bytes written.
+     */
+    private int writeTail(DwrfProto.Footer.Builder footer, DwrfProto.PostScript.Builder postScript, OutputStream out)
+            throws IOException
+    {
+        int footerSize = writeObject(footer.build(), out);
+        postScript.setFooterLength(footerSize);
+        int postScriptSize = writeTail(postScript, out);
+        return footerSize + postScriptSize;
     }
 
     /**
@@ -103,5 +226,11 @@ public class TestStorageOrcFileTailSource
         byte[] bytes = msg.toByteArray();
         out.write(bytes);
         return bytes.length;
+    }
+
+    private DwrfProto.Footer readFooter(OrcFileTail orcFileTail)
+            throws InvalidProtocolBufferException
+    {
+        return DwrfProto.Footer.parseFrom(orcFileTail.getFooterSlice().getBytes(0, orcFileTail.getFooterSize()));
     }
 }
