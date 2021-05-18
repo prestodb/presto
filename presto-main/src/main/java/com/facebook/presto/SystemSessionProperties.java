@@ -23,6 +23,7 @@ import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.session.PropertyMetadata;
+import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMergingStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
@@ -117,6 +118,7 @@ public final class SystemSessionProperties
     public static final String SPILL_ENABLED = "spill_enabled";
     public static final String JOIN_SPILL_ENABLED = "join_spill_enabled";
     public static final String AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT = "aggregation_operator_unspill_memory_limit";
+    public static final String TEMP_STORAGE_SPILLER_BUFFER_SIZE = "temp_storage_spiller_buffer_size";
     public static final String OPTIMIZE_DISTINCT_AGGREGATIONS = "optimize_mixed_distinct_aggregations";
     public static final String LEGACY_ROW_FIELD_ORDINAL_ACCESS = "legacy_row_field_ordinal_access";
     public static final String LEGACY_MAP_SUBSCRIPT = "do_not_use_legacy_map_subscript";
@@ -190,7 +192,15 @@ public final class SystemSessionProperties
 
     public SystemSessionProperties()
     {
-        this(new QueryManagerConfig(), new TaskManagerConfig(), new MemoryManagerConfig(), new FeaturesConfig(), new NodeMemoryConfig(), new WarningCollectorConfig(), new NodeSchedulerConfig());
+        this(
+                new QueryManagerConfig(),
+                new TaskManagerConfig(),
+                new MemoryManagerConfig(),
+                new FeaturesConfig(),
+                new NodeMemoryConfig(),
+                new WarningCollectorConfig(),
+                new NodeSchedulerConfig(),
+                new NodeSpillConfig());
     }
 
     @Inject
@@ -201,7 +211,8 @@ public final class SystemSessionProperties
             FeaturesConfig featuresConfig,
             NodeMemoryConfig nodeMemoryConfig,
             WarningCollectorConfig warningCollectorConfig,
-            NodeSchedulerConfig nodeSchedulerConfig)
+            NodeSchedulerConfig nodeSchedulerConfig,
+            NodeSpillConfig nodeSpillConfig)
     {
         sessionProperties = ImmutableList.of(
                 stringProperty(
@@ -583,6 +594,15 @@ public final class SystemSessionProperties
                         VARCHAR,
                         DataSize.class,
                         featuresConfig.getAggregationOperatorUnspillMemoryLimit(),
+                        false,
+                        value -> DataSize.valueOf((String) value),
+                        DataSize::toString),
+                new PropertyMetadata<>(
+                        TEMP_STORAGE_SPILLER_BUFFER_SIZE,
+                        "Experimental: Buffer size used by TempStorageSingleStreamSpiller",
+                        VARCHAR,
+                        DataSize.class,
+                        nodeSpillConfig.getTempStorageBufferSize(),
                         false,
                         value -> DataSize.valueOf((String) value),
                         DataSize::toString),
@@ -1299,6 +1319,13 @@ public final class SystemSessionProperties
         DataSize memoryLimitForMerge = session.getSystemProperty(AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT, DataSize.class);
         checkArgument(memoryLimitForMerge.toBytes() >= 0, "%s must be positive", AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT);
         return memoryLimitForMerge;
+    }
+
+    public static DataSize getTempStorageSpillerBufferSize(Session session)
+    {
+        DataSize tempStorageSpillerBufferSize = session.getSystemProperty(TEMP_STORAGE_SPILLER_BUFFER_SIZE, DataSize.class);
+        checkArgument(tempStorageSpillerBufferSize.toBytes() >= 0, "%s must be positive", TEMP_STORAGE_SPILLER_BUFFER_SIZE);
+        return tempStorageSpillerBufferSize;
     }
 
     public static boolean isOptimizeDistinctAggregationEnabled(Session session)
