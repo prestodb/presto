@@ -14,7 +14,6 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.concurrent.BoundedExecutor;
-import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.cache.CacheConfig;
@@ -190,7 +189,6 @@ public abstract class AbstractTestHiveFileSystem
                 getBasePath(),
                 hdfsEnvironment);
         locationService = new HiveLocationService(hdfsEnvironment);
-        JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
         metadataFactory = new HiveMetadataFactory(
                 config,
                 metastoreClientConfig,
@@ -204,7 +202,8 @@ public abstract class AbstractTestHiveFileSystem
                 ROW_EXPRESSION_SERVICE,
                 FILTER_STATS_CALCULATOR_SERVICE,
                 new TableParameterCodec(),
-                partitionUpdateCodec,
+                HiveTestUtils.PARTITION_UPDATE_CODEC,
+                HiveTestUtils.PARTITION_UPDATE_SMILE_CODEC,
                 new HiveTypeTranslator(),
                 new HiveStagingFileCommitter(hdfsEnvironment, listeningDecorator(executor)),
                 new HiveZeroRowFileCreator(hdfsEnvironment, new OutputStreamDataSinkFactory(), listeningDecorator(executor)),
@@ -241,7 +240,8 @@ public abstract class AbstractTestHiveFileSystem
                 config,
                 metastoreClientConfig,
                 locationService,
-                partitionUpdateCodec,
+                HiveTestUtils.PARTITION_UPDATE_CODEC,
+                HiveTestUtils.PARTITION_UPDATE_SMILE_CODEC,
                 new TestingNodeManager("fake-environment"),
                 new HiveEventClient(),
                 new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig()),

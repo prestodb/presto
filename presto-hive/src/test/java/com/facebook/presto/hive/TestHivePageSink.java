@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
@@ -302,7 +301,6 @@ public class TestHivePageSink
                 "test",
                 ImmutableMap.of(),
                 Optional.empty());
-        JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
         HdfsEnvironment hdfsEnvironment = createTestHdfsEnvironment(config, metastoreClientConfig);
         HivePageSinkProvider provider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(config, metastoreClientConfig),
@@ -314,7 +312,8 @@ public class TestHivePageSink
                 config,
                 metastoreClientConfig,
                 new HiveLocationService(hdfsEnvironment),
-                partitionUpdateCodec,
+                HiveTestUtils.PARTITION_UPDATE_CODEC,
+                HiveTestUtils.PARTITION_UPDATE_SMILE_CODEC,
                 new TestingNodeManager("fake-environment"),
                 new HiveEventClient(),
                 new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig()),
