@@ -124,6 +124,7 @@ import static com.facebook.presto.spark.PrestoSparkSessionProperties.getSparkBro
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getStorageBasedBroadcastJoinWriteBufferSize;
 import static com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleStats.Operation.WRITE;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.deserializeZstdCompressed;
+import static com.facebook.presto.spark.util.PrestoSparkUtils.getNullifyingIterator;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.serializeZstdCompressed;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.toPrestoSparkSerializedPage;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
@@ -416,7 +417,8 @@ public class PrestoSparkTaskExecutorFactory
                 }
 
                 if (inMemoryInput != null) {
-                    remoteSourcePageInputs.add(inMemoryInput.iterator());
+                    // for inmemory inputs pages can be released incrementally to save memory
+                    remoteSourcePageInputs.add(getNullifyingIterator(inMemoryInput));
                     continue;
                 }
 
