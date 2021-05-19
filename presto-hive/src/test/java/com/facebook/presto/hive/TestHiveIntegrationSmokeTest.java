@@ -100,6 +100,7 @@ import static com.facebook.presto.hive.HiveQueryRunner.createBucketedSession;
 import static com.facebook.presto.hive.HiveQueryRunner.createMaterializeExchangesSession;
 import static com.facebook.presto.hive.HiveSessionProperties.FILE_RENAMING_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.MANIFEST_VERIFICATION_ENABLED;
+import static com.facebook.presto.hive.HiveSessionProperties.OPTIMIZED_PARTITION_UPDATE_SERIALIZATION_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.PREFER_MANIFESTS_TO_LIST_FILES;
 import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.RCFILE_OPTIMIZED_WRITER_ENABLED;
@@ -795,10 +796,15 @@ public class TestHiveIntegrationSmokeTest
     public void testCreatePartitionedBucketedTableAsFewRows()
     {
         // go through all storage formats to make sure the empty buckets are correctly created
-        testWithAllStorageFormats(this::testCreatePartitionedBucketedTableAsFewRows);
+        testWithAllStorageFormats((session, format) -> testCreatePartitionedBucketedTableAsFewRows(session, format, false));
+        // test with optimized PartitionUpdate serialization
+        testWithAllStorageFormats((session, format) -> testCreatePartitionedBucketedTableAsFewRows(session, format, true));
     }
 
-    private void testCreatePartitionedBucketedTableAsFewRows(Session session, HiveStorageFormat storageFormat)
+    private void testCreatePartitionedBucketedTableAsFewRows(
+            Session session,
+            HiveStorageFormat storageFormat,
+            boolean optimizedPartitionUpdateSerializationEnabled)
     {
         String tableName = "test_create_partitioned_bucketed_table_as_few_rows";
 
@@ -821,7 +827,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(
                 // make sure that we will get one file per bucket regardless of writer count configured
-                getParallelWriteSession(),
+                getTableWriteTestingSession(optimizedPartitionUpdateSerializationEnabled),
                 createTable,
                 3);
 
@@ -839,10 +845,11 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testCreatePartitionedBucketedTableAs()
     {
-        testCreatePartitionedBucketedTableAs(HiveStorageFormat.RCBINARY);
+        testCreatePartitionedBucketedTableAs(HiveStorageFormat.RCBINARY, false);
+        testCreatePartitionedBucketedTableAs(HiveStorageFormat.RCBINARY, true);
     }
 
-    private void testCreatePartitionedBucketedTableAs(HiveStorageFormat storageFormat)
+    private void testCreatePartitionedBucketedTableAs(HiveStorageFormat storageFormat, boolean optimizedPartitionUpdateSerializationEnabled)
     {
         String tableName = "test_create_partitioned_bucketed_table_as";
 
@@ -860,7 +867,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(
                 // make sure that we will get one file per bucket regardless of writer count configured
-                getParallelWriteSession(),
+                getTableWriteTestingSession(optimizedPartitionUpdateSerializationEnabled),
                 createTable,
                 "SELECT count(*) from orders");
 
@@ -873,10 +880,11 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testCreatePartitionedBucketedTableAsWithUnionAll()
     {
-        testCreatePartitionedBucketedTableAsWithUnionAll(HiveStorageFormat.RCBINARY);
+        testCreatePartitionedBucketedTableAsWithUnionAll(HiveStorageFormat.RCBINARY, false);
+        testCreatePartitionedBucketedTableAsWithUnionAll(HiveStorageFormat.RCBINARY, true);
     }
 
-    private void testCreatePartitionedBucketedTableAsWithUnionAll(HiveStorageFormat storageFormat)
+    private void testCreatePartitionedBucketedTableAsWithUnionAll(HiveStorageFormat storageFormat, boolean optimizedPartitionUpdateSerializationEnabled)
     {
         String tableName = "test_create_partitioned_bucketed_table_as_with_union_all";
 
@@ -899,7 +907,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(
                 // make sure that we will get one file per bucket regardless of writer count configured
-                getParallelWriteSession(),
+                getTableWriteTestingSession(optimizedPartitionUpdateSerializationEnabled),
                 createTable,
                 "SELECT count(*) from orders");
 
@@ -996,10 +1004,12 @@ public class TestHiveIntegrationSmokeTest
     public void testInsertPartitionedBucketedTableFewRows()
     {
         // go through all storage formats to make sure the empty buckets are correctly created
-        testWithAllStorageFormats(this::testInsertPartitionedBucketedTableFewRows);
+        testWithAllStorageFormats((session, format) -> testInsertPartitionedBucketedTableFewRows(session, format, false));
+        // test with optimized PartitionUpdate serialization
+        testWithAllStorageFormats((session, format) -> testInsertPartitionedBucketedTableFewRows(session, format, true));
     }
 
-    private void testInsertPartitionedBucketedTableFewRows(Session session, HiveStorageFormat storageFormat)
+    private void testInsertPartitionedBucketedTableFewRows(Session session, HiveStorageFormat storageFormat, boolean optimizedPartitionUpdateSerializationEnabled)
     {
         String tableName = "test_insert_partitioned_bucketed_table_few_rows";
 
@@ -1016,7 +1026,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(
                 // make sure that we will get one file per bucket regardless of writer count configured
-                getParallelWriteSession(),
+                getTableWriteTestingSession(optimizedPartitionUpdateSerializationEnabled),
                 "INSERT INTO " + tableName + " " +
                         "VALUES " +
                         "  (VARCHAR 'a', VARCHAR 'b', VARCHAR 'c'), " +
@@ -1082,6 +1092,12 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testCreateEmptyNonBucketedPartition()
     {
+        testCreateEmptyNonBucketedPartition(false);
+        testCreateEmptyNonBucketedPartition(true);
+    }
+
+    public void testCreateEmptyNonBucketedPartition(boolean optimizedPartitionUpdateSerializationEnabled)
+    {
         String tableName = "test_insert_empty_partitioned_unbucketed_table";
         assertUpdate("" +
                 "CREATE TABLE " + tableName + " (" +
@@ -1094,7 +1110,11 @@ public class TestHiveIntegrationSmokeTest
         assertQuery(format("SELECT count(*) FROM \"%s$partitions\"", tableName), "SELECT 0");
 
         // create an empty partition
-        assertUpdate(format("CALL system.create_empty_partition('%s', '%s', ARRAY['part'], ARRAY['%s'])", TPCH_SCHEMA, tableName, "empty"));
+        assertUpdate(
+                Session.builder(getSession())
+                        .setCatalogSessionProperty(catalog, OPTIMIZED_PARTITION_UPDATE_SERIALIZATION_ENABLED, optimizedPartitionUpdateSerializationEnabled + "")
+                        .build(),
+                format("CALL system.create_empty_partition('%s', '%s', ARRAY['part'], ARRAY['%s'])", TPCH_SCHEMA, tableName, "empty"));
         assertQuery(format("SELECT count(*) FROM \"%s$partitions\"", tableName), "SELECT 1");
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -1121,11 +1141,12 @@ public class TestHiveIntegrationSmokeTest
     public void testCreateEmptyBucketedPartition()
     {
         for (TestingHiveStorageFormat storageFormat : getAllTestingHiveStorageFormat()) {
-            testCreateEmptyBucketedPartition(storageFormat.getFormat());
+            testCreateEmptyBucketedPartition(storageFormat.getFormat(), false);
+            testCreateEmptyBucketedPartition(storageFormat.getFormat(), true);
         }
     }
 
-    public void testCreateEmptyBucketedPartition(HiveStorageFormat storageFormat)
+    public void testCreateEmptyBucketedPartition(HiveStorageFormat storageFormat, boolean optimizedPartitionUpdateSerializationEnabled)
     {
         String tableName = "test_insert_empty_partitioned_bucketed_table";
         createPartitionedBucketedTable(tableName, storageFormat);
@@ -1133,7 +1154,11 @@ public class TestHiveIntegrationSmokeTest
         List<String> orderStatusList = ImmutableList.of("F", "O", "P");
         for (int i = 0; i < orderStatusList.size(); i++) {
             String sql = format("CALL system.create_empty_partition('%s', '%s', ARRAY['orderstatus'], ARRAY['%s'])", TPCH_SCHEMA, tableName, orderStatusList.get(i));
-            assertUpdate(sql);
+            assertUpdate(
+                    Session.builder(getSession())
+                            .setCatalogSessionProperty(catalog, OPTIMIZED_PARTITION_UPDATE_SERIALIZATION_ENABLED, optimizedPartitionUpdateSerializationEnabled + "")
+                            .build(),
+                    sql);
             assertQuery(
                     format("SELECT count(*) FROM \"%s$partitions\"", tableName),
                     "SELECT " + (i + 1));
@@ -1148,10 +1173,11 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testInsertPartitionedBucketedTable()
     {
-        testInsertPartitionedBucketedTable(HiveStorageFormat.RCBINARY);
+        testInsertPartitionedBucketedTable(HiveStorageFormat.RCBINARY, false);
+        testInsertPartitionedBucketedTable(HiveStorageFormat.RCBINARY, true);
     }
 
-    private void testInsertPartitionedBucketedTable(HiveStorageFormat storageFormat)
+    private void testInsertPartitionedBucketedTable(HiveStorageFormat storageFormat, boolean optimizedPartitionUpdateSerializationEnabled)
     {
         String tableName = "test_insert_partitioned_bucketed_table";
         createPartitionedBucketedTable(tableName, storageFormat);
@@ -1161,7 +1187,7 @@ public class TestHiveIntegrationSmokeTest
             String orderStatus = orderStatusList.get(i);
             assertUpdate(
                     // make sure that we will get one file per bucket regardless of writer count configured
-                    getParallelWriteSession(),
+                    getTableWriteTestingSession(optimizedPartitionUpdateSerializationEnabled),
                     format(
                             "INSERT INTO " + tableName + " " +
                                     "SELECT custkey, custkey AS custkey2, comment, orderstatus " +
@@ -1195,10 +1221,11 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testInsertPartitionedBucketedTableWithUnionAll()
     {
-        testInsertPartitionedBucketedTableWithUnionAll(HiveStorageFormat.RCBINARY);
+        testInsertPartitionedBucketedTableWithUnionAll(HiveStorageFormat.RCBINARY, false);
+        testInsertPartitionedBucketedTableWithUnionAll(HiveStorageFormat.RCBINARY, true);
     }
 
-    private void testInsertPartitionedBucketedTableWithUnionAll(HiveStorageFormat storageFormat)
+    private void testInsertPartitionedBucketedTableWithUnionAll(HiveStorageFormat storageFormat, boolean optimizedPartitionUpdateSerializationEnabled)
     {
         String tableName = "test_insert_partitioned_bucketed_table_with_union_all";
 
@@ -1219,7 +1246,7 @@ public class TestHiveIntegrationSmokeTest
             String orderStatus = orderStatusList.get(i);
             assertUpdate(
                     // make sure that we will get one file per bucket regardless of writer count configured
-                    getParallelWriteSession(),
+                    getTableWriteTestingSession(optimizedPartitionUpdateSerializationEnabled),
                     format(
                             "INSERT INTO " + tableName + " " +
                                     "SELECT custkey, custkey AS custkey2, comment, orderstatus " +
@@ -5520,10 +5547,11 @@ public class TestHiveIntegrationSmokeTest
         return "";
     }
 
-    private Session getParallelWriteSession()
+    private Session getTableWriteTestingSession(boolean optimizedPartitionUpdateSerializationEnabled)
     {
         return Session.builder(getSession())
                 .setSystemProperty("task_writer_count", "4")
+                .setCatalogSessionProperty(catalog, OPTIMIZED_PARTITION_UPDATE_SERIALIZATION_ENABLED, optimizedPartitionUpdateSerializationEnabled + "")
                 .build();
     }
 

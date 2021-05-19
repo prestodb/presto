@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.airlift.event.client.EventClient;
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.json.smile.SmileCodec;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HivePageSinkMetadataProvider;
@@ -67,6 +68,7 @@ public class HivePageSinkProvider
     private final LocationService locationService;
     private final ListeningExecutorService writeVerificationExecutor;
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
+    private final SmileCodec<PartitionUpdate> partitionUpdateSmileCodec;
     private final NodeManager nodeManager;
     private final EventClient eventClient;
     private final HiveSessionProperties hiveSessionProperties;
@@ -87,6 +89,7 @@ public class HivePageSinkProvider
             MetastoreClientConfig metastoreClientConfig,
             LocationService locationService,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
+            SmileCodec<PartitionUpdate> partitionUpdateSmileCodec,
             NodeManager nodeManager,
             EventClient eventClient,
             HiveSessionProperties hiveSessionProperties,
@@ -108,6 +111,7 @@ public class HivePageSinkProvider
         this.locationService = requireNonNull(locationService, "locationService is null");
         this.writeVerificationExecutor = listeningDecorator(newFixedThreadPool(hiveClientConfig.getWriteValidationThreads(), daemonThreadsNamed("hive-write-validation-%s")));
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
+        this.partitionUpdateSmileCodec = requireNonNull(partitionUpdateSmileCodec, "partitionUpdateSmileCodec is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.eventClient = requireNonNull(eventClient, "eventClient is null");
         this.hiveSessionProperties = requireNonNull(hiveSessionProperties, "hiveSessionProperties is null");
@@ -193,6 +197,7 @@ public class HivePageSinkProvider
                 maxOpenPartitions,
                 writeVerificationExecutor,
                 partitionUpdateCodec,
+                partitionUpdateSmileCodec,
                 session,
                 hiveMetadataUpdater);
     }
