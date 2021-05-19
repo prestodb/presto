@@ -32,10 +32,10 @@
             <artifactId>configuration</artifactId>
         </dependency>
 
-        <dependency>
+        <!--<dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>json</artifactId>
-        </dependency>
+        </dependency>-->
 
         <dependency>
             <groupId>com.google.guava</groupId>
@@ -52,10 +52,10 @@
             <artifactId>javax.inject</artifactId>
         </dependency>
 
-        <dependency>
+        <!--<dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-        </dependency>
+        </dependency>-->
 
         <!-- Presto SPI -->
         <dependency>

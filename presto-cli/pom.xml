@@ -22,10 +22,12 @@
             <artifactId>presto-spi</artifactId>
         </dependency>
 
+       <!--
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-common</artifactId>
         </dependency>
+        -->
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
@@ -83,10 +85,11 @@
             <artifactId>jline</artifactId>
         </dependency>
 
+        <!--
         <dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>json</artifactId>
-        </dependency>
+        </dependency>-->
 
         <dependency>
             <groupId>net.sf.opencsv</groupId>

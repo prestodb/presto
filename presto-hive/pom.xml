@@ -175,10 +175,10 @@
             <artifactId>aws-java-sdk-core</artifactId>
         </dependency>
 
-        <dependency>
+        <!--<dependency>
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-glue</artifactId>
-        </dependency>
+        </dependency>-->
 
         <dependency>
             <groupId>com.amazonaws</groupId>
@@ -221,15 +221,15 @@
             <artifactId>javax.inject</artifactId>
         </dependency>
 
-        <dependency>
+        <!--<dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-core</artifactId>
-        </dependency>
+        </dependency>-->
 
-        <dependency>
+        <!--<dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-        </dependency>
+        </dependency>-->
 
         <dependency>
             <groupId>javax.annotation</groupId>

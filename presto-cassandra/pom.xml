@@ -42,10 +42,10 @@
             <artifactId>json</artifactId>
         </dependency>
 
-        <dependency>
+        <!--<dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>concurrent</artifactId>
-        </dependency>
+        </dependency>-->
 
         <dependency>
             <groupId>com.facebook.airlift</groupId>
@@ -82,10 +82,10 @@
             <artifactId>jackson-core</artifactId>
         </dependency>
 
-        <dependency>
+        <!--<dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-        </dependency>
+        </dependency>-->
 
         <!-- Presto SPI -->
         <dependency>

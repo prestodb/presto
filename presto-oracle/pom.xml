@@ -33,10 +33,10 @@
             <artifactId>configuration</artifactId>
         </dependency>
 
-        <dependency>
+        <!--<dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>log</artifactId>
-        </dependency>
+        </dependency>-->
 
         <dependency>
             <groupId>com.facebook.airlift</groupId>
@@ -44,10 +44,10 @@
             <scope>runtime</scope>
         </dependency>
 
-        <dependency>
+        <!--<dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-        </dependency>
+        </dependency>-->
 
         <dependency>
             <groupId>com.google.inject</groupId>

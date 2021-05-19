@@ -31,10 +31,10 @@
             <artifactId>joda-time</artifactId>
         </dependency>
 
-        <dependency>
+        <!--<dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>json</artifactId>
-        </dependency>
+        </dependency>-->
 
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>

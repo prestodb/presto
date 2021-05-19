@@ -27,10 +27,10 @@
             <artifactId>drift-client</artifactId>
         </dependency>
 
-        <dependency>
+        <!--<dependency>
             <groupId>com.facebook.drift</groupId>
             <artifactId>drift-codec</artifactId>
-        </dependency>
+        </dependency>-->
 
         <dependency>
             <groupId>com.facebook.drift</groupId>

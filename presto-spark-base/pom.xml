@@ -134,10 +134,10 @@
             <artifactId>log</artifactId>
         </dependency>
 
-        <dependency>
+        <!--<dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>log-manager</artifactId>
-        </dependency>
+        </dependency>-->
 
         <dependency>
             <groupId>com.google.code.findbugs</groupId>
@@ -164,10 +164,10 @@
             <artifactId>validation-api</artifactId>
         </dependency>
 
-        <dependency>
+        <!--<dependency>
             <groupId>it.unimi.dsi</groupId>
             <artifactId>fastutil</artifactId>
-        </dependency>
+        </dependency>-->
 
         <dependency>
             <groupId>org.testng</groupId>

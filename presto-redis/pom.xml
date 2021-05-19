@@ -77,10 +77,10 @@
             <artifactId>javax.inject</artifactId>
         </dependency>
 
-        <dependency>
+        <!--<dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-core</artifactId>
-        </dependency>
+        </dependency>-->
 
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>

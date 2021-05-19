@@ -43,10 +43,10 @@
             <artifactId>okhttp</artifactId>
         </dependency>
 
-        <dependency>
+        <!--<dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>security</artifactId>
-        </dependency>
+        </dependency>-->
 
         <dependency>
             <groupId>io.airlift</groupId>

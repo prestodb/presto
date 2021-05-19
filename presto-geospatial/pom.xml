@@ -31,10 +31,10 @@
             <artifactId>jts-core</artifactId>
         </dependency>
 
-        <dependency>
+        <!--<dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-        </dependency>
+        </dependency>-->
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
@@ -161,10 +161,10 @@
             <scope>test</scope>
         </dependency>
 
-        <dependency>
+        <!--<dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
-        </dependency>
+        </dependency>-->
 
         <dependency>
             <groupId>com.facebook.presto</groupId>

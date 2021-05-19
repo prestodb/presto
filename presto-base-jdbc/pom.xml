@@ -32,10 +32,10 @@
             <artifactId>configuration</artifactId>
         </dependency>
 
-        <dependency>
+        <!--<dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>concurrent</artifactId>
-        </dependency>
+        </dependency>-->
 
         <dependency>
             <groupId>io.airlift</groupId>

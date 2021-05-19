@@ -62,10 +62,10 @@
             <artifactId>bootstrap</artifactId>
         </dependency>
 
-        <dependency>
+        <!--<dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>concurrent</artifactId>
-        </dependency>
+        </dependency>-->
 
         <dependency>
             <groupId>com.facebook.airlift</groupId>
@@ -87,10 +87,10 @@
             <artifactId>log</artifactId>
         </dependency>
 
-        <dependency>
+        <!--<dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>node</artifactId>
-        </dependency>
+        </dependency>-->
 
         <dependency>
             <groupId>io.airlift</groupId>
@@ -194,7 +194,7 @@
             <scope>runtime</scope>
         </dependency>
 
-        <dependency>
+        <!--<dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>http-client</artifactId>
         </dependency>
@@ -207,7 +207,7 @@
         <dependency>
             <groupId>javax.ws.rs</groupId>
             <artifactId>javax.ws.rs-api</artifactId>
-        </dependency>
+        </dependency>-->
 
         <dependency>
             <groupId>com.facebook.drift</groupId>

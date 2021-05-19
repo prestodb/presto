@@ -59,10 +59,10 @@
             <artifactId>validation-api</artifactId>
         </dependency>
 
-        <dependency>
+        <!--<dependency>
             <groupId>org.apache.kafka</groupId>
             <artifactId>kafka_2.12</artifactId>
-        </dependency>
+        </dependency>-->
 
         <dependency>
             <groupId>org.apache.kafka</groupId>

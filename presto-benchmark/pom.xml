@@ -36,10 +36,10 @@
             <artifactId>presto-tpch</artifactId>
         </dependency>
 
-        <dependency>
+        <!--<dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-memory</artifactId>
-        </dependency>
+        </dependency>-->
 
         <dependency>
             <groupId>com.google.code.findbugs</groupId>
