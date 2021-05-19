@@ -184,10 +184,10 @@ public class TestCachingHiveMetastore
     private static class MockPartitionMutator
             implements PartitionMutator
     {
-        private final Function<Integer, Integer> versionUpdater;
-        private int version = PARTITION_VERSION;
+        private final Function<Long, Long> versionUpdater;
+        private long version = PARTITION_VERSION;
 
-        public MockPartitionMutator(Function<Integer, Integer> versionUpdater)
+        public MockPartitionMutator(Function<Long, Long> versionUpdater)
         {
             this.versionUpdater = versionUpdater;
         }
