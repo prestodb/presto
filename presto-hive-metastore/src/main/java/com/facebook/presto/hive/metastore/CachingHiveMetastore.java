@@ -644,7 +644,7 @@ public class CachingHiveMetastore
         if (partitionVersioningEnabled) {
             List<PartitionNameWithVersion> partitionNamesWithVersion = getPartitionNamesWithVersionByFilter(metastoreContext, databaseName, tableName, partitionPredicates);
             List<String> result = partitionNamesWithVersion.stream().map(PartitionNameWithVersion::getPartitionName).collect(toImmutableList());
-            partitionNamesWithVersion.forEach(partitionNameWithVersion -> invalidateStalePartition(partitionNameWithVersion, databaseName, tableName));
+            invalidateStalePartitions(partitionNamesWithVersion, databaseName, tableName, metastoreContext);
             return result;
         }
         return get(partitionFilterCache, getCachingKey(metastoreContext, partitionFilter(databaseName, tableName, partitionPredicates)));
@@ -660,27 +660,24 @@ public class CachingHiveMetastore
         return delegate.getPartitionNamesWithVersionByFilter(metastoreContext, databaseName, tableName, partitionPredicates);
     }
 
-    private void invalidateStalePartition(
-            PartitionNameWithVersion partitionNameWithVersion,
+    private void invalidateStalePartitions(
+            List<PartitionNameWithVersion> partitionNamesWithVersion,
             String databaseName,
-            String tableName)
+            String tableName,
+            MetastoreContext metastoreContext)
     {
-        HivePartitionName hivePartitionName = hivePartitionName(databaseName, tableName, partitionNameWithVersion.getPartitionName());
-        partitionCache.asMap().keySet().stream()
-                .filter(partitionNameKey -> partitionNameKey.getKey().equals(hivePartitionName))
-                .forEach(partitionNameKey -> {
-                    try {
-                        Partition partition = partitionCache.get(partitionNameKey).get();
-                        Optional<Long> partitionVersion = partition.getPartitionVersion();
-                        if (!partitionVersion.isPresent() || partitionVersion.get() != partitionNameWithVersion.getPartitionVersion()) {
-                            partitionCache.invalidate(partitionNameKey);
-                            partitionStatisticsCache.invalidate(partitionNameKey);
-                        }
-                    }
-                    catch (ExecutionException e) {
-                        e.printStackTrace();
-                    }
-                });
+        for (PartitionNameWithVersion partitionNameWithVersion : partitionNamesWithVersion) {
+            HivePartitionName hivePartitionName = hivePartitionName(databaseName, tableName, partitionNameWithVersion.getPartitionName());
+            KeyAndContext<HivePartitionName> partitionNameKey = getCachingKey(metastoreContext, hivePartitionName);
+            Optional<Partition> partition = partitionCache.getIfPresent(partitionNameKey);
+            if (partition != null && partition.isPresent()) {
+                Optional<Long> partitionVersion = partition.get().getPartitionVersion();
+                if (!partitionVersion.isPresent() || !partitionVersion.equals(partitionNameWithVersion.getPartitionVersion())) {
+                    partitionCache.invalidate(partitionNameKey);
+                    partitionStatisticsCache.invalidate(partitionNameKey);
+                }
+            }
+        }
     }
 
     private boolean isPartitionCacheValidationEnabled()
