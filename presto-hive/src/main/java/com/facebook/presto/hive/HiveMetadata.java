@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.json.smile.SmileCodec;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.predicate.Domain;
@@ -212,6 +213,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.isCollectColumnStat
 import static com.facebook.presto.hive.HiveSessionProperties.isFileRenamingEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isOfflineDataDebugModeEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isOptimizedMismatchedBucketCount;
+import static com.facebook.presto.hive.HiveSessionProperties.isOptimizedPartitionUpdateSerializationEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isPreferManifestsToListFiles;
 import static com.facebook.presto.hive.HiveSessionProperties.isRespectTableFormat;
 import static com.facebook.presto.hive.HiveSessionProperties.isShufflePartitionedColumnsForTableWriteEnabled;
@@ -262,6 +264,7 @@ import static com.facebook.presto.hive.HiveType.toHiveType;
 import static com.facebook.presto.hive.HiveUtil.columnExtraInfo;
 import static com.facebook.presto.hive.HiveUtil.decodeMaterializedViewData;
 import static com.facebook.presto.hive.HiveUtil.decodeViewData;
+import static com.facebook.presto.hive.HiveUtil.deserializeZstdCompressed;
 import static com.facebook.presto.hive.HiveUtil.encodeMaterializedViewData;
 import static com.facebook.presto.hive.HiveUtil.encodeViewData;
 import static com.facebook.presto.hive.HiveUtil.getPartitionKeyColumnHandles;
@@ -384,6 +387,7 @@ public class HiveMetadata
     private final FilterStatsCalculatorService filterStatsCalculatorService;
     private final TableParameterCodec tableParameterCodec;
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
+    private final SmileCodec<PartitionUpdate> partitionUpdateSmileCodec;
     private final boolean writesToNonManagedTablesEnabled;
     private final boolean createsOfNonManagedTablesEnabled;
     private final int maxPartitionBatchSize;
@@ -413,6 +417,7 @@ public class HiveMetadata
             FilterStatsCalculatorService filterStatsCalculatorService,
             TableParameterCodec tableParameterCodec,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
+            SmileCodec<PartitionUpdate> partitionUpdateSmileCodec,
             TypeTranslator typeTranslator,
             String prestoVersion,
             HiveStatisticsProvider hiveStatisticsProvider,
@@ -436,6 +441,7 @@ public class HiveMetadata
         this.filterStatsCalculatorService = requireNonNull(filterStatsCalculatorService, "filterStatsCalculatorService is null");
         this.tableParameterCodec = requireNonNull(tableParameterCodec, "tableParameterCodec is null");
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
+        this.partitionUpdateSmileCodec = requireNonNull(partitionUpdateSmileCodec, "partitionUpdateSmileCodec is null");
         this.writesToNonManagedTablesEnabled = writesToNonManagedTablesEnabled;
         this.createsOfNonManagedTablesEnabled = createsOfNonManagedTablesEnabled;
         this.maxPartitionBatchSize = maxPartitionBatchSize;
@@ -1601,7 +1607,7 @@ public class HiveMetadata
     {
         HiveOutputTableHandle handle = (HiveOutputTableHandle) tableHandle;
 
-        List<PartitionUpdate> partitionUpdates = getPartitionUpdates(fragments);
+        List<PartitionUpdate> partitionUpdates = getPartitionUpdates(session, fragments);
 
         Map<String, String> tableEncryptionParameters = ImmutableMap.of();
         Map<String, String> partitionEncryptionParameters = ImmutableMap.of();
@@ -1921,7 +1927,7 @@ public class HiveMetadata
     {
         HiveInsertTableHandle handle = (HiveInsertTableHandle) insertHandle;
 
-        List<PartitionUpdate> partitionUpdates = getPartitionUpdates(fragments);
+        List<PartitionUpdate> partitionUpdates = getPartitionUpdates(session, fragments);
 
         HiveStorageFormat tableStorageFormat = handle.getTableStorageFormat();
         partitionUpdates = PartitionUpdate.mergePartitionUpdates(partitionUpdates);
@@ -3219,7 +3225,7 @@ public class HiveMetadata
                 handle.getTableName(),
                 handle.getLocationHandle().getTargetPath().toString(),
                 true,
-                getPartitionUpdates(fragments)));
+                getPartitionUpdates(session, fragments)));
     }
 
     @Override
@@ -3232,7 +3238,7 @@ public class HiveMetadata
                 handle.getTableName(),
                 handle.getLocationHandle().getTargetPath().toString(),
                 false,
-                getPartitionUpdates(fragments)));
+                getPartitionUpdates(session, fragments)));
     }
 
     @Override
@@ -3272,12 +3278,22 @@ public class HiveMetadata
         return roles.stream().anyMatch(principal -> principal.getName().equalsIgnoreCase(ADMIN_ROLE_NAME));
     }
 
-    private List<PartitionUpdate> getPartitionUpdates(Collection<Slice> fragments)
+    public List<PartitionUpdate> getPartitionUpdates(ConnectorSession session, Collection<Slice> fragments)
     {
-        return fragments.stream()
-                .map(Slice::getBytes)
-                .map(partitionUpdateCodec::fromJson)
-                .collect(toList());
+        boolean optimizedPartitionUpdateSerializationEnabled = isOptimizedPartitionUpdateSerializationEnabled(session);
+        ImmutableList.Builder<PartitionUpdate> result = ImmutableList.builder();
+        for (Slice fragment : fragments) {
+            byte[] bytes = fragment.getBytes();
+            PartitionUpdate partitionUpdate;
+            if (optimizedPartitionUpdateSerializationEnabled) {
+                partitionUpdate = deserializeZstdCompressed(partitionUpdateSmileCodec, bytes);
+            }
+            else {
+                partitionUpdate = partitionUpdateCodec.fromJson(bytes);
+            }
+            result.add(partitionUpdate);
+        }
+        return result.build();
     }
 
     private void verifyJvmTimeZone()

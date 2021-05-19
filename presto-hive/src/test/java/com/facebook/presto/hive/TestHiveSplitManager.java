@@ -501,6 +501,7 @@ public class TestHiveSplitManager
                 FILTER_STATS_CALCULATOR_SERVICE,
                 new TableParameterCodec(),
                 HiveTestUtils.PARTITION_UPDATE_CODEC,
+                HiveTestUtils.PARTITION_UPDATE_SMILE_CODEC,
                 executor,
                 new HiveTypeTranslator(),
                 new HiveStagingFileCommitter(hdfsEnvironment, executor),

@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.airlift.concurrent.MoreFutures;
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.json.smile.SmileCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
@@ -60,7 +61,10 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TOO_MANY_OPEN_PARTITIONS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static com.facebook.presto.hive.HiveSessionProperties.isFileRenamingEnabled;
+import static com.facebook.presto.hive.HiveSessionProperties.isOptimizedPartitionUpdateSerializationEnabled;
+import static com.facebook.presto.hive.HiveUtil.serializeZstdCompressed;
 import static com.facebook.presto.hive.PartitionUpdate.FileWriteInfo;
+import static com.facebook.presto.hive.PartitionUpdate.mergePartitionUpdates;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -95,6 +99,7 @@ public class HivePageSink
     private final ListeningExecutorService writeVerificationExecutor;
 
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
+    private final SmileCodec<PartitionUpdate> partitionUpdateSmileCodec;
 
     private final List<HiveWriter> writers = new ArrayList<>();
 
@@ -120,6 +125,7 @@ public class HivePageSink
             int maxOpenWriters,
             ListeningExecutorService writeVerificationExecutor,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
+            SmileCodec<PartitionUpdate> partitionUpdateSmileCodec,
             ConnectorSession session,
             HiveMetadataUpdater hiveMetadataUpdater)
     {
@@ -136,6 +142,7 @@ public class HivePageSink
         this.maxOpenWriters = maxOpenWriters;
         this.writeVerificationExecutor = requireNonNull(writeVerificationExecutor, "writeVerificationExecutor is null");
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
+        this.partitionUpdateSmileCodec = requireNonNull(partitionUpdateSmileCodec, "partitionUpdateSmileCodec is null");
 
         requireNonNull(bucketProperty, "bucketProperty is null");
         this.pagePartitioner = new HiveWriterPagePartitioner(
@@ -224,17 +231,41 @@ public class HivePageSink
 
     private ListenableFuture<Collection<Slice>> doFinish()
     {
-        ImmutableList.Builder<Slice> partitionUpdates = ImmutableList.builder();
+        ImmutableList.Builder<PartitionUpdate> partitionUpdatesBuilder = ImmutableList.builder();
         List<Callable<Object>> verificationTasks = new ArrayList<>();
         for (HiveWriter writer : writers) {
             writer.commit();
-            PartitionUpdate partitionUpdate = writer.getPartitionUpdate();
-            partitionUpdates.add(wrappedBuffer(partitionUpdateCodec.toJsonBytes(partitionUpdate)));
+            partitionUpdatesBuilder.add(writer.getPartitionUpdate());
             writer.getVerificationTask()
                     .map(Executors::callable)
                     .ifPresent(verificationTasks::add);
         }
-        List<Slice> result = partitionUpdates.build();
+
+        List<PartitionUpdate> partitionUpdates = partitionUpdatesBuilder.build();
+        boolean optimizedPartitionUpdateSerializationEnabled = isOptimizedPartitionUpdateSerializationEnabled(session);
+        if (optimizedPartitionUpdateSerializationEnabled) {
+            // Merge multiple partition updates for a single partition into one.
+            // Multiple partition updates for a single partition are produced when writing into a bucketed table.
+            // Merged partition updates will contain multiple items in the fileWriteInfos list (one per bucket).
+            // This optimization should be enabled only together with the optimized serialization (compression + binary encoding).
+            // Since serialized fragments will be transmitted as Presto pages serializing a merged partition update to JSON without
+            // compression is unsafe, as it may cross the maximum page size limit.
+            partitionUpdates = mergePartitionUpdates(partitionUpdates);
+        }
+
+        ImmutableList.Builder<Slice> serializedPartitionUpdatesBuilder = ImmutableList.builder();
+        for (PartitionUpdate partitionUpdate : partitionUpdates) {
+            byte[] serializedBytes;
+            if (optimizedPartitionUpdateSerializationEnabled) {
+                serializedBytes = serializeZstdCompressed(partitionUpdateSmileCodec, partitionUpdate);
+            }
+            else {
+                serializedBytes = partitionUpdateCodec.toBytes(partitionUpdate);
+            }
+            serializedPartitionUpdatesBuilder.add(wrappedBuffer(serializedBytes));
+        }
+
+        List<Slice> serializedPartitionUpdates = serializedPartitionUpdatesBuilder.build();
 
         writtenBytes = writers.stream()
                 .mapToLong(HiveWriter::getWrittenBytes)
@@ -258,14 +289,14 @@ public class HivePageSink
         }
 
         if (verificationTasks.isEmpty()) {
-            return Futures.immediateFuture(result);
+            return Futures.immediateFuture(serializedPartitionUpdates);
         }
 
         try {
             List<ListenableFuture<?>> futures = writeVerificationExecutor.invokeAll(verificationTasks).stream()
                     .map(future -> (ListenableFuture<?>) future)
                     .collect(toList());
-            return Futures.transform(Futures.allAsList(futures), input -> result, directExecutor());
+            return Futures.transform(Futures.allAsList(futures), input -> serializedPartitionUpdates, directExecutor());
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();

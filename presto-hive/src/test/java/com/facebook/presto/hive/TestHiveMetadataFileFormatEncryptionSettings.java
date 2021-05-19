@@ -72,6 +72,7 @@ import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_RESOLUTION;
 import static com.facebook.presto.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static com.facebook.presto.hive.HiveTestUtils.HIVE_CLIENT_CONFIG;
 import static com.facebook.presto.hive.HiveTestUtils.PARTITION_UPDATE_CODEC;
+import static com.facebook.presto.hive.HiveTestUtils.PARTITION_UPDATE_SMILE_CODEC;
 import static com.facebook.presto.hive.HiveTestUtils.ROW_EXPRESSION_SERVICE;
 import static com.facebook.presto.hive.PartitionUpdate.UpdateMode.APPEND;
 import static com.facebook.presto.hive.PartitionUpdate.UpdateMode.NEW;
@@ -127,6 +128,7 @@ public class TestHiveMetadataFileFormatEncryptionSettings
                 FILTER_STATS_CALCULATOR_SERVICE,
                 new TableParameterCodec(),
                 PARTITION_UPDATE_CODEC,
+                PARTITION_UPDATE_SMILE_CODEC,
                 listeningDecorator(executor),
                 new HiveTypeTranslator(),
                 new HiveStagingFileCommitter(HDFS_ENVIRONMENT, listeningDecorator(executor)),

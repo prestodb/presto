@@ -271,7 +271,8 @@ public class PrestoSparkQueryRunner
         metastore.createDatabase(METASTORE_CONTEXT, createDatabaseMetastoreObject("hive_test"));
         pluginManager.installPlugin(new HivePlugin("hive", Optional.of(metastore)));
 
-        connectorManager.createConnection("hive", "hive", ImmutableMap.of());
+        connectorManager.createConnection("hive", "hive", ImmutableMap.of(
+                "hive.experimental-optimized-partition-update-serialization-enabled", "true"));
 
         metadata.registerBuiltInFunctions(AbstractTestQueries.CUSTOM_FUNCTIONS);
 
