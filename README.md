@@ -1,6 +1,6 @@
 # Presto [![Build Status](https://travis-ci.com/prestodb/presto.svg?branch=master)](https://travis-ci.com/prestodb/presto)
 
-Presto is a distributed SQL query engine for big data.
+Presto is a distributed SQL query engine for big data. 
 
 See the [User Manual](https://prestodb.github.io/docs/current/) for deployment instructions and end user documentation.
 
