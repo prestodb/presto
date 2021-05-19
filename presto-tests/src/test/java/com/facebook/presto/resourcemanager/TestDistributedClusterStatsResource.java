@@ -15,7 +15,6 @@ package com.facebook.presto.resourcemanager;
 
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.Request;
-import com.facebook.airlift.http.client.UnexpectedResponseException;
 import com.facebook.airlift.http.client.jetty.JettyHttpClient;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.resourceGroups.FileResourceGroupConfigurationManagerFactory;
@@ -45,7 +44,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 public class TestDistributedClusterStatsResource
@@ -59,8 +57,8 @@ public class TestDistributedClusterStatsResource
             throws Exception
     {
         client = new JettyHttpClient();
-        DistributedQueryRunner runner = createQueryRunner(ImmutableMap.of("query.client.timeout", "10s"));
-        coordinator = runner.getCoordinator();
+        DistributedQueryRunner runner = createQueryRunner(ImmutableMap.of("query.client.timeout", "10s"), 2);
+        coordinator = runner.getCoordinators().get(0);
         Optional<TestingPrestoServer> resourceManager = runner.getResourceManager();
         checkState(resourceManager.isPresent(), "resource manager not present");
         this.resourceManager = resourceManager.get();
@@ -97,8 +95,6 @@ public class TestDistributedClusterStatsResource
         // Sleep to allow query to make some progress
         sleep(SECONDS.toMillis(1));
 
-        // If redirects are disabled, it fails
-        assertThrows(UnexpectedResponseException.class, () -> getClusterStats(false));
         ClusterStatsResource.ClusterStats clusterStats = getClusterStats(true);
 
         assertNotNull(clusterStats);
