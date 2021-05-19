@@ -201,7 +201,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.stream.Collectors.toList;
 import static org.apache.spark.util.Utils.isLocalMaster;
 
 public class PrestoSparkQueryExecutionFactory
@@ -1058,18 +1057,46 @@ public class PrestoSparkQueryExecutionFactory
 
                 waitForActionsCompletionWithTimeout(inputFutures.values(), computeNextTimeout(queryCompletionDeadline), MILLISECONDS, waitTimeMetrics);
 
-                Map<String, List<PrestoSparkSerializedPage>> inputs = inputFutures.entrySet().stream()
-                        .collect(toImmutableMap(
-                                Map.Entry::getKey,
-                                // collect to a mutable list to allow memory release on per page basis
-                                entry -> getUnchecked(entry.getValue()).stream().map(Tuple2::_2).collect(toList())));
+                ImmutableMap.Builder<String, List<PrestoSparkSerializedPage>> inputs = ImmutableMap.builder();
+                long totalNumberOfPagesReceived = 0;
+                long totalCompressedSizeInBytes = 0;
+                long totalUncompressedSizeInBytes = 0;
+                for (Map.Entry<String, JavaFutureAction<List<Tuple2<MutablePartitionId, PrestoSparkSerializedPage>>>> inputFuture : inputFutures.entrySet()) {
+                    // Use a mutable list to allow memory release on per page basis
+                    List<PrestoSparkSerializedPage> pages = new ArrayList<>();
+                    List<Tuple2<MutablePartitionId, PrestoSparkSerializedPage>> tuples = getUnchecked(inputFuture.getValue());
+                    long currentFragmentOutputCompressedSizeInBytes = 0;
+                    long currentFragmentOutputUncompressedSizeInBytes = 0;
+                    for (Tuple2<MutablePartitionId, PrestoSparkSerializedPage> tuple : tuples) {
+                        PrestoSparkSerializedPage page = tuple._2;
+                        currentFragmentOutputCompressedSizeInBytes += page.getSize();
+                        currentFragmentOutputUncompressedSizeInBytes += page.getUncompressedSizeInBytes();
+                        pages.add(page);
+                    }
+                    log.info(
+                            "Received %s pages from fragment %s. Compressed size: %s. Uncompressed size: %s.",
+                            pages.size(),
+                            inputFuture.getKey(),
+                            DataSize.succinctBytes(currentFragmentOutputCompressedSizeInBytes),
+                            DataSize.succinctBytes(currentFragmentOutputUncompressedSizeInBytes));
+                    totalNumberOfPagesReceived += pages.size();
+                    totalCompressedSizeInBytes += currentFragmentOutputCompressedSizeInBytes;
+                    totalUncompressedSizeInBytes += currentFragmentOutputUncompressedSizeInBytes;
+                    inputs.put(inputFuture.getKey(), pages);
+                }
+
+                log.info(
+                        "Received %s pages in total. Compressed size: %s. Uncompressed size: %s.",
+                        totalNumberOfPagesReceived,
+                        DataSize.succinctBytes(totalCompressedSizeInBytes),
+                        DataSize.succinctBytes(totalUncompressedSizeInBytes));
 
                 IPrestoSparkTaskExecutor<PrestoSparkSerializedPage> prestoSparkTaskExecutor = taskExecutorFactory.create(
                         0,
                         0,
                         serializedTaskDescriptor,
                         emptyScalaIterator(),
-                        new PrestoSparkTaskInputs(ImmutableMap.of(), ImmutableMap.of(), inputs),
+                        new PrestoSparkTaskInputs(ImmutableMap.of(), ImmutableMap.of(), inputs.build()),
                         taskInfoCollector,
                         shuffleStatsCollector,
                         PrestoSparkSerializedPage.class);
