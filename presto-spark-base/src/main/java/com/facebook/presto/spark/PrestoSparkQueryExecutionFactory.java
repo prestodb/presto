@@ -201,6 +201,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.stream.Collectors.toList;
 import static org.apache.spark.util.Utils.isLocalMaster;
 
 public class PrestoSparkQueryExecutionFactory
@@ -1060,7 +1061,8 @@ public class PrestoSparkQueryExecutionFactory
                 Map<String, List<PrestoSparkSerializedPage>> inputs = inputFutures.entrySet().stream()
                         .collect(toImmutableMap(
                                 Map.Entry::getKey,
-                                entry -> getUnchecked(entry.getValue()).stream().map(Tuple2::_2).collect(toImmutableList())));
+                                // collect to a mutable list to allow memory release on per page basis
+                                entry -> getUnchecked(entry.getValue()).stream().map(Tuple2::_2).collect(toList())));
 
                 IPrestoSparkTaskExecutor<PrestoSparkSerializedPage> prestoSparkTaskExecutor = taskExecutorFactory.create(
                         0,
