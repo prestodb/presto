@@ -24,6 +24,7 @@ import com.facebook.presto.spi.page.SerializedPage;
 import com.github.luben.zstd.Zstd;
 import com.github.luben.zstd.ZstdInputStreamNoFinalizer;
 import com.github.luben.zstd.ZstdOutputStreamNoFinalizer;
+import com.google.common.collect.AbstractIterator;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -38,6 +39,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -247,5 +250,25 @@ public class PrestoSparkUtils
     public static <T> ClassTag<T> classTag(Class<T> clazz)
     {
         return scala.reflect.ClassTag$.MODULE$.apply(clazz);
+    }
+
+    public static <T> Iterator<T> getNullifyingIterator(List<T> list)
+    {
+        return new AbstractIterator<T>()
+        {
+            private int index;
+
+            @Override
+            protected T computeNext()
+            {
+                if (index >= list.size()) {
+                    return endOfData();
+                }
+                T element = list.get(index);
+                list.set(index, null);
+                index++;
+                return element;
+            }
+        };
     }
 }
