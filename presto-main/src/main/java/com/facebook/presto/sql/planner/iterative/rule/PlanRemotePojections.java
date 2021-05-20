@@ -260,7 +260,7 @@ public class PlanRemotePojections
                     newArguments);
 
             if (local) {
-                if (processedArguments.size() == 1 && !processedArguments.get(0).isRemote()) {
+                if (processedArguments.size() == 0 || (processedArguments.size() == 1 && !processedArguments.get(0).isRemote())) {
                     // This call and all its arguments are local
                     return ImmutableList.of();
                 }
@@ -330,7 +330,7 @@ public class PlanRemotePojections
             ImmutableList.Builder<RowExpression> newArgumentsBuilder = ImmutableList.builder();
             List<ProjectionContext> processedArguments = processArguments(specialForm.getArguments(), newArgumentsBuilder, true);
             List<RowExpression> newArguments = newArgumentsBuilder.build();
-            if (processedArguments.size() == 1 && !processedArguments.get(0).isRemote()) {
+            if (processedArguments.size() == 0 || (processedArguments.size() == 1 && !processedArguments.get(0).isRemote())) {
                 // Arguments do not contain remote projection
                 return ImmutableList.of();
             }
