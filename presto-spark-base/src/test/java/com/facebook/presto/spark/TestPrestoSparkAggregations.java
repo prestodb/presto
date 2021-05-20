@@ -16,13 +16,14 @@ package com.facebook.presto.spark;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestAggregations;
 
-public class TestPrestoSparkAbstractTestAggregations
+import static com.facebook.presto.spark.PrestoSparkQueryRunner.createHivePrestoSparkQueryRunner;
+
+public class TestPrestoSparkAggregations
         extends AbstractTestAggregations
 {
     @Override
     protected QueryRunner createQueryRunner()
-            throws Exception
     {
-        return PrestoSparkQueryRunner.createHivePrestoSparkQueryRunner();
+        return createHivePrestoSparkQueryRunner();
     }
 }
