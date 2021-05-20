@@ -328,7 +328,8 @@ public class TestQueues
         }
     }
 
-    @Test(timeOut = 240_000)
+    // disabled due to https://github.com/prestodb/presto/issues/16126
+    @Test(timeOut = 240_000, enabled = false)
     public void testQueuedQueryInteraction()
             throws Exception
     {
