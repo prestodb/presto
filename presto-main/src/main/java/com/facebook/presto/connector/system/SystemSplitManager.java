@@ -38,6 +38,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.SystemTable.Distribution.ALL_COORDINATORS;
 import static com.facebook.presto.spi.SystemTable.Distribution.ALL_NODES;
 import static com.facebook.presto.spi.SystemTable.Distribution.SINGLE_COORDINATOR;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -81,7 +82,8 @@ public class SystemSplitManager
             nodes.addAll(nodeManager.getCoordinators());
         }
         else if (tableDistributionMode == ALL_NODES) {
-            nodes.addAll(nodeManager.getNodes(ACTIVE));
+            Set<InternalNode> allNodes = nodeManager.getNodes(ACTIVE).stream().filter(s -> !s.isResourceManager()).collect(toImmutableSet());
+            nodes.addAll(allNodes);
         }
         Set<InternalNode> nodeSet = nodes.build();
         for (InternalNode node : nodeSet) {
