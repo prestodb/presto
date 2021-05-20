@@ -45,6 +45,7 @@ public class OrcWriterOptions
     private final OptionalInt compressionLevel;
     private final StreamLayout streamLayout;
     private final boolean integerDictionaryEncodingEnabled;
+    private final boolean stringDictionarySortingEnabled;
 
     private OrcWriterOptions(
             DataSize stripeMinSize,
@@ -56,7 +57,8 @@ public class OrcWriterOptions
             DataSize maxCompressionBufferSize,
             OptionalInt compressionLevel,
             StreamLayout streamLayout,
-            boolean integerDictionaryEncodingEnabled)
+            boolean integerDictionaryEncodingEnabled,
+            boolean stringDictionarySortingEnabled)
     {
         requireNonNull(stripeMinSize, "stripeMinSize is null");
         requireNonNull(stripeMaxSize, "stripeMaxSize is null");
@@ -78,6 +80,7 @@ public class OrcWriterOptions
         this.compressionLevel = compressionLevel;
         this.streamLayout = streamLayout;
         this.integerDictionaryEncodingEnabled = integerDictionaryEncodingEnabled;
+        this.stringDictionarySortingEnabled = stringDictionarySortingEnabled;
     }
 
     public DataSize getStripeMinSize()
@@ -130,6 +133,11 @@ public class OrcWriterOptions
         return integerDictionaryEncodingEnabled;
     }
 
+    public boolean isStringDictionarySortingEnabled()
+    {
+        return stringDictionarySortingEnabled;
+    }
+
     @Override
     public String toString()
     {
@@ -144,6 +152,7 @@ public class OrcWriterOptions
                 .add("compressionLevel", compressionLevel)
                 .add("streamLayout", streamLayout)
                 .add("integerDictionaryEncodingEnabled", integerDictionaryEncodingEnabled)
+                .add("stringDictionarySortingEnabled", stringDictionarySortingEnabled)
                 .toString();
     }
 
@@ -164,6 +173,7 @@ public class OrcWriterOptions
         private OptionalInt compressionLevel = OptionalInt.empty();
         private StreamLayout streamLayout = new ByStreamSize();
         private boolean integerDictionaryEncodingEnabled;
+        private boolean stringDictionarySortingEnabled = true;
 
         public Builder withStripeMinSize(DataSize stripeMinSize)
         {
@@ -227,6 +237,12 @@ public class OrcWriterOptions
             return this;
         }
 
+        public Builder withStringDictionarySortingEnabled(boolean stringDictionarySortingEnabled)
+        {
+            this.stringDictionarySortingEnabled = stringDictionarySortingEnabled;
+            return this;
+        }
+
         public OrcWriterOptions build()
         {
             return new OrcWriterOptions(
@@ -239,7 +255,8 @@ public class OrcWriterOptions
                     maxCompressionBufferSize,
                     compressionLevel,
                     streamLayout,
-                    integerDictionaryEncodingEnabled);
+                    integerDictionaryEncodingEnabled,
+                    stringDictionarySortingEnabled);
         }
     }
 }

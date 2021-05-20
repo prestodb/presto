@@ -38,6 +38,7 @@ public class TestOrcWriterOptions
         OptionalInt compressionLevel = OptionalInt.of(5);
         StreamLayout streamLayout = new StreamLayout.ByColumnSize();
         boolean integerDictionaryEncodingEnabled = true;
+        boolean stringDictionarySortingEnabled = false;
 
         OrcWriterOptions.Builder builder = OrcWriterOptions.builder()
                 .withStripeMinSize(stripeMinSize)
@@ -49,7 +50,8 @@ public class TestOrcWriterOptions
                 .withMaxCompressionBufferSize(maxCompressionBufferSize)
                 .withCompressionLevel(compressionLevel)
                 .withStreamLayout(streamLayout)
-                .withIntegerDictionaryEncodingEnabled(integerDictionaryEncodingEnabled);
+                .withIntegerDictionaryEncodingEnabled(integerDictionaryEncodingEnabled)
+                .withStringDictionarySortingEnabled(stringDictionarySortingEnabled);
 
         OrcWriterOptions options = builder.build();
 
@@ -63,6 +65,7 @@ public class TestOrcWriterOptions
         assertEquals(compressionLevel, options.getCompressionLevel());
         assertEquals(streamLayout, options.getStreamLayout());
         assertEquals(integerDictionaryEncodingEnabled, options.isIntegerDictionaryEncodingEnabled());
+        assertEquals(stringDictionarySortingEnabled, options.isStringDictionarySortingEnabled());
     }
 
     @Test
@@ -78,6 +81,7 @@ public class TestOrcWriterOptions
         OptionalInt compressionLevel = OptionalInt.of(5);
         StreamLayout streamLayout = new StreamLayout.ByColumnSize();
         boolean integerDictionaryEncodingEnabled = false;
+        boolean stringDictionarySortingEnabled = true;
 
         OrcWriterOptions writerOptions = OrcWriterOptions.builder()
                 .withStripeMinSize(stripeMinSize)
@@ -90,12 +94,13 @@ public class TestOrcWriterOptions
                 .withCompressionLevel(compressionLevel)
                 .withStreamLayout(streamLayout)
                 .withIntegerDictionaryEncodingEnabled(integerDictionaryEncodingEnabled)
+                .withStringDictionarySortingEnabled(stringDictionarySortingEnabled)
                 .build();
 
         String expectedString = "OrcWriterOptions{stripeMinSize=13MB, stripeMaxSize=27MB, stripeMaxRowCount=1100000, "
                 + "rowGroupMaxRowCount=15000, dictionaryMaxMemory=13000kB, maxStringStatisticsLimit=128B, "
                 + "maxCompressionBufferSize=512kB, compressionLevel=OptionalInt[5], streamLayout=ByColumnSize{}, "
-                + "integerDictionaryEncodingEnabled=false}";
+                + "integerDictionaryEncodingEnabled=false, stringDictionarySortingEnabled=true}";
         assertEquals(expectedString, writerOptions.toString());
     }
 }

@@ -19,6 +19,7 @@ import com.facebook.presto.orc.ColumnWriterOptions;
 import com.facebook.presto.orc.DwrfDataEncryptor;
 import com.facebook.presto.orc.OrcEncoding;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
+import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import com.facebook.presto.orc.metadata.MetadataWriter;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
@@ -55,6 +56,7 @@ public class SliceDictionaryColumnWriter
     private final LongOutputStream dictionaryLengthStream;
     private final SliceDictionaryBuilder dictionary = new SliceDictionaryBuilder(10_000);
     private final int stringStatisticsLimitInBytes;
+    private final boolean sortDictionaryKeys;
 
     private StringStatisticsBuilder statisticsBuilder;
     private ColumnEncoding columnEncoding;
@@ -73,6 +75,8 @@ public class SliceDictionaryColumnWriter
         this.dictionaryLengthStream = createLengthOutputStream(columnWriterOptions, dwrfEncryptor, orcEncoding);
         this.stringStatisticsLimitInBytes = toIntExact(columnWriterOptions.getStringStatisticsLimit().toBytes());
         this.statisticsBuilder = newStringStatisticsBuilder();
+        this.sortDictionaryKeys = columnWriterOptions.isStringDictionarySortingEnabled();
+        checkState(sortDictionaryKeys || orcEncoding == DWRF, "Disabling sort is only supported in DWRF format");
     }
 
     @Override
@@ -180,15 +184,27 @@ public class SliceDictionaryColumnWriter
     @Override
     protected Optional<int[]> writeDictionary()
     {
+        ColumnEncodingKind encodingKind = orcEncoding == DWRF ? DICTIONARY : DICTIONARY_V2;
+        int dictionaryEntryCount = dictionary.getEntryCount();
+        columnEncoding = new ColumnEncoding(encodingKind, dictionaryEntryCount);
+
+        if (sortDictionaryKeys) {
+            return writeSortedDictionary();
+        }
+        else {
+            for (int i = 0; i < dictionaryEntryCount; i++) {
+                writeDictionaryEntry(i);
+            }
+            return Optional.empty();
+        }
+    }
+
+    private Optional<int[]> writeSortedDictionary()
+    {
         int[] sortedDictionaryIndexes = getSortedDictionary(dictionary);
         for (int sortedDictionaryIndex : sortedDictionaryIndexes) {
-            int length = dictionary.getSliceLength(sortedDictionaryIndex);
-            dictionaryLengthStream.writeLong(length);
-            Slice rawSlice = dictionary.getRawSlice(sortedDictionaryIndex);
-            int rawSliceOffset = dictionary.getRawSliceOffset(sortedDictionaryIndex);
-            dictionaryDataStream.writeSlice(rawSlice, rawSliceOffset, length);
+            writeDictionaryEntry(sortedDictionaryIndex);
         }
-        columnEncoding = new ColumnEncoding(orcEncoding == DWRF ? DICTIONARY : DICTIONARY_V2, dictionary.getEntryCount());
 
         // build index from original dictionary index to new sorted position
         int[] originalDictionaryToSortedIndex = new int[sortedDictionaryIndexes.length];
@@ -199,6 +215,15 @@ public class SliceDictionaryColumnWriter
         return Optional.of(originalDictionaryToSortedIndex);
     }
 
+    private void writeDictionaryEntry(int dictionaryIndex)
+    {
+        int length = dictionary.getSliceLength(dictionaryIndex);
+        dictionaryLengthStream.writeLong(length);
+        Slice rawSlice = dictionary.getRawSlice(dictionaryIndex);
+        int rawSliceOffset = dictionary.getRawSliceOffset(dictionaryIndex);
+        dictionaryDataStream.writeSlice(rawSlice, rawSliceOffset, length);
+    }
+
     @Override
     protected void writePresentAndDataStreams(
             int rowGroupValueCount,
@@ -207,19 +232,33 @@ public class SliceDictionaryColumnWriter
             PresentOutputStream presentStream,
             LongOutputStream dataStream)
     {
-        checkState(optionalSortedIndex.isPresent(), "originalDictionaryToSortedIndex is null");
-        int[] originalDictionaryToSortedIndex = optionalSortedIndex.get();
+        checkState(optionalSortedIndex.isPresent() == sortDictionaryKeys, "SortedIndex and sortDictionaryKeys(%s) are inconsistent", sortDictionaryKeys);
         for (int position = 0; position < rowGroupValueCount; position++) {
             presentStream.writeBoolean(rowGroupIndexes[position] != NULL_INDEX);
         }
-        for (int position = 0; position < rowGroupValueCount; position++) {
-            int originalDictionaryIndex = rowGroupIndexes[position];
-            if (originalDictionaryIndex != NULL_INDEX) {
-                int sortedIndex = originalDictionaryToSortedIndex[originalDictionaryIndex];
-                if (sortedIndex < 0) {
-                    throw new IllegalArgumentException();
+
+        if (sortDictionaryKeys) {
+            int[] sortedIndexes = optionalSortedIndex.get();
+            for (int position = 0; position < rowGroupValueCount; position++) {
+                int originalDictionaryIndex = rowGroupIndexes[position];
+                if (originalDictionaryIndex != NULL_INDEX) {
+                    int sortedIndex = sortedIndexes[originalDictionaryIndex];
+                    if (sortedIndex < 0) {
+                        throw new IllegalArgumentException(String.format("Invalid index %s at position %s", sortedIndex, position));
+                    }
+                    dataStream.writeLong(sortedIndex);
                 }
-                dataStream.writeLong(sortedIndex);
+            }
+        }
+        else {
+            for (int position = 0; position < rowGroupValueCount; position++) {
+                int dictionaryIndex = rowGroupIndexes[position];
+                if (dictionaryIndex != NULL_INDEX) {
+                    if (dictionaryIndex < 0) {
+                        throw new IllegalArgumentException(String.format("Invalid index %s at position %s", dictionaryIndex, position));
+                    }
+                    dataStream.writeLong(dictionaryIndex);
+                }
             }
         }
     }
