@@ -60,7 +60,6 @@ import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.metastore.ProtectMode;
-import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.io.Text;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormatter;
@@ -116,7 +115,6 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.common.FileUtils.unescapePathName;
 import static org.apache.hadoop.hive.metastore.ColumnType.typeToThriftType;
 import static org.apache.hadoop.hive.metastore.ProtectMode.getProtectModeFromString;
-import static org.apache.hadoop.hive.metastore.Warehouse.makeSpecFromName;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.BUCKET_COUNT;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.BUCKET_FIELD_NAME;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
@@ -466,15 +464,32 @@ public class MetastoreUtil
         }
     }
 
-    // TODO: https://github.com/prestodb/presto/issues/15974
     public static Map<String, String> toPartitionNamesAndValues(String partitionName)
     {
-        try {
-            return ImmutableMap.copyOf(makeSpecFromName(partitionName));
+        ImmutableMap.Builder<String, String> resultBuilder = ImmutableMap.builder();
+        int index = 0;
+        int length = partitionName.length();
+
+        while (index < length) {
+            int keyStart = index;
+            while (index < length && partitionName.charAt(index) != '=') {
+                index++;
+            }
+            checkState(index < length, "Invalid partition spec: " + partitionName);
+
+            int keyEnd = index++;
+            int valueStart = index;
+            while (index < length && partitionName.charAt(index) != '/') {
+                index++;
+            }
+            int valueEnd = index++;
+
+            String key = unescapePathName(partitionName.substring(keyStart, keyEnd));
+            String value = unescapePathName(partitionName.substring(valueStart, valueEnd));
+            resultBuilder.put(key, value);
         }
-        catch (MetaException e) {
-            throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, "Invalid partition name: " + partitionName);
-        }
+
+        return resultBuilder.build();
     }
 
     public static List<String> toPartitionValues(String partitionName)
