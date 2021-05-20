@@ -469,12 +469,37 @@ public class MetastoreUtil
     // TODO: https://github.com/prestodb/presto/issues/15974
     public static Map<String, String> toPartitionNamesAndValues(String partitionName)
     {
-        try {
-            return ImmutableMap.copyOf(makeSpecFromName(partitionName));
+        ImmutableMap.Builder<String,String> resultBuilder = ImmutableMap.builder();
+        int index = 0;
+        int len = partitionName.length();
+        boolean invalidName = false;
+
+        while(index < len){
+            int keyStart = index;
+            while(index < len && partitionName.charAt(index) != '=') {
+                index++;
+            }
+            if(index >= len){
+                invalidName = true;
+                break;
+            }
+            int keyEnd = index++;
+            int valueStart = index;
+            while(index<len && partitionName.charAt(index) != '/') {
+                index++;
+            }
+            int valueEnd = index++;
+
+            String key = partitionName.substring(keyStart,keyEnd);
+            String value = partitionName.substring(valueStart,valueEnd);
+            resultBuilder.put(key,value);
         }
-        catch (MetaException e) {
+
+        if(invalidName){
             throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, "Invalid partition name: " + partitionName);
         }
+
+        return resultBuilder.build();
     }
 
     public static List<String> toPartitionValues(String partitionName)
