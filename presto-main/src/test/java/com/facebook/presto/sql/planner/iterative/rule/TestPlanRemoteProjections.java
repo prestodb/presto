@@ -181,9 +181,10 @@ public class TestPlanRemoteProjections
                 .put(planBuilder.variable("b"), planBuilder.rowExpression("x IS NULL OR y IS NULL"))
                 .put(planBuilder.variable("c"), planBuilder.rowExpression("IF(abs(unittest.memory.remote_foo()) > 0, x, y)"))
                 .put(planBuilder.variable("d"), planBuilder.rowExpression("unittest.memory.remote_foo(x + y, abs(x))"))
+                .put(planBuilder.variable("e"), planBuilder.rowExpression("TRUE OR FALSE"))
                 .build(), new PlanVariableAllocator(planBuilder.getTypes().allVariables()));
         assertEquals(rewritten.size(), 4);
-        assertEquals(rewritten.get(3).getProjections().size(), 4);
+        assertEquals(rewritten.get(3).getProjections().size(), 5);
     }
 
     @Test
@@ -223,10 +224,10 @@ public class TestPlanRemoteProjections
                     p.variable("y", INTEGER);
                     return p.project(
                             Assignments.builder()
-                                    .put(p.variable("a"), p.rowExpression("unittest.memory.remote_foo(1, y + unittest.memory.remote_foo(x))")) // identity
-                                    .put(p.variable("b"), p.rowExpression("x IS NULL OR y IS NULL")) // complex expression referenced multiple times
-                                    .put(p.variable("c"), p.rowExpression("abs(unittest.memory.remote_foo()) > 0")) // complex expression referenced multiple times
-                                    .put(p.variable("d"), p.rowExpression("unittest.memory.remote_foo(x + y, abs(x))")) // literal referenced multiple times
+                                    .put(p.variable("a"), p.rowExpression("unittest.memory.remote_foo(1, y + unittest.memory.remote_foo(x))"))
+                                    .put(p.variable("b"), p.rowExpression("x IS NULL OR y IS NULL"))
+                                    .put(p.variable("c"), p.rowExpression("abs(unittest.memory.remote_foo()) > 0"))
+                                    .put(p.variable("d"), p.rowExpression("unittest.memory.remote_foo(x + y, abs(1))"))
                                     .build(),
                             p.values(p.variable("x", INTEGER), p.variable("y", INTEGER)));
                 })
@@ -260,7 +261,7 @@ public class TestPlanRemoteProjections
                                                                 .put("expr", PlanMatchPattern.expression("1"))
                                                                 .put("b", PlanMatchPattern.expression("x IS NULL OR y is NULL"))
                                                                 .put("add_10", PlanMatchPattern.expression("x + y"))
-                                                                .put("abs_12", PlanMatchPattern.expression("abs(x)"))
+                                                                .put("abs_12", PlanMatchPattern.expression("abs(1)"))
                                                                 .build(),
                                                         values(ImmutableMap.of("x", 0, "y", 1)))))));
     }
