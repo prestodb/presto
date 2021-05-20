@@ -160,7 +160,7 @@ public abstract class AbstractTestQueries
         assertEquals(result.getMaterializedRows().get(0).getField(0), new SqlIntervalYearMonth(Short.MAX_VALUE, 0));
     }
 
-    @Test
+    @Test(enabled = false)
     public void testEmptyJoins()
     {
         Session sessionWithEmptyJoin = Session.builder(getSession())

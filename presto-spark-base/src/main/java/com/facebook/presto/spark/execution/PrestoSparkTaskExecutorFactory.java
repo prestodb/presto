@@ -75,7 +75,6 @@ import com.facebook.presto.spi.storage.TempStorage;
 import com.facebook.presto.spi.storage.TempStorageHandle;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.spiller.SpillSpaceTracker;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import com.facebook.presto.sql.planner.OutputPartitioning;
@@ -208,8 +207,7 @@ public class PrestoSparkTaskExecutorFactory
             NodeSpillConfig nodeSpillConfig,
             TempStorageManager tempStorageManager,
             PrestoSparkBroadcastTableCacheManager prestoSparkBroadcastTableCacheManager,
-            PrestoSparkConfig prestoSparkConfig,
-            FeaturesConfig featuresConfig)
+            PrestoSparkConfig prestoSparkConfig)
     {
         this(
                 sessionPropertyManager,
