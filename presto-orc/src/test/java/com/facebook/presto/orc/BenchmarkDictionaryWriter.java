@@ -73,7 +73,18 @@ public class BenchmarkDictionaryWriter
     private static final int COLUMN_INDEX = 0;
     private static final int STRING_LIMIT_BYTES = toIntExact(DEFAULT_MAX_STRING_STATISTICS_LIMIT.toBytes());
 
-    private final ColumnWriterOptions columnWriterOptions = ColumnWriterOptions.builder().setCompressionKind(CompressionKind.NONE).build();
+    private ColumnWriterOptions getColumnWriterOptions()
+    {
+        return getColumnWriterOptions(true);
+    }
+
+    private ColumnWriterOptions getColumnWriterOptions(boolean sortStringDictionaryKeys)
+    {
+        return ColumnWriterOptions.builder()
+                .setCompressionKind(CompressionKind.NONE)
+                .setStringDictionarySortingEnabled(sortStringDictionaryKeys)
+                .build();
+    }
 
     public static void main(String[] args)
             throws Throwable
@@ -97,11 +108,23 @@ public class BenchmarkDictionaryWriter
         ColumnWriter columnWriter;
         Type type = data.getType();
         if (type.equals(VARCHAR)) {
-            columnWriter = new SliceDirectColumnWriter(COLUMN_INDEX, type, columnWriterOptions, Optional.empty(), DWRF, this::newStringStatisticsBuilder, DWRF.createMetadataWriter());
+            columnWriter = new SliceDirectColumnWriter(COLUMN_INDEX, type, getColumnWriterOptions(), Optional.empty(), DWRF, this::newStringStatisticsBuilder, DWRF.createMetadataWriter());
         }
         else {
-            columnWriter = new LongColumnWriter(COLUMN_INDEX, type, columnWriterOptions, Optional.empty(), DWRF, IntegerStatisticsBuilder::new, DWRF.createMetadataWriter());
+            columnWriter = new LongColumnWriter(COLUMN_INDEX, type, getColumnWriterOptions(), Optional.empty(), DWRF, IntegerStatisticsBuilder::new, DWRF.createMetadataWriter());
         }
+        for (Block block : data.getBlocks()) {
+            columnWriter.beginRowGroup();
+            columnWriter.writeBlock(block);
+            columnWriter.finishRowGroup();
+        }
+        columnWriter.close();
+        columnWriter.reset();
+    }
+
+    private void writeDictionary(BenchmarkData data, boolean sortStringDictionaryKeys)
+    {
+        ColumnWriter columnWriter = getDictionaryColumnWriter(data, sortStringDictionaryKeys);
         for (Block block : data.getBlocks()) {
             columnWriter.beginRowGroup();
             columnWriter.writeBlock(block);
@@ -114,20 +137,13 @@ public class BenchmarkDictionaryWriter
     @Benchmark
     public void writeDictionary(BenchmarkData data)
     {
-        ColumnWriter columnWriter = getDictionaryColumnWriter(data);
-        for (Block block : data.getBlocks()) {
-            columnWriter.beginRowGroup();
-            columnWriter.writeBlock(block);
-            columnWriter.finishRowGroup();
-        }
-        columnWriter.close();
-        columnWriter.reset();
+        writeDictionary(data, true);
     }
 
     @Benchmark
     public void writeDictionaryAndConvert(BenchmarkData data)
     {
-        DictionaryColumnWriter columnWriter = getDictionaryColumnWriter(data);
+        DictionaryColumnWriter columnWriter = getDictionaryColumnWriter(data, true);
         for (Block block : data.getBlocks()) {
             columnWriter.beginRowGroup();
             columnWriter.writeBlock(block);
@@ -140,10 +156,17 @@ public class BenchmarkDictionaryWriter
         columnWriter.reset();
     }
 
-    private DictionaryColumnWriter getDictionaryColumnWriter(BenchmarkData data)
+    @Benchmark
+    public void writeDictionaryNoSorting(BenchmarkData data)
+    {
+        writeDictionary(data, false);
+    }
+
+    private DictionaryColumnWriter getDictionaryColumnWriter(BenchmarkData data, boolean sortStringDictionaryKeys)
     {
         DictionaryColumnWriter columnWriter;
         Type type = data.getType();
+        ColumnWriterOptions columnWriterOptions = getColumnWriterOptions(sortStringDictionaryKeys);
         if (type.equals(VARCHAR)) {
             columnWriter = new SliceDictionaryColumnWriter(COLUMN_INDEX, type, columnWriterOptions, Optional.empty(), DWRF, DWRF.createMetadataWriter());
         }

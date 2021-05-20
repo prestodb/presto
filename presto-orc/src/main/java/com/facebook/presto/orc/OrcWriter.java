@@ -171,6 +171,7 @@ public class OrcWriter
                 .setCompressionMaxBufferSize(options.getMaxCompressionBufferSize())
                 .setStringStatisticsLimit(options.getMaxStringStatisticsLimit())
                 .setIntegerDictionaryEncodingEnabled(options.isIntegerDictionaryEncodingEnabled())
+                .setStringDictionarySortingEnabled(options.isStringDictionarySortingEnabled())
                 .build();
         recordValidation(validation -> validation.setCompression(compressionKind));
 
