@@ -120,10 +120,12 @@ import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxBroadcastMemory;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxMemoryPerNode;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxTotalMemoryPerNode;
+import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
 import static com.facebook.presto.execution.TaskState.FAILED;
 import static com.facebook.presto.execution.TaskStatus.STARTING_VERSION;
 import static com.facebook.presto.execution.buffer.BufferState.FINISHED;
 import static com.facebook.presto.metadata.MetadataUpdates.DEFAULT_METADATA_UPDATES;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.getMemoryRevokingThreshold;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getShuffleOutputTargetAverageRowSize;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getSparkBroadcastJoinMaxMemoryOverride;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getStorageBasedBroadcastJoinWriteBufferSize;
@@ -170,7 +172,6 @@ public class PrestoSparkTaskExecutorFactory
     private final Set<PrestoSparkAuthenticatorProvider> authenticatorProviders;
 
     private final NodeMemoryConfig nodeMemoryConfig;
-    private final double memoryRevokingThreshold;
     private final DataSize maxRevocableMemory;
     private final DataSize maxSpillMemory;
     private final DataSize sinkMaxBufferSize;
@@ -226,7 +227,6 @@ public class PrestoSparkTaskExecutorFactory
                 splitMonitor,
                 authenticatorProviders,
                 nodeMemoryConfig,
-                requireNonNull(featuresConfig, "featuresConfig is null").getMemoryRevokingThreshold(),
                 requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").getMaxRevocableMemoryPerNode(),
                 requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").getMaxSpillPerNode(),
                 requireNonNull(taskManagerConfig, "taskManagerConfig is null").getSinkMaxBufferSize(),
@@ -255,7 +255,6 @@ public class PrestoSparkTaskExecutorFactory
             SplitMonitor splitMonitor,
             Set<PrestoSparkAuthenticatorProvider> authenticatorProviders,
             NodeMemoryConfig nodeMemoryConfig,
-            double memoryRevokingThreshold,
             DataSize maxRevocableMemory,
             DataSize maxSpillMemory,
             DataSize sinkMaxBufferSize,
@@ -283,7 +282,6 @@ public class PrestoSparkTaskExecutorFactory
         this.authenticatorProviders = ImmutableSet.copyOf(requireNonNull(authenticatorProviders, "authenticatorProviders is null"));
         // Ordering is needed to make sure serialized plans are consistent for the same map
         this.nodeMemoryConfig = requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null");
-        this.memoryRevokingThreshold = memoryRevokingThreshold;
         this.maxRevocableMemory = requireNonNull(maxRevocableMemory, "maxRevocableMemory is null");
         this.maxSpillMemory = requireNonNull(maxSpillMemory, "maxSpillMemory is null");
         this.sinkMaxBufferSize = requireNonNull(sinkMaxBufferSize, "sinkMaxBufferSize is null");
@@ -402,38 +400,41 @@ public class PrestoSparkTaskExecutorFactory
                 allocationTrackingEnabled,
                 false);
 
-        memoryPool.addListener((pool, queryId, totalMemoryReservationBytes) -> {
-            if (totalMemoryReservationBytes > queryContext.getPeakNodeTotalMemory()) {
-                queryContext.setPeakNodeTotalMemory(totalMemoryReservationBytes);
-            }
-            if (totalMemoryReservationBytes > maxTotalMemory.toBytes()) {
-                throw exceededLocalTotalMemoryLimit(
-                        maxTotalMemory,
-                        queryContext.getAdditionalFailureInfo(totalMemoryReservationBytes, 0) +
-                                format("Total reserved memory: %s, Total revocable memory: %s",
-                                        succinctBytes(pool.getQueryMemoryReservation(queryId)),
-                                        succinctBytes(pool.getQueryRevocableMemoryReservation(queryId))));
-            }
-            if (totalMemoryReservationBytes > pool.getMaxBytes() * memoryRevokingThreshold && memoryRevokePending.compareAndSet(false, true)) {
-                memoryUpdateExecutor.execute(() -> {
-                    try {
-                        taskContext.accept(new VoidTraversingQueryContextVisitor<Void>()
-                        {
-                            @Override
-                            public Void visitOperatorContext(OperatorContext operatorContext, Void nothing)
+        final double memoryRevokingThreshold = getMemoryRevokingThreshold(session);
+        if (isSpillEnabled(session)) {
+            memoryPool.addListener((pool, queryId, totalMemoryReservationBytes) -> {
+                if (totalMemoryReservationBytes > queryContext.getPeakNodeTotalMemory()) {
+                    queryContext.setPeakNodeTotalMemory(totalMemoryReservationBytes);
+                }
+                if (totalMemoryReservationBytes > maxTotalMemory.toBytes()) {
+                    throw exceededLocalTotalMemoryLimit(
+                            maxTotalMemory,
+                            queryContext.getAdditionalFailureInfo(totalMemoryReservationBytes, 0) +
+                                    format("Total reserved memory: %s, Total revocable memory: %s",
+                                            succinctBytes(pool.getQueryMemoryReservation(queryId)),
+                                            succinctBytes(pool.getQueryRevocableMemoryReservation(queryId))));
+                }
+                if (totalMemoryReservationBytes > pool.getMaxBytes() * memoryRevokingThreshold && memoryRevokePending.compareAndSet(false, true)) {
+                    memoryUpdateExecutor.execute(() -> {
+                        try {
+                            taskContext.accept(new VoidTraversingQueryContextVisitor<Void>()
                             {
-                                operatorContext.requestMemoryRevoking();
-                                return null;
-                            }
-                        }, null);
-                        memoryRevokePending.set(false);
-                    }
-                    catch (Exception e) {
-                        log.error(e, "Error requesting memory revoking");
-                    }
-                });
-            }
-        });
+                                @Override
+                                public Void visitOperatorContext(OperatorContext operatorContext, Void nothing)
+                                {
+                                    operatorContext.requestMemoryRevoking();
+                                    return null;
+                                }
+                            }, null);
+                            memoryRevokePending.set(false);
+                        }
+                        catch (Exception e) {
+                            log.error(e, "Error requesting memory revoking");
+                        }
+                    });
+                }
+            });
+        }
 
         ImmutableMap.Builder<PlanNodeId, List<PrestoSparkShuffleInput>> shuffleInputs = ImmutableMap.builder();
         ImmutableMap.Builder<PlanNodeId, List<java.util.Iterator<PrestoSparkSerializedPage>>> pageInputs = ImmutableMap.builder();

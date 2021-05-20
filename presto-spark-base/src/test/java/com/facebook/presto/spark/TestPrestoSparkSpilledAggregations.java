@@ -31,7 +31,7 @@ public class TestPrestoSparkSpilledAggregations
         configProperties.put("experimental.spill-enabled", "true");
         configProperties.put("experimental.join-spill-enabled", "true");
         configProperties.put("experimental.temp-storage-buffer-size", "1MB");
-        configProperties.put("experimental.memory-revoking-threshold", "0.0");
+        configProperties.put("spark.memory-revoking-threshold", "0.0");
         configProperties.put("experimental.spiller-spill-path", Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills").toString());
         return createHivePrestoSparkQueryRunner(getTables(), configProperties.build());
     }
