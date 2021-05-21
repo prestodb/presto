@@ -262,7 +262,7 @@ public class HiveFilterPushdown
         RowExpression remainingExpression = extractStaticConjuncts(conjuncts, logicalRowExpressions);
         remainingExpression = removeNestedDynamicFilters(remainingExpression);
 
-        Table table = metastore.getTable(new MetastoreContext(session.getIdentity()), tableName.getSchemaName(), tableName.getTableName())
+        Table table = metastore.getTable(new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource()), tableName.getSchemaName(), tableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
         return new ConnectorPushdownFilterResult(
                 metadata.getTableLayout(

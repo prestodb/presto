@@ -80,6 +80,7 @@ import java.util.function.Supplier;
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static com.facebook.airlift.json.smile.SmileCodecBinder.smileCodecBinder;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static java.lang.Math.toIntExact;
@@ -156,6 +157,7 @@ public class HiveClientModule
         binder.bind(ConnectorMetadataUpdaterProvider.class).to(HiveMetadataUpdaterProvider.class).in(Scopes.SINGLETON);
 
         jsonCodecBinder(binder).bindJsonCodec(PartitionUpdate.class);
+        smileCodecBinder(binder).bindSmileCodec(PartitionUpdate.class);
 
         binder.bind(FileFormatDataSourceStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(FileFormatDataSourceStats.class).as(generatedNameOf(FileFormatDataSourceStats.class, connectorId));

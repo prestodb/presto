@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.json.smile.SmileCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.metastore.CachingHiveMetastore;
@@ -58,6 +59,7 @@ public class HiveMetadataFactory
     private final FilterStatsCalculatorService filterStatsCalculatorService;
     private final TableParameterCodec tableParameterCodec;
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
+    private final SmileCodec<PartitionUpdate> partitionUpdateSmileCodec;
     private final ListeningExecutorService fileRenameExecutor;
     private final TypeTranslator typeTranslator;
     private final StagingFileCommitter stagingFileCommitter;
@@ -84,6 +86,7 @@ public class HiveMetadataFactory
             FilterStatsCalculatorService filterStatsCalculatorService,
             TableParameterCodec tableParameterCodec,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
+            SmileCodec<PartitionUpdate> partitionUpdateSmileCodec,
             TypeTranslator typeTranslator,
             StagingFileCommitter stagingFileCommitter,
             ZeroRowFileCreator zeroRowFileCreator,
@@ -114,6 +117,7 @@ public class HiveMetadataFactory
                 filterStatsCalculatorService,
                 tableParameterCodec,
                 partitionUpdateCodec,
+                partitionUpdateSmileCodec,
                 fileRenameExecutor,
                 typeTranslator,
                 stagingFileCommitter,
@@ -209,6 +213,7 @@ public class HiveMetadataFactory
             FilterStatsCalculatorService filterStatsCalculatorService,
             TableParameterCodec tableParameterCodec,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
+            SmileCodec<PartitionUpdate> partitionUpdateSmileCodec,
             ListeningExecutorService fileRenameExecutor,
             TypeTranslator typeTranslator,
             StagingFileCommitter stagingFileCommitter,
@@ -239,6 +244,7 @@ public class HiveMetadataFactory
         this.filterStatsCalculatorService = requireNonNull(filterStatsCalculatorService, "filterStatsCalculatorService is null");
         this.tableParameterCodec = requireNonNull(tableParameterCodec, "tableParameterCodec is null");
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
+        this.partitionUpdateSmileCodec = requireNonNull(partitionUpdateSmileCodec, "partitionUpdateSmileCodec is null");
         this.fileRenameExecutor = requireNonNull(fileRenameExecutor, "fileRenameExecutor is null");
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
         this.stagingFileCommitter = requireNonNull(stagingFileCommitter, "stagingFileCommitter is null");
@@ -284,6 +290,7 @@ public class HiveMetadataFactory
                 filterStatsCalculatorService,
                 tableParameterCodec,
                 partitionUpdateCodec,
+                partitionUpdateSmileCodec,
                 typeTranslator,
                 prestoVersion,
                 new MetastoreHiveStatisticsProvider(metastore),

@@ -14,12 +14,17 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.io.DataOutput;
+import com.facebook.presto.common.io.DataSink;
 import com.facebook.presto.hive.datasink.DataSinkFactory;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import io.airlift.slice.Slices;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.mapred.JobConf;
@@ -27,7 +32,6 @@ import org.apache.hadoop.mapred.JobConf;
 import javax.inject.Inject;
 
 import java.io.IOException;
-import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -35,6 +39,7 @@ import java.util.List;
 import java.util.Properties;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
+import static com.facebook.presto.common.io.DataOutput.createDataOutput;
 import static com.facebook.presto.hive.HiveCompressionCodec.NONE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static com.facebook.presto.hive.HiveWriteUtils.initializeSerializer;
@@ -79,7 +84,7 @@ public class HiveZeroRowFileCreator
         List<ListenableFuture<?>> commitFutures = new ArrayList<>();
 
         for (String fileName : fileNames) {
-            commitFutures.add(executor.submit(() -> createFile(hdfsContext, new Path(destinationDirectory, fileName), fileContent)));
+            commitFutures.add(executor.submit(() -> createFile(hdfsContext, new Path(destinationDirectory, fileName), fileContent, session)));
         }
 
         ListenableFuture<?> listenableFutureAggregate = whenAllSucceed(commitFutures).call(() -> null, directExecutor());
@@ -144,10 +149,14 @@ public class HiveZeroRowFileCreator
         }
     }
 
-    private void createFile(HdfsContext hdfsContext, Path path, byte[] content)
+    private void createFile(HdfsContext hdfsContext, Path path, byte[] content, ConnectorSession session)
     {
-        try (OutputStream outputStream = hdfsEnvironment.getFileSystem(hdfsContext, path).create(path, false)) {
-            outputStream.write(content);
+        try {
+            FileSystem fs = hdfsEnvironment.getFileSystem(hdfsContext, path);
+            try (DataSink dataSink = dataSinkFactory.createDataSink(session, fs, path)) {
+                DataOutput dataOutput = createDataOutput(Slices.wrappedBuffer(content));
+                dataSink.write(ImmutableList.of(dataOutput));
+            }
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error write zero-row file to Hive", e);

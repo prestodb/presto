@@ -92,6 +92,13 @@ Mathematical Functions
     a real value and the standard deviation must be a real and positive value.
     The probability p must lie on the interval (0, 1).
 
+.. function:: inverse_poisson_cdf(lambda, p) -> integer
+
+    Compute the inverse of the Poisson cdf with given lambda (mean) parameter for the cumulative
+    probability (p). It returns the value of n so that: P(N <= n; lambda) = p.
+    The lambda parameter must be a positive real number (of type DOUBLE).
+    The probability p must lie on the interval [0, 1).
+
 .. function:: normal_cdf(mean, sd, v) -> double
 
     Compute the Normal cdf with given mean and standard deviation (sd):  P(N < v; mean, sd).
@@ -129,6 +136,11 @@ Mathematical Functions
 .. function:: pi() -> double
 
     Returns the constant Pi.
+
+.. function:: poisson_cdf(lambda, value) -> double
+
+    Compute the Poisson cdf with given lambda (mean) parameter:  P(N <= value; lambda).
+    The lambda parameter must be a positive real number (of type DOUBLE) and value must be a non-negative integer.
 
 .. function:: pow(x, p) -> double
 

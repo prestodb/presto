@@ -233,12 +233,12 @@ public class WindowFilterPushDown
 
             Range span = values.getRanges().getSpan();
 
-            if (span.getHigh().isUpperUnbounded()) {
+            if (span.isHighUnbounded()) {
                 return OptionalInt.empty();
             }
 
             verify(rowNumberDomain.getType().equals(BIGINT));
-            long upperBound = (Long) span.getHigh().getValue();
+            long upperBound = (Long) span.getHighBoundedValue();
             if (span.getHigh().getBound() == BELOW) {
                 upperBound--;
             }

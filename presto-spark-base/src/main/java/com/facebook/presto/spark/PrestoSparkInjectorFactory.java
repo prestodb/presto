@@ -50,6 +50,7 @@ import java.util.Optional;
 import static com.facebook.presto.server.PrestoSystemRequirements.verifySystemTimeIsReasonable;
 import static com.facebook.presto.spark.classloader_interface.SparkProcessType.DRIVER;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static java.util.Objects.requireNonNull;
 
 public class PrestoSparkInjectorFactory
@@ -145,6 +146,9 @@ public class PrestoSparkInjectorFactory
 
                 binder.bind(TestingTempStorageManager.class).in(Scopes.SINGLETON);
                 binder.bind(TempStorageManager.class).to(TestingTempStorageManager.class).in(Scopes.SINGLETON);
+
+                newSetBinder(binder, PrestoSparkServiceWaitTimeMetrics.class).addBinding()
+                        .to(PrestoSparkTestingServiceWaitTimeMetrics.class).in(Scopes.SINGLETON);
             });
         }
         else {

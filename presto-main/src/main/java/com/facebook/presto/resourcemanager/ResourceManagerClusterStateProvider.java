@@ -236,7 +236,11 @@ public class ResourceManagerClusterStateProvider
         @GuardedBy("this")
         private final Map<QueryId, Query> completedQueries = new LinkedHashMap<>();
 
-        public CoordinatorQueriesState(String nodeId, int maxCompletedQueries, long queryExpirationTimeoutMillis, long completedQueryExpirationTimeoutMillis)
+        public CoordinatorQueriesState(
+                String nodeId,
+                int maxCompletedQueries,
+                long queryExpirationTimeoutMillis,
+                long completedQueryExpirationTimeoutMillis)
         {
             this.nodeId = requireNonNull(nodeId, "nodeId is null");
             checkArgument(maxCompletedQueries > 0);

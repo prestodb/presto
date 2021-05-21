@@ -17,6 +17,7 @@ import com.amazonaws.AmazonServiceException;
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
+import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
 import com.amazonaws.metrics.RequestMetricCollector;
 import com.amazonaws.regions.Region;
 import com.amazonaws.regions.Regions;
@@ -131,6 +132,7 @@ import static com.facebook.presto.hive.metastore.glue.converter.GlueToPrestoConv
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Comparators.lexicographical;
 import static java.util.Comparator.comparing;
@@ -148,6 +150,7 @@ public class GlueHiveMetastore
     private static final String WILDCARD_EXPRESSION = "";
     private static final int BATCH_GET_PARTITION_MAX_PAGE_SIZE = 1000;
     private static final int BATCH_CREATE_PARTITION_MAX_PAGE_SIZE = 100;
+    private static final int AWS_GLUE_GET_PARTITIONS_MAX_RESULTS = 1000;
     private static final Comparator<Partition> PARTITION_COMPARATOR = comparing(Partition::getValues, lexicographical(String.CASE_INSENSITIVE_ORDER));
 
     private final GlueMetastoreStats stats = new GlueMetastoreStats();
@@ -176,12 +179,20 @@ public class GlueHiveMetastore
 
     private static AWSGlueAsync createAsyncGlueClient(GlueHiveMetastoreConfig config, RequestMetricCollector metricsCollector)
     {
-        ClientConfiguration clientConfig = new ClientConfiguration().withMaxConnections(config.getMaxGlueConnections());
+        ClientConfiguration clientConfig = new ClientConfiguration()
+                .withMaxConnections(config.getMaxGlueConnections())
+                .withMaxErrorRetry(config.getMaxGlueErrorRetries());
         AWSGlueAsyncClientBuilder asyncGlueClientBuilder = AWSGlueAsyncClientBuilder.standard()
                 .withMetricsCollector(metricsCollector)
                 .withClientConfiguration(clientConfig);
 
-        if (config.getGlueRegion().isPresent()) {
+        if (config.getGlueEndpointUrl().isPresent()) {
+            checkArgument(config.getGlueRegion().isPresent(), "Glue region must be set when Glue endpoint URL is set");
+            asyncGlueClientBuilder.setEndpointConfiguration(new EndpointConfiguration(
+                    config.getGlueEndpointUrl().get(),
+                    config.getGlueRegion().get()));
+        }
+        else if (config.getGlueRegion().isPresent()) {
             asyncGlueClientBuilder.setRegion(config.getGlueRegion().get());
         }
         else if (config.getPinGlueClientToCurrentRegion()) {
@@ -740,7 +751,8 @@ public class GlueHiveMetastore
                     .withDatabaseName(databaseName)
                     .withTableName(tableName)
                     .withExpression(expression)
-                    .withSegment(segment);
+                    .withSegment(segment)
+                    .withMaxResults(AWS_GLUE_GET_PARTITIONS_MAX_RESULTS);
 
             do {
                 GetPartitionsResult result = stats.getGetPartitions().record(() -> glueClient.getPartitions(request));

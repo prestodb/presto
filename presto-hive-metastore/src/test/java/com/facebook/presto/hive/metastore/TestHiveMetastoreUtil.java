@@ -187,18 +187,18 @@ public class TestHiveMetastoreUtil
         Column c3 = new Column("_c3", HIVE_DOUBLE, Optional.empty());
         Column c4 = new Column("_c4", HIVE_DATE, Optional.empty());
 
-        assertEquals(reconstructPartitionSchema(ImmutableList.of(), 0, ImmutableMap.of()), ImmutableList.of());
-        assertEquals(reconstructPartitionSchema(ImmutableList.of(c1), 0, ImmutableMap.of()), ImmutableList.of());
-        assertEquals(reconstructPartitionSchema(ImmutableList.of(c1), 1, ImmutableMap.of()), ImmutableList.of(c1));
-        assertEquals(reconstructPartitionSchema(ImmutableList.of(c1, c2), 1, ImmutableMap.of()), ImmutableList.of(c1));
-        assertEquals(reconstructPartitionSchema(ImmutableList.of(c1, c2), 3, ImmutableMap.of(2, c3)), ImmutableList.of(c1, c2, c3));
-        assertEquals(reconstructPartitionSchema(ImmutableList.of(c1, c2, c3), 3, ImmutableMap.of(1, c4)), ImmutableList.of(c1, c4, c3));
+        assertEquals(reconstructPartitionSchema(ImmutableList.of(), 0, ImmutableMap.of(), Optional.empty()), ImmutableList.of());
+        assertEquals(reconstructPartitionSchema(ImmutableList.of(c1), 0, ImmutableMap.of(), Optional.empty()), ImmutableList.of());
+        assertEquals(reconstructPartitionSchema(ImmutableList.of(c1), 1, ImmutableMap.of(), Optional.empty()), ImmutableList.of(c1));
+        assertEquals(reconstructPartitionSchema(ImmutableList.of(c1, c2), 1, ImmutableMap.of(), Optional.empty()), ImmutableList.of(c1));
+        assertEquals(reconstructPartitionSchema(ImmutableList.of(c1, c2), 3, ImmutableMap.of(2, c3), Optional.empty()), ImmutableList.of(c1, c2, c3));
+        assertEquals(reconstructPartitionSchema(ImmutableList.of(c1, c2, c3), 3, ImmutableMap.of(1, c4), Optional.empty()), ImmutableList.of(c1, c4, c3));
 
-        assertThatThrownBy(() -> reconstructPartitionSchema(ImmutableList.of(), 1, ImmutableMap.of()))
+        assertThatThrownBy(() -> reconstructPartitionSchema(ImmutableList.of(), 1, ImmutableMap.of(), Optional.empty()))
                 .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> reconstructPartitionSchema(ImmutableList.of(c1), 2, ImmutableMap.of()))
+        assertThatThrownBy(() -> reconstructPartitionSchema(ImmutableList.of(c1), 2, ImmutableMap.of(), Optional.empty()))
                 .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> reconstructPartitionSchema(ImmutableList.of(c1), 2, ImmutableMap.of(0, c2)))
+        assertThatThrownBy(() -> reconstructPartitionSchema(ImmutableList.of(c1), 2, ImmutableMap.of(0, c2), Optional.empty()))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 

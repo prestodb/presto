@@ -14,7 +14,6 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.concurrent.BoundedExecutor;
-import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.cache.CacheConfig;
@@ -94,6 +93,7 @@ import static com.facebook.presto.hive.AbstractTestHiveClient.createTablePropert
 import static com.facebook.presto.hive.AbstractTestHiveClient.filterNonHiddenColumnHandles;
 import static com.facebook.presto.hive.AbstractTestHiveClient.filterNonHiddenColumnMetadata;
 import static com.facebook.presto.hive.AbstractTestHiveClient.getAllSplits;
+import static com.facebook.presto.hive.HiveQueryRunner.METASTORE_CONTEXT;
 import static com.facebook.presto.hive.HiveTestUtils.FILTER_STATS_CALCULATOR_SERVICE;
 import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_RESOLUTION;
@@ -189,7 +189,6 @@ public abstract class AbstractTestHiveFileSystem
                 getBasePath(),
                 hdfsEnvironment);
         locationService = new HiveLocationService(hdfsEnvironment);
-        JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
         metadataFactory = new HiveMetadataFactory(
                 config,
                 metastoreClientConfig,
@@ -203,7 +202,8 @@ public abstract class AbstractTestHiveFileSystem
                 ROW_EXPRESSION_SERVICE,
                 FILTER_STATS_CALCULATOR_SERVICE,
                 new TableParameterCodec(),
-                partitionUpdateCodec,
+                HiveTestUtils.PARTITION_UPDATE_CODEC,
+                HiveTestUtils.PARTITION_UPDATE_SMILE_CODEC,
                 new HiveTypeTranslator(),
                 new HiveStagingFileCommitter(hdfsEnvironment, listeningDecorator(executor)),
                 new HiveZeroRowFileCreator(hdfsEnvironment, new OutputStreamDataSinkFactory(), listeningDecorator(executor)),
@@ -240,7 +240,8 @@ public abstract class AbstractTestHiveFileSystem
                 config,
                 metastoreClientConfig,
                 locationService,
-                partitionUpdateCodec,
+                HiveTestUtils.PARTITION_UPDATE_CODEC,
+                HiveTestUtils.PARTITION_UPDATE_SMILE_CODEC,
                 new TestingNodeManager("fake-environment"),
                 new HiveEventClient(),
                 new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig()),
@@ -384,7 +385,7 @@ public abstract class AbstractTestHiveFileSystem
                 // CSV supports only unbounded VARCHAR type
                 continue;
             }
-            createTable(new MetastoreContext("test_user"), temporaryCreateTable, storageFormat);
+            createTable(METASTORE_CONTEXT, temporaryCreateTable, storageFormat);
             dropTable(temporaryCreateTable);
         }
     }

@@ -14,6 +14,7 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.tpch.IndexedTpchPlugin;
 import com.google.common.collect.ImmutableMap;
 
@@ -25,12 +26,8 @@ import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 public class TestDistributedQueriesIndexed
         extends AbstractTestIndexedQueries
 {
-    public TestDistributedQueriesIndexed()
-    {
-        super(TestDistributedQueriesIndexed::createQueryRunner);
-    }
-
-    private static DistributedQueryRunner createQueryRunner()
+    @Override
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
         Session session = testSessionBuilder()

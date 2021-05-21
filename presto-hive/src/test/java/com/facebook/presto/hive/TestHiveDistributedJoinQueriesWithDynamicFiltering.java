@@ -24,6 +24,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestJoinQueries;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tests.ResultWithQueryId;
@@ -35,7 +36,6 @@ import static com.facebook.airlift.testing.Assertions.assertLessThanOrEqual;
 import static com.facebook.presto.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
-import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static io.airlift.tpch.TpchTable.getTables;
 import static org.testng.Assert.assertEquals;
@@ -43,9 +43,11 @@ import static org.testng.Assert.assertEquals;
 public class TestHiveDistributedJoinQueriesWithDynamicFiltering
         extends AbstractTestJoinQueries
 {
-    public TestHiveDistributedJoinQueriesWithDynamicFiltering()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createQueryRunner(getTables()));
+        return HiveQueryRunner.createQueryRunner(getTables());
     }
 
     @Override
@@ -108,23 +110,6 @@ public class TestHiveDistributedJoinQueriesWithDynamicFiltering
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, FeaturesConfig.JoinReorderingStrategy.NONE.name())
                 .build();
         assertQuery(session, query, "SELECT 1, 1, 1");
-    }
-
-    @Test
-    public void testJoinOnNullPartitioning()
-    {
-        assertUpdate("CREATE TABLE t3(c2 bigint, c1 bigint)");
-        assertUpdate("INSERT INTO t3 VALUES(null, 2)", 1);
-        assertUpdate("CREATE TABLE t4(c2 bigint, c1 bigint) with(partitioned_by=array['c1'])");
-        assertUpdate("INSERT INTO t4 VALUES(null, null), (2,2)", 2);
-
-        String query = "select * from t3, t4 where t3.c1=t4.c2";
-        Session session = Session.builder(getSession())
-                .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "true")
-                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.AUTOMATIC.name())
-                .setSystemProperty(JOIN_REORDERING_STRATEGY, FeaturesConfig.JoinReorderingStrategy.AUTOMATIC.name())
-                .build();
-        assertQuery(session, query, "SELECT null, 2, 2, 2");
     }
 
     private OperatorStats searchScanFilterAndProjectOperatorStats(QueryId queryId, String tableName)

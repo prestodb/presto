@@ -41,7 +41,8 @@ public class TestResourceManagerConfig
                 .setMemoryPoolInfoRefreshDuration(new Duration(1, SECONDS))
                 .setResourceManagerExecutorThreads(1000)
                 .setNodeHeartbeatInterval(new Duration(1, SECONDS))
-                .setQueryHeartbeatInterval(new Duration(1, SECONDS)));
+                .setQueryHeartbeatInterval(new Duration(1, SECONDS))
+                .setProxyAsyncTimeout(new Duration(60, SECONDS)));
     }
 
     @Test
@@ -58,6 +59,7 @@ public class TestResourceManagerConfig
                 .put("resource-manager.executor-threads", "1234")
                 .put("resource-manager.node-heartbeat-interval", "25m")
                 .put("resource-manager.query-heartbeat-interval", "75m")
+                .put("resource-manager.proxy-async-timeout", "345m")
                 .build();
 
         ResourceManagerConfig expected = new ResourceManagerConfig()
@@ -70,7 +72,8 @@ public class TestResourceManagerConfig
                 .setMemoryPoolInfoRefreshDuration(new Duration(2, HOURS))
                 .setResourceManagerExecutorThreads(1234)
                 .setNodeHeartbeatInterval(new Duration(25, MINUTES))
-                .setQueryHeartbeatInterval(new Duration(75, MINUTES));
+                .setQueryHeartbeatInterval(new Duration(75, MINUTES))
+                .setProxyAsyncTimeout(new Duration(345, MINUTES));
 
         assertFullMapping(properties, expected);
     }

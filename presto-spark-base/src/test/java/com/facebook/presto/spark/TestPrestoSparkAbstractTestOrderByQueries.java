@@ -13,13 +13,17 @@
  */
 package com.facebook.presto.spark;
 
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestOrderByQueries;
+
+import static com.facebook.presto.spark.PrestoSparkQueryRunner.createHivePrestoSparkQueryRunner;
 
 public class TestPrestoSparkAbstractTestOrderByQueries
         extends AbstractTestOrderByQueries
 {
-    protected TestPrestoSparkAbstractTestOrderByQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
     {
-        super(PrestoSparkQueryRunner::createHivePrestoSparkQueryRunner);
+        return createHivePrestoSparkQueryRunner();
     }
 }

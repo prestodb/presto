@@ -44,6 +44,8 @@ import static com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient.
 import static com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient.TEST_METASTORE_CONTEXT;
 import static com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient.TEST_PARTITION1;
 import static com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient.TEST_PARTITION2;
+import static com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient.TEST_PARTITION_VALUES1;
+import static com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient.TEST_PARTITION_VALUES2;
 import static com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient.TEST_ROLES;
 import static com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient.TEST_TABLE;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
@@ -79,7 +81,8 @@ public class TestCachingHiveMetastore
                 new Duration(1, TimeUnit.MINUTES),
                 1000,
                 false,
-                MetastoreCacheScope.ALL);
+                MetastoreCacheScope.ALL,
+                0.0);
         stats = thriftHiveMetastore.getStats();
     }
 
@@ -184,10 +187,10 @@ public class TestCachingHiveMetastore
     private static class MockPartitionMutator
             implements PartitionMutator
     {
-        private final Function<Integer, Integer> versionUpdater;
-        private int version = PARTITION_VERSION;
+        private final Function<Long, Long> versionUpdater;
+        private long version = PARTITION_VERSION;
 
-        public MockPartitionMutator(Function<Integer, Integer> versionUpdater)
+        public MockPartitionMutator(Function<Long, Long> versionUpdater)
         {
             this.versionUpdater = versionUpdater;
         }
@@ -216,7 +219,8 @@ public class TestCachingHiveMetastore
                 new Duration(1, TimeUnit.MINUTES),
                 1000,
                 true,
-                MetastoreCacheScope.PARTITION);
+                MetastoreCacheScope.PARTITION,
+                0.0);
 
         assertEquals(mockClient.getAccessCount(), 0);
         assertEquals(partitionCachingEnabledmetastore.getPartitionNamesByFilter(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableMap.of()), EXPECTED_PARTITIONS);
@@ -261,7 +265,8 @@ public class TestCachingHiveMetastore
                 new Duration(1, TimeUnit.MINUTES),
                 1000,
                 true,
-                MetastoreCacheScope.PARTITION);
+                MetastoreCacheScope.PARTITION,
+                0.0);
 
         int clientAccessCount = 0;
         for (int i = 0; i < 100; i++) {
@@ -276,6 +281,35 @@ public class TestCachingHiveMetastore
     public void testInvalidGetPartitionNamesByParts()
     {
         assertTrue(metastore.getPartitionNamesByFilter(TEST_METASTORE_CONTEXT, BAD_DATABASE, TEST_TABLE, ImmutableMap.of()).isEmpty());
+    }
+
+    @Test
+    public void testPartitionCacheValidation()
+    {
+        MockHiveMetastoreClient mockClient = new MockHiveMetastoreClient();
+        MockHiveCluster mockHiveCluster = new MockHiveCluster(mockClient);
+        ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("partition-versioning-test-%s")));
+        MockHiveMetastore mockHiveMetastore = new MockHiveMetastore(mockHiveCluster);
+        PartitionMutator mockPartitionMutator = new MockPartitionMutator(identity());
+        CachingHiveMetastore partitionCacheVerificationEnabledMetastore = new CachingHiveMetastore(
+                new BridgingHiveMetastore(mockHiveMetastore, mockPartitionMutator),
+                executor,
+                false,
+                new Duration(5, TimeUnit.MINUTES),
+                new Duration(1, TimeUnit.MINUTES),
+                1000,
+                true,
+                MetastoreCacheScope.PARTITION,
+                100.0);
+
+        // Warmup the cache
+        partitionCacheVerificationEnabledMetastore.getPartitionsByNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2));
+
+        // Each of the following calls will be a cache hit and verification will be done.
+        partitionCacheVerificationEnabledMetastore.getPartition(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, TEST_PARTITION_VALUES1);
+        partitionCacheVerificationEnabledMetastore.getPartitionsByNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION1));
+        partitionCacheVerificationEnabledMetastore.getPartition(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, TEST_PARTITION_VALUES2);
+        partitionCacheVerificationEnabledMetastore.getPartitionsByNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION2));
     }
 
     @Test

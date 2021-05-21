@@ -15,6 +15,7 @@ package com.facebook.presto.spark.util;
 
 import com.facebook.airlift.json.Codec;
 import com.facebook.presto.common.block.BlockEncodingManager;
+import com.facebook.presto.spark.PrestoSparkServiceWaitTimeMetrics;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage;
 import com.facebook.presto.spi.page.PageCompressor;
 import com.facebook.presto.spi.page.PageDecompressor;
@@ -23,9 +24,11 @@ import com.facebook.presto.spi.page.SerializedPage;
 import com.github.luben.zstd.Zstd;
 import com.github.luben.zstd.ZstdInputStreamNoFinalizer;
 import com.github.luben.zstd.ZstdOutputStreamNoFinalizer;
+import com.google.common.collect.AbstractIterator;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.airlift.units.Duration;
 import org.apache.spark.SparkException;
 import org.apache.spark.api.java.JavaFutureAction;
 import scala.reflect.ClassTag;
@@ -36,7 +39,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -53,7 +59,6 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class PrestoSparkUtils
 {
     private static final int COMPRESSION_LEVEL = 3; // default level
-
     private PrestoSparkUtils() {}
 
     public static PrestoSparkSerializedPage toPrestoSparkSerializedPage(SerializedPage serializedPage)
@@ -202,22 +207,18 @@ public class PrestoSparkUtils
     }
 
     public static long computeNextTimeout(long queryCompletionDeadline)
-            throws TimeoutException
     {
-        long timeout = queryCompletionDeadline - System.currentTimeMillis();
-        if (timeout <= 0) {
-            throw new TimeoutException();
-        }
-        return timeout;
+        return queryCompletionDeadline - System.currentTimeMillis();
     }
 
-    public static <T> T getActionResultWithTimeout(JavaFutureAction<T> action, long timeout, TimeUnit timeUnit)
+    public static <T> T getActionResultWithTimeout(JavaFutureAction<T> action, long timeout, TimeUnit timeUnit, Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics)
             throws SparkException, TimeoutException
     {
         long deadline = System.currentTimeMillis() + timeUnit.toMillis(timeout);
         try {
             while (true) {
-                long nextTimeoutInMillis = deadline - System.currentTimeMillis();
+                long totalWaitTime = waitTimeMetrics.stream().map(PrestoSparkServiceWaitTimeMetrics::getWaitTime).mapToLong(Duration::toMillis).sum();
+                long nextTimeoutInMillis = (deadline + totalWaitTime) - System.currentTimeMillis();
                 if (nextTimeoutInMillis <= 0) {
                     throw new TimeoutException();
                 }
@@ -225,10 +226,6 @@ public class PrestoSparkUtils
                     return action.get(nextTimeoutInMillis, MILLISECONDS);
                 }
                 catch (TimeoutException e) {
-                    // guard against spurious wakeup
-                    if (deadline - System.currentTimeMillis() <= 0) {
-                        throw e;
-                    }
                 }
             }
         }
@@ -253,5 +250,25 @@ public class PrestoSparkUtils
     public static <T> ClassTag<T> classTag(Class<T> clazz)
     {
         return scala.reflect.ClassTag$.MODULE$.apply(clazz);
+    }
+
+    public static <T> Iterator<T> getNullifyingIterator(List<T> list)
+    {
+        return new AbstractIterator<T>()
+        {
+            private int index;
+
+            @Override
+            protected T computeNext()
+            {
+                if (index >= list.size()) {
+                    return endOfData();
+                }
+                T element = list.get(index);
+                list.set(index, null);
+                index++;
+                return element;
+            }
+        };
     }
 }

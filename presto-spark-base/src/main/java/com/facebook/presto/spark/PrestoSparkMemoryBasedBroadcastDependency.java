@@ -21,6 +21,7 @@ import org.apache.spark.broadcast.Broadcast;
 import scala.Tuple2;
 
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeoutException;
 
 import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalBroadcastMemoryLimit;
@@ -38,19 +39,21 @@ public class PrestoSparkMemoryBasedBroadcastDependency
     private final DataSize maxBroadcastSize;
     private final long queryCompletionDeadline;
     private Broadcast<List<PrestoSparkSerializedPage>> broadcastVariable;
+    private final Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics;
 
-    public PrestoSparkMemoryBasedBroadcastDependency(RddAndMore<PrestoSparkSerializedPage> broadcastDependency, DataSize maxBroadcastSize, long queryCompletionDeadline)
+    public PrestoSparkMemoryBasedBroadcastDependency(RddAndMore<PrestoSparkSerializedPage> broadcastDependency, DataSize maxBroadcastSize, long queryCompletionDeadline, Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics)
     {
         this.broadcastDependency = requireNonNull(broadcastDependency, "broadcastDependency cannot be null");
         this.maxBroadcastSize = requireNonNull(maxBroadcastSize, "maxBroadcastSize cannot be null");
         this.queryCompletionDeadline = queryCompletionDeadline;
+        this.waitTimeMetrics = requireNonNull(waitTimeMetrics, "waitTimeMetrics cannot be null");
     }
 
     @Override
     public Broadcast<List<PrestoSparkSerializedPage>> executeBroadcast(JavaSparkContext sparkContext)
             throws SparkException, TimeoutException
     {
-        List<PrestoSparkSerializedPage> broadcastValue = broadcastDependency.collectAndDestroyDependenciesWithTimeout(computeNextTimeout(queryCompletionDeadline), MILLISECONDS).stream()
+        List<PrestoSparkSerializedPage> broadcastValue = broadcastDependency.collectAndDestroyDependenciesWithTimeout(computeNextTimeout(queryCompletionDeadline), MILLISECONDS, waitTimeMetrics).stream()
                 .map(Tuple2::_2)
                 .collect(toList());
 

@@ -393,6 +393,11 @@ public class QueryContext
         return peakNodeTotalMemory;
     }
 
+    public synchronized void setPeakNodeTotalMemory(long peakNodeTotalMemoryInBytes)
+    {
+        this.peakNodeTotalMemory = peakNodeTotalMemoryInBytes;
+    }
+
     private static class QueryMemoryReservationHandler
             implements MemoryReservationHandler
     {
@@ -473,7 +478,7 @@ public class QueryContext
     }
 
     @GuardedBy("this")
-    private String getAdditionalFailureInfo(long allocated, long delta)
+    public String getAdditionalFailureInfo(long allocated, long delta)
     {
         Map<String, Long> queryAllocations = memoryPool.getTaggedMemoryAllocations(queryId);
 

@@ -51,6 +51,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.SortedMap;
 
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
@@ -88,13 +89,22 @@ public class DwrfMetadataReader
 
         HiveWriterVersion writerVersion = postScript.hasWriterVersion() && postScript.getWriterVersion() > 0 ? ORC_HIVE_8732 : ORIGINAL;
 
+        OptionalInt stripeCacheLength = OptionalInt.empty();
+        Optional<DwrfStripeCacheMode> stripeCacheMode = Optional.empty();
+        if (postScript.hasCacheSize() && postScript.hasCacheMode()) {
+            stripeCacheLength = OptionalInt.of(postScript.getCacheSize());
+            stripeCacheMode = Optional.of(toStripeCacheMode(postScript.getCacheMode()));
+        }
+
         return new PostScript(
                 ImmutableList.of(),
                 postScript.getFooterLength(),
                 0,
                 toCompression(postScript.getCompression()),
                 postScript.getCompressionBlockSize(),
-                writerVersion);
+                writerVersion,
+                stripeCacheLength,
+                stripeCacheMode);
     }
 
     @Override
@@ -118,6 +128,7 @@ public class DwrfMetadataReader
         List<StripeInformation> fileStripes = toStripeInformation(footer.getStripesList());
         List<OrcType> types = toType(footer.getTypesList());
         Optional<DwrfEncryption> encryption = footer.hasEncryption() ? Optional.of(toEncryption(footer.getEncryption())) : Optional.empty();
+        Optional<List<Integer>> stripeCacheOffsets = Optional.of(footer.getStripeCacheOffsetsList());
 
         if (encryption.isPresent()) {
             Map<Integer, Slice> keys = dwrfKeyProvider.getIntermediateKeys(types);
@@ -132,7 +143,8 @@ public class DwrfMetadataReader
                 types,
                 fileStats,
                 toUserMetadata(footer.getMetadataList()),
-                encryption);
+                encryption,
+                stripeCacheOffsets);
     }
 
     private List<ColumnStatistics> decryptAndCombineFileStatistics(HiveWriterVersion hiveWriterVersion,
@@ -299,10 +311,10 @@ public class DwrfMetadataReader
     {
         return new Stream(
                 stream.getColumn(),
+                stream.getSequence(),
                 toStreamKind(stream.getKind()),
                 toIntExact(stream.getLength()),
                 stream.getUseVInts(),
-                stream.getSequence(),
                 stream.hasOffset() ? Optional.of(stream.getOffset()) : Optional.empty());
     }
 
@@ -630,6 +642,20 @@ public class DwrfMetadataReader
                 return ZSTD;
             default:
                 throw new IllegalArgumentException(compression + " compression not implemented yet");
+        }
+    }
+
+    static DwrfStripeCacheMode toStripeCacheMode(DwrfProto.StripeCacheMode mode)
+    {
+        switch (mode) {
+            case INDEX:
+                return DwrfStripeCacheMode.INDEX;
+            case FOOTER:
+                return DwrfStripeCacheMode.FOOTER;
+            case BOTH:
+                return DwrfStripeCacheMode.INDEX_AND_FOOTER;
+            default:
+                return DwrfStripeCacheMode.NONE;
         }
     }
 

@@ -15,6 +15,7 @@ package com.facebook.presto.mongodb;
 
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -41,9 +42,11 @@ public class TestMongoIntegrationSmokeTest
 {
     private MongoQueryRunner mongoQueryRunner;
 
-    public TestMongoIntegrationSmokeTest()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createMongoQueryRunner(ORDERS));
+        return createMongoQueryRunner(ORDERS);
     }
 
     @BeforeClass

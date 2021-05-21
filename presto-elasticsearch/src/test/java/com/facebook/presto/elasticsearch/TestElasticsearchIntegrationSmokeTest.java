@@ -20,13 +20,11 @@ import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.BaseEncoding;
-import com.google.common.io.Closer;
 import io.airlift.tpch.TpchTable;
 import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -49,36 +47,21 @@ import static org.elasticsearch.client.Requests.refreshRequest;
 public class TestElasticsearchIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private final EmbeddedElasticsearchNode embeddedElasticsearchNode;
+    private EmbeddedElasticsearchNode embeddedElasticsearchNode;
 
-    private QueryRunner queryRunner;
-
-    public TestElasticsearchIntegrationSmokeTest()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        this(createEmbeddedElasticsearchNode());
-    }
-
-    public TestElasticsearchIntegrationSmokeTest(EmbeddedElasticsearchNode embeddedElasticsearchNode)
-    {
-        super(() -> createElasticsearchQueryRunner(embeddedElasticsearchNode, TpchTable.getTables()));
-        this.embeddedElasticsearchNode = embeddedElasticsearchNode;
-    }
-
-    @BeforeClass
-    public void setUp()
-    {
-        queryRunner = getQueryRunner();
+        embeddedElasticsearchNode = createEmbeddedElasticsearchNode();
+        return createElasticsearchQueryRunner(embeddedElasticsearchNode, TpchTable.getTables());
     }
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
             throws IOException
     {
-        try (Closer closer = Closer.create()) {
-            closer.register(queryRunner);
-            closer.register(embeddedElasticsearchNode);
-        }
-        queryRunner = null;
+        embeddedElasticsearchNode.close();
     }
 
     @Test
@@ -146,15 +129,15 @@ public class TestElasticsearchIntegrationSmokeTest
     {
         assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
                 .isEqualTo("CREATE TABLE elasticsearch.tpch.orders (\n" +
-                        "   clerk varchar,\n" +
-                        "   comment varchar,\n" +
-                        "   custkey bigint,\n" +
-                        "   orderdate timestamp,\n" +
-                        "   orderkey bigint,\n" +
-                        "   orderpriority varchar,\n" +
-                        "   orderstatus varchar,\n" +
-                        "   shippriority bigint,\n" +
-                        "   totalprice real\n" +
+                        "   \"clerk\" varchar,\n" +
+                        "   \"comment\" varchar,\n" +
+                        "   \"custkey\" bigint,\n" +
+                        "   \"orderdate\" timestamp,\n" +
+                        "   \"orderkey\" bigint,\n" +
+                        "   \"orderpriority\" varchar,\n" +
+                        "   \"orderstatus\" varchar,\n" +
+                        "   \"shippriority\" bigint,\n" +
+                        "   \"totalprice\" real\n" +
                         ")");
     }
 

@@ -61,6 +61,7 @@ public class DecimalColumnWriter
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(DecimalColumnWriter.class).instanceSize();
     private final int column;
+    private final int dwrfSequence;
     private final DecimalType type;
     private final ColumnEncoding columnEncoding;
     private final boolean compressed;
@@ -77,13 +78,15 @@ public class DecimalColumnWriter
 
     private boolean closed;
 
-    public DecimalColumnWriter(int column, Type type, ColumnWriterOptions columnWriterOptions, OrcEncoding orcEncoding, MetadataWriter metadataWriter)
+    public DecimalColumnWriter(int column, int dwrfSequence, Type type, ColumnWriterOptions columnWriterOptions, OrcEncoding orcEncoding, MetadataWriter metadataWriter)
     {
         checkArgument(column >= 0, "column is negative");
+        checkArgument(dwrfSequence >= 0, "sequence is negative");
         requireNonNull(columnWriterOptions, "columnWriterOptions is null");
         checkArgument(orcEncoding != DWRF, "DWRF does not support %s type", type);
         requireNonNull(metadataWriter, "metadataWriter is null");
         this.column = column;
+        this.dwrfSequence = dwrfSequence;
         this.type = (DecimalType) requireNonNull(type, "type is null");
         this.compressed = columnWriterOptions.getCompressionKind() != NONE;
         this.columnEncoding = new ColumnEncoding(DIRECT_V2, 0);
@@ -208,7 +211,7 @@ public class DecimalColumnWriter
         }
 
         Slice slice = metadataWriter.writeRowIndexes(rowGroupIndexes.build());
-        Stream stream = new Stream(column, StreamKind.ROW_INDEX, slice.length(), false);
+        Stream stream = new Stream(column, dwrfSequence, StreamKind.ROW_INDEX, slice.length(), false);
         return ImmutableList.of(new StreamDataOutput(slice, stream));
     }
 
@@ -231,9 +234,9 @@ public class DecimalColumnWriter
         checkState(closed);
 
         ImmutableList.Builder<StreamDataOutput> outputDataStreams = ImmutableList.builder();
-        presentStream.getStreamDataOutput(column).ifPresent(outputDataStreams::add);
-        outputDataStreams.add(dataStream.getStreamDataOutput(column));
-        outputDataStreams.add(scaleStream.getStreamDataOutput(column));
+        presentStream.getStreamDataOutput(column, dwrfSequence).ifPresent(outputDataStreams::add);
+        outputDataStreams.add(dataStream.getStreamDataOutput(column, dwrfSequence));
+        outputDataStreams.add(scaleStream.getStreamDataOutput(column, dwrfSequence));
         return outputDataStreams.build();
     }
 

@@ -142,11 +142,6 @@ public abstract class AbstractTestQueries
 
     private static final String UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG = "line .*: Given correlated subquery is not supported";
 
-    protected AbstractTestQueries(QueryRunnerSupplier supplier)
-    {
-        super(supplier);
-    }
-
     @Test
     public void testParsingError()
     {
@@ -165,7 +160,7 @@ public abstract class AbstractTestQueries
         assertEquals(result.getMaterializedRows().get(0).getField(0), new SqlIntervalYearMonth(Short.MAX_VALUE, 0));
     }
 
-    @Test
+    @Test(enabled = false)
     public void testEmptyJoins()
     {
         Session sessionWithEmptyJoin = Session.builder(getSession())

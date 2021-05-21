@@ -63,6 +63,7 @@ public abstract class DictionaryColumnWriter
         implements ColumnWriter, DictionaryColumn
 {
     protected final int column;
+    protected final int dwrfSequence;
     protected final Type type;
     protected final ColumnWriterOptions columnWriterOptions;
     protected final Optional<DwrfDataEncryptor> dwrfEncryptor;
@@ -86,6 +87,7 @@ public abstract class DictionaryColumnWriter
 
     public DictionaryColumnWriter(
             int column,
+            int dwrfSequence,
             Type type,
             ColumnWriterOptions columnWriterOptions,
             Optional<DwrfDataEncryptor> dwrfEncryptor,
@@ -93,7 +95,9 @@ public abstract class DictionaryColumnWriter
             MetadataWriter metadataWriter)
     {
         checkArgument(column >= 0, "column is negative");
+        checkArgument(dwrfSequence >= 0, "sequence is negative");
         this.column = column;
+        this.dwrfSequence = dwrfSequence;
         this.type = requireNonNull(type, "type is null");
         this.columnWriterOptions = requireNonNull(columnWriterOptions, "columnWriterOptions is null");
         this.dwrfEncryptor = requireNonNull(dwrfEncryptor, "dwrfEncryptor is null");
@@ -365,7 +369,7 @@ public abstract class DictionaryColumnWriter
         }
 
         Slice slice = compressedMetadataWriter.writeRowIndexes(rowGroupIndexes.build());
-        Stream stream = new Stream(column, StreamKind.ROW_INDEX, slice.length(), false);
+        Stream stream = new Stream(column, dwrfSequence, StreamKind.ROW_INDEX, slice.length(), false);
         return ImmutableList.of(new StreamDataOutput(slice, stream));
     }
 
@@ -390,8 +394,8 @@ public abstract class DictionaryColumnWriter
 
         // actually write data
         ImmutableList.Builder<StreamDataOutput> outputDataStreams = ImmutableList.builder();
-        presentStream.getStreamDataOutput(column).ifPresent(outputDataStreams::add);
-        outputDataStreams.add(dataStream.getStreamDataOutput(column));
+        presentStream.getStreamDataOutput(column, dwrfSequence).ifPresent(outputDataStreams::add);
+        outputDataStreams.add(dataStream.getStreamDataOutput(column, dwrfSequence));
         outputDataStreams.addAll(getDictionaryStreams(column));
         return outputDataStreams.build();
     }

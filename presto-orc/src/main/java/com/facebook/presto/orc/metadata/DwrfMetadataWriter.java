@@ -252,6 +252,7 @@ public class DwrfMetadataWriter
     {
         DwrfProto.Stream.Builder streamBuilder = DwrfProto.Stream.newBuilder()
                 .setColumn(stream.getColumn())
+                .setSequence(stream.getSequence())
                 .setKind(toStreamKind(stream.getStreamKind()))
                 .setLength(stream.getLength())
                 .setUseVInts(stream.isUseVInts());

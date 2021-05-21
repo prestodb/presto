@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive.statistics;
 
-import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.HiveBasicStatistics;
@@ -88,7 +87,6 @@ import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestMetastoreHiveStatisticsProvider
 {
@@ -116,14 +114,6 @@ public class TestMetastoreHiveStatisticsProvider
         assertEquals(getPartitionsSample(ImmutableList.of(p1, p2, p3, p4), 1), getPartitionsSample(ImmutableList.of(p1, p2, p3, p4), 1));
         assertEquals(getPartitionsSample(ImmutableList.of(p1, p2, p3, p4), 3), getPartitionsSample(ImmutableList.of(p1, p2, p3, p4), 3));
         assertEquals(getPartitionsSample(ImmutableList.of(p1, p2, p3, p4, p5), 3), ImmutableList.of(p1, p5, p4));
-    }
-
-    @Test
-    public void testNullablePartitionValue()
-    {
-        HivePartition part = partition("p1=name/p2=\\N");
-        NullableValue verify = new NullableValue(BIGINT, null);
-        assertTrue(part.getKeys().containsValue(verify));
     }
 
     @Test

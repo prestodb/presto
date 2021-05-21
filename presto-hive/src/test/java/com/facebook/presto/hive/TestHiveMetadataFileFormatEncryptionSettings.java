@@ -19,7 +19,6 @@ import com.facebook.presto.hive.datasink.OutputStreamDataSinkFactory;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HivePartitionMutator;
-import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.thrift.BridgingHiveMetastore;
 import com.facebook.presto.hive.metastore.thrift.InMemoryHiveMetastore;
@@ -54,6 +53,7 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.hive.ColumnEncryptionInformation.fromTableProperty;
 import static com.facebook.presto.hive.EncryptionInformation.fromEncryptionMetadata;
+import static com.facebook.presto.hive.HiveQueryRunner.METASTORE_CONTEXT;
 import static com.facebook.presto.hive.HiveSessionProperties.NEW_PARTITION_USER_SUPPLIED_PARAMETER;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
@@ -72,6 +72,7 @@ import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_RESOLUTION;
 import static com.facebook.presto.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static com.facebook.presto.hive.HiveTestUtils.HIVE_CLIENT_CONFIG;
 import static com.facebook.presto.hive.HiveTestUtils.PARTITION_UPDATE_CODEC;
+import static com.facebook.presto.hive.HiveTestUtils.PARTITION_UPDATE_SMILE_CODEC;
 import static com.facebook.presto.hive.HiveTestUtils.ROW_EXPRESSION_SERVICE;
 import static com.facebook.presto.hive.PartitionUpdate.UpdateMode.APPEND;
 import static com.facebook.presto.hive.PartitionUpdate.UpdateMode.NEW;
@@ -127,6 +128,7 @@ public class TestHiveMetadataFileFormatEncryptionSettings
                 FILTER_STATS_CALCULATOR_SERVICE,
                 new TableParameterCodec(),
                 PARTITION_UPDATE_CODEC,
+                PARTITION_UPDATE_SMILE_CODEC,
                 listeningDecorator(executor),
                 new HiveTypeTranslator(),
                 new HiveStagingFileCommitter(HDFS_ENVIRONMENT, listeningDecorator(executor)),
@@ -137,7 +139,7 @@ public class TestHiveMetadataFileFormatEncryptionSettings
                 new HivePartitionStats(),
                 new HiveFileRenamer());
 
-        metastore.createDatabase(new MetastoreContext("test_user"), Database.builder()
+        metastore.createDatabase(METASTORE_CONTEXT, Database.builder()
                 .setDatabaseName(TEST_DB_NAME)
                 .setOwnerName("public")
                 .setOwnerType(PrincipalType.ROLE)
@@ -289,7 +291,7 @@ public class TestHiveMetadataFileFormatEncryptionSettings
 
             metadata.commit();
 
-            Map<String, Optional<Partition>> partitions = metastore.getPartitionsByNames(new MetastoreContext("test_user"), TEST_DB_NAME, tableName, ImmutableList.of("ds=2020-06-26", "ds=2020-06-27"));
+            Map<String, Optional<Partition>> partitions = metastore.getPartitionsByNames(METASTORE_CONTEXT, TEST_DB_NAME, tableName, ImmutableList.of("ds=2020-06-26", "ds=2020-06-27"));
             assertEquals(partitions.get("ds=2020-06-26").get().getParameters().get(TEST_EXTRA_METADATA), "test_algo");
             assertEquals(partitions.get("ds=2020-06-27").get().getParameters().get(TEST_EXTRA_METADATA), "test_algo");
             // Checking NEW_PARTITION_USER_SUPPLIED_PARAMETER
@@ -459,7 +461,7 @@ public class TestHiveMetadataFileFormatEncryptionSettings
                     ImmutableList.of());
             createHiveMetadata.commit();
 
-            Map<String, Optional<Partition>> partitions = metastore.getPartitionsByNames(new MetastoreContext("test_user"), TEST_DB_NAME, tableName, ImmutableList.of("ds=2020-06-26", "ds=2020-06-27"));
+            Map<String, Optional<Partition>> partitions = metastore.getPartitionsByNames(METASTORE_CONTEXT, TEST_DB_NAME, tableName, ImmutableList.of("ds=2020-06-26", "ds=2020-06-27"));
             assertEquals(partitions.get("ds=2020-06-26").get().getStorage().getLocation(), "path1");
             assertEquals(partitions.get("ds=2020-06-26").get().getParameters().get(TEST_EXTRA_METADATA), "test_algo");
             assertEquals(partitions.get("ds=2020-06-27").get().getParameters().get(TEST_EXTRA_METADATA), "test_algo");
@@ -476,7 +478,7 @@ public class TestHiveMetadataFileFormatEncryptionSettings
                     ImmutableList.of());
             overrideHiveMetadata.commit();
 
-            partitions = metastore.getPartitionsByNames(new MetastoreContext("test_user"), TEST_DB_NAME, tableName, ImmutableList.of("ds=2020-06-26"));
+            partitions = metastore.getPartitionsByNames(METASTORE_CONTEXT, TEST_DB_NAME, tableName, ImmutableList.of("ds=2020-06-26"));
             assertEquals(partitions.get("ds=2020-06-26").get().getStorage().getLocation(), "path3");
             assertEquals(partitions.get("ds=2020-06-26").get().getParameters().get(TEST_EXTRA_METADATA), "test_algo");
         }

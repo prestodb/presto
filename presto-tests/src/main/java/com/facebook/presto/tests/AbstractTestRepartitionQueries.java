@@ -20,11 +20,6 @@ import static org.testng.Assert.assertEquals;
 public abstract class AbstractTestRepartitionQueries
         extends AbstractTestQueryFramework
 {
-    protected AbstractTestRepartitionQueries(QueryRunnerSupplier supplier)
-    {
-        super(supplier);
-    }
-
     @Test
     public void testBoolean()
     {

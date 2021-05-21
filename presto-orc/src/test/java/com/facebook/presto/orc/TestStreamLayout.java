@@ -26,6 +26,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
+import static com.facebook.presto.orc.metadata.ColumnEncoding.DEFAULT_SEQUENCE_ID;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
@@ -33,7 +34,7 @@ public class TestStreamLayout
 {
     private static StreamDataOutput createStream(int column, StreamKind streamKind, int length)
     {
-        Stream stream = new Stream(column, streamKind, length, true);
+        Stream stream = new Stream(column, DEFAULT_SEQUENCE_ID, streamKind, length, true);
         return new StreamDataOutput(Slices.allocate(1024), stream);
     }
 

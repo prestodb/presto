@@ -72,11 +72,6 @@ import static org.testng.Assert.assertTrue;
 public abstract class AbstractTestDistributedQueries
         extends AbstractTestQueries
 {
-    protected AbstractTestDistributedQueries(QueryRunnerSupplier supplier)
-    {
-        super(supplier);
-    }
-
     protected boolean supportsViews()
     {
         return true;
@@ -345,8 +340,8 @@ public abstract class AbstractTestDistributedQueries
 
         String catalog = getSession().getCatalog().get();
         String createTableStatement = "CREATE TABLE " + catalog + ".tpch.test_not_null_with_insert (\n" +
-                "   column_a date,\n" +
-                "   column_b date NOT NULL\n" +
+                "   \"column_a\" date,\n" +
+                "   \"column_b\" date NOT NULL\n" +
                 ")";
         assertUpdate("CREATE TABLE test_not_null_with_insert (column_a DATE, column_b DATE NOT NULL)");
         assertQuery(
@@ -360,9 +355,9 @@ public abstract class AbstractTestDistributedQueries
         assertQuery(
                 "SHOW CREATE TABLE test_not_null_with_insert",
                 "VALUES 'CREATE TABLE " + catalog + ".tpch.test_not_null_with_insert (\n" +
-                        "   column_a date,\n" +
-                        "   column_b date NOT NULL,\n" +
-                        "   column_c bigint NOT NULL\n" +
+                        "   \"column_a\" date,\n" +
+                        "   \"column_b\" date NOT NULL,\n" +
+                        "   \"column_c\" bigint NOT NULL\n" +
                         ")'");
 
         assertQueryFails("INSERT INTO test_not_null_with_insert (column_b) VALUES (date '2012-12-31')", "(?s).*column_c.*null.*");
