@@ -22,7 +22,6 @@ import com.facebook.presto.hive.HiveHdfsConfiguration;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
-import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.AfterClass;
@@ -35,6 +34,7 @@ import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.presto.hive.HiveQueryRunner.METASTORE_CONTEXT;
 import static java.util.Locale.ENGLISH;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -126,11 +126,12 @@ public class TestHiveClientGlueMetastore
     }
 
     @Test
-    public void testGetPartitions() throws Exception
+    public void testGetPartitions()
+            throws Exception
     {
         try {
             createDummyPartitionedTable(tablePartitionFormat, CREATE_TABLE_COLUMNS_PARTITIONED);
-            Optional<List<String>> partitionNames = getMetastoreClient().getPartitionNames(new MetastoreContext("test_user"), tablePartitionFormat.getSchemaName(), tablePartitionFormat.getTableName());
+            Optional<List<String>> partitionNames = getMetastoreClient().getPartitionNames(METASTORE_CONTEXT, tablePartitionFormat.getSchemaName(), tablePartitionFormat.getTableName());
             assertTrue(partitionNames.isPresent());
             assertEquals(partitionNames.get(), ImmutableList.of("ds=2016-01-01", "ds=2016-01-02"));
         }

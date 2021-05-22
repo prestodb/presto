@@ -136,7 +136,8 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
                 hiveConnectorFactory,
                 ImmutableMap.of(
                         "hive.metastore.uri", "thrift://127.0.0.1:9083",
-                        "hive.time-zone", TIME_ZONE.getID()));
+                        "hive.time-zone", TIME_ZONE.getID(),
+                        "hive.experimental-optimized-partition-update-serialization-enabled", "true"));
         localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(), ImmutableMap.of());
         // it may take some time for the docker container to start
         ensureHiveIsRunning(localQueryRunner, new Duration(10, MINUTES));

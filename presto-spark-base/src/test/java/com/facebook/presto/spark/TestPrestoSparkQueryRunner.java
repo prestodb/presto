@@ -14,7 +14,6 @@
 package com.facebook.presto.spark;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
@@ -28,6 +27,7 @@ import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.PARTIAL_MERGE_PUSHDOWN_STRATEGY;
+import static com.facebook.presto.spark.PrestoSparkQueryRunner.METASTORE_CONTEXT;
 import static com.facebook.presto.spark.PrestoSparkQueryRunner.createHivePrestoSparkQueryRunner;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_SPLIT_ASSIGNMENT_BATCH_SIZE;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.STORAGE_BASED_BROADCAST_JOIN_ENABLED;
@@ -100,6 +100,18 @@ public class TestPrestoSparkQueryRunner
                         "   SELECT orderkey, 'ccc' AS dummy FROM orders " +
                         ")",
                 45000);
+    }
+
+    @Test
+    public void testZeroFileCreatorForBucketedTable()
+    {
+        assertUpdate(
+                getSession(),
+                format("CREATE TABLE hive.hive_test.test_hive_orders_bucketed_join_zero_file WITH (bucketed_by=array['orderkey'], bucket_count=8) AS " +
+                        "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
+                        "FROM orders_bucketed " +
+                        "WHERE orderkey = 1"),
+                1);
     }
 
     @Test
@@ -253,7 +265,7 @@ public class TestPrestoSparkQueryRunner
 
     private void dropTable(String schema, String table)
     {
-        ((PrestoSparkQueryRunner) getQueryRunner()).getMetastore().dropTable(new MetastoreContext("test_user"), schema, table, true);
+        ((PrestoSparkQueryRunner) getQueryRunner()).getMetastore().dropTable(METASTORE_CONTEXT, schema, table, true);
     }
 
     @Test

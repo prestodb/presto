@@ -4,7 +4,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.254-SNAPSHOT</version>
+        <version>0.255-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-geospatial</artifactId>
@@ -195,6 +195,10 @@
                         <ignoredResourcePattern>parquet.thrift</ignoredResourcePattern>
                         <ignoredResourcePattern>about.html</ignoredResourcePattern>
                     </ignoredResourcePatterns>
+                    <ignoredClassPatterns>
+                        <ignoredClassPattern>shaded.parquet.it.unimi.dsi.fastutil.*</ignoredClassPattern>
+                        <ignoredClassPattern>module-info</ignoredClassPattern>
+                    </ignoredClassPatterns>
                 </configuration>
             </plugin>
         </plugins>

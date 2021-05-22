@@ -188,6 +188,8 @@ public class HiveClientConfig
     private boolean manifestVerificationEnabled;
     private boolean undoMetastoreOperationsEnabled = true;
 
+    private boolean optimizedPartitionUpdateSerializationEnabled;
+
     public int getMaxInitialSplits()
     {
         return maxInitialSplits;
@@ -1593,5 +1595,18 @@ public class HiveClientConfig
     public boolean isUndoMetastoreOperationsEnabled()
     {
         return undoMetastoreOperationsEnabled;
+    }
+
+    public boolean isOptimizedPartitionUpdateSerializationEnabled()
+    {
+        return optimizedPartitionUpdateSerializationEnabled;
+    }
+
+    @Config("hive.experimental-optimized-partition-update-serialization-enabled")
+    @ConfigDescription("Serialize PartitionUpdate objects using binary SMILE encoding and compress with the ZSTD compression")
+    public HiveClientConfig setOptimizedPartitionUpdateSerializationEnabled(boolean optimizedPartitionUpdateSerializationEnabled)
+    {
+        this.optimizedPartitionUpdateSerializationEnabled = optimizedPartitionUpdateSerializationEnabled;
+        return this;
     }
 }

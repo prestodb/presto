@@ -19,6 +19,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -105,6 +106,46 @@ public final class Range
     public Marker getHigh()
     {
         return high;
+    }
+
+    public boolean isLowInclusive()
+    {
+        return low.getBound() == Marker.Bound.EXACTLY;
+    }
+
+    public boolean isLowUnbounded()
+    {
+        return low.isLowerUnbounded();
+    }
+
+    public Object getLowBoundedValue()
+    {
+        return low.getValue();
+    }
+
+    public Optional<Object> getLowValue()
+    {
+        return low.getValueBlock().isPresent() ? Optional.of(low.getValue()) : Optional.empty();
+    }
+
+    public boolean isHighInclusive()
+    {
+        return high.getBound() == Marker.Bound.EXACTLY;
+    }
+
+    public boolean isHighUnbounded()
+    {
+        return high.isUpperUnbounded();
+    }
+
+    public Object getHighBoundedValue()
+    {
+        return high.getValue();
+    }
+
+    public Optional<Object> getHighValue()
+    {
+        return high.getValueBlock().isPresent() ? Optional.of(high.getValue()) : Optional.empty();
     }
 
     public boolean isSingleValue()

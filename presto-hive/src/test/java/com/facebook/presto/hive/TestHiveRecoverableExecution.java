@@ -52,6 +52,7 @@ import static com.facebook.presto.SystemSessionProperties.TASK_PARTITIONED_WRITE
 import static com.facebook.presto.SystemSessionProperties.TASK_WRITER_COUNT;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveQueryRunner.TPCH_BUCKETED_SCHEMA;
+import static com.facebook.presto.hive.HiveSessionProperties.OPTIMIZED_PARTITION_UPDATE_SERIALIZATION_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.VIRTUAL_BUCKET_COUNT;
 import static com.facebook.presto.spi.security.SelectedRole.Type.ALL;
 import static com.facebook.presto.spi.security.SelectedRole.Type.ROLE;
@@ -136,19 +137,20 @@ public class TestHiveRecoverableExecution
         queryRunner = null;
     }
 
-    @DataProvider(name = "writerConcurrency")
-    public static Object[][] writerConcurrency()
+    @DataProvider(name = "testSettings")
+    public static Object[][] testSettings()
     {
-        return new Object[][] {{1}, {2}};
+        return new Object[][] {{1, true}, {2, false}, {2, true}};
     }
 
-    @Test(timeOut = TEST_TIMEOUT, dataProvider = "writerConcurrency", invocationCount = INVOCATION_COUNT)
-    public void testCreateBucketedTable(int writerConcurrency)
+    @Test(timeOut = TEST_TIMEOUT, dataProvider = "testSettings", invocationCount = INVOCATION_COUNT)
+    public void testCreateBucketedTable(int writerConcurrency, boolean optimizedPartitionUpdateSerializationEnabled)
             throws Exception
     {
         testRecoverableGroupedExecution(
                 queryRunner,
                 writerConcurrency,
+                optimizedPartitionUpdateSerializationEnabled,
                 ImmutableList.of(
                         "CREATE TABLE create_bucketed_table_1\n" +
                                 "WITH (bucket_count = 13, bucketed_by = ARRAY['key1']) AS\n" +
@@ -182,13 +184,14 @@ public class TestHiveRecoverableExecution
                         "DROP TABLE IF EXISTS create_bucketed_table_failure"));
     }
 
-    @Test(timeOut = TEST_TIMEOUT, dataProvider = "writerConcurrency", invocationCount = INVOCATION_COUNT)
-    public void testInsertBucketedTable(int writerConcurrency)
+    @Test(timeOut = TEST_TIMEOUT, dataProvider = "testSettings", invocationCount = INVOCATION_COUNT)
+    public void testInsertBucketedTable(int writerConcurrency, boolean optimizedPartitionUpdateSerializationEnabled)
             throws Exception
     {
         testRecoverableGroupedExecution(
                 queryRunner,
                 writerConcurrency,
+                optimizedPartitionUpdateSerializationEnabled,
                 ImmutableList.of(
                         "CREATE TABLE insert_bucketed_table_1\n" +
                                 "WITH (bucket_count = 13, bucketed_by = ARRAY['key1']) AS\n" +
@@ -226,13 +229,14 @@ public class TestHiveRecoverableExecution
                         "DROP TABLE IF EXISTS insert_bucketed_table_failure"));
     }
 
-    @Test(timeOut = TEST_TIMEOUT, dataProvider = "writerConcurrency", invocationCount = INVOCATION_COUNT)
-    public void testCreateUnbucketedTableWithGroupedExecution(int writerConcurrency)
+    @Test(timeOut = TEST_TIMEOUT, dataProvider = "testSettings", invocationCount = INVOCATION_COUNT)
+    public void testCreateUnbucketedTableWithGroupedExecution(int writerConcurrency, boolean optimizedPartitionUpdateSerializationEnabled)
             throws Exception
     {
         testRecoverableGroupedExecution(
                 queryRunner,
                 writerConcurrency,
+                optimizedPartitionUpdateSerializationEnabled,
                 ImmutableList.of(
                         "CREATE TABLE create_unbucketed_table_with_grouped_execution_1\n" +
                                 "WITH (bucket_count = 13, bucketed_by = ARRAY['key1']) AS\n" +
@@ -266,13 +270,14 @@ public class TestHiveRecoverableExecution
                         "DROP TABLE IF EXISTS create_unbucketed_table_with_grouped_execution_failure"));
     }
 
-    @Test(timeOut = TEST_TIMEOUT, dataProvider = "writerConcurrency", invocationCount = INVOCATION_COUNT)
-    public void testInsertUnbucketedTableWithGroupedExecution(int writerConcurrency)
+    @Test(timeOut = TEST_TIMEOUT, dataProvider = "testSettings", invocationCount = INVOCATION_COUNT)
+    public void testInsertUnbucketedTableWithGroupedExecution(int writerConcurrency, boolean optimizedPartitionUpdateSerializationEnabled)
             throws Exception
     {
         testRecoverableGroupedExecution(
                 queryRunner,
                 writerConcurrency,
+                optimizedPartitionUpdateSerializationEnabled,
                 ImmutableList.of(
                         "CREATE TABLE insert_unbucketed_table_with_grouped_execution_1\n" +
                                 "WITH (bucket_count = 13, bucketed_by = ARRAY['key1']) AS\n" +
@@ -317,6 +322,7 @@ public class TestHiveRecoverableExecution
         testRecoverableGroupedExecution(
                 queryRunner,
                 4,
+                true,
                 ImmutableList.of(
                         "CREATE TABLE test_table AS\n" +
                                 "SELECT orderkey, comment\n" +
@@ -335,6 +341,7 @@ public class TestHiveRecoverableExecution
     private void testRecoverableGroupedExecution(
             DistributedQueryRunner queryRunner,
             int writerConcurrency,
+            boolean optimizedPartitionUpdateSerializationEnabled,
             List<String> preQueries,
             @Language("SQL") String queryWithoutFailure,
             @Language("SQL") String queryWithFailure,
@@ -344,7 +351,7 @@ public class TestHiveRecoverableExecution
     {
         waitUntilAllNodesAreHealthy(queryRunner, new Duration(10, SECONDS));
 
-        Session recoverableSession = createRecoverableSession(writerConcurrency);
+        Session recoverableSession = createRecoverableSession(writerConcurrency, optimizedPartitionUpdateSerializationEnabled);
         for (@Language("SQL") String postQuery : postQueries) {
             queryRunner.execute(recoverableSession, postQuery);
         }
@@ -423,7 +430,7 @@ public class TestHiveRecoverableExecution
         server.getTaskManager().getAllTaskInfo().forEach(task -> server.getTaskManager().cancelTask(task.getTaskId()));
     }
 
-    private static Session createRecoverableSession(int writerConcurrency)
+    private static Session createRecoverableSession(int writerConcurrency, boolean optimizedPartitionUpdateSerializationEnabled)
     {
         Identity identity = new Identity(
                 "hive",
@@ -449,6 +456,7 @@ public class TestHiveRecoverableExecution
                 .setSystemProperty(HASH_PARTITION_COUNT, "11")
                 .setSystemProperty(MAX_STAGE_RETRIES, "4")
                 .setCatalogSessionProperty(HIVE_CATALOG, VIRTUAL_BUCKET_COUNT, "16")
+                .setCatalogSessionProperty(HIVE_CATALOG, OPTIMIZED_PARTITION_UPDATE_SERIALIZATION_ENABLED, optimizedPartitionUpdateSerializationEnabled + "")
                 .setCatalog(HIVE_CATALOG)
                 .setSchema(TPCH_BUCKETED_SCHEMA)
                 .build();

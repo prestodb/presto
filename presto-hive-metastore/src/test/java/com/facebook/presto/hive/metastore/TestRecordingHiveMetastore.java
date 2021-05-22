@@ -46,6 +46,7 @@ import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
 import static com.facebook.presto.hive.HiveBasicStatistics.createEmptyStatistics;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.convertPredicateToParts;
 import static com.facebook.presto.hive.metastore.PrestoTableType.OTHER;
+import static com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient.TEST_METASTORE_CONTEXT;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.MAX_VALUE;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.MIN_VALUE;
@@ -125,7 +126,7 @@ public class TestRecordingHiveMetastore
 
         RecordingHiveMetastore recordingHiveMetastore = new RecordingHiveMetastore(new TestingHiveMetastore(), recordingHiveClientConfig);
         validateMetadata(recordingHiveMetastore);
-        recordingHiveMetastore.dropDatabase(new MetastoreContext("test_user"), "other_database");
+        recordingHiveMetastore.dropDatabase(TEST_METASTORE_CONTEXT, "other_database");
         recordingHiveMetastore.writeRecording();
 
         MetastoreClientConfig replayingHiveClientConfig = recordingHiveClientConfig
@@ -138,24 +139,24 @@ public class TestRecordingHiveMetastore
 
     private void validateMetadata(ExtendedHiveMetastore hiveMetastore)
     {
-        assertEquals(hiveMetastore.getDatabase(new MetastoreContext("test_user"), "database"), Optional.of(DATABASE));
-        assertEquals(hiveMetastore.getAllDatabases(new MetastoreContext("test_user")), ImmutableList.of("database"));
-        assertEquals(hiveMetastore.getTable(new MetastoreContext("test_user"), "database", "table"), Optional.of(TABLE));
-        assertEquals(hiveMetastore.getSupportedColumnStatistics(new MetastoreContext("test_user"), createVarcharType(123)), ImmutableSet.of(MIN_VALUE, MAX_VALUE));
-        assertEquals(hiveMetastore.getTableStatistics(new MetastoreContext("test_user"), "database", "table"), PARTITION_STATISTICS);
-        assertEquals(hiveMetastore.getPartitionStatistics(new MetastoreContext("test_user"), "database", "table", ImmutableSet.of("value")), ImmutableMap.of("value", PARTITION_STATISTICS));
-        assertEquals(hiveMetastore.getAllTables(new MetastoreContext("test_user"), "database"), Optional.of(ImmutableList.of("table")));
-        assertEquals(hiveMetastore.getAllViews(new MetastoreContext("test_user"), "database"), Optional.empty());
-        assertEquals(hiveMetastore.getPartition(new MetastoreContext("test_user"), "database", "table", ImmutableList.of("value")), Optional.of(PARTITION));
-        assertEquals(hiveMetastore.getPartitionNames(new MetastoreContext("test_user"), "database", "table"), Optional.of(ImmutableList.of("value")));
+        assertEquals(hiveMetastore.getDatabase(TEST_METASTORE_CONTEXT, "database"), Optional.of(DATABASE));
+        assertEquals(hiveMetastore.getAllDatabases(TEST_METASTORE_CONTEXT), ImmutableList.of("database"));
+        assertEquals(hiveMetastore.getTable(TEST_METASTORE_CONTEXT, "database", "table"), Optional.of(TABLE));
+        assertEquals(hiveMetastore.getSupportedColumnStatistics(TEST_METASTORE_CONTEXT, createVarcharType(123)), ImmutableSet.of(MIN_VALUE, MAX_VALUE));
+        assertEquals(hiveMetastore.getTableStatistics(TEST_METASTORE_CONTEXT, "database", "table"), PARTITION_STATISTICS);
+        assertEquals(hiveMetastore.getPartitionStatistics(TEST_METASTORE_CONTEXT, "database", "table", ImmutableSet.of("value")), ImmutableMap.of("value", PARTITION_STATISTICS));
+        assertEquals(hiveMetastore.getAllTables(TEST_METASTORE_CONTEXT, "database"), Optional.of(ImmutableList.of("table")));
+        assertEquals(hiveMetastore.getAllViews(TEST_METASTORE_CONTEXT, "database"), Optional.empty());
+        assertEquals(hiveMetastore.getPartition(TEST_METASTORE_CONTEXT, "database", "table", ImmutableList.of("value")), Optional.of(PARTITION));
+        assertEquals(hiveMetastore.getPartitionNames(TEST_METASTORE_CONTEXT, "database", "table"), Optional.of(ImmutableList.of("value")));
         Map<Column, Domain> map = new HashMap<>();
         Column column = new Column("column", HiveType.HIVE_STRING, Optional.empty());
         map.put(column, Domain.singleValue(VARCHAR, utf8Slice("value")));
-        assertEquals(hiveMetastore.getPartitionNamesByFilter(new MetastoreContext("test_user"), "database", "table", map), ImmutableList.of("value"));
-        assertEquals(hiveMetastore.getPartitionsByNames(new MetastoreContext("test_user"), "database", "table", ImmutableList.of("value")), ImmutableMap.of("value", Optional.of(PARTITION)));
-        assertEquals(hiveMetastore.listTablePrivileges(new MetastoreContext("test_user"), "database", "table", new PrestoPrincipal(USER, "user")), ImmutableSet.of(PRIVILEGE_INFO));
-        assertEquals(hiveMetastore.listRoles(new MetastoreContext("test_user")), ImmutableSet.of("role"));
-        assertEquals(hiveMetastore.listRoleGrants(new MetastoreContext("test_user"), new PrestoPrincipal(USER, "user")), ImmutableSet.of(ROLE_GRANT));
+        assertEquals(hiveMetastore.getPartitionNamesByFilter(TEST_METASTORE_CONTEXT, "database", "table", map), ImmutableList.of("value"));
+        assertEquals(hiveMetastore.getPartitionsByNames(TEST_METASTORE_CONTEXT, "database", "table", ImmutableList.of("value")), ImmutableMap.of("value", Optional.of(PARTITION)));
+        assertEquals(hiveMetastore.listTablePrivileges(TEST_METASTORE_CONTEXT, "database", "table", new PrestoPrincipal(USER, "user")), ImmutableSet.of(PRIVILEGE_INFO));
+        assertEquals(hiveMetastore.listRoles(TEST_METASTORE_CONTEXT), ImmutableSet.of("role"));
+        assertEquals(hiveMetastore.listRoleGrants(TEST_METASTORE_CONTEXT, new PrestoPrincipal(USER, "user")), ImmutableSet.of(ROLE_GRANT));
     }
 
     private static class TestingHiveMetastore

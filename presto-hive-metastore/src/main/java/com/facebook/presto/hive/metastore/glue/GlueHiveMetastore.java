@@ -150,6 +150,7 @@ public class GlueHiveMetastore
     private static final String WILDCARD_EXPRESSION = "";
     private static final int BATCH_GET_PARTITION_MAX_PAGE_SIZE = 1000;
     private static final int BATCH_CREATE_PARTITION_MAX_PAGE_SIZE = 100;
+    private static final int AWS_GLUE_GET_PARTITIONS_MAX_RESULTS = 1000;
     private static final Comparator<Partition> PARTITION_COMPARATOR = comparing(Partition::getValues, lexicographical(String.CASE_INSENSITIVE_ORDER));
 
     private final GlueMetastoreStats stats = new GlueMetastoreStats();
@@ -750,7 +751,8 @@ public class GlueHiveMetastore
                     .withDatabaseName(databaseName)
                     .withTableName(tableName)
                     .withExpression(expression)
-                    .withSegment(segment);
+                    .withSegment(segment)
+                    .withMaxResults(AWS_GLUE_GET_PARTITIONS_MAX_RESULTS);
 
             do {
                 GetPartitionsResult result = stats.getGetPartitions().record(() -> glueClient.getPartitions(request));

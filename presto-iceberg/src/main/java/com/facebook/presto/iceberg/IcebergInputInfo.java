@@ -11,18 +11,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spark;
+package com.facebook.presto.iceberg;
 
-import com.facebook.presto.testing.QueryRunner;
-import com.facebook.presto.tests.AbstractTestAggregations;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
-public class TestPrestoSparkAbstractTestAggregations
-        extends AbstractTestAggregations
+import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
+
+public class IcebergInputInfo
 {
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
+    private final Optional<Long> snapshotId;
+
+    public IcebergInputInfo(
+            @JsonProperty("snapshotId") Optional<Long> snapshotId)
     {
-        return PrestoSparkQueryRunner.createHivePrestoSparkQueryRunner();
+        this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
+    }
+
+    @JsonProperty
+    public Optional<Long> getSnapshotId()
+    {
+        return snapshotId;
     }
 }
