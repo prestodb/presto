@@ -181,6 +181,10 @@
             <outputDirectory>plugin/presto-druid</outputDirectory>
         </fileSet>
         <fileSet>
+            <directory>${project.build.directory}/dependency/presto-tablestore-${project.version}</directory>
+            <outputDirectory>plugin/presto-tablestore</outputDirectory>
+        </fileSet>
+        <fileSet>
             <directory>${project.build.directory}/dependency/presto-bigquery-${project.version}</directory>
             <outputDirectory>plugin/presto-bigquery</outputDirectory>
         </fileSet>
