@@ -107,7 +107,7 @@ public class OrcOutputBuffer
             this.compressor = new Lz4Compressor();
         }
         else if (compressionKind == CompressionKind.ZSTD) {
-            this.compressor = new ZstdCompressor();
+            this.compressor = new ZstdCompressor(columnWriterOptions.getCompressionLevel());
         }
         else {
             throw new IllegalArgumentException("Unsupported compression " + compressionKind);
