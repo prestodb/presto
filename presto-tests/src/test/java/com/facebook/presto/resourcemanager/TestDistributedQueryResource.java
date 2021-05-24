@@ -91,7 +91,7 @@ public class TestDistributedQueryResource
         return this.getClass().getClassLoader().getResource(fileName).getPath();
     }
 
-    @Test(timeOut = 220_000)
+    @Test(timeOut = 220_000, enabled = false)
     public void testGetQueryInfos()
             throws Exception
     {
