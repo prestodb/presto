@@ -449,6 +449,18 @@ class StatementAnalyzer
                 if (!metadata.getFunctionAndTypeManager().canCoerce(
                         queryColumnTypes.get(i),
                         expectedColumns.get(i).getType())) {
+                    if (queryColumnTypes.get(i) instanceof RowType && expectedColumns.get(i).getType() instanceof RowType) {
+                        String fieldName = expectedColumns.get(i).getName();
+                        List<Type> columnRowTypes = queryColumnTypes.get(i).getTypeParameters();
+                        List<RowType.Field> expectedRowFields = ((RowType) expectedColumns.get(i).getType()).getFields();
+                        checkTypesMatchForNestedStructs(
+                                node,
+                                errorMessage,
+                                i + 1,
+                                fieldName,
+                                expectedRowFields,
+                                columnRowTypes);
+                    }
                     throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES,
                             node,
                             errorMessage + "Mismatch at column %d: '%s' is of type %s but expression is of type %s",
@@ -456,6 +468,50 @@ class StatementAnalyzer
                             expectedColumns.get(i).getName(),
                             expectedColumns.get(i).getType(),
                             queryColumnTypes.get(i));
+                }
+            }
+        }
+
+        private void checkTypesMatchForNestedStructs(
+                Node node,
+                String errorMessage,
+                int columnIndex,
+                String fieldName,
+                List<RowType.Field> expectedRowFields,
+                List<Type> columnRowTypes)
+        {
+            if (expectedRowFields.size() != columnRowTypes.size()) {
+                throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES,
+                        node,
+                        errorMessage + "Mismatch at column %d: '%s' has %d field(s) but expression has %d field(s)",
+                        columnIndex,
+                        fieldName,
+                        expectedRowFields.size(),
+                        columnRowTypes.size());
+            }
+            for (int rowFieldIndex = 0; rowFieldIndex < expectedRowFields.size(); rowFieldIndex++) {
+                if (!metadata.getFunctionAndTypeManager().canCoerce(
+                        columnRowTypes.get(rowFieldIndex),
+                        expectedRowFields.get(rowFieldIndex).getType())) {
+                    fieldName += "." + expectedRowFields.get(rowFieldIndex).getName().get();
+                    if (columnRowTypes.get(rowFieldIndex) instanceof RowType && expectedRowFields.get(rowFieldIndex).getType() instanceof RowType) {
+                        checkTypesMatchForNestedStructs(
+                                node,
+                                errorMessage,
+                                columnIndex,
+                                fieldName,
+                                ((RowType) expectedRowFields.get(rowFieldIndex).getType()).getFields(),
+                                columnRowTypes.get(rowFieldIndex).getTypeParameters());
+                    }
+                    else {
+                        throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES,
+                                node,
+                                errorMessage + "Mismatch at column %d: '%s' is of type %s but expression is of type %s",
+                                columnIndex,
+                                fieldName,
+                                expectedRowFields.get(rowFieldIndex).getType(),
+                                columnRowTypes.get(rowFieldIndex));
+                    }
                 }
             }
         }
