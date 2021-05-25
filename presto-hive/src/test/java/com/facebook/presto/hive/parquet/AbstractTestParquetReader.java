@@ -77,6 +77,7 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.RowType.field;
+import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
@@ -794,6 +795,15 @@ public abstract class AbstractTestParquetReader
             throws Exception
     {
         tester.testRoundTrip(javaBooleanObjectInspector, limit(cycle(ImmutableList.of(true, false, false)), 30_000), BOOLEAN);
+    }
+
+    @Test
+    public void testSmallIntSequence()
+            throws Exception
+    {
+        List<Short> values = Stream.of(1, 2, 3, 4, 5)
+                .map(value -> value.shortValue()).collect(Collectors.toList());
+        tester.testRoundTrip(javaShortObjectInspector, limit(cycle(values), 30_000), SMALLINT);
     }
 
     @Test
