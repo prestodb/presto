@@ -97,6 +97,7 @@ public class DistributedQueryRunner
     private final List<TestingPrestoServer> servers;
     private final List<Process> externalWorkers;
     private final List<Module> extraModules;
+    private final int coordinatorCount;
 
     private final Closer closer = Closer.create();
 
@@ -142,7 +143,7 @@ public class DistributedQueryRunner
     {
         requireNonNull(defaultSession, "defaultSession is null");
         this.extraModules = requireNonNull(extraModules, "extraModules is null");
-
+        this.coordinatorCount = coordinatorCount;
         try {
             long start = nanoTime();
             discoveryServer = new TestingDiscoveryServer(environment);
@@ -366,7 +367,7 @@ public class DistributedQueryRunner
 
     public TestingPrestoServer getCoordinator()
     {
-        checkState(coordinators.size() == 1, "Expected a single coordinator");
+        checkState(coordinators.size() == this.coordinatorCount, "Expected number of coordinators:" + this.coordinatorCount);
         return coordinators.get(0);
     }
 
