@@ -83,6 +83,16 @@
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-hive-hadoop2</artifactId>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.xerial.snappy</groupId>
+                    <artifactId>snappy-java</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.roaringbitmap</groupId>
+                    <artifactId>RoaringBitmap</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
