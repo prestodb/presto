@@ -43,6 +43,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.SystemSessionProperties.isStatisticsCpuTimerEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -156,7 +158,7 @@ public class TableFinishOperator
     private final StatisticAggregationsDescriptor<Integer> descriptor;
 
     private State state = State.RUNNING;
-    private Optional<ConnectorOutputMetadata> outputMetadata = Optional.empty();
+    private final AtomicReference<Optional<ConnectorOutputMetadata>> outputMetadata = new AtomicReference<>(Optional.empty());
     private final ImmutableList.Builder<ComputedStatistics> computedStatisticsBuilder = ImmutableList.builder();
 
     private final OperationTiming statisticsTiming = new OperationTiming();
@@ -168,6 +170,8 @@ public class TableFinishOperator
 
     private final LocalMemoryContext systemMemoryContext;
     private final AtomicLong operatorRetainedMemoryBytes = new AtomicLong();
+
+    private final Supplier<TableFinishInfo> tableFinishInfoSupplier;
 
     public TableFinishOperator(
             OperatorContext operatorContext,
@@ -188,8 +192,8 @@ public class TableFinishOperator
         this.tableCommitContextCodec = requireNonNull(tableCommitContextCodec, "tableCommitContextCodec is null");
         this.lifespanAndStageStateTracker = new LifespanAndStageStateTracker(pageSinkCommitter, operatorRetainedMemoryBytes);
         this.systemMemoryContext = operatorContext.localSystemMemoryContext();
-
-        operatorContext.setInfoSupplier(this::getInfo);
+        this.tableFinishInfoSupplier = createTableFinishInfoSupplier(outputMetadata, statisticsTiming);
+        operatorContext.setInfoSupplier(tableFinishInfoSupplier);
     }
 
     @Override
@@ -282,7 +286,7 @@ public class TableFinishOperator
         state = State.FINISHED;
 
         lifespanAndStageStateTracker.commit();
-        outputMetadata = tableFinisher.finishTable(lifespanAndStageStateTracker.getFinalFragments(), computedStatisticsBuilder.build());
+        outputMetadata.set(tableFinisher.finishTable(lifespanAndStageStateTracker.getFinalFragments(), computedStatisticsBuilder.build()));
 
         // output page will only be constructed once,
         // so a new PageBuilder is constructed (instead of using PageBuilder.reset)
@@ -314,8 +318,15 @@ public class TableFinishOperator
     @VisibleForTesting
     TableFinishInfo getInfo()
     {
-        return new TableFinishInfo(
-                outputMetadata,
+        return tableFinishInfoSupplier.get();
+    }
+
+    private static Supplier<TableFinishInfo> createTableFinishInfoSupplier(AtomicReference<Optional<ConnectorOutputMetadata>> outputMetadata, OperationTiming statisticsTiming)
+    {
+        requireNonNull(outputMetadata, "outputMetadata is null");
+        requireNonNull(statisticsTiming, "statisticsTiming is null");
+        return () -> new TableFinishInfo(
+                outputMetadata.get(),
                 succinctNanos(statisticsTiming.getWallNanos()),
                 succinctNanos(statisticsTiming.getCpuNanos()));
     }
