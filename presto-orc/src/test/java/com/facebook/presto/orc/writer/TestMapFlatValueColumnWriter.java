@@ -15,12 +15,7 @@
 package com.facebook.presto.orc.writer;
 
 import com.facebook.presto.common.block.Block;
-import com.facebook.presto.common.block.BlockBuilder;
-import com.facebook.presto.common.type.Type;
-import com.facebook.presto.orc.ColumnWriterOptions;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
-import com.facebook.presto.orc.metadata.CompressionKind;
-import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.stream.StreamDataOutput;
@@ -33,77 +28,13 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
-import static com.facebook.presto.orc.DwrfEncryptionInfo.UNENCRYPTED;
-import static com.facebook.presto.orc.OrcEncoding.DWRF;
-import static org.joda.time.DateTimeZone.UTC;
+import static com.facebook.presto.orc.writer.TestMapFlatUtils.createFlatMapValueColumnWriter;
+import static com.facebook.presto.orc.writer.TestMapFlatUtils.createIntegerBlock;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class TestMapFlatValueColumnWriter
 {
-    private static final Integer BATCH_ROWS = 10000;
-
-    public FlatMapValueColumnWriter createFlatMapValueColumnWriter(Type valueType)
-    {
-        List<OrcType> orcTypes = OrcType.createOrcRowType(
-                0,
-                ImmutableList.of("firstColumn"),
-                ImmutableList.of(valueType));
-        ColumnWriterOptions columnWriterOptions = ColumnWriterOptions.builder()
-                .setCompressionKind(CompressionKind.NONE)
-                .build();
-        FlatMapValueWriterFactory flatMapValueWriterFactory =
-                new FlatMapValueWriterFactory(
-                        1,
-                        orcTypes,
-                        valueType,
-                        columnWriterOptions,
-                        DWRF,
-                        UTC,
-                        UNENCRYPTED,
-                        DWRF.createMetadataWriter());
-
-        return new FlatMapValueColumnWriter(
-                1,
-                1,
-                columnWriterOptions,
-                Optional.empty(),
-                DWRF.createMetadataWriter(),
-                flatMapValueWriterFactory.getColumnWriter(1));
-    }
-
-    public Block[] createNumericDataBlock(Type type, List<Long> values)
-    {
-        int row = 0;
-        int batchId = 0;
-        Block[] blocks = new Block[values.size() / BATCH_ROWS + 1];
-        while (row < values.size()) {
-            int end = Math.min(row + BATCH_ROWS, values.size());
-            BlockBuilder blockBuilder = type.createBlockBuilder(null, BATCH_ROWS);
-            while (row < end) {
-                Long value = values.get(row++);
-                if (value == null) {
-                    blockBuilder.appendNull();
-                }
-                else {
-                    type.writeLong(blockBuilder, value.longValue());
-                }
-            }
-            blocks[batchId] = blockBuilder.build();
-            batchId++;
-        }
-        return blocks;
-    }
-
-    public Block[] createIntegerBlock()
-    {
-        ImmutableList.Builder<Long> values = new ImmutableList.Builder<>();
-        for (long row = 0; row < 10; row++) {
-            values.add(row);
-        }
-        return createNumericDataBlock(INTEGER, values.build());
-    }
-
     @Test
     public void testColumnWriterCreation()
     {
