@@ -94,9 +94,9 @@ public class FlatMapValueColumnWriter
         lastWritePosition = -1;
     }
 
-    public void addNulls(int count)
+    private int getNullCount(int lastWritePosition, int currentWritePosition)
     {
-        this.inMapStream.writeBooleans(count, false);
+        return currentWritePosition - lastWritePosition - 1;
     }
 
     @Override
@@ -108,9 +108,7 @@ public class FlatMapValueColumnWriter
 
     public void writeBlock(Block block, int rowGroupPosition)
     {
-        if (rowGroupPosition > lastWritePosition) {
-            this.addNulls(rowGroupPosition - lastWritePosition + 1);
-        }
+        this.inMapStream.writeBooleans(getNullCount(lastWritePosition, rowGroupPosition), false);
         lastWritePosition = rowGroupPosition;
         this.writeBlock(block);
     }
@@ -121,10 +119,10 @@ public class FlatMapValueColumnWriter
         return valueWriter.finishRowGroup();
     }
 
-    public Map<Integer, ColumnStatistics> finishRowGroup(Integer rowGroupPositionCount)
+    public Map<Integer, ColumnStatistics> finishRowGroup(Integer rowGroupPosition)
     {
-        this.addNulls(rowGroupPositionCount - lastWritePosition + 1);
-        this.lastWritePosition = rowGroupPositionCount;
+        this.inMapStream.writeBooleans(getNullCount(lastWritePosition, rowGroupPosition), false);
+        this.lastWritePosition = rowGroupPosition;
         return valueWriter.finishRowGroup();
     }
 
@@ -132,7 +130,7 @@ public class FlatMapValueColumnWriter
     {
         for (Integer rowGroupPosition : rowGroupPositions) {
             valueWriter.beginRowGroup();
-            addNulls(rowGroupPosition);
+            this.inMapStream.writeBooleans(rowGroupPosition, false);
             inMapStream.recordCheckpoint();
             valueWriter.finishRowGroup();
         }
