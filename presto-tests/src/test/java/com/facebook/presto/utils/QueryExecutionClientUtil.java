@@ -15,6 +15,7 @@ package com.facebook.presto.utils;
 
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.Request;
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.server.BasicQueryInfo;
@@ -35,17 +36,20 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 
 public class QueryExecutionClientUtil
 {
+    public static final String DEFAULT_TEST_USER = "user";
+
     private QueryExecutionClientUtil()
     {
     }
 
-    public static QueryResults postQuery(HttpClient client, String sql, URI uri)
+    private static QueryResults postQuery(HttpClient client, String sql, URI uri, String user)
     {
         Request request = preparePost()
-                .setHeader(PRESTO_USER, "user")
+                .setHeader(PRESTO_USER, user)
                 .setUri(uri)
                 .setBodyGenerator(createStaticBodyGenerator(sql, UTF_8))
                 .build();
@@ -54,46 +58,67 @@ public class QueryExecutionClientUtil
 
     public static void runToCompletion(HttpClient client, TestingPrestoServer server, String sql)
     {
+        runToCompletion(client, server, sql, DEFAULT_TEST_USER);
+    }
+
+    public static void runToCompletion(HttpClient client, TestingPrestoServer server, String sql, String user)
+    {
         URI uri = uriBuilderFrom(server.getBaseUrl().resolve("/v1/statement")).build();
-        QueryResults queryResults = postQuery(client, sql, uri);
+        QueryResults queryResults = postQuery(client, sql, uri, user);
         while (queryResults.getNextUri() != null) {
-            queryResults = getQueryResults(client, queryResults);
+            queryResults = getQueryResults(client, queryResults, user);
         }
     }
 
     public static void runToFirstResult(HttpClient client, TestingPrestoServer server, String sql)
     {
+        runToFirstResult(client, server, sql, DEFAULT_TEST_USER);
+    }
+
+    public static void runToFirstResult(HttpClient client, TestingPrestoServer server, String sql, String user)
+    {
         URI uri = uriBuilderFrom(server.getBaseUrl().resolve("/v1/statement")).build();
-        QueryResults queryResults = postQuery(client, sql, uri);
+        QueryResults queryResults = postQuery(client, sql, uri, user);
         while (queryResults.getData() == null) {
-            queryResults = getQueryResults(client, queryResults);
+            queryResults = getQueryResults(client, queryResults, user);
         }
     }
 
     public static void runToQueued(HttpClient client, TestingPrestoServer server, String sql)
     {
-        runToState(client, server, sql, QUEUED);
+        runToQueued(client, server, sql, DEFAULT_TEST_USER);
+    }
+
+    public static void runToQueued(HttpClient client, TestingPrestoServer server, String sql, String user)
+    {
+        runToState(client, server, sql, QUEUED, user);
     }
 
     public static void runToExecuting(HttpClient client, TestingPrestoServer server, String sql)
     {
-        runToState(client, server, sql, RUNNING);
+        runToState(client, server, sql, RUNNING, DEFAULT_TEST_USER);
     }
 
-    private static void runToState(HttpClient client, TestingPrestoServer server, String sql, QueryState queryState)
+    private static void runToState(HttpClient client, TestingPrestoServer server, String sql, QueryState queryState, String user)
     {
         URI uri = uriBuilderFrom(server.getBaseUrl().resolve("/v1/statement")).build();
-        QueryResults queryResults = postQuery(client, sql, uri);
-        while (!queryState.toString().equals(queryResults.getStats().getState())) {
-            queryResults = getQueryResults(client, queryResults);
+        QueryResults queryResults = postQuery(client, sql, uri, user);
+        while (!queryState.toString().equals(queryResults.getStats().getState()) &&
+                QueryState.valueOf(queryResults.getStats().getState()).getValue() < queryState.getValue()) {
+            queryResults = getQueryResults(client, queryResults, user);
         }
-        getQueryResults(client, queryResults);
+        //throw exception if input state cannot be reached
+        if (QueryState.valueOf(queryResults.getStats().getState()).getValue() > queryState.getValue()) {
+            throw new IllegalArgumentException("Failed to run to state " + queryState + ", current query state =" + queryResults.getStats().getState());
+        }
+        getQueryResults(client, queryResults, user);
     }
 
-    public static QueryResults getQueryResults(HttpClient client, QueryResults queryResults)
+    public static QueryResults getQueryResults(HttpClient client, QueryResults queryResults, String user)
     {
+        requireNonNull(queryResults.getNextUri(), "uri is null, query state : " + queryResults.getStats().getState());
         Request request = prepareGet()
-                .setHeader(PRESTO_USER, "user")
+                .setHeader(PRESTO_USER, user)
                 .setUri(queryResults.getNextUri())
                 .build();
         queryResults = client.execute(request, createJsonResponseHandler(jsonCodec(QueryResults.class)));
@@ -110,6 +135,12 @@ public class QueryExecutionClientUtil
     {
         Request request = prepareGet().setUri(server.resolve(path)).build();
         return client.execute(request, createJsonResponseHandler(listJsonCodec(QueryStateInfo.class)));
+    }
+
+    public static <T> T getResponseEntity(HttpClient client, TestingPrestoServer server, String path, JsonCodec<T> codec)
+    {
+        Request request = prepareGet().setUri(server.resolve(path)).build();
+        return client.execute(request, createJsonResponseHandler(codec));
     }
 
     public static QueryStateInfo getQueryStateInfo(HttpClient client, TestingPrestoServer server, String path)
