@@ -394,13 +394,13 @@ public class FeaturesConfig
         return this;
     }
 
+    @Min(0)
     public int getConcurrentLifespansPerTask()
     {
         return concurrentLifespansPerTask;
     }
 
     @Config("concurrent-lifespans-per-task")
-    @Min(0)
     @ConfigDescription("Experimental: Default number of lifespans that run in parallel on each task when grouped execution is enabled")
     // When set to zero, a limit is not imposed on the number of lifespans that run in parallel
     public FeaturesConfig setConcurrentLifespansPerTask(int concurrentLifespansPerTask)
@@ -1026,7 +1026,6 @@ public class FeaturesConfig
     }
 
     @Config("max-concurrent-materializations")
-    @Min(1)
     @ConfigDescription("The maximum number of materializing plan sections that can run concurrently")
     public FeaturesConfig setMaxConcurrentMaterializations(int maxConcurrentMaterializations)
     {
@@ -1034,6 +1033,7 @@ public class FeaturesConfig
         return this;
     }
 
+    @Min(1)
     public int getMaxConcurrentMaterializations()
     {
         return maxConcurrentMaterializations;

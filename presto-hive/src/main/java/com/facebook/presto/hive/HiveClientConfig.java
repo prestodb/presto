@@ -385,13 +385,13 @@ public class HiveClientConfig
         return this;
     }
 
+    @MinDuration("0ms")
     @NotNull
     public Duration getMetastoreCacheTtl()
     {
         return metastoreCacheTtl;
     }
 
-    @MinDuration("0ms")
     @Config("hive.metastore-cache-ttl")
     public HiveClientConfig setMetastoreCacheTtl(Duration metastoreCacheTtl)
     {
@@ -399,13 +399,13 @@ public class HiveClientConfig
         return this;
     }
 
+    @MinDuration("1ms")
     @NotNull
     public Duration getMetastoreRefreshInterval()
     {
         return metastoreRefreshInterval;
     }
 
-    @MinDuration("1ms")
     @Config("hive.metastore-refresh-interval")
     public HiveClientConfig setMetastoreRefreshInterval(Duration metastoreRefreshInterval)
     {
@@ -413,12 +413,12 @@ public class HiveClientConfig
         return this;
     }
 
+    @Min(1)
     public long getMetastoreCacheMaximumSize()
     {
         return metastoreCacheMaximumSize;
     }
 
-    @Min(1)
     @Config("hive.metastore-cache-maximum-size")
     public HiveClientConfig setMetastoreCacheMaximumSize(long metastoreCacheMaximumSize)
     {
@@ -426,12 +426,12 @@ public class HiveClientConfig
         return this;
     }
 
+    @Min(1)
     public long getPerTransactionMetastoreCacheMaximumSize()
     {
         return perTransactionMetastoreCacheMaximumSize;
     }
 
-    @Min(1)
     @Config("hive.per-transaction-metastore-cache-maximum-size")
     public HiveClientConfig setPerTransactionMetastoreCacheMaximumSize(long perTransactionMetastoreCacheMaximumSize)
     {
