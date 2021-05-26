@@ -87,4 +87,16 @@ public class FlatMapValueWriterFactory
                 metadataWriter);
         return columnWriter;
     }
+
+    public FlatMapValueColumnWriter getFlatMapValueColumnWriter(int dwrfSequence)
+    {
+        FlatMapValueColumnWriter flatMapValueColumnWriter = new FlatMapValueColumnWriter(
+                columnIndex,
+                dwrfSequence,
+                columnWriterOptions,
+                dwrfEncryptors.getEncryptorByNodeId(columnIndex),
+                metadataWriter,
+                getColumnWriter(dwrfSequence));
+        return flatMapValueColumnWriter;
+    }
 }
