@@ -247,6 +247,7 @@ public class TaskManagerConfig
         return this;
     }
 
+    @Min(0)
     public BigDecimal getLevelTimeMultiplier()
     {
         return levelTimeMultiplier;
@@ -254,7 +255,6 @@ public class TaskManagerConfig
 
     @Config("task.level-time-multiplier")
     @ConfigDescription("Factor that determines the target scheduled time for a level relative to the next")
-    @Min(0)
     public TaskManagerConfig setLevelTimeMultiplier(BigDecimal levelTimeMultiplier)
     {
         this.levelTimeMultiplier = levelTimeMultiplier;
