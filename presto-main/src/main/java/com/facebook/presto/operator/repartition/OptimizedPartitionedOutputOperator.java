@@ -65,6 +65,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.array.Arrays.ExpansionFactor.MEDIUM;
 import static com.facebook.presto.array.Arrays.ExpansionFactor.SMALL;
@@ -120,7 +121,7 @@ public class OptimizedPartitionedOutputOperator
                 maxMemory,
                 operatorContext);
 
-        operatorContext.setInfoSupplier(this::getInfo);
+        operatorContext.setInfoSupplier(pagePartitioner.getPartitionedOutputInfoSupplier());
         this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext(PartitionedOutputOperator.class.getSimpleName());
         this.systemMemoryContext.setBytes(pagePartitioner.getRetainedSizeInBytes());
     }
@@ -129,11 +130,6 @@ public class OptimizedPartitionedOutputOperator
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
-    }
-
-    public PartitionedOutputInfo getInfo()
-    {
-        return pagePartitioner.getInfo();
     }
 
     @Override
@@ -477,9 +473,10 @@ public class OptimizedPartitionedOutputOperator
             return outputBuffer.isFull();
         }
 
-        public PartitionedOutputInfo getInfo()
+        public Supplier<PartitionedOutputInfo> getPartitionedOutputInfoSupplier()
         {
-            return new PartitionedOutputInfo(rowsAdded.get(), pagesAdded.get(), outputBuffer.getPeakMemoryUsage());
+            // Must be a separate static method to avoid embedding references to "this" in the supplier
+            return PartitionedOutputInfo.createPartitionedOutputInfoSupplier(rowsAdded, pagesAdded, outputBuffer);
         }
 
         public void partitionPage(Page page)
