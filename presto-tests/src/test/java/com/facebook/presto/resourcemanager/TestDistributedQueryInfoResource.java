@@ -15,8 +15,9 @@ package com.facebook.presto.resourcemanager;
 
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.jetty.JettyHttpClient;
+import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.resourceGroups.FileResourceGroupConfigurationManagerFactory;
-import com.facebook.presto.server.BasicQueryInfo;
+import com.facebook.presto.server.QueryStateInfo;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableMap;
@@ -26,22 +27,25 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.TimeoutException;
 
 import static com.facebook.airlift.testing.Closeables.closeQuietly;
 import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;
-import static com.facebook.presto.utils.QueryExecutionClientUtil.getQueryInfos;
+import static com.facebook.presto.utils.QueryExecutionClientUtil.getQueryStateInfo;
+import static com.facebook.presto.utils.QueryExecutionClientUtil.getQueryStateInfos;
 import static com.facebook.presto.utils.QueryExecutionClientUtil.runToCompletion;
 import static com.facebook.presto.utils.QueryExecutionClientUtil.runToFirstResult;
-import static com.facebook.presto.utils.QueryExecutionClientUtil.runToQueued;
 import static com.facebook.presto.utils.ResourceUtils.getResourceFilePath;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.String.format;
 import static java.lang.Thread.sleep;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.fail;
+import static org.testng.Assert.assertNotNull;
 
-public class TestDistributedQueryResource
+public class TestDistributedQueryInfoResource
 {
+    private static final int COORDINATOR_COUNT = 2;
     private HttpClient client;
     private TestingPrestoServer coordinator1;
     private TestingPrestoServer coordinator2;
@@ -52,7 +56,7 @@ public class TestDistributedQueryResource
             throws Exception
     {
         client = new JettyHttpClient();
-        DistributedQueryRunner runner = createQueryRunner(ImmutableMap.of("query.client.timeout", "20s"), 2);
+        DistributedQueryRunner runner = createQueryRunner(ImmutableMap.of("query.client.timeout", "20s"), COORDINATOR_COUNT);
         coordinator1 = runner.getCoordinators().get(0);
         coordinator2 = runner.getCoordinators().get(1);
         Optional<TestingPrestoServer> resourceManager = runner.getResourceManager();
@@ -79,80 +83,36 @@ public class TestDistributedQueryResource
         client = null;
     }
 
-    @Test(timeOut = 220_000, enabled = false)
-    public void testGetQueryInfos()
+    @Test(timeOut = 220_000)
+    public void testGetAllQueryInfo()
             throws Exception
     {
         runToCompletion(client, coordinator1, "SELECT 1");
-        runToCompletion(client, coordinator2, "SELECT 2");
-        runToCompletion(client, coordinator1, "SELECT x FROM y");
-        runToFirstResult(client, coordinator1, "SELECT * from tpch.sf100.orders");
+        runToFirstResult(client, coordinator2, "SELECT * from tpch.sf100.orders");
         runToFirstResult(client, coordinator1, "SELECT * from tpch.sf101.orders");
-        runToFirstResult(client, coordinator1, "SELECT * from tpch.sf102.orders");
-        runToQueued(client, coordinator1, "SELECT 3");
-
-        // Sleep to allow query to make some progress
         sleep(SECONDS.toMillis(5));
-
-        List<BasicQueryInfo> infos = getQueryInfos(client, coordinator1, "/v1/query");
-        assertEquals(infos.size(), 7);
-        assertStateCounts(infos, 2, 1, 3, 1);
-
-        infos = getQueryInfos(client, coordinator2, "/v1/query?state=finished");
-        assertEquals(infos.size(), 2);
-        assertStateCounts(infos, 2, 0, 0, 0);
-
-        infos = getQueryInfos(client, coordinator1, "/v1/query?state=failed");
-        assertEquals(infos.size(), 1);
-        assertStateCounts(infos, 0, 1, 0, 0);
-
-        infos = getQueryInfos(client, coordinator2, "/v1/query?state=running");
-        assertEquals(infos.size(), 3);
-        assertStateCounts(infos, 0, 0, 3, 0);
-
-        infos = getQueryInfos(client, coordinator1, "/v1/query?state=queued");
-        assertEquals(infos.size(), 1);
-        assertStateCounts(infos, 0, 0, 0, 1);
-
-        // Sleep to trigger client query expiration
-        sleep(SECONDS.toMillis(20));
-
-        infos = getQueryInfos(client, coordinator2, "/v1/query?state=failed");
-        assertEquals(infos.size(), 5);
-        assertStateCounts(infos, 0, 5, 0, 0);
+        //TODO the count of coordinator drops from 2 sometimes, we need to investigate the cause and remove this
+        waitUntilCoordinatorsDiscoveredHealthyInRM(SECONDS.toMillis(15));
+        List<QueryStateInfo> queryInfos = getQueryStateInfos(client, coordinator1, "/v1/queryState");
+        assertEquals(queryInfos.size(), 2);
+        for (QueryStateInfo inputQueryInfo : queryInfos) {
+            QueryStateInfo queryInfoResult = getQueryStateInfo(client, coordinator1, "/v1/queryState/" + inputQueryInfo.getQueryId().getId());
+            assertNotNull(queryInfoResult);
+            assertEquals(queryInfoResult.getQueryId(), inputQueryInfo.getQueryId());
+        }
     }
 
-    private void assertStateCounts(List<BasicQueryInfo> infos, int expectedFinished, int expectedFailed, int expectedRunning, int expectedQueued)
+    private void waitUntilCoordinatorsDiscoveredHealthyInRM(long timeoutInMilis)
+            throws TimeoutException, InterruptedException
     {
-        int failed = 0;
-        int finished = 0;
-        int running = 0;
-        int queued = 0;
-        for (BasicQueryInfo info : infos) {
-            switch (info.getState()) {
-                case RUNNING:
-                case FINISHING:
-                    running++;
-                    break;
-                case WAITING_FOR_RESOURCES:
-                case PLANNING:
-                case DISPATCHING:
-                case QUEUED:
-                    queued++;
-                    break;
-                case FINISHED:
-                    finished++;
-                    break;
-                case FAILED:
-                    failed++;
-                    break;
-                default:
-                    fail("Unexpected query state " + info.getState());
+        long deadline = System.currentTimeMillis() + timeoutInMilis;
+        while (System.currentTimeMillis() < deadline) {
+            AllNodes allNodes = this.resourceManager.refreshNodes();
+            if (allNodes.getActiveCoordinators().size() == COORDINATOR_COUNT) {
+                return;
             }
+            sleep(100);
         }
-        assertEquals(failed, expectedFailed);
-        assertEquals(finished, expectedFinished);
-        assertEquals(running, expectedRunning);
-        assertEquals(queued, expectedQueued);
+        throw new TimeoutException(format("one of the nodes is still missing after: %s ms", timeoutInMilis));
     }
 }
