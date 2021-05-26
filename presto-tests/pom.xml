@@ -224,6 +224,12 @@
         <!-- for testing -->
         <dependency>
             <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-testng-services</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
             <artifactId>presto-resource-group-managers</artifactId>
             <scope>test</scope>
         </dependency>

@@ -1205,15 +1205,11 @@ class StatementAnalyzer
             checkState(materializedViewStatus.isPartiallyMaterialized(), "materialized view status is " + materializedViewStatus);
 
             Statement createSqlStatement = sqlParser.createStatement(materializedViewCreateSql, createParsingOptions(session, warningCollector));
-            QuerySpecification createSqlQuerySpecification = (QuerySpecification) ((Query) createSqlStatement).getQueryBody();
 
             // TODO: consider materialized view predicates https://github.com/prestodb/presto/issues/16034
             Map<SchemaTableName, Expression> partitionPredicates = generatePartitionPredicate(materializedViewStatus.getPartitionsFromBaseTables());
 
-            Node predicateStitchedNode = new PredicateStitcher(session, partitionPredicates).process(createSqlQuerySpecification, new PredicateStitcherContext());
-            checkState(predicateStitchedNode instanceof QuerySpecification);
-            QuerySpecification createSqlSpecificationWithPredicates = (QuerySpecification) predicateStitchedNode;
-
+            Query predicateStitchedQuery = (Query) new PredicateStitcher(session, partitionPredicates).process(createSqlStatement, new PredicateStitcherContext());
             QuerySpecification materializedViewQuerySpecification = new QuerySpecification(
                     selectList(new AllColumns()),
                     ((QuerySpecification) statement.getQueryBody()).getFrom(),
@@ -1223,8 +1219,8 @@ class StatementAnalyzer
                     Optional.empty(),
                     Optional.empty());
 
-            Union union = new Union(ImmutableList.of(createSqlSpecificationWithPredicates, materializedViewQuerySpecification), Optional.of(Boolean.FALSE));
-            Query unionQuery = new Query(Optional.empty(), union, Optional.empty(), Optional.empty());
+            Union union = new Union(ImmutableList.of(predicateStitchedQuery.getQueryBody(), materializedViewQuerySpecification), Optional.of(Boolean.FALSE));
+            Query unionQuery = new Query(predicateStitchedQuery.getWith(), union, predicateStitchedQuery.getOrderBy(), predicateStitchedQuery.getLimit());
             // can we return the above query object, instead of building a query string?
             // in case of returning the query object, make sure to clone the original query object.
             return SqlFormatterUtil.getFormattedSql(unionQuery, sqlParser, Optional.empty());

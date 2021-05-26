@@ -259,6 +259,12 @@
             <scope>test</scope>
         </dependency>
 
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-testng-services</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <!-- for assembly -->
         <dependency>
             <groupId>com.facebook.airlift</groupId>

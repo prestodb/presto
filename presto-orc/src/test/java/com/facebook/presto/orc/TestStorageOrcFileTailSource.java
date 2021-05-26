@@ -41,6 +41,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+@Test(singleThreaded = true)
 public class TestStorageOrcFileTailSource
 {
     private static final DataSize DEFAULT_SIZE = new DataSize(1, MEGABYTE);

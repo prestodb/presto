@@ -169,6 +169,7 @@
         <module>presto-common</module>
         <module>presto-thrift-testing-udf-server</module>
         <module>presto-thrift-spec</module>
+        <module>testing/presto-testng-services</module>
     </modules>
 
     <dependencyManagement>
@@ -651,6 +652,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-function-namespace-managers</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-testng-services</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

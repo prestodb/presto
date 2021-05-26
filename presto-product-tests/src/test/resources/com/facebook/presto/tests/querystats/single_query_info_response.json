@@ -27,6 +27,7 @@
     "lastHeartbeat": "2015-05-06T09:42:00.010Z",
     "endTime": "2015-05-05T16:01:17.125Z",
     "elapsedTime": "134.00ms",
+    "waitingForPrerequisitesTime": "15.00ms",
     "resourceWaitingTime": "11.00ms",
     "queuedTime": "2.11ms",
     "dispatchingTime": "1111.00ms",

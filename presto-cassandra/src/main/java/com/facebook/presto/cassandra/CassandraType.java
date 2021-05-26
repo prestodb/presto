@@ -193,6 +193,10 @@ public enum CassandraType
                     return NullableValue.of(nativeType, utf8Slice(row.getString(position)));
                 case INT:
                     return NullableValue.of(nativeType, (long) row.getInt(position));
+                case SMALLINT:
+                    return NullableValue.of(nativeType, (long) row.getShort(position));
+                case TINYINT:
+                    return NullableValue.of(nativeType, (long) row.getByte(position));
                 case BIGINT:
                 case COUNTER:
                     return NullableValue.of(nativeType, row.getLong(position));
@@ -209,6 +213,8 @@ public enum CassandraType
                     return NullableValue.of(nativeType, utf8Slice(row.getUUID(position).toString()));
                 case TIMESTAMP:
                     return NullableValue.of(nativeType, row.getTimestamp(position).getTime());
+                case DATE:
+                    return NullableValue.of(nativeType, (long) row.getDate(position).getDaysSinceEpoch());
                 case INET:
                     return NullableValue.of(nativeType, utf8Slice(toAddrString(row.getInet(position))));
                 case VARINT:
@@ -313,6 +319,10 @@ public enum CassandraType
                     return CassandraCqlUtils.quoteStringLiteral(row.getString(position));
                 case INT:
                     return Integer.toString(row.getInt(position));
+                case SMALLINT:
+                    return Short.toString(row.getShort(position));
+                case TINYINT:
+                    return Byte.toString(row.getByte(position));
                 case BIGINT:
                 case COUNTER:
                     return Long.toString(row.getLong(position));
@@ -329,6 +339,8 @@ public enum CassandraType
                     return row.getUUID(position).toString();
                 case TIMESTAMP:
                     return Long.toString(row.getTimestamp(position).getTime());
+                case DATE:
+                    return row.getDate(position).toString();
                 case INET:
                     return CassandraCqlUtils.quoteStringLiteral(toAddrString(row.getInet(position)));
                 case VARINT:

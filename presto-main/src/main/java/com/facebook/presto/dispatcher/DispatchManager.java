@@ -213,13 +213,14 @@ public class DispatchManager
                     retryCount,
                     selectionContext.getResourceGroupId(),
                     queryType,
-                    warningCollector);
+                    warningCollector,
+                    (dq) -> resourceGroupManager.submit(preparedQuery.getStatement(), dq, selectionContext, queryExecutor));
 
             boolean queryAdded = queryCreated(dispatchQuery);
             if (queryAdded && !dispatchQuery.isDone()) {
                 try {
                     clusterStatusSender.registerQuery(dispatchQuery);
-                    resourceGroupManager.submit(preparedQuery.getStatement(), dispatchQuery, selectionContext, queryExecutor);
+                    dispatchQuery.startWaitingForPrerequisites();
                 }
                 catch (Throwable e) {
                     // dispatch query has already been registered, so just fail it directly
