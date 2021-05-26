@@ -46,6 +46,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.common.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static com.facebook.presto.execution.buffer.PageSplitterUtil.splitPage;
@@ -214,18 +215,13 @@ public class PartitionedOutputOperator
                 maxMemory,
                 operatorContext);
 
-        operatorContext.setInfoSupplier(this::getInfo);
+        operatorContext.setInfoSupplier(this.partitionFunction.getPartitionedOutputInfoSupplier());
     }
 
     @Override
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
-    }
-
-    public PartitionedOutputInfo getInfo()
-    {
-        return partitionFunction.getInfo();
     }
 
     @Override
@@ -379,9 +375,10 @@ public class PartitionedOutputOperator
             return sizeInBytes;
         }
 
-        public PartitionedOutputInfo getInfo()
+        public Supplier<PartitionedOutputInfo> getPartitionedOutputInfoSupplier()
         {
-            return new PartitionedOutputInfo(rowsAdded.get(), pagesAdded.get(), outputBuffer.getPeakMemoryUsage());
+            // Must be a separate static method to avoid embedding references to "this" in the supplier
+            return PartitionedOutputInfo.createPartitionedOutputInfoSupplier(rowsAdded, pagesAdded, outputBuffer);
         }
 
         public void partitionPage(Page page)
