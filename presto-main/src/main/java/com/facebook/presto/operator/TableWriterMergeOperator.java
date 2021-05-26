@@ -31,6 +31,7 @@ import io.airlift.slice.Slice;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.SystemSessionProperties.isStatisticsCpuTimerEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -132,7 +133,7 @@ public class TableWriterMergeOperator
         this.tableCommitContextCodec = requireNonNull(tableCommitContextCodec, "tableCommitContextCodec is null");
         this.statisticsCpuTimerEnabled = statisticsCpuTimerEnabled;
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
-        this.context.setInfoSupplier(this::getInfo);
+        this.context.setInfoSupplier(createTableWriterMergeInfoSupplier(statisticsTiming));
     }
 
     @Override
@@ -347,9 +348,10 @@ public class TableWriterMergeOperator
         systemMemoryContext.setBytes(0);
     }
 
-    public TableWriterMergeInfo getInfo()
+    private static Supplier<TableWriterMergeInfo> createTableWriterMergeInfoSupplier(OperationTiming statisticsTiming)
     {
-        return new TableWriterMergeInfo(
+        requireNonNull(statisticsTiming, "statisticsTiming is null");
+        return () -> new TableWriterMergeInfo(
                 succinctNanos(statisticsTiming.getWallNanos()),
                 succinctNanos(statisticsTiming.getCpuNanos()));
     }
