@@ -15,7 +15,7 @@ package com.facebook.presto.resourcemanager;
 
 import com.facebook.airlift.http.client.jetty.JettyHttpClient;
 import com.facebook.presto.resourceGroups.FileResourceGroupConfigurationManagerFactory;
-import com.facebook.presto.server.BasicQueryInfo;
+import com.facebook.presto.server.QueryStateInfo;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableMap;
@@ -32,9 +32,9 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Thread.sleep;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.fail;
+import static org.testng.Assert.assertNotNull;
 
-public class TestDistributedQueryResource
+public class TestDistributedQueryInfoResource
 {
     private ResourceManagerTestHelper rmTestHelper;
     private TestingPrestoServer coordinator1;
@@ -73,80 +73,25 @@ public class TestDistributedQueryResource
         rmTestHelper = null;
     }
 
-    @Test(timeOut = 220_000, enabled = false)
-    public void testGetQueryInfos()
+    @Test(timeOut = 220_000)
+    public void testGetAllQueryInfo()
             throws Exception
     {
         rmTestHelper.runToCompletion(coordinator1, "SELECT 1");
         rmTestHelper.runToCompletion(coordinator2, "SELECT 2");
-        rmTestHelper.runToCompletion(coordinator1, "SELECT x FROM y");
+        rmTestHelper.runToCompletion(coordinator1, "SELECT 3");
         rmTestHelper.runToFirstResult(coordinator1, "SELECT * from tpch.sf100.orders");
         rmTestHelper.runToFirstResult(coordinator1, "SELECT * from tpch.sf101.orders");
         rmTestHelper.runToFirstResult(coordinator1, "SELECT * from tpch.sf102.orders");
-        rmTestHelper.runToQueued(coordinator1, "SELECT 3");
-
-        // Sleep to allow query to make some progress
+        rmTestHelper.runToFirstResult(coordinator2, "SELECT * from tpch.sf100.orders");
+        rmTestHelper.runToQueued(coordinator1, "SELECT 4");
         sleep(SECONDS.toMillis(5));
-
-        List<BasicQueryInfo> infos = rmTestHelper.getQueryInfos(coordinator1, "/v1/query");
-        assertEquals(infos.size(), 7);
-        assertStateCounts(infos, 2, 1, 3, 1);
-
-        infos = rmTestHelper.getQueryInfos(coordinator2, "/v1/query?state=finished");
-        assertEquals(infos.size(), 2);
-        assertStateCounts(infos, 2, 0, 0, 0);
-
-        infos = rmTestHelper.getQueryInfos(coordinator1, "/v1/query?state=failed");
-        assertEquals(infos.size(), 1);
-        assertStateCounts(infos, 0, 1, 0, 0);
-
-        infos = rmTestHelper.getQueryInfos(coordinator2, "/v1/query?state=running");
-        assertEquals(infos.size(), 3);
-        assertStateCounts(infos, 0, 0, 3, 0);
-
-        infos = rmTestHelper.getQueryInfos(coordinator1, "/v1/query?state=queued");
-        assertEquals(infos.size(), 1);
-        assertStateCounts(infos, 0, 0, 0, 1);
-
-        // Sleep to trigger client query expiration
-        sleep(SECONDS.toMillis(20));
-
-        infos = rmTestHelper.getQueryInfos(coordinator2, "/v1/query?state=failed");
-        assertEquals(infos.size(), 5);
-        assertStateCounts(infos, 0, 5, 0, 0);
-    }
-
-    private void assertStateCounts(List<BasicQueryInfo> infos, int expectedFinished, int expectedFailed, int expectedRunning, int expectedQueued)
-    {
-        int failed = 0;
-        int finished = 0;
-        int running = 0;
-        int queued = 0;
-        for (BasicQueryInfo info : infos) {
-            switch (info.getState()) {
-                case RUNNING:
-                case FINISHING:
-                    running++;
-                    break;
-                case WAITING_FOR_RESOURCES:
-                case PLANNING:
-                case DISPATCHING:
-                case QUEUED:
-                    queued++;
-                    break;
-                case FINISHED:
-                    finished++;
-                    break;
-                case FAILED:
-                    failed++;
-                    break;
-                default:
-                    fail("Unexpected query state " + info.getState());
-            }
+        List<QueryStateInfo> queryInfos = rmTestHelper.getQueryStateInfos(coordinator1, "/v1/queryState");
+        assertEquals(queryInfos.size(), 5);
+        for (QueryStateInfo inputQueryInfo : queryInfos) {
+            QueryStateInfo queryInfoResult = rmTestHelper.getQueryStateInfo(coordinator1, "/v1/queryState/" + inputQueryInfo.getQueryId().getId());
+            assertNotNull(queryInfoResult);
+            assertEquals(queryInfoResult.getQueryId(), inputQueryInfo.getQueryId());
         }
-        assertEquals(failed, expectedFailed);
-        assertEquals(finished, expectedFinished);
-        assertEquals(running, expectedRunning);
-        assertEquals(queued, expectedQueued);
     }
 }

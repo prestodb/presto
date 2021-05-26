@@ -17,6 +17,7 @@ import com.facebook.airlift.http.client.BodyGenerator;
 import com.facebook.airlift.http.client.HeaderName;
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.Request;
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ListMultimap;
@@ -41,6 +42,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.airlift.http.client.HttpStatus.INTERNAL_SERVER_ERROR;
+import static com.facebook.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
 import static com.facebook.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
@@ -84,8 +86,7 @@ public class ResourceManagerProxy
             URI remoteUri)
     {
         try {
-            BodyGenerator bodyGenerator = new InputStreamBodyGenerator(servletRequest.getInputStream());
-            Request request = createRequest(servletRequest, servletRequest.getMethod(), remoteUri, bodyGenerator);
+            Request request = buildRequest(servletRequest, remoteUri);
             ListenableFuture<ProxyResponse> proxyResponse = httpClient.executeAsync(request, new ResponseHandler());
             ListenableFuture<Response> future = transform(proxyResponse, this::toResponse, executor);
             setupAsyncResponse(servletRequest, asyncResponse, future);
@@ -93,6 +94,25 @@ public class ResourceManagerProxy
         catch (IOException e) {
             asyncResponse.resume(e);
         }
+    }
+
+    private Request buildRequest(HttpServletRequest servletRequest, URI remoteUri)
+            throws IOException
+    {
+        BodyGenerator bodyGenerator = new InputStreamBodyGenerator(servletRequest.getInputStream());
+        Request request = createRequest(servletRequest, servletRequest.getMethod(), remoteUri, bodyGenerator);
+        return request;
+    }
+
+    public <T> ListenableFuture<T> getResponse(
+            HttpServletRequest servletRequest,
+            URI remoteUri,
+            JsonCodec<T> codec)
+            throws IOException
+    {
+        Request request = buildRequest(servletRequest, remoteUri);
+        ListenableFuture<T> responseEntity = httpClient.executeAsync(request, createJsonResponseHandler(codec));
+        return responseEntity;
     }
 
     private Request createRequest(HttpServletRequest servletRequest, String httpMethod, URI remoteUri, BodyGenerator bodyGenerator)
