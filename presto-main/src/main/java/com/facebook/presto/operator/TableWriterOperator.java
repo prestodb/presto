@@ -50,6 +50,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Supplier;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.airlift.concurrent.MoreFutures.toListenableFuture;
@@ -228,6 +229,8 @@ public class TableWriterOperator
     private final JsonCodec<TableCommitContext> tableCommitContextCodec;
     private final PageSinkCommitStrategy pageSinkCommitStrategy;
 
+    private final Supplier<TableWriterInfo> tableWriterInfoSupplier;
+
     public TableWriterOperator(
             OperatorContext operatorContext,
             ConnectorPageSink pageSink,
@@ -245,12 +248,13 @@ public class TableWriterOperator
         this.columnChannels = requireNonNull(columnChannels, "columnChannels is null");
         this.notNullChannelColumnNames = requireNonNull(notNullChannelColumnNames, "notNullChannelColumnNames is null");
         checkArgument(columnChannels.size() == notNullChannelColumnNames.size(), "columnChannels and notNullColumnNames have different sizes");
-        this.operatorContext.setInfoSupplier(this::getInfo);
         this.statisticAggregationOperator = requireNonNull(statisticAggregationOperator, "statisticAggregationOperator is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.statisticsCpuTimerEnabled = statisticsCpuTimerEnabled;
         this.tableCommitContextCodec = requireNonNull(tableCommitContextCodec, "tableCommitContextCodec is null");
         this.pageSinkCommitStrategy = requireNonNull(pageSinkCommitStrategy, "pageSinkCommitStrategy is null");
+        this.tableWriterInfoSupplier = createTableWriterInfoSupplier(pageSinkPeakMemoryUsage, statisticsTiming, pageSink);
+        this.operatorContext.setInfoSupplier(tableWriterInfoSupplier);
     }
 
     @Override
@@ -462,7 +466,15 @@ public class TableWriterOperator
     @VisibleForTesting
     TableWriterInfo getInfo()
     {
-        return new TableWriterInfo(
+        return tableWriterInfoSupplier.get();
+    }
+
+    private static Supplier<TableWriterInfo> createTableWriterInfoSupplier(AtomicLong pageSinkPeakMemoryUsage, OperationTiming statisticsTiming, ConnectorPageSink pageSink)
+    {
+        requireNonNull(pageSinkPeakMemoryUsage, "pageSinkPeakMemoryUsage is null");
+        requireNonNull(statisticsTiming, "statisticsTiming is null");
+        requireNonNull(pageSink, "pageSink is null");
+        return () -> new TableWriterInfo(
                 pageSinkPeakMemoryUsage.get(),
                 succinctNanos(statisticsTiming.getWallNanos()),
                 succinctNanos(statisticsTiming.getCpuNanos()),
