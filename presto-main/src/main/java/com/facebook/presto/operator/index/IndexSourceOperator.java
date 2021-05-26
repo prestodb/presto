@@ -28,6 +28,7 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.google.common.base.Suppliers;
 
 import java.util.Optional;
 import java.util.function.Function;
@@ -131,7 +132,7 @@ public class IndexSourceOperator
 
         Object splitInfo = split.getInfo();
         if (splitInfo != null) {
-            operatorContext.setInfoSupplier(() -> new SplitOperatorInfo(splitInfo));
+            operatorContext.setInfoSupplier(Suppliers.ofInstance(new SplitOperatorInfo(splitInfo)));
         }
 
         return Optional::empty;
