@@ -4871,6 +4871,17 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testExecuteWithParametersInLambda()
+    {
+        String query = "SELECT filter(array[1, 2, 3], x -> x > ?)";
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query", query)
+                .build();
+
+        assertQuery(session, "EXECUTE my_query USING 2", "SELECT array[3]");
+    }
+
+    @Test
     public void testExecuteWithParametersInGroupBy()
     {
         try {
@@ -5725,9 +5736,9 @@ public abstract class AbstractTestQueries
     {
         assertQueryFails(
                 "select y, map_union_sum(x) from (select 1 y, map(array['x', 'z', 'y'], cast(array[null,30,100] as array<tinyint>)) x " +
-                "union all select 1 y, map(array['x', 'y'], cast(array[1,100] as array<tinyint>))x) group by y", ".*Value 200 exceeds MAX_BYTE.*");
+                        "union all select 1 y, map(array['x', 'y'], cast(array[1,100] as array<tinyint>))x) group by y", ".*Value 200 exceeds MAX_BYTE.*");
         assertQueryFails(
                 "select y, map_union_sum(x) from (select 1 y, map(array['x', 'z', 'y'], cast(array[null,30, 32760] as array<smallint>)) x " +
-                "union all select 1 y, map(array['x', 'y'], cast(array[1,100] as array<smallint>))x) group by y", ".*Value 32860 exceeds MAX_SHORT.*");
+                        "union all select 1 y, map(array['x', 'y'], cast(array[1,100] as array<smallint>))x) group by y", ".*Value 32860 exceeds MAX_SHORT.*");
     }
 }
