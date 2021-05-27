@@ -90,7 +90,7 @@ public class MapBlockBuilder
         this.mapIsNull = new boolean[expectedEntries];
         this.keyBlockBuilder = requireNonNull(keyBlockBuilder, "keyBlockBuilder is null");
         this.valueBlockBuilder = requireNonNull(valueBlockBuilder, "valueBlockBuilder is null");
-        this.hashTables = new HashTables(Optional.ofNullable(rawHashTables), 0);
+        this.hashTables = new HashTables(Optional.ofNullable(rawHashTables), 0, expectedEntries * HASH_MULTIPLIER);
         this.logicalSizeInBytes = -1;
     }
 
@@ -141,7 +141,8 @@ public class MapBlockBuilder
     {
         return keyBlockBuilder.getSizeInBytes() + valueBlockBuilder.getSizeInBytes() +
                 (Integer.BYTES + Byte.BYTES) * (long) positionCount +
-                Integer.BYTES * HASH_MULTIPLIER * (long) keyBlockBuilder.getPositionCount();
+                Integer.BYTES * HASH_MULTIPLIER * (long) keyBlockBuilder.getPositionCount() +
+                hashTables.getInstanceSizeInBytes();
     }
 
     @Override
@@ -365,7 +366,7 @@ public class MapBlockBuilder
                 offsets,
                 keyBlockBuilder.build(),
                 valueBlockBuilder.build(),
-                new HashTables(Optional.ofNullable(mapBlockHashTables), positionCount));
+                new HashTables(Optional.ofNullable(mapBlockHashTables), positionCount, hashTablesEntries));
     }
 
     @Override
