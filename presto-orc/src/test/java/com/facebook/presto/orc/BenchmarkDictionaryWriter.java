@@ -47,6 +47,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Random;
+import java.util.UUID;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
@@ -156,14 +157,11 @@ public class BenchmarkDictionaryWriter
     @State(Scope.Thread)
     public static class BenchmarkData
     {
-        private static final int NUM_BLOCKS = 1_000;
-        private static final int ROWS_PER_BLOCK = 10_000;
+        private static final int NUM_BLOCKS = 10_000;
+        private static final int ROWS_PER_BLOCK = 1_000;
         private static final String INTEGER_TYPE = "integer";
         private static final String BIGINT_TYPE = "bigint";
         private static final String VARCHAR_TYPE = "varchar";
-        private static final String POSSIBLE_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 +-_*#";
-        private static final int MAX_STRING_LENGTH = 30;
-        private static final int MIN_STRING_LENGTH = 10;
 
         private final Random random = new Random(0);
         private final List<Block> blocks;
@@ -174,7 +172,6 @@ public class BenchmarkDictionaryWriter
                 VARCHAR_TYPE
         })
         private String typeSignature = INTEGER_TYPE;
-
         @Param({
                 "1",
                 "5",
@@ -230,22 +227,12 @@ public class BenchmarkDictionaryWriter
             return max(uniqueValues, 1);
         }
 
-        private String getNextString(char[] chars, int length)
-        {
-            for (int i = 0; i < length; i++) {
-                chars[i] = POSSIBLE_CHARS.charAt(random.nextInt(POSSIBLE_CHARS.length()));
-            }
-            return String.valueOf(chars);
-        }
-
         private List<String> generateStrings(int numRows)
         {
             int valuesToGenerate = getUniqueValues(numRows);
             List<String> strings = new ArrayList<>(numRows);
-            char[] chars = new char[MAX_STRING_LENGTH];
             for (int i = 0; i < valuesToGenerate; i++) {
-                int length = MIN_STRING_LENGTH + random.nextInt(MAX_STRING_LENGTH - MIN_STRING_LENGTH);
-                strings.add(getNextString(chars, length));
+                strings.add(UUID.randomUUID().toString());
             }
 
             for (int i = valuesToGenerate; i < numRows; i++) {
