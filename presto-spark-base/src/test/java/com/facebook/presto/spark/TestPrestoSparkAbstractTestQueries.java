@@ -175,6 +175,12 @@ public class TestPrestoSparkAbstractTestQueries
     }
 
     @Override
+    public void testExecuteWithParametersInLambda()
+    {
+        // prepared statement is not supported by Presto on Spark
+    }
+
+    @Override
     public void testExplainDdl()
     {
         // DDL statements are not supported by Presto on Spark
