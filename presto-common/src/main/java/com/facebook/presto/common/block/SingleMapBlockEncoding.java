@@ -87,7 +87,7 @@ public class SingleMapBlockEncoding
                 new int[] {0, keyBlock.getPositionCount()},
                 keyBlock,
                 valueBlock,
-                new HashTables(Optional.ofNullable(hashTable), 1));
+                new HashTables(Optional.ofNullable(hashTable), 1, hashTableLength));
 
         return new SingleMapBlock(0, 0, keyBlock.getPositionCount() * 2, mapBlock);
     }
