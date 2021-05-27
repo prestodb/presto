@@ -24,6 +24,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.spi.resourceGroups.QueryType.DELETE;
 import static com.facebook.presto.spi.resourceGroups.QueryType.INSERT;
@@ -39,7 +40,7 @@ public class TestDbSourceExactMatchSelector
     @BeforeClass
     public void setup()
     {
-        DbResourceGroupConfig config = new DbResourceGroupConfig().setConfigDbUrl("jdbc:h2:mem:test_db-exact-match-selector" + System.nanoTime());
+        DbResourceGroupConfig config = new DbResourceGroupConfig().setConfigDbUrl("jdbc:h2:mem:test_db-exact-match-selector" + System.nanoTime() + "_" + ThreadLocalRandom.current().nextInt());
         dao = new H2DaoProvider(config).get();
         dao.createExactMatchSelectorsTable();
     }

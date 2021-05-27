@@ -31,8 +31,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
-import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
 import static com.facebook.presto.execution.QueryState.RUNNING;
@@ -102,7 +102,7 @@ class H2TestUtil
 
     public static String getDbConfigUrl()
     {
-        return "jdbc:h2:mem:test_" + Math.abs(new Random().nextLong());
+        return "jdbc:h2:mem:test_" + System.nanoTime() + "_" + ThreadLocalRandom.current().nextInt();
     }
 
     public static H2ResourceGroupsDao getDao(String url)
