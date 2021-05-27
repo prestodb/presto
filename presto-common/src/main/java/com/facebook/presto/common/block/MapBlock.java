@@ -40,7 +40,7 @@ public class MapBlock
     private final Block keyBlock;
     private final Block valueBlock;
     private final HashTables hashTables;
-    private final long retainedSizeInBytesExceptHashtable;
+    private final long retainedSizeInBytes;
 
     private volatile long sizeInBytes;
 
@@ -65,7 +65,7 @@ public class MapBlock
                 offsets,
                 keyBlock,
                 valueBlock,
-                new HashTables(Optional.empty(), positionCount));
+                new HashTables(Optional.empty(), positionCount, keyBlock.getPositionCount() * HASH_MULTIPLIER));
     }
 
     /**
@@ -158,11 +158,12 @@ public class MapBlock
         // We will add the hashtable size to the retained size even if it's not built yet. This could be overestimating
         // but is necessary to avoid reliability issues. Currently the memory counting framework only pull the retained
         // size once for each operator so updating in the middle of the processing would not work.
-        this.retainedSizeInBytesExceptHashtable = INSTANCE_SIZE
+        this.retainedSizeInBytes = INSTANCE_SIZE
                 + keyBlock.getRetainedSizeInBytes()
                 + valueBlock.getRetainedSizeInBytes()
                 + sizeOf(offsets)
-                + sizeOf(mapIsNull);
+                + sizeOf(mapIsNull)
+                + hashTables.getRetainedSizeInBytes();
     }
 
     @Override
@@ -225,13 +226,14 @@ public class MapBlock
         sizeInBytes = keyBlock.getRegionSizeInBytes(entriesStart, entryCount) +
                 valueBlock.getRegionSizeInBytes(entriesStart, entryCount) +
                 (Integer.BYTES + Byte.BYTES) * (long) this.positionCount +
-                Integer.BYTES * HASH_MULTIPLIER * (long) entryCount;
+                Integer.BYTES * HASH_MULTIPLIER * (long) entryCount +
+                hashTables.getInstanceSizeInBytes();
     }
 
     @Override
     public long getRetainedSizeInBytes()
     {
-        return retainedSizeInBytesExceptHashtable + hashTables.getRetainedSizeInBytes();
+        return retainedSizeInBytes;
     }
 
     @Override
