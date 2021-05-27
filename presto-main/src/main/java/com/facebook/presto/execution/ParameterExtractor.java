@@ -14,6 +14,8 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
+import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
+import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.Statement;
 
@@ -52,6 +54,16 @@ public class ParameterExtractor
         public Void visitParameter(Parameter node, Void context)
         {
             parameters.add(node);
+            return null;
+        }
+
+        @Override
+        protected Void visitLambdaExpression(LambdaExpression node, Void context)
+        {
+            process(node.getBody(), context);
+            for (LambdaArgumentDeclaration argument : node.getArguments()) {
+                process(argument, context);
+            }
             return null;
         }
     }
