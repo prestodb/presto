@@ -445,7 +445,7 @@ public class DistributedQueryRunner
     {
         checkState(testFunctionNamespacesHandle.get() == null, "Test function namespaces already enabled");
 
-        String databaseName = String.valueOf(nanoTime());
+        String databaseName = String.valueOf(nanoTime()) + "_" + ThreadLocalRandom.current().nextInt();
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("database-name", databaseName)
                 .putAll(additionalProperties)

@@ -29,6 +29,7 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
@@ -48,7 +49,7 @@ public class TestShardDao
     @BeforeMethod
     public void setup()
     {
-        dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
+        dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + "_" + ThreadLocalRandom.current().nextInt());
         dummyHandle = dbi.open();
         dao = dbi.onDemand(TestingShardDao.class);
         createTablesWithRetry(dbi);
