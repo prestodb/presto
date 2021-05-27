@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_BACKUP_CORRUPTION;
 import static com.facebook.presto.raptor.filesystem.FileSystemUtil.xxhash64;
@@ -77,7 +78,7 @@ public class TestShardRecovery
         storageService = new LocalFileStorageService(new LocalOrcDataEnvironment(), directory.toURI());
         storageService.start();
 
-        IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
+        IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + "_" + ThreadLocalRandom.current().nextInt());
         dummyHandle = dbi.open();
         createTablesWithRetry(dbi);
         ShardManager shardManager = createShardManager(dbi);

@@ -24,6 +24,7 @@ import org.testng.annotations.Test;
 
 import java.util.OptionalLong;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.airlift.testing.Assertions.assertGreaterThan;
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
@@ -44,7 +45,7 @@ public class TestUpgradeMetadata
     @BeforeMethod
     public void setup()
     {
-        dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
+        dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + "_" + ThreadLocalRandom.current().nextInt());
         dummyHandle = dbi.open();
         dao = dbi.onDemand(MetadataDao.class);
         createLegacyTables(dummyHandle.attach(SchemaDao.class), dummyHandle.attach(LegacySchemaDao.class));

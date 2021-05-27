@@ -47,6 +47,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.common.predicate.Range.greaterThan;
 import static com.facebook.presto.common.predicate.Range.lessThanOrEqual;
@@ -78,7 +79,7 @@ public class TestShardMetadataRecordCursor
     public void setup()
     {
         FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
-        this.dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
+        this.dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + "_" + ThreadLocalRandom.current().nextInt());
         this.dbi.registerMapper(new TableColumn.Mapper(functionAndTypeManager));
         this.dummyHandle = dbi.open();
         createTablesWithRetry(dbi);

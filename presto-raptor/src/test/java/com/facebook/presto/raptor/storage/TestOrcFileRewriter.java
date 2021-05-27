@@ -58,6 +58,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -451,7 +452,7 @@ public class TestOrcFileRewriter
             throws Exception
     {
         FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
-        DBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
+        DBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + "_" + ThreadLocalRandom.current().nextInt());
         dbi.registerMapper(new TableColumn.Mapper(functionAndTypeManager));
         Handle dummyHandle = dbi.open();
         File dataDir = Files.createTempDir();
@@ -595,7 +596,7 @@ public class TestOrcFileRewriter
             throws Exception
     {
         FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
-        DBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
+        DBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + "_" + ThreadLocalRandom.current().nextInt());
         dbi.registerMapper(new TableColumn.Mapper(functionAndTypeManager));
         Handle dummyHandle = dbi.open();
         File dataDir = Files.createTempDir();
