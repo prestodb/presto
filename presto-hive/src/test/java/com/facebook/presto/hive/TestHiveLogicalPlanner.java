@@ -1059,7 +1059,7 @@ public class TestHiveLogicalPlanner
             String baseQuery = "SELECT orderkey from orders_partitioned where orderkey <  10000";
             // getExplainPlan(viewQuery, LOGICAL);
 
-            assertEquals(computeActual(viewQuery).getRowCount(), computeActual(baseQuery).getRowCount());
+            assertEquals(computeActual(viewQuery), computeActual(baseQuery));
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS test_orders_view");
@@ -1093,7 +1093,7 @@ public class TestHiveLogicalPlanner
             String viewQuery = format("SELECT orderkey from %s where orderkey < 10000", view);
             String baseQuery = viewPart + " where orderkey < 10000";
 
-            assertEquals(computeActual(viewQuery).getRowCount(), computeActual(baseQuery).getRowCount());
+            assertEquals(computeActual(viewQuery), computeActual(baseQuery));
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS " + view);
@@ -1122,7 +1122,7 @@ public class TestHiveLogicalPlanner
             String baseQuery = format("SELECT orderkey from %s where orderkey <  10000", table);
             // getExplainPlan(viewQuery, LOGICAL);
 
-            assertEquals(computeActual(viewQuery).getRowCount(), computeActual(baseQuery).getRowCount());
+            assertEquals(computeActual(viewQuery), computeActual(baseQuery));
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS " + view);
@@ -1151,7 +1151,7 @@ public class TestHiveLogicalPlanner
             String baseQuery = format("SELECT orderkey from %s where orderkey <  10000", baseTable);
             // getExplainPlan(viewQuery, LOGICAL);
 
-            assertEquals(computeActual(viewQuery).getRowCount(), computeActual(baseQuery).getRowCount());
+            assertEquals(computeActual(viewQuery), computeActual(baseQuery));
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS " + view);
@@ -1184,7 +1184,7 @@ public class TestHiveLogicalPlanner
             String baseQuery = format("SELECT orderkey from %s  where orderkey <  10000", baseTable);
             // getExplainPlan(viewQuery, LOGICAL);
 
-            assertEquals(computeActual(viewQuery).getRowCount(), computeActual(baseQuery).getRowCount());
+            assertEquals(computeActual(viewQuery), computeActual(baseQuery));
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS " + view);
@@ -1217,7 +1217,7 @@ public class TestHiveLogicalPlanner
             String baseQuery = format("SELECT orderkey from %s where orderkey <  10000", baseTable);
             // getExplainPlan(viewQuery, LOGICAL);
 
-            assertEquals(computeActual(viewQuery).getRowCount(), computeActual(baseQuery).getRowCount());
+            assertEquals(computeActual(viewQuery), computeActual(baseQuery));
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS " + view);
@@ -1245,7 +1245,8 @@ public class TestHiveLogicalPlanner
             assertUpdate(format("INSERT INTO %s(name, custkey, nationkey) %s where nationkey < 10", view, baseQuery), 599);
 
             String viewQuery = format("SELECT name, custkey, nationkey from %s", view);
-            assertEquals(computeActual(viewQuery).getRowCount(), computeActual(baseQuery).getRowCount());
+
+            assertEquals(computeActual(viewQuery), computeActual(baseQuery));
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS " + view);
@@ -1276,7 +1277,8 @@ public class TestHiveLogicalPlanner
             String viewQuery = format("SELECT * FROM %s ", view);
             String baseQuery = format("SELECT linenumber, SUM(DISTINCT CAST(quantity AS BIGINT)) quantity, shipmode FROM %s " +
                     "GROUP BY GROUPING SETS ((linenumber, shipmode), (shipmode))", baseTable);
-            assertEquals(computeActual(viewQuery).getRowCount(), computeActual(baseQuery).getRowCount());
+
+            assertEquals(computeActual(viewQuery), computeActual(baseQuery));
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS " + view);
@@ -1309,7 +1311,7 @@ public class TestHiveLogicalPlanner
             String baseQuery = format("SELECT orderkey from %s where orderkey <  10000", baseTable);
             // getExplainPlan(viewQuery, LOGICAL);
 
-            assertEquals(computeActual(viewQuery).getRowCount(), computeActual(baseQuery).getRowCount());
+            assertEquals(computeActual(viewQuery), computeActual(baseQuery));
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS " + view);
@@ -1346,9 +1348,9 @@ public class TestHiveLogicalPlanner
             String viewQuery = format("SELECT nationname, custkey from %s", view);
             String baseQuery = format("SELECT %s.name AS nationname, customer.custkey FROM %s JOIN %s customer ON (%s.nationkey = customer.nationkey)",
                     table1, table1, table2, table1);
-
             // getExplainPlan(viewQuery, LOGICAL);
-            assertEquals(computeActual(viewQuery).getRowCount(), computeActual(baseQuery).getRowCount());
+
+            assertEquals(computeActual(viewQuery), computeActual(baseQuery));
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS " + view);
@@ -1384,7 +1386,7 @@ public class TestHiveLogicalPlanner
             String baseQuery = format("SELECT sum(discount * extendedprice) as _discount_multi_extendedprice_ from %s group by ds, shipmode", baseTable);
             // getExplainPlan(viewQuery, LOGICAL);
 
-            assertEquals(computeActual(viewQuery).getRowCount(), computeActual(baseQuery).getRowCount());
+            assertEquals(computeActual(viewQuery), computeActual(baseQuery));
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS " + view);
@@ -1418,7 +1420,7 @@ public class TestHiveLogicalPlanner
             String baseQuery = format("SELECT sum(discount * extendedprice) as _discount_multi_extendedprice_ from %s group by ds", baseTable);
             // getExplainPlan(viewQuery, LOGICAL);
 
-            assertEquals(computeActual(viewQuery).getRowCount(), computeActual(baseQuery).getRowCount());
+            assertEquals(computeActual(viewQuery), computeActual(baseQuery));
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS " + view);
@@ -1484,11 +1486,11 @@ public class TestHiveLogicalPlanner
             assertUpdate(format("INSERT INTO %s(orderkey, orderpriority, totalprice) " +
                     "select orderkey, orderpriority, totalprice from %s where totalprice<65000", view, table), 3);
 
-            String viwQuery = format("SELECT orderkey from %s where orderkey <  10000", view);
+            String viewQuery = format("SELECT orderkey from %s where orderkey <  10000", view);
             String baseQuery = format("SELECT orderkey from %s where orderkey <  10000", table);
             // getExplainPlan(viewQuery, LOGICAL);
 
-            assertEquals(computeActual(viwQuery).getRowCount(), computeActual(baseQuery).getRowCount());
+            assertEquals(computeActual(viewQuery), computeActual(baseQuery));
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS " + view);
@@ -1529,7 +1531,7 @@ public class TestHiveLogicalPlanner
                     " inner join %s t2 ON t1.ds=t2.ds where t1.orderkey <  10000", table1, table2);
 
             // getExplainPlan(viewQuery, LOGICAL);
-            assertEquals(computeActual(viewQuery).getRowCount(), computeActual(baseQuery).getRowCount());
+            assertEquals(computeActual(viewQuery), computeActual(baseQuery));
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS " + view);
@@ -1538,8 +1540,8 @@ public class TestHiveLogicalPlanner
         }
     }
 
-    @Test(enabled = false)
-    public void testMaterialziedViewFullOuterJoin()
+    @Test
+    public void testMaterializedViewFullOuterJoin()
     {
         QueryRunner queryRunner = getQueryRunner();
         String view = "order_view_full_outer_join";
