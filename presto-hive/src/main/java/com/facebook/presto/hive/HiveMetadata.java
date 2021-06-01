@@ -1714,7 +1714,8 @@ public class HiveMetadata
         }
         for (PartitionUpdate update : partitionUpdates) {
             Map<String, String> partitionParameters = partitionEncryptionParameters;
-            partitionParameters.putAll(bucketingProperties);
+            bucketingProperties.putAll(partitionParameters);
+            partitionParameters = bucketingProperties;
             if (isPreferManifestsToListFiles(session) && isFileRenamingEnabled(session)) {
                 // Store list of file names and sizes in partition metadata when prefer_manifests_to_list_files and file_renaming_enabled are set to true
                 partitionParameters = updatePartitionMetadataWithFileNamesAndSizes(update, partitionParameters);

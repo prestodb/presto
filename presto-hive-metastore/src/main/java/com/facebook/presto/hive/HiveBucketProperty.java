@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.BucketingUtils;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.metastore.SortingColumn;
 import com.facebook.presto.spi.PrestoException;
@@ -21,14 +22,16 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
 import static com.facebook.presto.hive.BucketFunctionType.HIVE_CLUSTERING;
 import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
 import static com.facebook.presto.hive.BucketFunctionType.PRESTO_NATIVE;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -87,15 +90,43 @@ public class HiveBucketProperty
             // In Hive, a table is considered as not bucketed when its bucketCols is set but its numBucket is not set.
             return Optional.empty();
         }
-        if (!bucketColsSet) {
-            throw new PrestoException(HIVE_INVALID_METADATA, "Table/partition metadata has 'numBuckets' set, but 'bucketCols' is not set: " + tablePartitionName);
-        }
+
+        Map<String, Object> unmodifiableParameters = Collections.<String, Object>unmodifiableMap(
+                storageDescriptor.getParameters());
+        List<String> clusteredBy = BucketingUtils.getClusteredBy(unmodifiableParameters);
+        boolean doClustering = BucketingUtils.doClustering(clusteredBy);
+//        if (!bucketColsSet && !doClustering) {
+//            throw new PrestoException(
+//                    HIVE_INVALID_METADATA,
+//                    "Table/partition metadata has 'numBuckets' set, but 'bucketCols' is not set: " + tablePartitionName);
+//        }
+
         List<SortingColumn> sortedBy = ImmutableList.of();
         if (storageDescriptor.isSetSortCols()) {
             sortedBy = storageDescriptor.getSortCols().stream()
                     .map(order -> SortingColumn.fromMetastoreApiOrder(order, tablePartitionName))
                     .collect(toImmutableList());
         }
+
+        if (doClustering) {
+            List<Integer> clusterCount = BucketingUtils.getClusterCount(unmodifiableParameters);
+            List<Object> distribution = BucketingUtils.getDistribution(unmodifiableParameters);
+
+            if (clusterCount.isEmpty() || distribution.isEmpty()) {
+                throw new PrestoException(INVALID_TABLE_PROPERTY, "To do clustering, cluster_count and distribution must be specified");
+            }
+
+            return Optional.of(new HiveBucketProperty(
+                    clusteredBy,
+                    storageDescriptor.getNumBuckets(),
+                    sortedBy,
+                    HIVE_CLUSTERING,
+                    Optional.empty(),
+                    Optional.of(clusteredBy),
+                    Optional.of(clusterCount),
+                    Optional.of(distribution)));
+        }
+
         return Optional.of(new HiveBucketProperty(
                 storageDescriptor.getBucketCols(),
                 storageDescriptor.getNumBuckets(),

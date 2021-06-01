@@ -131,6 +131,14 @@ public class TestHiveClustering
                 Math.ceil(queryInfo.getQueryStats().getRawInputDataSize().getValue()),
                 100.0);
         assertEquals(queryInfo.getQueryStats().getOutputPositions(), 100L);
+
+        query = "DESCRIBE hive_bucketed.tpch_bucketed.customer_copied_again";
+        result = computeActual(query);
+        assertEquals(result.getMaterializedRows().size(), 8);
+
+        query = "SHOW CREATE TABLE hive_bucketed.tpch_bucketed.customer_copied_again";
+        result = computeActual(query);
+        assertEquals(result.getMaterializedRows().size(), 8);
     }
 
     @Test
