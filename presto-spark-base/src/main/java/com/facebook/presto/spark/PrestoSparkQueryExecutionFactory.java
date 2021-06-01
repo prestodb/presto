@@ -362,37 +362,36 @@ public class PrestoSparkQueryExecutionFactory
                 authenticatorProviders);
 
         Session session = sessionSupplier.createSession(queryId, sessionContext);
-
         session = sessionPropertyDefaults.newSessionWithDefaultProperties(session, Optional.empty(), Optional.empty());
 
         WarningCollector warningCollector = warningCollectorFactory.create(getWarningHandlingLevel(session));
 
-        TransactionId transactionId = transactionManager.beginTransaction(true);
-        session = session.beginTransactionId(transactionId, transactionManager, accessControl);
-
-        // including queueing time
-        Duration queryMaxRunTime = getQueryMaxRunTime(session);
-        // excluding queueing time
-        Duration queryMaxExecutionTime = getQueryMaxExecutionTime(session);
-        // pick a smaller one as we are not tracking queueing for Presto on Spark
-        Duration queryTimeout = queryMaxRunTime.compareTo(queryMaxExecutionTime) < 0 ? queryMaxRunTime : queryMaxExecutionTime;
-
-        long queryCompletionDeadline = System.currentTimeMillis() + queryTimeout.toMillis();
-
-        queryMonitor.queryCreatedEvent(
-                new BasicQueryInfo(createQueryInfo(
-                        session,
-                        sql,
-                        PLANNING,
-                        Optional.empty(),
-                        sparkQueueName,
-                        Optional.empty(),
-                        queryStateTimer,
-                        Optional.empty(),
-                        warningCollector)));
-
         PlanAndMore planAndMore = null;
         try {
+            TransactionId transactionId = transactionManager.beginTransaction(true);
+            session = session.beginTransactionId(transactionId, transactionManager, accessControl);
+
+            queryMonitor.queryCreatedEvent(
+                    new BasicQueryInfo(createQueryInfo(
+                            session,
+                            sql,
+                            PLANNING,
+                            Optional.empty(),
+                            sparkQueueName,
+                            Optional.empty(),
+                            queryStateTimer,
+                            Optional.empty(),
+                            warningCollector)));
+
+            // including queueing time
+            Duration queryMaxRunTime = getQueryMaxRunTime(session);
+            // excluding queueing time
+            Duration queryMaxExecutionTime = getQueryMaxExecutionTime(session);
+            // pick a smaller one as we are not tracking queueing for Presto on Spark
+            Duration queryTimeout = queryMaxRunTime.compareTo(queryMaxExecutionTime) < 0 ? queryMaxRunTime : queryMaxExecutionTime;
+
+            long queryCompletionDeadline = System.currentTimeMillis() + queryTimeout.toMillis();
+
             settingsRequirements.verify(sparkContext, session);
 
             queryStateTimer.beginAnalyzing();
