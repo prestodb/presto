@@ -44,7 +44,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-public class TestDwrfStripeCaching
+public class TestOrcReaderDwrfStripeCaching
 {
     private static final int READ_TAIL_SIZE = 1024 * 1024;
     private static final OrcDataSourceId TEST_DATA_SOURCE_ID = new OrcDataSourceId("test");
@@ -239,7 +239,7 @@ public class TestDwrfStripeCaching
         assertFalse(stripeFooterSlice.isPresent());
     }
 
-    private File getResourceFile(String fileName)
+    static File getResourceFile(String fileName)
     {
         String resourceName = "dwrf_stripe_cache/" + fileName;
         return new File(getResource(resourceName).getFile());
@@ -249,7 +249,6 @@ public class TestDwrfStripeCaching
             throws IOException
     {
         CapturingStripeMetadataSourceFactory stripeMetadataSourceFactory = new CapturingStripeMetadataSourceFactory();
-
         OrcDataSource orcDataSource = new FileOrcDataSource(
                 orcFile,
                 new DataSize(1, MEGABYTE),
@@ -269,7 +268,7 @@ public class TestDwrfStripeCaching
         return stripeMetadataSourceFactory.getDwrfStripeCache();
     }
 
-    private static DwrfProto.Footer readFileFooter(File orcFile)
+    static DwrfProto.Footer readFileFooter(File orcFile)
             throws IOException
     {
         try (RandomAccessFile file = new RandomAccessFile(orcFile, "r")) {

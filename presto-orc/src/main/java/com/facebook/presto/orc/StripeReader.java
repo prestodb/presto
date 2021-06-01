@@ -67,9 +67,8 @@ import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY_V2;
 import static com.facebook.presto.orc.metadata.DwrfMetadataReader.toStripeEncryptionGroup;
 import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.STRUCT;
+import static com.facebook.presto.orc.metadata.Stream.StreamArea.INDEX;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.BLOOM_FILTER;
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.BLOOM_FILTER_UTF8;
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_COUNT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_INDEX;
@@ -491,7 +490,7 @@ public class StripeReader
 
     static boolean isIndexStream(Stream stream)
     {
-        return stream.getStreamKind() == ROW_INDEX || stream.getStreamKind() == DICTIONARY_COUNT || stream.getStreamKind() == BLOOM_FILTER || stream.getStreamKind() == BLOOM_FILTER_UTF8;
+        return stream.getStreamKind().getStreamArea() == INDEX;
     }
 
     private Map<Integer, List<HiveBloomFilter>> readBloomFilterIndexes(Map<StreamId, Stream> streams, Map<StreamId, OrcInputStream> streamsData)
