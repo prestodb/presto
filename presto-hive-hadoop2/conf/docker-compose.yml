@@ -17,6 +17,8 @@ services:
       - ../../presto-hive/src/test/sql:/files/sql:ro
       - ./files/words:/usr/share/dict/words:ro
       - ./files/core-site.xml.s3-template:/etc/hadoop/conf/core-site.xml.s3-template:ro
+      - ./files/core-site.xml.alioss-template:/etc/hadoop/conf/core-site.xml.alioss-template:ro
+      - /Users/abei/.m2/repository/com/aliyun/oss/hadoop-aliyun/2.7.2/hadoop-aliyun-2.7.2.jar:/usr/hdp/2.6.3.0-235/hadoop/lib/hadoop-aliyun-2.7.2.jar
       - ./files/test1.csv:/tmp/test1.csv:ro
       - ./files/test1.csv.gz:/tmp/test1.csv.gz:ro
       - ./files/test1.csv.lz4:/tmp/test1.csv.lz4:ro

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.alioss.AliOssConfigurationInitializer;
 import com.facebook.presto.hive.gcs.GcsConfigurationInitializer;
-import com.facebook.presto.hive.oss.OssConfigurationInitializer;
 import com.facebook.presto.hive.s3.S3ConfigurationUpdater;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -58,7 +58,7 @@ public class HdfsConfigurationInitializer
     private final int fileSystemMaxCacheSize;
     private final S3ConfigurationUpdater s3ConfigurationUpdater;
     private final GcsConfigurationInitializer gcsConfigurationInitialize;
-    private final OssConfigurationInitializer ossConfigurationInitializer;
+    private final AliOssConfigurationInitializer aliOssConfigurationInitializer;
     private final boolean isHdfsWireEncryptionEnabled;
     private int textMaxLineLength;
 
@@ -69,7 +69,7 @@ public class HdfsConfigurationInitializer
     }
 
     @Inject
-    public HdfsConfigurationInitializer(HiveClientConfig config, MetastoreClientConfig metastoreConfig, S3ConfigurationUpdater s3ConfigurationUpdater, GcsConfigurationInitializer gcsConfigurationInitialize, OssConfigurationInitializer ossConfigurationInitializer)
+    public HdfsConfigurationInitializer(HiveClientConfig config, MetastoreClientConfig metastoreConfig, S3ConfigurationUpdater s3ConfigurationUpdater, GcsConfigurationInitializer gcsConfigurationInitialize, AliOssConfigurationInitializer aliOssConfigurationInitializer)
     {
         requireNonNull(config, "config is null");
         checkArgument(config.getDfsTimeout().toMillis() >= 1, "dfsTimeout must be at least 1 ms");
@@ -88,7 +88,7 @@ public class HdfsConfigurationInitializer
 
         this.s3ConfigurationUpdater = requireNonNull(s3ConfigurationUpdater, "s3ConfigurationUpdater is null");
         this.gcsConfigurationInitialize = requireNonNull(gcsConfigurationInitialize, "gcsConfigurationInitialize is null");
-        this.ossConfigurationInitializer = requireNonNull(ossConfigurationInitializer, "ossConfigurationInitializer is null");
+        this.aliOssConfigurationInitializer = requireNonNull(aliOssConfigurationInitializer, "ossConfigurationInitializer is null");
     }
 
     private static Configuration readConfiguration(List<String> resourcePaths)
@@ -141,7 +141,7 @@ public class HdfsConfigurationInitializer
 
         s3ConfigurationUpdater.updateConfiguration(config);
         gcsConfigurationInitialize.updateConfiguration(config);
-        ossConfigurationInitializer.updateConfiguration(config);
+        aliOssConfigurationInitializer.updateConfiguration(config);
     }
 
     public static class NoOpDNSToSwitchMapping

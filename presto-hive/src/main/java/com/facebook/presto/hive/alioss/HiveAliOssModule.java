@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive.oss;
+package com.facebook.presto.hive.alioss;
 
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.google.inject.Binder;
@@ -19,13 +19,13 @@ import com.google.inject.Scopes;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 
-public class HiveOssModule
+public class HiveAliOssModule
         extends AbstractConfigurationAwareModule
 {
     @Override
     protected void setup(Binder binder)
     {
-        configBinder(binder).bindConfig(HiveOssConfig.class);
-        binder.bind(OssConfigurationInitializer.class).to(HiveOssConfigurationInitializer.class).in(Scopes.SINGLETON);
+        configBinder(binder).bindConfig(HiveAliOssConfig.class);
+        binder.bind(AliOssConfigurationInitializer.class).to(HiveAliOssConfigurationInitializer.class).in(Scopes.SINGLETON);
     }
 }

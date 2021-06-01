@@ -28,6 +28,8 @@ import com.facebook.presto.cost.ConnectorFilterStatsCalculatorService;
 import com.facebook.presto.cost.FilterStatsCalculator;
 import com.facebook.presto.cost.ScalarStatsCalculator;
 import com.facebook.presto.cost.StatsNormalizer;
+import com.facebook.presto.hive.alioss.HiveAliOssConfig;
+import com.facebook.presto.hive.alioss.HiveAliOssConfigurationInitializer;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.datasink.OutputStreamDataSinkFactory;
 import com.facebook.presto.hive.gcs.HiveGcsConfig;
@@ -37,8 +39,6 @@ import com.facebook.presto.hive.orc.DwrfSelectivePageSourceFactory;
 import com.facebook.presto.hive.orc.OrcBatchPageSourceFactory;
 import com.facebook.presto.hive.orc.OrcSelectivePageSourceFactory;
 import com.facebook.presto.hive.orc.TupleDomainFilterCache;
-import com.facebook.presto.hive.oss.HiveOssConfig;
-import com.facebook.presto.hive.oss.HiveOssConfigurationInitializer;
 import com.facebook.presto.hive.pagefile.PageFilePageSourceFactory;
 import com.facebook.presto.hive.pagefile.PageFileWriterFactory;
 import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
@@ -216,7 +216,7 @@ public final class HiveTestUtils
                         metastoreClientConfig,
                         new PrestoS3ConfigurationUpdater(new HiveS3Config()),
                         new HiveGcsConfigurationInitializer(new HiveGcsConfig()),
-                        new HiveOssConfigurationInitializer(new HiveOssConfig())),
+                        new HiveAliOssConfigurationInitializer(new HiveAliOssConfig())),
                 ImmutableSet.of());
         return new HdfsEnvironment(hdfsConfig, metastoreClientConfig, new NoHdfsAuthentication());
     }

@@ -19,6 +19,11 @@ public class PrestoExtendedFileSystemCache
     @Override
     protected FileSystem createPrestoFileSystemWrapper(FileSystem original)
     {
+        // Don't wrap LocalFileSystem otherwise FileSystem.getLocal(which
+        // do a type cast to LocalFileSystem) would fail
+        if (original instanceof LocalFileSystem) {
+            return original;
+        }
         return new HadoopExtendedFileSystem(original);
     }
 }
