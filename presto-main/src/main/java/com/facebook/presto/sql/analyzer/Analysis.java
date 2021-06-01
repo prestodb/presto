@@ -43,7 +43,6 @@ import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.Table;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
@@ -74,6 +73,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Multimaps.forMap;
+import static com.google.common.collect.Multimaps.unmodifiableMultimap;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.unmodifiableCollection;
@@ -505,7 +505,7 @@ public class Analysis
 
     public Multimap<NodeRef<Expression>, FieldId> getColumnReferenceFields()
     {
-        return ImmutableListMultimap.copyOf(columnReferences);
+        return unmodifiableMultimap(columnReferences);
     }
 
     public boolean isColumnReference(Expression expression)
