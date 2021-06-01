@@ -3,19 +3,21 @@
 set -euo pipefail
 
 x() {
-    echo "+ $*" >&2
+    echo "$*" >&2
     "$@"
 }
 
-max_retry_time_seconds=$(( 30 * 60 ))
-retry_delay_seconds=10
+max_retry_count=5
+retry_delay_seconds=1
+count=0
 
-END=$(( $(date +%s) + ${max_retry_time_seconds} ))
-
-while (( $(date +%s) < $END )); do
+while [ $count -lt $max_retry_count ]; do
     x "$@" && exit 0
+    count=$(($count + 1))
+    retry_delay_seconds=$((2 * $retry_delay_seconds))
+    echo "Retry attempt $count/$max_retry_count, retrying in $retry_delay_seconds s"
     sleep "${retry_delay_seconds}"
 done
 
-echo "$0: retrying [$*] timed out" >&2
+echo "$0: Retries for [$*] exhausted." >&2
 exit 1
