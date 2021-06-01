@@ -26,6 +26,7 @@ import com.facebook.presto.failureDetector.FailureDetectorModule;
 import com.facebook.presto.resourcemanager.DistributedClusterStatsResource;
 import com.facebook.presto.resourcemanager.DistributedQueryInfoResource;
 import com.facebook.presto.resourcemanager.DistributedQueryResource;
+import com.facebook.presto.resourcemanager.DistributedResourceGroupInfoResource;
 import com.facebook.presto.resourcemanager.ForResourceManager;
 import com.facebook.presto.resourcemanager.ResourceManagerClusterStateProvider;
 import com.facebook.presto.resourcemanager.ResourceManagerProxy;
@@ -75,7 +76,7 @@ public class ResourceManagerModule
 
         // TODO: decouple query-level configuration that is not needed for Resource Manager
         binder.bind(QueryManager.class).to(NoOpQueryManager.class).in(Scopes.SINGLETON);
-        jaxrsBinder(binder).bind(ResourceGroupStateInfoResource.class);
+        jaxrsBinder(binder).bind(DistributedResourceGroupInfoResource.class);
         binder.bind(QueryIdGenerator.class).in(Scopes.SINGLETON);
         binder.bind(QueryPreparer.class).in(Scopes.SINGLETON);
         binder.bind(SessionSupplier.class).to(QuerySessionSupplier.class).in(Scopes.SINGLETON);
