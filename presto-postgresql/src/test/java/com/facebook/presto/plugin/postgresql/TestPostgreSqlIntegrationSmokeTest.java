@@ -256,6 +256,20 @@ public class TestPostgreSqlIntegrationSmokeTest
         assertUpdate("DROP TABLE test_insert_not_null");
     }
 
+    @Test
+    public void testColumnComment()
+            throws Exception
+    {
+        execute("create table tpch.test_column_comment (column_a char(3), column_b int, column_c int)");
+        execute("comment on column tpch.test_column_comment.column_a is 'first field'");
+        execute("comment on column tpch.test_column_comment.column_b is ''");
+        assertQuery(
+                "SELECT column_name, comment FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = 'test_column_comment'",
+                "VALUES ('column_a', 'first field'), ('column_b', null), ('column_c', null)");
+
+        assertUpdate("DROP TABLE test_column_comment");
+    }
+
     private AutoCloseable withSchema(String schema)
             throws Exception
     {
