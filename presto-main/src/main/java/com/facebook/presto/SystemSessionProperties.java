@@ -187,6 +187,7 @@ public final class SystemSessionProperties
     public static final String PARTIAL_RESULTS_ENABLED = "partial_results_enabled";
     public static final String PARTIAL_RESULTS_COMPLETION_RATIO_THRESHOLD = "partial_results_completion_ratio_threshold";
     public static final String PARTIAL_RESULTS_MAX_EXECUTION_TIME_MULTIPLIER = "partial_results_max_execution_time_multiplier";
+    public static final String TABLE_SNAPSHOTS_ENABLED = "table_snapshots_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1002,6 +1003,11 @@ public final class SystemSessionProperties
                         PARTIAL_RESULTS_MAX_EXECUTION_TIME_MULTIPLIER,
                         "This value is multiplied by the time taken to reach the completion ratio threshold and is set as max task end time",
                         featuresConfig.getPartialResultsMaxExecutionTimeMultiplier(),
+                        false),
+                booleanProperty(
+                        TABLE_SNAPSHOTS_ENABLED,
+                        "Enable snapshotted tables to be used in SELECT, CREATE TABLE AS and INSERT statements",
+                        featuresConfig.isTableSnapshotsEnabled(),
                         false));
     }
 
@@ -1689,5 +1695,10 @@ public final class SystemSessionProperties
     public static double getPartialResultsMaxExecutionTimeMultiplier(Session session)
     {
         return session.getSystemProperty(PARTIAL_RESULTS_MAX_EXECUTION_TIME_MULTIPLIER, Double.class);
+    }
+
+    public static boolean isTableSnapshotsEnabled(Session session)
+    {
+        return session.getSystemProperty(TABLE_SNAPSHOTS_ENABLED, Boolean.class);
     }
 }

@@ -193,6 +193,7 @@ public class FeaturesConfig
     private boolean partialResultsEnabled;
     private double partialResultsCompletionRatioThreshold = 0.5;
     private double partialResultsMaxExecutionTimeMultiplier = 2.0;
+    private boolean tableSnapshotsEnabled = true;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -1666,5 +1667,17 @@ public class FeaturesConfig
     {
         this.partialResultsMaxExecutionTimeMultiplier = partialResultsMaxExecutionTimeMultiplier;
         return this;
+    }
+
+    @Config("table-snapshots-enabled")
+    public FeaturesConfig setTableSnapshotsEnabled(boolean tableSnapshotsEnabled)
+    {
+        this.tableSnapshotsEnabled = tableSnapshotsEnabled;
+        return this;
+    }
+
+    public boolean isTableSnapshotsEnabled()
+    {
+        return tableSnapshotsEnabled;
     }
 }

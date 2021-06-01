@@ -17,14 +17,18 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.rewrite.StatementRewrite;
+import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GroupingOperation;
+import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.NodeRef;
+import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -33,6 +37,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.isTableSnapshotsEnabled;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractExpressions;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractExternalFunctions;
@@ -71,7 +77,22 @@ public class Analyzer
 
     public Analysis analyze(Statement statement)
     {
-        return analyze(statement, false);
+        Analysis analysis = analyze(statement, false);
+        boolean snapshotTimestampUsed = analysis.getTables().stream().anyMatch(tableHandle -> tableHandle.getConnectorHandle().getSnapshotTimestampMS().isPresent());
+
+        if (isTableSnapshotsEnabled(session)) {
+            if (snapshotTimestampUsed &&
+                    !(statement instanceof Query ||
+                            statement instanceof CreateTableAsSelect ||
+                            statement instanceof Insert)) {
+                throw new PrestoException(GENERIC_USER_ERROR, "Table snapshots allowed only with INSERT, SELECT OR CREATE TABLE AS SELECT queries");
+            }
+        }
+        else if (snapshotTimestampUsed) {
+            throw new PrestoException(GENERIC_USER_ERROR, "Table snapshots feature not enabled for specifying snap shot timestamps session property");
+        }
+
+        return analysis;
     }
 
     public Analysis analyze(Statement statement, boolean isDescribe)
