@@ -13,10 +13,12 @@
  */
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.JoinCriteria;
 import com.facebook.presto.sql.tree.JoinOn;
+import com.facebook.presto.sql.tree.JoinUsing;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.Node;
 
@@ -53,12 +55,14 @@ public class MaterializedViewPlanValidator
         }
 
         JoinCriteria joinCriteria = node.getCriteria().get();
-        if (!(joinCriteria instanceof JoinOn)) {
-            throw new SemanticException(NOT_SUPPORTED, node, "Only join-on is supported for materialized view.");
+        if (!(joinCriteria instanceof JoinOn) && !(joinCriteria instanceof JoinUsing)) {
+            throw new SemanticException(NOT_SUPPORTED, node, "Only join-on and join-using are supported for materialized view.");
         }
 
         context.setProcessingJoinNode(true);
-        process(((JoinOn) joinCriteria).getExpression(), context);
+        if (joinCriteria instanceof JoinOn) {
+            process(((JoinOn) joinCriteria).getExpression(), context);
+        }
         context.setProcessingJoinNode(false);
         return null;
     }
@@ -75,6 +79,20 @@ public class MaterializedViewPlanValidator
             throw new SemanticException(NOT_SUPPORTED, node, "Only AND operator is supported for join criteria for materialized view.");
         }
         return super.visitLogicalBinaryExpression(node, context);
+    }
+
+    @Override
+    protected Void visitComparisonExpression(ComparisonExpression node, MaterializedViewPlanValidatorContext context)
+    {
+        if (!context.isProcessingJoinNode()) {
+            return super.visitComparisonExpression(node, context);
+        }
+
+        if (!node.getOperator().equals(ComparisonExpression.Operator.EQUAL)) {
+            throw new SemanticException(NOT_SUPPORTED, node, "Only EQUAL join is supported for materialized view.");
+        }
+
+        return super.visitComparisonExpression(node, context);
     }
 
     protected static final class MaterializedViewPlanValidatorContext
