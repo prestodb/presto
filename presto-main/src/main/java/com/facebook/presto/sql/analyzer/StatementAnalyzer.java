@@ -203,6 +203,7 @@ import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractExpres
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractWindowFunctions;
 import static com.facebook.presto.sql.analyzer.MaterializedViewPlanValidator.MaterializedViewPlanValidatorContext;
 import static com.facebook.presto.sql.analyzer.PredicateStitcher.PredicateStitcherContext;
+import static com.facebook.presto.sql.analyzer.RewriteVisitor.RewriteVisitorContext;
 import static com.facebook.presto.sql.analyzer.ScopeReferenceExtractor.hasReferencesToScope;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_NAME_NOT_SPECIFIED;
@@ -352,9 +353,9 @@ class StatementAnalyzer
                 throw new SemanticException(NOT_SUPPORTED, insert, "Inserting into views is not supported");
             }
 
-            if (metadata.getMaterializedView(session, targetTable).isPresent()) {
-                throw new SemanticException(NOT_SUPPORTED, insert, "Inserting into materialized views is not supported");
-            }
+//            if (metadata.getMaterializedView(session, targetTable).isPresent()) {
+//                throw new SemanticException(NOT_SUPPORTED, insert, "Inserting into materialized views is not supported");
+//            }
 
             // analyze the query that creates the data
             Scope queryScope = process(insert.getQuery(), scope);
@@ -991,6 +992,25 @@ class StatementAnalyzer
         @Override
         protected Scope visitQuery(Query node, Optional<Scope> scope)
         {
+            Statement statement = analysis.getStatement();
+
+            if (statement instanceof Query && !analysis.isRewritten()) {
+                QualifiedName baseTableName = (QualifiedName) new ExtractTableNameVisitor<>().process(node);
+                if (baseTableName != null) {
+                    String baseTableString = baseTableName.getSuffix();
+                    Map<String, List<String>> baseTableToMaterializedViewMapping = getBaseToMaterializedViewMapping(baseTableString);
+                    if (baseTableToMaterializedViewMapping.containsKey(baseTableString)) {
+                        List<String> materializedViewList = baseTableToMaterializedViewMapping.get(baseTableString);
+                        Query rewriteQuery = getQueryWithMaterializedViewOptimization(node, materializedViewList);
+                        if (rewriteQuery != null) {
+                            analysis.markAsRewritten();
+                            node = rewriteQuery;
+                            System.out.println(SqlFormatterUtil.getFormattedSql(rewriteQuery, sqlParser, Optional.empty()));
+                        }
+                    }
+                }
+            }
+
             Scope withScope = analyzeWith(node, scope);
             Scope queryBodyScope = process(node.getQueryBody(), withScope);
             List<Expression> orderByExpressions = emptyList();
@@ -1280,6 +1300,33 @@ class StatementAnalyzer
             // can we return the above query object, instead of building a query string?
             // in case of returning the query object, make sure to clone the original query object.
             return SqlFormatterUtil.getFormattedSql(unionQuery, sqlParser, Optional.empty());
+        }
+
+        // TODO: The mapping should be fetched from metadata
+        private Map<String, List<String>> getBaseToMaterializedViewMapping(String baseTableName)
+        {
+            Map<String, List<String>> baseTableToMaterializedViewMap = new HashMap<>();
+            return baseTableToMaterializedViewMap;
+        }
+
+        private Query getQueryWithMaterializedViewOptimization(
+                Query statement,
+                List<String> materializedViewList)
+        {
+            // TODO: Find the appropriate materalized view for a base query
+            for (String materializedViewName : materializedViewList) {
+                QualifiedName materializedViewQualifiedName = QualifiedName.of(materializedViewName);
+                Table materializedViewTable = new Table(materializedViewQualifiedName);
+                QualifiedObjectName materlizedViewQualifiedObjectName = createQualifiedObjectName(session, materializedViewTable, materializedViewTable.getName());
+                Optional<ConnectorMaterializedViewDefinition> materializedView = metadata.getMaterializedView(session, materlizedViewQualifiedObjectName);
+
+                if (materializedView.isPresent()) {
+                    Query originalViewQuery = (Query) sqlParser.createStatement(materializedView.get().getOriginalSql());
+                    Query rewriteBaseToViewQuery = (Query) new RewriteVisitor(session).process(statement, new RewriteVisitorContext(materializedViewTable, originalViewQuery));
+                    return rewriteBaseToViewQuery;
+                }
+            }
+            return null;
         }
 
         private Map<SchemaTableName, Expression> generatePartitionPredicate(Map<SchemaTableName, MaterializedDataPredicates> partitionsFromBaseTables)
