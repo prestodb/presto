@@ -52,4 +52,30 @@ public class ArrayArithmeticFunctions
                 "(s, x) -> IF(x IS NOT NULL, (s[1] + x, s[2] + 1), s), " +
                 "s -> if(s[2] = 0, cast(null as double), s[1] / cast(s[2] as double)))";
     }
+
+    @SqlInvokedScalarFunction(value = "array_frequency", deterministic = true, calledOnNullInput = false)
+    @Description("Returns the frequency of all array elements as a map.")
+    @SqlParameter(name = "input", type = "array(bigint)")
+    @SqlType("map(bigint, int)")
+    public static String arrayFrequencyBigint()
+    {
+        return "RETURN reduce(" +
+                "input," +
+                "MAP()," +
+                "(m, x) -> IF (x IS NOT NULL, MAP_CONCAT(m,MAP_FROM_ENTRIES(ARRAY[ROW(x, COALESCE(ELEMENT_AT(m,x) + 1, 1))])), m)," +
+                "m -> m)";
+    }
+
+    @SqlInvokedScalarFunction(value = "array_frequency", deterministic = true, calledOnNullInput = false)
+    @Description("Returns the frequency of all array elements as a map.")
+    @SqlParameter(name = "input", type = "array(varchar)")
+    @SqlType("map(varchar, int)")
+    public static String arrayFrequencyVarchar()
+    {
+        return "RETURN reduce(" +
+                "input," +
+                "MAP()," +
+                "(m, x) -> IF (x IS NOT NULL, MAP_CONCAT(m,MAP_FROM_ENTRIES(ARRAY[ROW(x, COALESCE(ELEMENT_AT(m,x) + 1, 1))])), m)," +
+                "m -> m)";
+    }
 }

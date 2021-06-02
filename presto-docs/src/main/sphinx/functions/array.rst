@@ -48,6 +48,16 @@ Array Functions
 
     Returns an array of elements in ``x`` but not in ``y``, without duplicates.
 
+.. function:: array_frequency(array(bigint)) -> map(bigint, int)
+
+    Returns a map: keys are the unique elements in the ``array``, values are how many times the key appears.
+    Ignores null elements. Empty array returns empty map.
+
+.. function:: array_frequency(array(varchar)) -> map(varchar, int)
+
+    Returns a map: keys are the unique elements in the ``array``, values are how many times the key appears.
+    Ignores null elements. Empty array returns empty map.
+
 .. function:: array_intersect(x, y) -> array
 
     Returns an array of the elements in the intersection of ``x`` and ``y``, without duplicates.

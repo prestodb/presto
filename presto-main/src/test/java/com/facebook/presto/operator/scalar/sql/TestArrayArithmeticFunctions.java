@@ -13,11 +13,20 @@
  */
 package com.facebook.presto.operator.scalar.sql;
 
+import com.facebook.presto.common.type.MapType;
+import com.facebook.presto.common.type.TestRowType;
+import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.common.block.MethodHandleUtil.methodHandle;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 
 public class TestArrayArithmeticFunctions
         extends AbstractTestFunctions
@@ -64,5 +73,52 @@ public class TestArrayArithmeticFunctions
         assertFunction("array_average(array[null])", DOUBLE, null);
         assertFunction("array_average(array[null, null])", DOUBLE, null);
         assertFunction("array_average(null)", DOUBLE, null);
+    }
+
+    @Test
+    public void testArrayFrequencyBigint()
+    {
+        FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
+        MapType type = new MapType(BIGINT,
+                INTEGER,
+                methodHandle(TestRowType.class, "throwUnsupportedOperation"),
+                methodHandle(TestRowType.class, "throwUnsupportedOperation"));
+        TypeSignature typeSignature = TypeSignature.parseTypeSignature(type.getDisplayName());
+
+        assertFunction("array_frequency(cast(null as array(bigint)))", functionAndTypeManager.getType(typeSignature), null);
+        assertFunction("array_frequency(cast(array[] as array(bigint)))", functionAndTypeManager.getType(typeSignature), ImmutableMap.of());
+        assertFunction("array_frequency(array[cast(null as bigint), cast(null as bigint), cast(null as bigint)])", functionAndTypeManager.getType(typeSignature), ImmutableMap.of());
+        assertFunction("array_frequency(array[cast(null as bigint), bigint '1'])", functionAndTypeManager.getType(typeSignature), ImmutableMap.of(1L, 1));
+        assertFunction("array_frequency(array[cast(null as bigint), bigint '1', bigint '3', cast(null as bigint), bigint '1', bigint '3', cast(null as bigint)])", functionAndTypeManager.getType(typeSignature), ImmutableMap.of(1L, 2, 3L, 2));
+        assertFunction("array_frequency(array[bigint '1', bigint '1', bigint '2', bigint '2', bigint '3', bigint '1', bigint '3', bigint '2'])", functionAndTypeManager.getType(typeSignature), ImmutableMap.of(1L, 3, 2L, 3, 3L, 2));
+        assertFunction("array_frequency(array[bigint '45'])", functionAndTypeManager.getType(typeSignature), ImmutableMap.of(45L, 1));
+        assertFunction("array_frequency(array[bigint '-45'])", functionAndTypeManager.getType(typeSignature), ImmutableMap.of(-45L, 1));
+        assertFunction("array_frequency(array[bigint '1', bigint '3', bigint '1', bigint '3'])", functionAndTypeManager.getType(typeSignature), ImmutableMap.of(1L, 2, 3L, 2));
+        assertFunction("array_frequency(array[bigint '3', bigint '1', bigint '3',bigint '1'])", functionAndTypeManager.getType(typeSignature), ImmutableMap.of(1L, 2, 3L, 2));
+        assertFunction("array_frequency(array[bigint '4',bigint '3',bigint '3',bigint '2',bigint '2',bigint '2',bigint '1',bigint '1',bigint '1',bigint '1'])", functionAndTypeManager.getType(typeSignature), ImmutableMap.of(1L, 4, 2L, 3, 3L, 2, 4L, 1));
+        assertFunction("array_frequency(array[bigint '3', bigint '3', bigint '2', bigint '2', bigint '5', bigint '5', bigint '1', bigint '1'])", functionAndTypeManager.getType(typeSignature), ImmutableMap.of(1L, 2, 2L, 2, 3L, 2, 5L, 2));
+    }
+
+    @Test
+    public void testArrayFrequencyVarchar()
+    {
+        FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
+
+        MapType type = new MapType(VARCHAR,
+                INTEGER,
+                methodHandle(TestRowType.class, "throwUnsupportedOperation"),
+                methodHandle(TestRowType.class, "throwUnsupportedOperation"));
+        TypeSignature typeSignature = TypeSignature.parseTypeSignature(type.getDisplayName());
+
+        assertFunction("array_frequency(cast(null as array(varchar)))", functionAndTypeManager.getType(typeSignature), null);
+        assertFunction("array_frequency(cast(array[] as array(varchar)))", functionAndTypeManager.getType(typeSignature), ImmutableMap.of());
+        assertFunction("array_frequency(array[cast(null as varchar), cast(null as varchar), cast(null as varchar)])", functionAndTypeManager.getType(typeSignature), ImmutableMap.of());
+        assertFunction("array_frequency(array[varchar 'z', cast(null as varchar)])", functionAndTypeManager.getType(typeSignature), ImmutableMap.of("z", 1));
+        assertFunction("array_frequency(array[varchar 'a', cast(null as varchar), varchar 'b', cast(null as varchar), cast(null as varchar) ])", functionAndTypeManager.getType(typeSignature), ImmutableMap.of("a", 1, "b", 1));
+        assertFunction("array_frequency(array[varchar 'a', varchar 'b', varchar 'a', varchar 'a', varchar 'a'])", functionAndTypeManager.getType(typeSignature), ImmutableMap.of("a", 4, "b", 1));
+        assertFunction("array_frequency(array[varchar 'a', varchar 'b', varchar 'a', varchar 'b', varchar 'c'])", functionAndTypeManager.getType(typeSignature), ImmutableMap.of("a", 2, "b", 2, "c", 1));
+        assertFunction("array_frequency(array[varchar 'y', varchar 'p'])", functionAndTypeManager.getType(typeSignature), ImmutableMap.of("p", 1, "y", 1));
+        assertFunction("array_frequency(array[varchar 'a', varchar 'a', varchar 'p'])", functionAndTypeManager.getType(typeSignature), ImmutableMap.of("p", 1, "a", 2));
+        assertFunction("array_frequency(array[varchar 'z'])", functionAndTypeManager.getType(typeSignature), ImmutableMap.of("z", 1));
     }
 }
