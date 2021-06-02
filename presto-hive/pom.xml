@@ -443,12 +443,30 @@
                                 <exclude>**/TestHiveDistributedAggregationsWithExchangeMaterialization.java</exclude>
                                 <exclude>**/TestHiveDistributedQueriesWithExchangeMaterialization.java</exclude>
                                 <exclude>**/TestHiveDistributedQueriesWithOptimizedRepartitioning.java</exclude>
+                                <exclude>**/TestHiveIntegrationSmokeTest.java</exclude>
                                 <exclude>**/TestHiveRecoverableExecution.java</exclude>
                                 <exclude>**/TestHivePushdownFilterQueries.java</exclude>
                                 <exclude>**/TestHivePushdownIntegrationSmokeTest.java</exclude>
                                 <exclude>**/TestHivePushdownDistributedQueries.java</exclude>
+                                <exclude>**/TestFullParquetReader.java</exclude>
                                 <exclude>**/TestParquetDistributedQueries.java</exclude>
                             </excludes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>test-hive-parquet-reader</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/TestFullParquetReader.java</include>
+                            </includes>
                         </configuration>
                     </plugin>
                 </plugins>
@@ -496,6 +514,22 @@
                         <configuration>
                             <includes>
                                 <include>**/TestHiveDistributedQueriesWithOptimizedRepartitioning.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>test-hive-integration-smoke</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/TestHiveIntegrationSmokeTest.java</include>
                             </includes>
                         </configuration>
                     </plugin>
