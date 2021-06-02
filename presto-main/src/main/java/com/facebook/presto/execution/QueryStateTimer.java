@@ -26,6 +26,38 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
+// Query time workflow chart. Left side shows query workflow. Right side shows
+// associated time durations with a query.
+//
+//      Create                     -----------
+//        |                        | waitingForPrerequisitesTime
+//        V                        V
+//      Queued                     -----------
+//        |                        | queuedTime
+//        V                        V
+//    Wait for Resources           -----------
+//        |                        | waitingForResourcesTime
+//        V                        V
+//    Dispatching                  -----------
+//        |                        | dispatchingTime
+//        V                        V
+//     Planning                    ----------------------------------
+//        |                        | executionTime     | planningTime
+//        |      Analysis Start    |                   |        -----------
+//        |         |              |                   |        | analysisTime
+//        |         V              |                   |        V
+//        |      Analysis End      |                   |        -----------
+//        V                        |                   V
+//     Starting                    |                   -----------
+//        |                        |
+//        V                        |
+//     Running                     |
+//        |                        |
+//        V                        |
+//    Finishing                    |                   -----------
+//        |                        |                   | finishingTime
+//        V                        V                   V
+//       End                       ----------------------------------
 public class QueryStateTimer
 {
     private final Ticker ticker;
