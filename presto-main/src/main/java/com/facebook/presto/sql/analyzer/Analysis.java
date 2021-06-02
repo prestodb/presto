@@ -758,7 +758,6 @@ public class Analysis
                         field -> field.getName().get(),
                         field -> ImmutableMap.of(toSchemaTableName(field.getOriginTable().get()), field.getOriginColumnName().get())));
     }
-
     @Immutable
     public static final class Insert
     {
