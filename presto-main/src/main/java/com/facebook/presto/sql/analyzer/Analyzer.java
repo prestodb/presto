@@ -76,13 +76,27 @@ public class Analyzer
 
     public Analysis analyze(Statement statement, boolean isDescribe)
     {
+        Analysis analysis = analyzeSemantic(statement, isDescribe);
+        checkColumnAccessPermissions(analysis);
+        return analysis;
+    }
+
+    public Analysis analyzeSemantic(Statement statement, boolean isDescribe)
+    {
         Statement rewrittenStatement = StatementRewrite.rewrite(session, metadata, sqlParser, queryExplainer, statement, parameters, accessControl, warningCollector);
         Analysis analysis = new Analysis(rewrittenStatement, parameters, isDescribe);
         StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector);
         analyzer.analyze(rewrittenStatement, Optional.empty());
         analyzeForUtilizedColumns(analysis, analysis.getStatement());
+        return analysis;
+    }
 
-        // check column access permissions for each table
+    /**
+     * check column access permissions for each table
+     * @param analysis the Analysis that needs to check ACL for
+     */
+    public void checkColumnAccessPermissions(Analysis analysis)
+    {
         analysis.getTableColumnReferencesForAccessControl(session).forEach((accessControlInfo, tableColumnReferences) ->
                 tableColumnReferences.forEach((tableName, columns) ->
                         accessControlInfo.getAccessControl().checkCanSelectFromColumns(
@@ -91,7 +105,6 @@ public class Analyzer
                                 session.getAccessControlContext(),
                                 tableName,
                                 columns)));
-        return analysis;
     }
 
     static void verifyNoAggregateWindowOrGroupingFunctions(Map<NodeRef<FunctionCall>, FunctionHandle> functionHandles, FunctionAndTypeManager functionAndTypeManager, Expression predicate, String clause)

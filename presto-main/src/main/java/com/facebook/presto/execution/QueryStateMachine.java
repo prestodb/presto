@@ -648,6 +648,21 @@ public class QueryStateMachine
         return queryState.setIf(WAITING_FOR_RESOURCES, currentState -> currentState.ordinal() < WAITING_FOR_RESOURCES.ordinal());
     }
 
+    public void beginSemanticAnalyzing()
+    {
+        queryStateTimer.beginSemanticAnalyzing();
+    }
+
+    public void beginColumnAccessPermissionChecking()
+    {
+        queryStateTimer.beginColumnAccessPermissionChecking();
+    }
+
+    public void endColumnAccessPermissionChecking()
+    {
+        queryStateTimer.endColumnAccessPermissionChecking();
+    }
+
     public boolean transitionToDispatching()
     {
         queryStateTimer.beginDispatching();
@@ -955,6 +970,8 @@ public class QueryStateMachine
                 queryStats.getWaitingForPrerequisitesTime(),
                 queryStats.getQueuedTime(),
                 queryStats.getResourceWaitingTime(),
+                queryStats.getSemanticAnalyzingTime(),
+                queryStats.getColumnAccessPermissionCheckingTime(),
                 queryStats.getDispatchingTime(),
                 queryStats.getExecutionTime(),
                 queryStats.getAnalysisTime(),

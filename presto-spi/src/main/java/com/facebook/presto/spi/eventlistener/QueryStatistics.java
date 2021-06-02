@@ -26,6 +26,8 @@ public class QueryStatistics
     private final Duration waitingForPrerequisitesTime;
     private final Duration queuedTime;
     private final Duration waitingForResourcesTime;
+    private final Duration semanticAnalyzingTime;
+    private final Duration columnAccessPermissionCheckingTime;
     private final Duration dispatchingTime;
     private final Duration planningTime;
     private final Optional<Duration> analysisTime;
@@ -60,6 +62,8 @@ public class QueryStatistics
             Duration waitingForPrerequisitesTime,
             Duration queuedTime,
             Duration waitingForResourcesTime,
+            Duration semanticAnalyzingTime,
+            Duration columnAccessPermissionCheckingTime,
             Duration dispatchingTime,
             Duration planningTime,
             Optional<Duration> analysisTime,
@@ -89,6 +93,8 @@ public class QueryStatistics
         this.waitingForPrerequisitesTime = requireNonNull(waitingForPrerequisitesTime, "waitingForPrerequisitesTime is null");
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
         this.waitingForResourcesTime = requireNonNull(waitingForResourcesTime, "waitingForResourcesTime is null");
+        this.semanticAnalyzingTime = requireNonNull(semanticAnalyzingTime, "semanticAnalyzingTime is null");
+        this.columnAccessPermissionCheckingTime = requireNonNull(columnAccessPermissionCheckingTime, "columnAccessPermissionCheckingTime is null");
         this.dispatchingTime = requireNonNull(dispatchingTime, "dispatchingTime is null");
         this.planningTime = requireNonNull(planningTime, "planningTime is null");
         this.analysisTime = requireNonNull(analysisTime, "analysisTime is null");
@@ -141,6 +147,16 @@ public class QueryStatistics
     public Duration getWaitingForResourcesTime()
     {
         return waitingForResourcesTime;
+    }
+
+    public Duration getSemanticAnalyzingTime()
+    {
+        return semanticAnalyzingTime;
+    }
+
+    public Duration getColumnAccessPermissionCheckingTime()
+    {
+        return columnAccessPermissionCheckingTime;
     }
 
     public Duration getDispatchingTime()
