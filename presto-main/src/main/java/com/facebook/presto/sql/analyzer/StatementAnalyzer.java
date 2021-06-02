@@ -352,9 +352,9 @@ class StatementAnalyzer
                 throw new SemanticException(NOT_SUPPORTED, insert, "Inserting into views is not supported");
             }
 
-            if (metadata.getMaterializedView(session, targetTable).isPresent()) {
-                throw new SemanticException(NOT_SUPPORTED, insert, "Inserting into materialized views is not supported");
-            }
+//            if (metadata.getMaterializedView(session, targetTable).isPresent()) {
+//                throw new SemanticException(NOT_SUPPORTED, insert, "Inserting into materialized views is not supported");
+//            }
 
             // analyze the query that creates the data
             Scope queryScope = process(insert.getQuery(), scope);
@@ -1139,6 +1139,24 @@ class StatementAnalyzer
                 if (materializedViewAnalysisState.isVisited()) {
                     throw new SemanticException(MATERIALIZED_VIEW_IS_RECURSIVE, table, "Materialized view is recursive");
                 }
+            } else {
+                // Task: Use a better way to test the test cases (check getTableType)
+                // Test for conversion between base query and mv query
+                String mvName = "test_orders_view";
+
+                QualifiedName mvQualifiedMVName = QualifiedName.of(mvName);
+
+                Table mvTable = new Table(mvQualifiedMVName);
+                QualifiedObjectName mvQualifiedObjectName = createQualifiedObjectName(session, mvTable, mvTable.getName());
+                Optional<ConnectorMaterializedViewDefinition> mvOptView = metadata.getMaterializedView(session, mvQualifiedObjectName);
+
+                if(mvOptView.isPresent() && statement instanceof Query){
+
+                    SchemaTableName baseSchemaTableName = new SchemaTableName(name.getSchemaName(), name.getObjectName());
+                    String convertedBaseQuery = convertBaseQueryToMaterializedViewSQL(baseSchemaTableName, (Query) statement, mvTable, mvOptView.get());
+                    System.out.println(convertedBaseQuery);
+
+                }
             }
 
             Optional<TableHandle> tableHandle = metadata.getTableHandle(session, name);
@@ -1219,6 +1237,52 @@ class StatementAnalyzer
             analysis.addRelationCoercion(table, outputFields.stream().map(Field::getType).toArray(Type[]::new));
 
             return createAndAssignScope(table, scope, outputFields);
+        }
+
+        private String convertBaseQueryToMaterializedViewSQL(
+                SchemaTableName baseName,
+                Query statement,
+                Table materializedViewTable,
+                ConnectorMaterializedViewDefinition materializedViewDefinition)
+        {
+            QuerySpecification baseQuerySpecification = (QuerySpecification) statement.getQueryBody();
+
+            Select columnsNames = baseQuerySpecification.getSelect();
+
+            ImmutableList.Builder<SelectItem> mvSelectColumnsName = ImmutableList.builder();
+
+            Map<String, String> baseToViewColumnMap = new HashMap<>();
+
+            Map<String, Map<SchemaTableName, String>>  viewToBaseColumnMap = materializedViewDefinition.getColumnMappingsAsMap();
+
+            for (String mvColumnName: viewToBaseColumnMap.keySet()) {
+                Map<SchemaTableName, String> mappingColumnName = viewToBaseColumnMap.get(mvColumnName);
+                if (mappingColumnName.containsKey(baseName)) {
+                    String baseColumnName = mappingColumnName.get(baseName);
+                    baseToViewColumnMap.put(baseColumnName, mvColumnName);
+                }
+            }
+
+            for (SelectItem columnName : columnsNames.getSelectItems()) {
+                String baseColumnName = ((SingleColumn) columnName).getExpression().toString();
+                checkState(baseToViewColumnMap.containsKey(baseColumnName), "Missing column name in the conversion map: " + baseColumnName);
+                Expression mvColumnName = new Identifier(baseToViewColumnMap.get(baseColumnName));
+                mvSelectColumnsName.add(new SingleColumn(mvColumnName));
+            }
+
+            Select mvSelect = new Select(columnsNames.isDistinct(), mvSelectColumnsName.build());
+            QuerySpecification mvQuerySpecification = new QuerySpecification(
+                    mvSelect,
+                    Optional.ofNullable(materializedViewTable),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty());
+
+            Query materializedQuery = new Query(Optional.empty(), mvQuerySpecification, Optional.empty(), Optional.empty());
+            return SqlFormatterUtil.getFormattedSql(materializedQuery, new SqlParser(), Optional.empty());
+
         }
 
         private Scope processMaterializedView(
