@@ -1139,7 +1139,8 @@ class StatementAnalyzer
                 if (materializedViewAnalysisState.isVisited()) {
                     throw new SemanticException(MATERIALIZED_VIEW_IS_RECURSIVE, table, "Materialized view is recursive");
                 }
-            } else {
+            }
+            else {
                 // Task: Use a better way to test the test cases (check getTableType)
                 // Test for conversion between base query and mv query
                 String mvName = "test_orders_view";
@@ -1150,12 +1151,10 @@ class StatementAnalyzer
                 QualifiedObjectName mvQualifiedObjectName = createQualifiedObjectName(session, mvTable, mvTable.getName());
                 Optional<ConnectorMaterializedViewDefinition> mvOptView = metadata.getMaterializedView(session, mvQualifiedObjectName);
 
-                if(mvOptView.isPresent() && statement instanceof Query){
-
+                if (mvOptView.isPresent() && statement instanceof Query) {
                     SchemaTableName baseSchemaTableName = new SchemaTableName(name.getSchemaName(), name.getObjectName());
                     String convertedBaseQuery = convertBaseQueryToMaterializedViewSQL(baseSchemaTableName, (Query) statement, mvTable, mvOptView.get());
                     System.out.println(convertedBaseQuery);
-
                 }
             }
 
@@ -1253,9 +1252,9 @@ class StatementAnalyzer
 
             Map<String, String> baseToViewColumnMap = new HashMap<>();
 
-            Map<String, Map<SchemaTableName, String>>  viewToBaseColumnMap = materializedViewDefinition.getColumnMappingsAsMap();
+            Map<String, Map<SchemaTableName, String>> viewToBaseColumnMap = materializedViewDefinition.getColumnMappingsAsMap();
 
-            for (String mvColumnName: viewToBaseColumnMap.keySet()) {
+            for (String mvColumnName : viewToBaseColumnMap.keySet()) {
                 Map<SchemaTableName, String> mappingColumnName = viewToBaseColumnMap.get(mvColumnName);
                 if (mappingColumnName.containsKey(baseName)) {
                     String baseColumnName = mappingColumnName.get(baseName);
@@ -1282,7 +1281,6 @@ class StatementAnalyzer
 
             Query materializedQuery = new Query(Optional.empty(), mvQuerySpecification, Optional.empty(), Optional.empty());
             return SqlFormatterUtil.getFormattedSql(materializedQuery, new SqlParser(), Optional.empty());
-
         }
 
         private Scope processMaterializedView(
