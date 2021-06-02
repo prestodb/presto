@@ -210,6 +210,8 @@ public class TestQueryStateMachine
         assertEquals(queryStats.getWaitingForPrerequisitesTime(), new Duration(7, MILLISECONDS));
         assertEquals(queryStats.getQueuedTime(), new Duration(0, MILLISECONDS));
         assertEquals(queryStats.getResourceWaitingTime(), new Duration(0, MILLISECONDS));
+        assertEquals(queryStats.getSemanticAnalyzingTime(), new Duration(0, MILLISECONDS));
+        assertEquals(queryStats.getColumnAccessPermissionCheckingTime(), new Duration(0, MILLISECONDS));
         assertEquals(queryStats.getDispatchingTime(), new Duration(0, MILLISECONDS));
         assertEquals(queryStats.getTotalPlanningTime(), new Duration(0, MILLISECONDS));
         assertEquals(queryStats.getExecutionTime(), new Duration(0, MILLISECONDS));
@@ -341,8 +343,20 @@ public class TestQueryStateMachine
         QueryStateMachine stateMachine = createQueryStateMachineWithTicker(mockTicker);
         assertState(stateMachine, WAITING_FOR_PREREQUISITES);
 
+        mockTicker.increment(30, MILLISECONDS);
+        stateMachine.beginSemanticAnalyzing();
+        assertState(stateMachine, WAITING_FOR_PREREQUISITES);
+
+        mockTicker.increment(30, MILLISECONDS);
+        stateMachine.beginColumnAccessPermissionChecking();
+        assertState(stateMachine, WAITING_FOR_PREREQUISITES);
+
         mockTicker.increment(15, MILLISECONDS);
         assertTrue(stateMachine.transitionToQueued());
+        assertState(stateMachine, QUEUED);
+
+        mockTicker.increment(30, MILLISECONDS);
+        stateMachine.endColumnAccessPermissionChecking();
         assertState(stateMachine, QUEUED);
 
         mockTicker.increment(25, MILLISECONDS);
@@ -371,9 +385,11 @@ public class TestQueryStateMachine
         assertState(stateMachine, FINISHED);
 
         QueryStats queryStats = stateMachine.getQueryInfo(Optional.empty()).getQueryStats();
-        assertEquals(queryStats.getElapsedTime().toMillis(), 1090);
-        assertEquals(queryStats.getWaitingForPrerequisitesTime().toMillis(), 15);
-        assertEquals(queryStats.getQueuedTime().toMillis(), 25);
+        assertEquals(queryStats.getElapsedTime().toMillis(), 1180);
+        assertEquals(queryStats.getWaitingForPrerequisitesTime().toMillis(), 75);
+        assertEquals(queryStats.getSemanticAnalyzingTime().toMillis(), 30);
+        assertEquals(queryStats.getColumnAccessPermissionCheckingTime().toMillis(), 45);
+        assertEquals(queryStats.getQueuedTime().toMillis(), 55);
         assertEquals(queryStats.getResourceWaitingTime().toMillis(), 50);
         assertEquals(queryStats.getDispatchingTime().toMillis(), 100);
         assertEquals(queryStats.getTotalPlanningTime().toMillis(), 200);
@@ -550,6 +566,8 @@ public class TestQueryStateMachine
         assertNotNull(queryStats.getElapsedTime());
         assertNotNull(queryStats.getQueuedTime());
         assertNotNull(queryStats.getResourceWaitingTime());
+        assertNotNull(queryStats.getSemanticAnalyzingTime());
+        assertNotNull(queryStats.getColumnAccessPermissionCheckingTime());
         assertNotNull(queryStats.getDispatchingTime());
         assertNotNull(queryStats.getExecutionTime());
         assertNotNull(queryStats.getTotalPlanningTime());

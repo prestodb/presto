@@ -29,6 +29,8 @@
     "elapsedTime": "134.00ms",
     "waitingForPrerequisitesTime": "15.00ms",
     "resourceWaitingTime": "11.00ms",
+    "semanticAnalyzingTime": "5.00ms",
+    "columnAccessPermissionCheckingTime": "6.00ms",
     "queuedTime": "2.11ms",
     "dispatchingTime": "1111.00ms",
     "executionTime": "13.00ms",
