@@ -42,6 +42,7 @@ import org.apache.thrift.TException;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.hadoop.hive.metastore.api.PrincipalType.ROLE;
