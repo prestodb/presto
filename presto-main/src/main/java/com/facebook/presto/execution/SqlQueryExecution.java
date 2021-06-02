@@ -171,6 +171,8 @@ public class SqlQueryExecution
 
             // analyze query
             requireNonNull(preparedQuery, "preparedQuery is null");
+
+            stateMachine.beginSemanticAnalyzing();
             Analyzer analyzer = new Analyzer(
                     stateMachine.getSession(),
                     metadata,
@@ -180,9 +182,12 @@ public class SqlQueryExecution
                     preparedQuery.getParameters(),
                     warningCollector);
 
-            this.analysis = analyzer.analyze(preparedQuery.getStatement());
-
+            this.analysis = analyzer.analyzeSemantic(preparedQuery.getStatement(), false);
             stateMachine.setUpdateType(analysis.getUpdateType());
+
+            stateMachine.beginColumnAccessPermissionChecking();
+            analyzer.checkColumnAccessPermissions(this.analysis);
+            stateMachine.endColumnAccessPermissionChecking();
 
             // when the query finishes cache the final query info, and clear the reference to the output stage
             AtomicReference<SqlQuerySchedulerInterface> queryScheduler = this.queryScheduler;

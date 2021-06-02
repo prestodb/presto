@@ -29,35 +29,37 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 // Query time workflow chart. Left side shows query workflow. Right side shows
 // associated time durations with a query.
 //
-//      Create                     -----------
-//        |                        | waitingForPrerequisitesTime
-//        V                        V
-//      Queued                     -----------
-//        |                        | queuedTime
-//        V                        V
-//    Wait for Resources           -----------
-//        |                        | waitingForResourcesTime
-//        V                        V
-//    Dispatching                  -----------
-//        |                        | dispatchingTime
-//        V                        V
-//     Planning                    ----------------------------------
-//        |                        | executionTime     | planningTime
-//        |      Analysis Start    |                   |        -----------
-//        |         |              |                   |        | analysisTime
-//        |         V              |                   |        V
-//        |      Analysis End      |                   |        -----------
-//        V                        |                   V
-//     Starting                    |                   -----------
-//        |                        |
-//        V                        |
-//     Running                     |
-//        |                        |
-//        V                        |
-//    Finishing                    |                   -----------
-//        |                        |                   | finishingTime
-//        V                        V                   V
-//       End                       ----------------------------------
+//      Create                                                                                      -----------
+//        |                                                                                         | waitingForPrerequisitesTime
+//        |                       Semantic Analyzing      -----------                               |
+//        |                               |               | semanticAnalyzingTime                   |
+//        V                               V               V                                         V
+//      Queued                       ACL Checking         -----------                               -----------
+//        |                               |               | columnAccessPermissionCheckingTime      | queuedTime
+//        V                               |               |                                         V
+//    Wait for Resources                  |               V                                         -----------
+//        |<------------------------------+               -----------                               | waitingForResourcesTime
+//        V                                                                                         V
+//    Dispatching                                                                                   -----------
+//        |                                                                                         | dispatchingTime
+//        V                                                                                         V
+//     Planning                                                                                     ----------------------------------
+//        |                                                                                         | executionTime     | planningTime
+//        |      Analysis Start                                                                     |                   |        -----------
+//        |         |                                                                               |                   |        | analysisTime
+//        |         V                                                                               |                   |        V
+//        |      Analysis End                                                                       |                   |        -----------
+//        V                                                                                         |                   V
+//     Starting                                                                                     |                   -----------
+//        |                                                                                         |
+//        V                                                                                         |
+//     Running                                                                                      |
+//        |                                                                                         |
+//        V                                                                                         |
+//    Finishing                                                                                     |                   -----------
+//        |                                                                                         |                   | finishingTime
+//        V                                                                                         V                   V
+//       End                                                                                        ----------------------------------
 public class QueryStateTimer
 {
     private final Ticker ticker;
@@ -67,6 +69,8 @@ public class QueryStateTimer
     private final long createNanos;
     private final AtomicReference<Long> beginQueuedNanos = new AtomicReference<>();
     private final AtomicReference<Long> beginResourceWaitingNanos = new AtomicReference<>();
+    private final AtomicReference<Long> beginSemanticAnalyzingNanos = new AtomicReference<>();
+    private final AtomicReference<Long> beginColumnAccessPermissionCheckingNanos = new AtomicReference<>();
     private final AtomicReference<Long> beginDispatchingNanos = new AtomicReference<>();
     private final AtomicReference<Long> beginPlanningNanos = new AtomicReference<>();
     private final AtomicReference<Long> beginFinishingNanos = new AtomicReference<>();
@@ -75,6 +79,8 @@ public class QueryStateTimer
     private final AtomicReference<Duration> waitingForPrerequisitesTime = new AtomicReference<>();
     private final AtomicReference<Duration> queuedTime = new AtomicReference<>();
     private final AtomicReference<Duration> resourceWaitingTime = new AtomicReference<>();
+    private final AtomicReference<Duration> semanticAnalyzingTime = new AtomicReference<>();
+    private final AtomicReference<Duration> columnAccessPermissionCheckingTime = new AtomicReference<>();
     private final AtomicReference<Duration> dispatchingTime = new AtomicReference<>();
     private final AtomicReference<Duration> executionTime = new AtomicReference<>();
     private final AtomicReference<Duration> planningTime = new AtomicReference<>();
@@ -117,6 +123,39 @@ public class QueryStateTimer
         beginQueued(now);
         queuedTime.compareAndSet(null, nanosSince(beginQueuedNanos, now));
         beginResourceWaitingNanos.compareAndSet(null, now);
+    }
+
+    public void beginSemanticAnalyzing()
+    {
+        beginSemanticAnalyzing(tickerNanos());
+    }
+
+    private void beginSemanticAnalyzing(long now)
+    {
+        beginSemanticAnalyzingNanos.compareAndSet(null, now);
+    }
+
+    public void beginColumnAccessPermissionChecking()
+    {
+        beginColumnAccessPermissionChecking(tickerNanos());
+    }
+
+    private void beginColumnAccessPermissionChecking(long now)
+    {
+        beginSemanticAnalyzing(now);
+        semanticAnalyzingTime.compareAndSet(null, nanosSince(beginSemanticAnalyzingNanos, now));
+        beginColumnAccessPermissionCheckingNanos.compareAndSet(null, now);
+    }
+
+    public void endColumnAccessPermissionChecking()
+    {
+        endColumnAccessPermissionChecking(tickerNanos());
+    }
+
+    private void endColumnAccessPermissionChecking(long now)
+    {
+        beginColumnAccessPermissionChecking(now);
+        columnAccessPermissionCheckingTime.compareAndSet(null, nanosSince(beginColumnAccessPermissionCheckingNanos, now));
     }
 
     public void beginDispatching()
@@ -248,6 +287,16 @@ public class QueryStateTimer
     public Duration getResourceWaitingTime()
     {
         return getDuration(resourceWaitingTime, beginResourceWaitingNanos);
+    }
+
+    public Duration getSemanticAnalyzingTime()
+    {
+        return getDuration(semanticAnalyzingTime, beginSemanticAnalyzingNanos);
+    }
+
+    public Duration getColumnAccessPermissionCheckingTime()
+    {
+        return getDuration(columnAccessPermissionCheckingTime, beginColumnAccessPermissionCheckingNanos);
     }
 
     public Duration getDispatchingTime()

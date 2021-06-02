@@ -55,6 +55,8 @@ public class QueryStats
     private final Duration waitingForPrerequisitesTime;
     private final Duration queuedTime;
     private final Duration resourceWaitingTime;
+    private final Duration semanticAnalyzingTime;
+    private final Duration columnAccessPermissionCheckingTime;
     private final Duration dispatchingTime;
     private final Duration executionTime;
     private final Duration analysisTime;
@@ -122,6 +124,8 @@ public class QueryStats
             @JsonProperty("waitingForPrerequisitesTime") Duration waitingForPrerequisitesTime,
             @JsonProperty("queuedTime") Duration queuedTime,
             @JsonProperty("resourceWaitingTime") Duration resourceWaitingTime,
+            @JsonProperty("semanticAnalyzingTime") Duration semanticAnalyzingTime,
+            @JsonProperty("columnAccessPermissionCheckingTime") Duration columnAccessPermissionCheckingTime,
             @JsonProperty("dispatchingTime") Duration dispatchingTime,
             @JsonProperty("executionTime") Duration executionTime,
             @JsonProperty("analysisTime") Duration analysisTime,
@@ -187,6 +191,8 @@ public class QueryStats
         this.waitingForPrerequisitesTime = requireNonNull(waitingForPrerequisitesTime, "waitingForPrerequisitesTime is null");
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
         this.resourceWaitingTime = requireNonNull(resourceWaitingTime, "resourceWaitingTime is null");
+        this.semanticAnalyzingTime = requireNonNull(semanticAnalyzingTime, "semanticAnalyzingTime is null");
+        this.columnAccessPermissionCheckingTime = requireNonNull(columnAccessPermissionCheckingTime, "columnAccessPermissionCheckingTime is null");
         this.dispatchingTime = requireNonNull(dispatchingTime, "dispatchingTime is null");
         this.executionTime = requireNonNull(executionTime, "executionTime is null");
         this.analysisTime = requireNonNull(analysisTime, "analysisTime is null");
@@ -385,6 +391,8 @@ public class QueryStats
                 queryStateTimer.getWaitingForPrerequisitesTime(),
                 queryStateTimer.getQueuedTime(),
                 queryStateTimer.getResourceWaitingTime(),
+                queryStateTimer.getSemanticAnalyzingTime(),
+                queryStateTimer.getColumnAccessPermissionCheckingTime(),
                 queryStateTimer.getDispatchingTime(),
                 queryStateTimer.getExecutionTime(),
                 queryStateTimer.getAnalysisTime(),
@@ -478,6 +486,8 @@ public class QueryStats
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
                 0,
                 0,
                 0,
@@ -559,6 +569,18 @@ public class QueryStats
     public Duration getResourceWaitingTime()
     {
         return resourceWaitingTime;
+    }
+
+    @JsonProperty
+    public Duration getSemanticAnalyzingTime()
+    {
+        return semanticAnalyzingTime;
+    }
+
+    @JsonProperty
+    public Duration getColumnAccessPermissionCheckingTime()
+    {
+        return columnAccessPermissionCheckingTime;
     }
 
     @JsonProperty
