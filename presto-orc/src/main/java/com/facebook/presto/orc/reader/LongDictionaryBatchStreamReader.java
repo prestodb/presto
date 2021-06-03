@@ -24,6 +24,7 @@ import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcLocalMemoryContext;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.Stripe;
+import com.facebook.presto.orc.reader.LongDictionaryProvider.DictionaryResult;
 import com.facebook.presto.orc.stream.BooleanInputStream;
 import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
@@ -35,7 +36,6 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.IN_DICTIONARY;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.reader.ReaderUtils.verifyStreamType;
@@ -51,6 +51,7 @@ public class LongDictionaryBatchStreamReader
 
     private final Type type;
     private final StreamDescriptor streamDescriptor;
+    private final OrcLocalMemoryContext systemMemoryContext;
 
     private int readOffset;
     private int nextBatchSize;
@@ -59,22 +60,21 @@ public class LongDictionaryBatchStreamReader
     @Nullable
     private BooleanInputStream presentStream;
 
-    private InputStreamSource<LongInputStream> dictionaryDataStreamSource = missingStreamSource(LongInputStream.class);
     private int dictionarySize;
-    private long[] dictionary = new long[0];
+    private boolean isDictionaryOwner;
+    private long[] dictionary;
 
     private InputStreamSource<BooleanInputStream> inDictionaryStreamSource = missingStreamSource(BooleanInputStream.class);
     @Nullable
     private BooleanInputStream inDictionaryStream;
 
+    private LongDictionaryProvider dictionaryProvider;
     private InputStreamSource<LongInputStream> dataStreamSource;
     @Nullable
     private LongInputStream dataStream;
 
     private boolean dictionaryOpen;
     private boolean rowGroupOpen;
-
-    private final OrcLocalMemoryContext systemMemoryContext;
 
     public LongDictionaryBatchStreamReader(Type type, StreamDescriptor streamDescriptor, OrcLocalMemoryContext systemMemoryContext)
             throws OrcCorruptionException
@@ -84,6 +84,7 @@ public class LongDictionaryBatchStreamReader
         this.type = type;
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
+        this.isDictionaryOwner = true;
     }
 
     @Override
@@ -183,16 +184,12 @@ public class LongDictionaryBatchStreamReader
     {
         // read the dictionary
         if (!dictionaryOpen && dictionarySize > 0) {
-            if (dictionary.length < dictionarySize) {
-                dictionary = new long[dictionarySize];
+            DictionaryResult dictionaryResult = dictionaryProvider.getDictionary(streamDescriptor, dictionary, dictionarySize);
+            dictionary = dictionaryResult.dictionaryBuffer();
+            isDictionaryOwner = dictionaryResult.isBufferOwner();
+            if (isDictionaryOwner) {
                 systemMemoryContext.setBytes(sizeOf(dictionary));
             }
-
-            LongInputStream dictionaryStream = dictionaryDataStreamSource.openStream();
-            if (dictionaryStream == null) {
-                throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Dictionary is not empty but data stream is not present");
-            }
-            dictionaryStream.next(dictionary, dictionarySize);
         }
         dictionaryOpen = true;
 
@@ -206,7 +203,7 @@ public class LongDictionaryBatchStreamReader
     @Override
     public void startStripe(Stripe stripe)
     {
-        dictionaryDataStreamSource = stripe.getDictionaryStreamSources().getInputStreamSource(streamDescriptor, DICTIONARY_DATA, LongInputStream.class);
+        dictionaryProvider = stripe.getLongDictionaryProvider();
         dictionarySize = stripe.getColumnEncodings().get(streamDescriptor.getStreamId())
                 .getColumnEncoding(streamDescriptor.getSequence())
                 .getDictionarySize();
@@ -258,9 +255,13 @@ public class LongDictionaryBatchStreamReader
         dictionary = null;
     }
 
+    // The current memory accounting for shared dictionaries is correct because dictionaries
+    // are shared only for flatmap stream readers. Flatmap stream readers are destroyed and recreated
+    // every stripe, and so are the dictionary providers. Hence, it's impossible to have a reference
+    // to shared dictionaries across different stripes at the same time.
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + sizeOf(dictionary);
+        return INSTANCE_SIZE + (isDictionaryOwner ? sizeOf(dictionary) : 0);
     }
 }
