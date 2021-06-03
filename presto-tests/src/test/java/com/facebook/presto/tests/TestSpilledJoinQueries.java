@@ -11,31 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spark;
+package com.facebook.presto.tests;
 
 import com.facebook.presto.testing.QueryRunner;
-import com.facebook.presto.tests.AbstractTestJoinQueries;
 
-import static com.facebook.presto.spark.PrestoSparkQueryRunner.createHivePrestoSparkQueryRunner;
-
-public class TestPrestoSparkAbstractTestJoinQueries
+public class TestSpilledJoinQueries
         extends AbstractTestJoinQueries
 {
     @Override
     protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        return createHivePrestoSparkQueryRunner();
-    }
-
-    @Override
-    public void testExecuteUsingComplexJoinCriteria()
-    {
-        // prepared statement is not supported by Presto on Spark
-    }
-
-    @Override
-    public void testExecuteUsingWithSubqueryInJoin()
-    {
-        // prepared statement is not supported by Presto on Spark
+        return TestDistributedSpilledQueries.localCreateQueryRunner();
     }
 }
