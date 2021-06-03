@@ -1139,11 +1139,12 @@ class StatementAnalyzer
                 if (materializedViewAnalysisState.isVisited()) {
                     throw new SemanticException(MATERIALIZED_VIEW_IS_RECURSIVE, table, "Materialized view is recursive");
                 }
+                System.out.println("Mark");
             }
             else {
                 // Task: Use a better way to test the test cases (check getTableType)
                 // Test for conversion between base query and mv query
-                String mvName = "test_orders_view";
+                String mvName = "lineitem_partitioned_view_derived_fields";
 
                 QualifiedName mvQualifiedMVName = QualifiedName.of(mvName);
 
@@ -1153,8 +1154,8 @@ class StatementAnalyzer
 
                 if (mvOptView.isPresent() && statement instanceof Query) {
                     SchemaTableName baseSchemaTableName = new SchemaTableName(name.getSchemaName(), name.getObjectName());
-                    String convertedBaseQuery = convertBaseQueryToMaterializedViewSQL(baseSchemaTableName, (Query) statement, mvTable, mvOptView.get());
-                    System.out.println(convertedBaseQuery);
+                    String convertedBaseToViewSql = convertBaseQueryToMaterializedViewSQL(baseSchemaTableName, (Query) statement, mvTable, mvOptView.get());
+                    System.out.println(convertedBaseToViewSql);
                 }
             }
 
@@ -1252,15 +1253,32 @@ class StatementAnalyzer
 
             Map<String, String> baseToViewColumnMap = new HashMap<>();
 
-            Map<String, Map<SchemaTableName, String>> viewToBaseColumnMap = materializedViewDefinition.getColumnMappingsAsMap();
+            //Map<String, Map<SchemaTableName, String>> viewToBaseColumnMap = materializedViewDefinition.getColumnMappingsAsMap();
 
-            for (String mvColumnName : viewToBaseColumnMap.keySet()) {
-                Map<SchemaTableName, String> mappingColumnName = viewToBaseColumnMap.get(mvColumnName);
-                if (mappingColumnName.containsKey(baseName)) {
-                    String baseColumnName = mappingColumnName.get(baseName);
-                    baseToViewColumnMap.put(baseColumnName, mvColumnName);
+            Query originalSqlQuery = (Query) sqlParser.createStatement(materializedViewDefinition.getOriginalSql());
+            QuerySpecification originalSql = (QuerySpecification) originalSqlQuery.getQueryBody();
+            Select derivedFieldsNames = originalSql.getSelect();
+
+            for (SelectItem viewColumnName : derivedFieldsNames.getSelectItems()) {
+
+                String baseColumnName =  ((SingleColumn) viewColumnName).getExpression().toString();
+                Optional<Identifier> viewOptionalDerivedName = ((SingleColumn) viewColumnName).getAlias();
+                String viewDerivedColumnName = baseColumnName;
+
+                if (viewOptionalDerivedName.isPresent()) {
+                    viewDerivedColumnName = viewOptionalDerivedName.get().getValue();
                 }
+
+                baseToViewColumnMap.put(baseColumnName, viewDerivedColumnName);
             }
+
+//            for (String mvColumnName : viewToBaseColumnMap.keySet()) {
+//                Map<SchemaTableName, String> mappingColumnName = viewToBaseColumnMap.get(mvColumnName);
+//                if (mappingColumnName.containsKey(baseName)) {
+//                    String baseColumnName = mappingColumnName.get(baseName);
+//                    baseToViewColumnMap.put(baseColumnName, mvColumnName);
+//                }
+//            }
 
             for (SelectItem columnName : columnsNames.getSelectItems()) {
                 String baseColumnName = ((SingleColumn) columnName).getExpression().toString();

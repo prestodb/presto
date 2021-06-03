@@ -1410,9 +1410,44 @@ public class TestHiveLogicalPlanner
 
             String viewQuery = format("SELECT sum(_discount_multi_extendedprice_) from %s group by ds, shipmode", view);
             String baseQuery = format("SELECT sum(discount * extendedprice) as _discount_multi_extendedprice_ from %s group by ds, shipmode", baseTable);
-            // getExplainPlan(viewQuery, LOGICAL);
 
             assertEquals(computeActual(viewQuery).getRowCount(), computeActual(baseQuery).getRowCount());
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS " + view);
+            queryRunner.execute("DROP TABLE IF EXISTS " + baseTable);
+        }
+    }
+
+    @Test(enabled = true)
+    public void testBaseToViewConversionWithDerivedFields()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        String baseTable = "lineitem_partitioned_derived_fields";
+        String view = "lineitem_partitioned_view_derived_fields";
+
+        try {
+            queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['ds', 'shipmode']) AS " +
+                    "SELECT discount, extendedprice, '2020-01-01' as ds, shipmode FROM lineitem WHERE orderkey < 1000 " +
+                    "UNION ALL " +
+                    "SELECT discount, extendedprice, '2020-01-02' as ds, shipmode FROM lineitem WHERE orderkey > 1000", baseTable));
+
+            assertUpdate(format(
+                    "CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['mvds', 'shipmode']) AS " +
+                            "SELECT SUM(discount*extendedprice) as _discount_multi_extendedprice_ , MAX(discount*extendedprice) as _max_discount_multi_extendedprice_ , ds as mvds, shipmode FROM %s group by ds, shipmode",
+                    view, baseTable));
+
+            assertTrue(getQueryRunner().tableExists(getSession(), view));
+            assertUpdate(format("INSERT INTO %s(_discount_multi_extendedprice_ , _max_discount_multi_extendedprice_ , mvds, shipmode) " +
+                            "select SUM(discount*extendedprice), MAX(discount*extendedprice), ds, shipmode from %s where ds='2020-01-01' group by ds, shipmode",
+                    view, baseTable), 7);
+
+            // String viewQuery = format("SELECT sum(_discount_multi_extendedprice_) from %s group by mvds, shipmode", view);
+            String baseQuery = format("SELECT sum(discount * extendedprice) as _discount_multi_extendedprice_ from %s group by ds, shipmode", baseTable);
+
+            String basePlan = getExplainPlan(baseQuery, LOGICAL);
+
+            //assertEquals(computeActual(viewQuery).getRowCount(), computeActual(baseQuery).getRowCount());
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS " + view);
