@@ -1422,6 +1422,11 @@ public class OrcTester
                 assertEquals(actualDouble, expectedDouble, 0.001);
             }
         }
+        else if (type.equals(BIGINT)) {
+            long actualLong = (long) actual;
+            long expectedLong = (long) expected;
+            assertEquals(actualLong, expectedLong);
+        }
         else if (!Objects.equals(actual, expected)) {
             assertEquals(actual, expected);
         }
