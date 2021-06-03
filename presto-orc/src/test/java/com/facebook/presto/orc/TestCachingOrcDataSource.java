@@ -37,7 +37,6 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
-import java.util.Map;
 import java.util.Properties;
 import java.util.Random;
 import java.util.stream.Stream;
@@ -99,7 +98,7 @@ public class TestCachingOrcDataSource
         OrcAggregatedMemoryContext systemMemoryContext = new TestingHiveOrcAggregatedMemoryContext();
 
         OrcDataSource actual = wrapWithCacheIfTinyStripes(
-                FakeOrcDataSource.INSTANCE,
+                NoopOrcDataSource.INSTANCE,
                 ImmutableList.of(),
                 maxMergeDistance,
                 tinyStripeThreshold,
@@ -107,7 +106,7 @@ public class TestCachingOrcDataSource
         assertInstanceOf(actual, CachingOrcDataSource.class);
 
         actual = wrapWithCacheIfTinyStripes(
-                FakeOrcDataSource.INSTANCE,
+                NoopOrcDataSource.INSTANCE,
                 ImmutableList.of(new StripeInformation(123, 3, 10, 10, 10, ImmutableList.of())),
                 maxMergeDistance,
                 tinyStripeThreshold,
@@ -115,7 +114,7 @@ public class TestCachingOrcDataSource
         assertInstanceOf(actual, CachingOrcDataSource.class);
 
         actual = wrapWithCacheIfTinyStripes(
-                FakeOrcDataSource.INSTANCE,
+                NoopOrcDataSource.INSTANCE,
                 ImmutableList.of(
                         new StripeInformation(123, 3, 10, 10, 10, ImmutableList.of()),
                         new StripeInformation(123, 33, 10, 10, 10, ImmutableList.of()),
@@ -126,7 +125,7 @@ public class TestCachingOrcDataSource
         assertInstanceOf(actual, CachingOrcDataSource.class);
 
         actual = wrapWithCacheIfTinyStripes(
-                FakeOrcDataSource.INSTANCE,
+                NoopOrcDataSource.INSTANCE,
                 ImmutableList.of(
                         new StripeInformation(123, 3, 10, 10, 10, ImmutableList.of()),
                         new StripeInformation(123, 33, 10, 10, 10, ImmutableList.of()),
@@ -137,7 +136,7 @@ public class TestCachingOrcDataSource
         assertInstanceOf(actual, CachingOrcDataSource.class);
 
         actual = wrapWithCacheIfTinyStripes(
-                FakeOrcDataSource.INSTANCE,
+                NoopOrcDataSource.INSTANCE,
                 ImmutableList.of(
                         new StripeInformation(123, 3, 10, 10, 10, ImmutableList.of()),
                         new StripeInformation(123, 33, 10, 10, 10, ImmutableList.of()),
@@ -157,7 +156,7 @@ public class TestCachingOrcDataSource
 
         OrcAggregatedMemoryContext systemMemoryContext = new TestingHiveOrcAggregatedMemoryContext();
 
-        TestingOrcDataSource testingOrcDataSource = new TestingOrcDataSource(FakeOrcDataSource.INSTANCE);
+        TestingOrcDataSource testingOrcDataSource = new TestingOrcDataSource(NoopOrcDataSource.INSTANCE);
         CachingOrcDataSource cachingOrcDataSource = new CachingOrcDataSource(
                 testingOrcDataSource,
                 createTinyStripesRangeFinder(
@@ -175,7 +174,7 @@ public class TestCachingOrcDataSource
         assertEquals(systemMemoryContext.getBytes(), 8 * 1048576);
         assertEquals(testingOrcDataSource.getLastReadRanges(), ImmutableList.of(new DiskRange(63, 8 * 1048576)));
 
-        testingOrcDataSource = new TestingOrcDataSource(FakeOrcDataSource.INSTANCE);
+        testingOrcDataSource = new TestingOrcDataSource(NoopOrcDataSource.INSTANCE);
         cachingOrcDataSource = new CachingOrcDataSource(
                 testingOrcDataSource,
                 createTinyStripesRangeFinder(
@@ -193,7 +192,7 @@ public class TestCachingOrcDataSource
         assertEquals(systemMemoryContext.getBytes(), 8 * 1048576 * 2);
         assertEquals(testingOrcDataSource.getLastReadRanges(), ImmutableList.of(new DiskRange(63, 8 * 1048576)));
 
-        testingOrcDataSource = new TestingOrcDataSource(FakeOrcDataSource.INSTANCE);
+        testingOrcDataSource = new TestingOrcDataSource(NoopOrcDataSource.INSTANCE);
         cachingOrcDataSource = new CachingOrcDataSource(
                 testingOrcDataSource,
                 createTinyStripesRangeFinder(
@@ -298,53 +297,5 @@ public class TestCachingOrcDataSource
                 compression != NONE,
                 tableProperties,
                 () -> {});
-    }
-
-    private static class FakeOrcDataSource
-            implements OrcDataSource
-    {
-        public static final FakeOrcDataSource INSTANCE = new FakeOrcDataSource();
-
-        @Override
-        public OrcDataSourceId getId()
-        {
-            return new OrcDataSourceId("fake");
-        }
-
-        @Override
-        public long getReadBytes()
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public long getReadTimeNanos()
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public long getSize()
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void readFully(long position, byte[] buffer)
-        {
-            // do nothing
-        }
-
-        @Override
-        public void readFully(long position, byte[] buffer, int bufferOffset, int bufferLength)
-        {
-            // do nothing
-        }
-
-        @Override
-        public <K> Map<K, OrcDataSourceInput> readFully(Map<K, DiskRange> diskRanges)
-        {
-            throw new UnsupportedOperationException();
-        }
     }
 }
