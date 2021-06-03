@@ -302,6 +302,11 @@ public class StripeReader
     {
         boolean hasRowGroupDictionary = false;
         for (Stream stream : streams) {
+            // Includes shared dictionary streams. For the case when we don't support shared dictionary
+            // we might want to either exclude it or change assumption about the required
+            // encodings.
+            // TODO: ideally also check that EITHER sequence 0 or the rest exists. Throws corruption
+            // otherwise.
             if (includedOrcColumns.contains(stream.getColumn())) {
                 includedStreams.put(new StreamId(stream), stream);
 
