@@ -120,14 +120,14 @@ public class TestLongDictionaryProvider
     {
         return new Object[][] {
                 {
-                    ImmutableMap.of(
-                        new NodeId(1, 0), new long[] {1, 2, 3, 4}),
+                        ImmutableMap.of(
+                                new NodeId(1, 0), new long[] {1, 2, 3, 4}),
                         ImmutableList.of(
-                                new SharedDictionaryTestCase(new NodeId(1, 0), true),
-                                new SharedDictionaryTestCase(new NodeId(1, 1), true),
-                                new SharedDictionaryTestCase(new NodeId(1, 3), false),
-                                new SharedDictionaryTestCase(new NodeId(1, 4), false),
-                                new SharedDictionaryTestCase(new NodeId(1, 9), false)),
+                                new SharedDictionaryTestInput(new NodeId(1, 0), true),
+                                new SharedDictionaryTestInput(new NodeId(1, 1), true),
+                                new SharedDictionaryTestInput(new NodeId(1, 3), false),
+                                new SharedDictionaryTestInput(new NodeId(1, 4), false),
+                                new SharedDictionaryTestInput(new NodeId(1, 9), false)),
                         ImmutableList.of(
                                 new NodeId(0, 0),
                                 new NodeId(2, 0),
@@ -135,18 +135,18 @@ public class TestLongDictionaryProvider
                                 new NodeId(42, 0))
                 },
                 {
-                    ImmutableMap.of(
-                        new NodeId(1, 0), new long[] {1, 2, 3, 4},
-                        new NodeId(3, 0), new long[] {1, 3, 5, 7}),
+                        ImmutableMap.of(
+                                new NodeId(1, 0), new long[] {1, 2, 3, 4},
+                                new NodeId(3, 0), new long[] {1, 3, 5, 7}),
                         ImmutableList.of(
-                                new SharedDictionaryTestCase(new NodeId(1, 0), true),
-                                new SharedDictionaryTestCase(new NodeId(1, 4), true),
-                                new SharedDictionaryTestCase(new NodeId(1, 1), false),
-                                new SharedDictionaryTestCase(new NodeId(1, 9), false),
-                                new SharedDictionaryTestCase(new NodeId(3, 0), true),
-                                new SharedDictionaryTestCase(new NodeId(3, 1), true),
-                                new SharedDictionaryTestCase(new NodeId(3, 3), false),
-                                new SharedDictionaryTestCase(new NodeId(3, 9), false)),
+                                new SharedDictionaryTestInput(new NodeId(1, 0), true),
+                                new SharedDictionaryTestInput(new NodeId(1, 4), true),
+                                new SharedDictionaryTestInput(new NodeId(1, 1), false),
+                                new SharedDictionaryTestInput(new NodeId(1, 9), false),
+                                new SharedDictionaryTestInput(new NodeId(3, 0), true),
+                                new SharedDictionaryTestInput(new NodeId(3, 1), true),
+                                new SharedDictionaryTestInput(new NodeId(3, 3), false),
+                                new SharedDictionaryTestInput(new NodeId(3, 9), false)),
                         ImmutableList.of(
                                 new NodeId(0, 0),
                                 new NodeId(2, 0),
@@ -162,17 +162,17 @@ public class TestLongDictionaryProvider
                                 new NodeId(4, 2), new long[] {2, 4, 6, 8},
                                 new NodeId(4, 4), new long[] {1, 4, 9, 16}),
                         ImmutableList.of(
-                                new SharedDictionaryTestCase(new NodeId(1, 0), true),
-                                new SharedDictionaryTestCase(new NodeId(1, 1), true),
-                                new SharedDictionaryTestCase(new NodeId(1, 4), false),
-                                new SharedDictionaryTestCase(new NodeId(1, 9), false),
-                                new SharedDictionaryTestCase(new NodeId(3, 0), true),
-                                new SharedDictionaryTestCase(new NodeId(3, 1), true),
-                                new SharedDictionaryTestCase(new NodeId(3, 3), false),
-                                new SharedDictionaryTestCase(new NodeId(3, 9), false),
-                                new SharedDictionaryTestCase(new NodeId(4, 1), true),
-                                new SharedDictionaryTestCase(new NodeId(4, 2), true),
-                                new SharedDictionaryTestCase(new NodeId(4, 4), true)),
+                                new SharedDictionaryTestInput(new NodeId(1, 0), true),
+                                new SharedDictionaryTestInput(new NodeId(1, 1), true),
+                                new SharedDictionaryTestInput(new NodeId(1, 4), false),
+                                new SharedDictionaryTestInput(new NodeId(1, 9), false),
+                                new SharedDictionaryTestInput(new NodeId(3, 0), true),
+                                new SharedDictionaryTestInput(new NodeId(3, 1), true),
+                                new SharedDictionaryTestInput(new NodeId(3, 3), false),
+                                new SharedDictionaryTestInput(new NodeId(3, 9), false),
+                                new SharedDictionaryTestInput(new NodeId(4, 1), true),
+                                new SharedDictionaryTestInput(new NodeId(4, 2), true),
+                                new SharedDictionaryTestInput(new NodeId(4, 4), true)),
                         ImmutableList.of(
                                 new NodeId(2, 0),
                                 new NodeId(2, 1),
@@ -237,27 +237,27 @@ public class TestLongDictionaryProvider
     }
 
     @Test(dataProvider = "dataForLongSharedDictionaryLoadingTest")
-    public void testLongSharedDictionaryLoading(Map<NodeId, long[]> dictionaryStreams, List<SharedDictionaryTestCase> includedNodes, List<NodeId> excludedNodes)
+    public void testLongSharedDictionaryLoading(Map<NodeId, long[]> dictionaryStreams, List<SharedDictionaryTestInput> includedNodes, List<NodeId> excludedNodes)
             throws Exception
     {
         TestingHiveOrcAggregatedMemoryContext aggregatedMemoryContext = new TestingHiveOrcAggregatedMemoryContext();
         LongDictionaryProvider dictionaryProvider = new LongDictionaryProvider(createLongDictionaryStreamSources(dictionaryStreams, aggregatedMemoryContext));
-        final int dictLength = 4;
+        final int dictionaryLength = 4;
         // We can support some columns having dictionary sharing while others don't, because dictionary sharing is only
         // enabled for flatmap encoding but dictionary provider is agnostic of that. Hence, we need a map
         // that tells us whether a column has shared dictionary or not. And this map needs to also track
         // whether the shared dictionary already has an owner.
         Set<Integer> sharedColumnIds = getSharedColumnIds(dictionaryStreams);
 
-        for (SharedDictionaryTestCase testCase : includedNodes) {
+        for (SharedDictionaryTestInput testCase : includedNodes) {
             NodeId nodeId = testCase.nodeId();
             StreamId streamId = nodeId.toDictionaryDataStreamId();
             // Getting the shared dictionary with sequence 0 doesn't create the entry.
-            DictionaryResult dictionaryResult = dictionaryProvider.getDictionary(createFlatStreamDescriptor(streamId), null, dictLength);
+            DictionaryResult dictionaryResult = dictionaryProvider.getDictionary(createFlatStreamDescriptor(streamId), null, dictionaryLength);
             long[] dictionary = dictionaryResult.dictionaryBuffer();
             if (sharedColumnIds.contains(nodeId.node)) {
                 NodeId sharedDictionaryNodeId = new NodeId(nodeId.node, 0);
-                DictionaryResult sharedDictionaryResult = dictionaryProvider.getDictionary(createFlatStreamDescriptor(sharedDictionaryNodeId.toDictionaryDataStreamId()), new long[0], dictLength);
+                DictionaryResult sharedDictionaryResult = dictionaryProvider.getDictionary(createFlatStreamDescriptor(sharedDictionaryNodeId.toDictionaryDataStreamId()), new long[0], dictionaryLength);
                 assertEquals(testCase.isDictionaryOwner(), dictionaryResult.isBufferOwner());
                 assertEquals(dictionary, sharedDictionaryResult.dictionaryBuffer());
             }
@@ -268,16 +268,15 @@ public class TestLongDictionaryProvider
 
         for (NodeId nodeId : excludedNodes) {
             StreamId streamId = nodeId.toDictionaryDataStreamId();
-            long[] dictionary = new long[dictLength];
-            assertThrows(OrcCorruptionException.class, () -> dictionaryProvider.getDictionary(createFlatStreamDescriptor(streamId), dictionary, dictLength));
+            long[] dictionary = new long[dictionaryLength];
+            assertThrows(OrcCorruptionException.class, () -> dictionaryProvider.getDictionary(createFlatStreamDescriptor(streamId), dictionary, dictionaryLength));
         }
     }
 
     private Set<Integer> getSharedColumnIds(Map<NodeId, long[]> dictionaryStreams)
     {
         ImmutableSet.Builder<Integer> builder = ImmutableSet.builder();
-        for (Map.Entry<NodeId, long[]> entry : dictionaryStreams.entrySet()) {
-            NodeId nodeId = entry.getKey();
+        for (NodeId nodeId : dictionaryStreams.keySet()) {
             if (nodeId.sequence == 0) {
                 builder.add(nodeId.node);
             }
@@ -374,6 +373,10 @@ public class TestLongDictionaryProvider
                 return true;
             }
 
+            if (!(o instanceof NodeId)) {
+                return false;
+            }
+
             NodeId other = (NodeId) o;
             return other.node == node && other.sequence == sequence;
         }
@@ -384,12 +387,12 @@ public class TestLongDictionaryProvider
         }
     }
 
-    private static class SharedDictionaryTestCase
+    private static class SharedDictionaryTestInput
     {
         private final NodeId nodeId;
         private final boolean isDictionaryOwner;
 
-        SharedDictionaryTestCase(NodeId nodeId, boolean isDictionaryOwner)
+        SharedDictionaryTestInput(NodeId nodeId, boolean isDictionaryOwner)
         {
             this.nodeId = nodeId;
             this.isDictionaryOwner = isDictionaryOwner;
