@@ -57,10 +57,22 @@ public final class DoubleType
     @Override
     public Object getObjectValue(SqlFunctionProperties properties, Block block, int position)
     {
+        return getObject(block, position);
+    }
+
+    @Override
+    public Object getObject(Block block, int position)
+    {
         if (block.isNull(position)) {
             return null;
         }
         return longBitsToDouble(block.getLong(position));
+    }
+
+    @Override
+    public void writeObject(BlockBuilder blockBuilder, Object value)
+    {
+        writeDouble(blockBuilder, ((Number) value).doubleValue());
     }
 
     @Override

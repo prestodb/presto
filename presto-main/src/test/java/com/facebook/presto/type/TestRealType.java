@@ -71,4 +71,27 @@ public class TestRealType
         assertEquals(REAL.hash(blockBuilder, 0), REAL.hash(blockBuilder, 2));
         assertEquals(REAL.hash(blockBuilder, 0), REAL.hash(blockBuilder, 3));
     }
+
+    @Test
+    public void testGetAndWrite()
+    {
+        BlockBuilder blockBuilder = REAL.createFixedSizeBlockBuilder(5);
+        REAL.writeLong(blockBuilder, floatToIntBits(1.1f));
+        REAL.writeObject(blockBuilder, 1.1f);
+        REAL.writeLong(blockBuilder, floatToIntBits(Float.NaN));
+        REAL.writeObject(blockBuilder, Float.NaN);
+        // Test passing an integer.
+        REAL.writeObject(blockBuilder, 4);
+        Block block = blockBuilder.build();
+
+        assertEquals(intBitsToFloat((int) REAL.getLong(block, 0)), 1.1f);
+        assertEquals(REAL.getObject(block, 0), 1.1f);
+        assertEquals(intBitsToFloat((int) REAL.getLong(block, 1)), 1.1f);
+        assertEquals(REAL.getObject(block, 1), 1.1f);
+        assertEquals(intBitsToFloat((int) REAL.getLong(block, 2)), Float.NaN);
+        assertEquals(REAL.getObject(block, 2), Float.NaN);
+        assertEquals(intBitsToFloat((int) REAL.getLong(block, 3)), Float.NaN);
+        assertEquals(REAL.getObject(block, 3), Float.NaN);
+        assertEquals(REAL.getObject(block, 4), 4.0f);
+    }
 }

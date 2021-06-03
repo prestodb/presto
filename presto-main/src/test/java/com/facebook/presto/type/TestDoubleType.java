@@ -68,4 +68,27 @@ public class TestDoubleType
         assertEquals(DOUBLE.hash(blockBuilder, 0), DOUBLE.hash(blockBuilder, 2));
         assertEquals(DOUBLE.hash(blockBuilder, 0), DOUBLE.hash(blockBuilder, 3));
     }
+
+    @Test
+    public void testGetAndWrite()
+    {
+        BlockBuilder blockBuilder = DOUBLE.createFixedSizeBlockBuilder(5);
+        DOUBLE.writeDouble(blockBuilder, 1.1);
+        DOUBLE.writeObject(blockBuilder, 1.1);
+        DOUBLE.writeDouble(blockBuilder, Double.NaN);
+        DOUBLE.writeObject(blockBuilder, Double.NaN);
+        // Test passing an integer.
+        DOUBLE.writeObject(blockBuilder, 4);
+
+        Block block = blockBuilder.build();
+        assertEquals(DOUBLE.getDouble(block, 0), 1.1);
+        assertEquals(DOUBLE.getObject(block, 0), 1.1);
+        assertEquals(DOUBLE.getDouble(block, 1), 1.1);
+        assertEquals(DOUBLE.getObject(block, 1), 1.1);
+        assertEquals(DOUBLE.getDouble(block, 2), Double.NaN);
+        assertEquals(DOUBLE.getObject(block, 2), Double.NaN);
+        assertEquals(DOUBLE.getDouble(block, 3), Double.NaN);
+        assertEquals(DOUBLE.getObject(block, 3), Double.NaN);
+        assertEquals(DOUBLE.getObject(block, 4), 4.0);
+    }
 }

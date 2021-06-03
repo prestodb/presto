@@ -35,9 +35,6 @@ import static java.lang.String.format;
 @Description("Normalizes an array by dividing each element by the p-norm of the array.")
 public final class ArrayNormalizeFunction
 {
-    private static final ValueAccessor DOUBLE_VALUE_ACCESSOR = new DoubleValueAccessor();
-    private static final ValueAccessor REAL_VALUE_ACCESSOR = new RealValueAccessor();
-
     private ArrayNormalizeFunction() {}
 
     @TypeParameter("T")
@@ -49,7 +46,7 @@ public final class ArrayNormalizeFunction
             @SqlType("array(T)") Block block,
             @SqlType("T") double p)
     {
-        return normalizeArray(elementType, block, p, DOUBLE_VALUE_ACCESSOR);
+        return normalizeArray(elementType, block, p);
     }
 
     @TypeParameter("T")
@@ -61,10 +58,10 @@ public final class ArrayNormalizeFunction
             @SqlType("array(T)") Block block,
             @SqlType("T") long p)
     {
-        return normalizeArray(elementType, block, Float.intBitsToFloat((int) p), REAL_VALUE_ACCESSOR);
+        return normalizeArray(elementType, block, Float.intBitsToFloat((int) p));
     }
 
-    private static Block normalizeArray(Type elementType, Block block, double p, ValueAccessor valueAccessor)
+    private static Block normalizeArray(Type elementType, Block block, double p)
     {
         if (!(elementType instanceof RealType) && !(elementType instanceof DoubleType)) {
             throw new PrestoException(
@@ -83,7 +80,7 @@ public final class ArrayNormalizeFunction
             if (block.isNull(i)) {
                 return null;
             }
-            pNorm += Math.pow(Math.abs(valueAccessor.getValue(elementType, block, i)), p);
+            pNorm += Math.pow(Math.abs(((Number) elementType.getObject(block, i)).doubleValue()), p);
         }
         if (pNorm == 0) {
             return block;
@@ -91,47 +88,8 @@ public final class ArrayNormalizeFunction
         pNorm = Math.pow(pNorm, 1.0 / p);
         BlockBuilder blockBuilder = elementType.createBlockBuilder(null, elementCount);
         for (int i = 0; i < elementCount; i++) {
-            valueAccessor.writeValue(elementType, blockBuilder, valueAccessor.getValue(elementType, block, i) / pNorm);
+            elementType.writeObject(blockBuilder, ((Number) elementType.getObject(block, i)).doubleValue() / pNorm);
         }
         return blockBuilder.build();
-    }
-
-    private interface ValueAccessor
-    {
-        double getValue(Type elementType, Block block, int position);
-
-        void writeValue(Type elementType, BlockBuilder blockBuilder, double value);
-    }
-
-    private static class DoubleValueAccessor
-            implements ValueAccessor
-    {
-        @Override
-        public double getValue(Type elementType, Block block, int position)
-        {
-            return elementType.getDouble(block, position);
-        }
-
-        @Override
-        public void writeValue(Type elementType, BlockBuilder blockBuilder, double value)
-        {
-            elementType.writeDouble(blockBuilder, value);
-        }
-    }
-
-    private static class RealValueAccessor
-            implements ValueAccessor
-    {
-        @Override
-        public double getValue(Type elementType, Block block, int position)
-        {
-            return Float.intBitsToFloat((int) elementType.getLong(block, position));
-        }
-
-        @Override
-        public void writeValue(Type elementType, BlockBuilder blockBuilder, double value)
-        {
-            elementType.writeLong(blockBuilder, Float.floatToIntBits((float) value));
-        }
     }
 }
