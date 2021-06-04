@@ -17,6 +17,7 @@ import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.TestingBlockEncodingSerde;
 import com.facebook.presto.common.block.TestingBlockJsonSerde;
+import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.TestingTypeDeserializer;
 import com.facebook.presto.common.type.TestingTypeManager;
 import com.facebook.presto.common.type.Type;
@@ -27,8 +28,10 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertThrows;
@@ -36,6 +39,14 @@ import static org.testng.Assert.assertTrue;
 
 public class TestRange
 {
+    public static final SqlFunctionProperties PROPERTIES = SqlFunctionProperties.builder()
+            .setTimeZoneKey(UTC_KEY)
+            .setLegacyTimestamp(true)
+            .setSessionStartTime(0)
+            .setSessionLocale(ENGLISH)
+            .setSessionUser("user")
+            .build();
+
     @SuppressWarnings({"unchecked", "rawtypes"})
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testMismatchedTypes()
@@ -280,5 +291,42 @@ public class TestRange
 
         range = Range.lessThanOrEqual(DOUBLE, Double.MAX_VALUE);
         assertEquals(range, mapper.readValue(mapper.writeValueAsString(range), Range.class));
+    }
+
+    @Test
+    public void testToString()
+    {
+        Range range = Range.all(VARCHAR);
+        assertEquals(range.toString(PROPERTIES), "(<min>, <max>)");
+
+        range = Range.equal(VARCHAR, utf8Slice("some string"));
+        assertEquals(range.toString(PROPERTIES), "[\"some string\"]");
+
+        range = Range.equal(VARCHAR, utf8Slice("here's a quote: \""));
+        assertEquals(range.toString(PROPERTIES), "[\"here's a quote: \\\"\"]");
+
+        range = Range.equal(VARCHAR, utf8Slice(""));
+        assertEquals(range.toString(PROPERTIES), "[\"\"]");
+
+        range = Range.greaterThanOrEqual(VARCHAR, utf8Slice("string with \"quotes\" inside")).intersect(Range.lessThanOrEqual(VARCHAR, utf8Slice("this string's quote is here -> \"")));
+        assertEquals(range.toString(PROPERTIES), "[\"string with \\\"quotes\\\" inside\", \"this string's quote is here -> \\\"\"]");
+
+        range = Range.greaterThan(VARCHAR, utf8Slice("string with \"quotes\" inside")).intersect(Range.lessThan(VARCHAR, utf8Slice("this string's quote is here -> \"")));
+        assertEquals(range.toString(PROPERTIES), "(\"string with \\\"quotes\\\" inside\", \"this string's quote is here -> \\\"\")");
+
+        range = Range.equal(VARCHAR, utf8Slice("<min>"));
+        assertEquals(range.toString(PROPERTIES), "[\"<min>\"]");
+
+        range = Range.equal(VARCHAR, utf8Slice("<max>"));
+        assertEquals(range.toString(PROPERTIES), "[\"<max>\"]");
+
+        range = Range.equal(VARCHAR, utf8Slice("<min>, <max>"));
+        assertEquals(range.toString(PROPERTIES), "[\"<min>, <max>\"]");
+
+        range = Range.greaterThanOrEqual(VARCHAR, utf8Slice("a")).intersect(Range.lessThanOrEqual(VARCHAR, utf8Slice("b")));
+        assertEquals(range.toString(PROPERTIES), "[\"a\", \"b\"]");
+
+        range = Range.equal(VARCHAR, utf8Slice("a, b"));
+        assertEquals(range.toString(PROPERTIES), "[\"a, b\"]");
     }
 }
