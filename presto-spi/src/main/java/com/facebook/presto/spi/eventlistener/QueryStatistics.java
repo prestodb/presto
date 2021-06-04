@@ -48,6 +48,7 @@ public class QueryStatistics
     private final long spilledBytes;
 
     private final double cumulativeMemory;
+    private final double cumulativeTotalMemory;
 
     private final int completedSplits;
     private final boolean complete;
@@ -78,6 +79,7 @@ public class QueryStatistics
             long writtenIntermediateBytes,
             long spilledBytes,
             double cumulativeMemory,
+            double cumulativeTotalMemory,
             int completedSplits,
             boolean complete)
     {
@@ -106,6 +108,7 @@ public class QueryStatistics
         this.writtenIntermediateBytes = writtenIntermediateBytes;
         this.spilledBytes = spilledBytes;
         this.cumulativeMemory = cumulativeMemory;
+        this.cumulativeTotalMemory = cumulativeTotalMemory;
         this.completedSplits = completedSplits;
         this.complete = complete;
     }
@@ -233,6 +236,11 @@ public class QueryStatistics
     public double getCumulativeMemory()
     {
         return cumulativeMemory;
+    }
+
+    public double getCumulativeTotalMemory()
+    {
+        return cumulativeTotalMemory;
     }
 
     public int getCompletedSplits()

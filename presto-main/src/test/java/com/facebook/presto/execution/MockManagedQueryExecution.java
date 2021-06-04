@@ -129,6 +129,7 @@ public class MockManagedQueryExecution
                         new DataSize(14, BYTE),
                         15,
                         16.0,
+                        25.0,
                         new DataSize(17, BYTE),
                         new DataSize(18, BYTE),
                         new DataSize(19, BYTE),

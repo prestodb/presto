@@ -360,6 +360,7 @@ public class QueryStateMachine
                 stageStats.getRawInputPositions(),
 
                 stageStats.getCumulativeUserMemory(),
+                stageStats.getCumulativeTotalMemory(),
                 stageStats.getUserMemoryReservation(),
                 stageStats.getTotalMemoryReservation(),
                 succinctBytes(getPeakUserMemoryInBytes()),
@@ -969,6 +970,7 @@ public class QueryStateMachine
                 queryStats.getBlockedDrivers(),
                 queryStats.getCompletedDrivers(),
                 queryStats.getCumulativeUserMemory(),
+                queryStats.getCumulativeTotalMemory(),
                 queryStats.getUserMemoryReservation(),
                 queryStats.getTotalMemoryReservation(),
                 queryStats.getPeakUserMemoryReservation(),

@@ -184,6 +184,7 @@ public class TestQueryStats
             16,
 
             17.0,
+            43.0,
             new DataSize(18, BYTE),
             new DataSize(19, BYTE),
             new DataSize(20, BYTE),

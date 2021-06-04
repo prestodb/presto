@@ -176,6 +176,7 @@ public class QueryMonitor
                         0,
                         0,
                         0,
+                        0,
                         true),
                 createQueryContext(queryInfo.getSession(), queryInfo.getResourceGroupId()),
                 new QueryIOMetadata(ImmutableList.of(), Optional.empty()),
@@ -310,6 +311,7 @@ public class QueryMonitor
                 queryStats.getWrittenIntermediatePhysicalDataSize().toBytes(),
                 queryStats.getSpilledDataSize().toBytes(),
                 queryStats.getCumulativeUserMemory(),
+                queryStats.getCumulativeTotalMemory(),
                 queryStats.getCompletedDrivers(),
                 queryInfo.isCompleteInfo());
     }
