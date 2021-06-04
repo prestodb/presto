@@ -992,6 +992,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitQuery(Query node, Optional<Scope> scope)
         {
+            // Rewrite Visitor Code Here
             Scope withScope = analyzeWith(node, scope);
             Scope queryBodyScope = process(node.getQueryBody(), withScope);
             List<Expression> orderByExpressions = emptyList();
@@ -1153,14 +1154,11 @@ class StatementAnalyzer
                 Optional<ConnectorMaterializedViewDefinition> mvOptView = metadata.getMaterializedView(session, mvQualifiedObjectName);
 
                 if (mvOptView.isPresent() && statement instanceof Query) {
-
-                    String convertedBaseToViewSql = convertBaseQueryToMaterializedViewSQL((Query) statement, mvTable, mvOptView.get());
                     Query originalSqlQuery = (Query) sqlParser.createStatement(mvOptView.get().getOriginalSql());
                     Query rewriteBaseToViewQuery = (Query) new RewriteVisitor(session).process(statement, new RewriteVisitorContext(mvTable, originalSqlQuery));
                     String rewriteBaseToViewSql = SqlFormatterUtil.getFormattedSql(rewriteBaseToViewQuery, sqlParser, Optional.empty());
                     //System.out.println(convertedBaseToViewSql);
                     System.out.println(rewriteBaseToViewSql);
-
                 }
             }
 
@@ -1242,59 +1240,6 @@ class StatementAnalyzer
             analysis.addRelationCoercion(table, outputFields.stream().map(Field::getType).toArray(Type[]::new));
 
             return createAndAssignScope(table, scope, outputFields);
-        }
-
-        private String convertBaseQueryToMaterializedViewSQL(
-                Query statement,
-                Table materializedViewTable,
-                ConnectorMaterializedViewDefinition materializedViewDefinition)
-        {
-            QuerySpecification baseQuerySpecification = (QuerySpecification) statement.getQueryBody();
-
-            Select columnsNames = baseQuerySpecification.getSelect();
-
-            ImmutableList.Builder<SelectItem> mvSelectColumnsName = ImmutableList.builder();
-
-            Map<String, String> baseToViewColumnMap = new HashMap<>();
-
-            //Map<String, Map<SchemaTableName, String>> viewToBaseColumnMap = materializedViewDefinition.getColumnMappingsAsMap();
-
-            Query originalSqlQuery = (Query) sqlParser.createStatement(materializedViewDefinition.getOriginalSql());
-            QuerySpecification originalSql = (QuerySpecification) originalSqlQuery.getQueryBody();
-            Select derivedFieldsNames = originalSql.getSelect();
-
-            for (SelectItem viewColumnName : derivedFieldsNames.getSelectItems()) {
-
-                String baseColumnName =  ((SingleColumn) viewColumnName).getExpression().toString();
-                Optional<Identifier> viewOptionalDerivedName = ((SingleColumn) viewColumnName).getAlias();
-                String viewDerivedColumnName = baseColumnName;
-
-                if (viewOptionalDerivedName.isPresent()) {
-                    viewDerivedColumnName = viewOptionalDerivedName.get().getValue();
-                }
-
-                baseToViewColumnMap.put(baseColumnName, viewDerivedColumnName);
-            }
-
-            for (SelectItem columnName : columnsNames.getSelectItems()) {
-                String baseColumnName = ((SingleColumn) columnName).getExpression().toString();
-                checkState(baseToViewColumnMap.containsKey(baseColumnName), "Missing column name in the conversion map: " + baseColumnName);
-                Expression mvColumnName = new Identifier(baseToViewColumnMap.get(baseColumnName));
-                mvSelectColumnsName.add(new SingleColumn(mvColumnName));
-            }
-
-            Select mvSelect = new Select(columnsNames.isDistinct(), mvSelectColumnsName.build());
-            QuerySpecification mvQuerySpecification = new QuerySpecification(
-                    mvSelect,
-                    Optional.ofNullable(materializedViewTable),
-                    Optional.empty(),
-                    Optional.empty(),
-                    Optional.empty(),
-                    Optional.empty(),
-                    Optional.empty());
-
-            Query materializedQuery = new Query(Optional.empty(), mvQuerySpecification, Optional.empty(), Optional.empty());
-            return SqlFormatterUtil.getFormattedSql(materializedQuery, new SqlParser(), Optional.empty());
         }
 
         private Scope processMaterializedView(

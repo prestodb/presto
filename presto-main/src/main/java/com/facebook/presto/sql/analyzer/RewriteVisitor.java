@@ -24,6 +24,7 @@ import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QueryBody;
 import com.facebook.presto.sql.tree.QuerySpecification;
+import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.SingleColumn;
@@ -32,26 +33,17 @@ import com.facebook.presto.sql.tree.TableSubquery;
 import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
-import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
-import static com.facebook.presto.sql.QueryUtil.identifier;
-import static com.facebook.presto.sql.QueryUtil.selectList;
-import static com.facebook.presto.sql.QueryUtil.subquery;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class RewriteVisitor
         extends AstVisitor<Node, RewriteVisitor.RewriteVisitorContext>
 {
-
     private final Session session;
 
     public RewriteVisitor(Session session)
@@ -68,13 +60,11 @@ public class RewriteVisitor
     @Override
     protected Node visitQuery(Query node, RewriteVisitorContext context)
     {
-
         return new Query(
                 node.getWith(),
                 (QueryBody) process(node.getQueryBody(), context),
                 node.getOrderBy(),
                 node.getLimit());
-
     }
 
     @Override
@@ -90,7 +80,7 @@ public class RewriteVisitor
         if (node.getFrom().isPresent()) {
             return new QuerySpecification(
                     (Select) process(node.getSelect(), context),
-                    node.getFrom(),
+                    Optional.of((Relation) process(node.getFrom().get(), context)),
                     node.getWhere(),
                     node.getGroupBy(),
                     node.getHaving(),
@@ -151,7 +141,7 @@ public class RewriteVisitor
         String functionCall = node.toString();
         List<Expression> rewriteArguments = new ArrayList<>();
 
-        if (context.containsColumnName(functionCall)){
+        if (context.containsColumnName(functionCall)) {
             Expression derivedExpression = new Identifier(context.getViewColumnName(functionCall));
             rewriteArguments.add(derivedExpression);
         }
@@ -170,6 +160,12 @@ public class RewriteVisitor
             node.isDistinct(),
             node.isIgnoreNulls(),
             rewriteArguments);
+    }
+
+    @Override
+    protected Node visitTable(Table node, RewriteVisitorContext context)
+    {
+        return context.getMaterializedViewTable();
     }
 
     protected static final class RewriteVisitorContext
@@ -194,8 +190,7 @@ public class RewriteVisitor
             Select derivedFieldsNames = originalSqlQueryBody.getSelect();
 
             for (SelectItem viewColumnName : derivedFieldsNames.getSelectItems()) {
-
-                String baseColumnName =  ((SingleColumn) viewColumnName).getExpression().toString();
+                String baseColumnName = ((SingleColumn) viewColumnName).getExpression().toString();
                 Optional<Identifier> viewOptionalDerivedName = ((SingleColumn) viewColumnName).getAlias();
                 String viewDerivedColumnName = baseColumnName;
 
@@ -207,14 +202,15 @@ public class RewriteVisitor
             }
         }
 
-        public Table getMaterializedViewTable() { return materializedViewTable; }
+        public Table getMaterializedViewTable()
+        {
+            return materializedViewTable;
+        }
 
         public Query getOriginalSqlQuery()
         {
             return originalSqlQuery;
         }
-
-        public Map<String, String> getBaseToViewColumnMap() { return baseToViewColumnMap; };
 
         public String getViewColumnName(String baseColumnName)
         {
