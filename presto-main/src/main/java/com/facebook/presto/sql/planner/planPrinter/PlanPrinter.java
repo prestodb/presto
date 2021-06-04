@@ -1207,33 +1207,7 @@ public class PlanPrinter
             domain.getValues().getValuesProcessor().consume(
                     ranges -> {
                         for (Range range : ranges.getOrderedRanges()) {
-                            StringBuilder builder = new StringBuilder();
-                            if (range.isSingleValue()) {
-                                String value = castToVarchar(type, range.getSingleValue(), functionAndTypeManager, session);
-                                builder.append('[').append(value).append(']');
-                            }
-                            else {
-                                builder.append(range.isLowInclusive() ? '[' : '(');
-
-                                if (range.isLowUnbounded()) {
-                                    builder.append("<min>");
-                                }
-                                else {
-                                    builder.append(castToVarchar(type, range.getLowBoundedValue(), functionAndTypeManager, session));
-                                }
-
-                                builder.append(", ");
-
-                                if (range.isHighUnbounded()) {
-                                    builder.append("<max>");
-                                }
-                                else {
-                                    builder.append(castToVarchar(type, range.getHighBoundedValue(), functionAndTypeManager, session));
-                                }
-
-                                builder.append(range.isHighInclusive() ? ']' : ')');
-                            }
-                            parts.add(builder.toString());
+                            parts.add(range.toString(session.getSqlFunctionProperties()));
                         }
                     },
                     discreteValues -> discreteValues.getValues().stream()
@@ -1300,7 +1274,7 @@ public class PlanPrinter
         try {
             FunctionHandle cast = functionAndTypeManager.lookupCast(CAST, type.getTypeSignature(), VARCHAR.getTypeSignature());
             Slice coerced = (Slice) new InterpretedFunctionInvoker(functionAndTypeManager).invoke(cast, session.getSqlFunctionProperties(), value);
-            return coerced.toStringUtf8();
+            return "\"" + coerced.toStringUtf8().replace("\"", "\\\"") + "\"";
         }
         catch (OperatorNotFoundException e) {
             return "<UNREPRESENTABLE VALUE>";

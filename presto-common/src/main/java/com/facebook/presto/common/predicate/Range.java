@@ -240,17 +240,36 @@ public final class Range
                 Objects.equals(this.high, other.high);
     }
 
+    private void appendQuotedValue(StringBuilder buffer, Marker marker, SqlFunctionProperties properties)
+    {
+        buffer.append('"');
+        buffer.append(marker.getPrintableValue(properties).toString().replace("\"", "\\\""));
+        buffer.append('"');
+    }
+
     public String toString(SqlFunctionProperties properties)
     {
         StringBuilder buffer = new StringBuilder();
         if (isSingleValue()) {
-            buffer.append('[').append(low.getPrintableValue(properties)).append(']');
+            buffer.append('[');
+            appendQuotedValue(buffer, low, properties);
+            buffer.append(']');
         }
         else {
             buffer.append((low.getBound() == Marker.Bound.EXACTLY) ? '[' : '(');
-            buffer.append(low.isLowerUnbounded() ? "<min>" : low.getPrintableValue(properties));
+            if (low.isLowerUnbounded()) {
+                buffer.append("<min>");
+            }
+            else {
+                appendQuotedValue(buffer, low, properties);
+            }
             buffer.append(", ");
-            buffer.append(high.isUpperUnbounded() ? "<max>" : high.getPrintableValue(properties));
+            if (high.isUpperUnbounded()) {
+                buffer.append("<max>");
+            }
+            else {
+                appendQuotedValue(buffer, high, properties);
+            }
             buffer.append((high.getBound() == Marker.Bound.EXACTLY) ? ']' : ')');
         }
         return buffer.toString();
