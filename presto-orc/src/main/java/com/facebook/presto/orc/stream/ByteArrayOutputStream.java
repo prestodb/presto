@@ -89,9 +89,9 @@ public class ByteArrayOutputStream
     }
 
     @Override
-    public StreamDataOutput getStreamDataOutput(int column, int dwrfSequence)
+    public StreamDataOutput getStreamDataOutput(int column)
     {
-        return new StreamDataOutput(buffer::writeDataTo, new Stream(column, dwrfSequence, streamKind, toIntExact(buffer.getOutputDataSize()), false));
+        return new StreamDataOutput(buffer::writeDataTo, new Stream(column, streamKind, toIntExact(buffer.getOutputDataSize()), false));
     }
 
     @Override
