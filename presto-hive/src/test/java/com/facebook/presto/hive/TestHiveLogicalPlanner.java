@@ -45,6 +45,7 @@ import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.StringLiteral;
+import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
@@ -117,6 +118,7 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
+import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -128,7 +130,6 @@ import static io.airlift.tpch.TpchTable.NATION;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -1055,11 +1056,12 @@ public class TestHiveLogicalPlanner
             assertUpdate("INSERT INTO test_orders_view(orderkey, orderpriority, ds) " +
                     "select orderkey, orderpriority, ds from orders_partitioned where ds='2020-01-01'", 255);
 
-            String viewQuery = "SELECT orderkey from test_orders_view where orderkey <  10000";
-            String baseQuery = "SELECT orderkey from orders_partitioned where orderkey <  10000";
-            // getExplainPlan(viewQuery, LOGICAL);
+            String viewQuery = "SELECT orderkey from test_orders_view where orderkey <  10000 ORDER BY orderkey";
+            String baseQuery = "SELECT orderkey from orders_partitioned where orderkey <  10000 ORDER BY orderkey";
 
-            assertEquals(computeActual(viewQuery), computeActual(baseQuery));
+            MaterializedResult viewTable = computeActual(viewQuery);
+            MaterializedResult baseTable = computeActual(baseQuery);
+            assertEquals(viewTable, baseTable);
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS test_orders_view");
@@ -1090,10 +1092,12 @@ public class TestHiveLogicalPlanner
             assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds']) AS %s", view, viewPart));
             assertUpdate(format("INSERT INTO %s(orderkey, orderpriority, ds) %s where ds='2020-01-01'", view, viewPart), 255);
 
-            String viewQuery = format("SELECT orderkey from %s where orderkey < 10000", view);
-            String baseQuery = viewPart + " where orderkey < 10000";
+            String viewQuery = format("SELECT orderkey, orderpriority, ds from %s where orderkey < 100 ORDER BY orderkey", view);
+            String baseQuery = viewPart + " where orderkey < 100 ORDER BY orderkey";
 
-            assertEquals(computeActual(viewQuery), computeActual(baseQuery));
+            MaterializedResult viewTable = computeActual(viewQuery);
+            MaterializedResult baseTable = computeActual(baseQuery);
+            assertEquals(viewTable, baseTable);
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS " + view);
@@ -1118,11 +1122,12 @@ public class TestHiveLogicalPlanner
             assertTrue(getQueryRunner().tableExists(getSession(), view));
             assertUpdate(format("INSERT INTO %s(orderkey, orderpriority, ds) select orderkey, orderpriority, ds from %s", view, table), 15000);
 
-            String viewQuery = format("SELECT orderkey from %s where orderkey <  10000", view);
-            String baseQuery = format("SELECT orderkey from %s where orderkey <  10000", table);
-            // getExplainPlan(viewQuery, LOGICAL);
+            String viewQuery = format("SELECT orderkey from %s where orderkey <  10000 ORDER BY orderkey", view);
+            String baseQuery = format("SELECT orderkey from %s where orderkey <  10000 ORDER BY orderkey", table);
 
-            assertEquals(computeActual(viewQuery), computeActual(baseQuery));
+            MaterializedResult viewTable = computeActual(viewQuery);
+            MaterializedResult baseTable = computeActual(baseQuery);
+            assertEquals(viewTable, baseTable);
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS " + view);
@@ -1133,7 +1138,7 @@ public class TestHiveLogicalPlanner
     @Test(enabled = false)
     public void testMaterializedViewOptimizationNotMaterialized()
     {
-        String baseTable = "orders_partitioned_not_materialized";
+        String base = "orders_partitioned_not_materialized";
         String view = "orders_partitioned_view_not_materialized";
 
         QueryRunner queryRunner = getQueryRunner();
@@ -1141,21 +1146,22 @@ public class TestHiveLogicalPlanner
             queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['ds']) AS " +
                     "SELECT orderkey, orderpriority, '2020-01-01' as ds FROM orders WHERE orderkey < 1000 " +
                     "UNION ALL " +
-                    "SELECT orderkey, orderpriority, '2019-01-02' as ds FROM orders WHERE orderkey > 1000", baseTable));
+                    "SELECT orderkey, orderpriority, '2019-01-02' as ds FROM orders WHERE orderkey > 1000", base));
 
             assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds']) " +
-                    "AS SELECT orderkey, orderpriority, ds FROM %s", view, baseTable));
+                    "AS SELECT orderkey, orderpriority, ds FROM %s", view, base));
             assertTrue(getQueryRunner().tableExists(getSession(), view));
 
-            String viewQuery = format("SELECT orderkey from %s where orderkey <  10000", view);
-            String baseQuery = format("SELECT orderkey from %s where orderkey <  10000", baseTable);
-            // getExplainPlan(viewQuery, LOGICAL);
+            String viewQuery = format("SELECT orderkey from %s where orderkey <  10000 ORDER BY orderkey", view);
+            String baseQuery = format("SELECT orderkey from %s where orderkey <  10000 ORDER BY orderkey", base);
 
-            assertEquals(computeActual(viewQuery), computeActual(baseQuery));
+            MaterializedResult viewTable = computeActual(viewQuery);
+            MaterializedResult baseTable = computeActual(baseQuery);
+            assertEquals(viewTable, baseTable);
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS " + view);
-            queryRunner.execute("DROP TABLE IF EXISTS " + baseTable);
+            queryRunner.execute("DROP TABLE IF EXISTS " + base);
         }
     }
 
@@ -1163,7 +1169,7 @@ public class TestHiveLogicalPlanner
     public void testMaterializedViewOptimizationWithNullPartition()
     {
         QueryRunner queryRunner = getQueryRunner();
-        String baseTable = "orders_partitioned_null_partition";
+        String base = "orders_partitioned_null_partition";
         String view = "orders_partitioned_view_null_partition";
         try {
             queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['ds']) AS " +
@@ -1171,24 +1177,25 @@ public class TestHiveLogicalPlanner
                     "UNION ALL " +
                     "SELECT orderkey, orderpriority, '2019-01-02' as ds FROM orders WHERE orderkey > 500 and orderkey < 1000 " +
                     "UNION ALL " +
-                    "SELECT orderkey, orderpriority, NULL as ds FROM orders WHERE orderkey > 1000 and orderkey < 1500", baseTable));
+                    "SELECT orderkey, orderpriority, NULL as ds FROM orders WHERE orderkey > 1000 and orderkey < 1500", base));
 
             assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds']) AS " +
-                    "SELECT orderkey, orderpriority, ds FROM %s", view, baseTable));
+                    "SELECT orderkey, orderpriority, ds FROM %s", view, base));
 
             assertTrue(getQueryRunner().tableExists(getSession(), view));
             assertUpdate(format("INSERT INTO %s(orderkey, orderpriority, ds) " +
-                    "select orderkey, orderpriority, ds from %s where ds='2020-01-01'", view, baseTable), 127);
+                    "select orderkey, orderpriority, ds from %s where ds='2020-01-01'", view, base), 127);
 
-            String viewQuery = format("SELECT orderkey from %s where orderkey <  10000", view);
-            String baseQuery = format("SELECT orderkey from %s  where orderkey <  10000", baseTable);
-            // getExplainPlan(viewQuery, LOGICAL);
+            String viewQuery = format("SELECT orderkey from %s where orderkey <  10000 ORDER BY orderkey", view);
+            String baseQuery = format("SELECT orderkey from %s  where orderkey <  10000 ORDER BY orderkey", base);
 
-            assertEquals(computeActual(viewQuery), computeActual(baseQuery));
+            MaterializedResult viewTable = computeActual(viewQuery);
+            MaterializedResult baseTable = computeActual(baseQuery);
+            assertEquals(viewTable, baseTable);
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS " + view);
-            queryRunner.execute("DROP TABLE IF EXISTS " + baseTable);
+            queryRunner.execute("DROP TABLE IF EXISTS " + base);
         }
     }
 
@@ -1196,32 +1203,33 @@ public class TestHiveLogicalPlanner
     public void testMaterializedViewWithLessGranularity()
     {
         QueryRunner queryRunner = getQueryRunner();
-        String baseTable = "orders_partitioned_less_granularity";
+        String base = "orders_partitioned_less_granularity";
         String view = "orders_partitioned_view_less_granularity";
 
         try {
             queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['orderpriority', 'ds']) AS " +
                     "SELECT orderkey, orderpriority, '2020-01-01' as ds FROM orders WHERE orderkey < 1000 " +
                     "UNION ALL " +
-                    "SELECT orderkey, orderpriority, '2019-01-02' as ds FROM orders WHERE orderkey > 1000", baseTable));
+                    "SELECT orderkey, orderpriority, '2019-01-02' as ds FROM orders WHERE orderkey > 1000", base));
 
             assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds']) AS " +
-                    "SELECT orderkey, orderpriority, ds FROM %s", view, baseTable));
+                    "SELECT orderkey, orderpriority, ds FROM %s", view, base));
 
             assertTrue(getQueryRunner().tableExists(getSession(), view));
 
             assertUpdate(format("INSERT INTO %s(orderkey, orderpriority, ds) " +
-                    "select orderkey, orderpriority, ds from %s where ds='2020-01-01'", view, baseTable), 255);
+                    "select orderkey, orderpriority, ds from %s where ds='2020-01-01'", view, base), 255);
 
-            String viewQuery = format("SELECT orderkey from %s where orderkey <  10000", view);
-            String baseQuery = format("SELECT orderkey from %s where orderkey <  10000", baseTable);
-            // getExplainPlan(viewQuery, LOGICAL);
+            String viewQuery = format("SELECT orderkey from %s where orderkey <  10000 ORDER BY orderkey", view);
+            String baseQuery = format("SELECT orderkey from %s where orderkey <  10000 ORDER BY orderkey", base);
 
-            assertEquals(computeActual(viewQuery), computeActual(baseQuery));
+            MaterializedResult viewTable = computeActual(viewQuery);
+            MaterializedResult baseTable = computeActual(baseQuery);
+            assertEquals(viewTable, baseTable);
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS " + view);
-            queryRunner.execute("DROP TABLE IF EXISTS " + baseTable);
+            queryRunner.execute("DROP TABLE IF EXISTS " + base);
         }
     }
 
@@ -1229,28 +1237,31 @@ public class TestHiveLogicalPlanner
     public void testMaterializedViewForUnionAll()
     {
         QueryRunner queryRunner = getQueryRunner();
-        String baseTable = "test_customer_union";
+        String base = "test_customer_union";
         String view = "test_customer_view_union";
         try {
             computeActual(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['nationkey']) " +
-                    "AS SELECT custkey, name, address, nationkey FROM customer", baseTable));
+                    "AS SELECT custkey, name, address, nationkey FROM customer", base));
 
             String baseQuery = format(
                     "SELECT name, custkey, nationkey FROM ( SELECT name, custkey, nationkey FROM %s WHERE custkey < 1000 UNION ALL " +
-                            "SELECT name, custkey, nationkey FROM %s WHERE custkey >= 1000)", baseTable, baseTable);
+                            "SELECT name, custkey, nationkey FROM %s WHERE custkey >= 1000 )", base, base);
 
             assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['nationkey']) " +
                     "AS %s", view, baseQuery));
 
-            assertUpdate(format("INSERT INTO %s(name, custkey, nationkey) %s where nationkey < 10", view, baseQuery), 599);
+            assertUpdate(format("INSERT INTO %s(name, custkey, nationkey) %s WHERE nationkey < 10", view, baseQuery), 599);
 
-            String viewQuery = format("SELECT name, custkey, nationkey from %s", view);
+            String viewQuery = format("SELECT name, custkey, nationkey from %s ORDER BY name", view);
+            baseQuery = format("%s ORDER BY name", baseQuery);
 
-            assertEquals(computeActual(viewQuery), computeActual(baseQuery));
+            MaterializedResult viewTable = computeActual(viewQuery);
+            MaterializedResult baseTable = computeActual(baseQuery);
+            assertEquals(viewTable, baseTable);
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS " + view);
-            queryRunner.execute("DROP TABLE IF EXISTS " + baseTable);
+            queryRunner.execute("DROP TABLE IF EXISTS " + base);
         }
     }
 
@@ -1258,31 +1269,33 @@ public class TestHiveLogicalPlanner
     public void testMaterializedViewForGroupingSet()
     {
         QueryRunner queryRunner = getQueryRunner();
-        String baseTable = "test_lineitem_grouping_set";
+        String base = "test_lineitem_grouping_set";
         String view = "test_view_lineitem_grouping_set";
         try {
             computeActual(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['shipmode']) " +
-                    "AS SELECT linenumber, quantity, shipmode FROM lineitem", baseTable));
+                    "AS SELECT linenumber, quantity, shipmode FROM lineitem", base));
 
             assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['shipmode']) " +
                             "AS SELECT linenumber, SUM(DISTINCT CAST(quantity AS BIGINT)) quantity, shipmode FROM %s " +
                             "GROUP BY GROUPING SETS ((linenumber, shipmode), (shipmode))",
-                    view, baseTable));
+                    view, base));
 
             assertUpdate(format("INSERT INTO %s(linenumber, quantity, shipmode) " +
                             "SELECT linenumber, SUM(DISTINCT CAST(quantity AS BIGINT)) quantity, shipmode FROM %s where shipmode='RAIL' " +
                             "GROUP BY GROUPING SETS ((linenumber, shipmode), (shipmode)) ",
-                    view, baseTable), 8);
+                    view, base), 8);
 
-            String viewQuery = format("SELECT * FROM %s ", view);
+            String viewQuery = format("SELECT * FROM %s ORDER BY linenumber, shipmode", view);
             String baseQuery = format("SELECT linenumber, SUM(DISTINCT CAST(quantity AS BIGINT)) quantity, shipmode FROM %s " +
-                    "GROUP BY GROUPING SETS ((linenumber, shipmode), (shipmode))", baseTable);
+                    "GROUP BY GROUPING SETS ((linenumber, shipmode), (shipmode)) ORDER BY linenumber, shipmode", base);
 
-            assertEquals(computeActual(viewQuery), computeActual(baseQuery));
+            MaterializedResult viewTable = computeActual(viewQuery);
+            MaterializedResult baseTable = computeActual(baseQuery);
+            assertEquals(viewTable, baseTable);
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS " + view);
-            queryRunner.execute("DROP TABLE IF EXISTS " + baseTable);
+            queryRunner.execute("DROP TABLE IF EXISTS " + base);
         }
     }
 
@@ -1290,32 +1303,33 @@ public class TestHiveLogicalPlanner
     public void testMaterializedViewWithDifferentPartitions()
     {
         QueryRunner queryRunner = getQueryRunner();
-        String baseTable = "orders_partitioned_different_partitions";
+        String base = "orders_partitioned_different_partitions";
         String view = "orders_partitioned_view_different_partitions";
 
         try {
             queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['ds', 'orderpriority']) AS " +
                     "SELECT orderkey, orderstatus, '2020-01-01' as ds, orderpriority FROM orders WHERE orderkey < 1000 " +
                     "UNION ALL " +
-                    "SELECT orderkey, orderstatus, '2019-01-02' as ds, orderpriority FROM orders WHERE orderkey > 1000", baseTable));
+                    "SELECT orderkey, orderstatus, '2019-01-02' as ds, orderpriority FROM orders WHERE orderkey > 1000", base));
 
             assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds', 'orderstatus']) AS " +
-                    "SELECT orderkey, orderpriority, ds, orderstatus FROM %s", view, baseTable));
+                    "SELECT orderkey, orderpriority, ds, orderstatus FROM %s", view, base));
 
             assertTrue(getQueryRunner().tableExists(getSession(), view));
 
             assertUpdate(format("INSERT INTO %s(orderkey, orderpriority, ds, orderstatus) " +
-                    "select orderkey, orderpriority, ds, orderstatus from %s where ds='2020-01-01'", view, baseTable), 255);
+                    "select orderkey, orderpriority, ds, orderstatus from %s where ds='2020-01-01'", view, base), 255);
 
-            String viewQuery = format("SELECT orderkey from %s where orderkey <  10000", view);
-            String baseQuery = format("SELECT orderkey from %s where orderkey <  10000", baseTable);
-            // getExplainPlan(viewQuery, LOGICAL);
+            String viewQuery = format("SELECT orderkey from %s where orderkey <  10000 ORDER BY orderkey", view);
+            String baseQuery = format("SELECT orderkey from %s where orderkey <  10000 ORDER BY orderkey", base);
 
-            assertEquals(computeActual(viewQuery), computeActual(baseQuery));
+            MaterializedResult viewTable = computeActual(viewQuery);
+            MaterializedResult baseTable = computeActual(baseQuery);
+            assertEquals(viewTable, baseTable);
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS " + view);
-            queryRunner.execute("DROP TABLE IF EXISTS " + baseTable);
+            queryRunner.execute("DROP TABLE IF EXISTS " + base);
         }
     }
 
@@ -1345,12 +1359,13 @@ public class TestHiveLogicalPlanner
                             "WHERE customer.nationkey != 24 and %s.regionkey != 1",
                     view, table1, table1, table2, table1, table1), 1200);
 
-            String viewQuery = format("SELECT nationname, custkey from %s", view);
-            String baseQuery = format("SELECT %s.name AS nationname, customer.custkey FROM %s JOIN %s customer ON (%s.nationkey = customer.nationkey)",
-                    table1, table1, table2, table1);
-            // getExplainPlan(viewQuery, LOGICAL);
+            String viewQuery = format("SELECT nationname, custkey from %s ORDER BY custkey", view);
+            String baseQuery = format("SELECT %s.name AS nationname, customer.custkey FROM %s JOIN %s customer ON (%s.nationkey = customer.nationkey)" +
+                    "ORDER BY custkey", table1, table1, table2, table1);
 
-            assertEquals(computeActual(viewQuery), computeActual(baseQuery));
+            MaterializedResult viewTable = computeActual(viewQuery);
+            MaterializedResult baseTable = computeActual(baseQuery);
+            assertEquals(viewTable, baseTable);
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS " + view);
@@ -1363,34 +1378,36 @@ public class TestHiveLogicalPlanner
     public void testMaterializedViewOptimizationWithDerivedFields()
     {
         QueryRunner queryRunner = getQueryRunner();
-        String baseTable = "lineitem_partitioned_derived_fields";
+        String base = "lineitem_partitioned_derived_fields";
         String view = "lineitem_partitioned_view_derived_fields";
 
         try {
             queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['ds', 'shipmode']) AS " +
                     "SELECT discount, extendedprice, '2020-01-01' as ds, shipmode FROM lineitem WHERE orderkey < 1000 " +
                     "UNION ALL " +
-                    "SELECT discount, extendedprice, '2020-01-02' as ds, shipmode FROM lineitem WHERE orderkey > 1000", baseTable));
+                    "SELECT discount, extendedprice, '2020-01-02' as ds, shipmode FROM lineitem WHERE orderkey > 1000", base));
 
             assertUpdate(format(
                     "CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds', 'shipmode']) AS " +
                             "SELECT SUM(discount*extendedprice) as _discount_multi_extendedprice_, ds, shipmode FROM %s group by ds, shipmode",
-                    view, baseTable));
+                    view, base));
 
             assertTrue(getQueryRunner().tableExists(getSession(), view));
             assertUpdate(format("INSERT INTO %s(_discount_multi_extendedprice_, ds, shipmode) " +
                             "select SUM(discount*extendedprice), ds, shipmode from %s where ds='2020-01-01' group by ds, shipmode",
-                    view, baseTable), 7);
+                    view, base), 7);
 
-            String viewQuery = format("SELECT sum(_discount_multi_extendedprice_) from %s group by ds, shipmode", view);
-            String baseQuery = format("SELECT sum(discount * extendedprice) as _discount_multi_extendedprice_ from %s group by ds, shipmode", baseTable);
-            // getExplainPlan(viewQuery, LOGICAL);
+            String viewQuery = format("SELECT sum(_discount_multi_extendedprice_) from %s group by ds, shipmode ORDER BY sum(_discount_multi_extendedprice_)", view);
+            String baseQuery = format("SELECT sum(discount * extendedprice) as _discount_multi_extendedprice_ from %s group by ds, shipmode " +
+                    "ORDER BY _discount_multi_extendedprice_", base);
 
-            assertEquals(computeActual(viewQuery), computeActual(baseQuery));
+            MaterializedResult viewTable = computeActual(viewQuery);
+            MaterializedResult baseTable = computeActual(baseQuery);
+            assertEquals(viewTable, baseTable);
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS " + view);
-            queryRunner.execute("DROP TABLE IF EXISTS " + baseTable);
+            queryRunner.execute("DROP TABLE IF EXISTS " + base);
         }
     }
 
@@ -1398,33 +1415,35 @@ public class TestHiveLogicalPlanner
     public void testMaterializedViewOptimizationWithDerivedFieldsWithAlias()
     {
         QueryRunner queryRunner = getQueryRunner();
-        String baseTable = "lineitem_partitioned_derived_fields_with_alias";
+        String base = "lineitem_partitioned_derived_fields_with_alias";
         String view = "lineitem_partitioned_view_derived_fields_with_alias";
 
         try {
             queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['ds', 'shipmode']) AS " +
                     "SELECT discount, extendedprice, '2020-01-01' as ds, shipmode FROM lineitem WHERE orderkey < 1000 " +
                     "UNION ALL " +
-                    "SELECT discount, extendedprice, '2020-01-02' as ds, shipmode FROM lineitem WHERE orderkey > 1000 ", baseTable));
+                    "SELECT discount, extendedprice, '2020-01-02' as ds, shipmode FROM lineitem WHERE orderkey > 1000 ", base));
 
             assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds', 'view_shipmode']) " +
                     "AS SELECT SUM(discount*extendedprice) as _discount_multi_extendedprice_, ds, shipmode as view_shipmode " +
-                    "FROM %s group by ds, shipmode", view, baseTable));
+                    "FROM %s group by ds, shipmode", view, base));
 
             assertTrue(getQueryRunner().tableExists(getSession(), view));
             assertUpdate(format("INSERT INTO %s(_discount_multi_extendedprice_, ds, view_shipmode) " +
                             "select SUM(discount*extendedprice), ds, shipmode from %s where ds='2020-01-01' group by ds, shipmode",
-                    view, baseTable), 7);
+                    view, base), 7);
 
-            String viewQuery = format("SELECT sum(_discount_multi_extendedprice_) from %s group by ds", view);
-            String baseQuery = format("SELECT sum(discount * extendedprice) as _discount_multi_extendedprice_ from %s group by ds", baseTable);
-            // getExplainPlan(viewQuery, LOGICAL);
+            String viewQuery = format("SELECT sum(_discount_multi_extendedprice_) from %s group by ds ORDER BY sum(_discount_multi_extendedprice_)", view);
+            String baseQuery = format("SELECT sum(discount * extendedprice) as _discount_multi_extendedprice_ from %s group by ds " +
+                    "ORDER BY _discount_multi_extendedprice_", base);
 
-            assertEquals(computeActual(viewQuery), computeActual(baseQuery));
+            MaterializedResult viewTable = computeActual(viewQuery);
+            MaterializedResult baseTable = computeActual(baseQuery);
+            assertEquals(viewTable, baseTable);
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS " + view);
-            queryRunner.execute("DROP TABLE IF EXISTS " + baseTable);
+            queryRunner.execute("DROP TABLE IF EXISTS " + base);
         }
     }
 
@@ -1486,11 +1505,12 @@ public class TestHiveLogicalPlanner
             assertUpdate(format("INSERT INTO %s(orderkey, orderpriority, totalprice) " +
                     "select orderkey, orderpriority, totalprice from %s where totalprice<65000", view, table), 3);
 
-            String viewQuery = format("SELECT orderkey from %s where orderkey <  10000", view);
-            String baseQuery = format("SELECT orderkey from %s where orderkey <  10000", table);
-            // getExplainPlan(viewQuery, LOGICAL);
+            String viewQuery = format("SELECT orderkey from %s where orderkey <  10000 ORDER BY orderkey", view);
+            String baseQuery = format("SELECT orderkey from %s where orderkey <  10000 ORDER BY orderkey", table);
 
-            assertEquals(computeActual(viewQuery), computeActual(baseQuery));
+            MaterializedResult viewTable = computeActual(viewQuery);
+            MaterializedResult baseTable = computeActual(baseQuery);
+            assertEquals(viewTable, baseTable);
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS " + view);
@@ -1526,12 +1546,13 @@ public class TestHiveLogicalPlanner
                     "t2.orderstatus as view_orderstatus FROM %s t1 inner join %s t2 ON t1.ds=t2.ds" +
                     " where t1.ds='2020-01-01'", view, table1, table2), 65025);
 
-            String viewQuery = format("SELECT view_orderkey from %s where view_orderkey <  10000", view);
+            String viewQuery = format("SELECT view_orderkey from %s where view_orderkey <  10000 ORDER BY view_orderkey", view);
             String baseQuery = format("SELECT t1.orderkey FROM %s t1" +
-                    " inner join %s t2 ON t1.ds=t2.ds where t1.orderkey <  10000", table1, table2);
+                    " inner join %s t2 ON t1.ds=t2.ds where t1.orderkey <  10000 ORDER BY t1.orderkey", table1, table2);
 
-            // getExplainPlan(viewQuery, LOGICAL);
-            assertEquals(computeActual(viewQuery), computeActual(baseQuery));
+            MaterializedResult viewTable = computeActual(viewQuery);
+            MaterializedResult baseTable = computeActual(baseQuery);
+            assertEquals(viewTable, baseTable);
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS " + view);
