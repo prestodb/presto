@@ -62,14 +62,13 @@ public class LongDictionaryColumnWriter
 
     public LongDictionaryColumnWriter(
             int column,
-            int dwrfSequence,
             Type type,
             ColumnWriterOptions columnWriterOptions,
             Optional<DwrfDataEncryptor> dwrfEncryptor,
             OrcEncoding orcEncoding,
             MetadataWriter metadataWriter)
     {
-        super(column, dwrfSequence, type, columnWriterOptions, dwrfEncryptor, orcEncoding, metadataWriter);
+        super(column, type, columnWriterOptions, dwrfEncryptor, orcEncoding, metadataWriter);
         checkArgument(orcEncoding == DWRF, "Long dictionary encoding is only supported in DWRF");
         checkArgument(type instanceof FixedWidthType, "Not a fixed width type");
         this.dictionaryDataStream = new LongOutputStreamDwrf(columnWriterOptions, dwrfEncryptor, true, DICTIONARY_DATA);
@@ -94,7 +93,7 @@ public class LongDictionaryColumnWriter
     protected ColumnWriter createDirectColumnWriter()
     {
         if (directColumnWriter == null) {
-            directColumnWriter = new LongColumnWriter(column, dwrfSequence, type, columnWriterOptions, dwrfEncryptor, orcEncoding, IntegerStatisticsBuilder::new, metadataWriter);
+            directColumnWriter = new LongColumnWriter(column, type, columnWriterOptions, dwrfEncryptor, orcEncoding, IntegerStatisticsBuilder::new, metadataWriter);
         }
         return directColumnWriter;
     }
@@ -204,7 +203,7 @@ public class LongDictionaryColumnWriter
     @Override
     protected List<StreamDataOutput> getDictionaryStreams(int column)
     {
-        return ImmutableList.of(dictionaryDataStream.getStreamDataOutput(column, dwrfSequence));
+        return ImmutableList.of(dictionaryDataStream.getStreamDataOutput(column));
     }
 
     @Override
