@@ -95,12 +95,16 @@ public class TaskContext
 
     private final Object cumulativeMemoryLock = new Object();
     private final AtomicDouble cumulativeUserMemory = new AtomicDouble(0.0);
+    private final AtomicDouble cumulativeTotalMemory = new AtomicDouble(0.0);
 
     private final AtomicLong peakTotalMemoryInBytes = new AtomicLong(0);
     private final AtomicLong peakUserMemoryInBytes = new AtomicLong(0);
 
     @GuardedBy("cumulativeMemoryLock")
     private long lastUserMemoryReservation;
+
+    @GuardedBy("cumulativeMemoryLock")
+    private long lastTotalMemoryReservation;
 
     @GuardedBy("cumulativeMemoryLock")
     private long lastTaskStatCallNanos;
@@ -507,11 +511,14 @@ public class TaskContext
                 lastTaskStatCallNanos = startNanos;
             }
             double sinceLastPeriodMillis = (System.nanoTime() - lastTaskStatCallNanos) / 1_000_000.0;
-            long averageMemoryForLastPeriod = (userMemory + lastUserMemoryReservation) / 2;
-            cumulativeUserMemory.addAndGet(averageMemoryForLastPeriod * sinceLastPeriodMillis);
+            long averageUserMemoryForLastPeriod = (userMemory + lastUserMemoryReservation) / 2;
+            long averageTotalMemoryForLastPeriod = (userMemory + systemMemory + lastTotalMemoryReservation) / 2;
+            cumulativeUserMemory.addAndGet(averageUserMemoryForLastPeriod * sinceLastPeriodMillis);
+            cumulativeTotalMemory.addAndGet(averageTotalMemoryForLastPeriod * sinceLastPeriodMillis);
 
             lastTaskStatCallNanos = System.nanoTime();
             lastUserMemoryReservation = userMemory;
+            lastTotalMemoryReservation = systemMemory + userMemory;
         }
 
         Set<PipelineStats> runningPipelineStats = pipelineStats.stream()
@@ -539,6 +546,7 @@ public class TaskContext
                 blockedDrivers,
                 completedDrivers,
                 cumulativeUserMemory.get(),
+                cumulativeTotalMemory.get(),
                 userMemory,
                 taskMemoryContext.getRevocableMemory(),
                 systemMemory,
