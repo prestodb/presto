@@ -15,7 +15,8 @@ Synopsis
     [ HAVING condition]
     [ { UNION | INTERSECT | EXCEPT } [ ALL | DISTINCT ] select ]
     [ ORDER BY expression [ ASC | DESC ] [, ...] ]
-    [ LIMIT [ count | ALL ] ]
+    [ OFFSET count [ { ROW | ROWS } ] ]
+    [ { LIMIT [ count | ALL ] } ]
 
 where ``from_item`` is one of
 
@@ -577,15 +578,51 @@ output expressions:
 
 Each expression may be composed of output columns or it may be an ordinal
 number selecting an output column by position (starting at one). The
-``ORDER BY`` clause is evaluated as the last step of a query after any
-``GROUP BY`` or ``HAVING`` clause. The default null ordering is ``NULLS LAST``,
-regardless of the ordering direction.
+``ORDER BY`` clause is evaluated after any ``GROUP BY`` or ``HAVING`` clause
+and before any ``OFFSET``, ``LIMIT`` or ``FETCH FIRST`` clause.
+The default null ordering is ``NULLS LAST``, regardless of the ordering direction.
+
+.. _offset-clause:
+
+OFFSET Clause
+-------------
+
+The ``OFFSET`` clause is used to discard a number of leading rows
+from the result set:
+
+.. code-block:: none
+
+    OFFSET count [ ROW | ROWS ]
+
+If the ``ORDER BY`` clause is present, the ``OFFSET`` clause is evaluated
+over a sorted result set, and the set remains sorted after the
+leading rows are discarded::
+
+    SELECT name FROM nation ORDER BY name OFFSET 22;
+
+.. code-block:: none
+
+          name
+    ----------------
+     UNITED KINGDOM
+     UNITED STATES
+     VIETNAM
+    (3 rows)
+
+Otherwise, it is arbitrary which rows are discarded.
+If the count specified in the ``OFFSET`` clause equals or exceeds the size
+of the result set, the final result is empty.
 
 LIMIT Clause
 ------------
 
 The ``LIMIT`` clause restricts the number of rows in the result set.
 ``LIMIT ALL`` is the same as omitting the ``LIMIT`` clause.
+
+.. code-block:: none
+
+    LIMIT { count | ALL }
+
 The following example queries a large table, but the limit clause restricts
 the output to only have five rows (because the query lacks an ``ORDER BY``,
 exactly which rows are returned is arbitrary)::
@@ -602,6 +639,22 @@ exactly which rows are returned is arbitrary)::
      1995-11-12
      1992-04-26
     (5 rows)
+
+``LIMIT ALL`` is the same as omitting the ``LIMIT`` clause.
+
+If the ``OFFSET`` clause is present, the ``LIMIT`` clause is evaluated
+after the ``OFFSET`` clause::
+
+    SELECT * FROM (VALUES 5, 2, 4, 1, 3) t(x) ORDER BY x OFFSET 2 LIMIT 2;
+
+.. code-block:: none
+
+     x
+    ---
+     3
+     4
+    (2 rows)
+
 
 TABLESAMPLE
 -----------
