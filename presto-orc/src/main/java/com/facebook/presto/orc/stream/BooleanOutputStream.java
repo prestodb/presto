@@ -157,10 +157,10 @@ public class BooleanOutputStream
     }
 
     @Override
-    public StreamDataOutput getStreamDataOutput(int column, int dwrfSequence)
+    public StreamDataOutput getStreamDataOutput(int column)
     {
         checkState(closed);
-        return byteOutputStream.getStreamDataOutput(column, dwrfSequence);
+        return byteOutputStream.getStreamDataOutput(column);
     }
 
     @Override
