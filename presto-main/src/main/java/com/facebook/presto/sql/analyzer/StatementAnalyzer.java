@@ -1276,14 +1276,6 @@ class StatementAnalyzer
                 baseToViewColumnMap.put(baseColumnName, viewDerivedColumnName);
             }
 
-//            for (String mvColumnName : viewToBaseColumnMap.keySet()) {
-//                Map<SchemaTableName, String> mappingColumnName = viewToBaseColumnMap.get(mvColumnName);
-//                if (mappingColumnName.containsKey(baseName)) {
-//                    String baseColumnName = mappingColumnName.get(baseName);
-//                    baseToViewColumnMap.put(baseColumnName, mvColumnName);
-//                }
-//            }
-
             for (SelectItem columnName : columnsNames.getSelectItems()) {
                 String baseColumnName = ((SingleColumn) columnName).getExpression().toString();
                 checkState(baseToViewColumnMap.containsKey(baseColumnName), "Missing column name in the conversion map: " + baseColumnName);
