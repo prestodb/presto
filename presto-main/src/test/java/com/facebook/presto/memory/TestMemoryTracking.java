@@ -390,6 +390,25 @@ public class TestMemoryTracking
         assertTrue(cumulativeUserMemory < elapsedTimeInMillis * averageMemoryForLastPeriod);
     }
 
+    @Test
+    public void testCumulativeTotalMemoryEstimation()
+    {
+        LocalMemoryContext userMemory = operatorContext.localUserMemoryContext();
+        LocalMemoryContext systemMemory = operatorContext.localSystemMemoryContext();
+        long userMemoryBytes = 100_000_000;
+        long systemMemoryBytes = 40_000_000;
+        userMemory.setBytes(userMemoryBytes);
+        systemMemory.setBytes(systemMemoryBytes);
+        long startTime = System.nanoTime();
+        double cumulativeTotalMemory = taskContext.getTaskStats().getCumulativeTotalMemory();
+        long endTime = System.nanoTime();
+
+        double elapsedTimeInMillis = (endTime - startTime) / 1_000_000.0;
+        long averageMemoryForLastPeriod = (userMemoryBytes + systemMemoryBytes) / 2;
+
+        assertTrue(cumulativeTotalMemory < elapsedTimeInMillis * averageMemoryForLastPeriod);
+    }
+
     private void assertStats(
             OperatorStats operatorStats,
             DriverStats driverStats,

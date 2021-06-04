@@ -392,6 +392,7 @@ public class TestResourceManagerClusterStateProvider
                         DataSize.valueOf("21GB"),
                         22,
                         23,
+                        24,
                         DataSize.valueOf("1MB"),
                         DataSize.valueOf("24GB"),
                         DataSize.valueOf("25GB"),

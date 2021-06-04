@@ -62,6 +62,7 @@ public class BasicQueryStats
     private final long rawInputPositions;
 
     private final double cumulativeUserMemory;
+    private final double cumulativeTotalMemory;
     private final DataSize userMemoryReservation;
     private final DataSize totalMemoryReservation;
     private final DataSize peakUserMemoryReservation;
@@ -95,6 +96,7 @@ public class BasicQueryStats
             @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
             @JsonProperty("rawInputPositions") long rawInputPositions,
             @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
+            @JsonProperty("cumulativeTotalMemory") double cumulativeTotalMemory,
             @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
             @JsonProperty("totalMemoryReservation") DataSize totalMemoryReservation,
             @JsonProperty("peakUserMemoryReservation") DataSize peakUserMemoryReservation,
@@ -131,6 +133,7 @@ public class BasicQueryStats
         this.rawInputPositions = rawInputPositions;
 
         this.cumulativeUserMemory = cumulativeUserMemory;
+        this.cumulativeTotalMemory = cumulativeTotalMemory;
         this.userMemoryReservation = userMemoryReservation;
         this.totalMemoryReservation = totalMemoryReservation;
         this.peakUserMemoryReservation = peakUserMemoryReservation;
@@ -164,6 +167,7 @@ public class BasicQueryStats
                 queryStats.getRawInputDataSize(),
                 queryStats.getRawInputPositions(),
                 queryStats.getCumulativeUserMemory(),
+                queryStats.getCumulativeTotalMemory(),
                 queryStats.getUserMemoryReservation(),
                 queryStats.getTotalMemoryReservation(),
                 queryStats.getPeakUserMemoryReservation(),
@@ -194,6 +198,7 @@ public class BasicQueryStats
                 0,
                 0,
                 new DataSize(0, BYTE),
+                0,
                 0,
                 0,
                 new DataSize(0, BYTE),
@@ -389,5 +394,12 @@ public class BasicQueryStats
     public Duration getWaitingForPrerequisitesTime()
     {
         return waitingForPrerequisitesTime;
+    }
+
+    @ThriftField(27)
+    @JsonProperty
+    public double getCumulativeTotalMemory()
+    {
+        return cumulativeTotalMemory;
     }
 }

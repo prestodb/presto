@@ -49,6 +49,7 @@ public class TestStageExecutionStats
             11,
 
             12.0,
+            27.0,
             new DataSize(13, BYTE),
             new DataSize(14, BYTE),
             new DataSize(15, BYTE),

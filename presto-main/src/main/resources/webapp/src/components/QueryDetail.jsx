@@ -488,6 +488,14 @@ class StageSummary extends React.Component {
                                     </tr>
                                     <tr>
                                         <td className="stage-table-stat-title">
+                                            Cumulative Total
+                                        </td>
+                                        <td className="stage-table-stat-text">
+                                            {formatDataSizeBytes(stage.latestAttemptExecutionInfo.stats.cumulativeTotalMemory / 1000)}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="stage-table-stat-title">
                                             Current
                                         </td>
                                         <td className="stage-table-stat-text">
@@ -1358,6 +1366,14 @@ export class QueryDetail extends React.Component {
                                         </td>
                                         <td className="info-text">
                                             {formatDataSizeBytes(query.queryStats.cumulativeUserMemory / 1000.0) + " seconds"}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Cumulative Total
+                                        </td>
+                                        <td className="info-text">
+                                            {formatDataSizeBytes(query.queryStats.cumulativeTotalMemory / 1000.0) + " seconds"}
                                         </td>
                                     </tr>
                                     <tr>

@@ -92,6 +92,7 @@ public class TestClusterMemoryLeakDetector
                         DataSize.valueOf("21GB"),
                         22,
                         23,
+                        28,
                         DataSize.valueOf("23GB"),
                         DataSize.valueOf("24GB"),
                         DataSize.valueOf("25GB"),
