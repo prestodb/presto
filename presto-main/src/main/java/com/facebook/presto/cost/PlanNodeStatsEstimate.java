@@ -39,10 +39,11 @@ import static java.util.Objects.requireNonNull;
 public class PlanNodeStatsEstimate
 {
     private static final double DEFAULT_DATA_SIZE_PER_COLUMN = 50;
-    private static final PlanNodeStatsEstimate UNKNOWN = new PlanNodeStatsEstimate(NaN, NaN, ImmutableMap.of());
+    private static final PlanNodeStatsEstimate UNKNOWN = new PlanNodeStatsEstimate(NaN, NaN, false, ImmutableMap.of());
 
     private final double outputRowCount;
     private final double totalSize;
+    private final boolean confident;
     private final PMap<VariableReferenceExpression, VariableStatsEstimate> variableStatistics;
 
     public static PlanNodeStatsEstimate unknown()
@@ -54,16 +55,18 @@ public class PlanNodeStatsEstimate
     public PlanNodeStatsEstimate(
             @JsonProperty("outputRowCount") double outputRowCount,
             @JsonProperty("totalSize") double totalSize,
+            @JsonProperty("confident") boolean confident,
             @JsonProperty("variableStatistics") Map<VariableReferenceExpression, VariableStatsEstimate> variableStatistics)
     {
-        this(outputRowCount, totalSize, HashTreePMap.from(requireNonNull(variableStatistics, "variableStatistics is null")));
+        this(outputRowCount, totalSize, confident, HashTreePMap.from(requireNonNull(variableStatistics, "variableStatistics is null")));
     }
 
-    private PlanNodeStatsEstimate(double outputRowCount, double totalSize, PMap<VariableReferenceExpression, VariableStatsEstimate> variableStatistics)
+    private PlanNodeStatsEstimate(double outputRowCount, double totalSize, boolean confident, PMap<VariableReferenceExpression, VariableStatsEstimate> variableStatistics)
     {
         checkArgument(isNaN(outputRowCount) || outputRowCount >= 0, "outputRowCount cannot be negative");
         this.outputRowCount = outputRowCount;
         this.totalSize = totalSize;
+        this.confident = confident;
         this.variableStatistics = variableStatistics;
     }
 
@@ -81,6 +84,12 @@ public class PlanNodeStatsEstimate
     public double getTotalSize()
     {
         return totalSize;
+    }
+
+    @JsonProperty
+    public boolean isConfident()
+    {
+        return confident;
     }
 
     /**
@@ -210,24 +219,26 @@ public class PlanNodeStatsEstimate
     // we should propagate totalSize as default to simplify the relevant operations in rules that do not change this field.
     public static Builder buildFrom(PlanNodeStatsEstimate other)
     {
-        return new Builder(other.getOutputRowCount(), NaN, other.variableStatistics);
+        return new Builder(other.getOutputRowCount(), NaN, other.isConfident(), other.variableStatistics);
     }
 
     public static final class Builder
     {
         private double outputRowCount;
         private double totalSize;
+        private boolean confident;
         private PMap<VariableReferenceExpression, VariableStatsEstimate> variableStatistics;
 
         public Builder()
         {
-            this(NaN, NaN, HashTreePMap.empty());
+            this(NaN, NaN, false, HashTreePMap.empty());
         }
 
-        private Builder(double outputRowCount, double totalSize, PMap<VariableReferenceExpression, VariableStatsEstimate> variableStatistics)
+        private Builder(double outputRowCount, double totalSize, boolean confident, PMap<VariableReferenceExpression, VariableStatsEstimate> variableStatistics)
         {
             this.outputRowCount = outputRowCount;
             this.totalSize = totalSize;
+            this.confident = confident;
             this.variableStatistics = variableStatistics;
         }
 
@@ -240,6 +251,12 @@ public class PlanNodeStatsEstimate
         public Builder setTotalSize(double totalSize)
         {
             this.totalSize = totalSize;
+            return this;
+        }
+
+        public Builder setConfident(boolean confident)
+        {
+            this.confident = confident;
             return this;
         }
 
@@ -263,7 +280,7 @@ public class PlanNodeStatsEstimate
 
         public PlanNodeStatsEstimate build()
         {
-            return new PlanNodeStatsEstimate(outputRowCount, totalSize, variableStatistics);
+            return new PlanNodeStatsEstimate(outputRowCount, totalSize, confident, variableStatistics);
         }
     }
 }
