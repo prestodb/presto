@@ -15,7 +15,6 @@ package com.facebook.presto.spi.function;
 
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeUtils;
-import com.facebook.presto.common.type.TypeWithName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -32,7 +31,6 @@ public class TypeVariableConstraint
     private final boolean orderableRequired;
     private final String variadicBound;
     private final boolean nonDecimalNumericRequired;
-    private final Class<? extends Type> typeBound;
 
     @JsonCreator
     public TypeVariableConstraint(
@@ -40,25 +38,13 @@ public class TypeVariableConstraint
             @JsonProperty("comparableRequired") boolean comparableRequired,
             @JsonProperty("orderableRequired") boolean orderableRequired,
             @JsonProperty("variadicBound") @Nullable String variadicBound,
-            @JsonProperty("nonDecimalNumericRequired") boolean nonDecimalNumericRequired,
-            @JsonProperty("boundedBy") Class<? extends Type> typeBound)
+            @JsonProperty("nonDecimalNumericRequired") boolean nonDecimalNumericRequired)
     {
         this.name = name;
         this.comparableRequired = comparableRequired;
         this.orderableRequired = orderableRequired;
         this.variadicBound = variadicBound;
         this.nonDecimalNumericRequired = nonDecimalNumericRequired;
-        this.typeBound = typeBound;
-    }
-
-    public TypeVariableConstraint(
-            @JsonProperty("name") String name,
-            @JsonProperty("comparableRequired") boolean comparableRequired,
-            @JsonProperty("orderableRequired") boolean orderableRequired,
-            @JsonProperty("variadicBound") @Nullable String variadicBound,
-            @JsonProperty("nonDecimalNumericRequired") boolean nonDecimalNumericRequired)
-    {
-        this(name, comparableRequired, orderableRequired, variadicBound, nonDecimalNumericRequired, Type.class);
     }
 
     @JsonProperty
@@ -91,12 +77,6 @@ public class TypeVariableConstraint
         return nonDecimalNumericRequired;
     }
 
-    @JsonProperty
-    public Class<? extends Type> getTypeBound()
-    {
-        return typeBound;
-    }
-
     public boolean canBind(Type type)
     {
         if (comparableRequired && !type.isComparable()) {
@@ -105,10 +85,7 @@ public class TypeVariableConstraint
         if (orderableRequired && !type.isOrderable()) {
             return false;
         }
-        if (!typeBound.isInstance(type) && !(type instanceof TypeWithName && typeBound.isInstance(((TypeWithName) type).getType()))) {
-            return false;
-        }
-        if (variadicBound != null && !UNKNOWN.equals(type) && !variadicBound.equals(type.getTypeSignature().getBase())) {
+        if (variadicBound != null && !UNKNOWN.equals(type) && !variadicBound.equals(type.getTypeSignature().getStandardTypeSignature().getBase())) {
             return false;
         }
         if (nonDecimalNumericRequired && !TypeUtils.isNonDecimalNumericType(type)) {
@@ -130,9 +107,6 @@ public class TypeVariableConstraint
         if (variadicBound != null) {
             value += ":" + variadicBound + "<*>";
         }
-        if (!typeBound.equals(Type.class)) {
-            value += " extends " + typeBound.getSimpleName();
-        }
         if (nonDecimalNumericRequired) {
             value += ":nonDecimalNumeric";
         }
@@ -153,13 +127,12 @@ public class TypeVariableConstraint
                 orderableRequired == that.orderableRequired &&
                 nonDecimalNumericRequired == that.nonDecimalNumericRequired &&
                 Objects.equals(name, that.name) &&
-                Objects.equals(variadicBound, that.variadicBound) &&
-                Objects.equals(typeBound, that.typeBound);
+                Objects.equals(variadicBound, that.variadicBound);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, comparableRequired, orderableRequired, variadicBound, nonDecimalNumericRequired, typeBound);
+        return Objects.hash(name, comparableRequired, orderableRequired, variadicBound, nonDecimalNumericRequired);
     }
 }

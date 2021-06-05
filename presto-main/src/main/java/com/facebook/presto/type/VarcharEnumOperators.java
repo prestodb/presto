@@ -41,6 +41,7 @@ import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.common.function.OperatorType.XX_HASH_64;
 import static com.facebook.presto.common.type.StandardTypes.BIGINT;
 import static com.facebook.presto.common.type.StandardTypes.BOOLEAN;
+import static com.facebook.presto.common.type.StandardTypes.VARCHAR_ENUM;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
@@ -50,7 +51,7 @@ public final class VarcharEnumOperators
     private VarcharEnumOperators() {}
 
     @ScalarOperator(EQUAL)
-    @TypeParameter(value = "T", boundedBy = VarcharEnumType.class)
+    @TypeParameter(value = "T", boundedBy = VARCHAR_ENUM)
     @SqlType(BOOLEAN)
     @SqlNullable
     public static Boolean equal(@SqlType("T") Slice left, @SqlType("T") Slice right)
@@ -59,7 +60,7 @@ public final class VarcharEnumOperators
     }
 
     @ScalarOperator(NOT_EQUAL)
-    @TypeParameter(value = "T", boundedBy = VarcharEnumType.class)
+    @TypeParameter(value = "T", boundedBy = VARCHAR_ENUM)
     @SqlType(BOOLEAN)
     @SqlNullable
     public static Boolean notEqual(@SqlType("T") Slice left, @SqlType("T") Slice right)
@@ -68,7 +69,7 @@ public final class VarcharEnumOperators
     }
 
     @ScalarOperator(IS_DISTINCT_FROM)
-    @TypeParameter(value = "T", boundedBy = VarcharEnumType.class)
+    @TypeParameter(value = "T", boundedBy = VARCHAR_ENUM)
     @SqlType(BOOLEAN)
     public static boolean isDistinctFrom(
             @SqlType("T") Slice left,
@@ -86,7 +87,7 @@ public final class VarcharEnumOperators
     }
 
     @ScalarOperator(HASH_CODE)
-    @TypeParameter(value = "T", boundedBy = VarcharEnumType.class)
+    @TypeParameter(value = "T", boundedBy = VARCHAR_ENUM)
     @SqlType(BIGINT)
     public static long hashCode(@SqlType("T") Slice value)
     {
@@ -94,7 +95,7 @@ public final class VarcharEnumOperators
     }
 
     @ScalarOperator(XX_HASH_64)
-    @TypeParameter(value = "T", boundedBy = VarcharEnumType.class)
+    @TypeParameter(value = "T", boundedBy = VARCHAR_ENUM)
     @SqlType(BIGINT)
     public static long xxHash64(@SqlType("T") Slice value)
     {
@@ -102,7 +103,7 @@ public final class VarcharEnumOperators
     }
 
     @ScalarOperator(INDETERMINATE)
-    @TypeParameter(value = "T", boundedBy = VarcharEnumType.class)
+    @TypeParameter(value = "T", boundedBy = VARCHAR_ENUM)
     @SqlType(BOOLEAN)
     public static boolean indeterminate(@SqlType("T") Slice value, @IsNull boolean isNull)
     {
@@ -110,7 +111,7 @@ public final class VarcharEnumOperators
     }
 
     @ScalarOperator(LESS_THAN)
-    @TypeParameter(value = "T", boundedBy = VarcharEnumType.class)
+    @TypeParameter(value = "T", boundedBy = VARCHAR_ENUM)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean lessThan(@SqlType("T") Slice left, @SqlType("T") Slice right)
     {
@@ -118,7 +119,7 @@ public final class VarcharEnumOperators
     }
 
     @ScalarOperator(LESS_THAN_OR_EQUAL)
-    @TypeParameter(value = "T", boundedBy = VarcharEnumType.class)
+    @TypeParameter(value = "T", boundedBy = VARCHAR_ENUM)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean lessThanOrEqual(@SqlType("T") Slice left, @SqlType("T") Slice right)
     {
@@ -126,7 +127,7 @@ public final class VarcharEnumOperators
     }
 
     @ScalarOperator(GREATER_THAN)
-    @TypeParameter(value = "T", boundedBy = VarcharEnumType.class)
+    @TypeParameter(value = "T", boundedBy = VARCHAR_ENUM)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean greaterThan(@SqlType("T") Slice left, @SqlType("T") Slice right)
     {
@@ -134,7 +135,7 @@ public final class VarcharEnumOperators
     }
 
     @ScalarOperator(GREATER_THAN_OR_EQUAL)
-    @TypeParameter(value = "T", boundedBy = VarcharEnumType.class)
+    @TypeParameter(value = "T", boundedBy = VARCHAR_ENUM)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean greaterThanOrEqual(@SqlType("T") Slice left, @SqlType("T") Slice right)
     {
@@ -142,7 +143,7 @@ public final class VarcharEnumOperators
     }
 
     @ScalarOperator(BETWEEN)
-    @TypeParameter(value = "T", boundedBy = VarcharEnumType.class)
+    @TypeParameter(value = "T", boundedBy = VARCHAR_ENUM)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean between(@SqlType("T") Slice value, @SqlType("T") Slice min, @SqlType("T") Slice max)
     {
@@ -151,7 +152,7 @@ public final class VarcharEnumOperators
 
     @Description("Get the key corresponding to an enum value")
     @ScalarFunction("enum_key")
-    @TypeParameter(value = "T", boundedBy = VarcharEnumType.class)
+    @TypeParameter(value = "T", boundedBy = VARCHAR_ENUM)
     @SqlType(StandardTypes.VARCHAR)
     public static Slice enumKey(@TypeParameter("T") VarcharEnumType enumType, @SqlType("T") Slice value)
     {
