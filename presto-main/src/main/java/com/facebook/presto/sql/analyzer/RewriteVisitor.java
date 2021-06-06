@@ -19,6 +19,8 @@ import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.GroupBy;
+import com.facebook.presto.sql.tree.GroupingElement;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.Query;
@@ -27,14 +29,13 @@ import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
+import com.facebook.presto.sql.tree.SimpleGroupBy;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.google.common.collect.ImmutableList;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -82,7 +83,7 @@ public class RewriteVisitor
                     (Select) process(node.getSelect(), context),
                     Optional.of((Relation) process(node.getFrom().get(), context)),
                     node.getWhere(),
-                    node.getGroupBy(),
+                    Optional.of((GroupBy) process(node.getGroupBy().get(), context)),
                     node.getHaving(),
                     node.getOrderBy(),
                     node.getLimit());
@@ -120,12 +121,15 @@ public class RewriteVisitor
         return node;
     }
 
-    // TODO: Handle ArithmeticBinaryExpression
     @Override
     protected Node visitArithmeticBinary(ArithmeticBinaryExpression node, RewriteVisitorContext context)
     {
-        // TODO: complete the function
-        return node;
+        Expression rewriteLeft = (Expression) process(node.getLeft(), context);
+        Expression rewriteRight = (Expression) process(node.getRight(), context);
+        return new ArithmeticBinaryExpression(
+                node.getOperator(),
+                rewriteLeft,
+                rewriteRight);
     }
 
     @Override
@@ -139,7 +143,8 @@ public class RewriteVisitor
     protected Node visitFunctionCall(FunctionCall node, RewriteVisitorContext context)
     {
         String functionCall = node.toString();
-        List<Expression> rewriteArguments = new ArrayList<>();
+        ImmutableList.Builder<Expression> rewriteArguments = ImmutableList.builder();
+        //List<Expression> rewriteArguments = new ArrayList<>();
 
         if (context.containsColumnName(functionCall)) {
             Expression derivedExpression = new Identifier(context.getViewColumnName(functionCall));
@@ -159,13 +164,37 @@ public class RewriteVisitor
             node.getOrderBy(),
             node.isDistinct(),
             node.isIgnoreNulls(),
-            rewriteArguments);
+            rewriteArguments.build());
     }
 
     @Override
     protected Node visitTable(Table node, RewriteVisitorContext context)
     {
         return context.getMaterializedViewTable();
+    }
+
+    @Override
+    protected Node visitGroupBy(GroupBy node, RewriteVisitorContext context)
+    {
+        ImmutableList.Builder<GroupingElement> rewriteGroupBy = ImmutableList.builder();
+        for (GroupingElement element : node.getGroupingElements()) {
+            GroupingElement rewriteElement = (GroupingElement) process(element, context);
+            rewriteGroupBy.add(rewriteElement);
+        }
+        return new GroupBy(
+                node.isDistinct(),
+                rewriteGroupBy.build());
+    }
+
+    @Override
+    protected Node visitSimpleGroupBy(SimpleGroupBy node, RewriteVisitorContext context)
+    {
+        ImmutableList.Builder<Expression> rewriteSimpleGroupBy = ImmutableList.builder();
+        for (Expression column : node.getExpressions()) {
+            Expression rewriteColumn = (Expression) process(column, context);
+            rewriteSimpleGroupBy.add(rewriteColumn);
+        }
+        return new SimpleGroupBy(rewriteSimpleGroupBy.build());
     }
 
     protected static final class RewriteVisitorContext

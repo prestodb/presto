@@ -1057,7 +1057,6 @@ public class TestHiveLogicalPlanner
             //String viewQuery = "SELECT ok, op from test_orders_view";
             String baseQuery = "SELECT orderkey,orderpriority from orders_partitioned where orderkey <  10000";
             getExplainPlan(baseQuery, LOGICAL);
-
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS test_orders_view");
@@ -1441,8 +1440,39 @@ public class TestHiveLogicalPlanner
                             "select SUM(discount*extendedprice), MAX(discount*extendedprice), ds, shipmode from %s where ds='2020-01-01' group by ds, shipmode",
                     view, baseTable), 7);
 
-
             String baseQuery = format("SELECT sum(discount * extendedprice + discount) as _discount_multi_extendedprice_ , ds, shipmode as method from %s group by ds, shipmode", baseTable);
+
+            String basePlan = getExplainPlan(baseQuery, LOGICAL);
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS " + view);
+            queryRunner.execute("DROP TABLE IF EXISTS " + baseTable);
+        }
+    }
+
+    @Test(enabled = true)
+    public void testBaseToViewConversionWithArithmeticExpression()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        String baseTable = "lineitem_partitioned_derived_fields";
+        String view = "lineitem_partitioned_view_derived_fields";
+
+        try {
+            queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['ds', 'shipmode']) AS " +
+                    "SELECT discount, extendedprice, '2020-01-01' as ds, shipmode FROM lineitem WHERE orderkey < 1000 " +
+                    "UNION ALL " +
+                    "SELECT discount, extendedprice, '2020-01-02' as ds, shipmode FROM lineitem WHERE orderkey > 1000", baseTable));
+
+            assertUpdate(format(
+                    "CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['mvds', 'shipmode']) AS " +
+                            "SELECT discount as mv_discount , extendedprice as mv_extendedprice , ds as mvds, shipmode FROM %s", view, baseTable));
+
+            assertTrue(getQueryRunner().tableExists(getSession(), view));
+            assertUpdate(format("INSERT INTO %s(mv_discount , mv_extendedprice , mvds, shipmode) " +
+                            "select discount, extendedprice, ds, shipmode from %s where ds='2020-01-01'",
+                    view, baseTable), 1004);
+
+            String baseQuery = format("SELECT sum(discount + extendedprice * discount) as random from %s group by ds, shipmode", baseTable);
 
             String basePlan = getExplainPlan(baseQuery, LOGICAL);
         }
