@@ -333,6 +333,11 @@ public class JoinNode
         return criteria.isEmpty() && !filter.isPresent() && type == INNER;
     }
 
+    public boolean isLeftJoin()
+    {
+        return type == LEFT;
+    }
+
     public static class EquiJoinClause
     {
         private final VariableReferenceExpression left;

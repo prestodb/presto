@@ -20,6 +20,7 @@ import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Step;
+import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.ExceptNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IntersectNode;
@@ -547,6 +548,11 @@ public final class PlanMatchPattern
     public static PlanMatchPattern limit(long limit, boolean partial, PlanMatchPattern source)
     {
         return node(LimitNode.class, source).with(new LimitMatcher(limit, partial));
+    }
+
+    public static PlanMatchPattern distinctLimit(long limit, boolean partial, PlanMatchPattern source)
+    {
+        return node(DistinctLimitNode.class, source).with(new DistinctLimitMatcher(limit, partial));
     }
 
     public static PlanMatchPattern enforceSingleRow(PlanMatchPattern source)

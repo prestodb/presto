@@ -172,6 +172,7 @@ public class TestFeaturesConfig
                 .setPartialResultsEnabled(false)
                 .setPartialResultsCompletionRatioThreshold(0.5)
                 .setOffsetClauseEnabled(false)
+                .setEnableRemoveUnreferencedJoin(true)
                 .setPartialResultsMaxExecutionTimeMultiplier(2.0));
     }
 
@@ -297,6 +298,7 @@ public class TestFeaturesConfig
                 .put("partial-results-completion-ratio-threshold", "0.9")
                 .put("partial-results-max-execution-time-multiplier", "1.5")
                 .put("offset-clause-enabled", "true")
+                .put("enable-remove-unreferenced-join", "false")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -418,6 +420,7 @@ public class TestFeaturesConfig
                 .setPartialResultsEnabled(true)
                 .setPartialResultsCompletionRatioThreshold(0.9)
                 .setOffsetClauseEnabled(true)
+                .setEnableRemoveUnreferencedJoin(false)
                 .setPartialResultsMaxExecutionTimeMultiplier(1.5);
         assertFullMapping(properties, expected);
     }

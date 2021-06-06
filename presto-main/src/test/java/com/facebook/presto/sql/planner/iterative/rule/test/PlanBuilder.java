@@ -30,6 +30,7 @@ import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.AggregationNode.Step;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.ExceptNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IntersectNode;
@@ -277,6 +278,22 @@ public class PlanBuilder
     public ProjectNode project(Assignments assignments, PlanNode source)
     {
         return new ProjectNode(idAllocator.getNextId(), source, assignments);
+    }
+
+    public DistinctLimitNode distinctLimit(long count, List<VariableReferenceExpression> distinctSymbols, PlanNode source)
+    {
+        return distinctLimit(count, distinctSymbols, Optional.empty(), source);
+    }
+
+    public DistinctLimitNode distinctLimit(long count, List<VariableReferenceExpression> distinctSymbols, Optional<VariableReferenceExpression> hashSymbol, PlanNode source)
+    {
+        return new DistinctLimitNode(
+                idAllocator.getNextId(),
+                source,
+                count,
+                false,
+                distinctSymbols,
+                hashSymbol);
     }
 
     public MarkDistinctNode markDistinct(VariableReferenceExpression markerVariable, List<VariableReferenceExpression> distinctVariables, PlanNode source)

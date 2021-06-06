@@ -197,6 +197,7 @@ public final class SystemSessionProperties
     public static final String PARTIAL_RESULTS_MAX_EXECUTION_TIME_MULTIPLIER = "partial_results_max_execution_time_multiplier";
     public static final String OFFSET_CLAUSE_ENABLED = "offset_clause_enabled";
     public static final String VERBOSE_EXCEEDED_MEMORY_LIMIT_ERRORS_ENABLED = "verbose_exceeded_memory_limit_errors_enabled";
+    public static final String ENABLE_REMOVE_UNREFERENCED_JOIN = "enable_remove_unreferneced_join";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -972,6 +973,11 @@ public final class SystemSessionProperties
                         CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY,
                         "Apply access control rules on only those columns that are required to produce the query output",
                         featuresConfig.isCheckAccessControlOnUtilizedColumnsOnly(),
+                        false),
+                booleanProperty(
+                        ENABLE_REMOVE_UNREFERENCED_JOIN,
+                        "Enable optimization to remove unreferenced join",
+                        featuresConfig.isEnableRemoveUnreferencedJoin(),
                         false),
                 booleanProperty(
                         ALLOW_WINDOW_ORDER_BY_LITERALS,
@@ -1778,5 +1784,10 @@ public final class SystemSessionProperties
     public static boolean isVerboseExceededMemoryLimitErrorsEnabled(Session session)
     {
         return session.getSystemProperty(VERBOSE_EXCEEDED_MEMORY_LIMIT_ERRORS_ENABLED, Boolean.class);
+    }
+
+    public static boolean isEnableRemoveUnreferencedJoin(Session session)
+    {
+        return session.getSystemProperty(ENABLE_REMOVE_UNREFERENCED_JOIN, Boolean.class);
     }
 }

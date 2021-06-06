@@ -5776,4 +5776,42 @@ public abstract class AbstractTestQueries
     {
         assertQuerySucceeds("SELECT ARRAY_AGG( x ORDER BY x ASC, x DESC ) FROM ( SELECT 0 as x, 0 AS y)");
     }
+
+    @Test
+    public void testLosslessJoin()
+    {
+        MaterializedResult countPart = computeActual("select partkey from part group by partkey");
+        MaterializedResult countLineitem = computeActual("select orderkey from lineitem group by orderkey");
+
+        // A LEFT JOIN query with group-by on the left table is equivalent to query the left table with an aggregation of left table
+        MaterializedResult actual = computeActual("select p.partkey from part p left join lineitem l on p.partkey = l.orderkey group by p.partkey");
+        assertNotEquals(actual.getRowCount(), countLineitem.getRowCount());
+        assertEquals(actual.getRowCount(), countPart.getRowCount());
+
+        // A RIGHT JOIN query with group-by on the right table is equivalent to query the right table with an aggregation of right table
+        actual = computeActual("select l.orderkey from part p right join lineitem l on p.partkey = l.orderkey group by 1");
+        assertEquals(actual.getRowCount(), countLineitem.getRowCount());
+        assertNotEquals(actual.getRowCount(), countPart.getRowCount());
+
+        // without aggregation, LEFT JOIN cannot be pruned to preserve the matching rows from right table
+        // note: RemoveUnreferencedJoin rule is not in effect
+        actual = computeActual("select p.partkey from part p left join lineitem l on p.partkey = l.orderkey");
+        assertNotEquals(actual.getRowCount(), countLineitem.getRowCount());
+        assertNotEquals(actual.getRowCount(), countPart.getRowCount());
+        assertEquals(actual.getRowCount(), 3500);
+
+        // JOIN cannot be pruned in a RIGHT JOIN query with an aggregation on the left table
+        // note: RemoveUnreferencedJoin rule is not in effect
+        actual = computeActual("select p.partkey from part p right join lineitem l on p.partkey = l.orderkey group by p.partkey");
+        assertNotEquals(actual.getRowCount(), countLineitem.getRowCount());
+        assertNotEquals(actual.getRowCount(), countPart.getRowCount());
+        assertEquals(actual.getRowCount(), 504);
+
+        // INNER JOIN has no impact
+        // note: RemoveUnreferencedJoin rule is not in effect
+        actual = computeActual("select p.partkey from part p join lineitem l on p.partkey = l.orderkey group by p.partkey");
+        assertNotEquals(actual.getRowCount(), countLineitem.getRowCount());
+        assertNotEquals(actual.getRowCount(), countPart.getRowCount());
+        assertEquals(actual.getRowCount(), 503);
+    }
 }
