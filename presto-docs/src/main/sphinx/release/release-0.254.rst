@@ -2,6 +2,10 @@
 Release 0.254
 =============
 
+.. warning::
+
+  There is a backward compatibility issue in the DWRF writer that might cause other engines to be unable to read files written by this release.
+
 **Details**
 ===========
 
