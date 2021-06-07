@@ -1159,7 +1159,6 @@ class StatementAnalyzer
                 if (materializedViewAnalysisState.isVisited()) {
                     throw new SemanticException(MATERIALIZED_VIEW_IS_RECURSIVE, table, "Materialized view is recursive");
                 }
-                System.out.println("Mark");
             }
 
             Optional<TableHandle> tableHandle = metadata.getTableHandle(session, name);
