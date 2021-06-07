@@ -1147,6 +1147,7 @@ class StatementAnalyzer
                 // Task: Use a better way to test the test cases (check getTableType)
                 // Test for conversion between base query and mv query
                 String mvName = "lineitem_partitioned_view_derived_fields";
+                // String mvName = "test_orders_view";
 
                 QualifiedName mvQualifiedMVName = QualifiedName.of(mvName);
 
@@ -1158,7 +1159,6 @@ class StatementAnalyzer
                     Query originalSqlQuery = (Query) sqlParser.createStatement(mvOptView.get().getOriginalSql());
                     Query rewriteBaseToViewQuery = (Query) new RewriteVisitor(session).process(statement, new RewriteVisitorContext(mvTable, originalSqlQuery));
                     String rewriteBaseToViewSql = SqlFormatterUtil.getFormattedSql(rewriteBaseToViewQuery, sqlParser, Optional.empty());
-                    //System.out.println(convertedBaseToViewSql);
                     System.out.println(rewriteBaseToViewSql);
                 }
             }
