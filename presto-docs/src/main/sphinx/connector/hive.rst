@@ -513,9 +513,9 @@ OSS Configuration Properties
 ============================================ ===============================================
 Property Name                                Description
 ============================================ ===============================================
-``hive.oss.endpoint``                        The OSS service endpoint.
-``hive.oss.access-key-id``                   The AccessKeyId used to access OSS service.
-``hive.oss.access-key-secret``               The AccessKeySecret used to access OSS service.
+``hive.alioss.endpoint``                     The OSS service endpoint.
+``hive.alioss.access-key-id``                The AccessKeyId used to access OSS service.
+``hive.alioss.access-key-secret``            The AccessKeySecret used to access OSS service.
 ============================================ ===============================================
 
 

@@ -7,7 +7,7 @@ set -euo pipefail -x
 cleanup_docker_containers
 start_docker_containers
 
-# insert AWS credentials
+# insert AliOss credentials
 exec_in_hadoop_master_container cp /etc/hadoop/conf/core-site.xml.alioss-template /etc/hadoop/conf/core-site.xml
 exec_in_hadoop_master_container sed -i \
   -e "s|%ALIOSS_ACCESS_KEY_ID%|${ALIOSS_ACCESS_KEY_ID}|g" \
@@ -26,7 +26,7 @@ exec_in_hadoop_master_container /usr/bin/hive -e "CREATE EXTERNAL TABLE presto_t
 
 stop_unnecessary_hadoop_services
 
-# restart hive-metastore to apply S3 changes in core-site.xml
+# restart hive-metastore to apply AliOss changes in core-site.xml
 docker exec $(hadoop_master_container) supervisorctl restart hive-metastore
 retry check_hadoop
 

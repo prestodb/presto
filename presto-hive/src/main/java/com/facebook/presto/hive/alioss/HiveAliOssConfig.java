@@ -35,17 +35,17 @@ public class HiveAliOssConfig
         return this;
     }
 
+    public String getEndpoint()
+    {
+        return endpoint;
+    }
+
     @Config("hive.alioss.endpoint")
     @ConfigDescription("Endpoint used to access Alibaba Cloud OSS")
     public HiveAliOssConfig setEndpoint(String endpoint)
     {
         this.endpoint = endpoint;
         return this;
-    }
-
-    public String getEndpoint()
-    {
-        return endpoint;
     }
 
     public String getAccessKeySecret()
