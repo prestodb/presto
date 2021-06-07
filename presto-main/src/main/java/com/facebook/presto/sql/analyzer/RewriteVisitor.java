@@ -17,11 +17,14 @@ import com.facebook.presto.Session;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
+import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GroupBy;
 import com.facebook.presto.sql.tree.GroupingElement;
 import com.facebook.presto.sql.tree.Identifier;
+import com.facebook.presto.sql.tree.LogicalBinaryExpression;
+import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QueryBody;
@@ -77,18 +80,19 @@ public class RewriteVisitor
     @Override
     protected Node visitQuerySpecification(QuerySpecification node, RewriteVisitorContext context)
     {
-        // Finished: visitSelect()
-        if (node.getFrom().isPresent()) {
-            return new QuerySpecification(
-                    (Select) process(node.getSelect(), context),
-                    Optional.of((Relation) process(node.getFrom().get(), context)),
-                    node.getWhere(),
-                    Optional.of((GroupBy) process(node.getGroupBy().get(), context)),
-                    node.getHaving(),
-                    node.getOrderBy(),
-                    node.getLimit());
-        }
-        return node;
+        Select rewriteSelect = (Select) process(node.getSelect(), context);
+        Optional<Relation> rewriteFrom = node.getFrom().isPresent() ? Optional.of((Relation) process(node.getFrom().get(), context)) : Optional.empty();
+        Optional<Expression> rewriteWhere = node.getWhere().isPresent() ? Optional.of((Expression) process(node.getWhere().get(), context)) : Optional.empty();
+        Optional<GroupBy> rewriteGroupBy = node.getGroupBy().isPresent() ? Optional.of((GroupBy) process(node.getGroupBy().get(), context)) : Optional.empty();
+
+        return new QuerySpecification(
+                rewriteSelect,
+                rewriteFrom,
+                rewriteWhere,
+                rewriteGroupBy,
+                node.getHaving(),
+                node.getOrderBy(),
+                node.getLimit());
     }
 
     @Override
@@ -144,7 +148,6 @@ public class RewriteVisitor
     {
         String functionCall = node.toString();
         ImmutableList.Builder<Expression> rewriteArguments = ImmutableList.builder();
-        //List<Expression> rewriteArguments = new ArrayList<>();
 
         if (context.containsColumnName(functionCall)) {
             Expression derivedExpression = new Identifier(context.getViewColumnName(functionCall));
@@ -171,6 +174,34 @@ public class RewriteVisitor
     protected Node visitTable(Table node, RewriteVisitorContext context)
     {
         return context.getMaterializedViewTable();
+    }
+
+    @Override
+    protected Node visitLogicalBinaryExpression(LogicalBinaryExpression node, RewriteVisitorContext context)
+    {
+        Expression rewriteLeft = (Expression) process(node.getLeft(), context);
+        Expression rewriteRight = (Expression) process(node.getRight(), context);
+        return new LogicalBinaryExpression(
+                node.getOperator(),
+                rewriteLeft,
+                rewriteRight);
+    }
+
+    @Override
+    protected Node visitComparisonExpression(ComparisonExpression node, RewriteVisitorContext context)
+    {
+        Expression rewriteLeft = (Expression) process(node.getLeft(), context);
+        Expression rewriteRight = (Expression) process(node.getRight(), context);
+        return new ComparisonExpression(
+                node.getOperator(),
+                rewriteLeft,
+                rewriteRight);
+    }
+
+    @Override
+    protected Node visitLongLiteral(LongLiteral node, RewriteVisitorContext context)
+    {
+        return node;
     }
 
     @Override
