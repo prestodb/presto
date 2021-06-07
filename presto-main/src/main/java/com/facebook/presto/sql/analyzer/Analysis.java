@@ -154,6 +154,9 @@ public class Analysis
     // for materialized view analysis state detection, state is used to identify if materialized view has been expanded or in-process.
     private final Map<Table, MaterializedViewAnalysisState> materializedViewAnalysisStateMap = new HashMap<>();
 
+    // for recursive base query detection
+    private boolean isRewritten = false;
+
     public Analysis(@Nullable Statement root, List<Expression> parameters, boolean isDescribe)
     {
         requireNonNull(parameters);
@@ -757,6 +760,16 @@ public class Analysis
                 .collect(toImmutableMap(
                         field -> field.getName().get(),
                         field -> ImmutableMap.of(toSchemaTableName(field.getOriginTable().get()), field.getOriginColumnName().get())));
+    }
+
+    public boolean isRewritten()
+    {
+        return isRewritten;
+    }
+
+    public void markAsRewritten()
+    {
+        isRewritten = true;
     }
 
     @Immutable

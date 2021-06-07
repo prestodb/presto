@@ -992,7 +992,25 @@ class StatementAnalyzer
         @Override
         protected Scope visitQuery(Query node, Optional<Scope> scope)
         {
-            // Rewrite Visitor Code Here
+            Statement statement = analysis.getStatement();
+
+            if (statement instanceof Query && !analysis.isRewritten()) {
+                QualifiedName baseTableName = (QualifiedName) new ExtractTableNameVisitor<>().process(node);
+                if (baseTableName != null) {
+                    String baseTableString = baseTableName.getSuffix();
+                    Map<String, List<String>> baseTableToMaterializedViewMapping = getBaseToMaterializedViewMapping(baseTableString);
+                    if (baseTableToMaterializedViewMapping.containsKey(baseTableString)) {
+                        List<String> materializedViewList = baseTableToMaterializedViewMapping.get(baseTableString);
+                        Query rewriteQuery = getQueryWithMaterializedViewOptimization(node, materializedViewList);
+                        if (rewriteQuery != null) {
+                            analysis.markAsRewritten();
+                            node = rewriteQuery;
+                            System.out.println(SqlFormatterUtil.getFormattedSql(rewriteQuery, sqlParser, Optional.empty()));
+                        }
+                    }
+                }
+            }
+
             Scope withScope = analyzeWith(node, scope);
             Scope queryBodyScope = process(node.getQueryBody(), withScope);
             List<Expression> orderByExpressions = emptyList();
@@ -1142,25 +1160,6 @@ class StatementAnalyzer
                     throw new SemanticException(MATERIALIZED_VIEW_IS_RECURSIVE, table, "Materialized view is recursive");
                 }
             }
-            else {
-                // Task: Use a better way to test the test cases (check getTableType)
-                // Test for conversion between base query and mv query
-                String mvName = "lineitem_partitioned_view_derived_fields";
-                // String mvName = "test_orders_view";
-
-                QualifiedName mvQualifiedMVName = QualifiedName.of(mvName);
-
-                Table mvTable = new Table(mvQualifiedMVName);
-                QualifiedObjectName mvQualifiedObjectName = createQualifiedObjectName(session, mvTable, mvTable.getName());
-                Optional<ConnectorMaterializedViewDefinition> mvOptView = metadata.getMaterializedView(session, mvQualifiedObjectName);
-
-                if (mvOptView.isPresent() && statement instanceof Query) {
-                    Query originalSqlQuery = (Query) sqlParser.createStatement(mvOptView.get().getOriginalSql());
-                    Query rewriteBaseToViewQuery = (Query) new RewriteVisitor(session).process(statement, new RewriteVisitorContext(mvTable, originalSqlQuery));
-                    String rewriteBaseToViewSql = SqlFormatterUtil.getFormattedSql(rewriteBaseToViewQuery, sqlParser, Optional.empty());
-                    System.out.println(rewriteBaseToViewSql);
-                }
-            }
 
             Optional<TableHandle> tableHandle = metadata.getTableHandle(session, name);
             if (!tableHandle.isPresent()) {
@@ -1301,6 +1300,43 @@ class StatementAnalyzer
             // can we return the above query object, instead of building a query string?
             // in case of returning the query object, make sure to clone the original query object.
             return SqlFormatterUtil.getFormattedSql(unionQuery, sqlParser, Optional.empty());
+        }
+
+        // TODO: The mapping should be fetched from metadata
+        private Map<String, List<String>> getBaseToMaterializedViewMapping(String baseTableName)
+        {
+            Map<String, List<String>> baseTableToMaterializedViewMap = new HashMap<>();
+
+            //Test: Hardcode testcase
+            String baseTable = "lineitem_partitioned_derived_fields";
+            if(!baseTableToMaterializedViewMap.containsKey(baseTable)){
+                List<String> name = new ArrayList<>();
+                String view = "lineitem_partitioned_view_derived_fields";
+                name.add(view);
+                baseTableToMaterializedViewMap.put(baseTable, name);
+            }
+
+            return baseTableToMaterializedViewMap;
+        }
+
+        private Query getQueryWithMaterializedViewOptimization(
+                Query statement,
+                List<String> materializedViewList)
+        {
+            // TODO: Find the appropriate materalized view for a base query
+            for (String materializedViewName : materializedViewList) {
+                QualifiedName materializedViewQualifiedName = QualifiedName.of(materializedViewName);
+                Table materializedViewTable = new Table(materializedViewQualifiedName);
+                QualifiedObjectName materlizedViewQualifiedObjectName = createQualifiedObjectName(session, materializedViewTable, materializedViewTable.getName());
+                Optional<ConnectorMaterializedViewDefinition> materializedView = metadata.getMaterializedView(session, materlizedViewQualifiedObjectName);
+
+                if (materializedView.isPresent()) {
+                    Query originalViewQuery = (Query) sqlParser.createStatement(materializedView.get().getOriginalSql());
+                    Query rewriteBaseToViewQuery = (Query) new RewriteVisitor(session).process(statement, new RewriteVisitorContext(materializedViewTable, originalViewQuery));
+                    return rewriteBaseToViewQuery;
+                }
+            }
+            return null;
         }
 
         private Map<SchemaTableName, Expression> generatePartitionPredicate(Map<SchemaTableName, MaterializedDataPredicates> partitionsFromBaseTables)
