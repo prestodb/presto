@@ -1306,16 +1306,6 @@ class StatementAnalyzer
         private Map<String, List<String>> getBaseToMaterializedViewMapping(String baseTableName)
         {
             Map<String, List<String>> baseTableToMaterializedViewMap = new HashMap<>();
-
-            //Test: Hardcode testcase
-            String baseTable = "lineitem_partitioned_derived_fields";
-            if(!baseTableToMaterializedViewMap.containsKey(baseTable)){
-                List<String> name = new ArrayList<>();
-                String view = "lineitem_partitioned_view_derived_fields";
-                name.add(view);
-                baseTableToMaterializedViewMap.put(baseTable, name);
-            }
-
             return baseTableToMaterializedViewMap;
         }
 
