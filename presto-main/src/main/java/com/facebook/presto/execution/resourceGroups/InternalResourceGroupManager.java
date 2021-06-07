@@ -33,8 +33,6 @@ import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.util.PeriodicTaskExecutor;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import io.airlift.units.Duration;
 import org.weakref.jmx.JmxException;
 import org.weakref.jmx.MBeanExporter;
@@ -52,7 +50,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -106,6 +103,7 @@ public final class InternalResourceGroupManager<C>
     private final AtomicLong lastUpdatedResourceGroupRuntimeInfo = new AtomicLong(0L);
     private final double concurrencyThreshold;
     private final Duration resourceGroupRuntimeInfoRefreshInterval;
+    private final Duration resourceGroupRuntimeInfoMinFreshness;
     private final boolean isResourceManagerEnabled;
 
     @Inject
@@ -127,6 +125,7 @@ public final class InternalResourceGroupManager<C>
         this.resourceGroupService = requireNonNull(resourceGroupService, "resourceGroupService is null");
         this.concurrencyThreshold = queryManagerConfig.getConcurrencyThresholdToEnableResourceGroupRefresh();
         this.resourceGroupRuntimeInfoRefreshInterval = queryManagerConfig.getResourceGroupRunTimeInfoRefreshInterval();
+        this.resourceGroupRuntimeInfoMinFreshness = queryManagerConfig.getResourceGroupRunTimeInfoMinFreshness();
         this.isResourceManagerEnabled = requireNonNull(serverConfig, "serverConfig is null").isResourceManagerEnabled();
         this.resourceGroupRuntimeExecutor = new PeriodicTaskExecutor(resourceGroupRuntimeInfoRefreshInterval.toMillis(), refreshExecutor, this::refreshResourceGroupRuntimeInfo);
     }
@@ -331,7 +330,8 @@ public final class InternalResourceGroupManager<C>
                                     rg,
                                     resourceGroupRuntimeInfosSnapshot::get,
                                     lastUpdatedResourceGroupRuntimeInfo::get,
-                                    concurrencyThreshold));
+                                    concurrencyThreshold,
+                                    resourceGroupRuntimeInfoMinFreshness));
                 }
                 group = root;
                 rootGroups.add(root);
@@ -361,13 +361,17 @@ public final class InternalResourceGroupManager<C>
             InternalResourceGroup resourceGroup,
             Supplier<Map<ResourceGroupId, ResourceGroupRuntimeInfo>> resourceGroupRuntimeInfos,
             LongSupplier lastUpdatedResourceGroupRuntimeInfo,
-            double concurrencyThreshold)
+            double concurrencyThreshold,
+            Duration resourceGroupRuntimeInfoMinFreshness)
     {
         int hardConcurrencyLimit = resourceGroup.getHardConcurrencyLimitBasedOnCpuUsage();
         int totalRunningQueries = resourceGroup.getRunningQueries();
         ResourceGroupRuntimeInfo resourceGroupRuntimeInfo = resourceGroupRuntimeInfos.get().get(resourceGroup.getId());
         if (resourceGroupRuntimeInfo != null) {
             totalRunningQueries += resourceGroupRuntimeInfo.getRunningQueries() + resourceGroupRuntimeInfo.getDescendantRunningQueries();
+        }
+        if (currentTimeMillis() - lastUpdatedResourceGroupRuntimeInfo.getAsLong() > resourceGroupRuntimeInfoMinFreshness.toMillis()) {
+            return true;
         }
         return totalRunningQueries >= (hardConcurrencyLimit * concurrencyThreshold) && lastUpdatedResourceGroupRuntimeInfo.getAsLong() <= resourceGroup.getLastRunningQueryStartTime();
     }

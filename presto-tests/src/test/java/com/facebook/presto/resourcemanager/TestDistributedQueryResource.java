@@ -20,8 +20,8 @@ import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableMap;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -40,6 +40,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
+@Test(singleThreaded = true)
 public class TestDistributedQueryResource
 {
     private HttpClient client;
@@ -47,7 +48,7 @@ public class TestDistributedQueryResource
     private TestingPrestoServer coordinator2;
     private TestingPrestoServer resourceManager;
 
-    @BeforeClass
+    @BeforeMethod
     public void setup()
             throws Exception
     {
@@ -66,7 +67,7 @@ public class TestDistributedQueryResource
                 .setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_simple.json")));
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterMethod(alwaysRun = true)
     public void teardown()
     {
         closeQuietly(coordinator1);
