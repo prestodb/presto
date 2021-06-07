@@ -45,8 +45,7 @@ public class ClusterMemoryManagerService
     private final AtomicReference<Map<MemoryPoolId, ClusterMemoryPoolInfo>> memoryPools;
     private final long memoryPoolFetchIntervalMillis;
     private final boolean isReservedPoolEnabled;
-
-    private PeriodicTaskExecutor memoryPoolUpdater;
+    private final PeriodicTaskExecutor memoryPoolUpdater;
 
     @Inject
     public ClusterMemoryManagerService(
@@ -66,20 +65,19 @@ public class ClusterMemoryManagerService
             defaultPoolBuilder.put(RESERVED_POOL, EMPTY_MEMORY_POOL);
         }
         this.memoryPools = new AtomicReference<>(defaultPoolBuilder.build());
+        this.memoryPoolUpdater = new PeriodicTaskExecutor(memoryPoolFetchIntervalMillis, executorService, () -> memoryPools.set(updateMemoryPoolInfo()));
     }
 
     @PostConstruct
     public void init()
     {
-        this.memoryPoolUpdater = new PeriodicTaskExecutor(memoryPoolFetchIntervalMillis, executorService, () -> memoryPools.set(updateMemoryPoolInfo()));
+        memoryPoolUpdater.start();
     }
 
     @PreDestroy
     public void stop()
     {
-        if (memoryPoolUpdater != null) {
-            memoryPoolUpdater.stop();
-        }
+        memoryPoolUpdater.stop();
     }
 
     public Map<MemoryPoolId, ClusterMemoryPoolInfo> getMemoryPoolInfo()
