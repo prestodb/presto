@@ -35,6 +35,7 @@ import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.ParquetFileWriterConfig;
 import com.facebook.presto.hive.PartitionMutator;
 import com.facebook.presto.hive.alioss.AliOssConfigurationInitializer;
+import com.facebook.presto.hive.alioss.HiveAliOssConfig;
 import com.facebook.presto.hive.alioss.HiveAliOssConfigurationInitializer;
 import com.facebook.presto.hive.cache.HiveCachingHdfsConfiguration;
 import com.facebook.presto.hive.gcs.GcsConfigurationInitializer;
@@ -83,6 +84,8 @@ public class IcebergModule
         configBinder(binder).bindConfig(MetastoreClientConfig.class);
         configBinder(binder).bindConfig(HiveGcsConfig.class);
         binder.bind(GcsConfigurationInitializer.class).to(HiveGcsConfigurationInitializer.class).in(Scopes.SINGLETON);
+
+        configBinder(binder).bindConfig(HiveAliOssConfig.class);
         binder.bind(AliOssConfigurationInitializer.class).to(HiveAliOssConfigurationInitializer.class).in(Scopes.SINGLETON);
         binder.bind(HdfsConfiguration.class).annotatedWith(ForMetastoreHdfsEnvironment.class).to(HiveCachingHdfsConfiguration.class).in(Scopes.SINGLETON);
         binder.bind(HdfsConfiguration.class).annotatedWith(ForCachingFileSystem.class).to(HiveHdfsConfiguration.class).in(Scopes.SINGLETON);
