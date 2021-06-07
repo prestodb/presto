@@ -19,39 +19,32 @@ import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.GroupBy;
+import com.facebook.presto.sql.tree.GroupingElement;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QueryBody;
 import com.facebook.presto.sql.tree.QuerySpecification;
+import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
+import com.facebook.presto.sql.tree.SimpleGroupBy;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.google.common.collect.ImmutableList;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
-import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
-import static com.facebook.presto.sql.QueryUtil.identifier;
-import static com.facebook.presto.sql.QueryUtil.selectList;
-import static com.facebook.presto.sql.QueryUtil.subquery;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class RewriteVisitor
         extends AstVisitor<Node, RewriteVisitor.RewriteVisitorContext>
 {
-
     private final Session session;
 
     public RewriteVisitor(Session session)
@@ -68,13 +61,11 @@ public class RewriteVisitor
     @Override
     protected Node visitQuery(Query node, RewriteVisitorContext context)
     {
-
         return new Query(
                 node.getWith(),
                 (QueryBody) process(node.getQueryBody(), context),
                 node.getOrderBy(),
                 node.getLimit());
-
     }
 
     @Override
@@ -90,9 +81,9 @@ public class RewriteVisitor
         if (node.getFrom().isPresent()) {
             return new QuerySpecification(
                     (Select) process(node.getSelect(), context),
-                    node.getFrom(),
+                    Optional.of((Relation) process(node.getFrom().get(), context)),
                     node.getWhere(),
-                    node.getGroupBy(),
+                    Optional.of((GroupBy) process(node.getGroupBy().get(), context)),
                     node.getHaving(),
                     node.getOrderBy(),
                     node.getLimit());
@@ -130,12 +121,15 @@ public class RewriteVisitor
         return node;
     }
 
-    // TODO: Handle ArithmeticBinaryExpression
     @Override
     protected Node visitArithmeticBinary(ArithmeticBinaryExpression node, RewriteVisitorContext context)
     {
-        // TODO: complete the function
-        return node;
+        Expression rewriteLeft = (Expression) process(node.getLeft(), context);
+        Expression rewriteRight = (Expression) process(node.getRight(), context);
+        return new ArithmeticBinaryExpression(
+                node.getOperator(),
+                rewriteLeft,
+                rewriteRight);
     }
 
     @Override
@@ -149,9 +143,10 @@ public class RewriteVisitor
     protected Node visitFunctionCall(FunctionCall node, RewriteVisitorContext context)
     {
         String functionCall = node.toString();
-        List<Expression> rewriteArguments = new ArrayList<>();
+        ImmutableList.Builder<Expression> rewriteArguments = ImmutableList.builder();
+        //List<Expression> rewriteArguments = new ArrayList<>();
 
-        if (context.containsColumnName(functionCall)){
+        if (context.containsColumnName(functionCall)) {
             Expression derivedExpression = new Identifier(context.getViewColumnName(functionCall));
             rewriteArguments.add(derivedExpression);
         }
@@ -163,13 +158,43 @@ public class RewriteVisitor
         }
 
         return new FunctionCall(
-            node.getName(),
-            node.getWindow(),
-            node.getFilter(),
-            node.getOrderBy(),
-            node.isDistinct(),
-            node.isIgnoreNulls(),
-            rewriteArguments);
+                node.getName(),
+                node.getWindow(),
+                node.getFilter(),
+                node.getOrderBy(),
+                node.isDistinct(),
+                node.isIgnoreNulls(),
+                rewriteArguments.build());
+    }
+
+    @Override
+    protected Node visitTable(Table node, RewriteVisitorContext context)
+    {
+        return context.getMaterializedViewTable();
+    }
+
+    @Override
+    protected Node visitGroupBy(GroupBy node, RewriteVisitorContext context)
+    {
+        ImmutableList.Builder<GroupingElement> rewriteGroupBy = ImmutableList.builder();
+        for (GroupingElement element : node.getGroupingElements()) {
+            GroupingElement rewriteElement = (GroupingElement) process(element, context);
+            rewriteGroupBy.add(rewriteElement);
+        }
+        return new GroupBy(
+                node.isDistinct(),
+                rewriteGroupBy.build());
+    }
+
+    @Override
+    protected Node visitSimpleGroupBy(SimpleGroupBy node, RewriteVisitorContext context)
+    {
+        ImmutableList.Builder<Expression> rewriteSimpleGroupBy = ImmutableList.builder();
+        for (Expression column : node.getExpressions()) {
+            Expression rewriteColumn = (Expression) process(column, context);
+            rewriteSimpleGroupBy.add(rewriteColumn);
+        }
+        return new SimpleGroupBy(rewriteSimpleGroupBy.build());
     }
 
     protected static final class RewriteVisitorContext
@@ -194,8 +219,7 @@ public class RewriteVisitor
             Select derivedFieldsNames = originalSqlQueryBody.getSelect();
 
             for (SelectItem viewColumnName : derivedFieldsNames.getSelectItems()) {
-
-                String baseColumnName =  ((SingleColumn) viewColumnName).getExpression().toString();
+                String baseColumnName = ((SingleColumn) viewColumnName).getExpression().toString();
                 Optional<Identifier> viewOptionalDerivedName = ((SingleColumn) viewColumnName).getAlias();
                 String viewDerivedColumnName = baseColumnName;
 
@@ -207,14 +231,15 @@ public class RewriteVisitor
             }
         }
 
-        public Table getMaterializedViewTable() { return materializedViewTable; }
+        public Table getMaterializedViewTable()
+        {
+            return materializedViewTable;
+        }
 
         public Query getOriginalSqlQuery()
         {
             return originalSqlQuery;
         }
-
-        public Map<String, String> getBaseToViewColumnMap() { return baseToViewColumnMap; };
 
         public String getViewColumnName(String baseColumnName)
         {

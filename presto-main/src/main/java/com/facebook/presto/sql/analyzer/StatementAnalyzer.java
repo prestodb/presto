@@ -203,6 +203,7 @@ import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractExpres
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractWindowFunctions;
 import static com.facebook.presto.sql.analyzer.MaterializedViewPlanValidator.MaterializedViewPlanValidatorContext;
 import static com.facebook.presto.sql.analyzer.PredicateStitcher.PredicateStitcherContext;
+import static com.facebook.presto.sql.analyzer.RewriteVisitor.RewriteVisitorContext;
 import static com.facebook.presto.sql.analyzer.ScopeReferenceExtractor.hasReferencesToScope;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_NAME_NOT_SPECIFIED;
@@ -991,6 +992,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitQuery(Query node, Optional<Scope> scope)
         {
+            // Rewrite Visitor Code Here
             Scope withScope = analyzeWith(node, scope);
             Scope queryBodyScope = process(node.getQueryBody(), withScope);
             List<Expression> orderByExpressions = emptyList();
@@ -1153,9 +1155,11 @@ class StatementAnalyzer
                 Optional<ConnectorMaterializedViewDefinition> mvOptView = metadata.getMaterializedView(session, mvQualifiedObjectName);
 
                 if (mvOptView.isPresent() && statement instanceof Query) {
-                    SchemaTableName baseSchemaTableName = new SchemaTableName(name.getSchemaName(), name.getObjectName());
-                    String convertedBaseToViewSql = convertBaseQueryToMaterializedViewSQL(baseSchemaTableName, (Query) statement, mvTable, mvOptView.get());
-                    System.out.println(convertedBaseToViewSql);
+                    Query originalSqlQuery = (Query) sqlParser.createStatement(mvOptView.get().getOriginalSql());
+                    Query rewriteBaseToViewQuery = (Query) new RewriteVisitor(session).process(statement, new RewriteVisitorContext(mvTable, originalSqlQuery));
+                    String rewriteBaseToViewSql = SqlFormatterUtil.getFormattedSql(rewriteBaseToViewQuery, sqlParser, Optional.empty());
+                    //System.out.println(convertedBaseToViewSql);
+                    System.out.println(rewriteBaseToViewSql);
                 }
             }
 
