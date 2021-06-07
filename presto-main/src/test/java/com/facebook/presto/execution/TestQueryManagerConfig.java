@@ -28,6 +28,7 @@ import static io.airlift.units.DataSize.Unit.PETABYTE;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestQueryManagerConfig
 {
@@ -45,6 +46,7 @@ public class TestQueryManagerConfig
                 .setMaxTotalRunningTaskCountToNotExecuteNewQuery(Integer.MAX_VALUE)
                 .setConcurrencyThresholdToEnableResourceGroupRefresh(1)
                 .setResourceGroupRunTimeInfoRefreshInterval(new Duration(100, MILLISECONDS))
+                .setResourceGroupRunTimeInfoMinFreshness(new Duration(1, TimeUnit.SECONDS))
                 .setClientTimeout(new Duration(5, TimeUnit.MINUTES))
                 .setScheduleSplitBatchSize(1000)
                 .setMinScheduleSplitBatchSize(100)
@@ -90,6 +92,7 @@ public class TestQueryManagerConfig
                 .put("experimental.max-total-running-task-count-to-not-execute-new-query", "50000")
                 .put("concurrency-threshold-to-enable-resource-group-refresh", "2")
                 .put("resource-group-runtimeinfo-refresh-interval", "10ms")
+                .put("resource-group-runtimeinfo-min-freshness", "101ms")
                 .put("query.schedule-split-batch-size", "99")
                 .put("query.min-schedule-split-batch-size", "9")
                 .put("query.max-concurrent-queries", "10")
@@ -130,6 +133,7 @@ public class TestQueryManagerConfig
                 .setMaxTotalRunningTaskCountToNotExecuteNewQuery(50000)
                 .setConcurrencyThresholdToEnableResourceGroupRefresh(2)
                 .setResourceGroupRunTimeInfoRefreshInterval(new Duration(10, MILLISECONDS))
+                .setResourceGroupRunTimeInfoMinFreshness(new Duration(101, MILLISECONDS))
                 .setClientTimeout(new Duration(10, TimeUnit.SECONDS))
                 .setScheduleSplitBatchSize(99)
                 .setMinScheduleSplitBatchSize(9)
@@ -139,8 +143,8 @@ public class TestQueryManagerConfig
                 .setPartitioningProviderCatalog("hive")
                 .setExchangeMaterializationStrategy(ExchangeMaterializationStrategy.ALL)
                 .setQueryManagerExecutorPoolSize(11)
-                .setRemoteTaskMinErrorDuration(new Duration(60, TimeUnit.SECONDS))
-                .setRemoteTaskMaxErrorDuration(new Duration(60, TimeUnit.SECONDS))
+                .setRemoteTaskMinErrorDuration(new Duration(60, SECONDS))
+                .setRemoteTaskMaxErrorDuration(new Duration(60, SECONDS))
                 .setRemoteTaskMaxCallbackThreads(10)
                 .setQueryExecutionPolicy("phased")
                 .setQueryMaxRunTime(new Duration(2, TimeUnit.HOURS))
