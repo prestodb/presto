@@ -13,12 +13,24 @@
  */
 package com.facebook.presto.resourcemanager;
 
-import com.facebook.presto.execution.resourceGroups.ResourceGroupRuntimeInfo;
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 
-import java.util.List;
-
-public interface ResourceGroupService
+@ThriftStruct
+public class ResourceManagerInconsistentException
+        extends RuntimeException
 {
-    List<ResourceGroupRuntimeInfo> getResourceGroupInfo()
-            throws ResourceManagerInconsistentException;
+    @ThriftConstructor
+    public ResourceManagerInconsistentException(String message)
+    {
+        super(message);
+    }
+
+    @Override
+    @ThriftField(1)
+    public String getMessage()
+    {
+        return super.getMessage();
+    }
 }
