@@ -158,13 +158,13 @@ public class RewriteVisitor
         }
 
         return new FunctionCall(
-            node.getName(),
-            node.getWindow(),
-            node.getFilter(),
-            node.getOrderBy(),
-            node.isDistinct(),
-            node.isIgnoreNulls(),
-            rewriteArguments.build());
+                node.getName(),
+                node.getWindow(),
+                node.getFilter(),
+                node.getOrderBy(),
+                node.isDistinct(),
+                node.isIgnoreNulls(),
+                rewriteArguments.build());
     }
 
     @Override
