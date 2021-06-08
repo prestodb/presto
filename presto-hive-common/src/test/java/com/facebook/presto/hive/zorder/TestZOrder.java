@@ -40,9 +40,18 @@ public class TestZOrder
             {42, 43, 46, 47, 58, 59, 62, 63}};
 
     private static final ZValueRange[][] SEARCH_CURVE_RANGES = {
-            {new ZValueRange(Optional.of(0), Optional.of(1)), new ZValueRange(Optional.of(-2), Optional.of(-1))},
-            {new ZValueRange(Optional.of(-1), Optional.of(0)), new ZValueRange(Optional.of(-1), Optional.of(0))},
-            {new ZValueRange(Optional.of(0), Optional.of(1)), new ZValueRange(Optional.of(-4), Optional.of(-1))},
+            {
+                    new ZValueRange(ImmutableList.of(Optional.of(0)), ImmutableList.of(Optional.of(1))),
+                    new ZValueRange(ImmutableList.of(Optional.of(-2)), ImmutableList.of(Optional.of(-1)))
+            },
+            {
+                    new ZValueRange(ImmutableList.of(Optional.of(-1)), ImmutableList.of(Optional.of(0))),
+                    new ZValueRange(ImmutableList.of(Optional.of(-1)), ImmutableList.of(Optional.of(0)))
+            },
+            {
+                    new ZValueRange(ImmutableList.of(Optional.of(0)), ImmutableList.of(Optional.of(1))),
+                    new ZValueRange(ImmutableList.of(Optional.of(-4)), ImmutableList.of(Optional.of(-1)))
+            }
     };
 
     private static final ZAddressRange<Long>[][] EXPECTED_Z_ADDRESS_RANGES = new ZAddressRange[][] {
@@ -289,8 +298,8 @@ public class TestZOrder
         ZOrder zOrder = new ZOrder(bitPositions);
 
         List<ZValueRange> ranges = ImmutableList.of(
-                new ZValueRange(Optional.of(-2), Optional.of(0)),
-                new ZValueRange(Optional.of(-1), Optional.of(2)));
+                new ZValueRange(ImmutableList.of(Optional.of(-2)), ImmutableList.of(Optional.of(0))),
+                new ZValueRange(ImmutableList.of(Optional.of(-1)), ImmutableList.of(Optional.of(2))));
 
         List<ZAddressRange<Integer>> addresses = zOrder.zOrderSearchCurveIntegers(ranges);
 
@@ -305,9 +314,9 @@ public class TestZOrder
         ZOrder zOrder = new ZOrder(bitPositions);
 
         List<ZValueRange> ranges = ImmutableList.of(
-                new ZValueRange(Optional.empty(), Optional.of(-1)),
-                new ZValueRange(Optional.of(-1), Optional.empty()),
-                new ZValueRange(Optional.of(-1), Optional.of(1)));
+                new ZValueRange(ImmutableList.of(Optional.empty()), ImmutableList.of(Optional.of(-1))),
+                new ZValueRange(ImmutableList.of(Optional.of(-1)), ImmutableList.of(Optional.empty())),
+                new ZValueRange(ImmutableList.of(Optional.of(-1)), ImmutableList.of(Optional.of(1))));
 
         List<ZAddressRange<Integer>> addresses = zOrder.zOrderSearchCurveIntegers(ranges);
 
@@ -316,18 +325,45 @@ public class TestZOrder
     }
 
     @Test
+    public void testZOrderSearchCurveMultipleRanges()
+    {
+        List<Integer> bitPositions = ImmutableList.of(3);
+        ZOrder zOrder = new ZOrder(bitPositions);
+
+        List<ZValueRange> ranges = ImmutableList.of(new ZValueRange(ImmutableList.of(Optional.empty(), Optional.of(6)), ImmutableList.of(Optional.of(-7), Optional.empty())));
+
+        List<ZAddressRange<Integer>> addresses = zOrder.zOrderSearchCurveIntegers(ranges);
+
+        assertEquals(addresses, ImmutableList.of(new ZAddressRange<>(0L, 1L), new ZAddressRange<>(14L, 15L)));
+
+        bitPositions = ImmutableList.of(3, 1, 2);
+        zOrder = new ZOrder(bitPositions);
+
+        ranges = ImmutableList.of(
+                new ZValueRange(ImmutableList.of(Optional.empty(), Optional.of(6)), ImmutableList.of(Optional.of(-7), Optional.empty())),
+                new ZValueRange(ImmutableList.of(Optional.of(0)), ImmutableList.of(Optional.empty())),
+                new ZValueRange(ImmutableList.of(Optional.of(1)), ImmutableList.of(Optional.of(1))));
+
+        addresses = zOrder.zOrderSearchCurveIntegers(ranges);
+
+        assertEquals(addresses, ImmutableList.of(
+                new ZAddressRange<>(194L, 195L), new ZAddressRange<>(210L, 211L),
+                new ZAddressRange<>(486L, 487L), new ZAddressRange<>(502L, 503L)));
+    }
+
+    @Test
     public void testZOrderSearchCurveOutOfBounds()
     {
         List<Integer> bitPositions = ImmutableList.of(1);
         ZOrder zOrder = new ZOrder(bitPositions);
 
-        List<ZValueRange> ranges = ImmutableList.of(new ZValueRange(Optional.of(-3), Optional.of(-3)));
+        List<ZValueRange> ranges = ImmutableList.of(new ZValueRange(ImmutableList.of(Optional.of(-3)), ImmutableList.of(Optional.of(-3))));
 
         List<ZAddressRange<Integer>> addresses = zOrder.zOrderSearchCurveIntegers(ranges);
 
         assertEquals(addresses, ImmutableList.of());
 
-        ranges = ImmutableList.of(new ZValueRange(Optional.of(3), Optional.of(3)));
+        ranges = ImmutableList.of(new ZValueRange(ImmutableList.of(Optional.of(3)), ImmutableList.of(Optional.of(3))));
 
         addresses = zOrder.zOrderSearchCurveIntegers(ranges);
 
