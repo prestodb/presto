@@ -15,7 +15,9 @@ package com.facebook.presto.orc.metadata;
 
 import com.facebook.presto.orc.DwrfEncryptionProvider;
 import com.facebook.presto.orc.DwrfKeyProvider;
+import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDataSource;
+import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
 import com.facebook.presto.orc.metadata.statistics.StringStatistics;
 import com.facebook.presto.orc.proto.DwrfProto;
@@ -36,10 +38,12 @@ import static com.facebook.presto.orc.metadata.OrcMetadataReader.minStringTrunca
 import static com.facebook.presto.orc.metadata.TestOrcMetadataReader.ALL_UTF8_SEQUENCES;
 import static com.facebook.presto.orc.metadata.TestOrcMetadataReader.TEST_CODE_POINTS;
 import static com.facebook.presto.orc.metadata.TestOrcMetadataReader.concatSlice;
+import static com.facebook.presto.orc.proto.DwrfProto.Stream.Kind.DATA;
 import static io.airlift.slice.SliceUtf8.codePointToUtf8;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.expectThrows;
 
 public class TestDwrfMetadataReader
 {
@@ -71,7 +75,7 @@ public class TestDwrfMetadataReader
     }
 
     @Test
-    public void testReadPostScript_NoDwrfStripeCache()
+    public void testReadPostScriptNoDwrfStripeCache()
             throws IOException
     {
         DwrfProto.PostScript protoPostScript = baseProtoPostScript.toBuilder()
@@ -86,7 +90,7 @@ public class TestDwrfMetadataReader
     }
 
     @Test
-    public void testReadPostScript_MissingDwrfStripeCacheLength()
+    public void testReadPostScriptMissingDwrfStripeCacheLength()
             throws IOException
     {
         DwrfProto.PostScript protoPostScript = baseProtoPostScript.toBuilder()
@@ -100,7 +104,7 @@ public class TestDwrfMetadataReader
     }
 
     @Test
-    public void testReadPostScript_MissingDwrfStripeCacheMode()
+    public void testReadPostScriptMissingDwrfStripeCacheMode()
             throws IOException
     {
         DwrfProto.PostScript protoPostScript = baseProtoPostScript.toBuilder()
@@ -149,6 +153,24 @@ public class TestDwrfMetadataReader
         assertEquals(footer.getNumberOfRows(), numberOfRows);
         assertEquals(footer.getRowsInRowGroup(), rowIndexStride);
         assertEquals(footer.getDwrfStripeCacheOffsets().get(), stripeCacheOffsets);
+    }
+
+    @Test
+    public void testReadStripeFooterThrowsForLargeStreams()
+    {
+        DwrfProto.Stream stream = DwrfProto.Stream.newBuilder()
+                .setKind(DATA)
+                .setLength(Long.MAX_VALUE)
+                .build();
+        DwrfProto.StripeFooter protoStripeFooter = DwrfProto.StripeFooter.newBuilder()
+                .addStreams(stream)
+                .build();
+        byte[] data = protoStripeFooter.toByteArray();
+        InputStream inputStream = new ByteArrayInputStream(data);
+
+        OrcDataSourceId orcDataSourceId = new OrcDataSourceId("test");
+        OrcCorruptionException ex = expectThrows(OrcCorruptionException.class, () -> dwrfMetadataReader.readStripeFooter(orcDataSourceId, ImmutableList.of(), inputStream));
+        assertEquals(ex.getMessage(), "java.io.IOException: Malformed ORC file. Stream size 9223372036854775807 of one of the streams for column 0 is larger than supported size 2147483647 [test]");
     }
 
     @Test

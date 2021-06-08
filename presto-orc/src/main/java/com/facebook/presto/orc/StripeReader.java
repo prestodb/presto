@@ -291,7 +291,7 @@ public class StripeReader
                 Optional.of(decryptor),
                 systemMemoryUsage,
                 encryptedGroup.length());
-        return toStripeEncryptionGroup(orcInputStream, types);
+        return toStripeEncryptionGroup(orcDataSource.getId(), orcInputStream, types);
     }
 
     /**
@@ -484,7 +484,7 @@ public class StripeReader
                 Optional.empty(),
                 systemMemoryUsage,
                 footerLength)) {
-            return metadataReader.readStripeFooter(types, inputStream);
+            return metadataReader.readStripeFooter(orcDataSource.getId(), types, inputStream);
         }
     }
 
