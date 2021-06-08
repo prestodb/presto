@@ -57,6 +57,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -98,7 +99,7 @@ public class H2QueryRunner
 
     public H2QueryRunner()
     {
-        handle = Jdbi.open("jdbc:h2:mem:test" + System.nanoTime());
+        handle = Jdbi.open("jdbc:h2:mem:test" + System.nanoTime() + "_" + ThreadLocalRandom.current().nextInt());
         TpchMetadata tpchMetadata = new TpchMetadata("");
 
         handle.execute("CREATE TABLE orders (\n" +

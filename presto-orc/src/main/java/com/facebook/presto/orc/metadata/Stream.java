@@ -15,27 +15,43 @@ package com.facebook.presto.orc.metadata;
 
 import java.util.Optional;
 
-import static com.facebook.presto.orc.metadata.ColumnEncoding.DEFAULT_SEQUENCE_ID;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class Stream
 {
+    public enum StreamArea {
+        INDEX,
+        DATA,
+    }
+
     public enum StreamKind
     {
-        PRESENT,
-        DATA,
-        LENGTH,
-        DICTIONARY_DATA,
-        DICTIONARY_COUNT,
-        SECONDARY,
-        ROW_INDEX,
-        BLOOM_FILTER,
-        BLOOM_FILTER_UTF8,
-        IN_DICTIONARY,
-        ROW_GROUP_DICTIONARY,
-        ROW_GROUP_DICTIONARY_LENGTH,
-        IN_MAP,
+        PRESENT(StreamArea.DATA),
+        DATA(StreamArea.DATA),
+        LENGTH(StreamArea.DATA),
+        DICTIONARY_DATA(StreamArea.DATA),
+        DICTIONARY_COUNT(StreamArea.INDEX),
+        SECONDARY(StreamArea.DATA),
+        ROW_INDEX(StreamArea.INDEX),
+        BLOOM_FILTER(StreamArea.INDEX),
+        BLOOM_FILTER_UTF8(StreamArea.INDEX),
+        IN_DICTIONARY(StreamArea.DATA),
+        ROW_GROUP_DICTIONARY(StreamArea.DATA),
+        ROW_GROUP_DICTIONARY_LENGTH(StreamArea.DATA),
+        IN_MAP(StreamArea.DATA);
+
+        private final StreamArea streamArea;
+
+        StreamKind(StreamArea streamArea)
+        {
+            this.streamArea = requireNonNull(streamArea, "streamArea is null");
+        }
+
+        public StreamArea getStreamArea()
+        {
+            return streamArea;
+        }
     }
 
     private final int column;
@@ -48,15 +64,10 @@ public class Stream
 
     public Stream(int column, StreamKind streamKind, int length, boolean useVInts)
     {
-        this(column, DEFAULT_SEQUENCE_ID, streamKind, length, useVInts, Optional.empty());
+        this(column, streamKind, length, useVInts, ColumnEncoding.DEFAULT_SEQUENCE_ID, Optional.empty());
     }
 
-    public Stream(int column, int sequence, StreamKind streamKind, int length, boolean useVInts)
-    {
-        this(column, sequence, streamKind, length, useVInts, Optional.empty());
-    }
-
-    public Stream(int column, int sequence, StreamKind streamKind, int length, boolean useVInts, Optional<Long> offset)
+    public Stream(int column, StreamKind streamKind, int length, boolean useVInts, int sequence, Optional<Long> offset)
     {
         this.column = column;
         this.streamKind = requireNonNull(streamKind, "streamKind is null");
@@ -113,10 +124,10 @@ public class Stream
     {
         return new Stream(
                 this.column,
-                this.sequence,
                 this.streamKind,
                 this.length,
                 this.useVInts,
+                this.sequence,
                 Optional.of(offset));
     }
 }

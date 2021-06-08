@@ -748,9 +748,9 @@ public class LongOutputStreamV2
     }
 
     @Override
-    public StreamDataOutput getStreamDataOutput(int column, int dwrfSequence)
+    public StreamDataOutput getStreamDataOutput(int column)
     {
-        return new StreamDataOutput(buffer::writeDataTo, new Stream(column, dwrfSequence, streamKind, toIntExact(buffer.getOutputDataSize()), true));
+        return new StreamDataOutput(buffer::writeDataTo, new Stream(column, streamKind, toIntExact(buffer.getOutputDataSize()), true));
     }
 
     @Override

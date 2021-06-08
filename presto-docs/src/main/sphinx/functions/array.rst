@@ -69,6 +69,13 @@ Array Functions
 
     Returns the minimum value of input array.
 
+.. function:: array_normalize(x, p) -> array
+
+   Normalizes array ``x`` by dividing each element by the p-norm of the array.
+   It is equivalent to ``TRANSFORM(array, v -> v / REDUCE(array, 0, (a, v) -> a + POW(ABS(v), p), a -> POW(a, 1 / p))``,
+   but the reduce part is only executed once.
+   Returns null if the array is null or there are null array elements.
+
 .. function:: array_position(x, element) -> bigint
 
     Returns the position of the first occurrence of the ``element`` in array ``x`` (or 0 if not found).

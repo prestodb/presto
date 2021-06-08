@@ -32,10 +32,7 @@ import static com.facebook.presto.common.block.BlockUtil.compactArray;
 import static com.facebook.presto.common.block.BlockUtil.compactOffsets;
 import static com.facebook.presto.common.block.BlockUtil.internalPositionInRange;
 import static com.facebook.presto.common.block.MapBlock.createMapBlockInternal;
-import static com.facebook.presto.common.block.MapBlockBuilder.buildHashTable;
-import static com.facebook.presto.common.block.MapBlockBuilder.verify;
-import static io.airlift.slice.SizeOf.sizeOf;
-import static java.lang.String.format;
+import static io.airlift.slice.SizeOf.sizeOfIntArray;
 import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractMapBlock
@@ -136,7 +133,7 @@ public abstract class AbstractMapBlock
                 newOffsets,
                 newKeys,
                 newValues,
-                new HashTables(Optional.ofNullable(newRawHashTables), length));
+                new HashTables(Optional.ofNullable(newRawHashTables), length, newHashTableEntries));
     }
 
     @Override
@@ -168,7 +165,8 @@ public abstract class AbstractMapBlock
         return getRawKeyBlock().getRegionSizeInBytes(entriesStart, entryCount) +
                 getRawValueBlock().getRegionSizeInBytes(entriesStart, entryCount) +
                 (Integer.BYTES + Byte.BYTES) * (long) length +
-                Integer.BYTES * HASH_MULTIPLIER * (long) entryCount;
+                Integer.BYTES * HASH_MULTIPLIER * (long) entryCount +
+                getHashTables().getInstanceSizeInBytes();
     }
 
     @Override
@@ -192,8 +190,8 @@ public abstract class AbstractMapBlock
 
         return getRawKeyBlock().getRegionLogicalSizeInBytes(entriesStart, entryCount) +
                 getRawValueBlock().getRegionLogicalSizeInBytes(entriesStart, entryCount) +
-                (Integer.BYTES + Byte.BYTES) * (long) length +
-                Integer.BYTES * HASH_MULTIPLIER * (long) entryCount;
+                (Integer.BYTES + Byte.BYTES) * length +
+                Integer.BYTES * HASH_MULTIPLIER * entryCount;
     }
 
     @Override
@@ -208,8 +206,8 @@ public abstract class AbstractMapBlock
 
         return getRawKeyBlock().getApproximateRegionLogicalSizeInBytes(entriesStart, entryCount) +
                 getRawValueBlock().getApproximateRegionLogicalSizeInBytes(entriesStart, entryCount) +
-                (Integer.BYTES + Byte.BYTES) * (long) length +         // offsets and mapIsNull
-                Integer.BYTES * HASH_MULTIPLIER * (long) entryCount;   // hash tables
+                (Integer.BYTES + Byte.BYTES) * length +         // offsets and mapIsNull
+                Integer.BYTES * HASH_MULTIPLIER * entryCount;   // hashtables
     }
 
     @Override
@@ -239,7 +237,8 @@ public abstract class AbstractMapBlock
         return getRawKeyBlock().getPositionsSizeInBytes(entryPositions) +
                 getRawValueBlock().getPositionsSizeInBytes(entryPositions) +
                 (Integer.BYTES + Byte.BYTES) * (long) usedPositionCount +
-                Integer.BYTES * HASH_MULTIPLIER * (long) usedEntryCount;
+                Integer.BYTES * HASH_MULTIPLIER * (long) usedEntryCount +
+                getHashTables().getInstanceSizeInBytes();
     }
 
     @Override
@@ -274,7 +273,7 @@ public abstract class AbstractMapBlock
                 newOffsets,
                 newKeys,
                 newValues,
-                new HashTables(Optional.ofNullable(newRawHashTables), length));
+                new HashTables(Optional.ofNullable(newRawHashTables), length, expectedNewHashTableEntries));
     }
 
     @Override
@@ -345,7 +344,7 @@ public abstract class AbstractMapBlock
                 new int[] {0, valueLength},
                 newKeys,
                 newValues,
-                new HashTables(Optional.ofNullable(newRawHashTables), 1));
+                new HashTables(Optional.ofNullable(newRawHashTables), 1, expectedNewHashTableEntries));
     }
 
     @Override
@@ -409,9 +408,17 @@ public abstract class AbstractMapBlock
         // The number of hash tables. Each map row corresponds to one hash table if it's built.
         private int expectedHashTableCount;
 
-        HashTables(Optional<int[]> hashTables, int expectedHashTableCount)
+        // The total number of entries of all hashTables as if they are always built. It's used to calculate the retained size.
+        private int expectedEntryCount;
+
+        HashTables(Optional<int[]> hashTables, int expectedHashTableCount, int expectedEntryCount)
         {
+            if (hashTables.isPresent() && hashTables.get().length != expectedEntryCount) {
+                throw new IllegalArgumentException("hashTables size does not match expectedEntryCount");
+            }
+
             this.hashTables = hashTables.orElse(null);
+            this.expectedEntryCount = expectedEntryCount;
             this.expectedHashTableCount = expectedHashTableCount;
         }
 
@@ -425,11 +432,9 @@ public abstract class AbstractMapBlock
         {
             requireNonNull(hashTables, "hashTables is null");
             this.hashTables = hashTables;
-        }
 
-        void setExpectedHashTableCount(int count)
-        {
-            expectedHashTableCount = count;
+            // The passed in hashTables are always sized as if they are fully built.
+            this.expectedEntryCount = hashTables.length;
         }
 
         int getExpectedHashTableCount()
@@ -437,37 +442,14 @@ public abstract class AbstractMapBlock
             return expectedHashTableCount;
         }
 
-        public long getRetainedSizeInBytes()
+        public long getInstanceSizeInBytes()
         {
-            return INSTANCE_SIZE + sizeOf(hashTables);
+            return INSTANCE_SIZE;
         }
 
-        public void loadHashTables(int positionCount, int[] offsets, boolean[] mapIsNull, Block keyBlock, MethodHandle keyBlockHashCode)
+        public long getRetainedSizeInBytes()
         {
-            int[] hashTables = new int[keyBlock.getPositionCount() * HASH_MULTIPLIER];
-            Arrays.fill(hashTables, -1);
-
-            verify(positionCount < offsets.length, "incorrect offsets size");
-
-            for (int i = 0; i < positionCount; i++) {
-                int keyOffset = offsets[i];
-                int keyCount = offsets[i + 1] - keyOffset;
-                if (keyCount < 0) {
-                    throw new IllegalArgumentException(format("Offset is not monotonically ascending. offsets[%s]=%s, offsets[%s]=%s", i, offsets[i], i + 1, offsets[i + 1]));
-                }
-                if (mapIsNull != null && mapIsNull[i] && keyCount != 0) {
-                    throw new IllegalArgumentException("A null map must have zero entries");
-                }
-                buildHashTable(
-                        keyBlock,
-                        keyOffset,
-                        keyCount,
-                        keyBlockHashCode,
-                        hashTables,
-                        keyOffset * HASH_MULTIPLIER,
-                        keyCount * HASH_MULTIPLIER);
-            }
-            set(hashTables);
+            return INSTANCE_SIZE + sizeOfIntArray(expectedEntryCount);
         }
     }
 

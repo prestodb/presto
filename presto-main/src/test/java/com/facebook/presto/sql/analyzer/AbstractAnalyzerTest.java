@@ -18,6 +18,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.RealType;
+import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.connector.informationSchema.InformationSchemaConnector;
 import com.facebook.presto.connector.system.SystemConnector;
@@ -227,6 +228,21 @@ public class AbstractAnalyzerTest
                         new ColumnMetadata("b", new ArrayType(BIGINT)),
                         new ColumnMetadata("c", RealType.REAL),
                         new ColumnMetadata("d", BIGINT))),
+                false));
+
+        // table with nested struct
+        SchemaTableName table10 = new SchemaTableName("s1", "t10");
+        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
+                new ConnectorTableMetadata(table10, ImmutableList.of(
+                        new ColumnMetadata("a", BIGINT),
+                        new ColumnMetadata("b", RowType.from(ImmutableList.of(
+                                new RowType.Field(Optional.of("w"), BIGINT),
+                                new RowType.Field(Optional.of("x"),
+                                        RowType.from(ImmutableList.of(
+                                                new RowType.Field(Optional.of("y"), BIGINT),
+                                                new RowType.Field(Optional.of("z"), DOUBLE))))))),
+                        new ColumnMetadata("c", RowType.from(ImmutableList.of(
+                                new RowType.Field(Optional.of("d"), BIGINT)))))),
                 false));
 
         // valid view referencing table in same schema

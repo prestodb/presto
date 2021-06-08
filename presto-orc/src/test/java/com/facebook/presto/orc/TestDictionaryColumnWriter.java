@@ -52,7 +52,6 @@ import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DWRF_DIRECT;
-import static com.facebook.presto.orc.metadata.ColumnEncoding.DEFAULT_SEQUENCE_ID;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZSTD;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.cycle;
@@ -91,7 +90,6 @@ public class TestDictionaryColumnWriter
         ColumnWriterOptions columnWriterOptions = ColumnWriterOptions.builder().setCompressionKind(CompressionKind.NONE).build();
         DictionaryColumnWriter writer = new SliceDictionaryColumnWriter(
                 0,
-                DEFAULT_SEQUENCE_ID,
                 VARCHAR,
                 columnWriterOptions,
                 Optional.empty(),
@@ -207,7 +205,10 @@ public class TestDictionaryColumnWriter
         List<String> values = builder.build();
         for (OrcEncoding encoding : OrcEncoding.values()) {
             DirectConversionTester directConversionTester = new DirectConversionTester();
-            OrcWriterOptions writerOptions = new OrcWriterOptions().withRowGroupMaxRowCount(14_876).withStripeMaxRowCount(STRIPE_MAX_ROWS);
+            OrcWriterOptions writerOptions = OrcWriterOptions.builder()
+                    .withRowGroupMaxRowCount(14_876)
+                    .withStripeMaxRowCount(STRIPE_MAX_ROWS)
+                    .build();
             testDictionary(VARCHAR, encoding, writerOptions, directConversionTester, values);
         }
     }
@@ -304,7 +305,11 @@ public class TestDictionaryColumnWriter
     {
         List<Integer> values = generateRandomIntegers(90_000);
         DirectConversionTester directConversionTester = new DirectConversionTester();
-        OrcWriterOptions writerOptions = new OrcWriterOptions().withStripeMaxRowCount(STRIPE_MAX_ROWS).withIntegerDictionaryEncodingEnabled(true).withRowGroupMaxRowCount(14_998);
+        OrcWriterOptions writerOptions = OrcWriterOptions.builder()
+                .withStripeMaxRowCount(STRIPE_MAX_ROWS)
+                .withIntegerDictionaryEncodingEnabled(true)
+                .withRowGroupMaxRowCount(14_998)
+                .build();
         testDictionary(INTEGER, DWRF, writerOptions, directConversionTester, values);
     }
 
@@ -332,7 +337,11 @@ public class TestDictionaryColumnWriter
     {
         List<Long> values = generateRandomLongs(80_000);
         DirectConversionTester directConversionTester = new DirectConversionTester();
-        OrcWriterOptions writerOptions = new OrcWriterOptions().withStripeMaxRowCount(STRIPE_MAX_ROWS).withIntegerDictionaryEncodingEnabled(true).withRowGroupMaxRowCount(14_998);
+        OrcWriterOptions writerOptions = OrcWriterOptions.builder()
+                .withStripeMaxRowCount(STRIPE_MAX_ROWS)
+                .withIntegerDictionaryEncodingEnabled(true)
+                .withRowGroupMaxRowCount(14_998)
+                .build();
         testDictionary(BIGINT, DWRF, writerOptions, directConversionTester, values);
     }
 
@@ -608,7 +617,10 @@ public class TestDictionaryColumnWriter
     private List<StripeFooter> testDictionary(Type type, OrcEncoding encoding, boolean enableIntDictionary, DirectConversionTester directConversionTester, List<?> values)
             throws IOException
     {
-        OrcWriterOptions orcWriterOptions = new OrcWriterOptions().withStripeMaxRowCount(STRIPE_MAX_ROWS).withIntegerDictionaryEncodingEnabled(enableIntDictionary);
+        OrcWriterOptions orcWriterOptions = OrcWriterOptions.builder()
+                .withStripeMaxRowCount(STRIPE_MAX_ROWS)
+                .withIntegerDictionaryEncodingEnabled(enableIntDictionary)
+                .build();
         return testDictionary(type, encoding, orcWriterOptions, directConversionTester, values);
     }
 

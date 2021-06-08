@@ -347,6 +347,10 @@ public class HiveTableOperations
                 .run(metadataLocation -> newMetadata.set(
                         TableMetadataParser.read(this, io().newInputFile(metadataLocation))));
 
+        if (newMetadata.get() == null) {
+            throw new TableNotFoundException(getSchemaTableName(), "Table metadata is missing.");
+        }
+
         String newUUID = newMetadata.get().uuid();
         if (currentMetadata != null) {
             checkState(newUUID == null || newUUID.equals(currentMetadata.uuid()),

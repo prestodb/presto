@@ -2,6 +2,9 @@
 Release 0.253
 =============
 
+.. warning::
+    A CPU regression was introduced by :pr:`16027` for queries using :func:`element_at` with ``MAP``
+
 **Details**
 ===========
 

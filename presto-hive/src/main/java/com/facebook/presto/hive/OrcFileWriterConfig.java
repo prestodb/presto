@@ -20,94 +20,108 @@ import io.airlift.units.DataSize;
 @SuppressWarnings("unused")
 public class OrcFileWriterConfig
 {
-    private OrcWriterOptions options = new OrcWriterOptions();
+    private DataSize stripeMinSize = OrcWriterOptions.DEFAULT_STRIPE_MIN_SIZE;
+    private DataSize stripeMaxSize = OrcWriterOptions.DEFAULT_STRIPE_MAX_SIZE;
+    private int stripeMaxRowCount = OrcWriterOptions.DEFAULT_STRIPE_MAX_ROW_COUNT;
+    private int rowGroupMaxRowCount = OrcWriterOptions.DEFAULT_ROW_GROUP_MAX_ROW_COUNT;
+    private DataSize dictionaryMaxMemory = OrcWriterOptions.DEFAULT_DICTIONARY_MAX_MEMORY;
+    private DataSize stringStatisticsLimit = OrcWriterOptions.DEFAULT_MAX_STRING_STATISTICS_LIMIT;
+    private DataSize maxCompressionBufferSize = OrcWriterOptions.DEFAULT_MAX_COMPRESSION_BUFFER_SIZE;
 
-    public OrcWriterOptions toOrcWriterOptions()
+    public OrcWriterOptions.Builder toOrcWriterOptionsBuilder()
     {
-        return options;
+        // Give separate copy to callers for isolation.
+        return OrcWriterOptions.builder()
+                .withStripeMinSize(stripeMinSize)
+                .withStripeMaxSize(stripeMaxSize)
+                .withStripeMaxRowCount(stripeMaxRowCount)
+                .withRowGroupMaxRowCount(rowGroupMaxRowCount)
+                .withDictionaryMaxMemory(dictionaryMaxMemory)
+                .withMaxStringStatisticsLimit(stringStatisticsLimit)
+                .withMaxCompressionBufferSize(maxCompressionBufferSize);
     }
 
     public DataSize getStripeMinSize()
     {
-        return options.getStripeMinSize();
+        return stripeMinSize;
     }
 
     @Config("hive.orc.writer.stripe-min-size")
     public OrcFileWriterConfig setStripeMinSize(DataSize stripeMinSize)
     {
-        options = options.withStripeMinSize(stripeMinSize);
+        this.stripeMinSize = stripeMinSize;
         return this;
     }
 
     public DataSize getStripeMaxSize()
     {
-        return options.getStripeMaxSize();
+        return this.stripeMaxSize;
     }
 
     @Config("hive.orc.writer.stripe-max-size")
     public OrcFileWriterConfig setStripeMaxSize(DataSize stripeMaxSize)
     {
-        options = options.withStripeMaxSize(stripeMaxSize);
+        this.stripeMaxSize = stripeMaxSize;
         return this;
     }
 
     public int getStripeMaxRowCount()
     {
-        return options.getStripeMaxRowCount();
+        return stripeMaxRowCount;
     }
 
     @Config("hive.orc.writer.stripe-max-rows")
     public OrcFileWriterConfig setStripeMaxRowCount(int stripeMaxRowCount)
     {
-        options = options.withStripeMaxRowCount(stripeMaxRowCount);
+        this.stripeMaxRowCount = stripeMaxRowCount;
         return this;
     }
 
     public int getRowGroupMaxRowCount()
     {
-        return options.getRowGroupMaxRowCount();
+        return rowGroupMaxRowCount;
     }
 
     @Config("hive.orc.writer.row-group-max-rows")
     public OrcFileWriterConfig setRowGroupMaxRowCount(int rowGroupMaxRowCount)
     {
-        options = options.withRowGroupMaxRowCount(rowGroupMaxRowCount);
+        this.rowGroupMaxRowCount = rowGroupMaxRowCount;
         return this;
     }
 
     public DataSize getDictionaryMaxMemory()
     {
-        return options.getDictionaryMaxMemory();
+        return dictionaryMaxMemory;
     }
 
     @Config("hive.orc.writer.dictionary-max-memory")
     public OrcFileWriterConfig setDictionaryMaxMemory(DataSize dictionaryMaxMemory)
     {
-        options = options.withDictionaryMaxMemory(dictionaryMaxMemory);
+        this.dictionaryMaxMemory = dictionaryMaxMemory;
         return this;
     }
 
     public DataSize getStringStatisticsLimit()
     {
-        return options.getMaxStringStatisticsLimit();
+        return stringStatisticsLimit;
     }
 
     @Config("hive.orc.writer.string-statistics-limit")
     public OrcFileWriterConfig setStringStatisticsLimit(DataSize stringStatisticsLimit)
     {
-        options = options.withMaxStringStatisticsLimit(stringStatisticsLimit);
+        this.stringStatisticsLimit = stringStatisticsLimit;
         return this;
     }
 
     public DataSize getMaxCompressionBufferSize()
     {
-        return options.getMaxCompressionBufferSize();
+        return maxCompressionBufferSize;
     }
 
     @Config("hive.orc.writer.max-compression-buffer-size")
     public OrcFileWriterConfig setMaxCompressionBufferSize(DataSize maxCompressionBufferSize)
     {
-        options = options.withMaxCompressionBufferSize(maxCompressionBufferSize);
+        this.maxCompressionBufferSize = maxCompressionBufferSize;
         return this;
     }
 }
