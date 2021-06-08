@@ -1443,6 +1443,7 @@ public class TestHiveLogicalPlanner
             String baseQuery = format("SELECT sum(discount * extendedprice + discount) as _discount_multi_extendedprice_ , ds, shipmode as method from %s group by ds, shipmode", baseTable);
 
             String basePlan = getExplainPlan(baseQuery, LOGICAL);
+            String basePlan2 = getExplainPlan(baseQuery, LOGICAL);
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS " + view);
