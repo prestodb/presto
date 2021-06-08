@@ -19,6 +19,7 @@ import com.facebook.presto.orc.DwrfKeyProvider;
 import com.facebook.presto.orc.EncryptionLibrary;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDataSource;
+import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.OrcDecompressor;
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
@@ -294,21 +295,31 @@ public class DwrfMetadataReader
     }
 
     @Override
-    public StripeFooter readStripeFooter(List<OrcType> types, InputStream inputStream)
+    public StripeFooter readStripeFooter(OrcDataSourceId orcDataSourceId, List<OrcType> types, InputStream inputStream)
             throws IOException
     {
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         DwrfProto.StripeFooter stripeFooter = DwrfProto.StripeFooter.parseFrom(input);
         return new StripeFooter(
-                toStream(stripeFooter.getStreamsList()),
+                toStream(orcDataSourceId, stripeFooter.getStreamsList()),
                 toColumnEncoding(types, stripeFooter.getColumnsList()),
                 stripeFooter.getEncryptedGroupsList().stream()
                         .map(OrcMetadataReader::byteStringToSlice)
                         .collect(toImmutableList()));
     }
 
-    private static Stream toStream(DwrfProto.Stream stream)
+    private static Stream toStream(OrcDataSourceId orcDataSourceId, DwrfProto.Stream stream)
     {
+        // reader doesn't support streams larger than 2GB
+        if (stream.getLength() > Integer.MAX_VALUE) {
+            throw new OrcCorruptionException(
+                    orcDataSourceId,
+                    "Stream size %s of one of the streams for column %s is larger than supported size %s",
+                    stream.getLength(),
+                    stream.getColumn(),
+                    Integer.MAX_VALUE);
+        }
+
         return new Stream(
                 stream.getColumn(),
                 toStreamKind(stream.getKind()),
@@ -318,9 +329,11 @@ public class DwrfMetadataReader
                 stream.hasOffset() ? Optional.of(stream.getOffset()) : Optional.empty());
     }
 
-    private static List<Stream> toStream(List<DwrfProto.Stream> streams)
+    private static List<Stream> toStream(OrcDataSourceId orcDataSourceId, List<DwrfProto.Stream> streams)
     {
-        return ImmutableList.copyOf(Iterables.transform(streams, DwrfMetadataReader::toStream));
+        return streams.stream()
+                .map((stream -> toStream(orcDataSourceId, stream)))
+                .collect(toImmutableList());
     }
 
     private static DwrfSequenceEncoding toSequenceEncoding(OrcType type, DwrfProto.ColumnEncoding columnEncoding)
@@ -659,12 +672,12 @@ public class DwrfMetadataReader
         }
     }
 
-    public static StripeEncryptionGroup toStripeEncryptionGroup(InputStream inputStream, List<OrcType> types)
+    public static StripeEncryptionGroup toStripeEncryptionGroup(OrcDataSourceId orcDataSourceId, InputStream inputStream, List<OrcType> types)
             throws IOException
     {
         CodedInputStream codedInputStream = CodedInputStream.newInstance(inputStream);
         DwrfProto.StripeEncryptionGroup stripeEncryptionGroup = DwrfProto.StripeEncryptionGroup.parseFrom(codedInputStream);
-        List<Stream> encryptedStreams = toStream(stripeEncryptionGroup.getStreamsList());
+        List<Stream> encryptedStreams = toStream(orcDataSourceId, stripeEncryptionGroup.getStreamsList());
         return new StripeEncryptionGroup(
                 encryptedStreams,
                 toColumnEncoding(types, stripeEncryptionGroup.getEncodingList()));
