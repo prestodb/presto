@@ -155,7 +155,7 @@ public class Analysis
     private final Map<Table, MaterializedViewAnalysisState> materializedViewAnalysisStateMap = new HashMap<>();
 
     // for recursive base query detection
-    private boolean isRewritten = false;
+    private boolean isStatementRewritten;
 
     public Analysis(@Nullable Statement root, List<Expression> parameters, boolean isDescribe)
     {
@@ -164,6 +164,7 @@ public class Analysis
         this.root = root;
         this.parameters = ImmutableList.copyOf(requireNonNull(parameters, "parameters is null"));
         this.isDescribe = isDescribe;
+        isStatementRewritten = false;
     }
 
     public Statement getStatement()
@@ -762,14 +763,19 @@ public class Analysis
                         field -> ImmutableMap.of(toSchemaTableName(field.getOriginTable().get()), field.getOriginColumnName().get())));
     }
 
-    public boolean isRewritten()
+    public boolean isStatementRewritten()
     {
-        return isRewritten;
+        return isStatementRewritten;
     }
 
-    public void markAsRewritten()
+    public void registerStatementAsRewritten()
     {
-        isRewritten = true;
+        isStatementRewritten = true;
+    }
+
+    public void unregisterStatementAsRewritten()
+    {
+        isStatementRewritten = false;
     }
 
     @Immutable

@@ -1409,7 +1409,6 @@ public class TestHiveLogicalPlanner
 
             String viewQuery = format("SELECT sum(_discount_multi_extendedprice_) from %s group by ds, shipmode", view);
             String baseQuery = format("SELECT sum(discount * extendedprice) as _discount_multi_extendedprice_ from %s group by ds, shipmode", baseTable);
-            // getExplainPlan(viewQuery, LOGICAL);
 
             assertEquals(computeActual(viewQuery).getRowCount(), computeActual(baseQuery).getRowCount());
         }
@@ -1434,8 +1433,7 @@ public class TestHiveLogicalPlanner
 
             assertUpdate(format(
                     "CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['mvds', 'shipmode']) AS " +
-                            "SELECT SUM(discount*extendedprice+discount) as _discount_multi_extendedprice_ , MAX(discount*extendedprice) as _max_discount_multi_extendedprice_ , ds as mvds, shipmode FROM %s group by ds, shipmode",
-                    view, baseTable));
+                            "SELECT SUM(discount*extendedprice+discount) as _discount_multi_extendedprice_ , MAX(discount*extendedprice) as _max_discount_multi_extendedprice_ , ds as mvds, shipmode FROM %s group by ds, shipmode", view, baseTable));
 
             assertTrue(getQueryRunner().tableExists(getSession(), view));
             assertUpdate(format("INSERT INTO %s(_discount_multi_extendedprice_ , _max_discount_multi_extendedprice_ , mvds, shipmode) " +
@@ -1445,6 +1443,7 @@ public class TestHiveLogicalPlanner
             String baseQuery = format("SELECT sum(discount * extendedprice + discount) as _discount_multi_extendedprice_ , ds, shipmode as method from %s group by ds, shipmode", baseTable);
 
             String basePlan = getExplainPlan(baseQuery, LOGICAL);
+            String basePlan2 = getExplainPlan(baseQuery, LOGICAL);
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS " + view);

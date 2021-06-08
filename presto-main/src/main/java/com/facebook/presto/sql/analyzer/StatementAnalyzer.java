@@ -994,20 +994,17 @@ class StatementAnalyzer
         {
             Statement statement = analysis.getStatement();
 
-            if (statement instanceof Query && !analysis.isRewritten()) {
-                QualifiedName baseTableName = (QualifiedName) new ExtractTableNameVisitor<>().process(node);
-                if (baseTableName != null) {
-                    String baseTableString = baseTableName.getSuffix();
-                    Map<String, List<String>> baseTableToMaterializedViewMapping = getBaseToMaterializedViewMapping(baseTableString);
-                    if (baseTableToMaterializedViewMapping.containsKey(baseTableString)) {
-                        List<String> materializedViewList = baseTableToMaterializedViewMapping.get(baseTableString);
-                        Query rewriteQuery = getQueryWithMaterializedViewOptimization(node, materializedViewList);
-                        if (rewriteQuery != null) {
-                            analysis.markAsRewritten();
-                            node = rewriteQuery;
-                            System.out.println(SqlFormatterUtil.getFormattedSql(rewriteQuery, sqlParser, Optional.empty()));
-                        }
-                    }
+            if (statement instanceof Query && !analysis.isStatementRewritten()) {
+                Map<String, List<String>> baseTableToMaterializedViewMapping = getBaseToMaterializedViewMapping();
+                MaterializedViewValidationForQueryRewrite rewriteValidator = new MaterializedViewValidationForQueryRewrite<>(baseTableToMaterializedViewMapping);
+                rewriteValidator.process(node);
+                if (rewriteValidator.canOptimize()) {
+                    analysis.registerStatementAsRewritten();
+                    Set<String> materializedViewCandidate = rewriteValidator.generateMaterializedViewCandidate();
+                    Query rewriteQuery = getQueryWithMaterializedViewOptimization(node, materializedViewCandidate);
+                    Scope rewriteScope = process(rewriteQuery, scope);
+                    analysis.unregisterStatementAsRewritten();
+                    return rewriteScope;
                 }
             }
 
@@ -1303,28 +1300,33 @@ class StatementAnalyzer
         }
 
         // TODO: The mapping should be fetched from metadata
-        private Map<String, List<String>> getBaseToMaterializedViewMapping(String baseTableName)
+        private Map<String, List<String>> getBaseToMaterializedViewMapping()
         {
             Map<String, List<String>> baseTableToMaterializedViewMap = new HashMap<>();
+//            // Testcase
+//            List<String> mvNames = new ArrayList<>();
+//            String baseTable = "lineitem_partitioned_derived_fields";
+//            String view = "lineitem_partitioned_view_derived_fields";
+//            mvNames.add(view);
+//            baseTableToMaterializedViewMap.put(baseTable, mvNames);
             return baseTableToMaterializedViewMap;
         }
 
         private Query getQueryWithMaterializedViewOptimization(
                 Query statement,
-                List<String> materializedViewList)
+                Set<String> materializedViewList)
         {
-            // TODO: Find the appropriate materalized view for a base query
             for (String materializedViewName : materializedViewList) {
-                QualifiedName materializedViewQualifiedName = QualifiedName.of(materializedViewName);
-                Table materializedViewTable = new Table(materializedViewQualifiedName);
-                QualifiedObjectName materlizedViewQualifiedObjectName = createQualifiedObjectName(session, materializedViewTable, materializedViewTable.getName());
-                Optional<ConnectorMaterializedViewDefinition> materializedView = metadata.getMaterializedView(session, materlizedViewQualifiedObjectName);
+                Table materializedViewTable = new Table(QualifiedName.of(materializedViewName));
+                QualifiedObjectName materializedViewQualifiedObjectName = createQualifiedObjectName(session, materializedViewTable, materializedViewTable.getName());
+                Optional<ConnectorMaterializedViewDefinition> materializedView = metadata.getMaterializedView(session, materializedViewQualifiedObjectName);
 
-                if (materializedView.isPresent()) {
-                    Query originalViewQuery = (Query) sqlParser.createStatement(materializedView.get().getOriginalSql());
-                    Query rewriteBaseToViewQuery = (Query) new RewriteVisitor(session).process(statement, new RewriteVisitorContext(materializedViewTable, originalViewQuery));
-                    return rewriteBaseToViewQuery;
-                }
+                Query originalViewQuery = (Query) sqlParser.createStatement(materializedView.get().getOriginalSql());
+                Query rewriteBaseToViewQuery = (Query) new RewriteVisitor(session).process(statement, new RewriteVisitorContext(materializedViewTable, originalViewQuery));
+
+                // Temporarily it returns the first rewrite query
+                // TODO: Find the appropriate materialized view for a base query
+                return rewriteBaseToViewQuery;
             }
             return null;
         }
