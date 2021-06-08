@@ -35,6 +35,7 @@ public class ZOrder
     private final List<Integer> encodingBits;
     private final int totalBitLength;
     private final int maxBitLength;
+    private final ZOrderCurveSearcher curveSearcher;
 
     /**
      * Class constructor specifying the number of bits each value will take up for encoding and decoding.
@@ -48,6 +49,8 @@ public class ZOrder
 
         totalBitLength = encodingBits.stream().mapToInt(Integer::intValue).sum();
         maxBitLength = encodingBits.stream().mapToInt(Integer::intValue).max().getAsInt();
+
+        curveSearcher = ZOrderCurveSearcher.createZOrderCurveSearcher(this, this.encodingBits, totalBitLength, maxBitLength);
     }
 
     /**
@@ -189,6 +192,22 @@ public class ZOrder
             byteAddress[bitIndex >> 3] |= ((address >> bitIndex) & 1) << (bitIndex & 7);
         }
         return byteAddress;
+    }
+
+    /**
+     * Searches for and outputs ranges of long addresses within certain ranges in each dimension.
+     */
+    public List<ZAddressRange<Long>> zOrderSearchCurveLongs(List<ZValueRange> ranges)
+    {
+        return curveSearcher.zOrderSearchCurveLongs(ranges);
+    }
+
+    /**
+     * Searches for and outputs ranges of integer addresses within certain ranges in each dimension.
+     */
+    public List<ZAddressRange<Integer>> zOrderSearchCurveIntegers(List<ZValueRange> ranges)
+    {
+        return curveSearcher.zOrderSearchCurveIntegers(ranges);
     }
 
     /**
