@@ -1238,60 +1238,6 @@ class StatementAnalyzer
             return createAndAssignScope(table, scope, outputFields);
         }
 
-        private String convertBaseQueryToMaterializedViewSQL(
-                SchemaTableName baseName,
-                Query statement,
-                Table materializedViewTable,
-                ConnectorMaterializedViewDefinition materializedViewDefinition)
-        {
-            QuerySpecification baseQuerySpecification = (QuerySpecification) statement.getQueryBody();
-
-            Select columnsNames = baseQuerySpecification.getSelect();
-
-            ImmutableList.Builder<SelectItem> mvSelectColumnsName = ImmutableList.builder();
-
-            Map<String, String> baseToViewColumnMap = new HashMap<>();
-
-            //Map<String, Map<SchemaTableName, String>> viewToBaseColumnMap = materializedViewDefinition.getColumnMappingsAsMap();
-
-            Query originalSqlQuery = (Query) sqlParser.createStatement(materializedViewDefinition.getOriginalSql());
-            QuerySpecification originalSql = (QuerySpecification) originalSqlQuery.getQueryBody();
-            Select derivedFieldsNames = originalSql.getSelect();
-
-            for (SelectItem viewColumnName : derivedFieldsNames.getSelectItems()) {
-
-                String baseColumnName =  ((SingleColumn) viewColumnName).getExpression().toString();
-                Optional<Identifier> viewOptionalDerivedName = ((SingleColumn) viewColumnName).getAlias();
-                String viewDerivedColumnName = baseColumnName;
-
-                if (viewOptionalDerivedName.isPresent()) {
-                    viewDerivedColumnName = viewOptionalDerivedName.get().getValue();
-                }
-
-                baseToViewColumnMap.put(baseColumnName, viewDerivedColumnName);
-            }
-
-            for (SelectItem columnName : columnsNames.getSelectItems()) {
-                String baseColumnName = ((SingleColumn) columnName).getExpression().toString();
-                checkState(baseToViewColumnMap.containsKey(baseColumnName), "Missing column name in the conversion map: " + baseColumnName);
-                Expression mvColumnName = new Identifier(baseToViewColumnMap.get(baseColumnName));
-                mvSelectColumnsName.add(new SingleColumn(mvColumnName));
-            }
-
-            Select mvSelect = new Select(columnsNames.isDistinct(), mvSelectColumnsName.build());
-            QuerySpecification mvQuerySpecification = new QuerySpecification(
-                    mvSelect,
-                    Optional.ofNullable(materializedViewTable),
-                    Optional.empty(),
-                    Optional.empty(),
-                    Optional.empty(),
-                    Optional.empty(),
-                    Optional.empty());
-
-            Query materializedQuery = new Query(Optional.empty(), mvQuerySpecification, Optional.empty(), Optional.empty());
-            return SqlFormatterUtil.getFormattedSql(materializedQuery, new SqlParser(), Optional.empty());
-        }
-
         private Scope processMaterializedView(
                 Table materializedView,
                 QualifiedObjectName materializedViewObjectName,
