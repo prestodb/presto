@@ -17,8 +17,11 @@ import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
+import java.util.stream.Collectors;
 
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
@@ -35,6 +38,17 @@ public class TestZOrder
             {34, 35, 38, 39, 50, 51, 54, 55},
             {40, 41, 44, 45, 56, 57, 60, 61},
             {42, 43, 46, 47, 58, 59, 62, 63}};
+
+    private static final ZValueRange[][] SEARCH_CURVE_RANGES = {
+            {new ZValueRange(Optional.of(4), Optional.of(5)), new ZValueRange(Optional.of(2), Optional.of(3))},
+            {new ZValueRange(Optional.of(3), Optional.of(4)), new ZValueRange(Optional.of(3), Optional.of(4))},
+            {new ZValueRange(Optional.of(4), Optional.of(5)), new ZValueRange(Optional.of(0), Optional.of(3))},
+    };
+
+    private static final ZAddressRange<Long>[][] EXPECTED_Z_ADDRESS_RANGES = new ZAddressRange[][] {
+            new ZAddressRange[] {new ZAddressRange<>(36L, 39L)},
+            new ZAddressRange[] {new ZAddressRange<>(15L, 15L), new ZAddressRange<>(26L, 26L), new ZAddressRange<>(37L, 37L), new ZAddressRange<>(48L, 48L)},
+            new ZAddressRange[] {new ZAddressRange<>(32L, 39L)}};
 
     @Test
     public void testZOrderNegativeIntegers()
@@ -245,6 +259,73 @@ public class TestZOrder
             String expectedMessage = format("The z-address type specified is not large enough to hold %d bits.", totalBitLength);
             assertEquals(e.getMessage(), expectedMessage, format("Expected exception message '%s' to match '%s'", e.getMessage(), expectedMessage));
         }
+    }
+
+    @Test
+    public void testZOrderSearchEvenCurves()
+    {
+        List<Integer> bitPositions = ImmutableList.of(3, 3);
+        ZOrder zOrder = new ZOrder(bitPositions);
+
+        for (int i = 0; i < SEARCH_CURVE_RANGES.length; i++) {
+            List<ZValueRange> ranges = Arrays.stream(SEARCH_CURVE_RANGES[i]).collect(Collectors.toList());
+
+            List<ZAddressRange<Long>> addresses = zOrder.zOrderSearchCurveLongs(ranges);
+
+            assertEquals(addresses, Arrays.stream(EXPECTED_Z_ADDRESS_RANGES[i]).collect(Collectors.toList()));
+        }
+    }
+
+    @Test
+    public void testZOrderSearchUnevenCurves()
+    {
+        List<Integer> bitPositions = ImmutableList.of(2, 3);
+        ZOrder zOrder = new ZOrder(bitPositions);
+
+        List<ZValueRange> ranges = ImmutableList.of(
+                new ZValueRange(Optional.of(0), Optional.of(2)),
+                new ZValueRange(Optional.of(3), Optional.of(6)));
+
+        List<ZAddressRange<Integer>> addresses = zOrder.zOrderSearchCurveIntegers(ranges);
+
+        assertEquals(addresses, ImmutableList.of(new ZAddressRange<>(3L, 3L), new ZAddressRange<>(7L, 10L),
+                new ZAddressRange<>(12L, 14L), new ZAddressRange<>(19L, 19L), new ZAddressRange<>(24L, 26L)));
+    }
+
+    @Test
+    public void testZOrderSearchCurveIntegers()
+    {
+        List<Integer> bitPositions = ImmutableList.of(1, 2, 4);
+        ZOrder zOrder = new ZOrder(bitPositions);
+
+        List<ZValueRange> ranges = ImmutableList.of(
+                new ZValueRange(Optional.empty(), Optional.of(0)),
+                new ZValueRange(Optional.of(1), Optional.empty()),
+                new ZValueRange(Optional.of(7), Optional.of(9)));
+
+        List<ZAddressRange<Integer>> addresses = zOrder.zOrderSearchCurveIntegers(ranges);
+
+        assertEquals(addresses, ImmutableList.of(new ZAddressRange<>(15L, 15L), new ZAddressRange<>(24L, 25L),
+                new ZAddressRange<>(39L, 39L), new ZAddressRange<>(47L, 49L), new ZAddressRange<>(56L, 57L)));
+    }
+
+    @Test
+    public void testZOrderSearchCurveOutOfBounds()
+    {
+        List<Integer> bitPositions = ImmutableList.of(1);
+        ZOrder zOrder = new ZOrder(bitPositions);
+
+        List<ZValueRange> ranges = ImmutableList.of(new ZValueRange(Optional.of(-1), Optional.of(-1)));
+
+        List<ZAddressRange<Integer>> addresses = zOrder.zOrderSearchCurveIntegers(ranges);
+
+        assertEquals(addresses, ImmutableList.of());
+
+        ranges = ImmutableList.of(new ZValueRange(Optional.of(3), Optional.of(3)));
+
+        addresses = zOrder.zOrderSearchCurveIntegers(ranges);
+
+        assertEquals(addresses, ImmutableList.of());
     }
 
     private static int getHighestSetBitPosition(int value)
