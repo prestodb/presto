@@ -91,10 +91,11 @@ public class TestDistributedQueryResource
         return this.getClass().getClassLoader().getResource(fileName).getPath();
     }
 
-    @Test(timeOut = 220_000, enabled = false)
+    @Test(timeOut = 220_000)
     public void testGetQueryInfos()
             throws Exception
     {
+        resourceManager.refreshNodes();
         runToCompletion(coordinator1, "SELECT 1");
         runToCompletion(coordinator2, "SELECT 2");
         runToCompletion(coordinator1, "SELECT x FROM y");
@@ -102,10 +103,8 @@ public class TestDistributedQueryResource
         runToFirstResult(coordinator1, "SELECT * from tpch.sf101.orders");
         runToFirstResult(coordinator1, "SELECT * from tpch.sf102.orders");
         runToQueued(coordinator1, "SELECT 3");
-
         // Sleep to allow query to make some progress
-        sleep(SECONDS.toMillis(5));
-
+        sleep(SECONDS.toMillis(1));
         List<BasicQueryInfo> infos = getQueryInfos(coordinator1, "/v1/query");
         assertEquals(infos.size(), 7);
         assertStateCounts(infos, 2, 1, 3, 1);
