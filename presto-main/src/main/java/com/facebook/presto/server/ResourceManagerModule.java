@@ -26,11 +26,15 @@ import com.facebook.presto.failureDetector.FailureDetectorModule;
 import com.facebook.presto.resourcemanager.DistributedClusterStatsResource;
 import com.facebook.presto.resourcemanager.DistributedQueryResource;
 import com.facebook.presto.resourcemanager.ForResourceManager;
+import com.facebook.presto.resourcemanager.ResourceGroupService;
 import com.facebook.presto.resourcemanager.ResourceManagerClusterStateProvider;
+import com.facebook.presto.resourcemanager.ResourceManagerConfig;
 import com.facebook.presto.resourcemanager.ResourceManagerProxy;
+import com.facebook.presto.resourcemanager.ResourceManagerResourceGroupService;
 import com.facebook.presto.resourcemanager.ResourceManagerServer;
 import com.facebook.presto.transaction.NoOpTransactionManager;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
@@ -39,7 +43,15 @@ import io.airlift.units.Duration;
 
 import javax.inject.Singleton;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
+
+import static com.facebook.airlift.concurrent.ConcurrentScheduledExecutor.createConcurrentScheduledExecutor;
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.configuration.ConditionalModule.installModuleIf;
+import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static com.facebook.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
@@ -47,6 +59,8 @@ import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static com.facebook.airlift.json.smile.SmileCodecBinder.smileCodecBinder;
 import static com.facebook.drift.server.guice.DriftServerBinder.driftServerBinder;
+import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class ResourceManagerModule
         extends AbstractConfigurationAwareModule
@@ -88,6 +102,7 @@ public class ResourceManagerModule
 
         binder.bind(TransactionManager.class).to(NoOpTransactionManager.class);
 
+        configBinder(binder).bindConfig(ResourceManagerConfig.class);
         binder.bind(ResourceManagerClusterStateProvider.class).in(Scopes.SINGLETON);
         driftServerBinder(binder).bindService(ResourceManagerServer.class);
 
@@ -100,6 +115,8 @@ public class ResourceManagerModule
         binder.bind(ResourceManagerProxy.class).in(Scopes.SINGLETON);
         jsonBinder(binder).addSerializerBinding(Duration.class).to(DurationSerializer.class);
         jsonBinder(binder).addSerializerBinding(DataSize.class).to(DataSizeSerializer.class);
+
+        binder.bind(ResourceGroupService.class).to(ResourceManagerResourceGroupService.class).in(Scopes.SINGLETON);
     }
 
     @Provides
@@ -107,5 +124,28 @@ public class ResourceManagerModule
     public static ResourceGroupManager<?> getResourceGroupManager(@SuppressWarnings("rawtypes") ResourceGroupManager manager)
     {
         return manager;
+    }
+
+    @Provides
+    @Singleton
+    @ForResourceManager
+    public ListeningExecutorService createResourceManagerExecutor(ResourceManagerConfig config)
+    {
+        ExecutorService executor = new ThreadPoolExecutor(
+                0,
+                config.getResourceManagerExecutorThreads(),
+                60,
+                SECONDS,
+                new LinkedBlockingQueue<>(),
+                daemonThreadsNamed("resource-manager-executor-%s"));
+        return listeningDecorator(executor);
+    }
+
+    @Provides
+    @Singleton
+    @ForResourceManager
+    public ScheduledExecutorService createResourceManagerScheduledExecutor(ResourceManagerConfig config)
+    {
+        return createConcurrentScheduledExecutor("resource-manager-heartbeats", config.getHeartbeatConcurrency(), config.getHeartbeatThreads());
     }
 }

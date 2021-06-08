@@ -100,7 +100,11 @@ import com.facebook.presto.memory.TotalReservationOnBlockedNodesLowMemoryKiller;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.operator.OperatorInfo;
+import com.facebook.presto.resourcemanager.ClusterMemoryManagerService;
 import com.facebook.presto.resourcemanager.ForResourceManager;
+import com.facebook.presto.resourcemanager.MemoryManagerService;
+import com.facebook.presto.resourcemanager.NoopResourceGroupService;
+import com.facebook.presto.resourcemanager.ResourceGroupService;
 import com.facebook.presto.resourcemanager.ResourceManagerProxy;
 import com.facebook.presto.server.protocol.ExecutingStatementResource;
 import com.facebook.presto.server.protocol.LocalQueryProvider;
@@ -372,6 +376,7 @@ public class CoordinatorModule
 
         configBinder(binder).bindConfig(NodeResourceStatusConfig.class);
         binder.bind(NodeResourceStatusProvider.class).to(NodeResourceStatus.class).in(Scopes.SINGLETON);
+        binder.bind(ResourceGroupService.class).to(NoopResourceGroupService.class).in(Scopes.SINGLETON);
 
         newOptionalBinder(binder, ResourceManagerProxy.class);
         install(installModuleIf(
@@ -380,6 +385,8 @@ public class CoordinatorModule
                 rmBinder -> {
                     httpClientBinder(rmBinder).bindHttpClient("resourceManager", ForResourceManager.class);
                     rmBinder.bind(ResourceManagerProxy.class).in(Scopes.SINGLETON);
+                    rmBinder.bind(ClusterMemoryPoolManager.class).to(ClusterMemoryManager.class).in(Scopes.SINGLETON);
+                    rmBinder.bind(MemoryManagerService.class).to(ClusterMemoryManagerService.class).in(Scopes.SINGLETON);
                 }));
 
         // cleanup

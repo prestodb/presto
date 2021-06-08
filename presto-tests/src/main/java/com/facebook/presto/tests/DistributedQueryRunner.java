@@ -191,7 +191,7 @@ public class DistributedQueryRunner
             }
 
             if (resourceManagerEnabled) {
-                resourceManager = Optional.of(closer.register(createTestingPrestoServer(discoveryUrl, true, true, false, extraCoordinatorProperties, parserOptions, environment, baseDataDir, extraModules)));
+                resourceManager = Optional.of(closer.register(createTestingPrestoServer(discoveryUrl, true, false, false, extraCoordinatorProperties, parserOptions, environment, baseDataDir, extraModules)));
                 servers.add(resourceManager.get());
             }
 
