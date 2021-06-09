@@ -3939,7 +3939,7 @@ public abstract class AbstractTestHiveClient
                     outputHandle.getLocationHandle().getTargetPath().toString(),
                     true);
             for (String filePath : listAllDataFiles(context, getStagingPathRoot(outputHandle))) {
-                assertTrue(new Path(filePath).getName().startsWith(getFilePrefix(outputHandle)));
+                assertTrue(new Path(filePath).getName().startsWith(session.getQueryId()));
             }
 
             // commit the table
@@ -4139,7 +4139,7 @@ public abstract class AbstractTestHiveClient
             Set<String> tempFiles = listAllDataFiles(context, stagingPathRoot);
             assertTrue(!tempFiles.isEmpty());
             for (String filePath : tempFiles) {
-                assertTrue(new Path(filePath).getName().startsWith(getFilePrefix(insertTableHandle)));
+                assertTrue(new Path(filePath).getName().startsWith(session.getQueryId()));
             }
 
             // rollback insert
@@ -4176,16 +4176,6 @@ public abstract class AbstractTestHiveClient
     }
 
     // These are protected so extensions to the hive connector can replace the handle classes
-    protected String getFilePrefix(ConnectorOutputTableHandle outputTableHandle)
-    {
-        return ((HiveWritableTableHandle) outputTableHandle).getFilePrefix();
-    }
-
-    protected String getFilePrefix(ConnectorInsertTableHandle insertTableHandle)
-    {
-        return ((HiveWritableTableHandle) insertTableHandle).getFilePrefix();
-    }
-
     protected Path getStagingPathRoot(ConnectorInsertTableHandle insertTableHandle)
     {
         HiveInsertTableHandle handle = (HiveInsertTableHandle) insertTableHandle;
@@ -4356,7 +4346,7 @@ public abstract class AbstractTestHiveClient
             Set<String> tempFiles = listAllDataFiles(context, getStagingPathRoot(insertTableHandle));
             assertTrue(!tempFiles.isEmpty());
             for (String filePath : tempFiles) {
-                assertTrue(new Path(filePath).getName().startsWith(getFilePrefix(insertTableHandle)));
+                assertTrue(new Path(filePath).getName().startsWith(session.getQueryId()));
             }
 
             // rollback insert
@@ -4484,7 +4474,7 @@ public abstract class AbstractTestHiveClient
             Set<String> tempFiles = listAllDataFiles(context, getStagingPathRoot(insertTableHandle));
             assertTrue(!tempFiles.isEmpty());
             for (String filePath : tempFiles) {
-                assertTrue(new Path(filePath).getName().startsWith(getFilePrefix(insertTableHandle)));
+                assertTrue(new Path(filePath).getName().startsWith(session.getQueryId()));
             }
 
             // verify statistics are visible from within of the current transaction

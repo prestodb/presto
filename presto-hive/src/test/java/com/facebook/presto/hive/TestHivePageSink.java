@@ -288,7 +288,6 @@ public class TestHivePageSink
                 SCHEMA_NAME,
                 TABLE_NAME,
                 getColumnHandles(),
-                "test",
                 new HivePageSinkMetadata(new SchemaTableName(SCHEMA_NAME, TABLE_NAME), metastore.getTable(METASTORE_CONTEXT, SCHEMA_NAME, TABLE_NAME), ImmutableMap.of()),
                 locationHandle,
                 config.getHiveStorageFormat(),

@@ -827,7 +827,9 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(
                 // make sure that we will get one file per bucket regardless of writer count configured
-                getTableWriteTestingSession(optimizedPartitionUpdateSerializationEnabled),
+                Session.builder(getTableWriteTestingSession(optimizedPartitionUpdateSerializationEnabled))
+                        .setCatalogSessionProperty(catalog, "create_empty_bucket_files", String.valueOf(optimizedPartitionUpdateSerializationEnabled))
+                        .build(),
                 createTable,
                 3);
 
