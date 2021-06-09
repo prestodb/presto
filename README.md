@@ -85,6 +85,10 @@ We recommend you use IntelliJ as your IDE. The code style template for the proje
 * Use an assertion from Airlift's `Assertions` class if there is one that covers your case rather than writing the assertion by hand. Over time we may move over to more fluent assertions like AssertJ.
 * When writing a Git commit message, follow these [guidelines](https://chris.beams.io/posts/git-commit/).
 
+## Building the Documentation
+
+To learn how to build the docs, see the [docs README](presto-docs/README.md).
+
 ## Building the Web UI
 
 The Presto Web UI is composed of several React components and is written in JSX and ES6. This source code is compiled and packaged into browser-compatible Javascript, which is then checked in to the Presto source code (in the `dist` folder). You must have [Node.js](https://nodejs.org/en/download/) and [Yarn](https://yarnpkg.com/en/) installed to execute these commands. To update this folder after making changes, simply run:
