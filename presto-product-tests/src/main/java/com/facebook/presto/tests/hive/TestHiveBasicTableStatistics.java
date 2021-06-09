@@ -284,7 +284,7 @@ public class TestHiveBasicTableStatistics
 
             BasicStatistics statisticsAfterInsert = getBasicStatisticsForTable(onHive(), tableName);
             assertThat(statisticsAfterInsert.getNumRows().getAsLong()).isEqualTo(25);
-            assertThat(statisticsAfterCreate.getNumFiles().getAsLong()).isEqualTo(50);
+            assertThat(statisticsAfterCreate.getNumFiles().getAsLong()).isEqualTo(25); // no files for empty buckets
         }
         finally {
             onPresto().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
@@ -326,7 +326,7 @@ public class TestHiveBasicTableStatistics
 
             BasicStatistics secondPartitionStatistics = getBasicStatisticsForPartition(onHive(), tableName, "n_regionkey=2");
             assertThat(secondPartitionStatistics.getNumRows().getAsLong()).isEqualTo(5);
-            assertThat(secondPartitionStatistics.getNumFiles().getAsLong()).isEqualTo(10);
+            assertThat(secondPartitionStatistics.getNumFiles().getAsLong()).isEqualTo(4); // no files for empty buckets
 
             // Insert into existing bucketed partition is not supported
             assertThatThrownBy(() -> insertNationData(onPresto(), tableName))
@@ -334,7 +334,7 @@ public class TestHiveBasicTableStatistics
 
             BasicStatistics secondPartitionUpdatedStatistics = getBasicStatisticsForPartition(onHive(), tableName, "n_regionkey=2");
             assertThat(secondPartitionUpdatedStatistics.getNumRows().getAsLong()).isEqualTo(5);
-            assertThat(secondPartitionUpdatedStatistics.getNumFiles().getAsLong()).isEqualTo(10);
+            assertThat(secondPartitionUpdatedStatistics.getNumFiles().getAsLong()).isEqualTo(4); // no files for empty buckets
         }
         finally {
             onPresto().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
