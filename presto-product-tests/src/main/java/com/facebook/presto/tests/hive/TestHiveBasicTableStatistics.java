@@ -276,7 +276,7 @@ public class TestHiveBasicTableStatistics
             BasicStatistics statisticsAfterCreate = getBasicStatisticsForTable(onHive(), tableName);
             assertThatStatisticsAreNonZero(statisticsAfterCreate);
             assertThat(statisticsAfterCreate.getNumRows().getAsLong()).isEqualTo(25);
-            assertThat(statisticsAfterCreate.getNumFiles().getAsLong()).isEqualTo(50);
+            assertThat(statisticsAfterCreate.getNumFiles().getAsLong()).isEqualTo(25); // no files for empty buckets
 
             // Insert into bucketed unpartitioned table is unsupported
             assertThatThrownBy(() -> insertNationData(onPresto(), tableName))
@@ -316,7 +316,7 @@ public class TestHiveBasicTableStatistics
             BasicStatistics firstPartitionStatistics = getBasicStatisticsForPartition(onHive(), tableName, "n_regionkey=1");
             assertThatStatisticsAreNonZero(firstPartitionStatistics);
             assertThat(firstPartitionStatistics.getNumRows().getAsLong()).isEqualTo(5);
-            assertThat(firstPartitionStatistics.getNumFiles().getAsLong()).isEqualTo(10);
+            assertThat(firstPartitionStatistics.getNumFiles().getAsLong()).isEqualTo(5); // no files for empty buckets
 
             onPresto().executeQuery(format("" +
                     "INSERT INTO %s (n_nationkey, n_regionkey, n_name, n_comment) " +
