@@ -124,6 +124,8 @@ public class FeaturesConfig
     private MultimapAggGroupImplementation multimapAggGroupImplementation = MultimapAggGroupImplementation.NEW;
     private boolean spillEnabled;
     private boolean joinSpillingEnabled;
+    private boolean distinctAggregationSpillEnabled = true;
+    private boolean orderByAggregationSpillEnabled = true;
     private DataSize aggregationOperatorUnspillMemoryLimit = new DataSize(4, DataSize.Unit.MEGABYTE);
     private List<Path> spillerSpillPaths = ImmutableList.of();
     private int spillerThreads = 4;
@@ -859,6 +861,32 @@ public class FeaturesConfig
     {
         this.joinSpillingEnabled = joinSpillingEnabled;
         return this;
+    }
+
+    @Config("experimental.distinct-aggregation-spill-enabled")
+    @ConfigDescription("Spill distinct aggregations if spill is enabled")
+    public FeaturesConfig setDistinctAggregationSpillEnabled(boolean distinctAggregationSpillEnabled)
+    {
+        this.distinctAggregationSpillEnabled = distinctAggregationSpillEnabled;
+        return this;
+    }
+
+    public boolean isDistinctAggregationSpillEnabled()
+    {
+        return distinctAggregationSpillEnabled;
+    }
+
+    @Config("experimental.order-by-aggregation-spill-enabled")
+    @ConfigDescription("Spill order-by aggregations if spill is enabled")
+    public FeaturesConfig setOrderByAggregationSpillEnabled(boolean orderByAggregationSpillEnabled)
+    {
+        this.orderByAggregationSpillEnabled = orderByAggregationSpillEnabled;
+        return this;
+    }
+
+    public boolean isOrderByAggregationSpillEnabled()
+    {
+        return orderByAggregationSpillEnabled;
     }
 
     @AssertTrue(message = "If " + JOIN_SPILL_ENABLED + " is set to true, spilling must be enabled " + SPILL_ENABLED)
