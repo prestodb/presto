@@ -232,9 +232,12 @@ import static com.facebook.presto.hive.HiveStorageFormat.values;
 import static com.facebook.presto.hive.HiveTableProperties.AVRO_SCHEMA_URL;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
+import static com.facebook.presto.hive.HiveTableProperties.CLUSTERED_BY_PROPERTY;
+import static com.facebook.presto.hive.HiveTableProperties.CLUSTER_COUNT_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.CSV_ESCAPE;
 import static com.facebook.presto.hive.HiveTableProperties.CSV_QUOTE;
 import static com.facebook.presto.hive.HiveTableProperties.CSV_SEPARATOR;
+import static com.facebook.presto.hive.HiveTableProperties.DISTRIBUTION_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.DWRF_ENCRYPTION_ALGORITHM;
 import static com.facebook.presto.hive.HiveTableProperties.DWRF_ENCRYPTION_PROVIDER;
 import static com.facebook.presto.hive.HiveTableProperties.ENCRYPT_COLUMNS;
@@ -653,9 +656,17 @@ public class HiveMetadata
         // Bucket properties
         Optional<HiveBucketProperty> bucketProperty = table.get().getStorage().getBucketProperty();
         if (bucketProperty.isPresent()) {
-            properties.put(BUCKET_COUNT_PROPERTY, bucketProperty.get().getBucketCount());
-            properties.put(BUCKETED_BY_PROPERTY, bucketProperty.get().getBucketedBy());
-            properties.put(SORTED_BY_PROPERTY, bucketProperty.get().getSortedBy());
+            if (!bucketProperty.get().getBucketedBy().isEmpty()) {
+                properties.put(BUCKET_COUNT_PROPERTY, bucketProperty.get().getBucketCount());
+                properties.put(BUCKETED_BY_PROPERTY, bucketProperty.get().getBucketedBy());
+                properties.put(SORTED_BY_PROPERTY, bucketProperty.get().getSortedBy());
+            }
+
+            if (bucketProperty.get().getClusteredBy().isPresent()) {
+                properties.put(CLUSTERED_BY_PROPERTY, bucketProperty.get().getClusteredBy().get());
+                properties.put(CLUSTER_COUNT_PROPERTY, bucketProperty.get().getClusterCount().get());
+                properties.put(DISTRIBUTION_PROPERTY, bucketProperty.get().getDistribution().get());
+            }
         }
 
         // Preferred ordering columns
@@ -1543,6 +1554,7 @@ public class HiveMetadata
         HiveStorageFormat tableStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
         List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
         Optional<HiveBucketProperty> bucketProperty = getBucketProperty(tableMetadata.getProperties());
+
         List<SortingColumn> preferredOrderingColumns = getPreferredOrderingColumns(tableMetadata.getProperties());
 
         // get the root directory for the database
