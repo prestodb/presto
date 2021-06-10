@@ -153,7 +153,7 @@ public class TestDiscoveryNodeManager
     @Test
     public void testGetResourceManagers()
     {
-        DiscoveryNodeManager manager = new DiscoveryNodeManager(selector, nodeInfo, new NoOpFailureDetector(), Optional.empty(), expectedVersion, testHttpClient, new TestingDriftClient<>(), internalCommunicationConfig);
+        DiscoveryNodeManager manager = new DiscoveryNodeManager(selector, nodeInfo, new NoOpFailureDetector(), Optional.of(host -> false), expectedVersion, testHttpClient, new TestingDriftClient<>(), internalCommunicationConfig);
         try {
             assertEquals(manager.getResourceManagers(), ImmutableSet.of(resourceManager));
         }
