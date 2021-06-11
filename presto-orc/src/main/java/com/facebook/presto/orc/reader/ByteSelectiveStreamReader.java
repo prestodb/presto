@@ -20,8 +20,8 @@ import com.facebook.presto.common.block.ClosingBlockLease;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.orc.OrcLocalMemoryContext;
 import com.facebook.presto.orc.StreamDescriptor;
+import com.facebook.presto.orc.Stripe;
 import com.facebook.presto.orc.TupleDomainFilter;
-import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanInputStream;
 import com.facebook.presto.orc.stream.ByteInputStream;
 import com.facebook.presto.orc.stream.InputStreamSource;
@@ -31,7 +31,6 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
-import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
@@ -97,7 +96,7 @@ public class ByteSelectiveStreamReader
     }
 
     @Override
-    public void startStripe(InputStreamSources dictionaryStreamSources, Map<Integer, ColumnEncoding> encoding)
+    public void startStripe(Stripe stripe)
     {
         presentStreamSource = missingStreamSource(BooleanInputStream.class);
         dataStreamSource = missingStreamSource(ByteInputStream.class);

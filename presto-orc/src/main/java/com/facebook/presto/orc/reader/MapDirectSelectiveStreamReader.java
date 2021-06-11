@@ -24,11 +24,11 @@ import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcLocalMemoryContext;
 import com.facebook.presto.orc.OrcRecordReaderOptions;
 import com.facebook.presto.orc.StreamDescriptor;
+import com.facebook.presto.orc.Stripe;
 import com.facebook.presto.orc.TupleDomainFilter;
 import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
 import com.facebook.presto.orc.TupleDomainFilter.BytesRange;
 import com.facebook.presto.orc.TupleDomainFilter.BytesValues;
-import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.stream.BooleanInputStream;
 import com.facebook.presto.orc.stream.InputStreamSource;
@@ -687,7 +687,7 @@ public class MapDirectSelectiveStreamReader
     }
 
     @Override
-    public void startStripe(InputStreamSources dictionaryStreamSources, Map<Integer, ColumnEncoding> encoding)
+    public void startStripe(Stripe stripe)
             throws IOException
     {
         presentStreamSource = missingStreamSource(BooleanInputStream.class);
@@ -702,8 +702,8 @@ public class MapDirectSelectiveStreamReader
         rowGroupOpen = false;
 
         if (outputRequired) {
-            keyReader.startStripe(dictionaryStreamSources, encoding);
-            valueReader.startStripe(dictionaryStreamSources, encoding);
+            keyReader.startStripe(stripe);
+            valueReader.startStripe(stripe);
         }
     }
 
