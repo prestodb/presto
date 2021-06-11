@@ -20,6 +20,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.Varchars;
 import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.StreamDescriptor;
+import com.facebook.presto.orc.Stripe;
 import com.facebook.presto.orc.TupleDomainFilter;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.InputStreamSources;
@@ -30,7 +31,6 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -54,10 +54,10 @@ public class SliceSelectiveStreamReader
     }
 
     @Override
-    public void startStripe(InputStreamSources dictionaryStreamSources, Map<Integer, ColumnEncoding> encoding)
+    public void startStripe(Stripe stripe)
             throws IOException
     {
-        ColumnEncoding.ColumnEncodingKind kind = encoding.get(streamDescriptor.getStreamId())
+        ColumnEncoding.ColumnEncodingKind kind = stripe.getColumnEncodings().get(streamDescriptor.getStreamId())
                 .getColumnEncoding(streamDescriptor.getSequence())
                 .getColumnEncodingKind();
         switch (kind) {
@@ -74,7 +74,7 @@ public class SliceSelectiveStreamReader
                 throw new IllegalArgumentException("Unsupported encoding " + kind);
         }
 
-        currentReader.startStripe(dictionaryStreamSources, encoding);
+        currentReader.startStripe(stripe);
     }
 
     @Override

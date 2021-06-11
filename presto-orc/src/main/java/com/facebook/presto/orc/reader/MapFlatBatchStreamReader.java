@@ -27,6 +27,7 @@ import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcRecordReaderOptions;
 import com.facebook.presto.orc.StreamDescriptor;
+import com.facebook.presto.orc.Stripe;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.DwrfSequenceEncoding;
 import com.facebook.presto.orc.metadata.OrcType;
@@ -47,7 +48,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.SortedMap;
 
@@ -237,7 +237,7 @@ public class MapFlatBatchStreamReader
     }
 
     @Override
-    public void startStripe(InputStreamSources dictionaryStreamSources, Map<Integer, ColumnEncoding> encodings)
+    public void startStripe(Stripe stripe)
             throws IOException
     {
         presentStreamSource = missingStreamSource(BooleanInputStream.class);
@@ -246,7 +246,7 @@ public class MapFlatBatchStreamReader
         valueStreamDescriptors.clear();
         valueStreamReaders.clear();
 
-        ColumnEncoding encoding = encodings.get(baseValueStreamDescriptor.getStreamId());
+        ColumnEncoding encoding = stripe.getColumnEncodings().get(baseValueStreamDescriptor.getStreamId());
         SortedMap<Integer, DwrfSequenceEncoding> additionalSequenceEncodings = Collections.emptySortedMap();
         // encoding or encoding.getAdditionalSequenceEncodings() may not be present when every map is empty or null
         if (encoding != null && encoding.getAdditionalSequenceEncodings().isPresent()) {
@@ -261,7 +261,7 @@ public class MapFlatBatchStreamReader
             valueStreamDescriptors.add(valueStreamDescriptor);
 
             BatchStreamReader valueStreamReader = BatchStreamReaders.createStreamReader(type.getValueType(), valueStreamDescriptor, hiveStorageTimeZone, options, systemMemoryContext);
-            valueStreamReader.startStripe(dictionaryStreamSources, encodings);
+            valueStreamReader.startStripe(stripe);
             valueStreamReaders.add(valueStreamReader);
         }
 
