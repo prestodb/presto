@@ -206,7 +206,7 @@ public class TestReloadingResourceGroupConfigurationManager
             fail("Expected unavailable configuration exception");
         }
         catch (Exception e) {
-            assertTrue(e.getMessage().startsWith("Resource group configuration cannot be fetched from database."));
+            assertTrue(e.getMessage().startsWith("Resource group configuration cannot be fetched from source."));
         }
 
         try {
@@ -214,7 +214,7 @@ public class TestReloadingResourceGroupConfigurationManager
             fail("Expected unavailable configuration exception");
         }
         catch (Exception e) {
-            assertTrue(e.getMessage().startsWith("Resource group configuration cannot be fetched from database."));
+            assertTrue(e.getMessage().startsWith("Resource group configuration cannot be fetched from source."));
         }
 
         manager.destroy();
