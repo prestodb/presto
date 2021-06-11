@@ -1268,6 +1268,14 @@ export class QueryDetail extends React.Component {
                                     {query.queryStats.executionTime}
                                 </td>
                             </tr>
+                            <tr>
+                                <td className="info-title">
+                                    Coordinator
+                                </td>
+                                <td className="info-text">
+                                    {getHostname(query.self)}
+                                </td>
+                            </tr>
                             </tbody>
                         </table>
                     </div>
