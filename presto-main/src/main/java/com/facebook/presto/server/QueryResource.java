@@ -91,6 +91,7 @@ public class QueryResource
     @GET
     public void getAllQueryInfo(
             @QueryParam("state") String stateFilter,
+            @QueryParam("limit") Integer limitFilter,
             @HeaderParam(X_FORWARDED_PROTO) String xForwardedProto,
             @Context UriInfo uriInfo,
             @Context HttpServletRequest servletRequest,
@@ -100,11 +101,21 @@ public class QueryResource
             proxyResponse(servletRequest, asyncResponse, xForwardedProto, uriInfo);
             return;
         }
+        if (limitFilter == null) {
+            limitFilter = dispatchManager.getMaxQueriesToReturn();
+        }
         QueryState expectedState = stateFilter == null ? null : QueryState.valueOf(stateFilter.toUpperCase(Locale.ENGLISH));
         ImmutableList.Builder<BasicQueryInfo> builder = new ImmutableList.Builder<>();
+        // TODO: With us having 'limit' now, it would be nice to have 'basic query info' sorted  by some time
+        // (creation time?) in the query list that we get from dispatch manager.
+        // At the moment I don't see how we can add DateTime member to 'basic query info' and not break something.
         for (BasicQueryInfo queryInfo : dispatchManager.getQueries()) {
             if (stateFilter == null || queryInfo.getState() == expectedState) {
                 builder.add(queryInfo);
+                --limitFilter;
+                if (limitFilter <= 0) {
+                    break;
+                }
             }
         }
         asyncResponse.resume(Response.ok(builder.build()).build());

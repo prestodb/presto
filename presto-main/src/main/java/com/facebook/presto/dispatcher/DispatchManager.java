@@ -75,6 +75,7 @@ public class DispatchManager
     private final SessionPropertyDefaults sessionPropertyDefaults;
 
     private final int maxQueryLength;
+    private final int maxQueriesToReturn;
 
     private final Executor queryExecutor;
     private final BoundedExecutor boundedQueryExecutor;
@@ -113,6 +114,7 @@ public class DispatchManager
         this.sessionPropertyDefaults = requireNonNull(sessionPropertyDefaults, "sessionPropertyDefaults is null");
 
         this.maxQueryLength = queryManagerConfig.getMaxQueryLength();
+        this.maxQueriesToReturn = queryManagerConfig.getMaxQueriesToReturn();
 
         this.queryExecutor = requireNonNull(dispatchExecutor, "dispatchExecutor is null").getExecutor();
         this.boundedQueryExecutor = requireNonNull(dispatchExecutor, "dispatchExecutor is null").getBoundedExecutor();
@@ -308,6 +310,11 @@ public class DispatchManager
     {
         queryTracker.tryGetQuery(queryId)
                 .ifPresent(DispatchQuery::cancel);
+    }
+
+    public int getMaxQueriesToReturn()
+    {
+        return maxQueriesToReturn;
     }
 
     private static class DispatchQueryCreationFuture

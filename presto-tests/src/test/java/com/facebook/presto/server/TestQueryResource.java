@@ -90,6 +90,10 @@ public class TestQueryResource
         assertEquals(infos.size(), 7);
         assertStateCounts(infos, 2, 1, 3, 1);
 
+        infos = getQueryInfos("/v1/query?limit=5");
+        assertEquals(infos.size(), 5);
+        // With 'limit', we cannot guarantee the order of the queries, so cannot check the particular states.
+
         infos = getQueryInfos("/v1/query?state=finished");
         assertEquals(infos.size(), 2);
         assertStateCounts(infos, 2, 0, 0, 0);
@@ -101,6 +105,10 @@ public class TestQueryResource
         infos = getQueryInfos("/v1/query?state=running");
         assertEquals(infos.size(), 3);
         assertStateCounts(infos, 0, 0, 3, 0);
+
+        infos = getQueryInfos("/v1/query?state=running&limit=2");
+        assertEquals(infos.size(), 2);
+        assertStateCounts(infos, 0, 0, 2, 0);
 
         infos = getQueryInfos("/v1/query?state=queued");
         assertEquals(infos.size(), 1);

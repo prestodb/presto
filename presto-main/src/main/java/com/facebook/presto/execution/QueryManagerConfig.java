@@ -53,6 +53,7 @@ public class QueryManagerConfig
     private boolean useStreamingExchangeForMarkDistinct;
     private Duration minQueryExpireAge = new Duration(15, TimeUnit.MINUTES);
     private int maxQueryHistory = 100;
+    private int maxQueriesToReturn = 100;
     private int maxQueryLength = 1_000_000;
     private int maxStageCount = 100;
     private int stageCountWarningThreshold = 50;
@@ -224,6 +225,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setMaxQueryHistory(int maxQueryHistory)
     {
         this.maxQueryHistory = maxQueryHistory;
+        return this;
+    }
+
+    @Min(0)
+    public int getMaxQueriesToReturn()
+    {
+        return maxQueriesToReturn;
+    }
+
+    @Config("query.max-to-return")
+    public QueryManagerConfig setMaxQueriesToReturn(int maxQueriesToReturn)
+    {
+        this.maxQueriesToReturn = maxQueriesToReturn;
         return this;
     }
 
