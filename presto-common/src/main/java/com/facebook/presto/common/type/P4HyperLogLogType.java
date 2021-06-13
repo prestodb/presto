@@ -30,7 +30,7 @@ public class P4HyperLogLogType
     @JsonCreator
     public P4HyperLogLogType()
     {
-        super(parseTypeSignature(StandardTypes.P4_HYPER_LOG_LOG), Slice.class);
+        super(parseTypeSignature(StandardTypes.P4_HYPER_LOG_LOG.getEnumValue()), Slice.class);
     }
 
     @Override

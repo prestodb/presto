@@ -42,7 +42,7 @@ public final class CharType
     {
         super(
                 new TypeSignature(
-                        StandardTypes.CHAR,
+                        StandardTypes.CHAR.getEnumValue(),
                         singletonList(TypeSignatureParameter.of(length))),
                 Slice.class);
 

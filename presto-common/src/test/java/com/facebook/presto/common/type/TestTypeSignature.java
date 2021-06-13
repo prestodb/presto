@@ -178,17 +178,17 @@ public class TestTypeSignature
 
     private TypeSignature varchar()
     {
-        return new TypeSignature(StandardTypes.VARCHAR, TypeSignatureParameter.of(VarcharType.UNBOUNDED_LENGTH));
+        return new TypeSignature(StandardTypes.VARCHAR.getEnumValue(), TypeSignatureParameter.of(VarcharType.UNBOUNDED_LENGTH));
     }
 
     private TypeSignature varchar(long length)
     {
-        return new TypeSignature(StandardTypes.VARCHAR, TypeSignatureParameter.of(length));
+        return new TypeSignature(StandardTypes.VARCHAR.getEnumValue(), TypeSignatureParameter.of(length));
     }
 
     private TypeSignature decimal(String precisionVariable, String scaleVariable)
     {
-        return new TypeSignature(StandardTypes.DECIMAL, ImmutableList.of(
+        return new TypeSignature(StandardTypes.DECIMAL.getEnumValue(), ImmutableList.of(
                 TypeSignatureParameter.of(precisionVariable), TypeSignatureParameter.of(scaleVariable)));
     }
 
@@ -209,12 +209,12 @@ public class TestTypeSignature
 
     private static TypeSignature array(TypeSignature type)
     {
-        return new TypeSignature(StandardTypes.ARRAY, TypeSignatureParameter.of(type));
+        return new TypeSignature(StandardTypes.ARRAY.getEnumValue(), TypeSignatureParameter.of(type));
     }
 
     private static TypeSignature map(TypeSignature keyType, TypeSignature valueType)
     {
-        return new TypeSignature(StandardTypes.MAP, TypeSignatureParameter.of(keyType), TypeSignatureParameter.of(valueType));
+        return new TypeSignature(StandardTypes.MAP.getEnumValue(), TypeSignatureParameter.of(keyType), TypeSignatureParameter.of(valueType));
     }
 
     private TypeSignature signature(String name)
@@ -314,7 +314,7 @@ public class TestTypeSignature
         assertEquals(
                 parseTypeSignature("map(VarcharEnum(test.enum.my_enum{\"k\": \"OYUSSKI=\"}), BigintEnum(test.enum.my_enum_2{\"k\": 1}))"),
                 new TypeSignature(
-                        StandardTypes.MAP,
+                        StandardTypes.MAP.getEnumValue(),
                         TypeSignatureParameter.of((new VarcharEnumType(new VarcharEnumMap("test.enum.my_enum", ImmutableMap.of("k", "v)))"))).getTypeSignature())),
                         TypeSignatureParameter.of(new BigintEnumType(new LongEnumMap("test.enum.my_enum_2", ImmutableMap.of("k", 1L))).getTypeSignature())));
 

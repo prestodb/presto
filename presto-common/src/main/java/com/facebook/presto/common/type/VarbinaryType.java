@@ -27,7 +27,7 @@ public final class VarbinaryType
 
     private VarbinaryType()
     {
-        super(parseTypeSignature(StandardTypes.VARBINARY), Slice.class);
+        super(parseTypeSignature(StandardTypes.VARBINARY.getEnumValue()), Slice.class);
     }
 
     public static boolean isVarbinaryType(Type type)

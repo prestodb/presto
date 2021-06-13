@@ -27,7 +27,7 @@ public final class BigintEnumParametricType
     @Override
     public String getName()
     {
-        return StandardTypes.BIGINT_ENUM;
+        return StandardTypes.BIGINT_ENUM.getEnumValue();
     }
 
     @Override

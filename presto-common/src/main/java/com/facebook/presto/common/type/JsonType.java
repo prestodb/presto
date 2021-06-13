@@ -29,7 +29,7 @@ public class JsonType
 
     public JsonType()
     {
-        super(new TypeSignature(StandardTypes.JSON), Slice.class);
+        super(new TypeSignature(StandardTypes.JSON.getEnumValue()), Slice.class);
     }
 
     @Override

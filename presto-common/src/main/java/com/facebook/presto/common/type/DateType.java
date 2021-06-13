@@ -33,7 +33,7 @@ public final class DateType
 
     private DateType()
     {
-        super(parseTypeSignature(StandardTypes.DATE));
+        super(parseTypeSignature(StandardTypes.DATE.getEnumValue()));
     }
 
     @Override

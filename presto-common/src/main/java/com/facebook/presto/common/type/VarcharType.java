@@ -36,7 +36,7 @@ public final class VarcharType
 
     public static TypeSignature getParametrizedVarcharSignature(String param)
     {
-        return new TypeSignature(StandardTypes.VARCHAR, TypeSignatureParameter.of(param));
+        return new TypeSignature(StandardTypes.VARCHAR.getEnumValue(), TypeSignatureParameter.of(param));
     }
 
     private VarcharType(int length)
@@ -44,7 +44,7 @@ public final class VarcharType
         super(
                 length,
                 new TypeSignature(
-                        StandardTypes.VARCHAR,
+                        StandardTypes.VARCHAR.getEnumValue(),
                         singletonList(TypeSignatureParameter.of((long) length))));
     }
 }

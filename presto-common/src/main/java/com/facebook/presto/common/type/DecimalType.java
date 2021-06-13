@@ -54,7 +54,7 @@ public abstract class DecimalType
 
     DecimalType(int precision, int scale, Class<?> javaType)
     {
-        super(new TypeSignature(StandardTypes.DECIMAL, buildTypeParameters(precision, scale)), javaType);
+        super(new TypeSignature(StandardTypes.DECIMAL.getEnumValue(), buildTypeParameters(precision, scale)), javaType);
         this.precision = precision;
         this.scale = scale;
     }

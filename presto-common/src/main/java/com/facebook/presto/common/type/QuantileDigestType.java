@@ -20,6 +20,6 @@ class QuantileDigestType
 {
     QuantileDigestType(Type type)
     {
-        super(QDIGEST, type);
+        super(QDIGEST.getEnumValue(), type);
     }
 }

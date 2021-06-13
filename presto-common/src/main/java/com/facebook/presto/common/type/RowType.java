@@ -98,7 +98,7 @@ public class RowType
                 .map(field -> TypeSignatureParameter.of(new NamedTypeSignature(field.getName().map(name -> new RowFieldName(name, false)), field.getType().getTypeSignature())))
                 .collect(Collectors.toList());
 
-        return new TypeSignature(ROW, parameters);
+        return new TypeSignature(ROW.getEnumValue(), parameters);
     }
 
     @Override
@@ -118,7 +118,7 @@ public class RowType
     {
         // Convert to standard sql name
         StringBuilder result = new StringBuilder();
-        result.append(ROW).append('(');
+        result.append(ROW.getEnumValue()).append('(');
         for (Field field : fields) {
             String typeDisplayName = field.getType().getDisplayName();
             if (field.getName().isPresent()) {

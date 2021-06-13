@@ -29,7 +29,7 @@ public final class TimeType
 
     private TimeType()
     {
-        super(parseTypeSignature(StandardTypes.TIME));
+        super(parseTypeSignature(StandardTypes.TIME.getEnumValue()));
     }
 
     @Override

@@ -25,7 +25,7 @@ public final class BigintType
 
     private BigintType()
     {
-        super(parseTypeSignature(StandardTypes.BIGINT));
+        super(parseTypeSignature(StandardTypes.BIGINT.getEnumValue()));
     }
 
     @Override
