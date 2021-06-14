@@ -112,6 +112,23 @@ public class TestHiveDistributedJoinQueriesWithDynamicFiltering
         assertQuery(session, query, "SELECT 1, 1, 1");
     }
 
+    @Test
+    public void testJoinOnNullPartitioning()
+    {
+        assertUpdate("CREATE TABLE t3(c2 bigint, c1 bigint)");
+        assertUpdate("INSERT INTO t3 VALUES(null, 2)", 1);
+        assertUpdate("CREATE TABLE t4(c2 bigint, c1 bigint) with(partitioned_by=array['c1'])");
+        assertUpdate("INSERT INTO t4 VALUES(null, null), (2,2)", 2);
+
+        String query = "select * from t3, t4 where t3.c1=t4.c2";
+        Session session = Session.builder(getSession())
+                .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "true")
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.AUTOMATIC.name())
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, FeaturesConfig.JoinReorderingStrategy.AUTOMATIC.name())
+                .build();
+        assertQuery(session, query, "SELECT null, 2, 2, 2");
+    }
+
     private OperatorStats searchScanFilterAndProjectOperatorStats(QueryId queryId, String tableName)
     {
         DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
