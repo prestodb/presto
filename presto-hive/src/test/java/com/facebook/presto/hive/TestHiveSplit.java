@@ -66,7 +66,7 @@ public class TestHiveSplit
     public void testJsonRoundTrip()
             throws Exception
     {
-        ImmutableList<HivePartitionKey> partitionKeys = ImmutableList.of(new HivePartitionKey("a", "apple"), new HivePartitionKey("b", "42"));
+        ImmutableList<HivePartitionKey> partitionKeys = ImmutableList.of(new HivePartitionKey("a", Optional.of("apple")), new HivePartitionKey("b", Optional.of("42")));
         ImmutableList<HostAddress> addresses = ImmutableList.of(HostAddress.fromParts("127.0.0.1", 44), HostAddress.fromParts("127.0.0.1", 45));
         Map<String, String> customSplitInfo = ImmutableMap.of("key", "value");
         Set<ColumnHandle> redundantColumnDomains = ImmutableSet.of(new HiveColumnHandle(

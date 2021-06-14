@@ -892,7 +892,7 @@ public class TestHiveFileFormats
     {
         List<HivePartitionKey> partitionKeys = testColumns.stream()
                 .filter(TestColumn::isPartitionKey)
-                .map(input -> new HivePartitionKey(input.getName(), (String) input.getWriteValue()))
+                .map(TestColumn::toHivePartitionKey)
                 .collect(toList());
 
         List<HiveColumnHandle> partitionKeyColumnHandles = getColumnHandles(testColumns.stream().filter(TestColumn::isPartitionKey).collect(toImmutableList()));
@@ -956,7 +956,7 @@ public class TestHiveFileFormats
     {
         List<HivePartitionKey> partitionKeys = testColumns.stream()
                 .filter(TestColumn::isPartitionKey)
-                .map(input -> new HivePartitionKey(input.getName(), (String) input.getWriteValue()))
+                .map(TestColumn::toHivePartitionKey)
                 .collect(toList());
 
         List<HiveColumnHandle> partitionKeyColumnHandles = getColumnHandles(testColumns.stream().filter(TestColumn::isPartitionKey).collect(toImmutableList()));
