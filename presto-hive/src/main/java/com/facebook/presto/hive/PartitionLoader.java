@@ -28,6 +28,7 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.hive.HiveUtil.getPartitionKeyColumnHandles;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.checkCondition;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.extractPartitionValues;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -60,7 +61,7 @@ public abstract class PartitionLoader
             }
             String value = values.get(i);
             checkCondition(value != null, HIVE_INVALID_PARTITION_VALUE, "partition key value cannot be null for field: %s", name);
-            partitionKeys.add(new HivePartitionKey(name, value));
+            partitionKeys.add(new HivePartitionKey(name, HIVE_DEFAULT_DYNAMIC_PARTITION.equals(value) ? Optional.empty() : Optional.of(value)));
         }
         return partitionKeys.build();
     }

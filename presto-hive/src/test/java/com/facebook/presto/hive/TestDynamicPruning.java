@@ -120,7 +120,7 @@ public class TestDynamicPruning
 
     private static ConnectorPageSource createTestingPageSource(HiveTransactionHandle transaction, HiveClientConfig config, SplitContext splitContext, MetastoreClientConfig metastoreClientConfig, File outputFile)
     {
-        ImmutableList<HivePartitionKey> partitionKeys = ImmutableList.of(new HivePartitionKey(PARTITION_COLUMN.getName(), "2020-09-09"));
+        ImmutableList<HivePartitionKey> partitionKeys = ImmutableList.of(new HivePartitionKey(PARTITION_COLUMN.getName(), Optional.of("2020-09-09")));
         Map<Integer, Column> partitionSchemaDifference = ImmutableMap.of(1, new Column("ds", HIVE_STRING, Optional.empty()));
         HiveSplit split = new HiveSplit(
                 SCHEMA_NAME,

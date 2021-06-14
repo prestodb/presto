@@ -555,7 +555,7 @@ public class HivePageSourceProvider
             HivePartitionKey hivePartitionKey = partitionKeys.get(i);
             HiveColumnHandle hiveColumnHandle = partitionColumns.get(i);
             Domain allowedDomain = domains.get(hiveColumnHandle);
-            NullableValue value = parsePartitionValue(hivePartitionKey.getName(), hivePartitionKey.getValue(), type, hiveStorageTimeZone);
+            NullableValue value = parsePartitionValue(hivePartitionKey, type, hiveStorageTimeZone);
             if (allowedDomain != null && !allowedDomain.includesNullableValue(value.getValue())) {
                 return true;
             }
@@ -605,10 +605,10 @@ public class HivePageSourceProvider
             return new ColumnMapping(ColumnMappingKind.REGULAR, hiveColumnHandle, Optional.empty(), OptionalInt.of(index), Optional.empty());
         }
 
-        public static ColumnMapping prefilled(HiveColumnHandle hiveColumnHandle, String prefilledValue, Optional<HiveType> coerceFrom)
+        public static ColumnMapping prefilled(HiveColumnHandle hiveColumnHandle, Optional<String> prefilledValue, Optional<HiveType> coerceFrom)
         {
             checkArgument(hiveColumnHandle.getColumnType() == PARTITION_KEY || hiveColumnHandle.getColumnType() == SYNTHESIZED);
-            return new ColumnMapping(ColumnMappingKind.PREFILLED, hiveColumnHandle, Optional.of(prefilledValue), OptionalInt.empty(), coerceFrom);
+            return new ColumnMapping(ColumnMappingKind.PREFILLED, hiveColumnHandle, prefilledValue, OptionalInt.empty(), coerceFrom);
         }
 
         public static ColumnMapping interim(HiveColumnHandle hiveColumnHandle, int index)
@@ -634,7 +634,7 @@ public class HivePageSourceProvider
         public String getPrefilledValue()
         {
             checkState(kind == ColumnMappingKind.PREFILLED);
-            return prefilledValue.get();
+            return prefilledValue.orElse("\\N");
         }
 
         public HiveColumnHandle getHiveColumnHandle()

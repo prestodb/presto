@@ -2297,10 +2297,10 @@ public abstract class AbstractTestHiveClient
                 HiveSplit hiveSplit = (HiveSplit) split;
 
                 List<HivePartitionKey> partitionKeys = hiveSplit.getPartitionKeys();
-                String ds = partitionKeys.get(0).getValue();
-                String fileFormat = partitionKeys.get(1).getValue();
+                String ds = partitionKeys.get(0).getValue().orElse(null);
+                String fileFormat = partitionKeys.get(1).getValue().orElse(null);
                 HiveStorageFormat fileType = HiveStorageFormat.valueOf(fileFormat.toUpperCase());
-                int dummyPartition = Integer.parseInt(partitionKeys.get(2).getValue());
+                int dummyPartition = Integer.parseInt(partitionKeys.get(2).getValue().orElse(null));
 
                 long rowNumber = 0;
                 long completedBytes = 0;
@@ -2389,10 +2389,10 @@ public abstract class AbstractTestHiveClient
                 HiveSplit hiveSplit = (HiveSplit) split;
 
                 List<HivePartitionKey> partitionKeys = hiveSplit.getPartitionKeys();
-                String ds = partitionKeys.get(0).getValue();
-                String fileFormat = partitionKeys.get(1).getValue();
+                String ds = partitionKeys.get(0).getValue().orElse(null);
+                String fileFormat = partitionKeys.get(1).getValue().orElse(null);
                 HiveStorageFormat fileType = HiveStorageFormat.valueOf(fileFormat.toUpperCase());
-                int dummyPartition = Integer.parseInt(partitionKeys.get(2).getValue());
+                int dummyPartition = Integer.parseInt(partitionKeys.get(2).getValue().orElse(null));
 
                 long rowNumber = 0;
                 try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, hiveSplit, layoutHandle, columnHandles, NON_CACHEABLE)) {
