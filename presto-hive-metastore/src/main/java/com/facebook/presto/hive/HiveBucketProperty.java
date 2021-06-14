@@ -91,9 +91,8 @@ public class HiveBucketProperty
             return Optional.empty();
         }
 
-        Map<String, Object> unmodifiableParameters = Collections.<String, Object>unmodifiableMap(
-                storageDescriptor.getParameters());
-        List<String> clusteredBy = BucketingUtils.getClusteredBy(unmodifiableParameters);
+        Map<String, String> storageDescriptorParameters = storageDescriptor.getParameters();
+        List<String> clusteredBy = BucketingUtils.getClusteredByFromEncoding(storageDescriptorParameters);
         boolean doClustering = BucketingUtils.doClustering(clusteredBy);
 //        if (!bucketColsSet && !doClustering) {
 //            throw new PrestoException(
@@ -109,15 +108,15 @@ public class HiveBucketProperty
         }
 
         if (doClustering) {
-            List<Integer> clusterCount = BucketingUtils.getClusterCount(unmodifiableParameters);
-            List<Object> distribution = BucketingUtils.getDistribution(unmodifiableParameters);
+            List<Integer> clusterCount = BucketingUtils.getClusterCountFromEncoding(storageDescriptorParameters);
+            List<Object> distribution = BucketingUtils.getDistributionFromEncoding(storageDescriptorParameters);
 
             if (clusterCount.isEmpty() || distribution.isEmpty()) {
                 throw new PrestoException(INVALID_TABLE_PROPERTY, "To do clustering, cluster_count and distribution must be specified");
             }
 
             return Optional.of(new HiveBucketProperty(
-                    clusteredBy,
+                    Collections.emptyList(),
                     storageDescriptor.getNumBuckets(),
                     sortedBy,
                     HIVE_CLUSTERING,

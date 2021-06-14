@@ -64,6 +64,7 @@ import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 
 import javax.annotation.Nullable;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
@@ -85,6 +86,9 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.common.BucketingUtils.encodeClusterCount;
+import static com.facebook.presto.common.BucketingUtils.encodeClusteredBy;
+import static com.facebook.presto.common.BucketingUtils.encodeDistribution;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveStorageFormat.AVRO;
 import static com.facebook.presto.hive.HiveStorageFormat.CSV;
@@ -699,6 +703,17 @@ public final class ThriftMetastoreUtil
                 sd.setSortCols(bucketProperty.get().getSortedBy().stream()
                         .map(column -> new Order(column.getColumnName(), column.getOrder().getHiveOrder()))
                         .collect(toList()));
+            }
+
+            if (bucketProperty.get().getClusteredBy().isPresent()) {
+                sd.putToParameters("clustered_by", encodeClusteredBy(bucketProperty.get().getClusteredBy().get()));
+                sd.putToParameters("cluster_count", encodeClusterCount(bucketProperty.get().getClusterCount().get()));
+                try {
+                    sd.putToParameters("distribution", encodeDistribution(bucketProperty.get().getDistribution().get()));
+                }
+                catch (IOException e) {
+                    throw new PrestoException(HIVE_INVALID_METADATA, "Failed to encode distribution");
+                }
             }
         }
 
