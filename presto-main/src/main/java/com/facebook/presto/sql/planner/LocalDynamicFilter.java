@@ -29,6 +29,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -51,11 +52,11 @@ public class LocalDynamicFilter
 
     private final SettableFuture<TupleDomain<VariableReferenceExpression>> resultFuture;
 
-    // The resulting predicate for local dynamic filtering.
-    private TupleDomain<String> result;
+    // Number of build-side partitions to be collected.
+    private final int partitionCount;
 
-    // Number of partitions left to be processed.
-    private int partitionsLeft;
+    // The resulting predicates from each build-side partition.
+    private final List<TupleDomain<String>> partitions;
 
     public LocalDynamicFilter(Multimap<String, VariableReferenceExpression> probeVariables, Map<String, Integer> buildChannels, int partitionCount)
     {
@@ -65,21 +66,21 @@ public class LocalDynamicFilter
 
         this.resultFuture = SettableFuture.create();
 
-        this.result = TupleDomain.none();
-        this.partitionsLeft = partitionCount;
+        this.partitionCount = partitionCount;
+        this.partitions = new ArrayList<>(partitionCount);
     }
 
     private synchronized void addPartition(TupleDomain<String> tupleDomain)
     {
         // Called concurrently by each DynamicFilterSourceOperator instance (when collection is over).
-        partitionsLeft -= 1;
-        verify(partitionsLeft >= 0);
+        verify(partitions.size() < partitionCount);
         // NOTE: may result in a bit more relaxed constraint if there are multiple columns and multiple rows.
         // See the comment at TupleDomain::columnWiseUnion() for more details.
-        result = TupleDomain.columnWiseUnion(result, tupleDomain);
-        if (partitionsLeft == 0) {
+        partitions.add(tupleDomain);
+        if (partitions.size() == partitionCount) {
             // No more partitions are left to be processed.
-            verify(resultFuture.set(convertTupleDomain(result)), "dynamic filter result is provided more than once");
+            TupleDomain<VariableReferenceExpression> result = convertTupleDomain(TupleDomain.columnWiseUnion(partitions));
+            verify(resultFuture.set(result), "dynamic filter result is provided more than once");
         }
     }
 
@@ -172,8 +173,8 @@ public class LocalDynamicFilter
         return toStringHelper(this)
                 .add("probeVariables", probeVariables)
                 .add("buildChannels", buildChannels)
-                .add("result", result)
-                .add("partitionsLeft", partitionsLeft)
+                .add("partitionCount", partitionCount)
+                .add("partitions", partitions)
                 .toString();
     }
 }
