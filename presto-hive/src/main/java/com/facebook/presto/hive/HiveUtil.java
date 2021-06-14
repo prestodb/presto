@@ -534,10 +534,15 @@ public final class HiveUtil
                 isCharType(type);
     }
 
+    public static NullableValue parsePartitionValue(HivePartitionKey key, Type type, DateTimeZone timeZone)
+    {
+        return parsePartitionValue(key.getName(), key.getValue().orElse(HIVE_DEFAULT_DYNAMIC_PARTITION), type, timeZone);
+    }
+
     public static NullableValue parsePartitionValue(String partitionName, String value, Type type, DateTimeZone timeZone)
     {
         verifyPartitionTypeSupported(partitionName, type);
-        boolean isNull = HIVE_DEFAULT_DYNAMIC_PARTITION.equals(value) || isHiveNull(value.getBytes(UTF_8));
+        boolean isNull = HIVE_DEFAULT_DYNAMIC_PARTITION.equals(value);
 
         if (type instanceof DecimalType) {
             DecimalType decimalType = (DecimalType) type;
@@ -926,19 +931,19 @@ public final class HiveUtil
         return partitionKey ? "partition key" : null;
     }
 
-    public static String getPrefilledColumnValue(HiveColumnHandle columnHandle, HivePartitionKey partitionKey, Path path, OptionalInt bucketNumber)
+    public static Optional<String> getPrefilledColumnValue(HiveColumnHandle columnHandle, HivePartitionKey partitionKey, Path path, OptionalInt bucketNumber)
     {
         if (partitionKey != null) {
             return partitionKey.getValue();
         }
         if (isPathColumnHandle(columnHandle)) {
-            return path.toString();
+            return Optional.of(path.toString());
         }
         if (isBucketColumnHandle(columnHandle)) {
             if (!bucketNumber.isPresent()) {
                 throw new PrestoException(HIVE_TABLE_BUCKETING_IS_IGNORED, "Table bucketing is ignored. The virtual \"$bucket\" column cannot be referenced.");
             }
-            return String.valueOf(bucketNumber.getAsInt());
+            return Optional.of(String.valueOf(bucketNumber.getAsInt()));
         }
         throw new PrestoException(NOT_SUPPORTED, "unsupported hidden column: " + columnHandle);
     }
