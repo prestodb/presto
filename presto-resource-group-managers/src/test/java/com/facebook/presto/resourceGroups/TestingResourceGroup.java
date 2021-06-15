@@ -15,6 +15,7 @@ package com.facebook.presto.resourceGroups;
 
 import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.facebook.presto.spi.resourceGroups.SchedulingPolicy;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -28,6 +29,7 @@ public class TestingResourceGroup
     private DataSize memoryLimit;
     private Duration softCpuLimit;
     private Duration hardCpuLimit;
+    private ResourceGroupQueryLimits perQueryLimits;
     private long quotaGenerationRate;
     private int softConcurrencyLimit;
     private int hardConcurrencyLimit;
@@ -81,6 +83,18 @@ public class TestingResourceGroup
     public void setHardCpuLimit(Duration limit)
     {
         hardCpuLimit = limit;
+    }
+
+    @Override
+    public ResourceGroupQueryLimits getPerQueryLimits()
+    {
+        return perQueryLimits;
+    }
+
+    @Override
+    public void setPerQueryLimits(ResourceGroupQueryLimits limits)
+    {
+        perQueryLimits = limits;
     }
 
     @Override

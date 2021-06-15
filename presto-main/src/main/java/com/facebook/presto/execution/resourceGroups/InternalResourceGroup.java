@@ -22,6 +22,7 @@ import com.facebook.presto.server.ResourceGroupInfo;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupState;
 import com.facebook.presto.spi.resourceGroups.SchedulingPolicy;
 import com.google.common.collect.ImmutableList;
@@ -109,6 +110,12 @@ public class InternalResourceGroup
     private long softCpuLimitMillis = Long.MAX_VALUE;
     @GuardedBy("root")
     private long hardCpuLimitMillis = Long.MAX_VALUE;
+    @GuardedBy("root")
+    private long perQueryExecutionTimeLimitMillis = Long.MAX_VALUE;
+    @GuardedBy("root")
+    private long perQueryMemoryLimitBytes = Long.MAX_VALUE;
+    @GuardedBy("root")
+    private long perQueryCpuTimeLimitMillis = Long.MAX_VALUE;
     @GuardedBy("root")
     private long cpuQuotaGenerationMillisPerSecond = Long.MAX_VALUE;
     @GuardedBy("root")
@@ -404,6 +411,34 @@ public class InternalResourceGroup
             this.hardCpuLimitMillis = limit.toMillis();
             if (canRunMore() != oldCanRun) {
                 updateEligibility();
+            }
+        }
+    }
+
+    @Override
+    public ResourceGroupQueryLimits getPerQueryLimits()
+    {
+        synchronized (root) {
+            ResourceGroupQueryLimits resourceGroupQueryLimits = new ResourceGroupQueryLimits(
+                    Optional.of(new Duration(perQueryExecutionTimeLimitMillis, MILLISECONDS)),
+                    Optional.of(new DataSize(softMemoryLimitBytes, BYTE)),
+                    Optional.of(new Duration(perQueryCpuTimeLimitMillis, MILLISECONDS)));
+            return resourceGroupQueryLimits;
+        }
+    }
+
+    @Override
+    public void setPerQueryLimits(ResourceGroupQueryLimits limits)
+    {
+        synchronized (root) {
+            if (limits.getMaxExecutionTime().isPresent()) {
+                this.perQueryExecutionTimeLimitMillis = limits.getMaxExecutionTime().get().toMillis();
+            }
+            if (limits.getMaxTotalMemoryLimit().isPresent()) {
+                this.perQueryMemoryLimitBytes = limits.getMaxTotalMemoryLimit().get().toBytes();
+            }
+            if (limits.getMaxCpuTime().isPresent()) {
+                this.perQueryCpuTimeLimitMillis = limits.getMaxCpuTime().get().toMillis();
             }
         }
     }
