@@ -169,7 +169,7 @@
         <module>presto-common</module>
         <module>presto-thrift-testing-udf-server</module>
         <module>presto-thrift-spec</module>
-        <module>testing/presto-testng-services</module>
+        <module>presto-testng-services</module>
     </modules>
 
     <dependencyManagement>
