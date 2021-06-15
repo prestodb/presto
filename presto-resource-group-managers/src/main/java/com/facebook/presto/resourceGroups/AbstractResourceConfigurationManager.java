@@ -205,6 +205,7 @@ public abstract class AbstractResourceConfigurationManager
         group.setMaxQueuedQueries(match.getMaxQueued());
         group.setSoftConcurrencyLimit(match.getSoftConcurrencyLimit().orElse(match.getHardConcurrencyLimit()));
         group.setHardConcurrencyLimit(match.getHardConcurrencyLimit());
+        group.setPerQueryLimits(match.getPerQueryLimits());
         match.getSchedulingPolicy().ifPresent(group::setSchedulingPolicy);
         match.getSchedulingWeight().ifPresent(group::setSchedulingWeight);
         match.getJmxExport().filter(isEqual(group.getJmxExport()).negate()).ifPresent(group::setJmxExport);
