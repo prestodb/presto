@@ -29,8 +29,8 @@ public interface H2ResourceGroupsDao
     void updateResourceGroupsGlobalProperties(@Bind("name") String name);
 
     @SqlUpdate("INSERT INTO resource_groups\n" +
-            "(resource_group_id, name, soft_memory_limit, max_queued, soft_concurrency_limit, hard_concurrency_limit, scheduling_policy, scheduling_weight, jmx_export, soft_cpu_limit, hard_cpu_limit, parent, environment)\n" +
-            "VALUES (:resource_group_id, :name, :soft_memory_limit, :max_queued, :soft_concurrency_limit, :hard_concurrency_limit, :scheduling_policy, :scheduling_weight, :jmx_export, :soft_cpu_limit, :hard_cpu_limit, :parent, :environment)")
+            "(resource_group_id, name, soft_memory_limit, max_queued, soft_concurrency_limit, hard_concurrency_limit, scheduling_policy, scheduling_weight, jmx_export, soft_cpu_limit, hard_cpu_limit, per_query_execution_time_limit, per_query_total_memory_limit, per_query_cpu_time_limit, parent, environment)\n" +
+            "VALUES (:resource_group_id, :name, :soft_memory_limit, :max_queued, :soft_concurrency_limit, :hard_concurrency_limit, :scheduling_policy, :scheduling_weight, :jmx_export, :soft_cpu_limit, :hard_cpu_limit, :per_query_execution_time_limit, :per_query_total_memory_limit, :per_query_cpu_time_limit, :parent, :environment)")
     void insertResourceGroup(
             @Bind("resource_group_id") long resourceGroupId,
             @Bind("name") String name,
@@ -43,6 +43,9 @@ public interface H2ResourceGroupsDao
             @Bind("jmx_export") Boolean jmxExport,
             @Bind("soft_cpu_limit") String softCpuLimit,
             @Bind("hard_cpu_limit") String hardCpuLimit,
+            @Bind("per_query_execution_time_limit") String perQueryExecutionTimeLimit,
+            @Bind("per_query_total_memory_limit") String perQueryTotalMemoryLimit,
+            @Bind("per_query_cpu_time_limit") String perQueryCpuTimeLimit,
             @Bind("parent") Long parent,
             @Bind("environment") String environment);
 
@@ -58,6 +61,9 @@ public interface H2ResourceGroupsDao
             ", jmx_export = :jmx_export\n" +
             ", soft_cpu_limit = :soft_cpu_limit\n" +
             ", hard_cpu_limit = :hard_cpu_limit\n" +
+            ", per_query_execution_time_limit = :per_query_execution_time_limit\n" +
+            ", per_query_total_memory_limit = :per_query_total_memory_limit\n" +
+            ", per_query_cpu_time_limit = :per_query_cpu_time_limit\n" +
             ", parent = :parent\n" +
             ", environment = :environment\n" +
             "WHERE resource_group_id = :resource_group_id")
@@ -73,6 +79,9 @@ public interface H2ResourceGroupsDao
             @Bind("jmx_export") Boolean jmxExport,
             @Bind("soft_cpu_limit") String softCpuLimit,
             @Bind("hard_cpu_limit") String hardCpuLimit,
+            @Bind("per_query_execution_time_limit") String perQueryExecutionTimeLimit,
+            @Bind("per_query_total_memory_limit") String perQueryTotalMemoryLimit,
+            @Bind("per_query_cpu_time_limit") String perQueryCpuTimeLimit,
             @Bind("parent") Long parent,
             @Bind("environment") String environment);
 

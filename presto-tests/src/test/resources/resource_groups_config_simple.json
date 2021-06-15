@@ -11,6 +11,36 @@
           "softMemoryLimit": "1MB",
           "hardConcurrencyLimit": 3,
           "maxQueued": 3
+        },
+        {
+          "name": "rg_with_cpu_limit",
+          "softMemoryLimit": "1MB",
+          "hardConcurrencyLimit": 3,
+          "maxQueued": 3,
+          "resourceGroupQueryLimits":
+          {
+            "cpuTimeLimit": "1ms"
+          }
+        },
+        {
+          "name": "rg_with_execution_time_limit",
+          "softMemoryLimit": "1MB",
+          "hardConcurrencyLimit": 3,
+          "maxQueued": 3,
+          "resourceGroupQueryLimits":
+          {
+            "executionTimeLimit": "1ms"
+          }
+        },
+        {
+          "name": "rg_with_memory_limit",
+          "softMemoryLimit": "1MB",
+          "hardConcurrencyLimit": 3,
+          "maxQueued": 3,
+          "resourceGroupQueryLimits":
+          {
+            "totalMemoryLimit": "1B"
+          }
         }
       ]
     }
