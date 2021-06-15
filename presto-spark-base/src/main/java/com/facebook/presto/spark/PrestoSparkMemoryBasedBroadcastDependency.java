@@ -35,7 +35,7 @@ import static java.util.stream.Collectors.toList;
 public class PrestoSparkMemoryBasedBroadcastDependency
         implements PrestoSparkBroadcastDependency<PrestoSparkSerializedPage>
 {
-    private final RddAndMore<PrestoSparkSerializedPage> broadcastDependency;
+    private RddAndMore<PrestoSparkSerializedPage> broadcastDependency;
     private final DataSize maxBroadcastSize;
     private final long queryCompletionDeadline;
     private Broadcast<List<PrestoSparkSerializedPage>> broadcastVariable;
@@ -56,6 +56,9 @@ public class PrestoSparkMemoryBasedBroadcastDependency
         List<PrestoSparkSerializedPage> broadcastValue = broadcastDependency.collectAndDestroyDependenciesWithTimeout(computeNextTimeout(queryCompletionDeadline), MILLISECONDS, waitTimeMetrics).stream()
                 .map(Tuple2::_2)
                 .collect(toList());
+
+        // release memory retained by the RDD (splits and dependencies)
+        broadcastDependency = null;
 
         long compressedBroadcastSizeInBytes = broadcastValue.stream()
                 .mapToInt(page -> page.getBytes().length)
