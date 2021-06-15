@@ -99,6 +99,13 @@ public class PagesSerdeUtil
         return size;
     }
 
+    private static void updateCrc(CRC32 crc32, int value)
+    {
+        for (int i = 0; i < 32; i += 8) {
+            crc32.update(value >> i);
+        }
+    }
+
     public static long computeSerializedPageChecksum(Slice pageData, byte markers, int positionCount, int uncompressedSize)
     {
         CRC32 crc32 = new CRC32();
@@ -107,9 +114,8 @@ public class PagesSerdeUtil
         }
         crc32.update(pageData.byteArray(), pageData.byteArrayOffset(), pageData.length());
         crc32.update(markers);
-        crc32.update(positionCount);
-        crc32.update(uncompressedSize);
-
+        updateCrc(crc32, positionCount);
+        updateCrc(crc32, uncompressedSize);
         return crc32.getValue();
     }
 
