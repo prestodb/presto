@@ -22,6 +22,7 @@ import com.facebook.presto.server.ResourceGroupInfo;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupState;
 import com.facebook.presto.spi.resourceGroups.SchedulingPolicy;
 import com.google.common.collect.ImmutableList;
@@ -53,6 +54,7 @@ import static com.facebook.presto.SystemSessionProperties.getQueryPriority;
 import static com.facebook.presto.server.QueryStateInfo.createQueryStateInfo;
 import static com.facebook.presto.spi.ErrorType.USER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_RESOURCE_GROUP;
+import static com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits.NO_LIMITS;
 import static com.facebook.presto.spi.resourceGroups.ResourceGroupState.CAN_QUEUE;
 import static com.facebook.presto.spi.resourceGroups.ResourceGroupState.CAN_RUN;
 import static com.facebook.presto.spi.resourceGroups.ResourceGroupState.FULL;
@@ -117,6 +119,8 @@ public class InternalResourceGroup
     private SchedulingPolicy schedulingPolicy = FAIR;
     @GuardedBy("root")
     private boolean jmxExport;
+    @GuardedBy("root")
+    private ResourceGroupQueryLimits perQueryLimits = NO_LIMITS;
 
     // Live data structures
     // ====================
@@ -591,6 +595,22 @@ public class InternalResourceGroup
             jmxExport = export;
         }
         jmxExportListener.accept(this, export);
+    }
+
+    @Override
+    public void setPerQueryLimits(ResourceGroupQueryLimits perQueryLimits)
+    {
+        synchronized (root) {
+            this.perQueryLimits = perQueryLimits;
+        }
+    }
+
+    @Override
+    public ResourceGroupQueryLimits getPerQueryLimits()
+    {
+        synchronized (root) {
+            return perQueryLimits;
+        }
     }
 
     public InternalResourceGroup getOrCreateSubGroup(String name, boolean staticSegment)
