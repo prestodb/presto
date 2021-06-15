@@ -6,7 +6,6 @@
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
         <version>0.256-SNAPSHOT</version>
-        <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>presto-testng-services</artifactId>
