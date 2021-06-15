@@ -44,7 +44,7 @@ public class PrestoSparkStorageBasedBroadcastDependency
 {
     private static final Logger log = Logger.get(PrestoSparkStorageBasedBroadcastDependency.class);
 
-    private final RddAndMore<PrestoSparkStorageHandle> broadcastDependency;
+    private RddAndMore<PrestoSparkStorageHandle> broadcastDependency;
     private final DataSize maxBroadcastSize;
     private final long queryCompletionDeadline;
     private final TempStorage tempStorage;
@@ -70,6 +70,9 @@ public class PrestoSparkStorageBasedBroadcastDependency
         List<PrestoSparkStorageHandle> broadcastValue = broadcastDependency.collectAndDestroyDependenciesWithTimeout(computeNextTimeout(queryCompletionDeadline), MILLISECONDS, waitTimeMetrics).stream()
                 .map(Tuple2::_2)
                 .collect(toList());
+
+        // release memory retained by the RDD (splits and dependencies)
+        broadcastDependency = null;
 
         long compressedBroadcastSizeInBytes = broadcastValue.stream()
                 .mapToLong(metadata -> metadata.getCompressedSizeInBytes())
