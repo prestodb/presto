@@ -71,6 +71,7 @@ import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.CreateName;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.InsertReference;
+import com.facebook.presto.sql.planner.plan.TableWriterNode.RefreshMaterializedViewReference;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
@@ -1131,7 +1132,7 @@ public class PlanFragmenter
             GroupedExecutionProperties properties = node.getSource().accept(this, null);
             boolean recoveryEligible = properties.isRecoveryEligible();
             WriterTarget target = node.getTarget().orElseThrow(() -> new VerifyException("target is absent"));
-            if (target instanceof CreateName || target instanceof InsertReference) {
+            if (target instanceof CreateName || target instanceof InsertReference || target instanceof RefreshMaterializedViewReference) {
                 recoveryEligible &= metadata.getConnectorCapabilities(session, target.getConnectorId()).contains(SUPPORTS_PAGE_SINK_COMMIT);
             }
             else {

@@ -21,7 +21,7 @@ import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
-import com.facebook.presto.orc.metadata.ColumnEncoding;
+import com.facebook.presto.orc.Stripe;
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.google.common.io.Closer;
@@ -30,7 +30,6 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.util.Map;
 
 import static com.facebook.presto.common.type.Chars.byteCountWithoutTrailingSpace;
 import static com.facebook.presto.common.type.Chars.isCharType;
@@ -80,10 +79,10 @@ public class SliceBatchStreamReader
     }
 
     @Override
-    public void startStripe(InputStreamSources dictionaryStreamSources, Map<Integer, ColumnEncoding> encoding)
+    public void startStripe(Stripe stripe)
             throws IOException
     {
-        ColumnEncodingKind columnEncodingKind = encoding.get(streamDescriptor.getStreamId())
+        ColumnEncodingKind columnEncodingKind = stripe.getColumnEncodings().get(streamDescriptor.getStreamId())
                 .getColumnEncoding(streamDescriptor.getSequence())
                 .getColumnEncodingKind();
         if (columnEncodingKind == DIRECT || columnEncodingKind == DIRECT_V2 || columnEncodingKind == DWRF_DIRECT) {
@@ -96,7 +95,7 @@ public class SliceBatchStreamReader
             throw new IllegalArgumentException("Unsupported encoding " + columnEncodingKind);
         }
 
-        currentReader.startStripe(dictionaryStreamSources, encoding);
+        currentReader.startStripe(stripe);
     }
 
     @Override

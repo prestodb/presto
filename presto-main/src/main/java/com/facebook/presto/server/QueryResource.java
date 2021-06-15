@@ -35,9 +35,11 @@ import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.QueryParam;
+import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.container.AsyncResponse;
 import javax.ws.rs.container.Suspended;
 import javax.ws.rs.core.Context;
+import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
@@ -52,10 +54,13 @@ import static com.facebook.presto.connector.system.KillQueryProcedure.createKill
 import static com.facebook.presto.connector.system.KillQueryProcedure.createPreemptQueryException;
 import static com.facebook.presto.server.security.RoleType.ADMIN;
 import static com.facebook.presto.server.security.RoleType.USER;
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
 import static javax.ws.rs.core.Response.Status.NO_CONTENT;
 import static javax.ws.rs.core.Response.Status.SERVICE_UNAVAILABLE;
 
@@ -101,9 +106,15 @@ public class QueryResource
             proxyResponse(servletRequest, asyncResponse, xForwardedProto, uriInfo);
             return;
         }
-        if (limitFilter == null) {
-            limitFilter = dispatchManager.getMaxQueriesToReturn();
+        int limit = firstNonNull(limitFilter, dispatchManager.getMaxQueriesToReturn());
+        if (limit <= 0) {
+            throw new WebApplicationException(Response
+                    .status(BAD_REQUEST)
+                    .type(MediaType.TEXT_PLAIN)
+                    .entity(format("Parameter 'limit' for getAllQueryInfo must be positive. Got %d.", limit))
+                    .build());
         }
+
         QueryState expectedState = stateFilter == null ? null : QueryState.valueOf(stateFilter.toUpperCase(Locale.ENGLISH));
         ImmutableList.Builder<BasicQueryInfo> builder = new ImmutableList.Builder<>();
         // TODO: With us having 'limit' now, it would be nice to have 'basic query info' sorted  by some time
@@ -112,8 +123,8 @@ public class QueryResource
         for (BasicQueryInfo queryInfo : dispatchManager.getQueries()) {
             if (stateFilter == null || queryInfo.getState() == expectedState) {
                 builder.add(queryInfo);
-                --limitFilter;
-                if (limitFilter <= 0) {
+                limit--;
+                if (limit <= 0) {
                     break;
                 }
             }

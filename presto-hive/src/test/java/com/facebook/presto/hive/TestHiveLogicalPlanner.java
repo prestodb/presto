@@ -1040,7 +1040,7 @@ public class TestHiveLogicalPlanner
 
     // TODO: plan verification https://github.com/prestodb/presto/issues/16031
     // TODO: enable all materialized view tests after https://github.com/prestodb/presto/pull/15996
-    @Test(enabled = false)
+    @Test
     public void testMaterializedViewOptimization()
     {
         QueryRunner queryRunner = getQueryRunner();
@@ -1053,8 +1053,7 @@ public class TestHiveLogicalPlanner
             assertUpdate("CREATE MATERIALIZED VIEW test_orders_view WITH (partitioned_by = ARRAY['ds']) " +
                     "AS SELECT orderkey, orderpriority, ds FROM orders_partitioned");
             assertTrue(getQueryRunner().tableExists(getSession(), "test_orders_view"));
-            assertUpdate("INSERT INTO test_orders_view(orderkey, orderpriority, ds) " +
-                    "select orderkey, orderpriority, ds from orders_partitioned where ds='2020-01-01'", 255);
+            assertUpdate("REFRESH MATERIALIZED VIEW test_orders_view WHERE ds='2020-01-01'", 255);
 
             String viewQuery = "SELECT orderkey from test_orders_view where orderkey <  10000 ORDER BY orderkey";
             String baseQuery = "SELECT orderkey from orders_partitioned where orderkey <  10000 ORDER BY orderkey";
@@ -1069,7 +1068,7 @@ public class TestHiveLogicalPlanner
         }
     }
 
-    @Test(enabled = false)
+    @Test
     public void testMaterializedViewOptimizationWithClause()
     {
         QueryRunner queryRunner = getQueryRunner();
@@ -1090,7 +1089,7 @@ public class TestHiveLogicalPlanner
                     table);
 
             assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds']) AS %s", view, viewPart));
-            assertUpdate(format("INSERT INTO %s(orderkey, orderpriority, ds) %s where ds='2020-01-01'", view, viewPart), 255);
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s where ds='2020-01-01'", view), 255);
 
             String viewQuery = format("SELECT orderkey, orderpriority, ds from %s where orderkey < 100 ORDER BY orderkey", view);
             String baseQuery = viewPart + " where orderkey < 100 ORDER BY orderkey";
@@ -1105,7 +1104,7 @@ public class TestHiveLogicalPlanner
         }
     }
 
-    @Test(enabled = false)
+    @Test
     public void testMaterializedViewOptimizationFullyMaterialized()
     {
         QueryRunner queryRunner = getQueryRunner();
@@ -1120,7 +1119,8 @@ public class TestHiveLogicalPlanner
             assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds']) " +
                     "AS SELECT orderkey, orderpriority, ds FROM %s", view, table));
             assertTrue(getQueryRunner().tableExists(getSession(), view));
-            assertUpdate(format("INSERT INTO %s(orderkey, orderpriority, ds) select orderkey, orderpriority, ds from %s", view, table), 15000);
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds = '2020-01-01'", view), 255);
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds = '2019-01-02'", view), 14745);
 
             String viewQuery = format("SELECT orderkey from %s where orderkey <  10000 ORDER BY orderkey", view);
             String baseQuery = format("SELECT orderkey from %s where orderkey <  10000 ORDER BY orderkey", table);
@@ -1135,7 +1135,7 @@ public class TestHiveLogicalPlanner
         }
     }
 
-    @Test(enabled = false)
+    @Test
     public void testMaterializedViewOptimizationNotMaterialized()
     {
         String base = "orders_partitioned_not_materialized";
@@ -1165,7 +1165,7 @@ public class TestHiveLogicalPlanner
         }
     }
 
-    @Test(enabled = false)
+    @Test
     public void testMaterializedViewOptimizationWithNullPartition()
     {
         QueryRunner queryRunner = getQueryRunner();
@@ -1183,8 +1183,7 @@ public class TestHiveLogicalPlanner
                     "SELECT orderkey, orderpriority, ds FROM %s", view, base));
 
             assertTrue(getQueryRunner().tableExists(getSession(), view));
-            assertUpdate(format("INSERT INTO %s(orderkey, orderpriority, ds) " +
-                    "select orderkey, orderpriority, ds from %s where ds='2020-01-01'", view, base), 127);
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds = '2020-01-01'", view), 127);
 
             String viewQuery = format("SELECT orderkey from %s where orderkey <  10000 ORDER BY orderkey", view);
             String baseQuery = format("SELECT orderkey from %s  where orderkey <  10000 ORDER BY orderkey", base);
@@ -1199,7 +1198,7 @@ public class TestHiveLogicalPlanner
         }
     }
 
-    @Test(enabled = false)
+    @Test
     public void testMaterializedViewWithLessGranularity()
     {
         QueryRunner queryRunner = getQueryRunner();
@@ -1217,8 +1216,7 @@ public class TestHiveLogicalPlanner
 
             assertTrue(getQueryRunner().tableExists(getSession(), view));
 
-            assertUpdate(format("INSERT INTO %s(orderkey, orderpriority, ds) " +
-                    "select orderkey, orderpriority, ds from %s where ds='2020-01-01'", view, base), 255);
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds = '2020-01-01'", view), 255);
 
             String viewQuery = format("SELECT orderkey from %s where orderkey <  10000 ORDER BY orderkey", view);
             String baseQuery = format("SELECT orderkey from %s where orderkey <  10000 ORDER BY orderkey", base);
@@ -1233,7 +1231,7 @@ public class TestHiveLogicalPlanner
         }
     }
 
-    @Test(enabled = false)
+    @Test
     public void testMaterializedViewForUnionAll()
     {
         QueryRunner queryRunner = getQueryRunner();
@@ -1250,7 +1248,7 @@ public class TestHiveLogicalPlanner
             assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['nationkey']) " +
                     "AS %s", view, baseQuery));
 
-            assertUpdate(format("INSERT INTO %s(name, custkey, nationkey) %s WHERE nationkey < 10", view, baseQuery), 599);
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE nationkey < 10", view, baseQuery), 599);
 
             String viewQuery = format("SELECT name, custkey, nationkey from %s ORDER BY name", view);
             baseQuery = format("%s ORDER BY name", baseQuery);
@@ -1265,7 +1263,7 @@ public class TestHiveLogicalPlanner
         }
     }
 
-    @Test(enabled = false)
+    @Test
     public void testMaterializedViewForGroupingSet()
     {
         QueryRunner queryRunner = getQueryRunner();
@@ -1280,10 +1278,7 @@ public class TestHiveLogicalPlanner
                             "GROUP BY GROUPING SETS ((linenumber, shipmode), (shipmode))",
                     view, base));
 
-            assertUpdate(format("INSERT INTO %s(linenumber, quantity, shipmode) " +
-                            "SELECT linenumber, SUM(DISTINCT CAST(quantity AS BIGINT)) quantity, shipmode FROM %s where shipmode='RAIL' " +
-                            "GROUP BY GROUPING SETS ((linenumber, shipmode), (shipmode)) ",
-                    view, base), 8);
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE shipmode='RAIL'", view), 8);
 
             String viewQuery = format("SELECT * FROM %s ORDER BY linenumber, shipmode", view);
             String baseQuery = format("SELECT linenumber, SUM(DISTINCT CAST(quantity AS BIGINT)) quantity, shipmode FROM %s " +
@@ -1299,7 +1294,7 @@ public class TestHiveLogicalPlanner
         }
     }
 
-    @Test(enabled = false)
+    @Test
     public void testMaterializedViewWithDifferentPartitions()
     {
         QueryRunner queryRunner = getQueryRunner();
@@ -1317,8 +1312,7 @@ public class TestHiveLogicalPlanner
 
             assertTrue(getQueryRunner().tableExists(getSession(), view));
 
-            assertUpdate(format("INSERT INTO %s(orderkey, orderpriority, ds, orderstatus) " +
-                    "select orderkey, orderpriority, ds, orderstatus from %s where ds='2020-01-01'", view, base), 255);
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds = '2020-01-01'", view), 255);
 
             String viewQuery = format("SELECT orderkey from %s where orderkey <  10000 ORDER BY orderkey", view);
             String baseQuery = format("SELECT orderkey from %s where orderkey <  10000 ORDER BY orderkey", base);
@@ -1333,7 +1327,7 @@ public class TestHiveLogicalPlanner
         }
     }
 
-    @Test(enabled = false)
+    @Test
     public void testMaterializedViewJoinsWithOneTableAlias()
     {
         QueryRunner queryRunner = getQueryRunner();
@@ -1353,11 +1347,7 @@ public class TestHiveLogicalPlanner
                             "FROM %s JOIN %s customer ON (%s.nationkey = customer.nationkey)",
                     view, table1, table1, table2, table1));
 
-            assertUpdate(format("INSERT INTO %s(nationname, custkey, customername, marketsegment, nationkey, regionkey) " +
-                            "SELECT %s.name AS nationname, customer.custkey, customer.name AS customername, UPPER(customer.mktsegment) " +
-                            "AS marketsegment, customer.nationkey, regionkey FROM %s JOIN %s customer ON (%s.nationkey = customer.nationkey) " +
-                            "WHERE customer.nationkey != 24 and %s.regionkey != 1",
-                    view, table1, table1, table2, table1, table1), 1200);
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE regionkey = 1", view), 300);
 
             String viewQuery = format("SELECT nationname, custkey from %s ORDER BY custkey", view);
             String baseQuery = format("SELECT %s.name AS nationname, customer.custkey FROM %s JOIN %s customer ON (%s.nationkey = customer.nationkey)" +
@@ -1374,7 +1364,7 @@ public class TestHiveLogicalPlanner
         }
     }
 
-    @Test(enabled = false)
+    @Test
     public void testMaterializedViewOptimizationWithDerivedFields()
     {
         QueryRunner queryRunner = getQueryRunner();
@@ -1393,9 +1383,7 @@ public class TestHiveLogicalPlanner
                     view, base));
 
             assertTrue(getQueryRunner().tableExists(getSession(), view));
-            assertUpdate(format("INSERT INTO %s(_discount_multi_extendedprice_, ds, shipmode) " +
-                            "select SUM(discount*extendedprice), ds, shipmode from %s where ds='2020-01-01' group by ds, shipmode",
-                    view, base), 7);
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2020-01-01'", view), 7);
 
             String viewQuery = format("SELECT sum(_discount_multi_extendedprice_) from %s group by ds, shipmode ORDER BY sum(_discount_multi_extendedprice_)", view);
             String baseQuery = format("SELECT sum(discount * extendedprice) as _discount_multi_extendedprice_ from %s group by ds, shipmode " +
@@ -1411,7 +1399,7 @@ public class TestHiveLogicalPlanner
         }
     }
 
-    @Test(enabled = false)
+    @Test
     public void testMaterializedViewOptimizationWithDerivedFieldsWithAlias()
     {
         QueryRunner queryRunner = getQueryRunner();
@@ -1429,9 +1417,7 @@ public class TestHiveLogicalPlanner
                     "FROM %s group by ds, shipmode", view, base));
 
             assertTrue(getQueryRunner().tableExists(getSession(), view));
-            assertUpdate(format("INSERT INTO %s(_discount_multi_extendedprice_, ds, view_shipmode) " +
-                            "select SUM(discount*extendedprice), ds, shipmode from %s where ds='2020-01-01' group by ds, shipmode",
-                    view, base), 7);
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2020-01-01'", view, base), 7);
 
             String viewQuery = format("SELECT sum(_discount_multi_extendedprice_) from %s group by ds ORDER BY sum(_discount_multi_extendedprice_)", view);
             String baseQuery = format("SELECT sum(discount * extendedprice) as _discount_multi_extendedprice_ from %s group by ds " +
@@ -1447,8 +1433,7 @@ public class TestHiveLogicalPlanner
         }
     }
 
-    //FIXME: It does not work as column map in the materialized View metadata is not correct. It only contains 1 map instead of 2.
-    // https://github.com/prestodb/presto/pull/15996
+    //TODO: Populate columnMappings to cover all joined base tables, https://github.com/prestodb/presto/issues/16220
     @Test(enabled = false)
     public void testMaterializedViewForJoin()
     {
@@ -1473,10 +1458,7 @@ public class TestHiveLogicalPlanner
 
             assertTrue(queryRunner.tableExists(getSession(), view));
 
-            assertUpdate(format("INSERT INTO %s(view_orderkey, view_totalprice, ds, view_orderpriority, view_orderstatus) " +
-                    "SELECT SELECT t1.orderkey as view_orderkey, t2.totalprice as view_totalprice, t1.ds " +
-                    " FROM %s t1 inner join %s t2 ON t1.ds=t2.ds" +
-                    " where t1.ds='2020-01-01'", view, table1, table2), 65025);
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2020-01-01'", view), 65025);
 
             String viewQuery = format("SELECT view_orderkey, view_totalprice from %s where view_orderkey <  10000", view);
             // getExplainPlan(viewQuery, LOGICAL);
@@ -1488,7 +1470,7 @@ public class TestHiveLogicalPlanner
         }
     }
 
-    @Test(enabled = false)
+    @Test
     public void testMaterializedViewOptimizationWithDoublePartition()
     {
         QueryRunner queryRunner = getQueryRunner();
@@ -1502,8 +1484,7 @@ public class TestHiveLogicalPlanner
             assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['totalprice']) " +
                     "AS SELECT orderkey, orderpriority, totalprice FROM %s", view, table));
             assertTrue(getQueryRunner().tableExists(getSession(), view));
-            assertUpdate(format("INSERT INTO %s(orderkey, orderpriority, totalprice) " +
-                    "select orderkey, orderpriority, totalprice from %s where totalprice<65000", view, table), 3);
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE totalprice<65000", view, table), 3);
 
             String viewQuery = format("SELECT orderkey from %s where orderkey <  10000 ORDER BY orderkey", view);
             String baseQuery = format("SELECT orderkey from %s where orderkey <  10000 ORDER BY orderkey", table);
@@ -1518,7 +1499,7 @@ public class TestHiveLogicalPlanner
         }
     }
 
-    @Test(enabled = false)
+    @Test
     public void testMaterializedViewForJoinWithMultiplePartitions()
     {
         QueryRunner queryRunner = getQueryRunner();
@@ -1541,10 +1522,7 @@ public class TestHiveLogicalPlanner
                     "t1.ds as ds, t1.orderpriority as view_orderpriority, t2.orderstatus as view_orderstatus " +
                     " FROM %s t1 inner join %s t2 ON t1.ds=t2.ds", view, table1, table2));
 
-            assertUpdate(format("INSERT INTO %s(view_orderkey, view_totalprice, ds, view_orderpriority, view_orderstatus) " +
-                    "SELECT t1.orderkey as view_orderkey, t2.totalprice as view_totalprice, t1.ds as ds, t1.orderpriority as view_orderpriority, " +
-                    "t2.orderstatus as view_orderstatus FROM %s t1 inner join %s t2 ON t1.ds=t2.ds" +
-                    " where t1.ds='2020-01-01'", view, table1, table2), 65025);
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2020-01-01'", view, table1, table2), 65025);
 
             String viewQuery = format("SELECT view_orderkey from %s where view_orderkey <  10000 ORDER BY view_orderkey", view);
             String baseQuery = format("SELECT t1.orderkey FROM %s t1" +

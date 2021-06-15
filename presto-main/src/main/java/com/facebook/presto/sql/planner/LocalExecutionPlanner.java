@@ -37,6 +37,7 @@ import com.facebook.presto.execution.scheduler.ExecutionWriterTarget;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.CreateHandle;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.DeleteHandle;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.InsertHandle;
+import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.RefreshMaterializedViewHandle;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.execution.scheduler.TableWriteInfo.DeleteScanInfo;
 import com.facebook.presto.expressions.DynamicFilters;
@@ -251,12 +252,14 @@ import static com.facebook.presto.SystemSessionProperties.getIndexLoaderTimeout;
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
 import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
+import static com.facebook.presto.SystemSessionProperties.isDistinctAggregationSpillEnabled;
 import static com.facebook.presto.SystemSessionProperties.isEnableDynamicFiltering;
 import static com.facebook.presto.SystemSessionProperties.isExchangeChecksumEnabled;
 import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isJoinSpillingEnabled;
 import static com.facebook.presto.SystemSessionProperties.isOptimizeCommonSubExpressions;
 import static com.facebook.presto.SystemSessionProperties.isOptimizedRepartitioningEnabled;
+import static com.facebook.presto.SystemSessionProperties.isOrderByAggregationSpillEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -1240,7 +1243,14 @@ public class LocalExecutionPlanner
             boolean spillEnabled = isSpillEnabled(context.getSession());
             DataSize unspillMemoryLimit = getAggregationOperatorUnspillMemoryLimit(context.getSession());
 
-            return planGroupByAggregation(node, source, spillEnabled, unspillMemoryLimit, context);
+            return planGroupByAggregation(
+                    node,
+                    source,
+                    spillEnabled,
+                    isDistinctAggregationSpillEnabled(session),
+                    isOrderByAggregationSpillEnabled(session),
+                    unspillMemoryLimit,
+                    context);
         }
 
         @Override
@@ -2512,6 +2522,8 @@ public class LocalExecutionPlanner
                         false,
                         false,
                         false,
+                        false,
+                        false,
                         new DataSize(0, BYTE),
                         context,
                         STATS_START_CHANNEL,
@@ -2615,6 +2627,8 @@ public class LocalExecutionPlanner
                         false,
                         false,
                         false,
+                        false,
+                        false,
                         new DataSize(0, BYTE),
                         context,
                         STATS_START_CHANNEL,
@@ -2664,6 +2678,8 @@ public class LocalExecutionPlanner
                         Optional.empty(),
                         Optional.empty(),
                         source,
+                        false,
+                        false,
                         false,
                         false,
                         false,
@@ -3021,6 +3037,8 @@ public class LocalExecutionPlanner
                 AggregationNode node,
                 PhysicalOperation source,
                 boolean spillEnabled,
+                boolean distinctAggregationSpillEnabled,
+                boolean orderByAggregationSpillEnabled,
                 DataSize unspillMemoryLimit,
                 LocalExecutionPlanContext context)
         {
@@ -3036,6 +3054,8 @@ public class LocalExecutionPlanner
                     source,
                     node.hasDefaultOutput(),
                     spillEnabled,
+                    distinctAggregationSpillEnabled,
+                    orderByAggregationSpillEnabled,
                     node.isStreamable(),
                     unspillMemoryLimit,
                     context,
@@ -3058,6 +3078,8 @@ public class LocalExecutionPlanner
                 PhysicalOperation source,
                 boolean hasDefaultOutput,
                 boolean spillEnabled,
+                boolean distinctSpillEnabled,
+                boolean orderBySpillEnabled,
                 boolean isStreamable,
                 DataSize unspillMemoryLimit,
                 LocalExecutionPlanContext context,
@@ -3131,6 +3153,8 @@ public class LocalExecutionPlanner
                         expectedGroups,
                         maxPartialAggregationMemorySize,
                         spillEnabled,
+                        distinctSpillEnabled,
+                        orderBySpillEnabled,
                         unspillMemoryLimit,
                         spillerFactory,
                         joinCompiler,
@@ -3152,6 +3176,9 @@ public class LocalExecutionPlanner
                 metadata.finishDelete(session, ((DeleteHandle) target).getHandle(), fragments);
                 return Optional.empty();
             }
+            else if (target instanceof RefreshMaterializedViewHandle) {
+                return metadata.finishRefreshMaterializedView(session, ((RefreshMaterializedViewHandle) target).getHandle(), fragments, statistics);
+            }
             else {
                 throw new AssertionError("Unhandled target type: " + target.getClass().getName());
             }
@@ -3166,6 +3193,9 @@ public class LocalExecutionPlanner
             }
             else if (target instanceof InsertHandle) {
                 return metadata.commitPageSinkAsync(session, ((InsertHandle) target).getHandle(), fragments);
+            }
+            else if (target instanceof RefreshMaterializedViewHandle) {
+                return metadata.commitPageSinkAsync(session, ((RefreshMaterializedViewHandle) target).getHandle(), fragments);
             }
             else {
                 throw new AssertionError("Unhandled target type: " + target.getClass().getName());

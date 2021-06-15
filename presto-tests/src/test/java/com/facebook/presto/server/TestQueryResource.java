@@ -42,6 +42,7 @@ import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;
 import static java.lang.Thread.sleep;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
@@ -89,6 +90,9 @@ public class TestQueryResource
         List<BasicQueryInfo> infos = getQueryInfos("/v1/query");
         assertEquals(infos.size(), 7);
         assertStateCounts(infos, 2, 1, 3, 1);
+
+        assertThatThrownBy(() -> getQueryInfos("/v1/query?limit=-1"))
+                .hasMessageMatching(".*Bad Request.*");
 
         infos = getQueryInfos("/v1/query?limit=5");
         assertEquals(infos.size(), 5);

@@ -116,6 +116,7 @@ import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QueryBody;
 import com.facebook.presto.sql.tree.QuerySpecification;
+import com.facebook.presto.sql.tree.RefreshMaterializedView;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameSchema;
@@ -355,6 +356,15 @@ class AstBuilder
     public Node visitDropMaterializedView(SqlBaseParser.DropMaterializedViewContext context)
     {
         return new DropMaterializedView(Optional.of(getLocation(context)), getQualifiedName(context.qualifiedName()), context.EXISTS() != null);
+    }
+
+    @Override
+    public Node visitRefreshMaterializedView(SqlBaseParser.RefreshMaterializedViewContext context)
+    {
+        return new RefreshMaterializedView(
+                getLocation(context),
+                new Table(getLocation(context), getQualifiedName(context.qualifiedName())),
+                (Expression) visit(context.booleanExpression()));
     }
 
     @Override

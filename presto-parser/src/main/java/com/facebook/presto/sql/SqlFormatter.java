@@ -72,6 +72,7 @@ import com.facebook.presto.sql.tree.Property;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
+import com.facebook.presto.sql.tree.RefreshMaterializedView;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameSchema;
@@ -678,6 +679,17 @@ public final class SqlFormatter
                 builder.append("IF EXISTS ");
             }
             builder.append(node.getName());
+
+            return null;
+        }
+
+        @Override
+        protected Void visitRefreshMaterializedView(RefreshMaterializedView node, Integer context)
+        {
+            builder.append("REFRESH MATERIALIZED VIEW ")
+                    .append(formatName(node.getTarget().getName()))
+                    .append(" WHERE ")
+                    .append(formatExpression(node.getWhere(), parameters));
 
             return null;
         }

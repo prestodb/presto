@@ -13,8 +13,13 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.testing.QueryRunner;
 import org.testng.annotations.Test;
+
+import static com.facebook.presto.SystemSessionProperties.AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT;
+import static com.facebook.presto.SystemSessionProperties.DISTINCT_AGGREGATION_SPILL_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.ORDER_BY_AGGREGATION_SPILL_ENABLED;
 
 public class TestSpilledAggregations
         extends AbstractTestAggregations
@@ -27,13 +32,25 @@ public class TestSpilledAggregations
     }
 
     @Test
-    public void OrderBySpillingBasic()
+    public void testOrderBySpillingBasic()
     {
         assertQuery("SELECT orderpriority, custkey, array_agg(orderstatus ORDER BY orderstatus) FROM orders GROUP BY orderpriority, custkey ORDER BY 1, 2");
     }
 
     @Test
-    public void OrderBySpillingGroupingSets()
+    public void testDoesNotSpillOrderByWhenDisabled()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(ORDER_BY_AGGREGATION_SPILL_ENABLED, "false")
+                // set this low so that if we ran with spill the query would fail
+                .setSystemProperty(AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT, "1B")
+                .build();
+        assertQuery(session,
+                "SELECT orderpriority, custkey, array_agg(orderstatus ORDER BY orderstatus) FROM orders GROUP BY orderpriority, custkey ORDER BY 1, 2");
+    }
+
+    @Test
+    public void testOrderBySpillingGroupingSets()
     {
         assertQuery(
                 "SELECT orderpriority, custkey, array_agg(orderstatus ORDER BY orderstatus) FROM orders WHERE orderkey IN (1, 2, 3, 4, 5) " +
@@ -44,26 +61,39 @@ public class TestSpilledAggregations
     }
 
     @Test
-    public void DistinctSpillingBasic()
+    public void testDistinctSpillingBasic()
     {
         // the sum() is necessary so that the aggregation isn't optimized into multiple aggregation nodes
         assertQuery("SELECT custkey, sum(custkey), count(DISTINCT orderpriority) FILTER(WHERE orderkey > 5) FROM orders GROUP BY custkey ORDER BY 1");
     }
 
     @Test
-    public void DistinctAndOrderBySpillingBasic()
+    public void testDoesNotSpillDistinctWhenDisabled()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(DISTINCT_AGGREGATION_SPILL_ENABLED, "false")
+                // set this low so that if we ran with spill the query would fail
+                .setSystemProperty(AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT, "1B")
+                .build();
+        // the sum() is necessary so that the aggregation isn't optimized into multiple aggregation nodes
+        assertQuery(session,
+                "SELECT custkey, sum(custkey), count(DISTINCT orderpriority) FILTER(WHERE orderkey > 5) FROM orders GROUP BY custkey ORDER BY 1");
+    }
+
+    @Test
+    public void testDistinctAndOrderBySpillingBasic()
     {
         assertQuery("SELECT custkey, orderpriority, sum(custkey), array_agg(DISTINCT orderpriority ORDER BY orderpriority) FROM orders GROUP BY custkey, orderpriority ORDER BY 1, 2");
     }
 
     @Test
-    public void DistinctSpillingCount()
+    public void testDistinctSpillingCount()
     {
         assertQuery("SELECT orderpriority, custkey, sum(custkey), count(DISTINCT totalprice) FROM orders GROUP BY orderpriority, custkey ORDER BY 1, 2");
     }
 
     @Test
-    public void DistinctSpillingGroupingSets()
+    public void testDistinctSpillingGroupingSets()
     {
         assertQuery(
                 "SELECT custkey, count(DISTINCT orderpriority) FROM orders WHERE orderkey IN (1, 2, 3, 4, 5) " +
@@ -73,13 +103,13 @@ public class TestSpilledAggregations
     }
 
     @Test
-    public void TestNonGroupedOrderBySpill()
+    public void testNonGroupedOrderBySpill()
     {
         assertQuery("SELECT array_agg(orderstatus ORDER BY orderstatus) FROM orders");
     }
 
     @Test
-    public void TestMultipleDistinctAggregations()
+    public void testMultipleDistinctAggregations()
     {
         assertQuery("SELECT custkey, count(DISTINCT orderpriority), count(DISTINCT orderstatus), count(DISTINCT totalprice), count(DISTINCT clerk) FROM orders GROUP BY custkey");
     }

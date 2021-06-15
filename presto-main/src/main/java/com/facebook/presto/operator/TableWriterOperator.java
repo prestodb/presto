@@ -25,6 +25,7 @@ import com.facebook.presto.execution.TaskMetadataContext;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.CreateHandle;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.InsertHandle;
+import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.RefreshMaterializedViewHandle;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.metadata.ConnectorMetadataUpdaterManager;
 import com.facebook.presto.operator.OperationTimer.OperationTiming;
@@ -112,7 +113,9 @@ public class TableWriterOperator
             this.pageSinkManager = requireNonNull(pageSinkManager, "pageSinkManager is null");
             this.metadataUpdaterManager = requireNonNull(metadataUpdaterManager, "metadataUpdaterManager is null");
             this.taskMetadataContext = requireNonNull(taskMetadataContext, "taskMetadataContext is null");
-            checkArgument(writerTarget instanceof CreateHandle || writerTarget instanceof InsertHandle, "writerTarget must be CreateHandle or InsertHandle");
+            checkArgument(
+                    writerTarget instanceof CreateHandle || writerTarget instanceof InsertHandle || writerTarget instanceof RefreshMaterializedViewHandle,
+                    "writerTarget must be CreateHandle or InsertHandle or RefreshMaterializedViewHandle");
             this.target = requireNonNull(writerTarget, "writerTarget is null");
             this.session = session;
             this.statisticsAggregationOperatorFactory = requireNonNull(statisticsAggregationOperatorFactory, "statisticsAggregationOperatorFactory is null");
@@ -159,6 +162,9 @@ public class TableWriterOperator
             if (target instanceof InsertHandle) {
                 return pageSinkManager.createPageSink(session, ((InsertHandle) target).getHandle(), pageSinkContextBuilder.build());
             }
+            if (target instanceof RefreshMaterializedViewHandle) {
+                return pageSinkManager.createPageSink(session, ((RefreshMaterializedViewHandle) target).getHandle(), pageSinkContextBuilder.build());
+            }
             throw new UnsupportedOperationException("Unhandled target type: " + target.getClass().getName());
         }
 
@@ -170,6 +176,10 @@ public class TableWriterOperator
 
             if (handle instanceof InsertHandle) {
                 return ((InsertHandle) handle).getHandle().getConnectorId();
+            }
+
+            if (handle instanceof RefreshMaterializedViewHandle) {
+                return ((RefreshMaterializedViewHandle) handle).getHandle().getConnectorId();
             }
 
             throw new UnsupportedOperationException("Unhandled target type: " + handle.getClass().getName());

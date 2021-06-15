@@ -1829,6 +1829,11 @@ public class HiveMetadata
     @Override
     public HiveInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
+        return beginInsertInternal(session, tableHandle);
+    }
+
+    private HiveInsertTableHandle beginInsertInternal(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
         verifyJvmTimeZone();
 
         MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource());
@@ -1924,6 +1929,11 @@ public class HiveMetadata
 
     @Override
     public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    {
+        return finishInsertInternal(session, insertHandle, fragments, computedStatistics);
+    }
+
+    private Optional<ConnectorOutputMetadata> finishInsertInternal(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         HiveInsertTableHandle handle = (HiveInsertTableHandle) insertHandle;
 
@@ -2365,6 +2375,14 @@ public class HiveMetadata
         }
 
         Table basicTable = prepareTable(session, viewMetadata, MATERIALIZED_VIEW);
+        viewDefinition = new ConnectorMaterializedViewDefinition(
+                viewDefinition.getOriginalSql(),
+                viewDefinition.getSchema(),
+                viewDefinition.getTable(),
+                viewDefinition.getBaseTables(),
+                viewDefinition.getOwner(),
+                viewDefinition.getColumnMappings(),
+                Optional.of(getPartitionedBy(viewMetadata.getProperties())));
         Map<String, String> parameters = ImmutableMap.<String, String>builder()
                 .putAll(basicTable.getParameters())
                 .put(PRESTO_MATERIALIZED_VIEW_FLAG, "true")
@@ -2410,6 +2428,18 @@ public class HiveMetadata
         catch (TableNotFoundException e) {
             throw new MaterializedViewNotFoundException(e.getTableName());
         }
+    }
+
+    @Override
+    public HiveInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return beginInsertInternal(session, tableHandle);
+    }
+
+    @Override
+    public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    {
+        return finishInsertInternal(session, insertHandle, fragments, computedStatistics);
     }
 
     @Override

@@ -571,6 +571,9 @@ public class PrestoSparkQueryExecutionFactory
         else if (writerTarget instanceof ExecutionWriterTarget.InsertHandle) {
             connectorId = ((ExecutionWriterTarget.InsertHandle) writerTarget).getHandle().getConnectorId();
         }
+        else if (writerTarget instanceof ExecutionWriterTarget.RefreshMaterializedViewHandle) {
+            connectorId = ((ExecutionWriterTarget.RefreshMaterializedViewHandle) writerTarget).getHandle().getConnectorId();
+        }
         else {
             throw new IllegalArgumentException("unexpected writer target type: " + writerTarget.getClass());
         }

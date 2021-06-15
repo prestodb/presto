@@ -43,6 +43,7 @@ import com.facebook.presto.sql.tree.GrantRoles;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.Prepare;
 import com.facebook.presto.sql.tree.Query;
+import com.facebook.presto.sql.tree.RefreshMaterializedView;
 import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameSchema;
 import com.facebook.presto.sql.tree.RenameTable;
@@ -87,6 +88,7 @@ public final class StatementUtils
 
         builder.put(CreateTableAsSelect.class, QueryType.INSERT);
         builder.put(Insert.class, QueryType.INSERT);
+        builder.put(RefreshMaterializedView.class, QueryType.INSERT);
 
         builder.put(Delete.class, QueryType.DELETE);
 

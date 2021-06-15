@@ -96,6 +96,10 @@ public class TableWriteInfo
                 TableWriterNode.DeleteHandle delete = (TableWriterNode.DeleteHandle) target;
                 return Optional.of(new ExecutionWriterTarget.DeleteHandle(metadata.beginDelete(session, delete.getHandle()), delete.getSchemaTableName()));
             }
+            if (target instanceof TableWriterNode.RefreshMaterializedViewReference) {
+                TableWriterNode.RefreshMaterializedViewReference refresh = (TableWriterNode.RefreshMaterializedViewReference) target;
+                return Optional.of(new ExecutionWriterTarget.RefreshMaterializedViewHandle(metadata.beginRefreshMaterializedView(session, refresh.getHandle()), refresh.getSchemaTableName()));
+            }
             throw new IllegalArgumentException("Unhandled target type: " + target.getClass().getSimpleName());
         }
 
