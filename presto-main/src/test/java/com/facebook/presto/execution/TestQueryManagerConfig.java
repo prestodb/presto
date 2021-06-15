@@ -69,7 +69,8 @@ public class TestQueryManagerConfig
                 .setPerQueryRetryLimit(0)
                 .setPerQueryRetryMaxExecutionTime(new Duration(5, MINUTES))
                 .setGlobalQueryRetryFailureLimit(150)
-                .setGlobalQueryRetryFailureWindow(new Duration(5, MINUTES)));
+                .setGlobalQueryRetryFailureWindow(new Duration(5, MINUTES))
+                .setForceCoordinatorNodeExecutionForValuesQueries(false));
     }
 
     @Test
@@ -112,6 +113,7 @@ public class TestQueryManagerConfig
                 .put("per-query-retry-max-execution-time", "1h")
                 .put("global-query-retry-failure-limit", "200")
                 .put("global-query-retry-failure-window", "1h")
+                .put("force-coordinator-node-execution-for-values-queries", "true")
                 .build();
 
         QueryManagerConfig expected = new QueryManagerConfig()
@@ -150,7 +152,8 @@ public class TestQueryManagerConfig
                 .setPerQueryRetryLimit(10)
                 .setPerQueryRetryMaxExecutionTime(new Duration(1, HOURS))
                 .setGlobalQueryRetryFailureLimit(200)
-                .setGlobalQueryRetryFailureWindow(new Duration(1, HOURS));
+                .setGlobalQueryRetryFailureWindow(new Duration(1, HOURS))
+                .setForceCoordinatorNodeExecutionForValuesQueries(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

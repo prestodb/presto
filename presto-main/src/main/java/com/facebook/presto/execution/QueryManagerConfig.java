@@ -71,6 +71,7 @@ public class QueryManagerConfig
     private Duration queryMaxRunTime = new Duration(100, TimeUnit.DAYS);
     private Duration queryMaxExecutionTime = new Duration(100, TimeUnit.DAYS);
     private Duration queryMaxCpuTime = new Duration(1_000_000_000, TimeUnit.DAYS);
+    private boolean forceCoordinatorNodeExecutionForValuesQueries;
 
     private DataSize queryMaxScanRawInputBytes = DataSize.succinctDataSize(1000, PETABYTE);
     private DataSize queryMaxOutputSize = DataSize.succinctDataSize(1000, PETABYTE);
@@ -575,6 +576,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setGlobalQueryRetryFailureWindow(Duration globalQueryRetryFailureWindow)
     {
         this.globalQueryRetryFailureWindow = globalQueryRetryFailureWindow;
+        return this;
+    }
+
+    public boolean isForceCoordinatorNodeExecutionForValuesQueries()
+    {
+        return forceCoordinatorNodeExecutionForValuesQueries;
+    }
+
+    @Config("force-coordinator-node-execution-for-values-queries")
+    @ConfigDescription("Force queries that have 'VALUES (...)' as the only inputs to run directly on coordinator")
+    public QueryManagerConfig setForceCoordinatorNodeExecutionForValuesQueries(boolean forceCoordinatorNodeExecutionForValuesQueries)
+    {
+        this.forceCoordinatorNodeExecutionForValuesQueries = forceCoordinatorNodeExecutionForValuesQueries;
         return this;
     }
 
