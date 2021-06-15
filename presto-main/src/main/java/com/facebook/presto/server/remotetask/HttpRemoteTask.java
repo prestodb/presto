@@ -27,7 +27,7 @@ import com.facebook.drift.transport.netty.codec.Protocol;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.FutureStateChange;
 import com.facebook.presto.execution.Lifespan;
-import com.facebook.presto.execution.NodeTaskMap.NodeStatsTracker;
+import com.facebook.presto.execution.NodeTaskTracker.NodeStatsTracker;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.ScheduledSplit;

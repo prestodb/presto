@@ -94,7 +94,7 @@ public final class SqlStageExecution
     private final StageExecutionStateMachine stateMachine;
     private final PlanFragment planFragment;
     private final RemoteTaskFactory remoteTaskFactory;
-    private final NodeTaskMap nodeTaskMap;
+    private final NodeTaskTracker nodeTaskTracker;
     private final boolean summarizeTaskInfo;
     private final Executor executor;
     private final FailureDetector failureDetector;
@@ -143,7 +143,7 @@ public final class SqlStageExecution
             RemoteTaskFactory remoteTaskFactory,
             Session session,
             boolean summarizeTaskInfo,
-            NodeTaskMap nodeTaskMap,
+            NodeTaskTracker nodeTaskTracker,
             ExecutorService executor,
             FailureDetector failureDetector,
             SplitSchedulerStats schedulerStats,
@@ -153,7 +153,7 @@ public final class SqlStageExecution
         requireNonNull(fragment, "fragment is null");
         requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
         requireNonNull(session, "session is null");
-        requireNonNull(nodeTaskMap, "nodeTaskMap is null");
+        requireNonNull(nodeTaskTracker, "nodeTaskTracker is null");
         requireNonNull(executor, "executor is null");
         requireNonNull(failureDetector, "failureDetector is null");
         requireNonNull(schedulerStats, "schedulerStats is null");
@@ -164,7 +164,7 @@ public final class SqlStageExecution
                 new StageExecutionStateMachine(stageExecutionId, executor, schedulerStats, !fragment.getTableScanSchedulingOrder().isEmpty()),
                 fragment,
                 remoteTaskFactory,
-                nodeTaskMap,
+                nodeTaskTracker,
                 summarizeTaskInfo,
                 executor,
                 failureDetector,
@@ -179,7 +179,7 @@ public final class SqlStageExecution
             StageExecutionStateMachine stateMachine,
             PlanFragment planFragment,
             RemoteTaskFactory remoteTaskFactory,
-            NodeTaskMap nodeTaskMap,
+            NodeTaskTracker nodeTaskTracker,
             boolean summarizeTaskInfo,
             Executor executor,
             FailureDetector failureDetector,
@@ -190,7 +190,7 @@ public final class SqlStageExecution
         this.stateMachine = stateMachine;
         this.planFragment = requireNonNull(planFragment, "planFragment is null");
         this.remoteTaskFactory = requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
-        this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
+        this.nodeTaskTracker = requireNonNull(nodeTaskTracker, "nodeTaskTracker is null");
         this.summarizeTaskInfo = summarizeTaskInfo;
         this.executor = requireNonNull(executor, "executor is null");
         this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
@@ -518,7 +518,7 @@ public final class SqlStageExecution
                 planFragment,
                 initialSplits.build(),
                 outputBuffers,
-                nodeTaskMap.createTaskStatsTracker(node, taskId),
+                nodeTaskTracker.createTaskStatsTracker(node, taskId),
                 summarizeTaskInfo,
                 tableWriteInfo);
 
@@ -526,7 +526,7 @@ public final class SqlStageExecution
 
         allTasks.add(taskId);
         tasks.computeIfAbsent(node, key -> newConcurrentHashSet()).add(task);
-        nodeTaskMap.addTask(node, task);
+        nodeTaskTracker.addTask(node, task);
 
         task.addStateChangeListener(new StageTaskListener(taskId));
         task.addFinalTaskInfoListener(this::updateFinalTaskInfo);

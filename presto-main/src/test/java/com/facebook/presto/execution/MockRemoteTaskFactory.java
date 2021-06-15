@@ -17,7 +17,7 @@ import com.facebook.airlift.stats.TestingGcMonitor;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.cost.StatsAndCosts;
-import com.facebook.presto.execution.NodeTaskMap.NodeStatsTracker;
+import com.facebook.presto.execution.NodeTaskTracker.NodeStatsTracker;
 import com.facebook.presto.execution.buffer.LazyOutputBuffer;
 import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.execution.buffer.OutputBuffers;

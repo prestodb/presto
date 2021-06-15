@@ -15,7 +15,7 @@ package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.ForQueryExecution;
-import com.facebook.presto.execution.NodeTaskMap;
+import com.facebook.presto.execution.NodeTaskTracker;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.RemoteTaskFactory;
@@ -93,7 +93,7 @@ public class SectionExecutionFactory
 {
     private final Metadata metadata;
     private final NodePartitioningManager nodePartitioningManager;
-    private final NodeTaskMap nodeTaskMap;
+    private final NodeTaskTracker nodeTaskTracker;
     private final ExecutorService executor;
     private final ScheduledExecutorService scheduledExecutor;
     private final FailureDetector failureDetector;
@@ -105,7 +105,7 @@ public class SectionExecutionFactory
     public SectionExecutionFactory(
             Metadata metadata,
             NodePartitioningManager nodePartitioningManager,
-            NodeTaskMap nodeTaskMap,
+            NodeTaskTracker nodeTaskTracker,
             @ForQueryExecution ExecutorService executor,
             @ForScheduler ScheduledExecutorService scheduledExecutor,
             FailureDetector failureDetector,
@@ -116,7 +116,7 @@ public class SectionExecutionFactory
         this(
                 metadata,
                 nodePartitioningManager,
-                nodeTaskMap,
+                nodeTaskTracker,
                 executor,
                 scheduledExecutor,
                 failureDetector,
@@ -128,7 +128,7 @@ public class SectionExecutionFactory
     public SectionExecutionFactory(
             Metadata metadata,
             NodePartitioningManager nodePartitioningManager,
-            NodeTaskMap nodeTaskMap,
+            NodeTaskTracker nodeTaskTracker,
             ExecutorService executor,
             ScheduledExecutorService scheduledExecutor,
             FailureDetector failureDetector,
@@ -138,7 +138,7 @@ public class SectionExecutionFactory
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
-        this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
+        this.nodeTaskTracker = requireNonNull(nodeTaskTracker, "nodeTaskTracker is null");
         this.executor = requireNonNull(executor, "executor is null");
         this.scheduledExecutor = requireNonNull(scheduledExecutor, "scheduledExecutor is null");
         this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
@@ -205,7 +205,7 @@ public class SectionExecutionFactory
                 remoteTaskFactory,
                 session,
                 summarizeTaskInfo,
-                nodeTaskMap,
+                nodeTaskTracker,
                 executor,
                 failureDetector,
                 schedulerStats,

@@ -15,7 +15,7 @@ package com.facebook.presto.execution.scheduler.nodeSelection;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.CounterStat;
-import com.facebook.presto.execution.NodeTaskMap;
+import com.facebook.presto.execution.NodeTaskTracker;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.scheduler.BucketNodeMap;
 import com.facebook.presto.execution.scheduler.NetworkLocation;
@@ -64,7 +64,7 @@ public class TopologyAwareNodeSelector
 
     private final InternalNodeManager nodeManager;
     private final NodeSelectionStats nodeSelectionStats;
-    private final NodeTaskMap nodeTaskMap;
+    private final NodeTaskTracker nodeTaskTracker;
     private final boolean includeCoordinator;
     private final AtomicReference<Supplier<NodeMap>> nodeMap;
     private final int minCandidates;
@@ -78,7 +78,7 @@ public class TopologyAwareNodeSelector
     public TopologyAwareNodeSelector(
             InternalNodeManager nodeManager,
             NodeSelectionStats nodeSelectionStats,
-            NodeTaskMap nodeTaskMap,
+            NodeTaskTracker nodeTaskTracker,
             boolean includeCoordinator,
             Supplier<NodeMap> nodeMap,
             int minCandidates,
@@ -91,7 +91,7 @@ public class TopologyAwareNodeSelector
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.nodeSelectionStats = requireNonNull(nodeSelectionStats, "nodeSelectionStats is null");
-        this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
+        this.nodeTaskTracker = requireNonNull(nodeTaskTracker, "nodeTaskTracker is null");
         this.includeCoordinator = includeCoordinator;
         this.nodeMap = new AtomicReference<>(nodeMap);
         this.minCandidates = minCandidates;
@@ -140,7 +140,7 @@ public class TopologyAwareNodeSelector
     {
         NodeMap nodeMap = this.nodeMap.get().get();
         Multimap<InternalNode, Split> assignment = HashMultimap.create();
-        NodeAssignmentStats assignmentStats = new NodeAssignmentStats(nodeTaskMap, nodeMap, existingTasks);
+        NodeAssignmentStats assignmentStats = new NodeAssignmentStats(nodeTaskTracker, nodeMap, existingTasks);
 
         int[] topologicCounters = new int[topologicalSplitCounters.size()];
         Set<NetworkLocation> filledLocations = new HashSet<>();
@@ -248,7 +248,7 @@ public class TopologyAwareNodeSelector
     @Override
     public SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks, BucketNodeMap bucketNodeMap)
     {
-        return selectDistributionNodes(nodeMap.get().get(), nodeTaskMap, maxSplitsPerNode, maxPendingSplitsPerTask, maxUnacknowledgedSplitsPerTask, splits, existingTasks, bucketNodeMap, nodeSelectionStats);
+        return selectDistributionNodes(nodeMap.get().get(), nodeTaskTracker, maxSplitsPerNode, maxPendingSplitsPerTask, maxUnacknowledgedSplitsPerTask, splits, existingTasks, bucketNodeMap, nodeSelectionStats);
     }
 
     @Nullable

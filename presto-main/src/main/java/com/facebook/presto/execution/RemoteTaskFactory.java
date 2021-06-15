@@ -22,7 +22,7 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.collect.Multimap;
 
-import static com.facebook.presto.execution.NodeTaskMap.NodeStatsTracker;
+import static com.facebook.presto.execution.NodeTaskTracker.NodeStatsTracker;
 
 public interface RemoteTaskFactory
 {

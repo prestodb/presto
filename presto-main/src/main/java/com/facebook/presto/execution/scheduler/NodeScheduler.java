@@ -15,7 +15,7 @@ package com.facebook.presto.execution.scheduler;
 
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.NodeTaskMap;
+import com.facebook.presto.execution.NodeTaskTracker;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionStats;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelector;
@@ -77,14 +77,14 @@ public class NodeScheduler
     private final boolean includeCoordinator;
     private final int maxSplitsPerNode;
     private final int maxPendingSplitsPerTask;
-    private final NodeTaskMap nodeTaskMap;
+    private final NodeTaskTracker nodeTaskTracker;
     private final boolean useNetworkTopology;
     private final Duration nodeMapRefreshInterval;
 
     @Inject
-    public NodeScheduler(NetworkTopology networkTopology, InternalNodeManager nodeManager, NodeSelectionStats nodeSelectionStats, NodeSchedulerConfig config, NodeTaskMap nodeTaskMap)
+    public NodeScheduler(NetworkTopology networkTopology, InternalNodeManager nodeManager, NodeSelectionStats nodeSelectionStats, NodeSchedulerConfig config, NodeTaskTracker nodeTaskTracker)
     {
-        this(new NetworkLocationCache(networkTopology), networkTopology, nodeManager, nodeSelectionStats, config, nodeTaskMap, new Duration(5, SECONDS));
+        this(new NetworkLocationCache(networkTopology), networkTopology, nodeManager, nodeSelectionStats, config, nodeTaskTracker, new Duration(5, SECONDS));
     }
 
     public NodeScheduler(
@@ -93,7 +93,7 @@ public class NodeScheduler
             InternalNodeManager nodeManager,
             NodeSelectionStats nodeSelectionStats,
             NodeSchedulerConfig config,
-            NodeTaskMap nodeTaskMap,
+            NodeTaskTracker nodeTaskTracker,
             Duration nodeMapRefreshInterval)
     {
         this.networkLocationCache = networkLocationCache;
@@ -103,7 +103,7 @@ public class NodeScheduler
         this.includeCoordinator = config.isIncludeCoordinator();
         this.maxSplitsPerNode = config.getMaxSplitsPerNode();
         this.maxPendingSplitsPerTask = config.getMaxPendingSplitsPerTask();
-        this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
+        this.nodeTaskTracker = requireNonNull(nodeTaskTracker, "nodeTaskTracker is null");
         checkArgument(maxSplitsPerNode >= maxPendingSplitsPerTask, "maxSplitsPerNode must be > maxPendingSplitsPerTask");
         this.useNetworkTopology = !config.getNetworkTopology().equals(NetworkTopologyType.LEGACY);
 
@@ -153,7 +153,7 @@ public class NodeScheduler
             return new TopologyAwareNodeSelector(
                     nodeManager,
                     nodeSelectionStats,
-                    nodeTaskMap,
+                    nodeTaskTracker,
                     includeCoordinator,
                     nodeMap,
                     minCandidates,
@@ -165,7 +165,7 @@ public class NodeScheduler
                     networkLocationCache);
         }
         else {
-            return new SimpleNodeSelector(nodeManager, nodeSelectionStats, nodeTaskMap, includeCoordinator, nodeMap, minCandidates, maxSplitsPerNode, maxPendingSplitsPerTask, maxUnacknowledgedSplitsPerTask, maxTasksPerStage);
+            return new SimpleNodeSelector(nodeManager, nodeSelectionStats, nodeTaskTracker, includeCoordinator, nodeMap, minCandidates, maxSplitsPerNode, maxPendingSplitsPerTask, maxUnacknowledgedSplitsPerTask, maxTasksPerStage);
         }
     }
 
@@ -298,7 +298,7 @@ public class NodeScheduler
 
     public static SplitPlacementResult selectDistributionNodes(
             NodeMap nodeMap,
-            NodeTaskMap nodeTaskMap,
+            NodeTaskTracker nodeTaskTracker,
             int maxSplitsPerNode,
             int maxPendingSplitsPerTask,
             int maxUnacknowledgedSplitsPerTask,
@@ -308,7 +308,7 @@ public class NodeScheduler
             NodeSelectionStats nodeSelectionStats)
     {
         Multimap<InternalNode, Split> assignments = HashMultimap.create();
-        NodeAssignmentStats assignmentStats = new NodeAssignmentStats(nodeTaskMap, nodeMap, existingTasks);
+        NodeAssignmentStats assignmentStats = new NodeAssignmentStats(nodeTaskTracker, nodeMap, existingTasks);
 
         Set<InternalNode> blockedNodes = new HashSet<>();
         for (Split split : splits) {

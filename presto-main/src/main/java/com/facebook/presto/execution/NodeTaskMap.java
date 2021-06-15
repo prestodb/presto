@@ -25,14 +25,13 @@ import javax.inject.Inject;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.IntConsumer;
-import java.util.function.LongConsumer;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class NodeTaskMap
+        implements NodeTaskTracker
 {
     private static final Logger log = Logger.get(NodeTaskMap.class);
     private final ConcurrentHashMap<InternalNode, NodeTasks> nodeTasksMap = new ConcurrentHashMap<>();
@@ -44,26 +43,31 @@ public class NodeTaskMap
         this.finalizerService = requireNonNull(finalizerService, "finalizerService is null");
     }
 
+    @Override
     public void addTask(InternalNode node, RemoteTask task)
     {
         createOrGetNodeTasks(node).addTask(task);
     }
 
+    @Override
     public int getPartitionedSplitsOnNode(InternalNode node)
     {
         return createOrGetNodeTasks(node).getPartitionedSplitCount();
     }
 
+    @Override
     public long getNodeTotalMemoryUsageInBytes(InternalNode node)
     {
         return createOrGetNodeTasks(node).getTotalMemoryUsageInBytes();
     }
 
+    @Override
     public double getNodeCpuUtilizationPercentage(InternalNode node)
     {
         return createOrGetNodeTasks(node).getTotalCpuTimePerMillis();
     }
 
+    @Override
     public NodeStatsTracker createTaskStatsTracker(InternalNode node, TaskId taskId)
     {
         return createOrGetNodeTasks(node).createTaskStatsTrackers(taskId);
@@ -262,45 +266,6 @@ public class NodeTaskMap
 
                 totalValue.addAndGet(-leakedValues);
             }
-        }
-    }
-
-    public static class NodeStatsTracker
-    {
-        private final IntConsumer splitSetter;
-        private final LongConsumer memoryUsageSetter;
-        private final CumulativeStatsConsumer cpuUsageSetter;
-
-        public NodeStatsTracker(IntConsumer splitSetter, LongConsumer memoryUsageSetter, CumulativeStatsConsumer cpuUsageSetter)
-        {
-            this.splitSetter = requireNonNull(splitSetter, "splitSetter is null");
-            this.memoryUsageSetter = requireNonNull(memoryUsageSetter, "memoryUsageSetter is null");
-            this.cpuUsageSetter = requireNonNull(cpuUsageSetter, "cpuUsageSetter is null");
-        }
-
-        public void setPartitionedSplitCount(int partitionedSplitCount)
-        {
-            splitSetter.accept(partitionedSplitCount);
-        }
-
-        public void setMemoryUsage(long memoryUsage)
-        {
-            memoryUsageSetter.accept(memoryUsage);
-        }
-
-        public void setCpuUsage(long age, long cpuUsage)
-        {
-            cpuUsageSetter.accept(age, cpuUsage);
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("splitSetter", splitSetter.toString())
-                    .add("memoryUsageSetter", memoryUsageSetter.toString())
-                    .add("cpuUsageSetter", cpuUsageSetter.toString())
-                    .toString();
         }
     }
 

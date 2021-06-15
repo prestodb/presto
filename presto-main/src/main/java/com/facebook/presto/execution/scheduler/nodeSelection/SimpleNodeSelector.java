@@ -14,7 +14,7 @@
 package com.facebook.presto.execution.scheduler.nodeSelection;
 
 import com.facebook.airlift.log.Logger;
-import com.facebook.presto.execution.NodeTaskMap;
+import com.facebook.presto.execution.NodeTaskTracker;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.scheduler.BucketNodeMap;
 import com.facebook.presto.execution.scheduler.InternalNodeInfo;
@@ -64,7 +64,7 @@ public class SimpleNodeSelector
 
     private final InternalNodeManager nodeManager;
     private final NodeSelectionStats nodeSelectionStats;
-    private final NodeTaskMap nodeTaskMap;
+    private final NodeTaskTracker nodeTaskTracker;
     private final boolean includeCoordinator;
     private final AtomicReference<Supplier<NodeMap>> nodeMap;
     private final int minCandidates;
@@ -76,7 +76,7 @@ public class SimpleNodeSelector
     public SimpleNodeSelector(
             InternalNodeManager nodeManager,
             NodeSelectionStats nodeSelectionStats,
-            NodeTaskMap nodeTaskMap,
+            NodeTaskTracker nodeTaskTracker,
             boolean includeCoordinator,
             Supplier<NodeMap> nodeMap,
             int minCandidates,
@@ -87,7 +87,7 @@ public class SimpleNodeSelector
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.nodeSelectionStats = requireNonNull(nodeSelectionStats, "nodeSelectionStats is null");
-        this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
+        this.nodeTaskTracker = requireNonNull(nodeTaskTracker, "nodeTaskTracker is null");
         this.includeCoordinator = includeCoordinator;
         this.nodeMap = new AtomicReference<>(nodeMap);
         this.minCandidates = minCandidates;
@@ -134,7 +134,7 @@ public class SimpleNodeSelector
     {
         Multimap<InternalNode, Split> assignment = HashMultimap.create();
         NodeMap nodeMap = this.nodeMap.get().get();
-        NodeAssignmentStats assignmentStats = new NodeAssignmentStats(nodeTaskMap, nodeMap, existingTasks);
+        NodeAssignmentStats assignmentStats = new NodeAssignmentStats(nodeTaskTracker, nodeMap, existingTasks);
 
         NodeSelection randomNodeSelection = new RandomNodeSelection(nodeMap, includeCoordinator, minCandidates, maxTasksPerStage, existingTasks);
         Set<InternalNode> blockedExactNodes = new HashSet<>();
@@ -217,7 +217,7 @@ public class SimpleNodeSelector
     @Override
     public SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks, BucketNodeMap bucketNodeMap)
     {
-        return selectDistributionNodes(nodeMap.get().get(), nodeTaskMap, maxSplitsPerNode, maxPendingSplitsPerTask, maxUnacknowledgedSplitsPerTask, splits, existingTasks, bucketNodeMap, nodeSelectionStats);
+        return selectDistributionNodes(nodeMap.get().get(), nodeTaskTracker, maxSplitsPerNode, maxPendingSplitsPerTask, maxUnacknowledgedSplitsPerTask, splits, existingTasks, bucketNodeMap, nodeSelectionStats);
     }
 
     private Optional<InternalNodeInfo> chooseLeastBusyNode(List<InternalNode> candidateNodes, ToIntFunction<InternalNode> splitCountProvider, OptionalInt preferredNodeCount, int maxSplitCount, NodeAssignmentStats assignmentStats)

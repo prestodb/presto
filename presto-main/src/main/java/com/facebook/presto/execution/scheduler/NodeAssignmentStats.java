@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.execution.scheduler;
 
-import com.facebook.presto.execution.NodeTaskMap;
+import com.facebook.presto.execution.NodeTaskTracker;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.metadata.InternalNode;
 
@@ -27,13 +27,13 @@ import static java.util.Objects.requireNonNull;
 
 public final class NodeAssignmentStats
 {
-    private final NodeTaskMap nodeTaskMap;
+    private final NodeTaskTracker nodeTaskTracker;
     private final Map<InternalNode, Integer> nodeTotalSplitCount;
     private final Map<String, PendingSplitInfo> stageQueuedSplitInfo;
 
-    public NodeAssignmentStats(NodeTaskMap nodeTaskMap, NodeMap nodeMap, List<RemoteTask> existingTasks)
+    public NodeAssignmentStats(NodeTaskTracker nodeTaskTracker, NodeMap nodeMap, List<RemoteTask> existingTasks)
     {
-        this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
+        this.nodeTaskTracker = requireNonNull(nodeTaskTracker, "nodeTaskTracker is null");
         int nodeMapSize = requireNonNull(nodeMap, "nodeMap is null").getActiveNodes().size();
         this.nodeTotalSplitCount = new HashMap<>(nodeMapSize);
         this.stageQueuedSplitInfo = new HashMap<>(nodeMapSize);
@@ -53,7 +53,7 @@ public final class NodeAssignmentStats
 
     public int getTotalSplitCount(InternalNode node)
     {
-        int nodeTotalSplits = nodeTotalSplitCount.computeIfAbsent(node, nodeTaskMap::getPartitionedSplitsOnNode);
+        int nodeTotalSplits = nodeTotalSplitCount.computeIfAbsent(node, nodeTaskTracker::getPartitionedSplitsOnNode);
         PendingSplitInfo stageInfo = stageQueuedSplitInfo.get(node.getNodeIdentifier());
         return nodeTotalSplits + (stageInfo == null ? 0 : stageInfo.getAssignedSplitCount());
     }
