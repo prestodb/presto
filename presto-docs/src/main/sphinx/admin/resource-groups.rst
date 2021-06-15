@@ -66,6 +66,19 @@ Resource Group Properties
 * ``jmxExport`` (optional): If true, group statistics are exported to JMX for monitoring.
   Defaults to ``false``.
 
+* ``perQueryLimits`` (optional): specifies max resources each query in a
+  resource group may consume before being killed. These limits are not inherited from parent groups.
+  May set three types of limits:
+
+    * ``executionTimeLimit`` (optional): Specify an absolute value (i.e. ``1h``)
+       for the maximum time a query may take to execute.
+
+    * ``totalMemoryLimit`` (optional): Specify an absolute value (i.e. ``1GB``)
+       for the maximum distributed memory a query may consume.
+
+    * ``cpuTimeLimit`` (optional): Specify Specify an absolute value (i.e. ``1h``)
+       for the maximum CPU time a query may use.
+
 * ``subGroups`` (optional): list of sub-groups.
 
 Selector Rules
