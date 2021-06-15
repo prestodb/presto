@@ -43,6 +43,13 @@ public interface ResourceGroup
      */
     void setHardCpuLimit(Duration limit);
 
+    ResourceGroupQueryLimits getPerQueryLimits();
+
+    /**
+     * Threshold on cpu time a query can take before the system kills it.
+     */
+    void setPerQueryLimits(ResourceGroupQueryLimits limit);
+
     long getCpuQuotaGenerationMillisPerSecond();
 
     /**

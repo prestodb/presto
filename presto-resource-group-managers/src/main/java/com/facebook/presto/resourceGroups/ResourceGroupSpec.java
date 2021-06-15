@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.resourceGroups;
 
+import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.facebook.presto.spi.resourceGroups.SchedulingPolicy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -48,6 +49,7 @@ public class ResourceGroupSpec
     private final Optional<Boolean> jmxExport;
     private final Optional<Duration> softCpuLimit;
     private final Optional<Duration> hardCpuLimit;
+    private final Optional<ResourceGroupQueryLimits> perQueryLimits;
 
     @JsonCreator
     public ResourceGroupSpec(
@@ -62,10 +64,12 @@ public class ResourceGroupSpec
             @JsonProperty("subGroups") Optional<List<ResourceGroupSpec>> subGroups,
             @JsonProperty("jmxExport") Optional<Boolean> jmxExport,
             @JsonProperty("softCpuLimit") Optional<Duration> softCpuLimit,
-            @JsonProperty("hardCpuLimit") Optional<Duration> hardCpuLimit)
+            @JsonProperty("hardCpuLimit") Optional<Duration> hardCpuLimit,
+            @JsonProperty("perQueryLimits") Optional<ResourceGroupQueryLimits> perQueryCpuLimit)
     {
         this.softCpuLimit = requireNonNull(softCpuLimit, "softCpuLimit is null");
         this.hardCpuLimit = requireNonNull(hardCpuLimit, "hardCpuLimit is null");
+        this.perQueryLimits = requireNonNull(perQueryCpuLimit, "perQueryCpuLimit is null");
         this.jmxExport = requireNonNull(jmxExport, "jmxExport is null");
         this.name = requireNonNull(name, "name is null");
         checkArgument(maxQueued >= 0, "maxQueued is negative");
@@ -164,6 +168,11 @@ public class ResourceGroupSpec
         return hardCpuLimit;
     }
 
+    public Optional<ResourceGroupQueryLimits> getPerQueryLimits()
+    {
+        return perQueryLimits;
+    }
+
     @Override
     public boolean equals(Object other)
     {
@@ -184,7 +193,8 @@ public class ResourceGroupSpec
                 subGroups.equals(that.subGroups) &&
                 jmxExport.equals(that.jmxExport) &&
                 softCpuLimit.equals(that.softCpuLimit) &&
-                hardCpuLimit.equals(that.hardCpuLimit));
+                hardCpuLimit.equals(that.hardCpuLimit) &&
+                perQueryLimits.equals(that.perQueryLimits));
     }
 
     // Subgroups not included, used to determine whether a group needs to be reconfigured
@@ -202,7 +212,8 @@ public class ResourceGroupSpec
                 schedulingWeight.equals(other.schedulingWeight) &&
                 jmxExport.equals(other.jmxExport) &&
                 softCpuLimit.equals(other.softCpuLimit) &&
-                hardCpuLimit.equals(other.hardCpuLimit));
+                hardCpuLimit.equals(other.hardCpuLimit) &&
+                perQueryLimits.equals(other.perQueryLimits));
     }
 
     @Override
@@ -219,7 +230,8 @@ public class ResourceGroupSpec
                 subGroups,
                 jmxExport,
                 softCpuLimit,
-                hardCpuLimit);
+                hardCpuLimit,
+                perQueryLimits);
     }
 
     @Override
@@ -236,6 +248,7 @@ public class ResourceGroupSpec
                 .add("jmxExport", jmxExport)
                 .add("softCpuLimit", softCpuLimit)
                 .add("hardCpuLimit", hardCpuLimit)
+                .add("perQueryCpuLimit", perQueryLimits)
                 .toString();
     }
 }
