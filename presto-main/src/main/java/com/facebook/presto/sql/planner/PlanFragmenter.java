@@ -96,6 +96,7 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.SystemSessionProperties.getExchangeMaterializationStrategy;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxStageCount;
 import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
+import static com.facebook.presto.SystemSessionProperties.isForceCoordinatorExecution;
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
 import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isRecoverableGroupedExecutionEnabled;
@@ -191,6 +192,9 @@ public class PlanFragmenter
             properties = properties.setSingleNodeDistribution();
         }
         PlanNode root = SimplePlanRewriter.rewriteWith(fragmenter, plan.getRoot(), properties);
+        if (isForceCoordinatorExecution(session) && new IsQueryValueNodeVisitor().visitPlan(plan.getRoot(), null)) {
+            properties = properties.setCoordinatorOnlyDistribution();
+        }
 
         SubPlan subPlan = fragmenter.buildRootFragment(root, properties);
         subPlan = reassignPartitioningHandleIfNecessary(session, subPlan);
@@ -1332,6 +1336,46 @@ public class PlanFragmenter
         public Map<VariableReferenceExpression, RowExpression> getConstants()
         {
             return constants;
+        }
+    }
+
+    private static final class IsQueryValueNodeVisitor
+            extends InternalPlanVisitor<Boolean, Void>
+    {
+        @Override
+        public Boolean visitPlan(PlanNode node, Void context)
+        {
+            if (node == null) {
+                return false;
+            }
+            else if (node.getSources() == null || node.getSources().size() == 0) {
+                return node instanceof ValuesNode;
+            }
+            ImmutableList.Builder<PlanNode> leafNodeBuilder = ImmutableList.builder();
+            findLeafNodes(node, leafNodeBuilder);
+            boolean leafIsValueNode = true;
+            for (PlanNode planNode : leafNodeBuilder.build()) {
+                leafIsValueNode = leafIsValueNode && planNode.accept(this, context);
+            }
+            return leafIsValueNode;
+        }
+
+        private void findLeafNodes(PlanNode node, ImmutableList.Builder<PlanNode> leafNodeBuilder)
+        {
+            if (node.getSources() == null || node.getSources().size() == 0) {
+                leafNodeBuilder.add(node);
+            }
+            else {
+                for (PlanNode source : node.getSources()) {
+                    findLeafNodes(source, leafNodeBuilder);
+                }
+            }
+        }
+
+        @Override
+        public Boolean visitValues(ValuesNode node, Void context)
+        {
+            return true;
         }
     }
 }
