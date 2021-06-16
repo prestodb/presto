@@ -289,6 +289,12 @@ public class Table
             return this;
         }
 
+        public Builder setParameter(String key, String value)
+        {
+            this.parameters.put(key, value);
+            return this;
+        }
+
         public Builder setViewOriginalText(Optional<String> viewOriginalText)
         {
             this.viewOriginalText = viewOriginalText;
