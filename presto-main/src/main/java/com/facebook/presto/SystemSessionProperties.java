@@ -135,6 +135,7 @@ public final class SystemSessionProperties
     public static final String PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN = "push_partial_aggregation_through_join";
     public static final String PARSE_DECIMAL_LITERALS_AS_DOUBLE = "parse_decimal_literals_as_double";
     public static final String FORCE_SINGLE_NODE_OUTPUT = "force_single_node_output";
+    public static final String FORCE_COORDINATOR_EXECUTION = "force_coordinator_execution";
     public static final String FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_SIZE = "filter_and_project_min_output_page_size";
     public static final String FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_ROW_COUNT = "filter_and_project_min_output_page_row_count";
     public static final String DISTRIBUTED_SORT = "distributed_sort";
@@ -692,6 +693,11 @@ public final class SystemSessionProperties
                         "Force single node output",
                         featuresConfig.isForceSingleNodeOutput(),
                         true),
+                booleanProperty(
+                        FORCE_COORDINATOR_EXECUTION,
+                        "force run in coordinator",
+                        false,
+                        false),
                 new PropertyMetadata<>(
                         FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_SIZE,
                         "Experimental: Minimum output page size for filter and project operators",
@@ -1419,6 +1425,11 @@ public final class SystemSessionProperties
     public static boolean isForceSingleNodeOutput(Session session)
     {
         return session.getSystemProperty(FORCE_SINGLE_NODE_OUTPUT, Boolean.class);
+    }
+
+    public static boolean isForceCoordinatorExecution(Session session)
+    {
+        return session.getSystemProperty(FORCE_COORDINATOR_EXECUTION, Boolean.class);
     }
 
     public static DataSize getFilterAndProjectMinOutputPageSize(Session session)
