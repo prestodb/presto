@@ -176,6 +176,7 @@ public final class SystemSessionProperties
     public static final String ENABLE_DYNAMIC_FILTERING = "enable_dynamic_filtering";
     public static final String DYNAMIC_FILTERING_MAX_PER_DRIVER_ROW_COUNT = "dynamic_filtering_max_per_driver_row_count";
     public static final String DYNAMIC_FILTERING_MAX_PER_DRIVER_SIZE = "dynamic_filtering_max_per_driver_size";
+    public static final String DYNAMIC_FILTERING_RANGE_ROW_LIMIT_PER_DRIVER = "dynamic_filtering_range_row_limit_per_driver";
     public static final String FRAGMENT_RESULT_CACHING_ENABLED = "fragment_result_caching_enabled";
     public static final String LEGACY_TYPE_COERCION_WARNING_ENABLED = "legacy_type_coercion_warning_enabled";
     public static final String INLINE_SQL_FUNCTIONS = "inline_sql_functions";
@@ -936,6 +937,11 @@ public final class SystemSessionProperties
                         false,
                         value -> DataSize.valueOf((String) value),
                         DataSize::toString),
+                integerProperty(
+                        DYNAMIC_FILTERING_RANGE_ROW_LIMIT_PER_DRIVER,
+                        "Maximum number of build-side rows per driver up to which min and max values will be collected for dynamic filtering",
+                        featuresConfig.getDynamicFilteringRangeRowLimitPerDriver(),
+                        false),
                 booleanProperty(
                         FRAGMENT_RESULT_CACHING_ENABLED,
                         "Enable fragment result caching and read/write leaf fragment result pages from/to cache when applicable",
@@ -1681,6 +1687,11 @@ public final class SystemSessionProperties
     public static DataSize getDynamicFilteringMaxPerDriverSize(Session session)
     {
         return session.getSystemProperty(DYNAMIC_FILTERING_MAX_PER_DRIVER_SIZE, DataSize.class);
+    }
+
+    public static int getDynamicFilteringRangeRowLimitPerDriver(Session session)
+    {
+        return session.getSystemProperty(DYNAMIC_FILTERING_RANGE_ROW_LIMIT_PER_DRIVER, Integer.class);
     }
 
     public static boolean isFragmentResultCachingEnabled(Session session)

@@ -152,6 +152,7 @@ public class FeaturesConfig
     private boolean enableDynamicFiltering;
     private int dynamicFilteringMaxPerDriverRowCount = 100;
     private DataSize dynamicFilteringMaxPerDriverSize = new DataSize(10, KILOBYTE);
+    private int dynamicFilteringRangeRowLimitPerDriver;
 
     private boolean fragmentResultCachingEnabled;
 
@@ -1147,6 +1148,19 @@ public class FeaturesConfig
     public FeaturesConfig setDynamicFilteringMaxPerDriverSize(DataSize dynamicFilteringMaxPerDriverSize)
     {
         this.dynamicFilteringMaxPerDriverSize = dynamicFilteringMaxPerDriverSize;
+        return this;
+    }
+
+    public int getDynamicFilteringRangeRowLimitPerDriver()
+    {
+        return dynamicFilteringRangeRowLimitPerDriver;
+    }
+
+    @Config("experimental.dynamic-filtering-range-row-limit-per-driver")
+    @ConfigDescription("Maximum number of build-side rows per driver up to which min and max values will be collected for dynamic filtering")
+    public FeaturesConfig setDynamicFilteringRangeRowLimitPerDriver(int dynamicFilteringRangeRowLimitPerDriver)
+    {
+        this.dynamicFilteringRangeRowLimitPerDriver = dynamicFilteringRangeRowLimitPerDriver;
         return this;
     }
 
