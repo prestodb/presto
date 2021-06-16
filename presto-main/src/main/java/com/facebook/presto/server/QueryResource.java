@@ -24,6 +24,7 @@ import com.facebook.presto.resourcemanager.ResourceManagerProxy;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Ordering;
 
 import javax.annotation.security.RolesAllowed;
 import javax.inject.Inject;
@@ -35,15 +36,20 @@ import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.QueryParam;
+import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.container.AsyncResponse;
 import javax.ws.rs.container.Suspended;
 import javax.ws.rs.core.Context;
+import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
 
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Locale;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -52,10 +58,13 @@ import static com.facebook.presto.connector.system.KillQueryProcedure.createKill
 import static com.facebook.presto.connector.system.KillQueryProcedure.createPreemptQueryException;
 import static com.facebook.presto.server.security.RoleType.ADMIN;
 import static com.facebook.presto.server.security.RoleType.USER;
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
 import static javax.ws.rs.core.Response.Status.NO_CONTENT;
 import static javax.ws.rs.core.Response.Status.SERVICE_UNAVAILABLE;
 
@@ -66,6 +75,13 @@ import static javax.ws.rs.core.Response.Status.SERVICE_UNAVAILABLE;
 @RolesAllowed({USER, ADMIN})
 public class QueryResource
 {
+    // Sort returned queries: RUNNING - first, then QUEUED, then other non-completed, then FAILED and in each group we sort by create time.
+    private static final Comparator<BasicQueryInfo> QUERIES_ORDERING = Ordering.<BasicQueryInfo>from((o1, o2) -> Boolean.compare(o1.getState() == QueryState.RUNNING, o2.getState() == QueryState.RUNNING))
+            .compound((o1, o2) -> Boolean.compare(o1.getState() == QueryState.QUEUED, o2.getState() == QueryState.QUEUED))
+            .compound((o1, o2) -> Boolean.compare(!o1.getState().isDone(), !o2.getState().isDone()))
+            .compound((o1, o2) -> Boolean.compare(o1.getState() == QueryState.FAILED, o2.getState() == QueryState.FAILED))
+            .compound(Comparator.comparing(item -> item.getQueryStats().getCreateTime()));
+
     // TODO There should be a combined interface for this
     private final boolean resourceManagerEnabled;
     private final DispatchManager dispatchManager;
@@ -91,6 +107,7 @@ public class QueryResource
     @GET
     public void getAllQueryInfo(
             @QueryParam("state") String stateFilter,
+            @QueryParam("limit") Integer limitFilter,
             @HeaderParam(X_FORWARDED_PROTO) String xForwardedProto,
             @Context UriInfo uriInfo,
             @Context HttpServletRequest servletRequest,
@@ -100,13 +117,34 @@ public class QueryResource
             proxyResponse(servletRequest, asyncResponse, xForwardedProto, uriInfo);
             return;
         }
-        QueryState expectedState = stateFilter == null ? null : QueryState.valueOf(stateFilter.toUpperCase(Locale.ENGLISH));
-        ImmutableList.Builder<BasicQueryInfo> builder = new ImmutableList.Builder<>();
-        for (BasicQueryInfo queryInfo : dispatchManager.getQueries()) {
-            if (stateFilter == null || queryInfo.getState() == expectedState) {
-                builder.add(queryInfo);
-            }
+
+        int limit = firstNonNull(limitFilter, Integer.MAX_VALUE);
+        if (limit <= 0) {
+            throw new WebApplicationException(Response
+                    .status(BAD_REQUEST)
+                    .type(MediaType.TEXT_PLAIN)
+                    .entity(format("Parameter 'limit' for getAllQueryInfo must be positive. Got %d.", limit))
+                    .build());
         }
+
+        List<BasicQueryInfo> queries = new ArrayList<>(dispatchManager.getQueries());
+
+        // Filter list by the query state (if specified).
+        if (stateFilter != null) {
+            QueryState expectedState = QueryState.valueOf(stateFilter.toUpperCase(Locale.ENGLISH));
+            queries.removeIf(item -> item.getState() == expectedState);
+        }
+
+        // If limit is smaller than number of queries, then ensure that the more recent items are at the front.
+        if (limit < queries.size()) {
+            queries.sort(QUERIES_ORDERING);
+        }
+        else {
+            limit = queries.size();
+        }
+
+        ImmutableList.Builder<BasicQueryInfo> builder = new ImmutableList.Builder<>();
+        builder.addAll(queries.subList(0, limit));
         asyncResponse.resume(Response.ok(builder.build()).build());
     }
 
