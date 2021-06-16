@@ -116,7 +116,7 @@ public class BigQueryMetadata
     {
         log.debug("getTableHandle(session=%s, tableName=%s)", session, tableName);
         Optional<TableInfo> tableInfo = getBigQueryTable(tableName);
-        if (tableInfo.isPresent()) {
+        if (!tableInfo.isPresent()) {
             log.debug("Table [%s.%s] was not found", tableName.getSchemaName(), tableName.getTableName());
             return null;
         }
@@ -157,7 +157,7 @@ public class BigQueryMetadata
     private Optional<TableInfo> getBigQueryTable(SchemaTableName tableName)
     {
         TableInfo tableInfo = bigQueryClient.getTable(TableId.of(projectId, tableName.getSchemaName(), tableName.getTableName()));
-        return tableInfo == null ? Optional.of(tableInfo) : Optional.empty();
+        return Optional.ofNullable(tableInfo);
     }
 
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName schemaTableName)
@@ -230,7 +230,7 @@ public class BigQueryMetadata
         SchemaTableName tableName = prefix.toSchemaTableName();
         Optional<TableInfo> tableInfo = getBigQueryTable(tableName);
         return tableInfo.isPresent() ?
-                ImmutableList.of() : // table does not exist
-                ImmutableList.of(tableName);
+                ImmutableList.of(tableName) :
+                ImmutableList.of(); // table does not exist
     }
 }
