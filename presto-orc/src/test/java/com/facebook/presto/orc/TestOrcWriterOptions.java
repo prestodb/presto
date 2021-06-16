@@ -13,11 +13,13 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.orc.metadata.DwrfStripeCacheMode;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.util.OptionalInt;
 
+import static com.facebook.presto.orc.metadata.DwrfStripeCacheMode.FOOTER;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -39,6 +41,9 @@ public class TestOrcWriterOptions
         StreamLayout streamLayout = new StreamLayout.ByColumnSize();
         boolean integerDictionaryEncodingEnabled = true;
         boolean stringDictionarySortingEnabled = false;
+        boolean dwrfStripeCacheEnabled = true;
+        DwrfStripeCacheMode dwrfStripeCacheMode = FOOTER;
+        DataSize dwrfStripeCacheMaxSize = new DataSize(7, MEGABYTE);
 
         OrcWriterOptions.Builder builder = OrcWriterOptions.builder()
                 .withStripeMinSize(stripeMinSize)
@@ -51,7 +56,10 @@ public class TestOrcWriterOptions
                 .withCompressionLevel(compressionLevel)
                 .withStreamLayout(streamLayout)
                 .withIntegerDictionaryEncodingEnabled(integerDictionaryEncodingEnabled)
-                .withStringDictionarySortingEnabled(stringDictionarySortingEnabled);
+                .withStringDictionarySortingEnabled(stringDictionarySortingEnabled)
+                .withDwrfStripeCacheEnabled(dwrfStripeCacheEnabled)
+                .withDwrfStripeCacheMode(dwrfStripeCacheMode)
+                .withDwrfStripeCacheMaxSize(dwrfStripeCacheMaxSize);
 
         OrcWriterOptions options = builder.build();
 
@@ -66,6 +74,9 @@ public class TestOrcWriterOptions
         assertEquals(streamLayout, options.getStreamLayout());
         assertEquals(integerDictionaryEncodingEnabled, options.isIntegerDictionaryEncodingEnabled());
         assertEquals(stringDictionarySortingEnabled, options.isStringDictionarySortingEnabled());
+        assertEquals(options.isDwrfStripeCacheEnabled(), dwrfStripeCacheEnabled);
+        assertEquals(options.getDwrfStripeCacheMode(), dwrfStripeCacheMode);
+        assertEquals(options.getDwrfStripeCacheMaxSize(), dwrfStripeCacheMaxSize);
     }
 
     @Test
@@ -82,6 +93,9 @@ public class TestOrcWriterOptions
         StreamLayout streamLayout = new StreamLayout.ByColumnSize();
         boolean integerDictionaryEncodingEnabled = false;
         boolean stringDictionarySortingEnabled = true;
+        boolean dwrfStripeCacheEnabled = false;
+        DwrfStripeCacheMode dwrfStripeCacheMode = FOOTER;
+        DataSize dwrfStripeCacheMaxSize = new DataSize(7, MEGABYTE);
 
         OrcWriterOptions writerOptions = OrcWriterOptions.builder()
                 .withStripeMinSize(stripeMinSize)
@@ -95,12 +109,16 @@ public class TestOrcWriterOptions
                 .withStreamLayout(streamLayout)
                 .withIntegerDictionaryEncodingEnabled(integerDictionaryEncodingEnabled)
                 .withStringDictionarySortingEnabled(stringDictionarySortingEnabled)
+                .withDwrfStripeCacheEnabled(dwrfStripeCacheEnabled)
+                .withDwrfStripeCacheMode(dwrfStripeCacheMode)
+                .withDwrfStripeCacheMaxSize(dwrfStripeCacheMaxSize)
                 .build();
 
         String expectedString = "OrcWriterOptions{stripeMinSize=13MB, stripeMaxSize=27MB, stripeMaxRowCount=1100000, "
                 + "rowGroupMaxRowCount=15000, dictionaryMaxMemory=13000kB, maxStringStatisticsLimit=128B, "
                 + "maxCompressionBufferSize=512kB, compressionLevel=OptionalInt[5], streamLayout=ByColumnSize{}, "
-                + "integerDictionaryEncodingEnabled=false, stringDictionarySortingEnabled=true}";
-        assertEquals(expectedString, writerOptions.toString());
+                + "integerDictionaryEncodingEnabled=false, stringDictionarySortingEnabled=true, "
+                + "dwrfStripeCacheEnabled=false, dwrfStripeCacheMode=FOOTER, dwrfStripeCacheMaxSize=7MB}";
+        assertEquals(writerOptions.toString(), expectedString);
     }
 }
