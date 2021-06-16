@@ -62,6 +62,7 @@ import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.facebook.presto.testing.TestingEnvironment.getOperatorMethodHandle;
+import static com.facebook.presto.type.ColorType.COLOR;
 import static com.facebook.presto.util.StructuralTestUtil.appendToBlockBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -535,6 +536,15 @@ public final class BlockAssertions
         return builder.build();
     }
 
+    public static Block createDoubleRepeatBlock(double value, int length)
+    {
+        BlockBuilder builder = DOUBLE.createFixedSizeBlockBuilder(length);
+        for (int i = 0; i < length; i++) {
+            DOUBLE.writeDouble(builder, value);
+        }
+        return builder.build();
+    }
+
     public static Block createTimestampsWithTimezoneBlock(Long... values)
     {
         BlockBuilder builder = TIMESTAMP_WITH_TIME_ZONE.createFixedSizeBlockBuilder(values.length);
@@ -562,7 +572,7 @@ public final class BlockAssertions
         return createBlockOfReals(Arrays.asList(values));
     }
 
-    private static Block createBlockOfReals(Iterable<Float> values)
+    public static Block createBlockOfReals(Iterable<Float> values)
     {
         BlockBuilder builder = REAL.createBlockBuilder(null, 100);
         for (Float value : values) {
@@ -681,6 +691,24 @@ public final class BlockAssertions
             type.writeSlice(builder, encodeUnscaledValue(BigInteger.valueOf(i).multiply(base)));
         }
 
+        return builder.build();
+    }
+
+    public static Block createColorRepeatBlock(int value, int length)
+    {
+        BlockBuilder builder = COLOR.createFixedSizeBlockBuilder(length);
+        for (int i = 0; i < length; i++) {
+            COLOR.writeLong(builder, value);
+        }
+        return builder.build();
+    }
+
+    public static Block createColorSequenceBlock(int start, int end)
+    {
+        BlockBuilder builder = COLOR.createBlockBuilder(null, end - start);
+        for (int i = start; i < end; ++i) {
+            COLOR.writeLong(builder, i);
+        }
         return builder.build();
     }
 
