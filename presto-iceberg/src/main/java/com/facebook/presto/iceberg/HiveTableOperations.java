@@ -29,7 +29,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.security.PrestoPrincipal;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
 import org.apache.hadoop.mapred.FileInputFormat;
@@ -243,9 +242,8 @@ public class HiveTableOperations
                 table = Table.builder(currentTable)
                         .setDataColumns(toHiveColumns(metadata.schema().columns()))
                         .withStorage(storage -> storage.setLocation(metadata.location()))
-                        .setParameters(ImmutableMap.of(
-                                METADATA_LOCATION, newMetadataLocation,
-                                PREVIOUS_METADATA_LOCATION, currentMetadataLocation))
+                        .setParameter(METADATA_LOCATION, newMetadataLocation)
+                        .setParameter(PREVIOUS_METADATA_LOCATION, currentMetadataLocation)
                         .build();
             }
         }
