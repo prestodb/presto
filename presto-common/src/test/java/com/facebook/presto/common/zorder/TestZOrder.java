@@ -63,17 +63,26 @@ public class TestZOrder
     public void debugZOrder()
             throws Exception
     {
-        List<Integer> intColumns = new ArrayList<>();
-        intColumns.add(13453);
-        intColumns.add(943547);
-        intColumns.add(7502919);
-        intColumns.add(57834567);
-        intColumns.add(0);
-        intColumns.add(198);
-        byte[] address1 = ZOrder.encodeIntegers(intColumns);
-        // System.out.println(Long.toBinaryString(address1.longValue()) + ": " + address1);
-        List<Integer> decodedCols = ZOrder.decodeIntegers(intColumns.size(), address1);
+        List<Integer> intColumns = new ArrayList<>(); // 56, 102, 100, 114, 27, 9, 124
+        intColumns.add(56);
+        intColumns.add(102);
+        intColumns.add(100);
+        intColumns.add(114);
+        intColumns.add(27);
+        intColumns.add(9);
+        intColumns.add(124);
+        List<Integer> ranges = new ArrayList<>();
+        ranges.add(7);
+        ranges.add(8);
+        ranges.add(8);
+        ranges.add(8);
+        ranges.add(6);
+        ranges.add(5);
+        ranges.add(8);
+        byte[] address1 = ZOrder.encodeIntegers(intColumns, ranges);
         System.out.println(intColumns.toString());
+        ZOrder.printBits(address1);
+        List<Integer> decodedCols = ZOrder.decodeIntegers(ranges, address1);
         System.out.println(decodedCols.toString());
         // long address2 = ZOrder.encodeIntegers(intColumns);
         // System.out.println(Long.toBinaryString(address2) + ": " + address2);
@@ -83,29 +92,41 @@ public class TestZOrder
     public void testZOrderTime()
             throws Exception
     {
-        for (int x = 0; x < 3; x++) {
-            long time = System.currentTimeMillis();
-            List<Integer> intColumns = new ArrayList<>();
-            intColumns.add(13);
-            intColumns.add(97);
-            intColumns.add(116);
-            intColumns.add(15);
-            intColumns.add(24);
-            intColumns.add(108);
-            intColumns.add(76);
-            byte[] address = ZOrder.encodeIntegers(intColumns);
-            List<Integer> decodedIntCols = ZOrder.decodeIntegers(7, address);
-            // System.out.println(Long.toBinaryString(address) + ": " + address);
-            if (!intColumns.toString().equals(decodedIntCols.toString())) {
-                throw new Exception("Integers decoded improperly");
+        int runs = 10;
+        int totalTime = 0;
+        int cols = 7;
+        int loops = 10000000;
+
+        List<Integer> intColumns = new ArrayList<>(cols);
+        intColumns.add(13);
+        intColumns.add(97);
+        intColumns.add(116);
+        intColumns.add(127);
+        intColumns.add(24);
+        intColumns.add(108);
+        intColumns.add(76);
+        byte[] address = ZOrder.encodeIntegers(intColumns);
+        List<Integer> decodedIntCols = ZOrder.decodeIntegers(cols, address);
+        // System.out.println(Long.toBinaryString(address) + ": " + address);
+        if (!intColumns.toString().equals(decodedIntCols.toString())) {
+            throw new Exception("Integers decoded improperly");
+        }
+        Random rand = new Random();
+        int[][] intCols = new int[512][cols];
+        for (int i = 0; i < 512; i++) {
+            for (int c = 0; c < cols; c++) {
+                intCols[i][c] = rand.nextInt(128);
             }
-            Random rand = new Random();
-            for (int i = 0; i < 10000000; i++) {
-                for (int idx = 0; idx < 7; idx++) {
-                    intColumns.set(idx, Math.abs(rand.nextInt()) % 128);
+        }
+
+        for (int x = 0; x < runs; x++) {
+            long time = System.currentTimeMillis();
+            for (int i = 0; i < loops; i++) {
+                for (int idx = 0; idx < cols; idx++) {
+                    intColumns.set(idx, intCols[i & 511][idx]);
                 }
                 address = ZOrder.encodeIntegers(intColumns);
-                decodedIntCols = ZOrder.decodeIntegers(7, address);
+                decodedIntCols = ZOrder.decodeIntegers(cols, address);
                 // System.out.println(Long.toBinaryString(address) + ": " + address);
                 if (!intColumns.toString().equals(decodedIntCols.toString())) {
                     System.out.println(intColumns.toString());
@@ -114,18 +135,145 @@ public class TestZOrder
                 }
             }
             time = System.currentTimeMillis() - time;
+            totalTime += time;
             System.out.println(time);
-            if (time > 100000) {
-                throw new Exception("Encoding+decoding too slow");
+        }
+        System.out.println("Average time of " + runs + " runs: " + totalTime / runs);
+    }
+
+    private static int getHighestSetBitPosition(long value)
+    {
+        // Assumes value is non-negative
+        int position = 0;
+        while (value != 0) {
+            value >>= 1;
+            position++;
+        }
+        return position;
+    }
+
+    @Test
+    public void testZOrderRangeTime()
+            throws Exception
+    {
+        int runs = 10;
+        int totalTime = 0;
+        int cols = 7;
+        int loops = 10000000;
+
+        List<Integer> intColumns = new ArrayList<>(cols);
+        intColumns.add(13);
+        intColumns.add(97);
+        intColumns.add(116);
+        intColumns.add(127);
+        intColumns.add(24);
+        intColumns.add(108);
+        intColumns.add(76);
+        List<Integer> intRanges = new ArrayList<>(cols);
+        intRanges.add(8);
+        intRanges.add(8);
+        intRanges.add(16);
+        intRanges.add(32);
+        intRanges.add(8);
+        intRanges.add(8);
+        intRanges.add(8);
+        byte[] address = ZOrder.encodeIntegers(intColumns, intRanges);
+        List<Integer> decodedIntCols = ZOrder.decodeIntegers(intRanges, address);
+        // System.out.println(Long.toBinaryString(address) + ": " + address);
+        if (!intColumns.toString().equals(decodedIntCols.toString())) {
+            throw new Exception("Integers decoded improperly");
+        }
+        Random rand = new Random();
+        int[][] intCols = new int[512][cols];
+        int[][] ranges = new int[512][cols];
+        for (int i = 0; i < 512; i++) {
+            for (int c = 0; c < cols; c++) {
+                intCols[i][c] = rand.nextInt(128);
+                ranges[i][c] = getHighestSetBitPosition(intCols[i][c]) + 1;
             }
         }
+        for (int x = 0; x < runs; x++) {
+            long time = System.currentTimeMillis();
+            for (int i = 0; i < loops; i++) {
+                for (int idx = 0; idx < cols; idx++) {
+                    intColumns.set(idx, intCols[i & 511][idx]);
+                    intRanges.set(idx, ranges[i & 511][idx]);
+                }
+                address = ZOrder.encodeIntegers(intColumns, intRanges);
+                decodedIntCols = ZOrder.decodeIntegers(intRanges, address);
+                // System.out.println(Long.toBinaryString(address) + ": " + address);
+                if (!intColumns.toString().equals(decodedIntCols.toString())) {
+                    System.out.println(intColumns.toString());
+                    System.out.println(decodedIntCols.toString());
+                    System.out.println(intRanges.toString());
+                    throw new Exception("Integers decoded improperly");
+                }
+            }
+            time = System.currentTimeMillis() - time;
+            totalTime += time;
+            System.out.println(time);
+        }
+        System.out.println("Average time of " + runs + " runs: " + totalTime / runs);
+    }
+
+    @Test
+    public void testZOrderEncodeRangeTime()
+            throws Exception
+    {
+        int runs = 10;
+        int totalTime = 0;
+        int cols = 7;
+        int loops = 10000000;
+
+        List<Integer> intColumns = new ArrayList<>(cols);
+        intColumns.add(13);
+        intColumns.add(97);
+        intColumns.add(116);
+        intColumns.add(127);
+        intColumns.add(24);
+        intColumns.add(108);
+        intColumns.add(76);
+        List<Integer> intRanges = new ArrayList<>(cols);
+        intRanges.add(8);
+        intRanges.add(8);
+        intRanges.add(16);
+        intRanges.add(32);
+        intRanges.add(8);
+        intRanges.add(8);
+        intRanges.add(8);
+        ZOrder.encodeIntegers(intColumns, intRanges);
+        Random rand = new Random();
+        int[][] intCols = new int[512][cols];
+        int[][] ranges = new int[512][cols];
+        for (int i = 0; i < 512; i++) {
+            for (int c = 0; c < cols; c++) {
+                intCols[i][c] = rand.nextInt(128);
+                ranges[i][c] = getHighestSetBitPosition(intCols[i][c]) + 1;
+            }
+        }
+        for (int x = 0; x < runs; x++) {
+            long time = System.currentTimeMillis();
+            for (int i = 0; i < loops; i++) {
+                for (int idx = 0; idx < cols; idx++) {
+                    intColumns.set(idx, intCols[i & 511][idx]);
+                    intRanges.set(idx, ranges[i & 511][idx]);
+                }
+                ZOrder.encodeIntegers(intColumns, intRanges);
+            }
+            time = System.currentTimeMillis() - time;
+            totalTime += time;
+            System.out.println(time);
+        }
+        System.out.println("Average time of " + runs + " runs: " + totalTime / runs);
     }
 
     @Test
     public void testZOrderEncodeTime()
             throws Exception
     {
-        for (int x = 0; x < 10; x++) {
+        int runs = 10;
+        int totalTime = 0;
+        for (int x = 0; x < runs; x++) {
             long time = System.currentTimeMillis();
             List<Integer> intColumns = new ArrayList<>();
             intColumns.add(13);
@@ -135,19 +283,19 @@ public class TestZOrder
             intColumns.add(24);
             intColumns.add(108);
             intColumns.add(76);
-            ZOrder.encodeIntegers(intColumns);
+            ZOrder.encodeBigIntegers(intColumns);
             Random rand = new Random();
-            for (int i = 0; i < 1000000; i++) {
+            for (int i = 0; i < 10000000; i++) {
                 for (int idx = 0; idx < 7; idx++) {
-                    intColumns.set(idx, rand.nextInt(128));
+                    intColumns.set(idx, Math.abs(rand.nextInt()));
+                    // intColumns.set(idx, rand.nextInt(128));
                 }
-                ZOrder.encodeIntegers(intColumns);
+                ZOrder.encodeBigIntegers(intColumns);
             }
             time = System.currentTimeMillis() - time;
+            totalTime += time;
             System.out.println(time);
-            if (time > 100000) {
-                throw new Exception("Encoding+decoding too slow");
-            }
         }
+        System.out.println("Average time of " + runs + " runs: " + totalTime / runs);
     }
 }
