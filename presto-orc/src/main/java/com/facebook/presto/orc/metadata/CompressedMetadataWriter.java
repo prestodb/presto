@@ -47,7 +47,7 @@ public class CompressedMetadataWriter
     {
         // postscript is not compressed
         DynamicSliceOutput output = new DynamicSliceOutput(64);
-        metadataWriter.writePostscript(output, footerLength, metadataLength, compression, compressionBlockSize);
+        metadataWriter.writePostscript(output, footerLength, metadataLength, compression, compressionBlockSize, Optional.empty());
         return output.slice();
     }
 
