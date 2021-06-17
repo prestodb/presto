@@ -74,7 +74,6 @@ public class ReloadingResourceGroupConfigurationManager
     private final AtomicReference<List<ResourceGroupSpec>> rootGroups = new AtomicReference<>(ImmutableList.of());
     private final AtomicReference<List<ResourceGroupSelector>> selectors = new AtomicReference<>();
     private final AtomicReference<Optional<Duration>> cpuQuotaPeriod = new AtomicReference<>(Optional.empty());
-    private final AtomicReference<Optional<Duration>> cpuPerQueryLimit = new AtomicReference<>(Optional.empty());
     private final ManagerSpecProvider managerSpecProvider;
     private final ScheduledExecutorService configExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("DbResourceGroupConfigurationManager"));
     private final AtomicBoolean started = new AtomicBoolean();
