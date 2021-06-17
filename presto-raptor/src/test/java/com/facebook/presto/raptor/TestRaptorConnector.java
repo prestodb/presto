@@ -230,6 +230,7 @@ public class TestRaptorConnector
                 ImmutableMap.of(),
                 true,
                 Optional.empty(),
+                ImmutableSet.of(),
                 Optional.empty(),
                 ImmutableMap.of());
 

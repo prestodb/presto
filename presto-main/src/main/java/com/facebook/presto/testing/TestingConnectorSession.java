@@ -25,12 +25,14 @@ import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
@@ -53,23 +55,24 @@ public class TestingConnectorSession
     private final Map<String, PropertyMetadata<?>> properties;
     private final Map<String, Object> propertyValues;
     private final Optional<String> clientInfo;
+    private final Set<String> clientTags;
     private final SqlFunctionProperties sqlFunctionProperties;
     private final Optional<String> schema;
     private final Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions;
 
     public TestingConnectorSession(List<PropertyMetadata<?>> properties)
     {
-        this("user", Optional.of("test"), Optional.empty(), UTC_KEY, ENGLISH, System.currentTimeMillis(), properties, ImmutableMap.of(), new FeaturesConfig().isLegacyTimestamp(), Optional.empty(), Optional.empty(), ImmutableMap.of());
+        this("user", Optional.of("test"), Optional.empty(), UTC_KEY, ENGLISH, System.currentTimeMillis(), properties, ImmutableMap.of(), new FeaturesConfig().isLegacyTimestamp(), Optional.empty(), ImmutableSet.of(), Optional.empty(), ImmutableMap.of());
     }
 
     public TestingConnectorSession(List<PropertyMetadata<?>> properties, Map<String, Object> propertyValues)
     {
-        this("user", Optional.of("test"), Optional.empty(), UTC_KEY, ENGLISH, System.currentTimeMillis(), properties, propertyValues, new FeaturesConfig().isLegacyTimestamp(), Optional.empty(), Optional.empty(), ImmutableMap.of());
+        this("user", Optional.of("test"), Optional.empty(), UTC_KEY, ENGLISH, System.currentTimeMillis(), properties, propertyValues, new FeaturesConfig().isLegacyTimestamp(), Optional.empty(), ImmutableSet.of(), Optional.empty(), ImmutableMap.of());
     }
 
     public TestingConnectorSession(List<PropertyMetadata<?>> properties, Optional<String> schema)
     {
-        this("user", Optional.of("test"), Optional.empty(), UTC_KEY, ENGLISH, System.currentTimeMillis(), properties, ImmutableMap.of(), new FeaturesConfig().isLegacyTimestamp(), Optional.empty(), schema, ImmutableMap.of());
+        this("user", Optional.of("test"), Optional.empty(), UTC_KEY, ENGLISH, System.currentTimeMillis(), properties, ImmutableMap.of(), new FeaturesConfig().isLegacyTimestamp(), Optional.empty(), ImmutableSet.of(), schema, ImmutableMap.of());
     }
 
     public TestingConnectorSession(
@@ -83,6 +86,7 @@ public class TestingConnectorSession
             Map<String, Object> propertyValues,
             boolean isLegacyTimestamp,
             Optional<String> clientInfo,
+            Set<String> clientTags,
             Optional<String> schema,
             Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions)
     {
@@ -95,6 +99,7 @@ public class TestingConnectorSession
         this.properties = Maps.uniqueIndex(propertyMetadatas, PropertyMetadata::getName);
         this.propertyValues = ImmutableMap.copyOf(propertyValues);
         this.clientInfo = clientInfo;
+        this.clientTags = clientTags;
         this.sqlFunctionProperties = SqlFunctionProperties.builder()
                 .setTimeZoneKey(requireNonNull(timeZoneKey, "timeZoneKey is null"))
                 .setLegacyTimestamp(isLegacyTimestamp)
@@ -146,6 +151,12 @@ public class TestingConnectorSession
     public Optional<String> getClientInfo()
     {
         return clientInfo;
+    }
+
+    @Override
+    public Set<String> getClientTags()
+    {
+        return clientTags;
     }
 
     @Override

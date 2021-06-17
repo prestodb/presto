@@ -40,6 +40,7 @@ import com.facebook.presto.testing.TestingConnectorContext;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -88,6 +89,7 @@ public class TestCassandraConnector
             ImmutableMap.of(),
             true,
             Optional.empty(),
+            ImmutableSet.of(),
             Optional.empty(),
             ImmutableMap.of());
     protected String database;
