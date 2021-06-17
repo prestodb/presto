@@ -21,6 +21,7 @@ import com.facebook.presto.spi.security.ConnectorIdentity;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 public interface ConnectorSession
 {
@@ -40,6 +41,8 @@ public interface ConnectorSession
     Optional<String> getTraceToken();
 
     Optional<String> getClientInfo();
+
+    Set<String> getClientTags();
 
     long getStartTime();
 

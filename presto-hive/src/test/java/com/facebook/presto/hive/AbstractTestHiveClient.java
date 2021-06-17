@@ -1089,6 +1089,12 @@ public abstract class AbstractTestHiveClient
             }
 
             @Override
+            public Set<String> getClientTags()
+            {
+                return session.getClientTags();
+            }
+
+            @Override
             public long getStartTime()
             {
                 return session.getStartTime();

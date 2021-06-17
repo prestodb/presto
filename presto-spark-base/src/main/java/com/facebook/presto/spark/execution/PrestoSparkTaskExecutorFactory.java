@@ -502,6 +502,7 @@ public class PrestoSparkTaskExecutorFactory
                 session.getSource(),
                 session.getQueryId().getId(),
                 session.getClientInfo(),
+                Optional.of(session.getClientTags()),
                 session.getIdentity());
         TempStorage tempStorage = tempStorageManager.getTempStorage(storageBasedBroadcastJoinStorage);
 
