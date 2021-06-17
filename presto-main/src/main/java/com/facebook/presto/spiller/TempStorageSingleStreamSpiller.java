@@ -103,6 +103,7 @@ public class TempStorageSingleStreamSpiller
                 session.getSource(),
                 session.getQueryId().getId(),
                 session.getClientInfo(),
+                Optional.of(session.getClientTags()),
                 session.getIdentity());
 
         this.maxBufferSizeInBytes = toIntExact(getTempStorageSpillerBufferSize(session).toBytes());

@@ -1136,6 +1136,7 @@ public class PrestoSparkQueryExecutionFactory
                                 session.getSource(),
                                 session.getQueryId().getId(),
                                 session.getClientInfo(),
+                                Optional.of(session.getClientTags()),
                                 session.getIdentity());
 
                         broadcastDependency = new PrestoSparkStorageBasedBroadcastDependency(
