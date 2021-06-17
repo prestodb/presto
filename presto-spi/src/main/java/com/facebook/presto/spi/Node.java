@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.common.HostAddress;
+
 import java.net.URI;
 
 public interface Node

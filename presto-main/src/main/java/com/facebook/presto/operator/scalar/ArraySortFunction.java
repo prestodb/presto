@@ -14,15 +14,15 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.common.NotSupportedException;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.function.Description;
+import com.facebook.presto.common.function.OperatorDependency;
+import com.facebook.presto.common.function.ScalarFunction;
+import com.facebook.presto.common.function.SqlType;
+import com.facebook.presto.common.function.TypeParameter;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.Description;
-import com.facebook.presto.spi.function.OperatorDependency;
-import com.facebook.presto.spi.function.ScalarFunction;
-import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.function.TypeParameter;
 import com.google.common.primitives.Ints;
 
 import java.lang.invoke.MethodHandle;
@@ -30,9 +30,9 @@ import java.util.AbstractList;
 import java.util.Comparator;
 import java.util.List;
 
+import static com.facebook.presto.common.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.common.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 
 @ScalarFunction("array_sort")
 @Description("Sorts the given array in ascending order according to the natural ordering of its elements.")

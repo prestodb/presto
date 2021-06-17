@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator.index;
 
+import com.facebook.presto.common.HostAddress;
 import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 

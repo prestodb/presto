@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.druid.segment;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.druid.DataInputSource;
 import com.facebook.presto.druid.DataInputSourceId;
-import com.facebook.presto.spi.PrestoException;
 import org.apache.hadoop.fs.FSDataInputStream;
 
 import java.io.IOException;

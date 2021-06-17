@@ -13,19 +13,19 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.function.Description;
+import com.facebook.presto.common.function.LiteralParameters;
+import com.facebook.presto.common.function.ScalarFunction;
+import com.facebook.presto.common.function.Signature;
+import com.facebook.presto.common.function.SqlNullable;
+import com.facebook.presto.common.function.SqlType;
 import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.UnscaledDecimal128Arithmetic;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.operator.aggregation.TypedSet;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.Description;
-import com.facebook.presto.spi.function.LiteralParameters;
-import com.facebook.presto.spi.function.ScalarFunction;
-import com.facebook.presto.spi.function.Signature;
-import com.facebook.presto.spi.function.SqlNullable;
-import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.type.Constraint;
 import com.facebook.presto.type.LiteralParameter;
 import com.google.common.primitives.Doubles;
@@ -40,6 +40,9 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.concurrent.ThreadLocalRandom;
 
+import static com.facebook.presto.common.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.common.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static com.facebook.presto.common.function.FunctionKind.SCALAR;
 import static com.facebook.presto.common.type.Decimals.longTenToNth;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.add;
@@ -53,9 +56,6 @@ import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.throw
 import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
 import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.unscaledDecimalToUnscaledLong;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
-import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.type.DecimalOperators.modulusScalarFunction;
 import static com.facebook.presto.type.DecimalOperators.modulusSignatureBuilder;
 import static com.facebook.presto.util.Failures.checkCondition;

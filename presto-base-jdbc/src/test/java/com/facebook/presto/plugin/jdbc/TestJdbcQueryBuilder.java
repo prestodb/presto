@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.SortedRangeSet;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;

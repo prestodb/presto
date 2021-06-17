@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.block.ArrayBlock;
 import com.facebook.presto.common.block.Block;
@@ -27,7 +28,6 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.orc.TupleDomainFilter;
-import com.facebook.presto.spi.PrestoException;
 import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
 
@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 
+import static com.facebook.presto.common.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.common.block.ColumnarArray.toColumnarArray;
 import static com.facebook.presto.common.block.ColumnarMap.toColumnarMap;
 import static com.facebook.presto.common.block.ColumnarRow.toColumnarRow;
@@ -57,7 +58,6 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.isMapType;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isRowType;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NOT_NULL;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NULL;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.intBitsToFloat;

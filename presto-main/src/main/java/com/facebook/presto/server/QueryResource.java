@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.QueryId;
 import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
@@ -21,8 +23,6 @@ import com.facebook.presto.execution.StageId;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.resourcemanager.ResourceManagerProxy;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.QueryId;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.security.RolesAllowed;

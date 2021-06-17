@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.execution.resourceGroups.db;
 
+import com.facebook.presto.common.QueryId;
 import com.facebook.presto.resourceGroups.db.H2ResourceGroupsDao;
-import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import org.testng.annotations.Test;
 

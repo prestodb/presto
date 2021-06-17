@@ -14,13 +14,13 @@
 package com.facebook.presto.operator.window;
 
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.function.Signature;
+import com.facebook.presto.common.function.WindowFunction;
+import com.facebook.presto.common.function.WindowIndex;
 import com.facebook.presto.operator.UpdateMemory;
 import com.facebook.presto.operator.aggregation.Accumulator;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
-import com.facebook.presto.spi.function.Signature;
-import com.facebook.presto.spi.function.WindowFunction;
-import com.facebook.presto.spi.function.WindowIndex;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;

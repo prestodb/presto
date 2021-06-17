@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.raptor.filesystem;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.orc.AbstractOrcDataSource;
 import com.facebook.presto.orc.OrcDataSourceId;
-import com.facebook.presto.spi.PrestoException;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.fs.FSDataInputStream;
 

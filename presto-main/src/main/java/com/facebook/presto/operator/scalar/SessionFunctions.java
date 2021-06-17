@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.common.function.Description;
+import com.facebook.presto.common.function.ScalarFunction;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.function.SqlType;
 import com.facebook.presto.common.type.StandardTypes;
-import com.facebook.presto.spi.function.Description;
-import com.facebook.presto.spi.function.ScalarFunction;
-import com.facebook.presto.spi.function.SqlType;
 import io.airlift.slice.Slice;
 
-import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
+import static com.facebook.presto.common.function.SqlFunctionVisibility.HIDDEN;
 import static io.airlift.slice.Slices.utf8Slice;
 
 public final class SessionFunctions

@@ -14,7 +14,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.common.QueryId;
 
 public interface SessionSupplier
 {

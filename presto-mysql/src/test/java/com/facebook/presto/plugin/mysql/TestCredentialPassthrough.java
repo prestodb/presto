@@ -14,7 +14,7 @@
 package com.facebook.presto.plugin.mysql;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.common.security.Identity;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.mysql.TestingMySqlServer;
 import com.facebook.presto.tests.DistributedQueryRunner;

@@ -18,7 +18,7 @@ import com.facebook.presto.bytecode.ByteCodeTooLargeException;
 import com.facebook.presto.bytecode.ClassDefinition;
 import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.bytecode.ParameterizedType;
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.common.PrestoException;
 
 import java.lang.invoke.MethodHandle;
 import java.time.Instant;
@@ -30,7 +30,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import static com.facebook.presto.bytecode.BytecodeUtils.toJavaIdentifierString;
 import static com.facebook.presto.bytecode.ClassGenerator.classGenerator;
 import static com.facebook.presto.bytecode.ParameterizedType.typeFromJavaClassName;
-import static com.facebook.presto.spi.StandardErrorCode.GENERATED_BYTECODE_TOO_LARGE;
+import static com.facebook.presto.common.StandardErrorCode.GENERATED_BYTECODE_TOO_LARGE;
 import static java.time.ZoneOffset.UTC;
 
 public final class CompilerUtils

@@ -16,19 +16,19 @@ package com.facebook.presto.operator.aggregation.histogram;
 import com.facebook.presto.array.IntBigArray;
 import com.facebook.presto.array.LongBigArray;
 import com.facebook.presto.common.NotSupportedException;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.annotations.VisibleForTesting;
 import org.openjdk.jol.info.ClassLayout;
 
+import static com.facebook.presto.common.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
+import static com.facebook.presto.common.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.operator.aggregation.histogram.HashUtil.calculateMaxFill;
 import static com.facebook.presto.operator.aggregation.histogram.HashUtil.computeBucketCount;
 import static com.facebook.presto.operator.aggregation.histogram.HashUtil.nextBucketId;
 import static com.facebook.presto.operator.aggregation.histogram.HashUtil.nextProbeLinear;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkState;
 
 /**

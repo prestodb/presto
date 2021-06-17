@@ -14,14 +14,14 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.common.CatalogSchemaName;
-import com.facebook.presto.spi.function.FunctionHandle;
-import com.facebook.presto.spi.function.FunctionImplementationType;
-import com.facebook.presto.spi.function.FunctionMetadata;
-import com.facebook.presto.spi.function.Parameter;
-import com.facebook.presto.spi.function.ScalarFunctionImplementation;
-import com.facebook.presto.spi.function.Signature;
-import com.facebook.presto.spi.function.SqlInvokedFunction;
-import com.facebook.presto.spi.function.SqlInvokedScalarFunctionImplementation;
+import com.facebook.presto.common.function.FunctionHandle;
+import com.facebook.presto.common.function.FunctionImplementationType;
+import com.facebook.presto.common.function.FunctionMetadata;
+import com.facebook.presto.common.function.Parameter;
+import com.facebook.presto.common.function.ScalarFunctionImplementation;
+import com.facebook.presto.common.function.Signature;
+import com.facebook.presto.common.function.SqlInvokedFunction;
+import com.facebook.presto.common.function.SqlInvokedScalarFunctionImplementation;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 

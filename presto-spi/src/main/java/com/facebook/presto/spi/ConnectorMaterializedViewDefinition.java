@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.common.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;

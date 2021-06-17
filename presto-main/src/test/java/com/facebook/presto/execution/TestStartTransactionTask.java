@@ -15,10 +15,10 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.Session.SessionBuilder;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AllowAllAccessControl;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.Isolation;
@@ -41,9 +41,9 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.presto.common.StandardErrorCode.INCOMPATIBLE_CLIENT;
+import static com.facebook.presto.common.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.execution.TaskTestUtils.createQueryStateMachine;
-import static com.facebook.presto.spi.StandardErrorCode.INCOMPATIBLE_CLIENT;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_TRANSACTION_MODE;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;

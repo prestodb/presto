@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.security.AllowAllAccessControl;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.tree.Expression;
@@ -43,10 +43,10 @@ import java.util.concurrent.ExecutorService;
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.common.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.execution.TaskTestUtils.createQueryStateMachine;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;

@@ -18,9 +18,9 @@ import com.esri.core.geometry.Geometry;
 import com.esri.core.geometry.OperatorIntersects;
 import com.esri.core.geometry.Point;
 import com.esri.core.geometry.ogc.OGCGeometry;
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.function.SqlType;
 import com.facebook.presto.common.type.StandardTypes;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.SqlType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
@@ -35,10 +35,10 @@ import java.util.PriorityQueue;
 import java.util.Set;
 import java.util.function.Consumer;
 
+import static com.facebook.presto.common.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.geospatial.GeometryUtils.accelerateGeometry;
 import static com.facebook.presto.geospatial.GeometryUtils.getEnvelope;
 import static com.facebook.presto.plugin.geospatial.BingTile.MAX_ZOOM_LEVEL;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static java.lang.String.format;
 
 public class BingTileUtils

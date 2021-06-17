@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.raptor.metadata;
 
+import com.facebook.presto.common.ConnectorSession;
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.SchemaTableName;
+import com.facebook.presto.common.SchemaTablePrefix;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder;
@@ -29,14 +33,10 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.testing.TestingNodeManager;
 import com.google.common.collect.ImmutableList;
@@ -61,6 +61,8 @@ import java.util.stream.Collectors;
 
 import static com.facebook.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
+import static com.facebook.presto.common.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.common.StandardErrorCode.TRANSACTION_CONFLICT;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
@@ -75,8 +77,6 @@ import static com.facebook.presto.raptor.RaptorTableProperties.TABLE_SUPPORTS_DE
 import static com.facebook.presto.raptor.RaptorTableProperties.TEMPORAL_COLUMN_PROPERTY;
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.createShardManager;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static com.google.common.base.Ticker.systemTicker;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;

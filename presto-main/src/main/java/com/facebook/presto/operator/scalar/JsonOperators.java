@@ -13,16 +13,16 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.function.BlockIndex;
+import com.facebook.presto.common.function.BlockPosition;
+import com.facebook.presto.common.function.IsNull;
+import com.facebook.presto.common.function.LiteralParameters;
+import com.facebook.presto.common.function.ScalarOperator;
 import com.facebook.presto.common.function.SqlFunctionProperties;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.BlockIndex;
-import com.facebook.presto.spi.function.BlockPosition;
-import com.facebook.presto.spi.function.IsNull;
-import com.facebook.presto.spi.function.LiteralParameters;
-import com.facebook.presto.spi.function.ScalarOperator;
-import com.facebook.presto.spi.function.SqlNullable;
-import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.common.function.SqlNullable;
+import com.facebook.presto.common.function.SqlType;
 import com.facebook.presto.util.JsonCastException;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
@@ -33,6 +33,8 @@ import io.airlift.slice.SliceOutput;
 
 import java.io.IOException;
 
+import static com.facebook.presto.common.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static com.facebook.presto.common.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.common.function.OperatorType.CAST;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.function.OperatorType.HASH_CODE;
@@ -50,8 +52,6 @@ import static com.facebook.presto.common.type.StandardTypes.SMALLINT;
 import static com.facebook.presto.common.type.StandardTypes.TIMESTAMP;
 import static com.facebook.presto.common.type.StandardTypes.TINYINT;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
-import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.util.DateTimeUtils.printDate;
 import static com.facebook.presto.util.DateTimeUtils.printTimestampWithoutTimeZone;
 import static com.facebook.presto.util.Failures.checkCondition;

@@ -14,12 +14,12 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.function.FunctionHandle;
+import com.facebook.presto.common.function.FunctionImplementationType;
+import com.facebook.presto.common.function.FunctionMetadata;
+import com.facebook.presto.common.function.SqlInvokedScalarFunctionImplementation;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.function.FunctionHandle;
-import com.facebook.presto.spi.function.FunctionImplementationType;
-import com.facebook.presto.spi.function.FunctionMetadata;
-import com.facebook.presto.spi.function.SqlInvokedScalarFunctionImplementation;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.tree.Expression;

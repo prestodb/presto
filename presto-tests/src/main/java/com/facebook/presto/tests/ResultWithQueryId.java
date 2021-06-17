@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.tests;
 
-import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.common.QueryId;
 
 public class ResultWithQueryId<T>
 {

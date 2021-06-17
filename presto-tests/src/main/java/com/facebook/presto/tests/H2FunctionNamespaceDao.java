@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.common.function.SqlFunctionId;
 import com.facebook.presto.functionNamespace.mysql.FunctionNamespaceDao;
-import com.facebook.presto.spi.function.SqlFunctionId;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 

@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.memory;
 
+import com.facebook.presto.common.HostAddress;
+import com.facebook.presto.common.QueryId;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.TaskSource;
@@ -25,8 +27,6 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.FixedPageSource;
-import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;

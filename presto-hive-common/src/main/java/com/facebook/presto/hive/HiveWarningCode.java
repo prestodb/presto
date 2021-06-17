@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.WarningCode;
-import com.facebook.presto.spi.WarningCodeSupplier;
+import com.facebook.presto.common.WarningCode;
+import com.facebook.presto.common.WarningCodeSupplier;
 
 public enum HiveWarningCode
         implements WarningCodeSupplier

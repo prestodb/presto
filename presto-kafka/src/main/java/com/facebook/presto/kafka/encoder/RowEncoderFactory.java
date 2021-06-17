@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.kafka.encoder;
 
-import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.common.ConnectorSession;
 
 import java.util.List;
 import java.util.Optional;

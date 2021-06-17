@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.execution.scheduler;
 
+import com.facebook.presto.common.PrestoWarning;
 import com.facebook.presto.execution.PartialResultQueryManager;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
-import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.WarningCollector;
 
 import java.util.HashMap;
@@ -25,7 +25,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.presto.spi.StandardWarningCode.PARTIAL_RESULT_WARNING;
+import static com.facebook.presto.common.StandardWarningCode.PARTIAL_RESULT_WARNING;
 import static com.google.common.collect.Sets.SetView;
 import static com.google.common.collect.Sets.difference;
 import static com.google.common.collect.Sets.newConcurrentHashSet;

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.decoder.raw;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.DecimalType;
@@ -27,7 +28,6 @@ import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.DecoderTestColumnHandle;
 import com.facebook.presto.decoder.FieldValueProvider;
 import com.facebook.presto.decoder.RowDecoder;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableSet;
 import org.assertj.core.api.ThrowableAssert;
 import org.testng.annotations.Test;

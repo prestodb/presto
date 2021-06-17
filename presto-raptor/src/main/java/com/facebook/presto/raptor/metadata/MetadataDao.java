@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.raptor.metadata;
 
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.raptor.metadata.Table.TableMapper;
-import com.facebook.presto.spi.SchemaTableName;
 import org.skife.jdbi.v2.sqlobject.Bind;
 import org.skife.jdbi.v2.sqlobject.GetGeneratedKeys;
 import org.skife.jdbi.v2.sqlobject.SqlQuery;

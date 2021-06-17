@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.plugin.base.security;
 
-import com.facebook.presto.spi.security.SystemAccessControl;
+import com.facebook.presto.common.security.SystemAccessControl;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;

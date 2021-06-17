@@ -13,18 +13,18 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.ConnectorSession;
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.function.FunctionHandle;
+import com.facebook.presto.common.function.FunctionMetadataManager;
+import com.facebook.presto.common.function.StandardFunctionResolution;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.VariableAllocator;
-import com.facebook.presto.spi.function.FunctionHandle;
-import com.facebook.presto.spi.function.FunctionMetadataManager;
-import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
@@ -44,6 +44,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.common.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
@@ -56,7 +57,6 @@ import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isArrayType;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isMapType;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isRowType;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;

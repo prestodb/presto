@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
-import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.common.ConnectorSession;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;

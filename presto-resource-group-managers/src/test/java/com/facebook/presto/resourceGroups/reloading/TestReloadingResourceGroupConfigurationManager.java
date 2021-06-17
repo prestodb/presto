@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.resourceGroups.reloading;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroup;
 import com.facebook.presto.resourceGroups.VariableMap;
 import com.facebook.presto.resourceGroups.db.DbManagerSpecProvider;
@@ -20,7 +21,6 @@ import com.facebook.presto.resourceGroups.db.DbResourceGroupConfig;
 import com.facebook.presto.resourceGroups.db.DbSourceExactMatchSelector;
 import com.facebook.presto.resourceGroups.db.H2DaoProvider;
 import com.facebook.presto.resourceGroups.db.H2ResourceGroupsDao;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.resourceGroups.SchedulingPolicy;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.spi.session.ResourceEstimates;

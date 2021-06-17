@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.BooleanType;
@@ -33,7 +34,6 @@ import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import org.apache.iceberg.types.Types;
 
@@ -41,7 +41,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.common.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 

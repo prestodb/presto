@@ -15,9 +15,9 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.CatalogSchemaName;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.Expression;
@@ -27,8 +27,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.common.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.metadata.MetadataUtil.createCatalogSchemaName;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 

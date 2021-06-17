@@ -24,6 +24,7 @@ import io.airlift.slice.Slice;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 
+import static com.facebook.presto.common.function.FunctionKind.SCALAR;
 import static com.facebook.presto.common.function.OperatorType.SATURATED_FLOOR_CAST;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.Decimals.bigIntegerTenToNth;
@@ -33,7 +34,6 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static java.lang.Math.toIntExact;
 import static java.math.BigInteger.ONE;
 import static java.math.RoundingMode.FLOOR;

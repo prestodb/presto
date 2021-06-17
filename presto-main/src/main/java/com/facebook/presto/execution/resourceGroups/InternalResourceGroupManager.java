@@ -15,11 +15,11 @@ package com.facebook.presto.execution.resourceGroups;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.node.NodeInfo;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.execution.ManagedQueryExecution;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroup.RootInternalResourceGroup;
 import com.facebook.presto.server.ResourceGroupInfo;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerContext;
@@ -55,7 +55,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
-import static com.facebook.presto.spi.StandardErrorCode.QUERY_REJECTED;
+import static com.facebook.presto.common.StandardErrorCode.QUERY_REJECTED;
 import static com.facebook.presto.util.PropertiesUtil.loadProperties;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;

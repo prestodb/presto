@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.cassandra.util;
 
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.common.PrestoException;
 
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;

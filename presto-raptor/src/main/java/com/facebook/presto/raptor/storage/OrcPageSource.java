@@ -14,6 +14,7 @@
 package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.LazyBlock;
@@ -25,7 +26,6 @@ import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.raptor.storage.DeltaShardLoader.RowsToKeepResult;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 
 import java.io.IOException;

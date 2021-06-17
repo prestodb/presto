@@ -17,11 +17,11 @@ import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.cache.CacheFactory;
 import com.facebook.presto.cache.CacheManager;
 import com.facebook.presto.cache.ForCachingFileSystem;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.hadoop.FileSystemFactory;
 import com.facebook.presto.hive.HdfsConfiguration;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
-import com.facebook.presto.spi.PrestoException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -33,8 +33,8 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.function.BiFunction;
 
+import static com.facebook.presto.common.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.hive.util.ConfigurationUtils.copy;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 

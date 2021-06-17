@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.resourcemanager;
 
+import com.facebook.presto.common.QueryId;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.server.BasicQueryInfo;
-import com.facebook.presto.spi.QueryId;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.security.RolesAllowed;

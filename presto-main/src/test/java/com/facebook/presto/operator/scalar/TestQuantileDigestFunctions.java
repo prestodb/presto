@@ -14,11 +14,11 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.airlift.stats.QuantileDigest;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.type.SqlVarbinary;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeParameter;
 import com.facebook.presto.operator.aggregation.FloatingPointBitsConverterUtil;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 

@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.ConnectorSession;
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.hive.metastore.Partition;
@@ -20,9 +23,6 @@ import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.util.HiveFileIterator;
 import com.facebook.presto.hive.util.InternalHiveSplitFactory;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
@@ -61,6 +61,7 @@ import java.util.Properties;
 import java.util.function.IntPredicate;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.common.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.hive.HiveBucketing.getVirtualBucketNumber;
 import static com.facebook.presto.hive.HiveColumnHandle.pathColumnHandle;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
@@ -81,7 +82,6 @@ import static com.facebook.presto.hive.S3SelectPushdown.shouldEnablePushdownForT
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getPartitionLocation;
 import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;

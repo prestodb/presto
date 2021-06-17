@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.druid.column;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.PrestoException;
 import org.apache.druid.segment.ColumnValueSelector;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;

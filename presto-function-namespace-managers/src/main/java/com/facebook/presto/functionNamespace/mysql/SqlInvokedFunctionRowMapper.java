@@ -15,9 +15,9 @@ package com.facebook.presto.functionNamespace.mysql;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.QualifiedObjectName;
-import com.facebook.presto.spi.function.Parameter;
-import com.facebook.presto.spi.function.RoutineCharacteristics;
-import com.facebook.presto.spi.function.SqlInvokedFunction;
+import com.facebook.presto.common.function.Parameter;
+import com.facebook.presto.common.function.RoutineCharacteristics;
+import com.facebook.presto.common.function.SqlInvokedFunction;
 import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.StatementContext;
 
@@ -27,8 +27,8 @@ import java.util.List;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
+import static com.facebook.presto.common.function.FunctionVersion.withVersion;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.spi.function.FunctionVersion.withVersion;
 
 public class SqlInvokedFunctionRowMapper
         implements RowMapper<SqlInvokedFunction>

@@ -14,13 +14,13 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.ConnectorSession;
+import com.facebook.presto.common.function.FunctionMetadata;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.WarningCollector;
-import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.InputReferenceExpression;

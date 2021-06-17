@@ -13,19 +13,19 @@
  */
 package com.facebook.presto.operator.scalar.annotations;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.function.Description;
+import com.facebook.presto.common.function.Parameter;
+import com.facebook.presto.common.function.RoutineCharacteristics;
+import com.facebook.presto.common.function.ScalarFunction;
+import com.facebook.presto.common.function.ScalarOperator;
+import com.facebook.presto.common.function.SqlInvokedFunction;
+import com.facebook.presto.common.function.SqlInvokedScalarFunction;
+import com.facebook.presto.common.function.SqlParameter;
+import com.facebook.presto.common.function.SqlParameters;
+import com.facebook.presto.common.function.SqlType;
 import com.facebook.presto.common.type.TypeSignature;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.Description;
-import com.facebook.presto.spi.function.Parameter;
-import com.facebook.presto.spi.function.RoutineCharacteristics;
-import com.facebook.presto.spi.function.ScalarFunction;
-import com.facebook.presto.spi.function.ScalarOperator;
-import com.facebook.presto.spi.function.SqlInvokedFunction;
-import com.facebook.presto.spi.function.SqlInvokedScalarFunction;
-import com.facebook.presto.spi.function.SqlParameter;
-import com.facebook.presto.spi.function.SqlParameters;
-import com.facebook.presto.spi.function.SqlType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -35,15 +35,15 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.common.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
+import static com.facebook.presto.common.function.FunctionVersion.notVersioned;
+import static com.facebook.presto.common.function.RoutineCharacteristics.Determinism.DETERMINISTIC;
+import static com.facebook.presto.common.function.RoutineCharacteristics.Determinism.NOT_DETERMINISTIC;
+import static com.facebook.presto.common.function.RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT;
+import static com.facebook.presto.common.function.RoutineCharacteristics.NullCallClause.RETURNS_NULL_ON_NULL_INPUT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.operator.annotations.FunctionsParserHelper.findPublicStaticMethods;
-import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
-import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
-import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.DETERMINISTIC;
-import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.NOT_DETERMINISTIC;
-import static com.facebook.presto.spi.function.RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT;
-import static com.facebook.presto.spi.function.RoutineCharacteristics.NullCallClause.RETURNS_NULL_ON_NULL_INPUT;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;

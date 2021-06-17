@@ -32,6 +32,7 @@ import com.google.common.collect.ImmutableList;
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 
+import static com.facebook.presto.common.function.Signature.comparableTypeParameter;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
@@ -39,7 +40,6 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
-import static com.facebook.presto.spi.function.Signature.comparableTypeParameter;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;

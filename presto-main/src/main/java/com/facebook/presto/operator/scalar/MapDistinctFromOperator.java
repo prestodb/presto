@@ -14,27 +14,27 @@ package com.facebook.presto.operator.scalar;
  */
 
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.function.BlockIndex;
+import com.facebook.presto.common.function.BlockPosition;
+import com.facebook.presto.common.function.Convention;
+import com.facebook.presto.common.function.IsNull;
+import com.facebook.presto.common.function.OperatorDependency;
+import com.facebook.presto.common.function.ScalarOperator;
+import com.facebook.presto.common.function.SqlType;
+import com.facebook.presto.common.function.TypeParameter;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.function.BlockIndex;
-import com.facebook.presto.spi.function.BlockPosition;
-import com.facebook.presto.spi.function.Convention;
-import com.facebook.presto.spi.function.IsNull;
-import com.facebook.presto.spi.function.OperatorDependency;
-import com.facebook.presto.spi.function.ScalarOperator;
-import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.function.TypeParameter;
 
 import java.lang.invoke.MethodHandle;
 
 import static com.facebook.presto.common.block.MethodHandleUtil.compose;
 import static com.facebook.presto.common.block.MethodHandleUtil.nativeValueGetter;
+import static com.facebook.presto.common.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static com.facebook.presto.common.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.function.OperatorType.HASH_CODE;
 import static com.facebook.presto.common.function.OperatorType.IS_DISTINCT_FROM;
-import static com.facebook.presto.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
-import static com.facebook.presto.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 
 @ScalarOperator(IS_DISTINCT_FROM)
 public final class MapDistinctFromOperator

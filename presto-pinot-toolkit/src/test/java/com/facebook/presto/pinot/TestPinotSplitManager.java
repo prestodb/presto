@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.pinot;
 
+import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.pinot.query.PinotQueryGenerator;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;

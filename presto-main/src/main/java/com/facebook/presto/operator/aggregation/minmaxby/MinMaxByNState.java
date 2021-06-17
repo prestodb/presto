@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator.aggregation.minmaxby;
 
+import com.facebook.presto.common.function.AccumulatorState;
 import com.facebook.presto.operator.aggregation.TypedKeyValueHeap;
-import com.facebook.presto.spi.function.AccumulatorState;
 
 public interface MinMaxByNState
         extends AccumulatorState

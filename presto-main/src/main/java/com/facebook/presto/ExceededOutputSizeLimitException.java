@@ -13,10 +13,10 @@
  */
 package com.facebook.presto;
 
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.common.PrestoException;
 import io.airlift.units.DataSize;
 
-import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_OUTPUT_SIZE_LIMIT;
+import static com.facebook.presto.common.StandardErrorCode.EXCEEDED_OUTPUT_SIZE_LIMIT;
 
 public class ExceededOutputSizeLimitException
         extends PrestoException

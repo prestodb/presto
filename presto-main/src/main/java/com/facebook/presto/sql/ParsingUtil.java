@@ -14,12 +14,12 @@
 package com.facebook.presto.sql;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.spi.PrestoWarning;
+import com.facebook.presto.common.PrestoWarning;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.sql.parser.ParsingOptions;
 
 import static com.facebook.presto.SystemSessionProperties.isParseDecimalLiteralsAsDouble;
-import static com.facebook.presto.spi.StandardWarningCode.PARSER_WARNING;
+import static com.facebook.presto.common.StandardWarningCode.PARSER_WARNING;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.atop;
 
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;

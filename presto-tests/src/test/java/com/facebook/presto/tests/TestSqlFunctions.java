@@ -15,13 +15,13 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.function.Parameter;
+import com.facebook.presto.common.function.RoutineCharacteristics;
+import com.facebook.presto.common.function.SqlFunctionId;
+import com.facebook.presto.common.function.SqlInvokedFunction;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.UserDefinedType;
-import com.facebook.presto.spi.function.Parameter;
-import com.facebook.presto.spi.function.RoutineCharacteristics;
-import com.facebook.presto.spi.function.SqlFunctionId;
-import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
@@ -34,12 +34,12 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static com.facebook.presto.common.function.FunctionVersion.notVersioned;
 import static com.facebook.presto.common.type.BigintEnumType.LongEnumMap;
 import static com.facebook.presto.common.type.StandardTypes.BIGINT_ENUM;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR_ENUM;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.VarcharEnumType.VarcharEnumMap;
-import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static com.google.common.collect.ImmutableList.toImmutableList;

@@ -15,6 +15,7 @@ package com.facebook.presto.raptor.metadata;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.CounterStat;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.raptor.NodeSupplier;
@@ -22,7 +23,6 @@ import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.storage.organization.ShardOrganizerDao;
 import com.facebook.presto.raptor.util.DaoSupplier;
 import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.base.Joiner;
 import com.google.common.base.Ticker;
 import com.google.common.cache.CacheBuilder;
@@ -66,6 +66,10 @@ import java.util.Set;
 import java.util.StringJoiner;
 import java.util.UUID;
 
+import static com.facebook.presto.common.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.common.StandardErrorCode.NO_NODES_AVAILABLE;
+import static com.facebook.presto.common.StandardErrorCode.SERVER_STARTING_UP;
+import static com.facebook.presto.common.StandardErrorCode.TRANSACTION_CONFLICT;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_EXTERNAL_BATCH_ALREADY_EXISTS;
 import static com.facebook.presto.raptor.storage.ColumnIndexStatsUtils.jdbcType;
@@ -80,10 +84,6 @@ import static com.facebook.presto.raptor.util.DatabaseUtil.runIgnoringConstraint
 import static com.facebook.presto.raptor.util.DatabaseUtil.runTransaction;
 import static com.facebook.presto.raptor.util.UuidUtil.uuidFromBytes;
 import static com.facebook.presto.raptor.util.UuidUtil.uuidToBytes;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
-import static com.facebook.presto.spi.StandardErrorCode.SERVER_STARTING_UP;
-import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;

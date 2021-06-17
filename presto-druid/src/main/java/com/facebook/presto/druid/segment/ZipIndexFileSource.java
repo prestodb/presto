@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.druid.segment;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.druid.DataInputSource;
 import com.facebook.presto.druid.zip.CentralDirectoryFileHeader;
 import com.facebook.presto.druid.zip.EndOfCentralDirectoryRecord;
@@ -21,7 +22,6 @@ import com.facebook.presto.druid.zip.Zip64EndOfCentralDirectoryLocator;
 import com.facebook.presto.druid.zip.ZipFileData;
 import com.facebook.presto.druid.zip.ZipFileEntry;
 import com.facebook.presto.druid.zip.ZipUtil;
-import com.facebook.presto.spi.PrestoException;
 
 import java.io.ByteArrayInputStream;
 import java.io.Closeable;

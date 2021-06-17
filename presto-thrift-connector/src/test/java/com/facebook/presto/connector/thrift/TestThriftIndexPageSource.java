@@ -14,11 +14,11 @@
 package com.facebook.presto.connector.thrift;
 
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.InMemoryRecordSet;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.thrift.api.connector.PrestoThriftId;
 import com.facebook.presto.thrift.api.connector.PrestoThriftNullableColumnSet;
 import com.facebook.presto.thrift.api.connector.PrestoThriftNullableSchemaName;

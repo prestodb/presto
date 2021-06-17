@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.elasticsearch.decoders;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.net.InetAddresses;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -23,9 +23,9 @@ import org.elasticsearch.search.SearchHit;
 
 import java.util.function.Supplier;
 
+import static com.facebook.presto.common.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.common.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_TYPE_MISMATCH;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.String.format;
 import static java.lang.System.arraycopy;

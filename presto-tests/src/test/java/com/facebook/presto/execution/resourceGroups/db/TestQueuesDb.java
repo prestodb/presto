@@ -14,6 +14,7 @@
 package com.facebook.presto.execution.resourceGroups.db;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QueryId;
 import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroupManager;
@@ -21,7 +22,6 @@ import com.facebook.presto.resourceGroups.db.H2ResourceGroupsDao;
 import com.facebook.presto.resourceGroups.reloading.ReloadingResourceGroupConfigurationManager;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.ResourceGroupInfo;
-import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.DistributedQueryRunner;
@@ -38,6 +38,10 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.airlift.testing.Assertions.assertContains;
 import static com.facebook.airlift.testing.Closeables.closeQuietly;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_EXECUTION_TIME;
+import static com.facebook.presto.common.StandardErrorCode.EXCEEDED_TIME_LIMIT;
+import static com.facebook.presto.common.StandardErrorCode.INVALID_RESOURCE_GROUP;
+import static com.facebook.presto.common.StandardErrorCode.QUERY_QUEUE_FULL;
+import static com.facebook.presto.common.StandardErrorCode.QUERY_REJECTED;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.FINISHED;
 import static com.facebook.presto.execution.QueryState.QUEUED;
@@ -56,10 +60,6 @@ import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.getSele
 import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.rejectingSession;
 import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.waitForCompleteQueryCount;
 import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.waitForRunningQueryCount;
-import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_RESOURCE_GROUP;
-import static com.facebook.presto.spi.StandardErrorCode.QUERY_QUEUE_FULL;
-import static com.facebook.presto.spi.StandardErrorCode.QUERY_REJECTED;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;

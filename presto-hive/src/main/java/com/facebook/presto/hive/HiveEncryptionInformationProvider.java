@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.Table;
-import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;

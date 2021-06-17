@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
+import static com.facebook.presto.common.StandardErrorCode.INVALID_TABLE_PROPERTY;
 
 public class TablePropertyManager
         extends AbstractPropertyManager

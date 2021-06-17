@@ -14,7 +14,7 @@
 package com.facebook.presto.plugin.memory;
 
 import com.facebook.airlift.json.JsonCodec;
-import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.common.HostAddress;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.slice.Slice;

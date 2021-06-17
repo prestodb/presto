@@ -15,18 +15,18 @@ package com.facebook.presto.operator.index;
 
 import com.facebook.presto.common.NotSupportedException;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.project.InputChannels;
 import com.facebook.presto.operator.project.PageFilter;
 import com.facebook.presto.operator.project.SelectedPositions;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.common.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 

@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.NamedTypeSignature;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.VarcharType;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.hive.common.type.HiveChar;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
@@ -28,6 +28,7 @@ import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 
 import java.util.Optional;
 
+import static com.facebook.presto.common.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DateType.DATE;
@@ -52,7 +53,6 @@ import static com.facebook.presto.hive.HiveType.HIVE_TIMESTAMP;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isArrayType;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isMapType;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isRowType;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getCharTypeInfo;

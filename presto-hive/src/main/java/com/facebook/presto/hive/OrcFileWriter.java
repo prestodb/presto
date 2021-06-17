@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.common.NotSupportedException;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
@@ -29,7 +30,6 @@ import com.facebook.presto.orc.OrcWriter;
 import com.facebook.presto.orc.OrcWriterOptions;
 import com.facebook.presto.orc.WriterStats;
 import com.facebook.presto.orc.metadata.CompressionKind;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
@@ -44,11 +44,11 @@ import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.common.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
 import static com.facebook.presto.hive.HiveManifestUtils.createFileStatisticsPage;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 

@@ -14,9 +14,9 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QueryId;
 import com.facebook.presto.execution.TestEventListenerPlugin.TestingEventListenerPlugin;
 import com.facebook.presto.resourceGroups.ResourceGroupManagerPlugin;
-import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
 import com.facebook.presto.spi.eventlistener.QueryCreatedEvent;
 import com.facebook.presto.spi.eventlistener.SplitCompletedEvent;

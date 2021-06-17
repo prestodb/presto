@@ -15,11 +15,11 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.operator.UpdateMemory;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import org.testng.annotations.Test;

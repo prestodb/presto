@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spi.relation;
 
-import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.common.ConnectorSession;
 
 /**
  * A set of services/utilities that are helpful for connectors to operate on row expressions

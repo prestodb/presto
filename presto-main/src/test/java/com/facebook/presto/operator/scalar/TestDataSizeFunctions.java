@@ -16,9 +16,9 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.common.type.Type;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.common.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.common.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.common.type.DecimalType.createDecimalType;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 
 public class TestDataSizeFunctions
         extends AbstractTestFunctions

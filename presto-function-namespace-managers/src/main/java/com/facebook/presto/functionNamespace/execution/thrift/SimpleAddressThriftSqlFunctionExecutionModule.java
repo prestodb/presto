@@ -14,7 +14,7 @@
 package com.facebook.presto.functionNamespace.execution.thrift;
 
 import com.facebook.drift.client.address.SimpleAddressSelectorConfig;
-import com.facebook.presto.spi.function.RoutineCharacteristics.Language;
+import com.facebook.presto.common.function.RoutineCharacteristics.Language;
 import com.facebook.presto.thrift.api.udf.ThriftUdfService;
 import com.google.inject.Binder;
 import com.google.inject.Module;

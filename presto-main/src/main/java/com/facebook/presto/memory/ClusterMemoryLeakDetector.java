@@ -14,8 +14,8 @@
 package com.facebook.presto.memory;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.QueryId;
 import com.facebook.presto.server.BasicQueryInfo;
-import com.facebook.presto.spi.QueryId;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import org.joda.time.DateTime;

@@ -13,14 +13,15 @@
  */
 package com.facebook.presto.rcfile;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
-import com.facebook.presto.spi.PrestoException;
 
 import java.util.List;
 
+import static com.facebook.presto.common.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DateType.DATE;
@@ -34,7 +35,6 @@ import static com.facebook.presto.common.type.StandardTypes.ROW;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.stream.Collectors.toList;
 
 public interface RcFileEncoding

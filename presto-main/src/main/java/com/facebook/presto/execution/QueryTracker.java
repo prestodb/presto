@@ -15,9 +15,9 @@ package com.facebook.presto.execution;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.QueryId;
 import com.facebook.presto.execution.QueryTracker.TrackedQuery;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.QueryId;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
@@ -40,10 +40,10 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxExecutionTime;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxRunTime;
-import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_QUERY;
-import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
-import static com.facebook.presto.spi.StandardErrorCode.QUERY_HAS_TOO_MANY_STAGES;
-import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
+import static com.facebook.presto.common.StandardErrorCode.ABANDONED_QUERY;
+import static com.facebook.presto.common.StandardErrorCode.EXCEEDED_TIME_LIMIT;
+import static com.facebook.presto.common.StandardErrorCode.QUERY_HAS_TOO_MANY_STAGES;
+import static com.facebook.presto.common.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static com.facebook.presto.sql.planner.PlanFragmenter.TOO_MANY_STAGES_MESSAGE;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;

@@ -14,7 +14,9 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.stats.Distribution;
+import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
@@ -35,9 +37,7 @@ import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;

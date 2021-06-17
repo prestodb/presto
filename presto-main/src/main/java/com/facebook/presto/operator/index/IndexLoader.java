@@ -15,6 +15,7 @@ package com.facebook.presto.operator.index;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.TaskSource;
@@ -26,7 +27,6 @@ import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.PipelineContext;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.ConnectorId;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.gen.JoinCompiler;
@@ -51,8 +51,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.INDEX_LOADER_TIMEOUT;
+import static com.facebook.presto.common.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.common.StandardErrorCode.INDEX_LOADER_TIMEOUT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.equalTo;

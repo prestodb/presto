@@ -15,10 +15,10 @@ package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.function.AccumulatorStateSerializer;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.aggregation.approxmostfrequent.ApproximateMostFrequentHistogram;
 import com.facebook.presto.operator.aggregation.approxmostfrequent.BigintApproximateMostFrequent;
-import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SliceInput;
 

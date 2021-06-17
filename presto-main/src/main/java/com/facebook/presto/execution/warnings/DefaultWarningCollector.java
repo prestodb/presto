@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.execution.warnings;
 
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.PrestoWarning;
-import com.facebook.presto.spi.WarningCode;
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.PrestoWarning;
+import com.facebook.presto.common.WarningCode;
 import com.facebook.presto.spi.WarningCollector;
 import com.google.common.collect.ImmutableList;
 
@@ -26,8 +26,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.spi.StandardErrorCode.WARNING_AS_ERROR;
-import static com.facebook.presto.spi.StandardWarningCode.PARSER_WARNING;
+import static com.facebook.presto.common.StandardErrorCode.WARNING_AS_ERROR;
+import static com.facebook.presto.common.StandardWarningCode.PARSER_WARNING;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe

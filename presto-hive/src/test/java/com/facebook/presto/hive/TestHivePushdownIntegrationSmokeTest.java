@@ -13,17 +13,17 @@ package com.facebook.presto.hive;
  * limitations under the License.
  */
 
-import com.facebook.presto.spi.security.SelectedRole;
+import com.facebook.presto.common.security.SelectedRole;
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Optional;
 
+import static com.facebook.presto.common.security.SelectedRole.Type.ROLE;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveQueryRunner.createBucketedSession;
 import static com.facebook.presto.hive.HiveQueryRunner.createMaterializeExchangesSession;
-import static com.facebook.presto.spi.security.SelectedRole.Type.ROLE;
 import static io.airlift.tpch.TpchTable.CUSTOMER;
 import static io.airlift.tpch.TpchTable.LINE_ITEM;
 import static io.airlift.tpch.TpchTable.ORDERS;

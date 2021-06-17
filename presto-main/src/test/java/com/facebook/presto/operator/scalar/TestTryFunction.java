@@ -13,14 +13,15 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.function.ScalarFunction;
+import com.facebook.presto.common.function.SqlType;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.SqlDecimal;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.ScalarFunction;
-import com.facebook.presto.spi.function.SqlType;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.common.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DecimalType.createDecimalType;
@@ -29,7 +30,6 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.JsonType.JSON;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.util.Arrays.asList;
 
 public class TestTryFunction

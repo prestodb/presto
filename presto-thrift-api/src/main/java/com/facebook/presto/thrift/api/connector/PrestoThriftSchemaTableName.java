@@ -16,7 +16,7 @@ package com.facebook.presto.thrift.api.connector;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
-import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.common.SchemaTableName;
 
 import java.util.Objects;
 

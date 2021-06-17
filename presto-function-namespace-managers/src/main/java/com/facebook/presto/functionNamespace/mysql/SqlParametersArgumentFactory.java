@@ -14,7 +14,7 @@
 package com.facebook.presto.functionNamespace.mysql;
 
 import com.facebook.airlift.json.JsonCodec;
-import com.facebook.presto.spi.function.Parameter;
+import com.facebook.presto.common.function.Parameter;
 import org.jdbi.v3.core.argument.AbstractArgumentFactory;
 import org.jdbi.v3.core.argument.Argument;
 import org.jdbi.v3.core.argument.ObjectArgument;

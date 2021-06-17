@@ -14,9 +14,9 @@
 package com.facebook.presto.hive.metastore.glue;
 
 import com.amazonaws.services.glue.model.GetPartitionsRequest;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.metastore.Column;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;

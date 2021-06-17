@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.mongodb;
 
+import com.facebook.presto.common.function.Description;
+import com.facebook.presto.common.function.ScalarFunction;
+import com.facebook.presto.common.function.ScalarOperator;
+import com.facebook.presto.common.function.SqlNullable;
+import com.facebook.presto.common.function.SqlType;
 import com.facebook.presto.common.type.StandardTypes;
-import com.facebook.presto.spi.function.Description;
-import com.facebook.presto.spi.function.ScalarFunction;
-import com.facebook.presto.spi.function.ScalarOperator;
-import com.facebook.presto.spi.function.SqlNullable;
-import com.facebook.presto.spi.function.SqlType;
 import com.google.common.base.CharMatcher;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;

@@ -54,11 +54,11 @@ import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATI
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_JOINS_WITH_EMPTY_SOURCES;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_NULLS_IN_JOINS;
 import static com.facebook.presto.SystemSessionProperties.TASK_CONCURRENCY;
+import static com.facebook.presto.common.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_LAST;
 import static com.facebook.presto.common.predicate.Domain.singleValue;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
-import static com.facebook.presto.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;

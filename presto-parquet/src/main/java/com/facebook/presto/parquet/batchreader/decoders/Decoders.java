@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.parquet.batchreader.decoders;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.parquet.DataPage;
 import com.facebook.presto.parquet.DataPageV1;
 import com.facebook.presto.parquet.DataPageV2;
@@ -39,7 +40,6 @@ import com.facebook.presto.parquet.batchreader.dictionary.TimestampDictionary;
 import com.facebook.presto.parquet.dictionary.Dictionary;
 import com.facebook.presto.parquet.dictionary.IntegerDictionary;
 import com.facebook.presto.parquet.dictionary.LongDictionary;
-import com.facebook.presto.spi.PrestoException;
 import io.airlift.slice.Slice;
 import org.apache.parquet.bytes.ByteBufferInputStream;
 import org.apache.parquet.column.ColumnDescriptor;

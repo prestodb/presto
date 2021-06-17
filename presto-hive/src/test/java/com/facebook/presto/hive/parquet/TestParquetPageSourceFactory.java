@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.parquet;
 
+import com.facebook.presto.common.function.StandardFunctionResolution;
 import com.facebook.presto.common.type.TestingTypeManager;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.HdfsConfigurationInitializer;
@@ -25,7 +26,6 @@ import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.parquet.cache.MetadataReader;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;

@@ -15,7 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.DefunctConfig;
-import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.common.function.Description;
 
 import javax.validation.constraints.Min;
 

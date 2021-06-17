@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 

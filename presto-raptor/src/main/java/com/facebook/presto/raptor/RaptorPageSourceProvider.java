@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.HdfsContext;
@@ -22,7 +23,6 @@ import com.facebook.presto.raptor.storage.StorageManager;
 import com.facebook.presto.raptor.util.ConcatPageSource;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;

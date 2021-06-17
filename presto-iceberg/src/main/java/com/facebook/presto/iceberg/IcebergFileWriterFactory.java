@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.common.ConnectorSession;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.parquet.writer.ParquetWriterOptions;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.PrestoException;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
@@ -35,13 +35,13 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.common.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.hive.HiveSessionProperties.getParquetWriterBlockSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getParquetWriterPageSize;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_WRITER_OPEN_ERROR;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.facebook.presto.iceberg.util.PrimitiveTypeMapBuilder.makeTypeMap;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.parquet.ParquetSchemaUtil.convert;

@@ -14,18 +14,18 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.function.FunctionKind;
+import com.facebook.presto.common.function.LongVariableConstraint;
 import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.function.Signature;
+import com.facebook.presto.common.function.TypeVariableConstraint;
 import com.facebook.presto.common.type.TypeSignature;
-import com.facebook.presto.spi.function.FunctionKind;
-import com.facebook.presto.spi.function.LongVariableConstraint;
-import com.facebook.presto.spi.function.Signature;
-import com.facebook.presto.spi.function.TypeVariableConstraint;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.facebook.presto.common.function.FunctionKind.SCALAR;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
-import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;

@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.kudu.procedures;
 
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.kudu.KuduClientSession;
 import com.facebook.presto.kudu.properties.KuduTableProperties;
 import com.facebook.presto.kudu.properties.RangePartition;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.google.common.collect.ImmutableList;

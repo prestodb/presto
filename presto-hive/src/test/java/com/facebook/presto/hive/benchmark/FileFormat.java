@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.hive.benchmark;
 
+import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.io.OutputStreamDataSink;
 import com.facebook.presto.common.predicate.TupleDomain;
@@ -56,10 +58,8 @@ import com.facebook.presto.rcfile.RcFileWriter;
 import com.facebook.presto.rcfile.binary.BinaryRcFileEncoding;
 import com.facebook.presto.rcfile.text.TextRcFileEncoding;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordPageSource;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.OutputStreamSliceOutput;

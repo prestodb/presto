@@ -13,9 +13,12 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.common.ErrorCode;
+import com.facebook.presto.common.ErrorCodeSupplier;
+import com.facebook.presto.common.PrestoException;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.ErrorType.USER_ERROR;
+import static com.facebook.presto.common.ErrorType.USER_ERROR;
 import static org.testng.Assert.assertEquals;
 
 public class TestPrestoException

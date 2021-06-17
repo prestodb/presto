@@ -13,13 +13,17 @@
  */
 package com.facebook.presto.plugin.memory;
 
+import com.facebook.presto.common.ConnectorSession;
+import com.facebook.presto.common.HostAddress;
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.SchemaTableName;
+import com.facebook.presto.common.SchemaTablePrefix;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
@@ -27,13 +31,9 @@ import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
-import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
@@ -55,9 +55,9 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
-import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
-import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
+import static com.facebook.presto.common.StandardErrorCode.ALREADY_EXISTS;
+import static com.facebook.presto.common.StandardErrorCode.NOT_FOUND;
+import static com.facebook.presto.common.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.password.file;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.password.Credential;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.cache.CacheBuilder;
@@ -29,11 +29,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.common.StandardErrorCode.CONFIGURATION_INVALID;
+import static com.facebook.presto.common.StandardErrorCode.CONFIGURATION_UNAVAILABLE;
 import static com.facebook.presto.password.file.EncryptionUtil.doesBCryptPasswordMatch;
 import static com.facebook.presto.password.file.EncryptionUtil.doesPBKDF2PasswordMatch;
 import static com.facebook.presto.password.file.EncryptionUtil.getHashingAlgorithm;
-import static com.facebook.presto.spi.StandardErrorCode.CONFIGURATION_INVALID;
-import static com.facebook.presto.spi.StandardErrorCode.CONFIGURATION_UNAVAILABLE;
 import static java.lang.String.format;
 
 public class PasswordStore

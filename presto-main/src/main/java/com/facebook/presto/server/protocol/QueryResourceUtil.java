@@ -17,6 +17,8 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StageStats;
 import com.facebook.presto.client.StatementStats;
+import com.facebook.presto.common.function.SqlFunctionId;
+import com.facebook.presto.common.function.SqlInvokedFunction;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.QueryStats;
@@ -24,8 +26,6 @@ import com.facebook.presto.execution.StageExecutionInfo;
 import com.facebook.presto.execution.StageExecutionStats;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
-import com.facebook.presto.spi.function.SqlFunctionId;
-import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 

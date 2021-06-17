@@ -14,15 +14,15 @@
 package com.facebook.presto.execution.buffer;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.io.DataOutput;
+import com.facebook.presto.common.security.Identity;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.page.PageDataOutput;
 import com.facebook.presto.spi.page.SerializedPage;
-import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.storage.TempDataOperationContext;
 import com.facebook.presto.spi.storage.TempDataSink;
 import com.facebook.presto.spi.storage.TempStorage;
@@ -53,13 +53,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
+import static com.facebook.presto.common.StandardErrorCode.SPOOLING_STORAGE_ERROR;
 import static com.facebook.presto.execution.buffer.BufferResult.emptyResults;
 import static com.facebook.presto.execution.buffer.BufferState.FINISHED;
 import static com.facebook.presto.execution.buffer.BufferState.FLUSHING;
 import static com.facebook.presto.execution.buffer.BufferState.NO_MORE_BUFFERS;
 import static com.facebook.presto.execution.buffer.BufferState.OPEN;
 import static com.facebook.presto.execution.buffer.OutputBuffers.BufferType.SPOOLING;
-import static com.facebook.presto.spi.StandardErrorCode.SPOOLING_STORAGE_ERROR;
 import static com.facebook.presto.spi.page.PagesSerdeUtil.readSerializedPages;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;

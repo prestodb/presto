@@ -14,17 +14,17 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.common.NotSupportedException;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.facebook.presto.common.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
 
 public class SimplePagesIndexComparator

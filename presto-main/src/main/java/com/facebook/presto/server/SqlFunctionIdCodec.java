@@ -17,7 +17,7 @@ import com.facebook.drift.codec.ThriftCodec;
 import com.facebook.drift.codec.metadata.ThriftType;
 import com.facebook.drift.protocol.TProtocolReader;
 import com.facebook.drift.protocol.TProtocolWriter;
-import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.common.function.SqlFunctionId;
 
 // TODO: convert SqlFunctionId to be a native Thrift struct
 public class SqlFunctionIdCodec

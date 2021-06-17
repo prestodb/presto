@@ -13,26 +13,26 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.function.FunctionHandle;
+import com.facebook.presto.common.function.InvocationConvention;
+import com.facebook.presto.common.function.InvocationConvention.InvocationArgumentConvention;
+import com.facebook.presto.common.function.InvocationConvention.InvocationReturnConvention;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ScalarImplementationChoice;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.FunctionHandle;
-import com.facebook.presto.spi.function.InvocationConvention;
-import com.facebook.presto.spi.function.InvocationConvention.InvocationArgumentConvention;
-import com.facebook.presto.spi.function.InvocationConvention.InvocationReturnConvention;
 import com.google.common.annotations.VisibleForTesting;
 
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.common.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentType.FUNCTION_TYPE;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.BLOCK_AND_POSITION;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
-import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 
@@ -97,7 +97,7 @@ public class FunctionInvokerProvider
                 return false;
             }
         }
-        if (definitionHasSession != invocationConvention.get().hasSession()) {
+        if (definitionHasSession != invocationConvention.get().supportsSession()) {
             return false;
         }
         return true;

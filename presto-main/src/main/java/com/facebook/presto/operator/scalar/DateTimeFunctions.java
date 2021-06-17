@@ -14,14 +14,14 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.airlift.concurrent.ThreadLocalCache;
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.function.Description;
+import com.facebook.presto.common.function.LiteralParameters;
+import com.facebook.presto.common.function.ScalarFunction;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.function.SqlType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.TimeZoneKey;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.Description;
-import com.facebook.presto.spi.function.LiteralParameters;
-import com.facebook.presto.spi.function.ScalarFunction;
-import com.facebook.presto.spi.function.SqlType;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
@@ -38,6 +38,8 @@ import org.joda.time.format.ISODateTimeFormat;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.common.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.common.function.SqlFunctionVisibility.HIDDEN;
 import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.common.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.common.type.DateTimeEncoding.unpackZoneKey;
@@ -45,8 +47,6 @@ import static com.facebook.presto.common.type.DateTimeEncoding.updateMillisUtc;
 import static com.facebook.presto.common.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.common.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static com.facebook.presto.operator.scalar.QuarterOfYearDateTimeField.QUARTER_OF_YEAR;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
 import static com.facebook.presto.type.DateTimeOperators.modulo24Hour;
 import static com.facebook.presto.util.DateTimeZoneIndex.extractZoneOffsetMinutes;
 import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;

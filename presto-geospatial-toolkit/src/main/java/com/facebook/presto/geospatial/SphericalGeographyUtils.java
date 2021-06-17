@@ -15,14 +15,14 @@ package com.facebook.presto.geospatial;
 
 import com.esri.core.geometry.Point;
 import com.esri.core.geometry.ogc.OGCGeometry;
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.common.PrestoException;
 import com.google.common.base.Joiner;
 
 import java.util.EnumSet;
 import java.util.Set;
 
+import static com.facebook.presto.common.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.geospatial.GeometryType.POINT;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static java.lang.Math.atan2;
 import static java.lang.Math.cos;
 import static java.lang.Math.sin;

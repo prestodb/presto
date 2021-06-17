@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
@@ -25,7 +26,6 @@ import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;

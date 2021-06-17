@@ -14,7 +14,7 @@
 package com.facebook.presto.example;
 
 import com.facebook.airlift.json.JsonCodec;
-import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.common.HostAddress;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 

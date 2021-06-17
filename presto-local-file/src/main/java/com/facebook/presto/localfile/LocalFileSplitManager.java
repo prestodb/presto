@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.localfile;
 
+import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.common.predicate.TupleDomain;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;

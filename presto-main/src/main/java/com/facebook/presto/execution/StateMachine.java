@@ -14,7 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.airlift.log.Logger;
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.common.PrestoException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -32,7 +32,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 
-import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
+import static com.facebook.presto.common.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Objects.requireNonNull;

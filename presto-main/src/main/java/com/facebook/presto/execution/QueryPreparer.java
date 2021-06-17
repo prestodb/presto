@@ -14,8 +14,8 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.PrestoWarning;
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.PrestoWarning;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.sql.analyzer.SemanticException;
@@ -36,10 +36,10 @@ import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.getWarningHandlingLevel;
 import static com.facebook.presto.SystemSessionProperties.isLogFormattedQueryEnabled;
+import static com.facebook.presto.common.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.common.StandardErrorCode.WARNING_AS_ERROR;
 import static com.facebook.presto.execution.ParameterExtractor.getParameterCount;
 import static com.facebook.presto.execution.warnings.WarningHandlingLevel.AS_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.spi.StandardErrorCode.WARNING_AS_ERROR;
 import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.analyzer.ConstantExpressionVerifier.verifyExpressionIsConstant;

@@ -27,6 +27,7 @@ import alluxio.grpc.table.LongColumnStatsData;
 import alluxio.grpc.table.StringColumnStatsData;
 import alluxio.grpc.table.layout.hive.PartitionInfo;
 import alluxio.shaded.client.com.google.protobuf.InvalidProtocolBufferException;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.hive.HiveBucketProperty;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.metastore.Column;
@@ -37,7 +38,6 @@ import com.facebook.presto.hive.metastore.PrestoTableType;
 import com.facebook.presto.hive.metastore.SortingColumn;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.Lists;
 
 import javax.annotation.Nullable;
@@ -51,6 +51,8 @@ import java.util.OptionalDouble;
 import java.util.OptionalLong;
 import java.util.Set;
 
+import static com.facebook.presto.common.security.PrincipalType.ROLE;
+import static com.facebook.presto.common.security.PrincipalType.USER;
 import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createBinaryColumnStatistics;
@@ -63,8 +65,6 @@ import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createStri
 import static com.facebook.presto.hive.metastore.MetastoreUtil.fromMetastoreDistinctValuesCount;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreNullsCount;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.getTotalSizeInBytes;
-import static com.facebook.presto.spi.security.PrincipalType.ROLE;
-import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 

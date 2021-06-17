@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.jdbc;
 
-import com.facebook.presto.spi.PrestoWarning;
-import com.facebook.presto.spi.WarningCode;
+import com.facebook.presto.common.PrestoWarning;
+import com.facebook.presto.common.WarningCode;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;

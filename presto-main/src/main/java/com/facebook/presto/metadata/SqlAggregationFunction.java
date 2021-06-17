@@ -14,21 +14,21 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.function.FunctionKind;
+import com.facebook.presto.common.function.LongVariableConstraint;
+import com.facebook.presto.common.function.Signature;
+import com.facebook.presto.common.function.SqlFunctionVisibility;
+import com.facebook.presto.common.function.TypeVariableConstraint;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.operator.aggregation.AggregationFromAnnotationsParser;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
-import com.facebook.presto.spi.function.FunctionKind;
-import com.facebook.presto.spi.function.LongVariableConstraint;
-import com.facebook.presto.spi.function.Signature;
-import com.facebook.presto.spi.function.SqlFunctionVisibility;
-import com.facebook.presto.spi.function.TypeVariableConstraint;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.facebook.presto.common.function.FunctionKind.AGGREGATE;
+import static com.facebook.presto.common.function.SqlFunctionVisibility.PUBLIC;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
-import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
-import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;

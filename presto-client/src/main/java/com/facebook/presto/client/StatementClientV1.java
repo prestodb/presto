@@ -15,8 +15,8 @@ package com.facebook.presto.client;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.client.OkHttpUtil.NullCallback;
+import com.facebook.presto.common.security.SelectedRole;
 import com.facebook.presto.common.type.TimeZoneKey;
-import com.facebook.presto.spi.security.SelectedRole;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;

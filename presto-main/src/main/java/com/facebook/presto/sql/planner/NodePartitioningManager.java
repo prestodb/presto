@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.scheduler.BucketNodeMap;
 import com.facebook.presto.execution.scheduler.FixedBucketNodeMap;
@@ -27,7 +28,6 @@ import com.facebook.presto.spi.BucketFunction;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorBucketNodeMap;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
@@ -47,8 +47,8 @@ import java.util.function.ToIntFunction;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.SystemSessionProperties.getMaxTasksPerStage;
+import static com.facebook.presto.common.StandardErrorCode.NODE_SELECTION_NOT_SUPPORTED;
 import static com.facebook.presto.metadata.InternalNode.NodeStatus.DEAD;
-import static com.facebook.presto.spi.StandardErrorCode.NODE_SELECTION_NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;

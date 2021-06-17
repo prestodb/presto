@@ -14,9 +14,9 @@
 package com.facebook.presto.kafka;
 
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.kafka.encoder.RowEncoder;
 import com.facebook.presto.spi.ConnectorPageSink;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.apache.kafka.clients.producer.Callback;

@@ -14,9 +14,9 @@
 package com.facebook.presto.server.protocol;
 
 import com.facebook.airlift.concurrent.BoundedExecutor;
+import com.facebook.presto.common.QueryId;
 import com.facebook.presto.server.ForStatementResource;
 import com.facebook.presto.server.ServerConfig;
-import com.facebook.presto.spi.QueryId;
 import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;

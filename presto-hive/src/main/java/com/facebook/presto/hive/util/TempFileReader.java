@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.util;
 
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.HiveOrcAggregatedMemoryContext;
@@ -25,7 +26,6 @@ import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcReaderOptions;
 import com.facebook.presto.orc.StorageStripeMetadataSource;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.AbstractIterator;
 import io.airlift.units.DataSize;
 

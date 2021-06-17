@@ -14,7 +14,7 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.airlift.log.Logger;
-import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.common.HostAddress;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;

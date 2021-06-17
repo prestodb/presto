@@ -13,16 +13,16 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.TypeSignature;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.StandardErrorCode.OPERATOR_NOT_FOUND;
+import static com.facebook.presto.common.StandardErrorCode.OPERATOR_NOT_FOUND;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

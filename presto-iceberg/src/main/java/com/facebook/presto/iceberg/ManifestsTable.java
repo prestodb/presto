@@ -13,16 +13,16 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.iceberg.util.PageListBuilder;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.FixedPageSource;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;

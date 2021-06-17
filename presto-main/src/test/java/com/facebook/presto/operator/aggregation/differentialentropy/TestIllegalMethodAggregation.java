@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.operator.aggregation.differentialentropy;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
-import com.facebook.presto.spi.PrestoException;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;

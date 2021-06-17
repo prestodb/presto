@@ -14,6 +14,7 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.common.PrestoWarning;
 import com.facebook.presto.execution.MockRemoteTaskFactory;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.PartialResultQueryManager;
@@ -22,7 +23,6 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.warnings.DefaultWarningCollector;
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.metadata.InternalNode;
-import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.WarningCollector;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterClass;
@@ -34,8 +34,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.presto.common.StandardWarningCode.PARTIAL_RESULT_WARNING;
 import static com.facebook.presto.execution.warnings.WarningHandlingLevel.NORMAL;
-import static com.facebook.presto.spi.StandardWarningCode.PARTIAL_RESULT_WARNING;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;

@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
@@ -27,6 +27,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.common.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.common.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -38,7 +39,6 @@ import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static java.lang.Double.NEGATIVE_INFINITY;

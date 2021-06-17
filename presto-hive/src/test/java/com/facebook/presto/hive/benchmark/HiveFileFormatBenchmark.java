@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.benchmark;
 
+import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.BlockBuilder;
@@ -26,7 +27,6 @@ import com.facebook.presto.hive.HiveSessionProperties;
 import com.facebook.presto.hive.OrcFileWriterConfig;
 import com.facebook.presto.hive.ParquetFileWriterConfig;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;

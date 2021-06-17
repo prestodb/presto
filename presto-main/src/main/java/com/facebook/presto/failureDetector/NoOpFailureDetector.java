@@ -14,7 +14,7 @@
 package com.facebook.presto.failureDetector;
 
 import com.facebook.airlift.discovery.client.ServiceDescriptor;
-import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.common.HostAddress;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Set;

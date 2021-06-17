@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.common.function.ScalarOperator;
+import com.facebook.presto.common.function.SqlType;
 import com.facebook.presto.common.type.StandardTypes;
-import com.facebook.presto.spi.function.ScalarOperator;
-import com.facebook.presto.spi.function.SqlType;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;

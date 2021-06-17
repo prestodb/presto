@@ -16,10 +16,10 @@ package com.facebook.presto.hive.util;
 import com.facebook.presto.common.NotSupportedException;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 
@@ -27,8 +27,8 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 
+import static com.facebook.presto.common.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.hive.util.SortBuffer.appendPositionTo;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterators.concat;
 import static com.google.common.collect.Iterators.mergeSorted;

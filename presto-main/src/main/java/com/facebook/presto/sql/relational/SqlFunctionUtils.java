@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.sql.relational;
 
+import com.facebook.presto.common.function.FunctionMetadata;
+import com.facebook.presto.common.function.SqlFunctionId;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.function.SqlInvokedFunction;
+import com.facebook.presto.common.function.SqlInvokedScalarFunctionImplementation;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.expressions.RowExpressionRewriter;
 import com.facebook.presto.expressions.RowExpressionTreeRewriter;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.function.FunctionMetadata;
-import com.facebook.presto.spi.function.SqlFunctionId;
-import com.facebook.presto.spi.function.SqlInvokedFunction;
-import com.facebook.presto.spi.function.SqlInvokedScalarFunctionImplementation;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -47,7 +47,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.function.FunctionImplementationType.SQL;
+import static com.facebook.presto.common.function.FunctionImplementationType.SQL;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.analyzeSqlFunctionExpression;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;

@@ -16,6 +16,8 @@ package com.facebook.presto.hive.orc;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.function.FunctionHandle;
+import com.facebook.presto.common.function.StandardFunctionResolution;
 import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.FixedWidthType;
 import com.facebook.presto.common.type.Type;
@@ -26,8 +28,6 @@ import com.facebook.presto.orc.metadata.Footer;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.function.FunctionHandle;
-import com.facebook.presto.spi.function.StandardFunctionResolution;
 import io.airlift.slice.Slice;
 
 import java.io.IOException;

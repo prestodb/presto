@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive.util;
 
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.common.PrestoException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.mapred.FileSplit;

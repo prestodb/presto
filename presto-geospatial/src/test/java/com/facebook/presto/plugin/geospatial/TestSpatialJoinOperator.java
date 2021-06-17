@@ -15,6 +15,7 @@ package com.facebook.presto.plugin.geospatial;
 
 import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.geospatial.KdbTree;
 import com.facebook.presto.geospatial.KdbTreeUtils;
@@ -33,7 +34,6 @@ import com.facebook.presto.operator.SpatialJoinOperator.SpatialJoinOperatorFacto
 import com.facebook.presto.operator.StandardJoinFilterFunction;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.ValuesOperator;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode.Type;

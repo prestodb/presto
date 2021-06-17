@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.function.FunctionHandle;
+import com.facebook.presto.common.function.StandardFunctionResolution;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.aggregation.MaxDataSizeForStats;
 import com.facebook.presto.operator.aggregation.SumDataSizeForStats;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.FunctionHandle;
-import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -41,9 +41,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.common.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.google.common.base.Verify.verify;

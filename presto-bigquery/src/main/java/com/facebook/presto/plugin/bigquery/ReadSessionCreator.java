@@ -14,7 +14,7 @@
 package com.facebook.presto.plugin.bigquery;
 
 import com.facebook.airlift.log.Logger;
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.common.PrestoException;
 import com.google.cloud.BaseServiceException;
 import com.google.cloud.bigquery.BigQueryException;
 import com.google.cloud.bigquery.Job;
@@ -37,7 +37,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.common.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.HOURS;
 

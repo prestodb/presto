@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.decoder.json;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.FieldValueProvider;
-import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableSet;
 import org.joda.time.format.DateTimeFormat;

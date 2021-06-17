@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.HostAddress;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -33,7 +33,7 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 
-import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
+import static com.facebook.presto.common.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.SOFT_AFFINITY;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;

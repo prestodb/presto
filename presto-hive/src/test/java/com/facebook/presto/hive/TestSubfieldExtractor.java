@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.function.FunctionHandle;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.MapType;
@@ -22,9 +24,7 @@ import com.facebook.presto.common.type.RowFieldName;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.TestingSession;
-import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.relation.RowExpression;

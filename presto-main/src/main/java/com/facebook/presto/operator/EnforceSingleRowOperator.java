@@ -14,13 +14,13 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.block.ByteArrayBlock;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.plan.PlanNodeId;
 
 import java.util.Optional;
 
-import static com.facebook.presto.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
+import static com.facebook.presto.common.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 

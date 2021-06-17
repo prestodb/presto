@@ -14,14 +14,14 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.function.Description;
+import com.facebook.presto.common.function.ScalarFunction;
+import com.facebook.presto.common.function.SqlNullable;
+import com.facebook.presto.common.function.SqlType;
+import com.facebook.presto.common.function.TypeParameter;
+import com.facebook.presto.common.function.TypeParameterSpecialization;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.function.Description;
-import com.facebook.presto.spi.function.ScalarFunction;
-import com.facebook.presto.spi.function.SqlNullable;
-import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.function.TypeParameter;
-import com.facebook.presto.spi.function.TypeParameterSpecialization;
 import io.airlift.slice.Slice;
 
 @Description("Returns true if all elements of the array don't match the given predicate")

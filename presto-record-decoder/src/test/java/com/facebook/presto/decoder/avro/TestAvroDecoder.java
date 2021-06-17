@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.decoder.avro;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.BigintType;
@@ -29,7 +30,6 @@ import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.DecoderTestColumnHandle;
 import com.facebook.presto.decoder.FieldValueProvider;
 import com.facebook.presto.decoder.RowDecoder;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;

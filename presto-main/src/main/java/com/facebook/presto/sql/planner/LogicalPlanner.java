@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
@@ -31,7 +32,6 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableMetadata;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
@@ -92,11 +92,11 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.isPrintStatsForNonJoinQuery;
+import static com.facebook.presto.common.StandardErrorCode.NOT_FOUND;
+import static com.facebook.presto.common.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.spi.plan.LimitNode.Step.FINAL;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;

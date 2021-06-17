@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.ml;
 
-import com.facebook.presto.spi.function.AccumulatorState;
-import com.facebook.presto.spi.function.AccumulatorStateMetadata;
+import com.facebook.presto.common.function.AccumulatorState;
+import com.facebook.presto.common.function.AccumulatorStateMetadata;
 import com.google.common.collect.BiMap;
 import io.airlift.slice.Slice;
 

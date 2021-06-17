@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.common.function.ScalarFunction;
+import com.facebook.presto.common.function.SqlType;
 import com.facebook.presto.common.type.StandardTypes;
-import com.facebook.presto.spi.function.ScalarFunction;
-import com.facebook.presto.spi.function.SqlType;
 
 public final class CustomAdd
 {

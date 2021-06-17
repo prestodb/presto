@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.pinot;
 
+import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.pinot.query.PinotQueryGenerator;
 import com.facebook.presto.pinot.query.PinotQueryGenerator.GeneratedPinotQuery;
-import com.facebook.presto.spi.ConnectorSession;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;

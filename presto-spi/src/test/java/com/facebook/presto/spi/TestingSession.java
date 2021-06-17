@@ -13,18 +13,20 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.common.ConnectorSession;
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.function.SqlFunctionId;
 import com.facebook.presto.common.function.SqlFunctionProperties;
-import com.facebook.presto.spi.function.SqlFunctionId;
-import com.facebook.presto.spi.function.SqlInvokedFunction;
-import com.facebook.presto.spi.security.ConnectorIdentity;
+import com.facebook.presto.common.function.SqlInvokedFunction;
+import com.facebook.presto.common.security.ConnectorIdentity;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.common.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static java.util.Locale.ENGLISH;
 
 public final class TestingSession

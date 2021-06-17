@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.memory;
 
-import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.common.QueryId;
 
 @FunctionalInterface
 public interface MemoryPoolListener

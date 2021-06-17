@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.Table;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -25,12 +25,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.common.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.hive.HiveUtil.getPartitionKeyColumnHandles;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.checkCondition;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.extractPartitionValues;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 
 public abstract class PartitionLoader

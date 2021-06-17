@@ -16,6 +16,8 @@ package com.facebook.presto.type;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.common.StandardErrorCode.DIVISION_BY_ZERO;
+import static com.facebook.presto.common.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.common.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -25,8 +27,6 @@ import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static java.lang.String.format;
 
 public class TestIntegerOperators

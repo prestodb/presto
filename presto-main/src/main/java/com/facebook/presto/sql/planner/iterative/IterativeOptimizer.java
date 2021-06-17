@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.iterative;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.cost.CachingCostProvider;
 import com.facebook.presto.cost.CachingStatsProvider;
 import com.facebook.presto.cost.CostCalculator;
@@ -23,7 +24,6 @@ import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.matching.Match;
 import com.facebook.presto.matching.Matcher;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
@@ -40,7 +40,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.spi.StandardErrorCode.OPTIMIZER_TIMEOUT;
+import static com.facebook.presto.common.StandardErrorCode.OPTIMIZER_TIMEOUT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;

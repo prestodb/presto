@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.functionNamespace.mysql;
 
-import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.common.function.SqlFunctionId;
 import org.jdbi.v3.core.argument.AbstractArgumentFactory;
 import org.jdbi.v3.core.argument.Argument;
 import org.jdbi.v3.core.argument.ObjectArgument;

@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.kafka.encoder.json;
 
+import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.kafka.encoder.AbstractRowEncoder;
 import com.facebook.presto.kafka.encoder.EncoderColumnHandle;
-import com.facebook.presto.spi.ConnectorSession;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;

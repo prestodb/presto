@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.PartitionNameWithVersion;
 import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastore;
-import com.facebook.presto.spi.PrestoException;
 import org.apache.thrift.TException;
 
 import java.util.List;

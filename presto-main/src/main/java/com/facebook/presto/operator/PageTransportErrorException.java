@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.PrestoTransportException;
+import com.facebook.presto.common.HostAddress;
+import com.facebook.presto.common.PrestoTransportException;
 
-import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_ERROR;
+import static com.facebook.presto.common.StandardErrorCode.PAGE_TRANSPORT_ERROR;
 
 public class PageTransportErrorException
         extends PrestoTransportException

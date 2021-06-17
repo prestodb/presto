@@ -23,6 +23,8 @@ import io.airlift.slice.Slice;
 
 import java.util.List;
 
+import static com.facebook.presto.common.type.TypeOperatorDeclaration.NO_TYPE_OPERATOR_DECLARATION;
+
 public interface Type
 {
     /**
@@ -46,6 +48,14 @@ public interface Type
      * True if the type supports compareTo.
      */
     boolean isOrderable();
+
+    /**
+     * Gets the type specific operators for this type.
+     */
+    default TypeOperatorDeclaration getTypeOperatorDeclaration(TypeOperators typeOperators)
+    {
+        return NO_TYPE_OPERATOR_DECLARATION;
+    }
 
     /**
      * Gets the Java class type used to represent this value on the stack during

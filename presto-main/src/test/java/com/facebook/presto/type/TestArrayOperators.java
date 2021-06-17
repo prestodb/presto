@@ -13,8 +13,13 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.common.ErrorCode;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.function.LiteralParameters;
+import com.facebook.presto.common.function.ScalarFunction;
+import com.facebook.presto.common.function.SqlType;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.MapType;
@@ -23,11 +28,6 @@ import com.facebook.presto.common.type.SqlDate;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
-import com.facebook.presto.spi.ErrorCode;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.LiteralParameters;
-import com.facebook.presto.spi.function.ScalarFunction;
-import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.google.common.base.Strings;
@@ -50,6 +50,10 @@ import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.common.StandardErrorCode.EXCEEDED_FUNCTION_MEMORY_LIMIT;
+import static com.facebook.presto.common.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static com.facebook.presto.common.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.common.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.common.block.BlockSerdeUtil.writeBlock;
 import static com.facebook.presto.common.function.OperatorType.HASH_CODE;
 import static com.facebook.presto.common.function.OperatorType.INDETERMINATE;
@@ -68,10 +72,6 @@ import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.operator.aggregation.TypedSet.MAX_FUNCTION_MEMORY;
-import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_FUNCTION_MEMORY_LIMIT;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_FUNCTION_CALL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;

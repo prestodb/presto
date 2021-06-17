@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.common.function.Signature;
 
 public interface ParametricImplementation
 {

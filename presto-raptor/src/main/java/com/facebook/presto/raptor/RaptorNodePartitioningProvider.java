@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.presto.common.ConnectorSession;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.BucketFunction;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorBucketNodeMap;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
@@ -31,7 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.ToIntFunction;
 
-import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
+import static com.facebook.presto.common.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
 import static com.google.common.collect.Maps.uniqueIndex;

@@ -16,8 +16,8 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.function.WindowIndex;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.function.WindowIndex;
 
 import java.util.List;
 

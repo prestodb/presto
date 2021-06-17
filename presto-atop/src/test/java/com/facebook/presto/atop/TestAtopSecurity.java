@@ -14,8 +14,8 @@
 package com.facebook.presto.atop;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.spi.security.AccessDeniedException;
-import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.common.security.AccessDeniedException;
+import com.facebook.presto.common.security.Identity;
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;

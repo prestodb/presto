@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
-import com.facebook.presto.spi.function.AccumulatorState;
+import com.facebook.presto.common.function.AccumulatorState;
 
 /**
  * This is a state class for calculating the log-2 entropy of counts.

@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.pinot;
 
+import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.pinot.grpc.Constants;
 import com.facebook.presto.pinot.grpc.GrpcRequestBuilder;
 import com.facebook.presto.pinot.grpc.PinotStreamingQueryClient;
 import com.facebook.presto.pinot.grpc.ServerResponse;
-import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.collect.ImmutableList;
 import org.apache.pinot.common.proto.Server;
 import org.apache.pinot.common.utils.DataTable;

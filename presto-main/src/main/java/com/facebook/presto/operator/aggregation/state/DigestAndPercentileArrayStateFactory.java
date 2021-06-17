@@ -15,7 +15,7 @@ package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.airlift.stats.QuantileDigest;
 import com.facebook.presto.array.ObjectBigArray;
-import com.facebook.presto.spi.function.AccumulatorStateFactory;
+import com.facebook.presto.common.function.AccumulatorStateFactory;
 import io.airlift.slice.SizeOf;
 import org.openjdk.jol.info.ClassLayout;
 

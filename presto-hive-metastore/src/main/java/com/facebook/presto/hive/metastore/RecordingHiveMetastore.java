@@ -14,14 +14,14 @@
 package com.facebook.presto.hive.metastore;
 
 import com.facebook.airlift.json.JsonObjectMapperProvider;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.security.PrestoPrincipal;
+import com.facebook.presto.common.security.RoleGrant;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.ForRecordingHiveMetastore;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.MetastoreClientConfig;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.security.PrestoPrincipal;
-import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -44,10 +44,10 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.common.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.hive.metastore.HivePartitionName.hivePartitionName;
 import static com.facebook.presto.hive.metastore.HiveTableName.hiveTableName;
 import static com.facebook.presto.hive.metastore.PartitionFilter.partitionFilter;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;

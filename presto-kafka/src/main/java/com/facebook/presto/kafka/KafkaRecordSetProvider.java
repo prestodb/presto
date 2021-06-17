@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.kafka;
 
+import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.decoder.DispatchingRowDecoderFactory;
 import com.facebook.presto.decoder.RowDecoder;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;

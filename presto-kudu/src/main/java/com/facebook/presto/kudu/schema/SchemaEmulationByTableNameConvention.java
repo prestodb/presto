@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.kudu.schema;
 
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.spi.SchemaNotFoundException;
-import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
 import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.Schema;
@@ -37,9 +37,9 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 
+import static com.facebook.presto.common.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.common.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.kudu.KuduClientSession.DEFAULT_SCHEMA;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 
 public class SchemaEmulationByTableNameConvention
         implements SchemaEmulation

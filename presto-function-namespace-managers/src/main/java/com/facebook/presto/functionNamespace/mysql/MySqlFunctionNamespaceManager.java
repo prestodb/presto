@@ -13,7 +13,18 @@
  */
 package com.facebook.presto.functionNamespace.mysql;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.function.AlterRoutineCharacteristics;
+import com.facebook.presto.common.function.FunctionMetadata;
+import com.facebook.presto.common.function.Parameter;
+import com.facebook.presto.common.function.RoutineCharacteristics;
+import com.facebook.presto.common.function.ScalarFunctionImplementation;
+import com.facebook.presto.common.function.Signature;
+import com.facebook.presto.common.function.SqlFunction;
+import com.facebook.presto.common.function.SqlFunctionHandle;
+import com.facebook.presto.common.function.SqlFunctionId;
+import com.facebook.presto.common.function.SqlInvokedFunction;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.UserDefinedType;
@@ -22,17 +33,6 @@ import com.facebook.presto.functionNamespace.InvalidFunctionHandleException;
 import com.facebook.presto.functionNamespace.ServingCatalog;
 import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerConfig;
 import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutors;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
-import com.facebook.presto.spi.function.FunctionMetadata;
-import com.facebook.presto.spi.function.Parameter;
-import com.facebook.presto.spi.function.RoutineCharacteristics;
-import com.facebook.presto.spi.function.ScalarFunctionImplementation;
-import com.facebook.presto.spi.function.Signature;
-import com.facebook.presto.spi.function.SqlFunction;
-import com.facebook.presto.spi.function.SqlFunctionHandle;
-import com.facebook.presto.spi.function.SqlFunctionId;
-import com.facebook.presto.spi.function.SqlInvokedFunction;
 import org.jdbi.v3.core.Jdbi;
 
 import javax.annotation.PostConstruct;
@@ -43,11 +43,11 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
-import static com.facebook.presto.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
-import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
+import static com.facebook.presto.common.StandardErrorCode.ALREADY_EXISTS;
+import static com.facebook.presto.common.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
+import static com.facebook.presto.common.StandardErrorCode.GENERIC_USER_ERROR;
+import static com.facebook.presto.common.StandardErrorCode.NOT_FOUND;
+import static com.facebook.presto.common.function.FunctionVersion.notVersioned;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;

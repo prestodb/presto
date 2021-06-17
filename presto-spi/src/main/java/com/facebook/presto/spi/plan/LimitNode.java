@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.spi.plan;
 
-import com.facebook.presto.spi.ErrorCodeSupplier;
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.common.ErrorCodeSupplier;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -23,8 +23,8 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.common.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.common.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 

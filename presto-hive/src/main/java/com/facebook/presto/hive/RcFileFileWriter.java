@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
@@ -23,7 +24,6 @@ import com.facebook.presto.rcfile.HadoopCodecFactory;
 import com.facebook.presto.rcfile.RcFileDataSource;
 import com.facebook.presto.rcfile.RcFileEncoding;
 import com.facebook.presto.rcfile.RcFileWriter;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.CountingOutputStream;
 import io.airlift.slice.OutputStreamSliceOutput;

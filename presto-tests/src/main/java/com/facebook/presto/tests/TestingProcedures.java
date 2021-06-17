@@ -14,8 +14,8 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.common.ConnectorSession;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.facebook.presto.testing.ProcedureTester;
@@ -26,11 +26,11 @@ import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
 
+import static com.facebook.presto.common.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static com.facebook.presto.common.type.StandardTypes.BIGINT;
 import static com.facebook.presto.common.type.StandardTypes.BOOLEAN;
 import static com.facebook.presto.common.type.StandardTypes.DOUBLE;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;

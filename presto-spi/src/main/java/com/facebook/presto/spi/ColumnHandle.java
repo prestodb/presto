@@ -14,7 +14,7 @@
 package com.facebook.presto.spi;
 
 import com.facebook.presto.common.Subfield;
-import com.facebook.presto.spi.api.Experimental;
+import com.facebook.presto.common.api.Experimental;
 
 import java.util.List;
 

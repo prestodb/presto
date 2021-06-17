@@ -15,9 +15,9 @@ package com.facebook.presto.redis.util;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.redis.RedisPlugin;
 import com.facebook.presto.redis.RedisTableDescription;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.TestingPrestoClient;
 import com.google.common.base.Joiner;

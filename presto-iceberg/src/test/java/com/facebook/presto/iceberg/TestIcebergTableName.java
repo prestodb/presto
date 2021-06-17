@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.iceberg;
 
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.common.PrestoException;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.common.StandardErrorCode.NOT_SUPPORTED;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 

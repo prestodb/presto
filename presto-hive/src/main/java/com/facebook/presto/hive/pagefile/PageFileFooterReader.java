@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.hive.pagefile;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.hive.HiveCompressionCodec;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.FixedLengthSliceInput;
 import io.airlift.slice.Slices;

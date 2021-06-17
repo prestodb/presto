@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.kafka.schema;
 
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.kafka.KafkaTopicDescription;
-import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;

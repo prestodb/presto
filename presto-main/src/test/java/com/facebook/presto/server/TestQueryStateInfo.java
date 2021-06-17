@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.common.QueryId;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroup;
-import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;

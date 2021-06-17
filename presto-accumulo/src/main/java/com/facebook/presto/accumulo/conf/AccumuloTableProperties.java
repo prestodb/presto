@@ -16,8 +16,8 @@ package com.facebook.presto.accumulo.conf;
 import com.facebook.presto.accumulo.serializers.AccumuloRowSerializer;
 import com.facebook.presto.accumulo.serializers.LexicoderRowSerializer;
 import com.facebook.presto.accumulo.serializers.StringRowSerializer;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.type.VarcharType;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -34,7 +34,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
+import static com.facebook.presto.common.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.google.common.base.Preconditions.checkState;

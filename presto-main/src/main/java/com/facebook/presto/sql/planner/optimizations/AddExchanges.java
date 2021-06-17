@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.connector.system.GlobalSystemConnector;
 import com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy;
@@ -21,7 +22,6 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.GroupingProperty;
 import com.facebook.presto.spi.LocalProperty;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SortingProperty;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
@@ -113,9 +113,9 @@ import static com.facebook.presto.SystemSessionProperties.isRedistributeWrites;
 import static com.facebook.presto.SystemSessionProperties.isScaleWriters;
 import static com.facebook.presto.SystemSessionProperties.isUseStreamingExchangeForMarkDistinctEnabled;
 import static com.facebook.presto.SystemSessionProperties.preferStreamingOperators;
+import static com.facebook.presto.common.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.hasSingleNodeExecutionPreference;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.plan.LimitNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.FragmentTableScanCounter.getNumberOfTableScans;
 import static com.facebook.presto.sql.planner.FragmentTableScanCounter.hasMultipleTableScans;

@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.common.function.FunctionHandle;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.spi.function.FunctionHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;

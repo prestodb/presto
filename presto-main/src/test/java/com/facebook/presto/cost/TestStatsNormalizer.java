@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.cost;
 
+import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;

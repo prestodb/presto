@@ -20,7 +20,7 @@ import java.net.SocketTimeoutException;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.StandardErrorCode.REMOTE_HOST_GONE;
+import static com.facebook.presto.common.StandardErrorCode.REMOTE_HOST_GONE;
 import static com.facebook.presto.verifier.framework.QueryStage.CONTROL_MAIN;
 import static com.facebook.presto.verifier.prestoaction.QueryActionStats.EMPTY_STATS;
 import static org.testng.Assert.assertEquals;

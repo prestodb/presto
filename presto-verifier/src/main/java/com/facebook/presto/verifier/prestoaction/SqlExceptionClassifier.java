@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.verifier.prestoaction;
 
-import com.facebook.presto.spi.ErrorCodeSupplier;
+import com.facebook.presto.common.ErrorCodeSupplier;
 import com.facebook.presto.verifier.framework.QueryException;
 import com.facebook.presto.verifier.framework.QueryStage;
 

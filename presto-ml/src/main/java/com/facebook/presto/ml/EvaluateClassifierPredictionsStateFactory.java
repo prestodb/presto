@@ -14,8 +14,8 @@
 package com.facebook.presto.ml;
 
 import com.facebook.presto.array.ObjectBigArray;
-import com.facebook.presto.spi.function.AccumulatorStateFactory;
-import com.facebook.presto.spi.function.GroupedAccumulatorState;
+import com.facebook.presto.common.function.AccumulatorStateFactory;
+import com.facebook.presto.common.function.GroupedAccumulatorState;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.HashMap;

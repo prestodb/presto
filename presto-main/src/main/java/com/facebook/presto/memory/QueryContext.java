@@ -15,12 +15,12 @@ package com.facebook.presto.memory;
 
 import com.facebook.airlift.stats.GcMonitor;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QueryId;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskStateMachine;
 import com.facebook.presto.memory.context.MemoryReservationHandler;
 import com.facebook.presto.memory.context.MemoryTrackingContext;
 import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spiller.SpillSpaceTracker;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;

@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.common.SchemaTableName;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;

@@ -14,10 +14,10 @@
 package com.facebook.presto.raptor.filesystem;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.raptor.storage.OrcDataEnvironment;
 import com.facebook.presto.raptor.storage.StorageManagerConfig;
 import com.facebook.presto.raptor.storage.StorageService;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.fs.Path;

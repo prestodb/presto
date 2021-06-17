@@ -14,10 +14,10 @@
 package com.facebook.presto.connector.system;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.QueryId;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryState;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.google.common.collect.ImmutableList;
@@ -27,12 +27,12 @@ import javax.inject.Inject;
 import java.lang.invoke.MethodHandle;
 import java.util.NoSuchElementException;
 
+import static com.facebook.presto.common.StandardErrorCode.ADMINISTRATIVELY_KILLED;
+import static com.facebook.presto.common.StandardErrorCode.ADMINISTRATIVELY_PREEMPTED;
+import static com.facebook.presto.common.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
+import static com.facebook.presto.common.StandardErrorCode.NOT_FOUND;
+import static com.facebook.presto.common.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
-import static com.facebook.presto.spi.StandardErrorCode.ADMINISTRATIVELY_KILLED;
-import static com.facebook.presto.spi.StandardErrorCode.ADMINISTRATIVELY_PREEMPTED;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.Objects.requireNonNull;

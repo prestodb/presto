@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.bytecode.DynamicClassLoader;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
@@ -28,7 +29,6 @@ import com.facebook.presto.operator.aggregation.state.NullableBooleanState;
 import com.facebook.presto.operator.aggregation.state.NullableDoubleState;
 import com.facebook.presto.operator.aggregation.state.NullableLongState;
 import com.facebook.presto.operator.aggregation.state.SliceState;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.gen.lambda.BinaryFunctionInterface;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -36,14 +36,14 @@ import io.airlift.slice.Slice;
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 
+import static com.facebook.presto.common.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.common.function.Signature.typeVariable;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.facebook.presto.operator.aggregation.state.StateCompiler.generateStateFactory;
 import static com.facebook.presto.operator.aggregation.state.StateCompiler.generateStateSerializer;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static java.lang.String.format;
 

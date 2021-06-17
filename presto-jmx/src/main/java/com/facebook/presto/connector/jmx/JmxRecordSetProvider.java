@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.connector.jmx;
 
+import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.NodeManager;

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.pinot;
 
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.common.PrestoException;
 
 import java.util.Optional;
 

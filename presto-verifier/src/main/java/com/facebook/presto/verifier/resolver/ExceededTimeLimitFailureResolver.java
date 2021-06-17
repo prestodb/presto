@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.Optional;
 
-import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
+import static com.facebook.presto.common.StandardErrorCode.EXCEEDED_TIME_LIMIT;
 import static com.facebook.presto.verifier.framework.QueryStage.TEST_MAIN;
 import static com.facebook.presto.verifier.resolver.FailureResolverUtil.mapMatchingPrestoException;
 

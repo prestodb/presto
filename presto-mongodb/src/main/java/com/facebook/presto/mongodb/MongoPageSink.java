@@ -13,7 +13,11 @@
  */
 package com.facebook.presto.mongodb;
 
+import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.SchemaTableName;
+import com.facebook.presto.common.StandardErrorCode;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.BooleanType;
@@ -32,10 +36,6 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.spi.ConnectorPageSink;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.StandardErrorCode;
 import com.google.common.collect.ImmutableList;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.InsertManyOptions;
@@ -56,13 +56,13 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.common.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.common.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.mongodb.ObjectIdType.OBJECT_ID;
 import static com.facebook.presto.mongodb.TypeUtils.isArrayType;
 import static com.facebook.presto.mongodb.TypeUtils.isMapType;
 import static com.facebook.presto.mongodb.TypeUtils.isRowType;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.concurrent.CompletableFuture.completedFuture;

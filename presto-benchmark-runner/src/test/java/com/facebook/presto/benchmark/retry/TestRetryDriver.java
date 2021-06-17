@@ -24,7 +24,7 @@ import java.util.Optional;
 
 import static com.facebook.airlift.log.Level.DEBUG;
 import static com.facebook.presto.benchmark.framework.QueryException.Type.CLUSTER_CONNECTION;
-import static com.facebook.presto.spi.StandardErrorCode.REMOTE_HOST_GONE;
+import static com.facebook.presto.common.StandardErrorCode.REMOTE_HOST_GONE;
 import static java.lang.Boolean.FALSE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;

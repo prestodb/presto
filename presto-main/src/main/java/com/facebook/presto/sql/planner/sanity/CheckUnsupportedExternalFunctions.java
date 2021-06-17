@@ -14,9 +14,9 @@
 package com.facebook.presto.sql.planner.sanity;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.FilterNode;
@@ -29,7 +29,7 @@ import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.common.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;

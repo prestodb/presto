@@ -28,9 +28,9 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.common.StandardErrorCode.ABANDONED_QUERY;
+import static com.facebook.presto.common.StandardErrorCode.USER_CANCELED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
-import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_QUERY;
-import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 

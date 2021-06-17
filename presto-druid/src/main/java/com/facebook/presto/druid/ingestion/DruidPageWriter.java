@@ -14,11 +14,11 @@
 package com.facebook.presto.druid.ingestion;
 
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.druid.DruidConfig;
 import com.facebook.presto.druid.metadata.DruidColumnInfo;
 import com.facebook.presto.druid.metadata.DruidColumnType;
-import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import org.apache.hadoop.conf.Configuration;

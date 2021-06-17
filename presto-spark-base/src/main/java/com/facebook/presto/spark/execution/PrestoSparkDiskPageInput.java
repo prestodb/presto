@@ -15,10 +15,10 @@ package com.facebook.presto.spark.execution;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkStorageHandle;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskOutput;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.spi.plan.PlanNodeId;

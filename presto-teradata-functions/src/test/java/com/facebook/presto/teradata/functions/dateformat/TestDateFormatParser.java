@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.teradata.functions.dateformat;
 
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.teradata.functions.DateFormat;
 import org.antlr.v4.runtime.Token;
 import org.testng.annotations.Test;

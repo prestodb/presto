@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.presto.common.function.FunctionMetadata;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
-import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
 import com.facebook.presto.sql.tree.FunctionCall;
 
-import static com.facebook.presto.spi.function.FunctionKind.WINDOW;
+import static com.facebook.presto.common.function.FunctionKind.WINDOW;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WINDOW_REQUIRES_OVER;
 import static java.util.Objects.requireNonNull;
 

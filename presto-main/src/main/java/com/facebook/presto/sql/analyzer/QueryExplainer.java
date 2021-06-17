@@ -14,12 +14,12 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.execution.DataDefinitionTask;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -43,7 +43,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.common.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.textIOPlan;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.graphvizDistributedPlan;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.graphvizLogicalPlan;

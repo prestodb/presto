@@ -14,8 +14,8 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.concurrent.MoreFutures;
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorMetadataUpdater;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.SettableFuture;

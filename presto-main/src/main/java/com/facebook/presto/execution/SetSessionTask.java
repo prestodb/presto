@@ -14,12 +14,12 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.StandardErrorCode;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ConnectorId;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.Expression;

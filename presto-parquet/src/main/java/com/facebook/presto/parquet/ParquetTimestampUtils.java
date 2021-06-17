@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.parquet;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.parquet.batchreader.BytesUtils;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
 import org.apache.parquet.io.api.Binary;
 
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.common.StandardErrorCode.NOT_SUPPORTED;
 
 /**
  * Utility class for decoding INT96 encoded parquet timestamp to timestamp millis in GMT.

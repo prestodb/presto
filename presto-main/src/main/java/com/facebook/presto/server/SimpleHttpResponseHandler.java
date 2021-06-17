@@ -14,10 +14,10 @@
 package com.facebook.presto.server;
 
 import com.facebook.airlift.http.client.HttpStatus;
+import com.facebook.presto.common.ErrorCodeSupplier;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.server.smile.BaseResponse;
 import com.facebook.presto.server.smile.JsonResponseWrapper;
-import com.facebook.presto.spi.ErrorCodeSupplier;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.util.concurrent.FutureCallback;
 
 import java.net.URI;

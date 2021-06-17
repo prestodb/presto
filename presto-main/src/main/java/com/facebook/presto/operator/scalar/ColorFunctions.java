@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.function.LiteralParameters;
+import com.facebook.presto.common.function.ScalarFunction;
+import com.facebook.presto.common.function.SqlType;
 import com.facebook.presto.common.type.StandardTypes;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.LiteralParameters;
-import com.facebook.presto.spi.function.ScalarFunction;
-import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.type.ColorType;
 import com.facebook.presto.type.Constraint;
 import com.google.common.annotations.VisibleForTesting;
@@ -25,9 +25,9 @@ import io.airlift.slice.Slice;
 
 import java.awt.Color;
 
+import static com.facebook.presto.common.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.common.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.operator.scalar.StringFunctions.upper;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;

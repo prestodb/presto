@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.parquet;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.parquet.reader.ColumnChunk;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.base.Joiner;
 
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;

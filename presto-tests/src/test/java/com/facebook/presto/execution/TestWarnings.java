@@ -14,8 +14,8 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.spi.PrestoWarning;
-import com.facebook.presto.spi.WarningCode;
+import com.facebook.presto.common.PrestoWarning;
+import com.facebook.presto.common.WarningCode;
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -27,10 +27,10 @@ import org.testng.annotations.Test;
 import java.util.Set;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.common.StandardWarningCode.PARSER_WARNING;
+import static com.facebook.presto.common.StandardWarningCode.PERFORMANCE_WARNING;
+import static com.facebook.presto.common.StandardWarningCode.TOO_MANY_STAGES;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.createQueryRunner;
-import static com.facebook.presto.spi.StandardWarningCode.PARSER_WARNING;
-import static com.facebook.presto.spi.StandardWarningCode.PERFORMANCE_WARNING;
-import static com.facebook.presto.spi.StandardWarningCode.TOO_MANY_STAGES;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.difference;
 import static org.testng.Assert.assertTrue;

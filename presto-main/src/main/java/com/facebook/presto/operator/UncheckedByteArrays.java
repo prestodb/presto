@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.api.Experimental;
+import com.facebook.presto.common.api.Experimental;
 import sun.misc.Unsafe;
 
 import java.lang.reflect.Field;

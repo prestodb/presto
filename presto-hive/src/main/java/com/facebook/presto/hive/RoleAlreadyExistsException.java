@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.common.PrestoException;
 
-import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
+import static com.facebook.presto.common.StandardErrorCode.ALREADY_EXISTS;
 import static java.lang.String.format;
 
 public class RoleAlreadyExistsException

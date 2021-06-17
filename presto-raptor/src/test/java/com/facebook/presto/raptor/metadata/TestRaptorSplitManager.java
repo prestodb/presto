@@ -14,6 +14,7 @@
 package com.facebook.presto.raptor.metadata;
 
 import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.InternalNode;
@@ -34,7 +35,6 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingContext;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;

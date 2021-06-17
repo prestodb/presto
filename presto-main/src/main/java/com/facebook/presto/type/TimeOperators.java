@@ -13,22 +13,23 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.function.BlockIndex;
+import com.facebook.presto.common.function.BlockPosition;
+import com.facebook.presto.common.function.IsNull;
+import com.facebook.presto.common.function.LiteralParameters;
+import com.facebook.presto.common.function.ScalarOperator;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.function.SqlNullable;
+import com.facebook.presto.common.function.SqlType;
 import com.facebook.presto.common.type.AbstractLongType;
 import com.facebook.presto.common.type.StandardTypes;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.BlockIndex;
-import com.facebook.presto.spi.function.BlockPosition;
-import com.facebook.presto.spi.function.IsNull;
-import com.facebook.presto.spi.function.LiteralParameters;
-import com.facebook.presto.spi.function.ScalarOperator;
-import com.facebook.presto.spi.function.SqlNullable;
-import com.facebook.presto.spi.function.SqlType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.XxHash64;
 import org.joda.time.chrono.ISOChronology;
 
+import static com.facebook.presto.common.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.common.function.OperatorType.BETWEEN;
 import static com.facebook.presto.common.function.OperatorType.CAST;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
@@ -44,7 +45,6 @@ import static com.facebook.presto.common.function.OperatorType.SUBTRACT;
 import static com.facebook.presto.common.function.OperatorType.XX_HASH_64;
 import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.common.type.TimeType.TIME;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.util.DateTimeUtils.parseTimeWithoutTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.printTimeWithoutTimeZone;
 import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;

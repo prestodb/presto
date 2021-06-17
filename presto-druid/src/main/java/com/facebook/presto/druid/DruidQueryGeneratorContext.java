@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.druid;
 
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.collect.ImmutableMap;

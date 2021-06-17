@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive.rule;
 
+import com.facebook.presto.common.function.FunctionMetadataManager;
+import com.facebook.presto.common.function.StandardFunctionResolution;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.HivePartialAggregationPushdown;
 import com.facebook.presto.hive.HivePartitionManager;
@@ -20,8 +22,6 @@ import com.facebook.presto.hive.HiveTransactionManager;
 import com.facebook.presto.hive.TransactionalMetadata;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
 import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
-import com.facebook.presto.spi.function.FunctionMetadataManager;
-import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;

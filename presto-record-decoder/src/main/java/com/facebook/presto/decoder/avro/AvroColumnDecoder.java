@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.decoder.avro;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.BigintType;
@@ -23,7 +24,6 @@ import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.FieldValueProvider;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -35,6 +35,7 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.common.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.common.type.StandardTypes.ARRAY;
 import static com.facebook.presto.common.type.StandardTypes.BIGINT;
 import static com.facebook.presto.common.type.StandardTypes.BOOLEAN;
@@ -45,7 +46,6 @@ import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.common.type.Varchars.truncateToLength;
 import static com.facebook.presto.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;

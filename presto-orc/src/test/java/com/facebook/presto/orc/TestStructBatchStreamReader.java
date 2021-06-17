@@ -14,6 +14,7 @@
 
 package com.facebook.presto.orc;
 
+import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
@@ -26,7 +27,6 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;

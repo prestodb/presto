@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.spi.connector;
 
+import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PageSinkContext;
 
 public interface ConnectorPageSinkProvider

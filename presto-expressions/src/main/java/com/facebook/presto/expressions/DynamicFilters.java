@@ -14,11 +14,11 @@
 package com.facebook.presto.expressions;
 
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.function.ScalarFunction;
+import com.facebook.presto.common.function.SqlType;
+import com.facebook.presto.common.function.TypeParameter;
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.VarcharType;
-import com.facebook.presto.spi.function.ScalarFunction;
-import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -31,12 +31,12 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.facebook.presto.common.function.SqlFunctionVisibility.HIDDEN;
 import static com.facebook.presto.common.type.StandardTypes.BOOLEAN;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.extractConjuncts;
 import static com.facebook.presto.expressions.RowExpressionTreeRewriter.rewriteWith;
-import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
 import static com.google.common.base.MoreObjects.toStringHelper;

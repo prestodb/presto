@@ -14,19 +14,19 @@
 package com.facebook.presto.operator.window;
 
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.function.Description;
+import com.facebook.presto.common.function.Signature;
+import com.facebook.presto.common.function.ValueWindowFunction;
+import com.facebook.presto.common.function.WindowFunction;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.function.Description;
-import com.facebook.presto.spi.function.Signature;
-import com.facebook.presto.spi.function.ValueWindowFunction;
-import com.facebook.presto.spi.function.WindowFunction;
 import com.google.common.collect.Lists;
 
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Constructor;
 import java.util.List;
 
+import static com.facebook.presto.common.function.FunctionKind.WINDOW;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
-import static com.facebook.presto.spi.function.FunctionKind.WINDOW;
 import static java.util.Objects.requireNonNull;
 
 public class ReflectionWindowFunctionSupplier<T extends WindowFunction>

@@ -15,6 +15,7 @@ package com.facebook.presto.raptor.metadata;
 
 import com.facebook.airlift.testing.TestingTicker;
 import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.TupleDomain;
@@ -25,7 +26,6 @@ import com.facebook.presto.raptor.NodeSupplier;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.util.DaoSupplier;
 import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.base.Ticker;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
@@ -66,6 +66,8 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.common.StandardErrorCode.SERVER_STARTING_UP;
+import static com.facebook.presto.common.StandardErrorCode.TRANSACTION_CONFLICT;
 import static com.facebook.presto.common.predicate.Range.greaterThan;
 import static com.facebook.presto.common.predicate.Range.greaterThanOrEqual;
 import static com.facebook.presto.common.predicate.Range.lessThan;
@@ -81,8 +83,6 @@ import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_EXTERNAL_BATCH_A
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardIndexTable;
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.storage.ShardStats.MAX_BINARY_INDEX_SIZE;
-import static com.facebook.presto.spi.StandardErrorCode.SERVER_STARTING_UP;
-import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static com.google.common.base.Strings.repeat;
 import static com.google.common.base.Ticker.systemTicker;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;

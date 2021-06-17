@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.airlift.stats.TestingGcMonitor;
+import com.facebook.presto.common.QueryId;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.execution.TestSqlTaskManager.MockExchangeClientSupplier;
 import com.facebook.presto.execution.buffer.OutputBuffers;
@@ -30,7 +31,6 @@ import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.PipelineContext;
 import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spiller.SpillSpaceTracker;

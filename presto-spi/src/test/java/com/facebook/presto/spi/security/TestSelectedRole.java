@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.security;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.common.security.SelectedRole;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
