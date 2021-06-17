@@ -14,14 +14,14 @@
 package com.facebook.presto.operator.aggregation.differentialentropy;
 
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.function.AggregationFunction;
+import com.facebook.presto.common.function.AggregationState;
+import com.facebook.presto.common.function.CombineFunction;
+import com.facebook.presto.common.function.Description;
+import com.facebook.presto.common.function.InputFunction;
+import com.facebook.presto.common.function.OutputFunction;
+import com.facebook.presto.common.function.SqlType;
 import com.facebook.presto.common.type.StandardTypes;
-import com.facebook.presto.spi.function.AggregationFunction;
-import com.facebook.presto.spi.function.AggregationState;
-import com.facebook.presto.spi.function.CombineFunction;
-import com.facebook.presto.spi.function.Description;
-import com.facebook.presto.spi.function.InputFunction;
-import com.facebook.presto.spi.function.OutputFunction;
-import com.facebook.presto.spi.function.SqlType;
 import io.airlift.slice.Slice;
 
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;

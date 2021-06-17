@@ -22,8 +22,8 @@ import org.testng.annotations.Test;
 import java.net.SocketTimeoutException;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_GLOBAL_MEMORY_LIMIT;
-import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
+import static com.facebook.presto.common.StandardErrorCode.EXCEEDED_GLOBAL_MEMORY_LIMIT;
+import static com.facebook.presto.common.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
 import static com.facebook.presto.verifier.framework.QueryStage.TEST_MAIN;
 import static com.facebook.presto.verifier.framework.QueryStage.TEST_SETUP;
 import static com.facebook.presto.verifier.prestoaction.QueryActionStats.EMPTY_STATS;

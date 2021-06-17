@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.hive.parquet;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.parquet.AbstractParquetDataSource;
 import com.facebook.presto.parquet.ParquetDataSourceId;
-import com.facebook.presto.spi.PrestoException;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;

@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.raptor.backup;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.raptor.filesystem.LocalFileStorageService;
 import com.facebook.presto.raptor.filesystem.LocalOrcDataEnvironment;
 import com.facebook.presto.raptor.storage.BackupStats;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.io.Files;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.AfterMethod;

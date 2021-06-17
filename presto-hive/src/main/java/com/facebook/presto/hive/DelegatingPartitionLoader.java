@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.hive.StoragePartitionLoader.BucketSplitInfo;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.Table;
-import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.io.IOException;

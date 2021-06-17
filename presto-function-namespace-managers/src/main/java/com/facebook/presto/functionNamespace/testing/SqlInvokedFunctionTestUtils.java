@@ -15,17 +15,17 @@ package com.facebook.presto.functionNamespace.testing;
 
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
-import com.facebook.presto.spi.function.Parameter;
-import com.facebook.presto.spi.function.RoutineCharacteristics;
-import com.facebook.presto.spi.function.SqlInvokedFunction;
+import com.facebook.presto.common.function.Parameter;
+import com.facebook.presto.common.function.RoutineCharacteristics;
+import com.facebook.presto.common.function.SqlInvokedFunction;
 import com.google.common.collect.ImmutableList;
 
+import static com.facebook.presto.common.function.FunctionVersion.notVersioned;
+import static com.facebook.presto.common.function.RoutineCharacteristics.Determinism.DETERMINISTIC;
+import static com.facebook.presto.common.function.RoutineCharacteristics.NullCallClause.RETURNS_NULL_ON_NULL_INPUT;
 import static com.facebook.presto.common.type.StandardTypes.DOUBLE;
 import static com.facebook.presto.common.type.StandardTypes.INTEGER;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
-import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.DETERMINISTIC;
-import static com.facebook.presto.spi.function.RoutineCharacteristics.NullCallClause.RETURNS_NULL_ON_NULL_INPUT;
 
 public class SqlInvokedFunctionTestUtils
 {

@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
-import com.facebook.presto.spi.PrestoException;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.hadoop.HadoopInputFile;
 import org.apache.iceberg.io.InputFile;

@@ -14,21 +14,21 @@
 
 package com.facebook.presto.hive.security;
 
+import com.facebook.presto.common.SchemaTableName;
+import com.facebook.presto.common.security.AccessControlContext;
+import com.facebook.presto.common.security.AccessDeniedException;
+import com.facebook.presto.common.security.ConnectorIdentity;
+import com.facebook.presto.common.security.PrestoPrincipal;
+import com.facebook.presto.common.security.Privilege;
 import com.facebook.presto.plugin.base.security.ForwardingConnectorAccessControl;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.security.AccessControlContext;
-import com.facebook.presto.spi.security.AccessDeniedException;
-import com.facebook.presto.spi.security.ConnectorIdentity;
-import com.facebook.presto.spi.security.PrestoPrincipal;
-import com.facebook.presto.spi.security.Privilege;
 
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.common.security.AccessDeniedException.denySelectTable;
 import static com.facebook.presto.hive.HiveMetadata.getSourceTableNameFromSystemTable;
-import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
 import static java.util.Objects.requireNonNull;
 
 public class SystemTableAwareAccessControl

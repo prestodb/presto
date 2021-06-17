@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.sql.relational;
 
+import com.facebook.presto.common.function.StandardFunctionResolution;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
-import com.facebook.presto.spi.function.StandardFunctionResolution;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.parquet;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.parquet.batchreader.BinaryFlatBatchReader;
@@ -38,13 +39,12 @@ import com.facebook.presto.parquet.reader.LongDecimalColumnReader;
 import com.facebook.presto.parquet.reader.LongTimestampMicrosColumnReader;
 import com.facebook.presto.parquet.reader.ShortDecimalColumnReader;
 import com.facebook.presto.parquet.reader.TimestampColumnReader;
-import com.facebook.presto.spi.PrestoException;
 
 import java.util.Optional;
 
+import static com.facebook.presto.common.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.parquet.ParquetTypeUtils.createDecimalType;
 import static com.facebook.presto.parquet.ParquetTypeUtils.isTimeStampMicrosType;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static org.apache.parquet.schema.OriginalType.DECIMAL;
 import static org.apache.parquet.schema.OriginalType.TIMESTAMP_MICROS;
 

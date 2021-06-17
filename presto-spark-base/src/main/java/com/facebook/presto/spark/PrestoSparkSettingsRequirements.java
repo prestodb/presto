@@ -14,9 +14,9 @@
 package com.facebook.presto.spark;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.connector.system.GlobalSystemConnector;
 import com.facebook.presto.execution.QueryManagerConfig;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
@@ -29,8 +29,8 @@ import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionEnab
 import static com.facebook.presto.SystemSessionProperties.isRecoverableGroupedExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isRedistributeWrites;
 import static com.facebook.presto.SystemSessionProperties.isScaleWriters;
+import static com.facebook.presto.common.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy.NONE;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
 

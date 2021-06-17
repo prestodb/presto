@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.password.file;
 
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.common.PrestoException;
 
-import static com.facebook.presto.spi.StandardErrorCode.CONFIGURATION_INVALID;
+import static com.facebook.presto.common.StandardErrorCode.CONFIGURATION_INVALID;
 
 public class HashedPasswordException
         extends PrestoException

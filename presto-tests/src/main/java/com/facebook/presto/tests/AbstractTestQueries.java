@@ -15,10 +15,10 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.function.SqlFunction;
 import com.facebook.presto.common.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.metadata.FunctionListBuilder;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.testing.MaterializedResult;

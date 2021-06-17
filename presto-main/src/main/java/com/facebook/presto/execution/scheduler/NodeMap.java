@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.execution.scheduler;
 
+import com.facebook.presto.common.HostAddress;
 import com.facebook.presto.metadata.InternalNode;
-import com.facebook.presto.spi.HostAddress;
 import com.google.common.collect.SetMultimap;
 
 import java.net.InetAddress;

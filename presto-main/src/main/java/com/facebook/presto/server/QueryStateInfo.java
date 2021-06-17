@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.common.QueryId;
 import com.facebook.presto.execution.QueryState;
-import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;

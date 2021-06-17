@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.parquet.batchreader;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.IntArrayBlock;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
@@ -28,7 +29,6 @@ import com.facebook.presto.parquet.batchreader.dictionary.Dictionaries;
 import com.facebook.presto.parquet.dictionary.Dictionary;
 import com.facebook.presto.parquet.reader.ColumnChunk;
 import com.facebook.presto.parquet.reader.PageReader;
-import com.facebook.presto.spi.PrestoException;
 import org.apache.parquet.io.ParquetDecodingException;
 
 import java.io.IOException;

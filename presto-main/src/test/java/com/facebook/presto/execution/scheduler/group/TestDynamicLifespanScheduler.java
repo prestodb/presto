@@ -14,13 +14,13 @@
 package com.facebook.presto.execution.scheduler.group;
 
 import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.common.HostAddress;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.scheduler.BucketNodeMap;
 import com.facebook.presto.execution.scheduler.ScheduleResult;
 import com.facebook.presto.execution.scheduler.SourceScheduler;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;

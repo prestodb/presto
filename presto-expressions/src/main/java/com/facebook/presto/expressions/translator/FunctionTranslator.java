@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.expressions.translator;
 
-import com.facebook.presto.spi.function.FunctionMetadata;
+import com.facebook.presto.common.function.FunctionMetadata;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;

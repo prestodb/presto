@@ -16,13 +16,13 @@ package com.facebook.presto.server.protocol;
 import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QueryId;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.memory.context.SimpleLocalMemoryContext;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.server.ForStatementResource;
-import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.transaction.TransactionManager;
 
 import javax.annotation.PostConstruct;

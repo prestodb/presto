@@ -15,11 +15,11 @@ package com.facebook.presto.server.thrift;
 
 import com.facebook.airlift.http.client.HttpStatus;
 import com.facebook.airlift.http.client.thrift.ThriftResponse;
+import com.facebook.presto.common.ErrorCodeSupplier;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.server.ServiceUnavailableException;
 import com.facebook.presto.server.SimpleHttpResponseCallback;
 import com.facebook.presto.server.SimpleHttpResponseHandlerStats;
-import com.facebook.presto.spi.ErrorCodeSupplier;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.util.concurrent.FutureCallback;
 
 import java.net.URI;

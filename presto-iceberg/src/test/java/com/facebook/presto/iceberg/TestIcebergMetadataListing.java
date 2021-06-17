@@ -14,9 +14,9 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.security.Identity;
+import com.facebook.presto.common.security.SelectedRole;
 import com.facebook.presto.hive.HivePlugin;
-import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
@@ -29,8 +29,8 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.common.security.SelectedRole.Type.ROLE;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
-import static com.facebook.presto.spi.security.SelectedRole.Type.ROLE;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
 public class TestIcebergMetadataListing

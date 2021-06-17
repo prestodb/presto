@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.spark;
 
+import com.facebook.presto.common.function.SqlFunctionId;
+import com.facebook.presto.common.function.SqlInvokedFunction;
+import com.facebook.presto.common.security.Identity;
+import com.facebook.presto.common.security.TokenAuthenticator;
 import com.facebook.presto.server.SessionContext;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
-import com.facebook.presto.spi.function.SqlFunctionId;
-import com.facebook.presto.spi.function.SqlInvokedFunction;
-import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.spi.security.TokenAuthenticator;
 import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.transaction.TransactionId;
 import com.google.common.collect.ImmutableMap;

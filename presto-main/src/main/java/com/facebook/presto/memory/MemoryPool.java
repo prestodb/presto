@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.memory;
 
+import com.facebook.presto.common.QueryId;
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryAllocation;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.memory.MemoryPoolInfo;

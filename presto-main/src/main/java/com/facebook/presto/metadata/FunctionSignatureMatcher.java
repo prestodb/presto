@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.function.FunctionKind;
+import com.facebook.presto.common.function.Signature;
+import com.facebook.presto.common.function.SqlFunction;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.FunctionKind;
-import com.facebook.presto.spi.function.Signature;
-import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -31,10 +31,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.common.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
+import static com.facebook.presto.common.function.FunctionKind.SCALAR;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
-import static com.facebook.presto.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
-import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static com.facebook.presto.type.TypeUtils.resolveTypes;
 import static com.google.common.base.MoreObjects.toStringHelper;

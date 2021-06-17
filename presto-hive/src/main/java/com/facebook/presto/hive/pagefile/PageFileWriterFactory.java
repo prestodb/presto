@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive.pagefile;
 
+import com.facebook.presto.common.ConnectorSession;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.io.DataSink;
 import com.facebook.presto.hive.EncryptionInformation;
@@ -26,8 +28,6 @@ import com.facebook.presto.orc.zlib.DeflateCompressor;
 import com.facebook.presto.orc.zlib.InflateDecompressor;
 import com.facebook.presto.orc.zstd.ZstdJniCompressor;
 import com.facebook.presto.orc.zstd.ZstdJniDecompressor;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.page.PageCompressor;
 import com.facebook.presto.spi.page.PageDecompressor;
 import com.facebook.presto.spi.page.PagesSerde;
@@ -49,13 +49,13 @@ import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.concurrent.Callable;
 
+import static com.facebook.presto.common.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.common.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static com.facebook.presto.hive.HiveSessionProperties.getPageFileStripeMaxSize;
 import static com.facebook.presto.hive.HiveStorageFormat.PAGEFILE;
 import static com.facebook.presto.hive.pagefile.PageFileFooterOutput.createEmptyPageFileFooterOutput;
 import static com.facebook.presto.hive.util.ConfigurationUtils.PAGE_FILE_COMPRESSION;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

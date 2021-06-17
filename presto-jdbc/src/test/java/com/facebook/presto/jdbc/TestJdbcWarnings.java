@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.jdbc;
 
+import com.facebook.presto.common.PrestoWarning;
+import com.facebook.presto.common.WarningCode;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.plugin.blackhole.BlackHolePlugin;
 import com.facebook.presto.server.testing.TestingPrestoServer;
-import com.facebook.presto.spi.PrestoWarning;
-import com.facebook.presto.spi.WarningCode;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.testing.TestingWarningCollector;
 import com.facebook.presto.testing.TestingWarningCollectorConfig;

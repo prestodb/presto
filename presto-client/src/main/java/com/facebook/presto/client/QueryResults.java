@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.client;
 
-import com.facebook.presto.spi.PrestoWarning;
+import com.facebook.presto.common.PrestoWarning;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;

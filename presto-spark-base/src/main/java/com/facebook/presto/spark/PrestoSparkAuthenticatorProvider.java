@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spark;
 
-import com.facebook.presto.spi.security.TokenAuthenticator;
+import com.facebook.presto.common.security.TokenAuthenticator;
 
 import java.util.Map;
 

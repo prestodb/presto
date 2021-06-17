@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.kafka.encoder.csv;
 
+import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.kafka.encoder.EncoderColumnHandle;
 import com.facebook.presto.kafka.encoder.RowEncoder;
 import com.facebook.presto.kafka.encoder.RowEncoderFactory;
-import com.facebook.presto.spi.ConnectorSession;
 
 import java.util.List;
 import java.util.Optional;

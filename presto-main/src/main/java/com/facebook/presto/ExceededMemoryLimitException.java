@@ -13,13 +13,13 @@
  */
 package com.facebook.presto;
 
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.StandardErrorCode;
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.StandardErrorCode;
 import io.airlift.units.DataSize;
 
-import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_GLOBAL_MEMORY_LIMIT;
-import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
-import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_REVOCABLE_MEMORY_LIMIT;
+import static com.facebook.presto.common.StandardErrorCode.EXCEEDED_GLOBAL_MEMORY_LIMIT;
+import static com.facebook.presto.common.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
+import static com.facebook.presto.common.StandardErrorCode.EXCEEDED_REVOCABLE_MEMORY_LIMIT;
 import static java.lang.String.format;
 
 public class ExceededMemoryLimitException

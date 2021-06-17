@@ -14,8 +14,8 @@
 
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.spi.ConnectorId;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 
 public class TestingWriterTarget

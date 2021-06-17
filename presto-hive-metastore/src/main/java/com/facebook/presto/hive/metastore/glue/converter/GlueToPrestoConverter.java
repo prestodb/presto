@@ -15,6 +15,8 @@ package com.facebook.presto.hive.metastore.glue.converter;
 
 import com.amazonaws.services.glue.model.SerDeInfo;
 import com.amazonaws.services.glue.model.StorageDescriptor;
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.security.PrincipalType;
 import com.facebook.presto.hive.HiveBucketProperty;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.metastore.Column;
@@ -26,8 +28,6 @@ import com.facebook.presto.hive.metastore.SortingColumn.Order;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.security.PrincipalType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 

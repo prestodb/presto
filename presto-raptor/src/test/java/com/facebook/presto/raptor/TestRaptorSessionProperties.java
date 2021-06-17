@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.raptor.storage.StorageManagerConfig;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.testing.TestingConnectorSession;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;

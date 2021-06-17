@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.plugin.jdbc.optimization;
 
+import com.facebook.presto.common.function.FunctionMetadata;
+import com.facebook.presto.common.function.FunctionMetadataManager;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.CharType;
@@ -34,8 +36,6 @@ import com.facebook.presto.expressions.translator.RowExpressionTreeTranslator;
 import com.facebook.presto.expressions.translator.TranslatedExpression;
 import com.facebook.presto.plugin.jdbc.JdbcColumnHandle;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.function.FunctionMetadata;
-import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;

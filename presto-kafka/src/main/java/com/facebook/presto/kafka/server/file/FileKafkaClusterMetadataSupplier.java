@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.kafka.server.file;
 
+import com.facebook.presto.common.HostAddress;
 import com.facebook.presto.kafka.server.KafkaClusterMetadataSupplier;
-import com.facebook.presto.spi.HostAddress;
 
 import javax.inject.Inject;
 

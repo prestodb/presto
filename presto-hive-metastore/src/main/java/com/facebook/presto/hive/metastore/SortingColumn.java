@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.block.SortOrder;
-import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 

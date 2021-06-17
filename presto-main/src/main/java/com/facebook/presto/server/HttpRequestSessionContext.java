@@ -15,10 +15,10 @@ package com.facebook.presto.server;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session.ResourceEstimateBuilder;
-import com.facebook.presto.spi.function.SqlFunctionId;
-import com.facebook.presto.spi.function.SqlInvokedFunction;
-import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.spi.security.SelectedRole;
+import com.facebook.presto.common.function.SqlFunctionId;
+import com.facebook.presto.common.function.SqlInvokedFunction;
+import com.facebook.presto.common.security.Identity;
+import com.facebook.presto.common.security.SelectedRole;
 import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.ParsingOptions;

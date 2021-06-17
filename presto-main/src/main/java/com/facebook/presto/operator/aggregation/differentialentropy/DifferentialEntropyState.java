@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator.aggregation.differentialentropy;
 
-import com.facebook.presto.spi.function.AccumulatorState;
-import com.facebook.presto.spi.function.AccumulatorStateMetadata;
+import com.facebook.presto.common.function.AccumulatorState;
+import com.facebook.presto.common.function.AccumulatorStateMetadata;
 
 @AccumulatorStateMetadata(
         stateSerializerClass = DifferentialEntropyStateSerializer.class,

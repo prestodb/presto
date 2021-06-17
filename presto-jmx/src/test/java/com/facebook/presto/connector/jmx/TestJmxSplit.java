@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.connector.jmx;
 
-import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.common.HostAddress;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 

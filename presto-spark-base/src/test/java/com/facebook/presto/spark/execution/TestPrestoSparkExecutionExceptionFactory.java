@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.spark.execution;
 
+import com.facebook.presto.common.ErrorCode;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.Failure;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkExecutionException;
-import com.facebook.presto.spi.ErrorCode;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import org.apache.spark.ExceptionFailure;
 import org.apache.spark.SparkException;
@@ -29,8 +29,8 @@ import java.io.IOException;
 import java.util.Optional;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.common.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.common.StandardErrorCode.NOT_SUPPORTED;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;

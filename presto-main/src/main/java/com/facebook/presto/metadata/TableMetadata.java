@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableMetadata;
-import com.facebook.presto.spi.SchemaTableName;
 
 import java.util.List;
 

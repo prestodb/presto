@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.kafka.encoder.avro;
 
+import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.kafka.encoder.AbstractRowEncoder;
 import com.facebook.presto.kafka.encoder.EncoderColumnHandle;
-import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.collect.ImmutableSet;
 import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileWriter;

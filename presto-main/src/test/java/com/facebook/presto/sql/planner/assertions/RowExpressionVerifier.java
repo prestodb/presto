@@ -14,10 +14,10 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.function.FunctionMetadata;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;

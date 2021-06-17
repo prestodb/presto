@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.plugin.base.security;
 
-import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.common.SchemaTableName;
+import com.facebook.presto.common.security.AccessControlContext;
+import com.facebook.presto.common.security.ConnectorIdentity;
+import com.facebook.presto.common.security.PrestoPrincipal;
+import com.facebook.presto.common.security.Privilege;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.security.AccessControlContext;
-import com.facebook.presto.spi.security.ConnectorIdentity;
-import com.facebook.presto.spi.security.PrestoPrincipal;
-import com.facebook.presto.spi.security.Privilege;
 
 import java.util.Optional;
 import java.util.Set;

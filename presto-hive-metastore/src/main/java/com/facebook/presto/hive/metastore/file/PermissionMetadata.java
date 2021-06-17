@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.hive.metastore.file;
 
+import com.facebook.presto.common.security.PrestoPrincipal;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege;
-import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import static com.facebook.presto.spi.security.PrincipalType.USER;
+import static com.facebook.presto.common.security.PrincipalType.USER;
 import static java.util.Objects.requireNonNull;
 
 public class PermissionMetadata

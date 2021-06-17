@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.common.QueryId;
 import com.facebook.presto.common.RuntimeStats;
+import com.facebook.presto.common.StandardErrorCode;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.operator.BlockedReason;
-import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.eventlistener.StageGcStatistics;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.resourceGroups.QueryType;

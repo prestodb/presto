@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.operator.scalar.sql;
 
-import com.facebook.presto.spi.function.Description;
-import com.facebook.presto.spi.function.SqlInvokedScalarFunction;
-import com.facebook.presto.spi.function.SqlParameter;
-import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.common.function.Description;
+import com.facebook.presto.common.function.SqlInvokedScalarFunction;
+import com.facebook.presto.common.function.SqlParameter;
+import com.facebook.presto.common.function.SqlType;
 
 public class ArraySqlFunctions
 {

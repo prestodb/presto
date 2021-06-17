@@ -14,8 +14,8 @@
 package com.facebook.presto.plugin.geospatial.aggregation;
 
 import com.esri.core.geometry.ogc.OGCGeometry;
-import com.facebook.presto.spi.function.AccumulatorState;
-import com.facebook.presto.spi.function.AccumulatorStateMetadata;
+import com.facebook.presto.common.function.AccumulatorState;
+import com.facebook.presto.common.function.AccumulatorStateMetadata;
 
 @AccumulatorStateMetadata(stateSerializerClass = GeometryStateSerializer.class, stateFactoryClass = GeometryStateFactory.class)
 public interface GeometryState

@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.common.QueryId;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
-import com.facebook.presto.spi.QueryId;
 import com.google.inject.Inject;
 
 import javax.annotation.security.RolesAllowed;

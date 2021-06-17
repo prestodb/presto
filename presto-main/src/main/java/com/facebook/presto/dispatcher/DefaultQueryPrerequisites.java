@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.dispatcher;
 
-import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.common.QueryId;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.prerequisites.QueryPrerequisites;
 import com.facebook.presto.spi.prerequisites.QueryPrerequisitesContext;

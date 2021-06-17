@@ -20,8 +20,8 @@ import com.facebook.presto.cache.CacheManager;
 import com.facebook.presto.cache.CacheResult;
 import com.facebook.presto.cache.CacheStats;
 import com.facebook.presto.cache.FileReadRequest;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.hive.CacheQuota;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.RemovalListener;
@@ -59,7 +59,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.common.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterators.getOnlyElement;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;

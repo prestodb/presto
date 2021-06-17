@@ -14,11 +14,11 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session.SessionBuilder;
+import com.facebook.presto.common.PrestoWarning;
+import com.facebook.presto.common.WarningCode;
 import com.facebook.presto.execution.TestEventListener.EventsBuilder;
 import com.facebook.presto.execution.TestEventListenerPlugin.TestingEventListenerPlugin;
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
-import com.facebook.presto.spi.PrestoWarning;
-import com.facebook.presto.spi.WarningCode;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestingWarningCollector;
 import com.facebook.presto.testing.TestingWarningCollectorConfig;

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.raptor.util;
 
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.common.PrestoException;
 import com.google.common.base.Throwables;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;

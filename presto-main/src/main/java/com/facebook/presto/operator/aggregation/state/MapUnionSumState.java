@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
+import com.facebook.presto.common.function.AccumulatorState;
+import com.facebook.presto.common.function.AccumulatorStateMetadata;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.aggregation.Adder;
 import com.facebook.presto.operator.aggregation.MapUnionSumResult;
-import com.facebook.presto.spi.function.AccumulatorState;
-import com.facebook.presto.spi.function.AccumulatorStateMetadata;
 
 @AccumulatorStateMetadata(stateFactoryClass = MapUnionSumStateFactory.class, stateSerializerClass = MapUnionSumStateSerializer.class)
 public interface MapUnionSumState

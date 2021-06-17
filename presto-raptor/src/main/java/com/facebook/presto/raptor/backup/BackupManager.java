@@ -14,10 +14,10 @@
 package com.facebook.presto.raptor.backup;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.raptor.storage.BackupStats;
 import com.facebook.presto.raptor.storage.OrcDataEnvironment;
 import com.facebook.presto.raptor.storage.StorageService;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.io.Files;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;

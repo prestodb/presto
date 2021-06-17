@@ -14,6 +14,8 @@
 package com.facebook.presto.kudu;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.predicate.DiscreteValues;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.EquatableValueSet;
@@ -34,9 +36,7 @@ import com.facebook.presto.kudu.schema.SchemaEmulation;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.collect.ImmutableList;
 import org.apache.kudu.ColumnSchema;
@@ -64,9 +64,9 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.common.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.common.StandardErrorCode.QUERY_REJECTED;
 import static com.facebook.presto.kudu.KuduUtil.reTryKerberos;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.QUERY_REJECTED;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class KuduClientSession

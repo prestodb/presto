@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.raptor.backup.BackupStore;
 import com.facebook.presto.raptor.backup.FileBackupStore;
 import com.facebook.presto.raptor.filesystem.LocalFileStorageService;
 import com.facebook.presto.raptor.filesystem.LocalOrcDataEnvironment;
 import com.facebook.presto.raptor.filesystem.RaptorLocalFileSystem;
 import com.facebook.presto.raptor.metadata.ShardManager;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.testing.TestingNodeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;

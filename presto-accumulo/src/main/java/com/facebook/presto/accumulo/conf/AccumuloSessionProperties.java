@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.accumulo.conf;
 
-import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;

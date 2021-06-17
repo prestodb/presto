@@ -18,7 +18,7 @@ import com.facebook.drift.codec.ThriftCodec;
 import com.facebook.drift.codec.metadata.ThriftType;
 import com.facebook.drift.protocol.TProtocolReader;
 import com.facebook.drift.protocol.TProtocolWriter;
-import com.facebook.presto.spi.function.SqlInvokedFunction;
+import com.facebook.presto.common.function.SqlInvokedFunction;
 
 import javax.inject.Inject;
 

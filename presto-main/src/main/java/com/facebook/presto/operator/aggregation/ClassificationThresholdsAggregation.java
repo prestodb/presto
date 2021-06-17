@@ -14,12 +14,12 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.function.AggregationFunction;
+import com.facebook.presto.common.function.AggregationState;
+import com.facebook.presto.common.function.Description;
+import com.facebook.presto.common.function.OutputFunction;
 import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.operator.aggregation.state.PrecisionRecallState;
-import com.facebook.presto.spi.function.AggregationFunction;
-import com.facebook.presto.spi.function.AggregationState;
-import com.facebook.presto.spi.function.Description;
-import com.facebook.presto.spi.function.OutputFunction;
 
 import java.util.Iterator;
 

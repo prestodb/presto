@@ -15,8 +15,8 @@ package com.facebook.presto.password.file;
 
 import com.facebook.airlift.http.server.BasicPrincipal;
 import com.facebook.airlift.log.Logger;
-import com.facebook.presto.spi.security.AccessDeniedException;
-import com.facebook.presto.spi.security.PasswordAuthenticator;
+import com.facebook.presto.common.security.AccessDeniedException;
+import com.facebook.presto.common.security.PasswordAuthenticator;
 
 import javax.inject.Inject;
 

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spi.storage;
 
-import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.common.security.Identity;
 
 import java.util.Optional;
 import java.util.Set;

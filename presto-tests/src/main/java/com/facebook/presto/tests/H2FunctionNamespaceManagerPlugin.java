@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.common.function.FunctionNamespaceManagerFactory;
 import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.function.FunctionNamespaceManagerFactory;
 import com.google.common.collect.ImmutableList;
 
 public class H2FunctionNamespaceManagerPlugin

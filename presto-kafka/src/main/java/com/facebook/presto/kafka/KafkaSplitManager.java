@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.kafka;
 
+import com.facebook.presto.common.ConnectorSession;
+import com.facebook.presto.common.HostAddress;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.kafka.server.KafkaClusterMetadataHelper;
 import com.facebook.presto.kafka.server.KafkaClusterMetadataSupplier;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
-import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
@@ -46,10 +46,10 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.common.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.kafka.KafkaErrorCode.KAFKA_CONSUMER_ERROR;
 import static com.facebook.presto.kafka.KafkaErrorCode.KAFKA_SPLIT_ERROR;
 import static com.facebook.presto.kafka.KafkaHandleResolver.convertLayout;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;

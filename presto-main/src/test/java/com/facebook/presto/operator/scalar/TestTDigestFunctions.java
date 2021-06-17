@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.SqlVarbinary;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeParameter;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.tdigest.TDigest;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;

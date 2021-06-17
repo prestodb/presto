@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.raptor.filesystem;
 
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.security.ConnectorIdentity;
 import com.facebook.presto.hive.HdfsContext;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.security.ConnectorIdentity;
 import io.airlift.slice.XxHash64;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;

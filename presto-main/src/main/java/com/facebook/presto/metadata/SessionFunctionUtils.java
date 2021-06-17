@@ -14,11 +14,11 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.common.QualifiedObjectName;
-import com.facebook.presto.spi.function.FunctionHandle;
-import com.facebook.presto.spi.function.Signature;
-import com.facebook.presto.spi.function.SqlFunction;
-import com.facebook.presto.spi.function.SqlFunctionId;
-import com.facebook.presto.spi.function.SqlInvokedFunction;
+import com.facebook.presto.common.function.FunctionHandle;
+import com.facebook.presto.common.function.Signature;
+import com.facebook.presto.common.function.SqlFunction;
+import com.facebook.presto.common.function.SqlFunctionId;
+import com.facebook.presto.common.function.SqlInvokedFunction;
 
 import java.util.Collection;
 import java.util.Map;

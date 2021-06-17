@@ -15,6 +15,7 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.log.Logging;
+import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.SqlDecimal;
 import com.facebook.presto.common.type.SqlTimestampWithTimeZone;
@@ -30,7 +31,6 @@ import com.facebook.presto.operator.scalar.JsonFunctions;
 import com.facebook.presto.operator.scalar.JsonPath;
 import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.StringFunctions;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.sql.tree.Extract.Field;
 import com.facebook.presto.type.LikeFunctions;
 import com.google.common.base.Preconditions;

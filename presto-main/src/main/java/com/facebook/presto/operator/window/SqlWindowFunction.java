@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.operator.window;
 
+import com.facebook.presto.common.function.Signature;
+import com.facebook.presto.common.function.SqlFunctionVisibility;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.BuiltInFunction;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
-import com.facebook.presto.spi.function.Signature;
-import com.facebook.presto.spi.function.SqlFunctionVisibility;
 
-import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
+import static com.facebook.presto.common.function.SqlFunctionVisibility.PUBLIC;
 import static java.util.Objects.requireNonNull;
 
 public class SqlWindowFunction

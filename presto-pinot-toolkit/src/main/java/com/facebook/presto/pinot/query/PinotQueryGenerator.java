@@ -14,6 +14,10 @@
 package com.facebook.presto.pinot.query;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.ConnectorSession;
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.function.FunctionMetadataManager;
+import com.facebook.presto.common.function.StandardFunctionResolution;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.FixedWidthType;
 import com.facebook.presto.common.type.TypeManager;
@@ -27,10 +31,6 @@ import com.facebook.presto.pinot.PinotPushdownUtils.GroupByColumnNode;
 import com.facebook.presto.pinot.PinotSessionProperties;
 import com.facebook.presto.pinot.PinotTableHandle;
 import com.facebook.presto.pinot.query.PinotQueryGeneratorContext.Selection;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.FunctionMetadataManager;
-import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.FilterNode;
@@ -61,6 +61,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.common.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_UNSUPPORTED_EXPRESSION;
 import static com.facebook.presto.pinot.PinotPushdownUtils.checkSupported;
 import static com.facebook.presto.pinot.PinotPushdownUtils.computeAggregationNodes;
@@ -69,7 +70,6 @@ import static com.facebook.presto.pinot.PinotPushdownUtils.getOrderingScheme;
 import static com.facebook.presto.pinot.query.PinotQueryGeneratorContext.Origin.DERIVED;
 import static com.facebook.presto.pinot.query.PinotQueryGeneratorContext.Origin.LITERAL;
 import static com.facebook.presto.pinot.query.PinotQueryGeneratorContext.Origin.TABLE_COLUMN;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;

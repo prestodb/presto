@@ -14,12 +14,12 @@
 package com.facebook.presto.benchmark.prestoaction;
 
 import com.facebook.presto.benchmark.framework.QueryException;
+import com.facebook.presto.common.ErrorCodeSupplier;
+import com.facebook.presto.common.StandardErrorCode;
 import com.facebook.presto.connector.thrift.ThriftErrorCode;
 import com.facebook.presto.hive.HiveErrorCode;
 import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.plugin.jdbc.JdbcErrorCode;
-import com.facebook.presto.spi.ErrorCodeSupplier;
-import com.facebook.presto.spi.StandardErrorCode;
 import com.google.common.collect.ImmutableSet;
 
 import java.io.EOFException;

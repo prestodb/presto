@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spi.eventlistener;
 
-import com.facebook.presto.spi.ErrorCode;
+import com.facebook.presto.common.ErrorCode;
 
 import java.util.Optional;
 

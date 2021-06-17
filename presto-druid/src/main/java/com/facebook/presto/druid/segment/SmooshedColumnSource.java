@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.druid.segment;
 
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.common.PrestoException;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;

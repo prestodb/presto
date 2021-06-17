@@ -14,8 +14,8 @@
 package com.facebook.presto.decoder.json;
 
 import com.facebook.airlift.json.JsonObjectMapperProvider;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.decoder.DecoderTestColumnHandle;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 

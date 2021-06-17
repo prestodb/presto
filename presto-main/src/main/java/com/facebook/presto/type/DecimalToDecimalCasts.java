@@ -14,18 +14,21 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.function.Signature;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.metadata.SignatureBuilder;
 import com.facebook.presto.metadata.SqlScalarFunction;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.Signature;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 import java.math.BigInteger;
 
+import static com.facebook.presto.common.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static com.facebook.presto.common.function.FunctionKind.SCALAR;
 import static com.facebook.presto.common.function.OperatorType.CAST;
+import static com.facebook.presto.common.function.Signature.withVariadicBound;
 import static com.facebook.presto.common.type.Decimals.longTenToNth;
 import static com.facebook.presto.common.type.Decimals.overflows;
 import static com.facebook.presto.common.type.StandardTypes.DECIMAL;
@@ -35,9 +38,6 @@ import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.resca
 import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
 import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.unscaledDecimalToBigInteger;
 import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.unscaledDecimalToUnscaledLongUnsafe;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
-import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
-import static com.facebook.presto.spi.function.Signature.withVariadicBound;
 import static java.lang.String.format;
 
 public final class DecimalToDecimalCasts

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.hive.metastore.StorageFormat;
-import com.facebook.presto.spi.ConnectorSession;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 

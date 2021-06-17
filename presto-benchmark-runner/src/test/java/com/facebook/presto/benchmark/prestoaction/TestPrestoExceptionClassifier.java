@@ -14,9 +14,9 @@
 package com.facebook.presto.benchmark.prestoaction;
 
 import com.facebook.presto.benchmark.framework.QueryException;
+import com.facebook.presto.common.ErrorCodeSupplier;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.jdbc.QueryStats;
-import com.facebook.presto.spi.ErrorCodeSupplier;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
@@ -31,13 +31,13 @@ import java.util.Optional;
 
 import static com.facebook.presto.benchmark.framework.QueryException.Type.CLUSTER_CONNECTION;
 import static com.facebook.presto.benchmark.framework.QueryException.Type.PRESTO;
+import static com.facebook.presto.common.StandardErrorCode.EXCEEDED_TIME_LIMIT;
+import static com.facebook.presto.common.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
+import static com.facebook.presto.common.StandardErrorCode.NO_NODES_AVAILABLE;
+import static com.facebook.presto.common.StandardErrorCode.SERVER_STARTING_UP;
+import static com.facebook.presto.common.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CORRUPTED_COLUMN_STATISTICS;
-import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
-import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
-import static com.facebook.presto.spi.StandardErrorCode.SERVER_STARTING_UP;
-import static com.facebook.presto.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 
 public class TestPrestoExceptionClassifier

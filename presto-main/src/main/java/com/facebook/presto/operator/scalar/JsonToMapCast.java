@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.function.OperatorType;
@@ -25,7 +26,6 @@ import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlOperator;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.util.JsonCastException;
 import com.facebook.presto.util.JsonUtil.BlockBuilderAppender;
 import com.fasterxml.jackson.core.JsonParser;
@@ -35,12 +35,12 @@ import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 
+import static com.facebook.presto.common.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static com.facebook.presto.common.function.Signature.comparableTypeParameter;
+import static com.facebook.presto.common.function.Signature.typeVariable;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
-import static com.facebook.presto.spi.function.Signature.comparableTypeParameter;
-import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.JsonUtil.BlockBuilderAppender.createBlockBuilderAppender;
 import static com.facebook.presto.util.JsonUtil.HashTable;

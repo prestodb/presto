@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.common.function.AggregationFunction;
+import com.facebook.presto.common.function.ScalarFunction;
+import com.facebook.presto.common.function.ScalarOperator;
+import com.facebook.presto.common.function.SqlFunction;
+import com.facebook.presto.common.function.SqlInvokedScalarFunction;
+import com.facebook.presto.common.function.WindowFunction;
 import com.facebook.presto.operator.scalar.annotations.ScalarFromAnnotationsParser;
 import com.facebook.presto.operator.scalar.annotations.SqlInvokedScalarFromAnnotationsParser;
 import com.facebook.presto.operator.window.WindowAnnotationsParser;
-import com.facebook.presto.spi.function.AggregationFunction;
-import com.facebook.presto.spi.function.ScalarFunction;
-import com.facebook.presto.spi.function.ScalarOperator;
-import com.facebook.presto.spi.function.SqlFunction;
-import com.facebook.presto.spi.function.SqlInvokedScalarFunction;
-import com.facebook.presto.spi.function.WindowFunction;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Collection;

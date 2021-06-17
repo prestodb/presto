@@ -13,17 +13,17 @@
  */
 package com.facebook.presto.iceberg;
 
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.common.PrestoException;
 
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.facebook.presto.common.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.iceberg.TableType.DATA;
 import static com.facebook.presto.iceberg.TableType.FILES;
 import static com.facebook.presto.iceberg.TableType.MANIFESTS;
 import static com.facebook.presto.iceberg.TableType.PARTITIONS;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
 import static java.util.Locale.ROOT;

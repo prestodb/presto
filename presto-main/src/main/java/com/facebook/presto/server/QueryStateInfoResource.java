@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.common.QueryId;
 import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.resourcemanager.ResourceManagerProxy;
-import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 
 import javax.annotation.security.RolesAllowed;

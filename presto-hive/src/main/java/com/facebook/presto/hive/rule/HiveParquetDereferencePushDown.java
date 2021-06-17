@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.rule;
 
+import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.expressions.DefaultRowExpressionTraversalVisitor;
@@ -25,7 +26,6 @@ import com.facebook.presto.hive.HiveTransactionManager;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.connector.ConnectorMetadata;

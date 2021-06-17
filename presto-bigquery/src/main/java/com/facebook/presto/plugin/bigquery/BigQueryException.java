@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.plugin.bigquery;
 
-import com.facebook.presto.spi.ErrorCodeSupplier;
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.common.ErrorCodeSupplier;
+import com.facebook.presto.common.PrestoException;
 
 public class BigQueryException
         extends PrestoException

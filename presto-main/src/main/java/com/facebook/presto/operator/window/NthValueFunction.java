@@ -14,12 +14,12 @@
 package com.facebook.presto.operator.window;
 
 import com.facebook.presto.common.block.BlockBuilder;
-import com.facebook.presto.spi.function.ValueWindowFunction;
-import com.facebook.presto.spi.function.WindowFunctionSignature;
+import com.facebook.presto.common.function.ValueWindowFunction;
+import com.facebook.presto.common.function.WindowFunctionSignature;
 
 import java.util.List;
 
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.common.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static java.lang.Math.toIntExact;
 

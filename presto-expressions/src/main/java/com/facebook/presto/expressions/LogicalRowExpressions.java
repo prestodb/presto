@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.expressions;
 
+import com.facebook.presto.common.function.FunctionMetadataManager;
 import com.facebook.presto.common.function.OperatorType;
-import com.facebook.presto.spi.function.FunctionMetadataManager;
-import com.facebook.presto.spi.function.StandardFunctionResolution;
+import com.facebook.presto.common.function.StandardFunctionResolution;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;

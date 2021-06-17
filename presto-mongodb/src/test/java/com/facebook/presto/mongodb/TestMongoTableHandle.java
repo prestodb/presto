@@ -14,7 +14,7 @@
 package com.facebook.presto.mongodb;
 
 import com.facebook.airlift.json.JsonCodec;
-import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.common.SchemaTableName;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;

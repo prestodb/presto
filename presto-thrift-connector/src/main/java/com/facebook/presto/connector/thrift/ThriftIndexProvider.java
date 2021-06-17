@@ -14,10 +14,10 @@
 package com.facebook.presto.connector.thrift;
 
 import com.facebook.drift.client.DriftClient;
+import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorIndex;
 import com.facebook.presto.spi.ConnectorIndexHandle;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.connector.ConnectorIndexProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.thrift.api.connector.PrestoThriftService;

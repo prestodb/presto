@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.common.function.AccumulatorState;
+import com.facebook.presto.common.function.AggregationFunction;
+import com.facebook.presto.common.function.AggregationStateSerializerFactory;
+import com.facebook.presto.common.function.CombineFunction;
+import com.facebook.presto.common.function.InputFunction;
+import com.facebook.presto.common.function.OutputFunction;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.operator.ParametricImplementationsGroup;
 import com.facebook.presto.operator.annotations.FunctionsParserHelper;
-import com.facebook.presto.spi.function.AccumulatorState;
-import com.facebook.presto.spi.function.AggregationFunction;
-import com.facebook.presto.spi.function.AggregationStateSerializerFactory;
-import com.facebook.presto.spi.function.CombineFunction;
-import com.facebook.presto.spi.function.InputFunction;
-import com.facebook.presto.spi.function.OutputFunction;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;

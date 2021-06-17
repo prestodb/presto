@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.elasticsearch.decoders;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.block.BlockBuilder;
-import com.facebook.presto.spi.PrestoException;
 import org.elasticsearch.search.SearchHit;
 
 import java.util.List;

@@ -14,20 +14,20 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.function.Signature;
+import com.facebook.presto.common.function.SqlFunctionVisibility;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
-import com.facebook.presto.spi.function.Signature;
-import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.google.common.collect.ImmutableList;
 
+import static com.facebook.presto.common.function.FunctionKind.SCALAR;
+import static com.facebook.presto.common.function.Signature.typeVariable;
+import static com.facebook.presto.common.function.SqlFunctionVisibility.HIDDEN;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.operator.scalar.JsonToArrayCast.JSON_TO_ARRAY;
-import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
-import static com.facebook.presto.spi.function.Signature.typeVariable;
-import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
 
 public final class JsonStringToArrayCast
         extends SqlScalarFunction

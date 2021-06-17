@@ -15,9 +15,9 @@ package com.facebook.presto.ml;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.function.AccumulatorStateSerializer;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 
 public class LearnStateSerializer
         implements AccumulatorStateSerializer<LearnState>

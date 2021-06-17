@@ -14,9 +14,9 @@
 package com.facebook.presto.functionNamespace.execution;
 
 import com.facebook.airlift.configuration.Config;
-import com.facebook.presto.spi.function.FunctionImplementationType;
+import com.facebook.presto.common.function.FunctionImplementationType;
 
-import static com.facebook.presto.spi.function.FunctionImplementationType.SQL;
+import static com.facebook.presto.common.function.FunctionImplementationType.SQL;
 
 public class SqlFunctionLanguageConfig
 {

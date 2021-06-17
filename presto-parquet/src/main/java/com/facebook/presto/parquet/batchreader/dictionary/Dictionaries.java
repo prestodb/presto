@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.parquet.batchreader.dictionary;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.parquet.DictionaryPage;
 import com.facebook.presto.parquet.dictionary.Dictionary;
 import com.facebook.presto.parquet.dictionary.IntegerDictionary;
 import com.facebook.presto.parquet.dictionary.LongDictionary;
-import com.facebook.presto.spi.PrestoException;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.io.ParquetDecodingException;
 

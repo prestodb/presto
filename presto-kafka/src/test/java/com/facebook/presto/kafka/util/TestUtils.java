@@ -15,6 +15,7 @@ package com.facebook.presto.kafka.util;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.kafka.KafkaConnectorConfig;
 import com.facebook.presto.kafka.KafkaPlugin;
 import com.facebook.presto.kafka.KafkaTopicDescription;
@@ -23,7 +24,6 @@ import com.facebook.presto.kafka.schema.TableDescriptionSupplier;
 import com.facebook.presto.kafka.server.KafkaClusterMetadataSupplier;
 import com.facebook.presto.kafka.server.file.FileKafkaClusterMetadataSupplier;
 import com.facebook.presto.kafka.server.file.FileKafkaClusterMetadataSupplierConfig;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.TestingPrestoClient;
 import com.google.common.collect.ImmutableMap;

@@ -20,10 +20,10 @@ import com.facebook.presto.operator.aggregation.state.StatisticalDigestState;
 
 import java.lang.invoke.MethodHandle;
 
+import static com.facebook.presto.common.function.SqlFunctionVisibility.PUBLIC;
 import static com.facebook.presto.common.type.StandardTypes.QDIGEST;
 import static com.facebook.presto.operator.aggregation.StatisticalDigestFactory.createStatisticalQuantileDigest;
 import static com.facebook.presto.operator.aggregation.state.StatisticalDigestStateFactory.createQuantileDigestFactory;
-import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public class MergeQuantileDigestFunction

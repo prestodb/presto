@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.plugin.prometheus;
 
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.common.PrestoException;
 import com.google.common.io.Resources;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeMethod;

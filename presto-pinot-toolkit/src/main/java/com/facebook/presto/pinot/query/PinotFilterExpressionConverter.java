@@ -13,7 +13,11 @@
  */
 package com.facebook.presto.pinot.query;
 
+import com.facebook.presto.common.function.FunctionHandle;
+import com.facebook.presto.common.function.FunctionMetadata;
+import com.facebook.presto.common.function.FunctionMetadataManager;
 import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.function.StandardFunctionResolution;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.DateType;
 import com.facebook.presto.common.type.IntegerType;
@@ -25,10 +29,6 @@ import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.pinot.PinotException;
 import com.facebook.presto.pinot.query.PinotQueryGeneratorContext.Origin;
 import com.facebook.presto.pinot.query.PinotQueryGeneratorContext.Selection;
-import com.facebook.presto.spi.function.FunctionHandle;
-import com.facebook.presto.spi.function.FunctionMetadata;
-import com.facebook.presto.spi.function.FunctionMetadataManager;
-import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.InputReferenceExpression;

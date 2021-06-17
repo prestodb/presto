@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.spi.procedure;
 
+import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.common.type.TypeSignature;
-import com.facebook.presto.spi.ConnectorSession;
 
 import javax.annotation.Nullable;
 

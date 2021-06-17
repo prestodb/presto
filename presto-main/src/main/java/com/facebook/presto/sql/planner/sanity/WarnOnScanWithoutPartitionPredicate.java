@@ -14,8 +14,8 @@
 package com.facebook.presto.sql.planner.sanity;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.PrestoWarning;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TableLayoutFilterCoverage;
 import com.facebook.presto.spi.WarningCollector;
@@ -29,7 +29,7 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.Set;
 
-import static com.facebook.presto.spi.StandardWarningCode.PERFORMANCE_WARNING;
+import static com.facebook.presto.common.StandardWarningCode.PERFORMANCE_WARNING;
 import static com.facebook.presto.spi.TableLayoutFilterCoverage.NOT_COVERED;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 

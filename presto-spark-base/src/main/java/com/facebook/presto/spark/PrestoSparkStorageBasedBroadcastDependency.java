@@ -14,8 +14,8 @@
 package com.facebook.presto.spark;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkStorageHandle;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.storage.TempDataOperationContext;
 import com.facebook.presto.spi.storage.TempStorage;
 import com.facebook.presto.spi.storage.TempStorageHandle;

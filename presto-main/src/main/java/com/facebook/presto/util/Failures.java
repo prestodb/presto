@@ -14,14 +14,14 @@
 package com.facebook.presto.util;
 
 import com.facebook.presto.client.ErrorLocation;
+import com.facebook.presto.common.ErrorCode;
+import com.facebook.presto.common.ErrorCodeSupplier;
+import com.facebook.presto.common.HostAddress;
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.PrestoTransportException;
+import com.facebook.presto.common.StandardErrorCode;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.Failure;
-import com.facebook.presto.spi.ErrorCode;
-import com.facebook.presto.spi.ErrorCodeSupplier;
-import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.PrestoTransportException;
-import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.tree.NodeLocation;
@@ -35,8 +35,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
+import static com.facebook.presto.common.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.common.StandardErrorCode.SYNTAX_ERROR;
 import static com.google.common.base.Functions.toStringFunction;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Throwables.throwIfInstanceOf;

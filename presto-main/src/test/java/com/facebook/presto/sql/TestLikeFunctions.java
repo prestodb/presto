@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
-import com.facebook.presto.spi.PrestoException;
 import io.airlift.joni.Regex;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;

@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.decoder.raw;
 
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.StandardErrorCode;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.Varchars;
 import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.FieldValueProvider;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.StandardErrorCode;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;

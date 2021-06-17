@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.kafka.encoder.raw;
 
+import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.kafka.encoder.AbstractRowEncoder;
 import com.facebook.presto.kafka.encoder.EncoderColumnHandle;
-import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
 

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation.differentialentropy;
 
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.common.PrestoException;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;

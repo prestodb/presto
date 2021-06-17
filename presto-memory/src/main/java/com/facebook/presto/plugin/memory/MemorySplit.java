@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.plugin.memory;
 
+import com.facebook.presto.common.HostAddress;
 import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;

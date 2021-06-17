@@ -13,21 +13,21 @@
  */
 package com.facebook.presto.functionNamespace.testing;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.common.function.AlterRoutineCharacteristics;
+import com.facebook.presto.common.function.FunctionMetadata;
+import com.facebook.presto.common.function.ScalarFunctionImplementation;
+import com.facebook.presto.common.function.SqlFunctionHandle;
+import com.facebook.presto.common.function.SqlFunctionId;
+import com.facebook.presto.common.function.SqlInvokedFunction;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.UserDefinedType;
 import com.facebook.presto.functionNamespace.AbstractSqlInvokedFunctionNamespaceManager;
 import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerConfig;
 import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutors;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
-import com.facebook.presto.spi.function.FunctionMetadata;
-import com.facebook.presto.spi.function.ScalarFunctionImplementation;
-import com.facebook.presto.spi.function.SqlFunctionHandle;
-import com.facebook.presto.spi.function.SqlFunctionId;
-import com.facebook.presto.spi.function.SqlInvokedFunction;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -37,8 +37,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.common.StandardErrorCode.GENERIC_USER_ERROR;
+import static com.facebook.presto.common.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;

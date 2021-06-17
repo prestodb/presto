@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.common.HostAddress;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 
 import java.util.List;

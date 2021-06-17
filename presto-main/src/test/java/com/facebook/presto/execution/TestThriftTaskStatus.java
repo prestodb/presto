@@ -23,9 +23,9 @@ import com.facebook.drift.protocol.TFacebookCompactProtocol;
 import com.facebook.drift.protocol.TMemoryBuffer;
 import com.facebook.drift.protocol.TProtocol;
 import com.facebook.drift.protocol.TTransport;
-import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.PrestoTransportException;
+import com.facebook.presto.common.HostAddress;
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.PrestoTransportException;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.tree.NodeLocation;
 import com.facebook.presto.util.Failures;
@@ -41,10 +41,10 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
 
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
+import static com.facebook.presto.common.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.common.StandardErrorCode.REMOTE_TASK_ERROR;
+import static com.facebook.presto.common.StandardErrorCode.SYNTAX_ERROR;
+import static com.facebook.presto.common.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)

@@ -14,7 +14,7 @@
 package com.facebook.presto.kafka.server.file;
 
 import com.facebook.airlift.configuration.Config;
-import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.common.HostAddress;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 

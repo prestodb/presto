@@ -14,8 +14,8 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.json.JsonObjectMapperProvider;
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.type.StandardTypes;
-import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;

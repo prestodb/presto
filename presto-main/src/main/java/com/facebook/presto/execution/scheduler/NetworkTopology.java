@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.execution.scheduler;
 
-import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.common.HostAddress;
 
 import javax.annotation.concurrent.ThreadSafe;
 

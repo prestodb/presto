@@ -14,10 +14,10 @@
 package com.facebook.presto.pinot;
 
 import com.facebook.airlift.json.JsonObjectMapperProvider;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.pinot.query.PinotQueryGenerator;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;

@@ -14,13 +14,13 @@ package com.facebook.presto.operator.scalar;
  */
 
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.function.OperatorDependency;
+import com.facebook.presto.common.function.ScalarOperator;
+import com.facebook.presto.common.function.SqlType;
+import com.facebook.presto.common.function.TypeParameter;
+import com.facebook.presto.common.function.TypeParameterSpecialization;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.function.OperatorDependency;
-import com.facebook.presto.spi.function.ScalarOperator;
-import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.function.TypeParameter;
-import com.facebook.presto.spi.function.TypeParameterSpecialization;
 
 import java.lang.invoke.MethodHandle;
 

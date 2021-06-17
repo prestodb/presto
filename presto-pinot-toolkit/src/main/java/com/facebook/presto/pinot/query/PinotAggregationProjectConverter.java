@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.pinot.query;
 
+import com.facebook.presto.common.ConnectorSession;
+import com.facebook.presto.common.function.FunctionMetadata;
+import com.facebook.presto.common.function.FunctionMetadataManager;
 import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.function.StandardFunctionResolution;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.pinot.PinotException;
 import com.facebook.presto.pinot.PinotSessionProperties;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.function.FunctionMetadata;
-import com.facebook.presto.spi.function.FunctionMetadataManager;
-import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;

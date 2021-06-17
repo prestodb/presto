@@ -13,22 +13,23 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.function.Description;
+import com.facebook.presto.common.function.IsNull;
+import com.facebook.presto.common.function.ScalarFunction;
+import com.facebook.presto.common.function.ScalarOperator;
+import com.facebook.presto.common.function.SqlNullable;
+import com.facebook.presto.common.function.SqlType;
+import com.facebook.presto.common.function.TypeParameter;
 import com.facebook.presto.common.type.AbstractLongType;
 import com.facebook.presto.common.type.BigintEnumType;
 import com.facebook.presto.common.type.StandardTypes;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.Description;
-import com.facebook.presto.spi.function.IsNull;
-import com.facebook.presto.spi.function.ScalarFunction;
-import com.facebook.presto.spi.function.ScalarOperator;
-import com.facebook.presto.spi.function.SqlNullable;
-import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.function.TypeParameter;
 import io.airlift.slice.Slice;
 import io.airlift.slice.XxHash64;
 
 import java.util.Optional;
 
+import static com.facebook.presto.common.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.common.function.OperatorType.BETWEEN;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.function.OperatorType.GREATER_THAN;
@@ -43,7 +44,6 @@ import static com.facebook.presto.common.function.OperatorType.XX_HASH_64;
 import static com.facebook.presto.common.type.StandardTypes.BIGINT;
 import static com.facebook.presto.common.type.StandardTypes.BIGINT_ENUM;
 import static com.facebook.presto.common.type.StandardTypes.BOOLEAN;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
 

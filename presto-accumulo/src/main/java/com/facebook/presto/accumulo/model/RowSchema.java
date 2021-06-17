@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.accumulo.model;
 
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.PrestoException;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
+import static com.facebook.presto.common.StandardErrorCode.NOT_FOUND;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 

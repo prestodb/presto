@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.kafka.server;
 
-import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.common.HostAddress;
 
 import java.util.List;
 

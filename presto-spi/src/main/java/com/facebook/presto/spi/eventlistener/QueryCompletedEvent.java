@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spi.eventlistener;
 
-import com.facebook.presto.spi.PrestoWarning;
+import com.facebook.presto.common.PrestoWarning;
 import com.facebook.presto.spi.resourceGroups.QueryType;
 
 import java.time.Instant;

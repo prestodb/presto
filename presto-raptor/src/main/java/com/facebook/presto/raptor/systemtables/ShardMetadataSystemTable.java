@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.raptor.systemtables;
 
+import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.raptor.metadata.ForMetadata;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SystemTable;

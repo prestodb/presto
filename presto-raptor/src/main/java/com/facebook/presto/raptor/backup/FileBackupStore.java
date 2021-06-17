@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.raptor.backup;
 
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.common.PrestoException;
 import com.google.common.annotations.VisibleForTesting;
 
 import javax.annotation.PostConstruct;

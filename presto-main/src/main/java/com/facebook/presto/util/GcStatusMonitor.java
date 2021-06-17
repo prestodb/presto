@@ -15,13 +15,13 @@ package com.facebook.presto.util;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.GarbageCollectionNotificationInfo;
+import com.facebook.presto.common.QueryId;
 import com.facebook.presto.execution.SqlTask;
 import com.facebook.presto.execution.SqlTaskIoStats;
 import com.facebook.presto.execution.SqlTaskManager;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.operator.TaskStats;
-import com.facebook.presto.spi.QueryId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ListMultimap;
 

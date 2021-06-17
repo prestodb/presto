@@ -13,18 +13,18 @@
  */
 package com.facebook.presto.operator.annotations;
 
+import com.facebook.presto.common.function.Description;
+import com.facebook.presto.common.function.IsNull;
+import com.facebook.presto.common.function.LiteralParameters;
+import com.facebook.presto.common.function.LongVariableConstraint;
 import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.function.Signature;
+import com.facebook.presto.common.function.SqlNullable;
+import com.facebook.presto.common.function.SqlType;
+import com.facebook.presto.common.function.TypeParameter;
+import com.facebook.presto.common.function.TypeParameterSpecialization;
+import com.facebook.presto.common.function.TypeVariableConstraint;
 import com.facebook.presto.common.type.TypeSignature;
-import com.facebook.presto.spi.function.Description;
-import com.facebook.presto.spi.function.IsNull;
-import com.facebook.presto.spi.function.LiteralParameters;
-import com.facebook.presto.spi.function.LongVariableConstraint;
-import com.facebook.presto.spi.function.Signature;
-import com.facebook.presto.spi.function.SqlNullable;
-import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.function.TypeParameter;
-import com.facebook.presto.spi.function.TypeParameterSpecialization;
-import com.facebook.presto.spi.function.TypeVariableConstraint;
 import com.facebook.presto.type.Constraint;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;

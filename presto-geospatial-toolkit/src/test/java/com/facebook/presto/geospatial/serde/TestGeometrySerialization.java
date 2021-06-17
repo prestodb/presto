@@ -15,14 +15,15 @@ package com.facebook.presto.geospatial.serde;
 
 import com.esri.core.geometry.Envelope;
 import com.esri.core.geometry.ogc.OGCGeometry;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.StandardErrorCode;
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.StandardErrorCode;
 import io.airlift.slice.Slice;
 import org.locationtech.jts.geom.Geometry;
 import org.testng.annotations.Test;
 
 import java.util.function.Consumer;
 
+import static com.facebook.presto.common.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.geospatial.GeometryUtils.jtsGeometryFromWkt;
 import static com.facebook.presto.geospatial.serde.EsriGeometrySerde.createFromEsriGeometry;
 import static com.facebook.presto.geospatial.serde.EsriGeometrySerde.deserialize;
@@ -37,7 +38,6 @@ import static com.facebook.presto.geospatial.serde.GeometrySerializationType.MUL
 import static com.facebook.presto.geospatial.serde.GeometrySerializationType.MULTI_POLYGON;
 import static com.facebook.presto.geospatial.serde.GeometrySerializationType.POINT;
 import static com.facebook.presto.geospatial.serde.GeometrySerializationType.POLYGON;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static org.testng.Assert.assertEquals;
 
 public class TestGeometrySerialization

@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.plugin.oracle;
 
+import com.facebook.presto.common.ConnectorSession;
+import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.plugin.jdbc.BaseJdbcClient;
@@ -22,9 +25,6 @@ import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
 import com.facebook.presto.plugin.jdbc.JdbcIdentity;
 import com.facebook.presto.plugin.jdbc.JdbcTypeHandle;
 import com.facebook.presto.plugin.jdbc.ReadMapping;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
 
 import javax.inject.Inject;
 
@@ -36,6 +36,7 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.util.Optional;
 
+import static com.facebook.presto.common.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.common.type.DecimalType.createDecimalType;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
@@ -46,7 +47,6 @@ import static com.facebook.presto.plugin.jdbc.StandardReadMappings.doubleReadMap
 import static com.facebook.presto.plugin.jdbc.StandardReadMappings.realReadMapping;
 import static com.facebook.presto.plugin.jdbc.StandardReadMappings.smallintReadMapping;
 import static com.facebook.presto.plugin.jdbc.StandardReadMappings.varcharReadMapping;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;

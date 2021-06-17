@@ -20,8 +20,8 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.Optional;
 
-import static com.facebook.presto.spi.StandardErrorCode.COMPILER_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.GENERATED_BYTECODE_TOO_LARGE;
+import static com.facebook.presto.common.StandardErrorCode.COMPILER_ERROR;
+import static com.facebook.presto.common.StandardErrorCode.GENERATED_BYTECODE_TOO_LARGE;
 import static com.facebook.presto.verifier.framework.QueryStage.CONTROL_CHECKSUM;
 import static com.facebook.presto.verifier.resolver.FailureResolverUtil.mapMatchingPrestoException;
 

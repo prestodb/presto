@@ -14,10 +14,10 @@
 package com.facebook.presto.hive.util;
 
 import com.facebook.airlift.stats.TimeStat;
+import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.hive.HiveFileInfo;
 import com.facebook.presto.hive.NamenodeStats;
 import com.facebook.presto.hive.NestedDirectoryPolicy;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.Iterators;
 import org.apache.hadoop.fs.Path;
@@ -32,9 +32,9 @@ import java.util.Collections;
 import java.util.Deque;
 import java.util.Iterator;
 
+import static com.facebook.presto.common.StandardErrorCode.PERMISSION_DENIED;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
-import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static java.util.Objects.requireNonNull;
 
 public class HiveFileIterator
