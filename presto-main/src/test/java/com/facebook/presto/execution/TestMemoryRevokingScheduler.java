@@ -30,6 +30,7 @@ import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.PipelineContext;
 import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.operator.TaskMemoryReservationSummary;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -61,6 +62,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.airlift.concurrent.Threads.threadsNamed;
+import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.SqlTask.createSqlTask;
 import static com.facebook.presto.execution.TaskManagerConfig.TaskPriorityTracking.TASK_FAIR;
@@ -811,7 +813,8 @@ public class TestMemoryRevokingScheduler
                 singleThreadedExecutor,
                 scheduledExecutor,
                 new DataSize(1, GIGABYTE),
-                spillSpaceTracker));
+                spillSpaceTracker,
+                listJsonCodec(TaskMemoryReservationSummary.class)));
     }
 
     private TaskContext getOrCreateTaskContext(SqlTask sqlTask)

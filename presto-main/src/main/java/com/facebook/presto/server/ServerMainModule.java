@@ -109,6 +109,7 @@ import com.facebook.presto.operator.NoOpFragmentResultCacheManager;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.TableCommitContext;
+import com.facebook.presto.operator.TaskMemoryReservationSummary;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.resourcemanager.ClusterMemoryManagerService;
 import com.facebook.presto.resourcemanager.ClusterStatusSender;
@@ -350,6 +351,7 @@ public class ServerMainModule
         thriftCodecBinder(binder).bindCustomThriftCodec(SqlInvokedFunctionCodec.class);
         thriftCodecBinder(binder).bindCustomThriftCodec(SqlFunctionIdCodec.class);
 
+        jsonCodecBinder(binder).bindListJsonCodec(TaskMemoryReservationSummary.class);
         binder.bind(SqlTaskManager.class).in(Scopes.SINGLETON);
         binder.bind(TaskManager.class).to(Key.get(SqlTaskManager.class));
         binder.bind(SpoolingOutputBufferFactory.class).in(Scopes.SINGLETON);

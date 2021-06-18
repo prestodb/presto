@@ -30,8 +30,10 @@ import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import com.facebook.presto.sql.planner.PlanFragment;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.Executor;
 
+import static com.facebook.presto.SystemSessionProperties.isVerboseExceededMemoryLimitErrorsEnabled;
 import static com.facebook.presto.execution.SqlTaskExecution.createSqlTaskExecution;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
@@ -88,6 +90,8 @@ public class SqlTaskExecutionFactory
         TaskContext taskContext = queryContext.addTaskContext(
                 taskStateMachine,
                 session,
+                // Plan has to be retained only if verbose memory exceeded errors are requested
+                isVerboseExceededMemoryLimitErrorsEnabled(session) ? Optional.of(fragment.getRoot()) : Optional.empty(),
                 perOperatorCpuTimerEnabled,
                 cpuTimerEnabled,
                 perOperatorAllocationTrackingEnabled,
