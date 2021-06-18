@@ -25,6 +25,7 @@ import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.TableScanOperator;
 import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.operator.TaskMemoryReservationSummary;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -49,6 +50,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
+import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
 import static com.facebook.presto.testing.LocalQueryRunner.queryRunnerWithInitialTransaction;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
@@ -103,7 +105,8 @@ public class TestMemoryPools
                 localQueryRunner.getExecutor(),
                 localQueryRunner.getScheduler(),
                 TEN_MEGABYTES,
-                spillSpaceTracker);
+                spillSpaceTracker,
+                listJsonCodec(TaskMemoryReservationSummary.class));
         taskContext = createTaskContext(queryContext, localQueryRunner.getExecutor(), session);
         drivers = driversSupplier.get();
     }

@@ -24,11 +24,18 @@ import com.facebook.presto.execution.TaskStateMachine;
 import com.facebook.presto.execution.buffer.LazyOutputBuffer;
 import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.memory.QueryContextVisitor;
+import com.facebook.presto.memory.VoidTraversingQueryContextVisitor;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.memory.context.MemoryTrackingContext;
+import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ListMultimap;
 import com.google.common.util.concurrent.AtomicDouble;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
@@ -38,7 +45,10 @@ import org.joda.time.DateTime;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
@@ -46,13 +56,20 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
+import static java.util.Comparator.comparing;
+import static java.util.Comparator.reverseOrder;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -113,6 +130,8 @@ public class TaskContext
 
     private final TaskMetadataContext taskMetadataContext;
 
+    private final Optional<PlanNode> taskPlan;
+
     public static TaskContext createTaskContext(
             QueryContext queryContext,
             TaskStateMachine taskStateMachine,
@@ -121,6 +140,7 @@ public class TaskContext
             ScheduledExecutorService yieldExecutor,
             Session session,
             MemoryTrackingContext taskMemoryContext,
+            Optional<PlanNode> taskPlan,
             boolean perOperatorCpuTimerEnabled,
             boolean cpuTimerEnabled,
             boolean perOperatorAllocationTrackingEnabled,
@@ -135,6 +155,7 @@ public class TaskContext
                 yieldExecutor,
                 session,
                 taskMemoryContext,
+                taskPlan,
                 perOperatorCpuTimerEnabled,
                 cpuTimerEnabled,
                 perOperatorAllocationTrackingEnabled,
@@ -144,13 +165,15 @@ public class TaskContext
         return taskContext;
     }
 
-    private TaskContext(QueryContext queryContext,
+    private TaskContext(
+            QueryContext queryContext,
             TaskStateMachine taskStateMachine,
             GcMonitor gcMonitor,
             Executor notificationExecutor,
             ScheduledExecutorService yieldExecutor,
             Session session,
             MemoryTrackingContext taskMemoryContext,
+            Optional<PlanNode> taskPlan,
             boolean perOperatorCpuTimerEnabled,
             boolean cpuTimerEnabled,
             boolean perOperatorAllocationTrackingEnabled,
@@ -164,6 +187,7 @@ public class TaskContext
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
         this.session = session;
         this.taskMemoryContext = requireNonNull(taskMemoryContext, "taskMemoryContext is null");
+        this.taskPlan = requireNonNull(taskPlan, "taskPlan is null");
         // Initialize the local memory contexts with the LazyOutputBuffer tag as LazyOutputBuffer will do the local memory allocations
         taskMemoryContext.initializeLocalMemoryContexts(LazyOutputBuffer.class.getSimpleName());
         this.perOperatorCpuTimerEnabled = perOperatorCpuTimerEnabled;
@@ -602,5 +626,114 @@ public class TaskContext
     public QueryContext getQueryContext()
     {
         return queryContext;
+    }
+
+    public TaskMemoryReservationSummary getMemoryReservationSummary()
+    {
+        List<OperatorMemoryReservationSummary> operatorMemoryReservations = getOperatorMemoryReservations();
+        long totalTaskMemoryReservationInBytes = operatorMemoryReservations.stream()
+                .map(OperatorMemoryReservationSummary::getTotal)
+                .mapToLong(DataSize::toBytes)
+                .sum();
+        List<OperatorMemoryReservationSummary> topConsumers = operatorMemoryReservations.stream()
+                .filter(summary -> summary.getTotal().toBytes() > 0)
+                .sorted(comparing(OperatorMemoryReservationSummary::getTotal).reversed())
+                .limit(3)
+                .collect(toImmutableList());
+        return new TaskMemoryReservationSummary(
+                getShortTaskId(getTaskId()),
+                succinctBytes(totalTaskMemoryReservationInBytes),
+                topConsumers);
+    }
+
+    /**
+     * Short task id representation doesn't include the query id
+     */
+    private static String getShortTaskId(TaskId taskId)
+    {
+        return taskId.getStageExecutionId().getStageId().getId() + "." + taskId.getStageExecutionId().getId() + "." + taskId.getId();
+    }
+
+    private List<OperatorMemoryReservationSummary> getOperatorMemoryReservations()
+    {
+        ListMultimap<List<Integer>, OperatorContext> operatorContexts = ArrayListMultimap.create();
+        accept(new VoidTraversingQueryContextVisitor<Void>()
+        {
+            @Override
+            public Void visitOperatorContext(OperatorContext operatorContext, Void nothing)
+            {
+                operatorContexts.put(
+                        ImmutableList.of(operatorContext.getDriverContext().getPipelineContext().getPipelineId(), operatorContext.getOperatorId()),
+                        operatorContext);
+                return null;
+            }
+        }, null);
+        ImmutableList.Builder<OperatorMemoryReservationSummary> result = ImmutableList.builder();
+        for (Collection<OperatorContext> operators : operatorContexts.asMap().values()) {
+            OperatorContext lastContext = getLast(operators);
+            long totalOperatorMemoryReservationInBytes = 0;
+            List<DataSize> reservations = new ArrayList<>();
+            for (OperatorContext context : operators) {
+                long reservedTotalMemoryInBytes = context.getCurrentTotalMemoryReservationInBytes();
+                totalOperatorMemoryReservationInBytes += reservedTotalMemoryInBytes;
+                reservations.add(succinctBytes(reservedTotalMemoryInBytes));
+            }
+            reservations.sort(reverseOrder());
+            result.add(new OperatorMemoryReservationSummary(
+                    lastContext.getOperatorType(),
+                    lastContext.getPlanNodeId(),
+                    ImmutableList.copyOf(reservations),
+                    succinctBytes(totalOperatorMemoryReservationInBytes),
+                    getAdditionalOperatorInfo(lastContext)));
+        }
+
+        return result.build();
+    }
+
+    private Optional<String> getAdditionalOperatorInfo(OperatorContext context)
+    {
+        if (!taskPlan.isPresent()) {
+            return Optional.empty();
+        }
+
+        if (context.getOperatorType().equals(HashBuilderOperator.class.getSimpleName())) {
+            Optional<JoinNode> planNode = findPlanNode(context.getPlanNodeId(), JoinNode.class);
+            if (!planNode.isPresent()) {
+                return Optional.empty();
+            }
+            String info = planNode.get().getType().toString() + ";";
+            if (planNode.get().getDistributionType().isPresent()) {
+                info += planNode.get().getDistributionType().get() + ";";
+            }
+            return Optional.of(info);
+        }
+
+        if (context.getOperatorType().equals(HashAggregationOperator.class.getSimpleName()) ||
+                context.getOperatorType().equals(AggregationOperator.class.getSimpleName())) {
+            Optional<AggregationNode> planNode = findPlanNode(context.getPlanNodeId(), AggregationNode.class);
+            if (!planNode.isPresent()) {
+                return Optional.empty();
+            }
+            boolean isDistinct = planNode.get().getAggregations().values().stream().anyMatch(AggregationNode.Aggregation::isDistinct);
+            boolean isOrderBy = planNode.get().getAggregations().values().stream().anyMatch(aggregation -> aggregation.getOrderBy().isPresent());
+            String info = planNode.get().getStep() + ";";
+            if (isDistinct) {
+                info += "DISTINCT;";
+            }
+            if (isOrderBy) {
+                info += "ORDER_BY;";
+            }
+            return Optional.of(info);
+        }
+
+        return Optional.empty();
+    }
+
+    private <T extends PlanNode> Optional<T> findPlanNode(PlanNodeId planNodeId, Class<T> nodeType)
+    {
+        checkState(taskPlan.isPresent(), "taskPlan is expected to be present");
+        return searchFrom(taskPlan.get())
+                .where(node -> node.getId().equals(planNodeId) && nodeType.isInstance(node))
+                .findSingle();
     }
 }
