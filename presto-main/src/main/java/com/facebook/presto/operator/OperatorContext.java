@@ -92,6 +92,8 @@ public class OperatorContext
     private final AtomicLong peakTotalMemoryReservation = new AtomicLong();
     private final RuntimeStats runtimeStats = new RuntimeStats();
 
+    private final AtomicLong currentTotalMemoryReservationInBytes = new AtomicLong();
+
     @GuardedBy("this")
     private boolean memoryRevokingRequested;
 
@@ -127,6 +129,11 @@ public class OperatorContext
     public int getOperatorId()
     {
         return operatorId;
+    }
+
+    public PlanNodeId getPlanNodeId()
+    {
+        return planNodeId;
     }
 
     public String getOperatorType()
@@ -305,6 +312,12 @@ public class OperatorContext
         peakUserMemoryReservation.accumulateAndGet(userMemory, Math::max);
         peakSystemMemoryReservation.accumulateAndGet(systemMemory, Math::max);
         peakTotalMemoryReservation.accumulateAndGet(totalMemory, Math::max);
+        currentTotalMemoryReservationInBytes.set(totalMemory);
+    }
+
+    public long getCurrentTotalMemoryReservationInBytes()
+    {
+        return currentTotalMemoryReservationInBytes.get();
     }
 
     // listen to revocable memory allocations and call any listeners waiting on task memory allocation

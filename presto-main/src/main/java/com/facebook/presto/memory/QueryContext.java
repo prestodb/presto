@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.memory;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.stats.GcMonitor;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.TaskId;
@@ -20,7 +21,9 @@ import com.facebook.presto.execution.TaskStateMachine;
 import com.facebook.presto.memory.context.MemoryReservationHandler;
 import com.facebook.presto.memory.context.MemoryTrackingContext;
 import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.operator.TaskMemoryReservationSummary;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spiller.SpillSpaceTracker;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -35,6 +38,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
@@ -52,11 +56,13 @@ import static com.facebook.presto.memory.context.AggregatedMemoryContext.newRoot
 import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.String.format;
+import static java.util.Comparator.comparing;
 import static java.util.Map.Entry.comparingByValue;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -72,6 +78,7 @@ public class QueryContext
     private final ScheduledExecutorService yieldExecutor;
     private final long maxSpill;
     private final SpillSpaceTracker spillSpaceTracker;
+    private final JsonCodec<List<TaskMemoryReservationSummary>> memoryReservationSummaryJsonCodec;
     private final Map<TaskId, TaskContext> taskContexts = new ConcurrentHashMap<>();
 
     @GuardedBy("this")
@@ -103,6 +110,9 @@ public class QueryContext
     @GuardedBy("this")
     private long spillUsed;
 
+    @GuardedBy("this")
+    private boolean verboseExceededMemoryLimitErrorsEnabled;
+
     public QueryContext(
             QueryId queryId,
             DataSize maxUserMemory,
@@ -114,7 +124,8 @@ public class QueryContext
             Executor notificationExecutor,
             ScheduledExecutorService yieldExecutor,
             DataSize maxSpill,
-            SpillSpaceTracker spillSpaceTracker)
+            SpillSpaceTracker spillSpaceTracker,
+            JsonCodec<List<TaskMemoryReservationSummary>> memoryReservationSummaryJsonCodec)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.maxUserMemory = requireNonNull(maxUserMemory, "maxUserMemory is null").toBytes();
@@ -127,6 +138,7 @@ public class QueryContext
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
         this.maxSpill = requireNonNull(maxSpill, "maxSpill is null").toBytes();
         this.spillSpaceTracker = requireNonNull(spillSpaceTracker, "spillSpaceTracker is null");
+        this.memoryReservationSummaryJsonCodec = requireNonNull(memoryReservationSummaryJsonCodec, "memoryReservationSummaryJsonCodec is null");
         this.queryMemoryContext = new MemoryTrackingContext(
                 newRootAggregatedMemoryContext(new QueryMemoryReservationHandler(this::updateUserMemory, this::tryUpdateUserMemory, this::updateBroadcastMemory, this::tryUpdateBroadcastMemory), GUARANTEED_MEMORY),
                 newRootAggregatedMemoryContext(new QueryMemoryReservationHandler(this::updateRevocableMemory, this::tryReserveMemoryNotSupported, this::updateBroadcastMemory, this::tryUpdateBroadcastMemory), 0L),
@@ -325,6 +337,7 @@ public class QueryContext
     public TaskContext addTaskContext(
             TaskStateMachine taskStateMachine,
             Session session,
+            Optional<PlanNode> taskPlan,
             boolean perOperatorCpuTimerEnabled,
             boolean cpuTimerEnabled,
             boolean perOperatorAllocationTrackingEnabled,
@@ -339,6 +352,7 @@ public class QueryContext
                 yieldExecutor,
                 session,
                 queryMemoryContext.newMemoryTrackingContext(),
+                taskPlan,
                 perOperatorCpuTimerEnabled,
                 cpuTimerEnabled,
                 perOperatorAllocationTrackingEnabled,
@@ -386,6 +400,11 @@ public class QueryContext
         maxBroadcastUsedMemory = Math.min(maxBroadcastUsedMemory, queryMaxBroadcastMemory.toBytes());
         //  Mark future memory limit updates as unnecessary
         memoryLimitsInitialized = true;
+    }
+
+    public synchronized void setVerboseExceededMemoryLimitErrorsEnabled(boolean verboseExceededMemoryLimitErrorsEnabled)
+    {
+        this.verboseExceededMemoryLimitErrorsEnabled = verboseExceededMemoryLimitErrorsEnabled;
     }
 
     public synchronized long getPeakNodeTotalMemory()
@@ -496,6 +515,17 @@ public class QueryContext
                 .collect(toImmutableMap(Entry::getKey, e -> succinctBytes(e.getValue())))
                 .toString();
 
-        return format("%s, Top Consumers: %s", additionalInfo, topConsumers);
+        String message = format("%s, Top Consumers: %s", additionalInfo, topConsumers);
+
+        if (verboseExceededMemoryLimitErrorsEnabled) {
+            List<TaskMemoryReservationSummary> memoryReservationSummaries = taskContexts.values().stream()
+                    .map(TaskContext::getMemoryReservationSummary)
+                    .filter(summary -> summary.getReservation().toBytes() > 0)
+                    .sorted(comparing(TaskMemoryReservationSummary::getReservation).reversed())
+                    .limit(3)
+                    .collect(toImmutableList());
+            message += ", Details: " + memoryReservationSummaryJsonCodec.toJson(memoryReservationSummaries);
+        }
+        return message;
     }
 }

@@ -92,6 +92,7 @@ import com.facebook.presto.operator.OperatorInfo;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.TableCommitContext;
+import com.facebook.presto.operator.TaskMemoryReservationSummary;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.resourcemanager.NoopResourceGroupService;
 import com.facebook.presto.resourcemanager.ResourceGroupService;
@@ -238,6 +239,7 @@ public class PrestoSparkModule
         jsonCodecBinder(binder).bindJsonCodec(QueryInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(PrestoSparkQueryStatusInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(PrestoSparkQueryData.class);
+        jsonCodecBinder(binder).bindListJsonCodec(TaskMemoryReservationSummary.class);
 
         // smile codecs
         smileCodecBinder(binder).bindSmileCodec(TaskSource.class);

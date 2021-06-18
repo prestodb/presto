@@ -44,6 +44,7 @@ import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.operator.TaskMemoryReservationSummary;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spark.PrestoSparkAuthenticatorProvider;
 import com.facebook.presto.spark.PrestoSparkConfig;
@@ -120,6 +121,7 @@ import static com.facebook.presto.SystemSessionProperties.getQueryMaxBroadcastMe
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxMemoryPerNode;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxTotalMemoryPerNode;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
+import static com.facebook.presto.SystemSessionProperties.isVerboseExceededMemoryLimitErrorsEnabled;
 import static com.facebook.presto.execution.TaskState.FAILED;
 import static com.facebook.presto.execution.TaskStatus.STARTING_VERSION;
 import static com.facebook.presto.execution.buffer.BufferState.FINISHED;
@@ -158,6 +160,7 @@ public class PrestoSparkTaskExecutorFactory
     private final JsonCodec<PrestoSparkTaskDescriptor> taskDescriptorJsonCodec;
     private final Codec<TaskSource> taskSourceCodec;
     private final Codec<TaskInfo> taskInfoCodec;
+    private final JsonCodec<List<TaskMemoryReservationSummary>> memoryReservationSummaryJsonCodec;
 
     private final Executor notificationExecutor;
     private final ScheduledExecutorService yieldExecutor;
@@ -194,6 +197,7 @@ public class PrestoSparkTaskExecutorFactory
             JsonCodec<PrestoSparkTaskDescriptor> taskDescriptorJsonCodec,
             Codec<TaskSource> taskSourceCodec,
             Codec<TaskInfo> taskInfoCodec,
+            JsonCodec<List<TaskMemoryReservationSummary>> memoryReservationSummaryJsonCodec,
             Executor notificationExecutor,
             ScheduledExecutorService yieldExecutor,
             ScheduledExecutorService memoryUpdateExecutor,
@@ -216,6 +220,7 @@ public class PrestoSparkTaskExecutorFactory
                 taskDescriptorJsonCodec,
                 taskSourceCodec,
                 taskInfoCodec,
+                memoryReservationSummaryJsonCodec,
                 notificationExecutor,
                 yieldExecutor,
                 memoryUpdateExecutor,
@@ -244,6 +249,7 @@ public class PrestoSparkTaskExecutorFactory
             JsonCodec<PrestoSparkTaskDescriptor> taskDescriptorJsonCodec,
             Codec<TaskSource> taskSourceCodec,
             Codec<TaskInfo> taskInfoCodec,
+            JsonCodec<List<TaskMemoryReservationSummary>> memoryReservationSummaryJsonCodec,
             Executor notificationExecutor,
             ScheduledExecutorService yieldExecutor,
             ScheduledExecutorService memoryUpdateExecutor,
@@ -270,6 +276,7 @@ public class PrestoSparkTaskExecutorFactory
         this.taskDescriptorJsonCodec = requireNonNull(taskDescriptorJsonCodec, "sparkTaskDescriptorJsonCodec is null");
         this.taskSourceCodec = requireNonNull(taskSourceCodec, "taskSourceCodec is null");
         this.taskInfoCodec = requireNonNull(taskInfoCodec, "taskInfoCodec is null");
+        this.memoryReservationSummaryJsonCodec = requireNonNull(memoryReservationSummaryJsonCodec, "memoryReservationSummaryJsonCodec is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
         this.memoryUpdateExecutor = requireNonNull(memoryUpdateExecutor, "memoryUpdateExecutor is null");
@@ -386,12 +393,16 @@ public class PrestoSparkTaskExecutorFactory
                 notificationExecutor,
                 yieldExecutor,
                 maxSpillMemory,
-                spillSpaceTracker);
+                spillSpaceTracker,
+                memoryReservationSummaryJsonCodec);
+        queryContext.setVerboseExceededMemoryLimitErrorsEnabled(isVerboseExceededMemoryLimitErrorsEnabled(session));
 
         TaskStateMachine taskStateMachine = new TaskStateMachine(taskId, notificationExecutor);
         TaskContext taskContext = queryContext.addTaskContext(
                 taskStateMachine,
                 session,
+                // Plan has to be retained only if verbose memory exceeded errors are requested
+                isVerboseExceededMemoryLimitErrorsEnabled(session) ? Optional.of(fragment.getRoot()) : Optional.empty(),
                 perOperatorCpuTimerEnabled,
                 cpuTimerEnabled,
                 perOperatorAllocationTrackingEnabled,
