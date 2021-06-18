@@ -52,6 +52,7 @@ public class GracefulShutdownHandler
     private final QueryManager queryManager;
     private final TaskManager sqlTaskManager;
     private final boolean isCoordinator;
+    private final boolean isResourceManager;
     private final ShutdownAction shutdownAction;
     private final Duration gracePeriod;
 
@@ -70,6 +71,7 @@ public class GracefulShutdownHandler
         this.shutdownAction = requireNonNull(shutdownAction, "shutdownAction is null");
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.isCoordinator = requireNonNull(serverConfig, "serverConfig is null").isCoordinator();
+        this.isResourceManager = serverConfig.isResourceManager();
         this.gracePeriod = serverConfig.getGracePeriod();
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
     }
@@ -77,6 +79,10 @@ public class GracefulShutdownHandler
     public synchronized void requestShutdown()
     {
         log.info("Shutdown requested");
+
+        if (isResourceManager) {
+            throw new UnsupportedOperationException("Cannot shutdown resource manager");
+        }
 
         if (isShutdownRequested()) {
             return;

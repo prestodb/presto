@@ -138,7 +138,11 @@ public class PrestoServer
 
             injector.getInstance(PluginManager.class).loadPlugins();
 
-            injector.getInstance(StaticCatalogStore.class).loadCatalogs();
+            ServerConfig serverConfig = injector.getInstance(ServerConfig.class);
+
+            if (!serverConfig.isResourceManager()) {
+                injector.getInstance(StaticCatalogStore.class).loadCatalogs();
+            }
 
             // TODO: remove this huge hack
             updateConnectorIds(
@@ -155,7 +159,9 @@ public class PrestoServer
             injector.getInstance(StaticFunctionNamespaceStore.class).loadFunctionNamespaceManagers();
             injector.getInstance(SessionPropertyDefaults.class).loadConfigurationManager();
             injector.getInstance(ResourceGroupManager.class).loadConfigurationManager();
-            injector.getInstance(AccessControlManager.class).loadSystemAccessControl();
+            if (!serverConfig.isResourceManager()) {
+                injector.getInstance(AccessControlManager.class).loadSystemAccessControl();
+            }
             injector.getInstance(PasswordAuthenticatorManager.class).loadPasswordAuthenticator();
             injector.getInstance(EventListenerManager.class).loadConfiguredEventListener();
             injector.getInstance(TempStorageManager.class).loadTempStorages();

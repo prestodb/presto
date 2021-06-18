@@ -49,6 +49,7 @@ public class ServerInfoResource
     private final NodeVersion version;
     private final String environment;
     private final boolean coordinator;
+    private final boolean resourceManager;
     private final StaticCatalogStore catalogStore;
     private final GracefulShutdownHandler shutdownHandler;
     private final long startTime = System.nanoTime();
@@ -60,6 +61,7 @@ public class ServerInfoResource
         this.version = requireNonNull(nodeVersion, "nodeVersion is null");
         this.environment = requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment();
         this.coordinator = requireNonNull(serverConfig, "serverConfig is null").isCoordinator();
+        this.resourceManager = serverConfig.isResourceManager();
         this.catalogStore = requireNonNull(catalogStore, "catalogStore is null");
         this.shutdownHandler = requireNonNull(shutdownHandler, "shutdownHandler is null");
         this.nodeResourceStatusProvider = requireNonNull(nodeResourceStatusProvider, "nodeResourceStatusProvider is null");
@@ -69,7 +71,7 @@ public class ServerInfoResource
     @Produces(APPLICATION_JSON)
     public ServerInfo getInfo()
     {
-        boolean starting = !catalogStore.areCatalogsLoaded();
+        boolean starting = resourceManager ? true : !catalogStore.areCatalogsLoaded();
         return new ServerInfo(version, environment, coordinator, starting, Optional.of(nanosSince(startTime)));
     }
 
