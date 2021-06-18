@@ -180,11 +180,11 @@ public class NodeScheduler
             Set<InternalNode> activeNodes;
             Set<InternalNode> allNodes;
             if (connectorId != null) {
-                activeNodes = nodeManager.getActiveConnectorNodes(connectorId);
-                allNodes = nodeManager.getAllConnectorNodes(connectorId);
+                activeNodes = nodeManager.getActiveConnectorNodes(connectorId).stream().filter(node -> !node.isResourceManager()).collect(toImmutableSet());
+                allNodes = nodeManager.getAllConnectorNodes(connectorId).stream().filter(node -> !node.isResourceManager()).collect(toImmutableSet());
             }
             else {
-                activeNodes = nodeManager.getNodes(ACTIVE);
+                activeNodes = nodeManager.getNodes(ACTIVE).stream().filter(node -> !node.isResourceManager()).collect(toImmutableSet());
                 allNodes = activeNodes;
             }
 
