@@ -13,16 +13,21 @@
  */
 package com.facebook.presto.operator.scalar.sql;
 
+import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.TestRowType;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
+
 import static com.facebook.presto.common.block.MethodHandleUtil.methodHandle;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -120,5 +125,41 @@ public class TestArrayArithmeticFunctions
         assertFunction("array_frequency(array[varchar 'y', varchar 'p'])", functionAndTypeManager.getType(typeSignature), ImmutableMap.of("p", 1, "y", 1));
         assertFunction("array_frequency(array[varchar 'a', varchar 'a', varchar 'p'])", functionAndTypeManager.getType(typeSignature), ImmutableMap.of("p", 1, "a", 2));
         assertFunction("array_frequency(array[varchar 'z'])", functionAndTypeManager.getType(typeSignature), ImmutableMap.of("z", 1));
+    }
+
+    @Test
+    public void testArrayHasDupes()
+    {
+        assertFunction("array_has_dupes(cast(null as array(varchar)))", BOOLEAN, null);
+        assertFunction("array_has_dupes(cast(array[] as array(varchar)))", BOOLEAN, false);
+
+        assertFunction("array_has_dupes(array[varchar 'a', varchar 'b', varchar 'a'])", BOOLEAN, true);
+        assertFunction("array_has_dupes(array[varchar 'a', varchar 'b'])", BOOLEAN, false);
+        assertFunction("array_has_dupes(array[varchar 'a', varchar 'a'])", BOOLEAN, true);
+
+        assertFunction("array_has_dupes(array[1, 2, 1])", BOOLEAN, true);
+        assertFunction("array_has_dupes(array[1, 2])", BOOLEAN, false);
+        assertFunction("array_has_dupes(array[1, 1, 1])", BOOLEAN, true);
+
+        assertFunction("array_has_dupes(array[0, null])", BOOLEAN, false);
+        assertFunction("array_has_dupes(array[0, null, null])", BOOLEAN, true);
+    }
+
+    @Test
+    public void testArrayDupes()
+    {
+        assertFunction("array_dupes(cast(null as array(varchar)))", new ArrayType(VARCHAR), null);
+        assertFunction("array_dupes(cast(array[] as array(varchar)))", new ArrayType(VARCHAR), ImmutableList.of());
+
+        assertFunction("array_dupes(array[varchar 'a', varchar 'b', varchar 'a'])", new ArrayType(VARCHAR), ImmutableList.of("a"));
+        assertFunction("array_dupes(array[varchar 'a', varchar 'b'])", new ArrayType(VARCHAR), ImmutableList.of());
+        assertFunction("array_dupes(array[varchar 'a', varchar 'a'])", new ArrayType(VARCHAR), ImmutableList.of("a"));
+
+        assertFunction("array_dupes(array[1, 2, 1])", new ArrayType(BIGINT), ImmutableList.of(1L));
+        assertFunction("array_dupes(array[1, 2])", new ArrayType(BIGINT), ImmutableList.of());
+        assertFunction("array_dupes(array[1, 1, 1])", new ArrayType(BIGINT), ImmutableList.of(1L));
+
+        assertFunction("array_dupes(array[0, null])", new ArrayType(BIGINT), ImmutableList.of());
+        assertFunction("array_dupes(array[0, null, null])", new ArrayType(BIGINT), Collections.singletonList(null));
     }
 }
