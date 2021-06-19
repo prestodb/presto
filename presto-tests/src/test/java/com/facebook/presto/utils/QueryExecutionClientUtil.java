@@ -16,7 +16,6 @@ package com.facebook.presto.utils;
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.Request;
 import com.facebook.presto.client.QueryResults;
-import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.QueryStateInfo;
 import com.facebook.presto.server.testing.TestingPrestoServer;
@@ -32,8 +31,6 @@ import static com.facebook.airlift.http.client.StaticBodyGenerator.createStaticB
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
-import static com.facebook.presto.execution.QueryState.QUEUED;
-import static com.facebook.presto.execution.QueryState.RUNNING;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class QueryExecutionClientUtil
@@ -72,19 +69,9 @@ public class QueryExecutionClientUtil
 
     public static void runToQueued(HttpClient client, TestingPrestoServer server, String sql)
     {
-        runToState(client, server, sql, QUEUED);
-    }
-
-    public static void runToExecuting(HttpClient client, TestingPrestoServer server, String sql)
-    {
-        runToState(client, server, sql, RUNNING);
-    }
-
-    private static void runToState(HttpClient client, TestingPrestoServer server, String sql, QueryState queryState)
-    {
         URI uri = uriBuilderFrom(server.getBaseUrl().resolve("/v1/statement")).build();
         QueryResults queryResults = postQuery(client, sql, uri);
-        while (!queryState.toString().equals(queryResults.getStats().getState())) {
+        while (!"QUEUED".equals(queryResults.getStats().getState())) {
             queryResults = getQueryResults(client, queryResults);
         }
         getQueryResults(client, queryResults);

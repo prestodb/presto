@@ -16,6 +16,7 @@ package com.facebook.presto.resourcemanager;
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.http.client.jetty.JettyHttpClient;
+import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.resourceGroups.FileResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.server.ClusterStatsResource;
 import com.facebook.presto.server.testing.TestingPrestoServer;
@@ -25,18 +26,21 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.net.URI;
 import java.util.Optional;
 
 import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static com.facebook.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
 import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
+import static com.facebook.airlift.http.client.Request.Builder.preparePost;
+import static com.facebook.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.airlift.testing.Closeables.closeQuietly;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;
-import static com.facebook.presto.utils.QueryExecutionClientUtil.runToExecuting;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Thread.sleep;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -83,10 +87,13 @@ public class TestDistributedClusterStatsResource
     public void testClusterStatsRedirectToResourceManager()
             throws Exception
     {
-        runToExecuting(client, coordinator, "SELECT avg(totalprice) from tpch.sf100.orders");
+        URI uri = uriBuilderFrom(coordinator.getBaseUrl().resolve("/v1/statement")).build();
+        QueryResults queryResults = postQuery("SELECT * from tpch.sf100.orders", uri);
+        queryResults = getQueryResults(queryResults);
+        queryResults = getQueryResults(queryResults);
 
         // Sleep to allow query to make some progress
-        sleep(SECONDS.toMillis(20));
+        sleep(SECONDS.toMillis(1));
 
         ClusterStatsResource.ClusterStats clusterStats = getClusterStats(true);
 
@@ -106,5 +113,25 @@ public class TestDistributedClusterStatsResource
                 .build();
 
         return client.execute(request, createJsonResponseHandler(jsonCodec(ClusterStatsResource.ClusterStats.class)));
+    }
+
+    private QueryResults postQuery(String sql, URI uri)
+    {
+        Request request = preparePost()
+                .setHeader(PRESTO_USER, "user")
+                .setUri(uri)
+                .setBodyGenerator(createStaticBodyGenerator(sql, UTF_8))
+                .build();
+        return client.execute(request, createJsonResponseHandler(jsonCodec(QueryResults.class)));
+    }
+
+    private QueryResults getQueryResults(QueryResults queryResults)
+    {
+        Request request = prepareGet()
+                .setHeader(PRESTO_USER, "user")
+                .setUri(queryResults.getNextUri())
+                .build();
+        queryResults = client.execute(request, createJsonResponseHandler(jsonCodec(QueryResults.class)));
+        return queryResults;
     }
 }
