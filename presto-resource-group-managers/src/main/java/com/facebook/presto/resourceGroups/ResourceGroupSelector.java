@@ -13,12 +13,15 @@
  */
 package com.facebook.presto.resourceGroups;
 
+import com.facebook.presto.spi.resourceGroups.ResourceGroup;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 
 import java.util.Optional;
+import java.util.concurrent.ConcurrentMap;
 
 public interface ResourceGroupSelector
 {
-    Optional<SelectionContext<VariableMap>> match(SelectionCriteria criteria);
+    Optional<SelectionContext<VariableMap>> match(SelectionCriteria criteria, ConcurrentMap<ResourceGroupId, ResourceGroup> groups);
 }

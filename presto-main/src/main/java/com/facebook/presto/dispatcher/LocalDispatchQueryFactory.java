@@ -27,7 +27,7 @@ import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.resourceGroups.QueryType;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -94,7 +94,7 @@ public class LocalDispatchQueryFactory
             PreparedQuery preparedQuery,
             String slug,
             int retryCount,
-            ResourceGroupId resourceGroup,
+            SelectionContext selectionContext,
             Optional<QueryType> queryType,
             WarningCollector warningCollector,
             Consumer<DispatchQuery> queryQueuer)
@@ -103,7 +103,7 @@ public class LocalDispatchQueryFactory
                 query,
                 session,
                 locationFactory.createQueryLocation(session.getQueryId()),
-                resourceGroup,
+                selectionContext.getResourceGroupId(),
                 queryType,
                 isTransactionControlStatement(preparedQuery.getStatement()),
                 transactionManager,
@@ -120,7 +120,7 @@ public class LocalDispatchQueryFactory
                 throw new PrestoException(NOT_SUPPORTED, "Unsupported statement type: " + preparedQuery.getStatement().getClass().getSimpleName());
             }
 
-            return queryExecutionFactory.createQueryExecution(preparedQuery, stateMachine, slug, retryCount, warningCollector, queryType);
+            return queryExecutionFactory.createQueryExecution(preparedQuery, stateMachine, slug, retryCount, warningCollector, queryType, selectionContext.getQueryLimits());
         });
 
         return new LocalDispatchQuery(
@@ -132,6 +132,7 @@ public class LocalDispatchQueryFactory
                 queryQueuer,
                 queryManager::createQuery,
                 retryCount > 0,
-                queryPrerequisitesManager);
+                queryPrerequisitesManager,
+                selectionContext.getQueryLimits());
     }
 }

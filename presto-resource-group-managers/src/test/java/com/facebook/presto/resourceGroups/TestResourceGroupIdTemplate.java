@@ -61,7 +61,7 @@ public class TestResourceGroupIdTemplate
         StaticSelector selector = new StaticSelector(Optional.empty(), Optional.of(sourcePattern), Optional.empty(), Optional.empty(), Optional.empty(), template);
         SelectionCriteria context = new SelectionCriteria(true, "user", Optional.of("scheduler.important.testpipeline[5]"), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.empty());
 
-        assertEquals(selector.match(context).map(SelectionContext::getResourceGroupId), Optional.of(expected));
+        assertEquals(selector.match(context, null).map(SelectionContext::getResourceGroupId), Optional.of(expected));
     }
 
     @Test
@@ -74,7 +74,7 @@ public class TestResourceGroupIdTemplate
         StaticSelector selector = new StaticSelector(Optional.of(userPattern), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), template);
         SelectionCriteria context = new SelectionCriteria(true, "scheduler.important.testpipeline[5]", Optional.empty(), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.empty());
 
-        assertEquals(selector.match(context).map(SelectionContext::getResourceGroupId), Optional.of(expected));
+        assertEquals(selector.match(context, null).map(SelectionContext::getResourceGroupId), Optional.of(expected));
     }
 
     @Test
@@ -85,7 +85,7 @@ public class TestResourceGroupIdTemplate
         StaticSelector selector = new StaticSelector(Optional.empty(), Optional.of(sourcePattern), Optional.empty(), Optional.empty(), Optional.empty(), template);
         SelectionCriteria context = new SelectionCriteria(true, "user", Optional.of("scheduler.testpipeline[5]"), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.empty());
 
-        assertFalse(selector.match(context).isPresent());
+        assertFalse(selector.match(context, null).isPresent());
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "unresolved variables \\[user\\] in resource group ID.*")
@@ -95,7 +95,7 @@ public class TestResourceGroupIdTemplate
         Pattern sourcePattern = Pattern.compile("scheduler.important.(?<pipeline>[^\\[]*).*");
         StaticSelector selector = new StaticSelector(Optional.empty(), Optional.of(sourcePattern), Optional.empty(), Optional.empty(), Optional.empty(), template);
         SelectionCriteria context = new SelectionCriteria(true, "user", Optional.of("scheduler.important.testpipeline[5]"), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.empty());
-        selector.match(context);
+        selector.match(context, null);
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "unresolved variable 'pipeline' in resource group '\\$\\{pipeline\\}', available.*")
@@ -105,6 +105,6 @@ public class TestResourceGroupIdTemplate
         Pattern sourcePattern = Pattern.compile("scheduler.important.(testpipeline\\[|(?<pipeline>[^\\[]*)).*");
         StaticSelector selector = new StaticSelector(Optional.empty(), Optional.of(sourcePattern), Optional.empty(), Optional.empty(), Optional.empty(), template);
         SelectionCriteria context = new SelectionCriteria(true, "user", Optional.of("scheduler.important.testpipeline[5]"), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.empty());
-        selector.match(context);
+        selector.match(context, null);
     }
 }

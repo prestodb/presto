@@ -28,6 +28,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.prerequisites.QueryPrerequisites;
 import com.facebook.presto.spi.prerequisites.QueryPrerequisitesContext;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
@@ -67,6 +68,7 @@ public class LocalDispatchQuery
     private final Consumer<DispatchQuery> queryQueuer;
     private final Consumer<QueryExecution> querySubmitter;
     private final SettableFuture<?> submitted = SettableFuture.create();
+    private final Optional<ResourceGroupQueryLimits> queryLimits;
 
     private final boolean retry;
 
@@ -81,7 +83,8 @@ public class LocalDispatchQuery
             Consumer<DispatchQuery> queryQueuer,
             Consumer<QueryExecution> querySubmitter,
             boolean retry,
-            QueryPrerequisites queryPrerequisites)
+            QueryPrerequisites queryPrerequisites,
+            Optional<ResourceGroupQueryLimits> queryLimits)
     {
         this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
         this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
@@ -92,6 +95,7 @@ public class LocalDispatchQuery
         this.querySubmitter = requireNonNull(querySubmitter, "querySubmitter is null");
         this.retry = retry;
         this.queryPrerequisites = requireNonNull(queryPrerequisites, "queryPrerequisites is null");
+        this.queryLimits = queryLimits;
 
         addExceptionCallback(queryExecutionFuture, throwable -> {
             if (stateMachine.transitionToFailed(throwable)) {
@@ -345,6 +349,12 @@ public class LocalDispatchQuery
     public void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener)
     {
         stateMachine.addStateChangeListener(stateChangeListener);
+    }
+
+    @Override
+    public Optional<ResourceGroupQueryLimits> getQueryLimits()
+    {
+        return null;
     }
 
     private Optional<QueryExecution> tryGetQueryExecution()

@@ -17,7 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.QueryPreparer.PreparedQuery;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.resourceGroups.QueryType;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.spi.resourceGroups.SelectionContext;
 
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -30,7 +30,7 @@ public interface DispatchQueryFactory
             PreparedQuery preparedQuery,
             String slug,
             int retryCount,
-            ResourceGroupId resourceGroup,
+            SelectionContext selectionContext,
             Optional<QueryType> queryType,
             WarningCollector warningCollector,
             Consumer<DispatchQuery> queryQueuer);

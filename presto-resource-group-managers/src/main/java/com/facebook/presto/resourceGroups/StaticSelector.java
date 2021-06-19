@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.resourceGroups;
 
+import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import com.google.common.annotations.VisibleForTesting;
@@ -28,6 +30,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.concurrent.ConcurrentMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -75,7 +78,7 @@ public class StaticSelector
     }
 
     @Override
-    public Optional<SelectionContext<VariableMap>> match(SelectionCriteria criteria)
+    public Optional<SelectionContext<VariableMap>> match(SelectionCriteria criteria, ConcurrentMap<ResourceGroupId, ResourceGroup> groups)
     {
         Map<String, String> variables = new HashMap<>();
 
@@ -119,9 +122,14 @@ public class StaticSelector
 
         VariableMap map = new VariableMap(variables);
         ResourceGroupId id = group.expandTemplate(map);
+        Optional<ResourceGroupQueryLimits> queryLimits = Optional.empty();
+        if (groups != null && groups.containsKey(id)) {
+            queryLimits = Optional.of(groups.get(id).getPerQueryLimits());
+        }
+
         OptionalInt firstDynamicSegment = group.getFirstDynamicSegment();
 
-        return Optional.of(new SelectionContext<>(id, map, firstDynamicSegment));
+        return Optional.of(new SelectionContext<>(id, map, firstDynamicSegment, queryLimits));
     }
 
     private static void addNamedGroups(Pattern pattern, HashSet<String> variables)

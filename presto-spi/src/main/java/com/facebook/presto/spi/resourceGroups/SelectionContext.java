@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.resourceGroups;
 
+import java.util.Optional;
 import java.util.OptionalInt;
 
 import static java.util.Objects.requireNonNull;
@@ -22,12 +23,14 @@ public final class SelectionContext<T>
     private final ResourceGroupId resourceGroupId;
     private final T context;
     private final OptionalInt firstDynamicSegmentPosition;
+    private final Optional<ResourceGroupQueryLimits> queryLimits;
 
-    public SelectionContext(ResourceGroupId resourceGroupId, T context, OptionalInt firstDynamicSegmentPosition)
+    public SelectionContext(ResourceGroupId resourceGroupId, T context, OptionalInt firstDynamicSegmentPosition, Optional<ResourceGroupQueryLimits> queryLimits)
     {
         this.resourceGroupId = requireNonNull(resourceGroupId, "resourceGroupId is null");
         this.context = requireNonNull(context, "context is null");
         this.firstDynamicSegmentPosition = requireNonNull(firstDynamicSegmentPosition, "firstDynamicSegmentPosition is null");
+        this.queryLimits = requireNonNull(queryLimits, "queryLimits is null");
     }
 
     public SelectionContext(ResourceGroupId resourceGroupId, T context)
@@ -35,6 +38,7 @@ public final class SelectionContext<T>
         this.resourceGroupId = requireNonNull(resourceGroupId, "resourceGroupId is null");
         this.context = requireNonNull(context, "context is null");
         this.firstDynamicSegmentPosition = OptionalInt.empty();
+        this.queryLimits = Optional.empty();
     }
 
     public ResourceGroupId getResourceGroupId()
@@ -50,5 +54,10 @@ public final class SelectionContext<T>
     public OptionalInt getFirstDynamicSegmentPosition()
     {
         return firstDynamicSegmentPosition;
+    }
+
+    public Optional<ResourceGroupQueryLimits> getQueryLimits()
+    {
+        return queryLimits;
     }
 }

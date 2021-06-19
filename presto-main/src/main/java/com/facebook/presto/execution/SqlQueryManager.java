@@ -27,6 +27,7 @@ import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.version.EmbedVersion;
 import com.google.common.collect.Ordering;
@@ -45,6 +46,7 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -334,12 +336,84 @@ public class SqlQueryManager
     {
         for (QueryExecution query : queryTracker.getAllQueries()) {
             Duration cpuTime = query.getTotalCpuTime();
+            Optional<ResourceGroupQueryLimits> resourceGroupLimit = query.getQueryLimits();
             Duration sessionLimit = getQueryMaxCpuTime(query.getSession());
-            Duration limit = Ordering.natural().min(maxQueryCpuTime, sessionLimit);
+            LimitWithLevelContext limitContext = compareDurationLimits(sessionLimit, extractCpuLimit(resourceGroupLimit), maxQueryCpuTime);
+            Duration limit = limitContext.getLimit();
             if (cpuTime.compareTo(limit) > 0) {
-                query.fail(new ExceededCpuLimitException(limit));
+                String limitSource;
+                switch (limitContext.getLimitLevel()){
+                    case QueryLevel:
+                        limitSource = "query level";
+                        break;
+                    case SystemLevel:
+                        limitSource = "system level";
+                        break;
+                    case ResourceGroupLevel:
+                        limitSource = "resource group level";
+                        break;
+                    default:
+                        limitSource = "unspecified level";
+                }
+                query.fail(new ExceededCpuLimitException(limit, limitSource));
             }
         }
+    }
+
+    private enum LimitLevel
+    {
+        QueryLevel,
+        SystemLevel,
+        ResourceGroupLevel
+    }
+
+    private static class LimitWithLevelContext
+    {
+        Duration limit;
+        LimitLevel limitLevel;
+        public LimitWithLevelContext(
+                Duration limit,
+                LimitLevel limitLevel)
+        {
+            this.limit = limit;
+            this.limitLevel = limitLevel;
+        }
+
+        Duration getLimit()
+        {
+            return limit;
+        }
+
+        LimitLevel getLimitLevel()
+        {
+            return limitLevel;
+        }
+    }
+
+    private Optional<Duration> extractCpuLimit(Optional<ResourceGroupQueryLimits> queryLimits)
+    {
+        if (queryLimits.isPresent()) {
+            return queryLimits.get().getMaxCpuTime();
+        }
+        return Optional.empty();
+    }
+
+    private LimitWithLevelContext compareDurationLimits(Duration sessionLimit, Optional<Duration> resourceGroupLimit, Duration queryLevelLimit)
+    {
+        LimitLevel limitLevel = SqlQueryManager.LimitLevel.SystemLevel;
+        Duration limit;
+        if (sessionLimit.compareTo(queryLevelLimit) > 0) {
+            limit = sessionLimit;
+        }
+        else {
+            limit = queryLevelLimit;
+            limitLevel = SqlQueryManager.LimitLevel.QueryLevel;
+        }
+        if (resourceGroupLimit.isPresent() && limit.compareTo(resourceGroupLimit.get()) < 0) {
+            limit = resourceGroupLimit.get();
+            limitLevel = SqlQueryManager.LimitLevel.ResourceGroupLevel;
+        }
+        return new LimitWithLevelContext(limit, limitLevel);
     }
 
     /**

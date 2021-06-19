@@ -211,7 +211,7 @@ public class DispatchManager
                     preparedQuery,
                     slug,
                     retryCount,
-                    selectionContext.getResourceGroupId(),
+                    selectionContext,
                     queryType,
                     warningCollector,
                     (dq) -> resourceGroupManager.submit(preparedQuery.getStatement(), dq, selectionContext, queryExecutor));

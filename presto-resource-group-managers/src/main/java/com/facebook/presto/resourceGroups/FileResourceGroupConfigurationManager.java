@@ -112,7 +112,7 @@ public class FileResourceGroupConfigurationManager
     public Optional<SelectionContext<VariableMap>> match(SelectionCriteria criteria)
     {
         return selectors.stream()
-                .map(s -> s.match(criteria))
+                .map(s -> s.match(criteria, null))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .findFirst();

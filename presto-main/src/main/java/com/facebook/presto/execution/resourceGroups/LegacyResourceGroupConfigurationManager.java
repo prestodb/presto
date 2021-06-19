@@ -18,14 +18,20 @@ import com.facebook.presto.execution.resourceGroups.LegacyResourceGroupConfigura
 import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
+import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 
 import javax.inject.Inject;
 
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.concurrent.TimeUnit.HOURS;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class LegacyResourceGroupConfigurationManager
         implements ResourceGroupConfigurationManager<VoidContext>
@@ -58,6 +64,7 @@ public class LegacyResourceGroupConfigurationManager
     @Override
     public Optional<SelectionContext<VoidContext>> match(SelectionCriteria criteria)
     {
-        return Optional.of(new SelectionContext<>(GLOBAL, VoidContext.NONE));
+        return Optional.of(new SelectionContext<>(GLOBAL, VoidContext.NONE, OptionalInt.of(1), Optional.of(new ResourceGroupQueryLimits(Optional.of(new Duration(1, MINUTES)),
+                Optional.of(new DataSize(1, DataSize.Unit.MEGABYTE)), Optional.of(new Duration(1, HOURS))))));
     }
 }

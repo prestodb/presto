@@ -45,9 +45,9 @@ public class TestStaticSelector
                 Optional.empty(),
                 Optional.empty(),
                 new ResourceGroupIdTemplate("global.foo"));
-        assertEquals(selector.match(newSelectionCriteria("userA", null, ImmutableSet.of("tag1"), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
-        assertEquals(selector.match(newSelectionCriteria("userB", "source", ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
-        assertEquals(selector.match(newSelectionCriteria("A.user", null, ImmutableSet.of("tag1"), EMPTY_RESOURCE_ESTIMATES)), Optional.empty());
+        assertEquals(selector.match(newSelectionCriteria("userA", null, ImmutableSet.of("tag1"), EMPTY_RESOURCE_ESTIMATES), null).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
+        assertEquals(selector.match(newSelectionCriteria("userB", "source", ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES), null).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
+        assertEquals(selector.match(newSelectionCriteria("A.user", null, ImmutableSet.of("tag1"), EMPTY_RESOURCE_ESTIMATES), null), Optional.empty());
     }
 
     @Test
@@ -61,9 +61,9 @@ public class TestStaticSelector
                 Optional.empty(),
                 Optional.empty(),
                 new ResourceGroupIdTemplate("global.foo"));
-        assertEquals(selector.match(newSelectionCriteria("userA", null, ImmutableSet.of("tag1"), EMPTY_RESOURCE_ESTIMATES)), Optional.empty());
-        assertEquals(selector.match(newSelectionCriteria("userB", "source", ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
-        assertEquals(selector.match(newSelectionCriteria("A.user", "a source b", ImmutableSet.of("tag1"), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
+        assertEquals(selector.match(newSelectionCriteria("userA", null, ImmutableSet.of("tag1"), EMPTY_RESOURCE_ESTIMATES), null), Optional.empty());
+        assertEquals(selector.match(newSelectionCriteria("userB", "source", ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES), null).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
+        assertEquals(selector.match(newSelectionCriteria("A.user", "a source b", ImmutableSet.of("tag1"), EMPTY_RESOURCE_ESTIMATES), null).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
     }
 
     @Test
@@ -77,10 +77,10 @@ public class TestStaticSelector
                 Optional.empty(),
                 Optional.empty(),
                 new ResourceGroupIdTemplate("global.foo"));
-        assertEquals(selector.match(newSelectionCriteria("userA", null, ImmutableSet.of("tag1", "tag2"), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
-        assertEquals(selector.match(newSelectionCriteria("userB", "source", ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES)), Optional.empty());
-        assertEquals(selector.match(newSelectionCriteria("A.user", "a source b", ImmutableSet.of("tag1"), EMPTY_RESOURCE_ESTIMATES)), Optional.empty());
-        assertEquals(selector.match(newSelectionCriteria("A.user", "a source b", ImmutableSet.of("tag1", "tag2", "tag3"), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
+        assertEquals(selector.match(newSelectionCriteria("userA", null, ImmutableSet.of("tag1", "tag2"), EMPTY_RESOURCE_ESTIMATES), null).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
+        assertEquals(selector.match(newSelectionCriteria("userB", "source", ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES), null), Optional.empty());
+        assertEquals(selector.match(newSelectionCriteria("A.user", "a source b", ImmutableSet.of("tag1"), EMPTY_RESOURCE_ESTIMATES), null), Optional.empty());
+        assertEquals(selector.match(newSelectionCriteria("A.user", "a source b", ImmutableSet.of("tag1", "tag2", "tag3"), EMPTY_RESOURCE_ESTIMATES), null).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
     }
 
     @Test
@@ -113,7 +113,7 @@ public class TestStaticSelector
                                         Optional.of(Duration.valueOf("4m")),
                                         Optional.empty(),
                                         Optional.of(DataSize.valueOf("400MB")),
-                                        Optional.empty())))
+                                        Optional.empty())), null)
                         .map(SelectionContext::getResourceGroupId),
                 Optional.of(resourceGroupId));
 
@@ -127,7 +127,7 @@ public class TestStaticSelector
                                         Optional.of(Duration.valueOf("4m")),
                                         Optional.empty(),
                                         Optional.of(DataSize.valueOf("600MB")),
-                                        Optional.empty())))
+                                        Optional.empty())), null)
                         .map(SelectionContext::getResourceGroupId),
                 Optional.empty());
 
@@ -141,7 +141,7 @@ public class TestStaticSelector
                                         Optional.of(Duration.valueOf("4m")),
                                         Optional.empty(),
                                         Optional.empty(),
-                                        Optional.empty())))
+                                        Optional.empty())), null)
                         .map(SelectionContext::getResourceGroupId),
                 Optional.empty());
 
@@ -168,7 +168,7 @@ public class TestStaticSelector
                                         Optional.of(Duration.valueOf("100h")),
                                         Optional.empty(),
                                         Optional.of(DataSize.valueOf("4TB")),
-                                        Optional.empty())))
+                                        Optional.empty())), null)
                         .map(SelectionContext::getResourceGroupId),
                 Optional.empty());
 
@@ -182,7 +182,7 @@ public class TestStaticSelector
                                         Optional.empty(),
                                         Optional.empty(),
                                         Optional.of(DataSize.valueOf("6TB")),
-                                        Optional.empty())))
+                                        Optional.empty())), null)
                         .map(SelectionContext::getResourceGroupId),
                 Optional.of(resourceGroupId));
 
@@ -196,7 +196,7 @@ public class TestStaticSelector
                                         Optional.of(Duration.valueOf("1s")),
                                         Optional.of(Duration.valueOf("1s")),
                                         Optional.of(DataSize.valueOf("6TB")),
-                                        Optional.empty())))
+                                        Optional.empty())), null)
                         .map(SelectionContext::getResourceGroupId),
                 Optional.of(resourceGroupId));
     }

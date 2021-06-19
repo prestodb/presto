@@ -24,6 +24,7 @@ import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.resourceGroups.QueryType;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Statement;
@@ -62,6 +63,7 @@ public class DataDefinitionExecution<T extends Statement>
     private final AccessControl accessControl;
     private final QueryStateMachine stateMachine;
     private final List<Expression> parameters;
+    private final Optional<ResourceGroupQueryLimits> queryLimits;
 
     private DataDefinitionExecution(
             DataDefinitionTask<T> task,
@@ -72,7 +74,8 @@ public class DataDefinitionExecution<T extends Statement>
             Metadata metadata,
             AccessControl accessControl,
             QueryStateMachine stateMachine,
-            List<Expression> parameters)
+            List<Expression> parameters,
+            Optional<ResourceGroupQueryLimits> queryLimits)
     {
         this.task = requireNonNull(task, "task is null");
         this.statement = requireNonNull(statement, "statement is null");
@@ -83,6 +86,7 @@ public class DataDefinitionExecution<T extends Statement>
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
         this.parameters = parameters;
+        this.queryLimits = queryLimits;
     }
 
     @Override
@@ -167,6 +171,12 @@ public class DataDefinitionExecution<T extends Statement>
     public DataSize getOutputDataSize()
     {
         return DataSize.succinctBytes(0);
+    }
+
+    @Override
+    public Optional<ResourceGroupQueryLimits> getQueryLimits()
+    {
+        return queryLimits;
     }
 
     @Override
@@ -333,9 +343,10 @@ public class DataDefinitionExecution<T extends Statement>
                 String slug,
                 int retryCount,
                 WarningCollector warningCollector,
-                Optional<QueryType> queryType)
+                Optional<QueryType> queryType,
+                Optional<ResourceGroupQueryLimits> queryLimits)
         {
-            return createDataDefinitionExecution(preparedQuery.getStatement(), preparedQuery.getParameters(), stateMachine, slug, retryCount);
+            return createDataDefinitionExecution(preparedQuery.getStatement(), preparedQuery.getParameters(), stateMachine, slug, retryCount, queryLimits);
         }
 
         private <T extends Statement> DataDefinitionExecution<T> createDataDefinitionExecution(
@@ -343,14 +354,15 @@ public class DataDefinitionExecution<T extends Statement>
                 List<Expression> parameters,
                 QueryStateMachine stateMachine,
                 String slug,
-                int retryCount)
+                int retryCount,
+                Optional<ResourceGroupQueryLimits> queryLimits)
         {
             @SuppressWarnings("unchecked")
             DataDefinitionTask<T> task = (DataDefinitionTask<T>) tasks.get(statement.getClass());
             checkArgument(task != null, "no task for statement: %s", statement.getClass().getSimpleName());
 
             stateMachine.setUpdateType(task.getName());
-            return new DataDefinitionExecution<>(task, statement, slug, retryCount, transactionManager, metadata, accessControl, stateMachine, parameters);
+            return new DataDefinitionExecution<>(task, statement, slug, retryCount, transactionManager, metadata, accessControl, stateMachine, parameters, queryLimits);
         }
     }
 }

@@ -21,8 +21,8 @@ import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_CPU_LIMIT;
 public class ExceededCpuLimitException
         extends PrestoException
 {
-    public ExceededCpuLimitException(Duration duration)
+    public ExceededCpuLimitException(Duration duration, String limitLevel)
     {
-        super(EXCEEDED_CPU_LIMIT, "Exceeded CPU limit of " + duration.toString());
+        super(EXCEEDED_CPU_LIMIT, "Exceeded CPU limit of " + duration.toString() + " at the " + limitLevel);
     }
 }

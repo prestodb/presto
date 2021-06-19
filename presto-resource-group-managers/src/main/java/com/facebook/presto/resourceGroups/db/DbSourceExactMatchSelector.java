@@ -17,12 +17,14 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.resourceGroups.ResourceGroupSelector;
 import com.facebook.presto.resourceGroups.VariableMap;
+import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import org.jdbi.v3.core.JdbiException;
 
 import java.util.Optional;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.resourceGroups.VariableMap.emptyVariableMap;
@@ -45,7 +47,7 @@ public class DbSourceExactMatchSelector
     }
 
     @Override
-    public Optional<SelectionContext<VariableMap>> match(SelectionCriteria criteria)
+    public Optional<SelectionContext<VariableMap>> match(SelectionCriteria criteria, ConcurrentMap<ResourceGroupId, ResourceGroup> groups)
     {
         if (!criteria.getSource().isPresent()) {
             return Optional.empty();

@@ -21,6 +21,7 @@ import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.resourceGroups.QueryType;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.facebook.presto.sql.planner.Plan;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -71,6 +72,8 @@ public interface QueryExecution
 
     VersionedMemoryPoolId getMemoryPool();
 
+    Optional<ResourceGroupQueryLimits> getQueryLimits();
+
     void setMemoryPool(VersionedMemoryPoolId poolId);
 
     void start();
@@ -96,7 +99,8 @@ public interface QueryExecution
                 String slug,
                 int retryCount,
                 WarningCollector warningCollector,
-                Optional<QueryType> queryType);
+                Optional<QueryType> queryType,
+                Optional<ResourceGroupQueryLimits> queryLimits);
     }
 
     /**

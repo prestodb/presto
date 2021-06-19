@@ -19,6 +19,7 @@ import io.airlift.units.DataSize;
 
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_GLOBAL_MEMORY_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
+import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_RESOURCE_GROUP_MEMORY_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_REVOCABLE_MEMORY_LIMIT;
 import static java.lang.String.format;
 
@@ -33,6 +34,11 @@ public class ExceededMemoryLimitException
     public static ExceededMemoryLimitException exceededGlobalTotalLimit(DataSize maxMemory)
     {
         return new ExceededMemoryLimitException(EXCEEDED_GLOBAL_MEMORY_LIMIT, format("Query exceeded distributed total memory limit of %s", maxMemory));
+    }
+
+    public static ExceededMemoryLimitException exceededResourceGroupTotalLimit(DataSize maxMemory)
+    {
+        return new ExceededMemoryLimitException(EXCEEDED_RESOURCE_GROUP_MEMORY_LIMIT, format("Query exceeded distributed total resource group limit of %s", maxMemory));
     }
 
     public static ExceededMemoryLimitException exceededLocalUserMemoryLimit(DataSize maxMemory, String additionalFailureInfo)

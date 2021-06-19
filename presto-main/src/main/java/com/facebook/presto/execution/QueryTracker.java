@@ -18,6 +18,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.QueryTracker.TrackedQuery;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
@@ -217,6 +218,12 @@ public class QueryTracker<T extends TrackedQuery>
             if (createTime.plus(queryMaxRunTime.toMillis()).isBeforeNow()) {
                 query.fail(new PrestoException(EXCEEDED_TIME_LIMIT, "Query exceeded maximum time limit of " + queryMaxRunTime));
             }
+            if (query.getQueryLimits().isPresent()) {
+                Optional<Duration> resourceGroupTimeLimit = query.getQueryLimits().get().getMaxExecutionTime();
+                if (resourceGroupTimeLimit.isPresent() && createTime.plus(resourceGroupTimeLimit.get().toMillis()).isBeforeNow()) {
+                    query.fail(new PrestoException(EXCEEDED_TIME_LIMIT, "Query exceeded resource group maximum time limit of " + resourceGroupTimeLimit.get()));
+                }
+            }
         }
     }
 
@@ -355,6 +362,8 @@ public class QueryTracker<T extends TrackedQuery>
         DateTime getLastHeartbeat();
 
         Optional<DateTime> getEndTime();
+
+        Optional<ResourceGroupQueryLimits> getQueryLimits();
 
         void fail(Throwable cause);
 

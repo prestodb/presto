@@ -40,6 +40,7 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.resourceGroups.QueryType;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.facebook.presto.split.CloseableSplitSourceProvider;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.Analysis;
@@ -122,6 +123,7 @@ public class SqlQueryExecution
     private final PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
     private final AtomicReference<PlanVariableAllocator> variableAllocator = new AtomicReference<>();
     private final PartialResultQueryManager partialResultQueryManager;
+    private final Optional<ResourceGroupQueryLimits> queryLimits;
 
     private SqlQueryExecution(
             PreparedQuery preparedQuery,
@@ -147,7 +149,8 @@ public class SqlQueryExecution
             CostCalculator costCalculator,
             WarningCollector warningCollector,
             PlanChecker planChecker,
-            PartialResultQueryManager partialResultQueryManager)
+            PartialResultQueryManager partialResultQueryManager,
+            Optional<ResourceGroupQueryLimits> queryLimits)
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             this.slug = requireNonNull(slug, "slug is null");
@@ -168,6 +171,7 @@ public class SqlQueryExecution
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
             this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
             this.planChecker = requireNonNull(planChecker, "planChecker is null");
+            this.queryLimits = queryLimits;
 
             // analyze query
             requireNonNull(preparedQuery, "preparedQuery is null");
@@ -386,6 +390,12 @@ public class SqlQueryExecution
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             stateMachine.addStateChangeListener(stateChangeListener);
         }
+    }
+
+    @Override
+    public Optional<ResourceGroupQueryLimits> getQueryLimits()
+    {
+        return queryLimits;
     }
 
     @Override
@@ -759,7 +769,8 @@ public class SqlQueryExecution
                 String slug,
                 int retryCount,
                 WarningCollector warningCollector,
-                Optional<QueryType> queryType)
+                Optional<QueryType> queryType,
+                Optional<ResourceGroupQueryLimits> queryLimits)
         {
             String executionPolicyName = SystemSessionProperties.getExecutionPolicy(stateMachine.getSession());
             ExecutionPolicy executionPolicy = executionPolicies.get(executionPolicyName);
@@ -789,7 +800,8 @@ public class SqlQueryExecution
                     costCalculator,
                     warningCollector,
                     planChecker,
-                    partialResultQueryManager);
+                    partialResultQueryManager,
+                    queryLimits);
 
             return execution;
         }

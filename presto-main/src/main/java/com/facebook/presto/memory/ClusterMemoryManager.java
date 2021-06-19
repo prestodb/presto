@@ -71,6 +71,7 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.ExceededMemoryLimitException.exceededGlobalTotalLimit;
 import static com.facebook.presto.ExceededMemoryLimitException.exceededGlobalUserLimit;
+import static com.facebook.presto.ExceededMemoryLimitException.exceededResourceGroupTotalLimit;
 import static com.facebook.presto.SystemSessionProperties.RESOURCE_OVERCOMMIT;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxMemory;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxTotalMemory;
@@ -269,6 +270,13 @@ public class ClusterMemoryManager
                 if (totalMemoryReservation > totalMemoryLimit) {
                     query.fail(exceededGlobalTotalLimit(succinctBytes(totalMemoryLimit)));
                     queryKilled = true;
+                }
+                if (query.getQueryLimits().isPresent() && query.getQueryLimits().get().getMaxTotalMemoryLimit().isPresent()) {
+                    long resourceGroupMemoryLimit = query.getQueryLimits().get().getMaxTotalMemoryLimit().get().toBytes();
+                    if (totalMemoryReservation > resourceGroupMemoryLimit) {
+                        query.fail(exceededResourceGroupTotalLimit(succinctBytes(resourceGroupMemoryLimit)));
+                        queryKilled = true;
+                    }
                 }
             }
 

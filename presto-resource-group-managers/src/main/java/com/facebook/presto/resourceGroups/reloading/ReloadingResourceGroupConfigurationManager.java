@@ -149,7 +149,7 @@ public class ReloadingResourceGroupConfigurationManager
         }
 
         return selectors.get().stream()
-                .map(s -> s.match(criteria))
+                .map(s -> s.match(criteria, groups))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .findFirst();

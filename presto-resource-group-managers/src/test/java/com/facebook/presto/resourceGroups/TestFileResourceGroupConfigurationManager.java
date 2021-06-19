@@ -85,7 +85,7 @@ public class TestFileResourceGroupConfigurationManager
     private static Optional<ResourceGroupId> tryMatch(List<ResourceGroupSelector> selectors, SelectionCriteria context)
     {
         for (ResourceGroupSelector selector : selectors) {
-            Optional<SelectionContext<VariableMap>> group = selector.match(context);
+            Optional<SelectionContext<VariableMap>> group = selector.match(context, null);
             if (group.isPresent()) {
                 return group.map(SelectionContext::getResourceGroupId);
             }
