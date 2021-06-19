@@ -53,7 +53,6 @@ public class TestPeriodicTaskExecutor
         Runnable runnable = latch::countDown;
 
         try (PeriodicTaskExecutor executor = new PeriodicTaskExecutor(SECONDS.toMillis(durationBetweenTicksInSeconds), executorService, runnable, i -> i)) {
-            executor.start();
             Stopwatch stopwatch = Stopwatch.createStarted();
             latch.await(10, SECONDS);
             stopwatch.stop();

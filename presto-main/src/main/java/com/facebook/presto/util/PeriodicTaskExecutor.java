@@ -16,7 +16,6 @@ package com.facebook.presto.util;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.LongUnaryOperator;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -31,7 +30,6 @@ public class PeriodicTaskExecutor
     private final ScheduledExecutorService executor;
     private final Runnable runnable;
     private final LongUnaryOperator nextDelayFunction;
-    private final AtomicBoolean started = new AtomicBoolean();
 
     private volatile long delayMillis;
     private volatile ScheduledFuture<?> scheduledFuture;
@@ -49,13 +47,7 @@ public class PeriodicTaskExecutor
         this.executor = requireNonNull(executor, "executor is null");
         this.runnable = requireNonNull(runnable, "runnable is null");
         this.nextDelayFunction = requireNonNull(nextDelayFunction, "nextDelayFunction is null");
-    }
-
-    public void start()
-    {
-        if (started.compareAndSet(false, true)) {
-            tick();
-        }
+        tick();
     }
 
     private void tick()
@@ -79,10 +71,8 @@ public class PeriodicTaskExecutor
 
     public void stop()
     {
-        if (started.get()) {
-            stopped = true;
-            scheduledFuture.cancel(false);
-        }
+        stopped = true;
+        scheduledFuture.cancel(false);
     }
 
     private static long nextDelayWithJitterMillis(long delayTargetMillis)
