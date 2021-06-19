@@ -53,7 +53,6 @@ import static com.facebook.presto.memory.LocalMemoryManager.RESERVED_POOL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -139,9 +138,8 @@ public class ResourceManagerClusterStateProvider
         requireNonNull(basicQueryInfo, "basicQueryInfo is null");
         checkArgument(
                 internalNodeManager.getCoordinators().stream().anyMatch(i -> nodeId.equals(i.getNodeIdentifier())),
-                "%s is not a coordinator (coordinators: %s)",
-                nodeId,
-                internalNodeManager.getCoordinators().stream().collect(toImmutableSet()));
+                "%s is not a coordinator",
+                nodeId);
         CoordinatorQueriesState state = nodeQueryStates.computeIfAbsent(nodeId, identifier -> new CoordinatorQueriesState(
                 nodeId,
                 maxCompletedQueries,
@@ -182,16 +180,6 @@ public class ResourceManagerClusterStateProvider
                         builder.addRunningQueries(1);
                     }
                     builder.addUserMemoryReservationBytes(info.getQueryStats().getUserMemoryReservation().toBytes());
-                    while (resourceGroupId.getParent().isPresent()) {
-                        resourceGroupId = resourceGroupId.getParent().get();
-                        ResourceGroupRuntimeInfo.Builder parentBuilder = resourceGroupBuilders.computeIfAbsent(resourceGroupId, ResourceGroupRuntimeInfo::builder);
-                        if (info.getState() == QUEUED) {
-                            parentBuilder.addDescendantQueuedQueries(1);
-                        }
-                        else if (!info.getState().isDone()) {
-                            parentBuilder.addDescendantRunningQueries(1);
-                        }
-                    }
                 });
         return resourceGroupBuilders.values().stream().map(ResourceGroupRuntimeInfo.Builder::build).collect(toImmutableList());
     }

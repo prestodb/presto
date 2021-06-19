@@ -14,6 +14,7 @@
 package com.facebook.presto.resourcemanager;
 
 import com.facebook.presto.execution.resourceGroups.ResourceGroupRuntimeInfo;
+import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.NodeStatus;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolInfo;
@@ -42,10 +43,10 @@ class TestingResourceManagerClient
     }
 
     @Override
-    public List<ResourceGroupRuntimeInfo> getResourceGroupInfo(String excludingNode)
+    public List<ResourceGroupRuntimeInfo> getResourceGroupInfo(InternalNode internalNode)
     {
-        resourceGroupInfoCalls.putIfAbsent(excludingNode, 0);
-        resourceGroupInfoCalls.compute(excludingNode, (s, integer) -> integer + 1);
+        resourceGroupInfoCalls.putIfAbsent(internalNode.getNodeIdentifier(), 0);
+        resourceGroupInfoCalls.compute(internalNode.getNodeIdentifier(), (s, integer) -> integer + 1);
         return resourceGroupRuntimeInfos;
     }
 

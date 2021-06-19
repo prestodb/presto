@@ -32,7 +32,7 @@ public interface ResourceManagerClient
     void queryHeartbeat(String internalNode, BasicQueryInfo basicQueryInfo);
 
     @ThriftMethod
-    List<ResourceGroupRuntimeInfo> getResourceGroupInfo(String excludingNode);
+    List<ResourceGroupRuntimeInfo> getResourceGroupInfo(InternalNode internalNode);
 
     @ThriftMethod
     void nodeHeartbeat(NodeStatus nodeStatus);
