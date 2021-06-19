@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.resourcemanager;
 
-import com.facebook.drift.annotations.ThriftException;
 import com.facebook.drift.annotations.ThriftMethod;
 import com.facebook.drift.annotations.ThriftService;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupRuntimeInfo;
@@ -61,7 +60,7 @@ public class ResourceManagerServer
      * Returns the resource group information across all clusters except for {@code excludingNode}, which is excluded
      * to prevent redundancy with local resource group information.
      */
-    @ThriftMethod(exception = {@ThriftException(type = ResourceManagerInconsistentException.class, id = 1)})
+    @ThriftMethod
     public ListenableFuture<List<ResourceGroupRuntimeInfo>> getResourceGroupInfo(String excludingNode)
     {
         return executor.submit(() -> clusterStateProvider.getClusterResourceGroups(excludingNode));

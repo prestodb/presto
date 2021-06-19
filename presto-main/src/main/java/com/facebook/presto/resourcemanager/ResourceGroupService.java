@@ -19,6 +19,5 @@ import java.util.List;
 
 public interface ResourceGroupService
 {
-    List<ResourceGroupRuntimeInfo> getResourceGroupInfo()
-            throws ResourceManagerInconsistentException;
+    List<ResourceGroupRuntimeInfo> getResourceGroupInfo();
 }

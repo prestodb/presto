@@ -61,7 +61,6 @@ public class QueryManagerConfig
     private int maxTotalRunningTaskCountToNotExecuteNewQuery = Integer.MAX_VALUE;
     private double concurrencyThresholdToEnableResourceGroupRefresh = 1.0;
     private Duration resourceGroupRunTimeInfoRefreshInterval = new Duration(100, TimeUnit.MILLISECONDS);
-    private Duration resourceGroupRunTimeInfoMinFreshness = new Duration(1, TimeUnit.SECONDS);
 
     private Duration clientTimeout = new Duration(5, TimeUnit.MINUTES);
 
@@ -335,19 +334,6 @@ public class QueryManagerConfig
     public QueryManagerConfig setResourceGroupRunTimeInfoRefreshInterval(Duration resourceGroupRunTimeInfoRefreshInterval)
     {
         this.resourceGroupRunTimeInfoRefreshInterval = resourceGroupRunTimeInfoRefreshInterval;
-        return this;
-    }
-
-    public Duration getResourceGroupRunTimeInfoMinFreshness()
-    {
-        return resourceGroupRunTimeInfoMinFreshness;
-    }
-
-    @Config("resource-group-runtimeinfo-min-freshness")
-    @ConfigDescription("How stale the resource group information may be before queueing")
-    public QueryManagerConfig setResourceGroupRunTimeInfoMinFreshness(Duration resourceGroupRunTimeInfoMinFreshness)
-    {
-        this.resourceGroupRunTimeInfoMinFreshness = resourceGroupRunTimeInfoMinFreshness;
         return this;
     }
 

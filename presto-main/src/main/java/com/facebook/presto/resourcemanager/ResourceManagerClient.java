@@ -16,6 +16,7 @@ package com.facebook.presto.resourcemanager;
 import com.facebook.drift.annotations.ThriftMethod;
 import com.facebook.drift.annotations.ThriftService;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupRuntimeInfo;
+import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.NodeStatus;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolInfo;
@@ -31,8 +32,7 @@ public interface ResourceManagerClient
     void queryHeartbeat(String internalNode, BasicQueryInfo basicQueryInfo);
 
     @ThriftMethod
-    List<ResourceGroupRuntimeInfo> getResourceGroupInfo(String excludingNode)
-            throws ResourceManagerInconsistentException;
+    List<ResourceGroupRuntimeInfo> getResourceGroupInfo(String excludingNode);
 
     @ThriftMethod
     void nodeHeartbeat(NodeStatus nodeStatus);

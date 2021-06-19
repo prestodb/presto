@@ -124,11 +124,7 @@ public class TestResourceManagerClusterStateProvider
         nodeManager.addNode(new ConnectorId("x"), new InternalNode("node2", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true));
         nodeManager.addNode(new ConnectorId("x"), new InternalNode("node3", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true));
 
-        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(nodeManager, new SessionPropertyManager(), 10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("50s"), Duration.valueOf("0s"), true, newSingleThreadScheduledExecutor());
-        provider.registerNodeHeartbeat(createCoordinatorNodeStatus("local"));
-        provider.registerNodeHeartbeat(createCoordinatorNodeStatus("node1"));
-        provider.registerNodeHeartbeat(createCoordinatorNodeStatus("node2"));
-        provider.registerNodeHeartbeat(createCoordinatorNodeStatus("node3"));
+        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(nodeManager, new SessionPropertyManager(), 10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("5s"), Duration.valueOf("0s"), true, newSingleThreadScheduledExecutor());
 
         assertEquals(provider.getClusterQueries(), ImmutableList.of());
 
@@ -165,14 +161,7 @@ public class TestResourceManagerClusterStateProvider
         nodeManager.addNode(new ConnectorId("x"), new InternalNode("node5", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true));
         nodeManager.addNode(new ConnectorId("x"), new InternalNode("node6", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true));
 
-        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(nodeManager, new SessionPropertyManager(), 10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("50s"), Duration.valueOf("0s"), true, newSingleThreadScheduledExecutor());
-        provider.registerNodeHeartbeat(createCoordinatorNodeStatus("local"));
-        provider.registerNodeHeartbeat(createCoordinatorNodeStatus("node1"));
-        provider.registerNodeHeartbeat(createCoordinatorNodeStatus("node2"));
-        provider.registerNodeHeartbeat(createCoordinatorNodeStatus("node3"));
-        provider.registerNodeHeartbeat(createCoordinatorNodeStatus("node4"));
-        provider.registerNodeHeartbeat(createCoordinatorNodeStatus("node5"));
-        provider.registerNodeHeartbeat(createCoordinatorNodeStatus("node6"));
+        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(nodeManager, new SessionPropertyManager(), 10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("5s"), Duration.valueOf("0s"), true, newSingleThreadScheduledExecutor());
 
         assertEquals(provider.getClusterQueries(), ImmutableList.of());
 
@@ -232,14 +221,7 @@ public class TestResourceManagerClusterStateProvider
         nodeManager.addNode(new ConnectorId("x"), new InternalNode("node4", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true));
         nodeManager.addNode(new ConnectorId("x"), new InternalNode("node5", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true));
         nodeManager.addNode(new ConnectorId("x"), new InternalNode("node6", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true));
-        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(nodeManager, new SessionPropertyManager(), 10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("50s"), Duration.valueOf("0s"), true, newSingleThreadScheduledExecutor());
-        provider.registerNodeHeartbeat(createCoordinatorNodeStatus("local"));
-        provider.registerNodeHeartbeat(createCoordinatorNodeStatus("node1"));
-        provider.registerNodeHeartbeat(createCoordinatorNodeStatus("node2"));
-        provider.registerNodeHeartbeat(createCoordinatorNodeStatus("node3"));
-        provider.registerNodeHeartbeat(createCoordinatorNodeStatus("node4"));
-        provider.registerNodeHeartbeat(createCoordinatorNodeStatus("node5"));
-        provider.registerNodeHeartbeat(createCoordinatorNodeStatus("node6"));
+        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(nodeManager, 10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("5s"), Duration.valueOf("0s"), true, newSingleThreadScheduledExecutor());
 
         assertEquals(provider.getClusterQueries(), ImmutableList.of());
 
@@ -298,7 +280,6 @@ public class TestResourceManagerClusterStateProvider
 
         // Expire running queries
         Thread.sleep(SECONDS.toMillis(5));
-        nodeManager.refreshNodes();
         assertTrue(provider.getClusterResourceGroups("node1").isEmpty());
         assertTrue(provider.getClusterResourceGroups("node2").isEmpty());
         assertTrue(provider.getClusterResourceGroups("node3").isEmpty());
@@ -412,25 +393,6 @@ public class TestResourceManagerClusterStateProvider
                 3);
     }
 
-    private NodeStatus createCoordinatorNodeStatus(String nodeId)
-    {
-        return new NodeStatus(
-                nodeId,
-                new NodeVersion("1"),
-                "environment",
-                true,
-                new Duration(1, SECONDS),
-                "http://exernalAddress",
-                "http://internalAddress",
-                new MemoryInfo(new DataSize(1, MEGABYTE), ImmutableMap.of(GENERAL_POOL, createMemoryPoolInfo(100, 2, 1))),
-                1,
-                1.0,
-                2.0,
-                1,
-                2,
-                3);
-    }
-
     private MemoryPoolInfo createMemoryPoolInfo(int maxBytes, int reservedBytes, int reservedRevocableBytes)
     {
         return new MemoryPoolInfo(
@@ -450,7 +412,6 @@ public class TestResourceManagerClusterStateProvider
     }
 
     private void assertResourceGroups(ResourceManagerClusterStateProvider provider, String excludingNode, int count)
-            throws ResourceManagerInconsistentException
     {
         List<ResourceGroupRuntimeInfo> resourceGroups = provider.getClusterResourceGroups(excludingNode);
         assertNotNull(resourceGroups);
@@ -458,7 +419,6 @@ public class TestResourceManagerClusterStateProvider
     }
 
     private void assertResourceGroup(ResourceManagerClusterStateProvider provider, String excludingNode, String resourceGroupId, int queuedQueries, int runningQueries, DataSize userMemoryReservation)
-            throws ResourceManagerInconsistentException
     {
         ResourceGroupId currResourceGroupId = new ResourceGroupId(Arrays.asList(resourceGroupId.split("\\.")));
         List<ResourceGroupRuntimeInfo> list = provider.getClusterResourceGroups(excludingNode);
@@ -475,7 +435,6 @@ public class TestResourceManagerClusterStateProvider
     }
 
     private void assertNonLeafResourceGroup(ResourceManagerClusterStateProvider provider, String excludingNode, String resourceGroupId, int queuedQueries, int runningQueries, int descendantQueuedQueries, int descendantRunningQueries)
-            throws ResourceManagerInconsistentException
     {
         List<ResourceGroupRuntimeInfo> resourceGroupRuntimeInfos = provider.getClusterResourceGroups(excludingNode);
         Optional<ResourceGroupRuntimeInfo> resourceGroupRuntimeInfo = provider.getClusterResourceGroups(excludingNode).stream()

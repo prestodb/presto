@@ -28,7 +28,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
-import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.cache.CacheLoader.asyncReloading;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -54,7 +53,6 @@ public class ResourceManagerResourceGroupService
                 .build(asyncReloading(new CacheLoader<InternalNode, List<ResourceGroupRuntimeInfo>>() {
                     @Override
                     public List<ResourceGroupRuntimeInfo> load(InternalNode internalNode)
-                            throws ResourceManagerInconsistentException
                     {
                         return getResourceGroupInfos(internalNode);
                     }
@@ -63,20 +61,17 @@ public class ResourceManagerResourceGroupService
 
     @Override
     public List<ResourceGroupRuntimeInfo> getResourceGroupInfo()
-            throws ResourceManagerInconsistentException
     {
         try {
             InternalNode currentNode = internalNodeManager.getCurrentNode();
             return cache.get(currentNode, () -> getResourceGroupInfos(currentNode));
         }
         catch (ExecutionException e) {
-            throwIfInstanceOf(e.getCause(), ResourceManagerInconsistentException.class);
             throw new RuntimeException(e.getCause());
         }
     }
 
     private List<ResourceGroupRuntimeInfo> getResourceGroupInfos(InternalNode internalNode)
-            throws ResourceManagerInconsistentException
     {
         return resourceManagerClient.get().getResourceGroupInfo(internalNode.getNodeIdentifier());
     }
