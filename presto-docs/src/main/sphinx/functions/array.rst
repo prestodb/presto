@@ -90,6 +90,12 @@ Array Functions
 
     Returns the position of the first occurrence of the ``element`` in array ``x`` (or 0 if not found).
 
+.. function:: array_position(x, element, instance) -> bigint
+
+    If ``instance > 0``, returns the position of the `instance`-th occurrence of the ``element`` in array ``x``. If
+    ``instance < 0``, returns the position of the ``instance``-to-last occurrence of the ``element`` in array ``x``.
+    If no matching element instance is found, ``0`` is returned.
+
 .. function:: array_remove(x, element) -> array
 
     Remove all elements that equal ``element`` from array ``x``.
