@@ -109,6 +109,7 @@ import com.facebook.presto.operator.scalar.ArrayNoneMatchFunction;
 import com.facebook.presto.operator.scalar.ArrayNormalizeFunction;
 import com.facebook.presto.operator.scalar.ArrayNotEqualOperator;
 import com.facebook.presto.operator.scalar.ArrayPositionFunction;
+import com.facebook.presto.operator.scalar.ArrayPositionWithIndexFunction;
 import com.facebook.presto.operator.scalar.ArrayRemoveFunction;
 import com.facebook.presto.operator.scalar.ArrayReverseFunction;
 import com.facebook.presto.operator.scalar.ArrayShuffleFunction;
@@ -711,6 +712,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalar(ArrayContains.class)
                 .scalar(ArrayFilterFunction.class)
                 .scalar(ArrayPositionFunction.class)
+                .scalar(ArrayPositionWithIndexFunction.class)
                 .scalars(CombineHashFunction.class)
                 .scalars(JsonOperators.class)
                 .scalar(JsonOperators.JsonDistinctFromOperator.class)
