@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.smile.SmileCodec;
 import com.facebook.presto.PagesIndexPageSorter;
+import com.facebook.presto.Session;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.MapType;
@@ -45,6 +46,7 @@ import com.facebook.presto.hive.s3.HiveS3Config;
 import com.facebook.presto.hive.s3.PrestoS3ConfigurationUpdater;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.orc.StorageStripeMetadataSource;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
@@ -66,7 +68,7 @@ import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.relational.RowExpressionOptimizer;
-import com.facebook.presto.testing.TestingConnectorSession;
+import com.facebook.presto.testing.TestingSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
@@ -90,8 +92,10 @@ public final class HiveTestUtils
     public static final JsonCodec<PartitionUpdate> PARTITION_UPDATE_CODEC = jsonCodec(PartitionUpdate.class);
     public static final SmileCodec<PartitionUpdate> PARTITION_UPDATE_SMILE_CODEC = smileCodec(PartitionUpdate.class);
 
-    public static final ConnectorSession SESSION = new TestingConnectorSession(
-            new HiveSessionProperties(new HiveClientConfig(), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
+    public static final Session SESSION = TestingSession.testSessionBuilder(
+            new SessionPropertyManager(
+                    new HiveSessionProperties(new HiveClientConfig(), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties()
+            )).build();
 
     public static final MetadataManager METADATA = MetadataManager.createTestMetadataManager();
 
