@@ -732,7 +732,7 @@ public abstract class AbstractTestHiveFileFormats
             throws IOException
     {
         try {
-            MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, types);
+            MaterializedResult result = materializeSourceDataStream(SESSION.toConnectorSession(), pageSource, types);
             assertEquals(result.getMaterializedRows().size(), rowCount);
             for (MaterializedRow row : result) {
                 for (int i = 0, testColumnsSize = testColumns.size(); i < testColumnsSize; i++) {
@@ -765,7 +765,7 @@ public abstract class AbstractTestHiveFileFormats
                         assertEquals(actualValue, expectedValue);
                     }
                     else if (testColumn.getObjectInspector().getTypeName().equals("timestamp")) {
-                        SqlTimestamp expectedTimestamp = sqlTimestampOf((Long) expectedValue, SESSION);
+                        SqlTimestamp expectedTimestamp = sqlTimestampOf((Long) expectedValue, SESSION.toConnectorSession());
                         assertEquals(actualValue, expectedTimestamp, "Wrong value for column " + testColumn.getName());
                     }
                     else if (testColumn.getObjectInspector().getTypeName().startsWith("char")) {
@@ -791,7 +791,7 @@ public abstract class AbstractTestHiveFileFormats
                     else {
                         BlockBuilder builder = type.createBlockBuilder(null, 1);
                         type.writeObject(builder, expectedValue);
-                        expectedValue = type.getObjectValue(SESSION.getSqlFunctionProperties(), builder.build(), 0);
+                        expectedValue = type.getObjectValue(SESSION.toConnectorSession().getSqlFunctionProperties(), builder.build(), 0);
                         assertEquals(actualValue, expectedValue, "Wrong value for column " + testColumn.getName());
                     }
                 }

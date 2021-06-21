@@ -63,7 +63,7 @@ public class TestHiveSplitSource
     public void testOutstandingSplitCount()
     {
         HiveSplitSource hiveSplitSource = HiveSplitSource.allAtOnce(
-                SESSION,
+                SESSION.toConnectorSession(),
                 "database",
                 "table",
                 new CacheQuotaRequirement(TABLE, DEFAULT_QUOTA_SIZE),
@@ -96,9 +96,9 @@ public class TestHiveSplitSource
     @Test
     public void testEvenlySizedSplitRemainder()
     {
-        DataSize initialSplitSize = getMaxInitialSplitSize(SESSION);
+        DataSize initialSplitSize = getMaxInitialSplitSize(SESSION.toConnectorSession());
         HiveSplitSource hiveSplitSource = HiveSplitSource.allAtOnce(
-                SESSION,
+                SESSION.toConnectorSession(),
                 "database",
                 "table",
                 new CacheQuotaRequirement(TABLE, DEFAULT_QUOTA_SIZE),
@@ -126,7 +126,7 @@ public class TestHiveSplitSource
     {
         // CacheQuota: TABLE 1G for unbucked splits
         HiveSplitSource hiveSplitSource = HiveSplitSource.allAtOnce(
-                SESSION,
+                SESSION.toConnectorSession(),
                 "database",
                 "table",
                 new CacheQuotaRequirement(TABLE, DEFAULT_QUOTA_SIZE),
@@ -150,7 +150,7 @@ public class TestHiveSplitSource
 
         // CacheQuota: PARTITION Optional.empty() for bucketed splits
         hiveSplitSource = HiveSplitSource.bucketed(
-                SESSION,
+                SESSION.toConnectorSession(),
                 "database",
                 "table",
                 new CacheQuotaRequirement(PARTITION, Optional.empty()),
@@ -177,7 +177,7 @@ public class TestHiveSplitSource
     public void testFail()
     {
         HiveSplitSource hiveSplitSource = HiveSplitSource.allAtOnce(
-                SESSION,
+                SESSION.toConnectorSession(),
                 "database",
                 "table",
                 new CacheQuotaRequirement(GLOBAL, Optional.empty()),
@@ -235,7 +235,7 @@ public class TestHiveSplitSource
             throws Exception
     {
         HiveSplitSource hiveSplitSource = HiveSplitSource.allAtOnce(
-                SESSION,
+                SESSION.toConnectorSession(),
                 "database",
                 "table",
                 new CacheQuotaRequirement(GLOBAL, Optional.empty()),
@@ -289,7 +289,7 @@ public class TestHiveSplitSource
     {
         DataSize maxOutstandingSplitsSize = new DataSize(1, MEGABYTE);
         HiveSplitSource hiveSplitSource = HiveSplitSource.allAtOnce(
-                SESSION,
+                SESSION.toConnectorSession(),
                 "database",
                 "table",
                 new CacheQuotaRequirement(GLOBAL, Optional.empty()),
@@ -328,7 +328,7 @@ public class TestHiveSplitSource
     public void testEmptyBucket()
     {
         final HiveSplitSource hiveSplitSource = HiveSplitSource.bucketed(
-                SESSION,
+                SESSION.toConnectorSession(),
                 "database",
                 "table",
                 new CacheQuotaRequirement(GLOBAL, Optional.empty()),
@@ -351,7 +351,7 @@ public class TestHiveSplitSource
             throws Exception
     {
         HiveSplitSource hiveSplitSource = HiveSplitSource.bucketedRewindable(
-                SESSION,
+                SESSION.toConnectorSession(),
                 "database",
                 "table",
                 new CacheQuotaRequirement(GLOBAL, Optional.empty()),
@@ -410,7 +410,7 @@ public class TestHiveSplitSource
     public void testRewindOneBucket()
     {
         HiveSplitSource hiveSplitSource = HiveSplitSource.bucketedRewindable(
-                SESSION,
+                SESSION.toConnectorSession(),
                 "database",
                 "table",
                 new CacheQuotaRequirement(GLOBAL, Optional.empty()),
@@ -446,7 +446,7 @@ public class TestHiveSplitSource
     public void testRewindMultipleBuckets()
     {
         HiveSplitSource hiveSplitSource = HiveSplitSource.bucketedRewindable(
-                SESSION,
+                SESSION.toConnectorSession(),
                 "database",
                 "table",
                 new CacheQuotaRequirement(GLOBAL, Optional.empty()),

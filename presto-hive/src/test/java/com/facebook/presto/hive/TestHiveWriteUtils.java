@@ -32,7 +32,7 @@ import static org.testng.Assert.fail;
 
 public class TestHiveWriteUtils
 {
-    private static final HdfsContext CONTEXT = new HdfsContext(SESSION, "test_schema");
+    private static final HdfsContext CONTEXT = new HdfsContext(SESSION.toConnectorSession(), "test_schema");
 
     @Test
     public void testIsS3FileSystem()
@@ -66,7 +66,7 @@ public class TestHiveWriteUtils
         hdfsEnvironment.getConfiguration(CONTEXT, viewfsPath).set("fs.viewfs.mounttable.ns-default.link./test-dir", "file://" + storageDir);
 
         //Make temporary folder under an existing data folder without staging folder ".hive-staging"
-        Path temporaryPath = createTemporaryPath(SESSION, CONTEXT, hdfsEnvironment, viewfsPath);
+        Path temporaryPath = createTemporaryPath(SESSION.toConnectorSession(), CONTEXT, hdfsEnvironment, viewfsPath);
 
         assertEquals(temporaryPath.getParent().toString(), "viewfs://ns-default/test-dir/.hive-staging");
         try {
@@ -77,7 +77,7 @@ public class TestHiveWriteUtils
         }
 
         //Make temporary folder under an existing data folder with an existing staging folder ".hive-staging"
-        temporaryPath = createTemporaryPath(SESSION, CONTEXT, hdfsEnvironment, viewfsPath);
+        temporaryPath = createTemporaryPath(SESSION.toConnectorSession(), CONTEXT, hdfsEnvironment, viewfsPath);
 
         assertEquals(temporaryPath.getParent().toString(), "viewfs://ns-default/test-dir/.hive-staging");
         try {
@@ -88,7 +88,7 @@ public class TestHiveWriteUtils
         }
 
         //Make temporary folder under a non-existing data folder (for new tables), it would use the temporary folder of the parent
-        temporaryPath = createTemporaryPath(SESSION, CONTEXT, hdfsEnvironment, new Path(viewfsPath, "non-existing"));
+        temporaryPath = createTemporaryPath(SESSION.toConnectorSession(), CONTEXT, hdfsEnvironment, new Path(viewfsPath, "non-existing"));
         assertEquals(temporaryPath.getParent().toString(), "viewfs://ns-default/test-dir/.hive-staging");
         try {
             UUID.fromString(temporaryPath.getName());
@@ -103,7 +103,7 @@ public class TestHiveWriteUtils
         HdfsEnvironment hdfsEnvironment = createTestHdfsEnvironment(new HiveClientConfig(), new MetastoreClientConfig());
         Path nonViewfsPath = new Path("file://" + Files.createTempDir());
 
-        Path temporaryPath = createTemporaryPath(SESSION, CONTEXT, hdfsEnvironment, nonViewfsPath);
+        Path temporaryPath = createTemporaryPath(SESSION.toConnectorSession(), CONTEXT, hdfsEnvironment, nonViewfsPath);
 
         assertEquals(temporaryPath.getParent().toString(), "file:/tmp/presto-user");
         try {

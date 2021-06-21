@@ -1070,7 +1070,7 @@ public class TestHiveFileFormats
         private HiveCompressionCodec compressionCodec = HiveCompressionCodec.NONE;
         private List<TestColumn> writeColumns;
         private List<TestColumn> readColumns;
-        private ConnectorSession session = SESSION;
+        private ConnectorSession session = SESSION.toConnectorSession();
         private int rowsCount = 1000;
         private HiveFileWriterFactory fileWriterFactory;
 

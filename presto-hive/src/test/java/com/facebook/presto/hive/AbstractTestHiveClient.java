@@ -361,7 +361,7 @@ public abstract class AbstractTestHiveClient
             .build();
 
     private static final MaterializedResult CREATE_TABLE_DATA =
-            MaterializedResult.resultBuilder(SESSION, BIGINT, createUnboundedVarcharType(), TINYINT, SMALLINT, INTEGER, BIGINT, REAL, DOUBLE, BOOLEAN, ARRAY_TYPE, MAP_TYPE, ROW_TYPE)
+            MaterializedResult.resultBuilder(SESSION.toConnectorSession(), BIGINT, createUnboundedVarcharType(), TINYINT, SMALLINT, INTEGER, BIGINT, REAL, DOUBLE, BOOLEAN, ARRAY_TYPE, MAP_TYPE, ROW_TYPE)
                     .row(1L, "hello", (byte) 45, (short) 345, 234, 123L, -754.1985f, 43.5, true, ImmutableList.of("apple", "banana"), ImmutableMap.of("one", 1L, "two", 2L), ImmutableList.of("true", 1L, true))
                     .row(2L, null, null, null, null, null, null, null, null, null, null, null)
                     .row(3L, "bye", (byte) 46, (short) 346, 345, 456L, 754.2008f, 98.1, false, ImmutableList.of("ape", "bear"), ImmutableMap.of("three", 3L, "four", 4L), ImmutableList.of("false", 0L, false))
@@ -384,7 +384,7 @@ public abstract class AbstractTestHiveClient
     private static final String CREATE_TABLE_PARTITIONED_DATA_2ND_PARTITION_VALUE = "2015-07-04";
 
     private static final MaterializedResult CREATE_TABLE_PARTITIONED_DATA_2ND =
-            MaterializedResult.resultBuilder(SESSION, BIGINT, createUnboundedVarcharType(), TINYINT, SMALLINT, INTEGER, BIGINT, REAL, DOUBLE, BOOLEAN, ARRAY_TYPE, MAP_TYPE, ROW_TYPE, createUnboundedVarcharType())
+            MaterializedResult.resultBuilder(SESSION.toConnectorSession(), BIGINT, createUnboundedVarcharType(), TINYINT, SMALLINT, INTEGER, BIGINT, REAL, DOUBLE, BOOLEAN, ARRAY_TYPE, MAP_TYPE, ROW_TYPE, createUnboundedVarcharType())
                     .row(4L, "hello", (byte) 45, (short) 345, 234, 123L, 754.1985f, 43.5, true, ImmutableList.of("apple", "banana"), ImmutableMap.of("one", 1L, "two", 2L), ImmutableList.of("true", 1L, true), CREATE_TABLE_PARTITIONED_DATA_2ND_PARTITION_VALUE)
                     .row(5L, null, null, null, null, null, null, null, null, null, null, null, CREATE_TABLE_PARTITIONED_DATA_2ND_PARTITION_VALUE)
                     .row(6L, "bye", (byte) 46, (short) 346, 345, 456L, -754.2008f, 98.1, false, ImmutableList.of("ape", "bear"), ImmutableMap.of("three", 3L, "four", 4L), ImmutableList.of("false", 0L, false), CREATE_TABLE_PARTITIONED_DATA_2ND_PARTITION_VALUE)
@@ -422,7 +422,7 @@ public abstract class AbstractTestHiveClient
     }
 
     private static final MaterializedResult MISMATCH_SCHEMA_PRIMITIVE_FIELDS_DATA_BEFORE =
-            MaterializedResult.resultBuilder(SESSION, TINYINT, TINYINT, TINYINT, SMALLINT, SMALLINT, INTEGER, INTEGER, createUnboundedVarcharType(), REAL, createUnboundedVarcharType())
+            MaterializedResult.resultBuilder(SESSION.toConnectorSession(), TINYINT, TINYINT, TINYINT, SMALLINT, SMALLINT, INTEGER, INTEGER, createUnboundedVarcharType(), REAL, createUnboundedVarcharType())
                     .row((byte) -11, (byte) 12, (byte) -13, (short) 14, (short) 15, -16, 17, "2147483647", 18.0f, "2016-08-01")
                     .row((byte) 21, (byte) -22, (byte) 23, (short) -24, (short) 25, 26, -27, "asdf", -28.0f, "2016-08-02")
                     .row((byte) -31, (byte) -32, (byte) 33, (short) 34, (short) -35, 36, 37, "-923", 39.5f, "2016-08-03")
@@ -430,7 +430,7 @@ public abstract class AbstractTestHiveClient
                     .build();
 
     private static final MaterializedResult MISMATCH_SCHEMA_TABLE_DATA_BEFORE =
-            MaterializedResult.resultBuilder(SESSION, MISMATCH_SCHEMA_TABLE_BEFORE.stream().map(ColumnMetadata::getType).collect(toList()))
+            MaterializedResult.resultBuilder(SESSION.toConnectorSession(), MISMATCH_SCHEMA_TABLE_BEFORE.stream().map(ColumnMetadata::getType).collect(toList()))
                     .rows(MISMATCH_SCHEMA_PRIMITIVE_FIELDS_DATA_BEFORE.getMaterializedRows()
                             .stream()
                             .map(materializedRow -> {
@@ -473,7 +473,7 @@ public abstract class AbstractTestHiveClient
             .build();
 
     private static final MaterializedResult MISMATCH_SCHEMA_PRIMITIVE_FIELDS_DATA_AFTER =
-            MaterializedResult.resultBuilder(SESSION, SMALLINT, INTEGER, BIGINT, INTEGER, BIGINT, BIGINT, createUnboundedVarcharType(), INTEGER, DOUBLE, createUnboundedVarcharType())
+            MaterializedResult.resultBuilder(SESSION.toConnectorSession(), SMALLINT, INTEGER, BIGINT, INTEGER, BIGINT, BIGINT, createUnboundedVarcharType(), INTEGER, DOUBLE, createUnboundedVarcharType())
                     .row((short) -11, 12, -13L, 14, 15L, -16L, "17", 2147483647, 18.0, "2016-08-01")
                     .row((short) 21, -22, 23L, -24, 25L, 26L, "-27", null, -28.0, "2016-08-02")
                     .row((short) -31, -32, 33L, 34, -35L, 36L, "37", -923, 39.5, "2016-08-03")
@@ -481,7 +481,7 @@ public abstract class AbstractTestHiveClient
                     .build();
 
     private static final MaterializedResult MISMATCH_SCHEMA_TABLE_DATA_AFTER =
-            MaterializedResult.resultBuilder(SESSION, MISMATCH_SCHEMA_TABLE_AFTER.stream().map(ColumnMetadata::getType).collect(toList()))
+            MaterializedResult.resultBuilder(SESSION.toConnectorSession(), MISMATCH_SCHEMA_TABLE_AFTER.stream().map(ColumnMetadata::getType).collect(toList()))
                     .rows(MISMATCH_SCHEMA_PRIMITIVE_FIELDS_DATA_AFTER.getMaterializedRows()
                             .stream()
                             .map(materializedRow -> {
@@ -498,7 +498,7 @@ public abstract class AbstractTestHiveClient
                             }).collect(toList()))
                     .build();
 
-    private static final SubfieldExtractor SUBFIELD_EXTRACTOR = new SubfieldExtractor(FUNCTION_RESOLUTION, ROW_EXPRESSION_SERVICE.getExpressionOptimizer(), SESSION);
+    private static final SubfieldExtractor SUBFIELD_EXTRACTOR = new SubfieldExtractor(FUNCTION_RESOLUTION, ROW_EXPRESSION_SERVICE.getExpressionOptimizer(), SESSION.toConnectorSession());
 
     private static final TypeProvider TYPE_PROVIDER_AFTER = TypeProvider.copyOf(MISMATCH_SCHEMA_TABLE_AFTER.stream()
             .collect(toImmutableMap(ColumnMetadata::getName, ColumnMetadata::getType)));
@@ -682,7 +682,7 @@ public abstract class AbstractTestHiveClient
             .build();
     private static final int TEMPORARY_TABLE_BUCKET_COUNT = 4;
     private static final List<String> TEMPORARY_TABLE_BUCKET_COLUMNS = ImmutableList.of("id");
-    public static final MaterializedResult TEMPORARY_TABLE_DATA = MaterializedResult.resultBuilder(SESSION, VARCHAR, VARCHAR)
+    public static final MaterializedResult TEMPORARY_TABLE_DATA = MaterializedResult.resultBuilder(SESSION.toConnectorSession(), VARCHAR, VARCHAR)
             .row("1", "value1")
             .row("2", "value2")
             .row("3", "value3")
@@ -2045,7 +2045,7 @@ public abstract class AbstractTestHiveClient
                 ImmutableList.of(new Column("pk", HIVE_STRING, Optional.empty())),
                 Optional.of(new HiveBucketProperty(ImmutableList.of("id"), 4, ImmutableList.of(), HIVE_COMPATIBLE, Optional.empty())));
         // write a 4-bucket partition
-        MaterializedResult.Builder bucket8Builder = MaterializedResult.resultBuilder(SESSION, BIGINT, VARCHAR, VARCHAR);
+        MaterializedResult.Builder bucket8Builder = MaterializedResult.resultBuilder(SESSION.toConnectorSession(), BIGINT, VARCHAR, VARCHAR);
         IntStream.range(0, rowCount).forEach(i -> bucket8Builder.row((long) i, String.valueOf(i), "four"));
         insertData(tableName, bucket8Builder.build());
 
@@ -2145,17 +2145,17 @@ public abstract class AbstractTestHiveClient
                 ImmutableList.of(new Column("pk", HIVE_STRING, Optional.empty())),
                 Optional.of(new HiveBucketProperty(ImmutableList.of("id"), 4, ImmutableList.of(), HIVE_COMPATIBLE, Optional.empty())));
         // write a 4-bucket partition
-        MaterializedResult.Builder bucket4Builder = MaterializedResult.resultBuilder(SESSION, BIGINT, VARCHAR, VARCHAR);
+        MaterializedResult.Builder bucket4Builder = MaterializedResult.resultBuilder(SESSION.toConnectorSession(), BIGINT, VARCHAR, VARCHAR);
         IntStream.range(0, rowCount).forEach(i -> bucket4Builder.row((long) i, String.valueOf(i), "four"));
         insertData(tableName, bucket4Builder.build());
         // write a 16-bucket partition
         alterBucketProperty(tableName, Optional.of(new HiveBucketProperty(ImmutableList.of("id"), 16, ImmutableList.of(), HIVE_COMPATIBLE, Optional.empty())));
-        MaterializedResult.Builder bucket16Builder = MaterializedResult.resultBuilder(SESSION, BIGINT, VARCHAR, VARCHAR);
+        MaterializedResult.Builder bucket16Builder = MaterializedResult.resultBuilder(SESSION.toConnectorSession(), BIGINT, VARCHAR, VARCHAR);
         IntStream.range(0, rowCount).forEach(i -> bucket16Builder.row((long) i, String.valueOf(i), "sixteen"));
         insertData(tableName, bucket16Builder.build());
         // write an 8-bucket partition
         alterBucketProperty(tableName, Optional.of(new HiveBucketProperty(ImmutableList.of("id"), 8, ImmutableList.of(), HIVE_COMPATIBLE, Optional.empty())));
-        MaterializedResult.Builder bucket8Builder = MaterializedResult.resultBuilder(SESSION, BIGINT, VARCHAR, VARCHAR);
+        MaterializedResult.Builder bucket8Builder = MaterializedResult.resultBuilder(SESSION.toConnectorSession(), BIGINT, VARCHAR, VARCHAR);
         IntStream.range(0, rowCount).forEach(i -> bucket8Builder.row((long) i, String.valueOf(i), "eight"));
         insertData(tableName, bucket8Builder.build());
 
@@ -3196,7 +3196,7 @@ public abstract class AbstractTestHiveClient
         List<ColumnMetadata> columns = TEMPORARY_TABLE_COLUMNS;
         List<String> bucketingColumns = TEMPORARY_TABLE_BUCKET_COLUMNS;
         int bucketCount = TEMPORARY_TABLE_BUCKET_COUNT;
-        MaterializedResult singleRow = MaterializedResult.resultBuilder(SESSION, VARCHAR, VARCHAR)
+        MaterializedResult singleRow = MaterializedResult.resultBuilder(SESSION.toConnectorSession(), VARCHAR, VARCHAR)
                 .row("1", "value1")
                 .build();
         ConnectorSession session = newSession();
@@ -3263,7 +3263,7 @@ public abstract class AbstractTestHiveClient
                 TEMPORARY_TABLE_COLUMNS,
                 TEMPORARY_TABLE_BUCKET_COUNT,
                 TEMPORARY_TABLE_BUCKET_COLUMNS,
-                MaterializedResult.resultBuilder(SESSION, VARCHAR, VARCHAR).build(),
+                MaterializedResult.resultBuilder(SESSION.toConnectorSession(), VARCHAR, VARCHAR).build(),
                 session,
                 commit);
 
@@ -4054,7 +4054,7 @@ public abstract class AbstractTestHiveClient
         // creating the table
         doCreateEmptyTable(tableName, storageFormat, CREATE_TABLE_COLUMNS);
 
-        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(SESSION, CREATE_TABLE_DATA.getTypes());
+        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(SESSION.toConnectorSession(), CREATE_TABLE_DATA.getTypes());
         for (int i = 0; i < 3; i++) {
             insertData(tableName, CREATE_TABLE_DATA);
 
@@ -4410,7 +4410,7 @@ public abstract class AbstractTestHiveClient
         // creating the table
         doCreateEmptyTable(tableName, storageFormat, CREATE_TABLE_COLUMNS_PARTITIONED);
 
-        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(SESSION, CREATE_TABLE_PARTITIONED_DATA.getTypes());
+        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(SESSION.toConnectorSession(), CREATE_TABLE_PARTITIONED_DATA.getTypes());
         for (int i = 0; i < 3; i++) {
             // insert the data
             insertData(tableName, CREATE_TABLE_PARTITIONED_DATA);
@@ -4660,7 +4660,7 @@ public abstract class AbstractTestHiveClient
 
         insertData(tableName, CREATE_TABLE_PARTITIONED_DATA);
 
-        MaterializedResult.Builder expectedResultBuilder = MaterializedResult.resultBuilder(SESSION, CREATE_TABLE_PARTITIONED_DATA.getTypes());
+        MaterializedResult.Builder expectedResultBuilder = MaterializedResult.resultBuilder(SESSION.toConnectorSession(), CREATE_TABLE_PARTITIONED_DATA.getTypes());
         expectedResultBuilder.rows(CREATE_TABLE_PARTITIONED_DATA.getMaterializedRows());
 
         try (Transaction transaction = newTransaction()) {
@@ -4866,7 +4866,7 @@ public abstract class AbstractTestHiveClient
                         assertNull(row.getField(index));
                     }
                     else {
-                        SqlTimestamp expected = sqlTimestampOf(2011, 5, 6, 7, 8, 9, 123, timeZone, UTC_KEY, SESSION);
+                        SqlTimestamp expected = sqlTimestampOf(2011, 5, 6, 7, 8, 9, 123, timeZone, UTC_KEY, SESSION.toConnectorSession());
                         assertEquals(row.getField(index), expected);
                     }
                 }

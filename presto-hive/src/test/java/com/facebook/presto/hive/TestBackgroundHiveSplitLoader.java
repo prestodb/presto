@@ -254,7 +254,7 @@ public class TestBackgroundHiveSplitLoader
     public void testSplittableNotCheckedOnSmallFiles()
             throws Exception
     {
-        DataSize initialSplitSize = getMaxInitialSplitSize(SESSION);
+        DataSize initialSplitSize = getMaxInitialSplitSize(SESSION.toConnectorSession());
 
         Table.Builder builder = Table.builder(table(ImmutableList.of(), Optional.empty()));
         builder.getStorageBuilder().setStorageFormat(
@@ -263,7 +263,7 @@ public class TestBackgroundHiveSplitLoader
 
         //  Exactly minimum split size, no isSplittable check
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
-                SESSION,
+                SESSION.toConnectorSession(),
                 ImmutableList.of(locatedFileStatus(new Path(SAMPLE_PATH), initialSplitSize.toBytes())),
                 Optional.empty(),
                 Optional.empty(),
@@ -277,7 +277,7 @@ public class TestBackgroundHiveSplitLoader
 
         //  Large enough for isSplittable to be called
         backgroundHiveSplitLoader = backgroundHiveSplitLoader(
-                SESSION,
+                SESSION.toConnectorSession(),
                 ImmutableList.of(locatedFileStatus(new Path(SAMPLE_PATH), initialSplitSize.toBytes() + 1)),
                 Optional.empty(),
                 Optional.empty(),
@@ -570,7 +570,7 @@ public class TestBackgroundHiveSplitLoader
     private static HiveSplitSource hiveSplitSource(BackgroundHiveSplitLoader backgroundHiveSplitLoader)
     {
         return HiveSplitSource.allAtOnce(
-                SESSION,
+                SESSION.toConnectorSession(),
                 SIMPLE_TABLE.getDatabaseName(),
                 SIMPLE_TABLE.getTableName(),
                 new CacheQuotaRequirement(GLOBAL, Optional.empty()),

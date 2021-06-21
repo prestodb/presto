@@ -431,12 +431,12 @@ public class TestOrcBatchPageSourceMemoryTracking
 
         public ConnectorPageSource newPageSource()
         {
-            return newPageSource(new FileFormatDataSourceStats(), SESSION);
+            return newPageSource(new FileFormatDataSourceStats(), SESSION.toConnectorSession());
         }
 
         public ConnectorPageSource newPageSource(FileFormatDataSourceStats stats)
         {
-            return newPageSource(stats, SESSION);
+            return newPageSource(stats, SESSION.toConnectorSession());
         }
 
         public ConnectorPageSource newPageSource(FileFormatDataSourceStats stats, ConnectorSession session)
@@ -505,8 +505,8 @@ public class TestOrcBatchPageSourceMemoryTracking
             for (int i = 0; i < types.size(); i++) {
                 projectionsBuilder.add(field(i, types.get(i)));
             }
-            Supplier<CursorProcessor> cursorProcessor = EXPRESSION_COMPILER.compileCursorProcessor(SESSION.getSqlFunctionProperties(), Optional.empty(), projectionsBuilder.build(), "key");
-            Supplier<PageProcessor> pageProcessor = EXPRESSION_COMPILER.compilePageProcessor(SESSION.getSqlFunctionProperties(), Optional.empty(), projectionsBuilder.build());
+            Supplier<CursorProcessor> cursorProcessor = EXPRESSION_COMPILER.compileCursorProcessor(SESSION.toConnectorSession().getSqlFunctionProperties(), Optional.empty(), projectionsBuilder.build(), "key");
+            Supplier<PageProcessor> pageProcessor = EXPRESSION_COMPILER.compilePageProcessor(SESSION.toConnectorSession().getSqlFunctionProperties(), Optional.empty(), projectionsBuilder.build());
             SourceOperatorFactory sourceOperatorFactory = new ScanFilterAndProjectOperatorFactory(
                     0,
                     new PlanNodeId("test"),

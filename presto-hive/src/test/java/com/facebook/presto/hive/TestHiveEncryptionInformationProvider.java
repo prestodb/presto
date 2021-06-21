@@ -61,7 +61,7 @@ public class TestHiveEncryptionInformationProvider
                 new TestEncryptionInformationSource(Optional.empty()),
                 new TestEncryptionInformationSource(Optional.empty())));
 
-        assertFalse(provider.getReadEncryptionInformation(SESSION, TEST_TABLE, Optional.empty()).isPresent());
+        assertFalse(provider.getReadEncryptionInformation(SESSION.toConnectorSession(), TEST_TABLE, Optional.empty()).isPresent());
     }
 
     @Test
@@ -76,7 +76,7 @@ public class TestHiveEncryptionInformationProvider
                 new TestEncryptionInformationSource(Optional.of(encryptionInformation1)),
                 new TestEncryptionInformationSource(Optional.of(encryptionInformation2))));
 
-        assertEquals(provider.getReadEncryptionInformation(SESSION, TEST_TABLE, Optional.empty()).get(), encryptionInformation1);
+        assertEquals(provider.getReadEncryptionInformation(SESSION.toConnectorSession(), TEST_TABLE, Optional.empty()).get(), encryptionInformation1);
     }
 
     private static final class TestEncryptionInformationSource
