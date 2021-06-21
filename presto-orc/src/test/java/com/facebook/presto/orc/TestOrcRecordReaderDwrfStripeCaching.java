@@ -34,8 +34,6 @@ import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AG
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
-import static com.facebook.presto.orc.TestOrcReaderDwrfStripeCaching.getResourceFile;
-import static com.facebook.presto.orc.TestOrcReaderDwrfStripeCaching.readFileFooter;
 import static com.facebook.presto.orc.metadata.DwrfStripeCacheMode.FOOTER;
 import static com.facebook.presto.orc.metadata.DwrfStripeCacheMode.INDEX;
 import static com.facebook.presto.orc.metadata.DwrfStripeCacheMode.INDEX_AND_FOOTER;
@@ -45,14 +43,14 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
 public class TestOrcRecordReaderDwrfStripeCaching
+        extends AbstractTestDwrfStripeCaching
 {
     private static final int READ_TAIL_SIZE = 64;
 
-    @Test
-    public void testBothAllStripes()
+    @Test(dataProvider = "Stripe cache for ALL stripes with mode BOTH")
+    public void testBothAllStripes(File orcFile)
             throws IOException
     {
-        File orcFile = getResourceFile("DwrfStripeCache_BOTH_AllStripes.orc");
         DwrfProto.Footer footer = readFileFooter(orcFile);
         List<DwrfProto.StripeInformation> stripes = footer.getStripesList();
         List<DiskRange> forbiddenRanges = getStripeRanges(INDEX_AND_FOOTER, stripes);
@@ -60,11 +58,10 @@ public class TestOrcRecordReaderDwrfStripeCaching
         assertFileContentCachingDisabled(orcFile);
     }
 
-    @Test
-    public void testBothHalfStripes()
+    @Test(dataProvider = "Stripe cache for HALF stripes with mode BOTH")
+    public void testBothHalfStripes(File orcFile)
             throws IOException
     {
-        File orcFile = getResourceFile("DwrfStripeCache_BOTH_HalfStripes.orc");
         DwrfProto.Footer footer = readFileFooter(orcFile);
         List<DwrfProto.StripeInformation> stripes = footer.getStripesList().subList(0, 1);
         List<DiskRange> forbiddenRanges = getStripeRanges(INDEX_AND_FOOTER, stripes);
@@ -72,11 +69,10 @@ public class TestOrcRecordReaderDwrfStripeCaching
         assertFileContentCachingDisabled(orcFile);
     }
 
-    @Test
-    public void testIndexAllStripes()
+    @Test(dataProvider = "Stripe cache for ALL stripes with mode INDEX")
+    public void testIndexAllStripes(File orcFile)
             throws IOException
     {
-        File orcFile = getResourceFile("DwrfStripeCache_INDEX_AllStripes.orc");
         DwrfProto.Footer footer = readFileFooter(orcFile);
         List<DwrfProto.StripeInformation> stripes = footer.getStripesList();
         List<DiskRange> forbiddenRanges = getStripeRanges(INDEX, stripes);
@@ -84,11 +80,10 @@ public class TestOrcRecordReaderDwrfStripeCaching
         assertFileContentCachingDisabled(orcFile);
     }
 
-    @Test
-    public void testIndexHalfStripes()
+    @Test(dataProvider = "Stripe cache for HALF stripes with mode INDEX")
+    public void testIndexHalfStripes(File orcFile)
             throws IOException
     {
-        File orcFile = getResourceFile("DwrfStripeCache_INDEX_HalfStripes.orc");
         DwrfProto.Footer footer = readFileFooter(orcFile);
         List<DwrfProto.StripeInformation> stripes = footer.getStripesList().subList(0, 1);
         List<DiskRange> forbiddenRanges = getStripeRanges(INDEX, stripes);
@@ -96,11 +91,10 @@ public class TestOrcRecordReaderDwrfStripeCaching
         assertFileContentCachingDisabled(orcFile);
     }
 
-    @Test
-    public void testFooterAllStripes()
+    @Test(dataProvider = "Stripe cache for ALL stripes with mode FOOTER")
+    public void testFooterAllStripes(File orcFile)
             throws IOException
     {
-        File orcFile = getResourceFile("DwrfStripeCache_FOOTER_AllStripes.orc");
         DwrfProto.Footer footer = readFileFooter(orcFile);
         List<DwrfProto.StripeInformation> stripes = footer.getStripesList();
         List<DiskRange> forbiddenRanges = getStripeRanges(FOOTER, stripes);
@@ -108,11 +102,10 @@ public class TestOrcRecordReaderDwrfStripeCaching
         assertFileContentCachingDisabled(orcFile);
     }
 
-    @Test
-    public void testFooterHalfStripes()
+    @Test(dataProvider = "Stripe cache for HALF stripes with mode FOOTER")
+    public void testFooterHalfStripes(File orcFile)
             throws IOException
     {
-        File orcFile = getResourceFile("DwrfStripeCache_FOOTER_HalfStripes.orc");
         DwrfProto.Footer footer = readFileFooter(orcFile);
         List<DwrfProto.StripeInformation> stripes = footer.getStripesList().subList(0, 1);
         List<DiskRange> forbiddenRanges = getStripeRanges(FOOTER, stripes);
@@ -120,11 +113,19 @@ public class TestOrcRecordReaderDwrfStripeCaching
         assertFileContentCachingDisabled(orcFile);
     }
 
-    @Test
-    public void testNoneAllStripes()
+    @Test(dataProvider = "Stripe cache with mode NONE")
+    public void testNoneAllStripes(File orcFile)
             throws IOException
     {
-        File orcFile = getResourceFile("DwrfStripeCache_NONE.orc");
+        List<DiskRange> forbiddenRanges = ImmutableList.of();
+        assertFileContentCachingEnabled(orcFile, forbiddenRanges);
+        assertFileContentCachingDisabled(orcFile);
+    }
+
+    @Test(dataProvider = "Stripe cache disabled")
+    public void testStripeCacheDisabled(File orcFile)
+            throws IOException
+    {
         List<DiskRange> forbiddenRanges = ImmutableList.of();
         assertFileContentCachingEnabled(orcFile, forbiddenRanges);
         assertFileContentCachingDisabled(orcFile);

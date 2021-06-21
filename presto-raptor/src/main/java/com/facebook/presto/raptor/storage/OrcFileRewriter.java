@@ -194,6 +194,7 @@ public final class OrcFileRewriter
                                     Optional.empty(),
                                     NO_ENCRYPTION,
                                     DEFAULT_OPTION,
+                                    Optional.empty(),
                                     userMetadata,
                                     DEFAULT_STORAGE_TIMEZONE,
                                     validate,
