@@ -44,6 +44,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -135,14 +136,16 @@ public class SymbolMapper
     {
         // SymbolMapper inlines symbol with multiple level reference (SymbolInliner only inline single level).
         ImmutableList.Builder<VariableReferenceExpression> orderBy = ImmutableList.builder();
-        ImmutableMap.Builder<VariableReferenceExpression, SortOrder> ordering = ImmutableMap.builder();
+        HashMap<VariableReferenceExpression, SortOrder> orderingMap = new HashMap<VariableReferenceExpression, SortOrder>();
         for (VariableReferenceExpression variable : orderingScheme.getOrderByVariables()) {
             VariableReferenceExpression translated = map(variable);
-            orderBy.add(translated);
-            ordering.put(translated, orderingScheme.getOrdering(variable));
+            // Some variables may become duplicates after canonicalization, so we put them only once.
+            if (!orderingMap.containsKey(translated)) {
+                orderBy.add(translated);
+                orderingMap.put(translated, orderingScheme.getOrdering(variable));
+            }
         }
 
-        ImmutableMap<VariableReferenceExpression, SortOrder> orderingMap = ordering.build();
         return new OrderingScheme(orderBy.build().stream().map(variable -> new Ordering(variable, orderingMap.get(variable))).collect(toImmutableList()));
     }
 

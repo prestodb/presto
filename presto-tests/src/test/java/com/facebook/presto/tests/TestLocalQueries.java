@@ -144,4 +144,10 @@ public class TestLocalQueries
                 jsonCodec(IOPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
                 new IOPlan(ImmutableSet.of(input), Optional.empty()));
     }
+
+    @Test
+    public void testMultipleOrderingOnSameCanonicalVariables()
+    {
+        assertQuerySucceeds("SELECT ARRAY_AGG( x ORDER BY x ASC, y ASC ) FROM ( SELECT 0 as x, 0 AS y)");
+    }
 }
