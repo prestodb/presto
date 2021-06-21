@@ -17,27 +17,19 @@ import com.facebook.presto.orc.StripeReader.StripeId;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.orc.metadata.DwrfStripeCache;
 import com.facebook.presto.orc.proto.DwrfProto;
-import com.facebook.presto.orc.protobuf.CodedInputStream;
-import com.facebook.presto.orc.stream.OrcInputStream;
-import com.facebook.presto.orc.stream.SharedBuffer;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.RandomAccessFile;
 import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
-import static com.facebook.presto.orc.NoopOrcLocalMemoryContext.NOOP_ORC_LOCAL_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
-import static com.facebook.presto.orc.metadata.CompressionKind.ZLIB;
-import static com.google.common.io.Resources.getResource;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.toIntExact;
 import static org.testng.Assert.assertEquals;
@@ -45,15 +37,15 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestOrcReaderDwrfStripeCaching
+        extends AbstractTestDwrfStripeCaching
 {
     private static final int READ_TAIL_SIZE = 1024 * 1024;
     private static final OrcDataSourceId TEST_DATA_SOURCE_ID = new OrcDataSourceId("test");
 
-    @Test
-    public void testBothAllStripes()
+    @Test(dataProvider = "Stripe cache for ALL stripes with mode BOTH")
+    public void testBothAllStripes(File orcFile)
             throws IOException
     {
-        File orcFile = getResourceFile("DwrfStripeCache_BOTH_AllStripes.orc");
         Optional<DwrfStripeCache> optionalDwrfStripeCache = getDwrfStripeCache(orcFile);
         assertTrue(optionalDwrfStripeCache.isPresent());
         DwrfStripeCache dwrfStripeCache = optionalDwrfStripeCache.get();
@@ -71,11 +63,10 @@ public class TestOrcReaderDwrfStripeCaching
         }
     }
 
-    @Test
-    public void testBothHalfStripes()
+    @Test(dataProvider = "Stripe cache for HALF stripes with mode BOTH")
+    public void testBothHalfStripes(File orcFile)
             throws IOException
     {
-        File orcFile = getResourceFile("DwrfStripeCache_BOTH_HalfStripes.orc");
         Optional<DwrfStripeCache> optionalDwrfStripeCache = getDwrfStripeCache(orcFile);
         assertTrue(optionalDwrfStripeCache.isPresent());
         DwrfStripeCache dwrfStripeCache = optionalDwrfStripeCache.get();
@@ -99,11 +90,10 @@ public class TestOrcReaderDwrfStripeCaching
         }
     }
 
-    @Test
-    public void testIndexAllStripes()
+    @Test(dataProvider = "Stripe cache for ALL stripes with mode INDEX")
+    public void testIndexAllStripes(File orcFile)
             throws IOException
     {
-        File orcFile = getResourceFile("DwrfStripeCache_INDEX_AllStripes.orc");
         Optional<DwrfStripeCache> optionalDwrfStripeCache = getDwrfStripeCache(orcFile);
         assertTrue(optionalDwrfStripeCache.isPresent());
         DwrfStripeCache dwrfStripeCache = optionalDwrfStripeCache.get();
@@ -121,11 +111,10 @@ public class TestOrcReaderDwrfStripeCaching
         }
     }
 
-    @Test
-    public void testIndexHalfStripes()
+    @Test(dataProvider = "Stripe cache for HALF stripes with mode INDEX")
+    public void testIndexHalfStripes(File orcFile)
             throws IOException
     {
-        File orcFile = getResourceFile("DwrfStripeCache_INDEX_HalfStripes.orc");
         Optional<DwrfStripeCache> optionalDwrfStripeCache = getDwrfStripeCache(orcFile);
         assertTrue(optionalDwrfStripeCache.isPresent());
         DwrfStripeCache dwrfStripeCache = optionalDwrfStripeCache.get();
@@ -148,11 +137,10 @@ public class TestOrcReaderDwrfStripeCaching
         }
     }
 
-    @Test
-    public void testFooterAllStripes()
+    @Test(dataProvider = "Stripe cache for ALL stripes with mode FOOTER")
+    public void testFooterAllStripes(File orcFile)
             throws IOException
     {
-        File orcFile = getResourceFile("DwrfStripeCache_FOOTER_AllStripes.orc");
         Optional<DwrfStripeCache> optionalDwrfStripeCache = getDwrfStripeCache(orcFile);
         assertTrue(optionalDwrfStripeCache.isPresent());
         DwrfStripeCache dwrfStripeCache = optionalDwrfStripeCache.get();
@@ -170,11 +158,10 @@ public class TestOrcReaderDwrfStripeCaching
         }
     }
 
-    @Test
-    public void testFooterHalfStripes()
+    @Test(dataProvider = "Stripe cache for HALF stripes with mode FOOTER")
+    public void testFooterHalfStripes(File orcFile)
             throws IOException
     {
-        File orcFile = getResourceFile("DwrfStripeCache_FOOTER_HalfStripes.orc");
         Optional<DwrfStripeCache> optionalDwrfStripeCache = getDwrfStripeCache(orcFile);
         assertTrue(optionalDwrfStripeCache.isPresent());
         DwrfStripeCache dwrfStripeCache = optionalDwrfStripeCache.get();
@@ -197,11 +184,18 @@ public class TestOrcReaderDwrfStripeCaching
         }
     }
 
-    @Test
-    public void testNoneAllStripes()
+    @Test(dataProvider = "Stripe cache with mode NONE")
+    public void testNoneAllStripes(File orcFile)
             throws IOException
     {
-        File orcFile = getResourceFile("DwrfStripeCache_NONE.orc");
+        Optional<DwrfStripeCache> optionalDwrfStripeCache = getDwrfStripeCache(orcFile);
+        assertFalse(optionalDwrfStripeCache.isPresent());
+    }
+
+    @Test(dataProvider = "Stripe cache disabled")
+    public void testStripeCacheDisabled(File orcFile)
+            throws IOException
+    {
         Optional<DwrfStripeCache> optionalDwrfStripeCache = getDwrfStripeCache(orcFile);
         assertFalse(optionalDwrfStripeCache.isPresent());
     }
@@ -239,12 +233,6 @@ public class TestOrcReaderDwrfStripeCaching
         assertFalse(stripeFooterSlice.isPresent());
     }
 
-    static File getResourceFile(String fileName)
-    {
-        String resourceName = "dwrf_stripe_cache/" + fileName;
-        return new File(getResource(resourceName).getFile());
-    }
-
     private Optional<DwrfStripeCache> getDwrfStripeCache(File orcFile)
             throws IOException
     {
@@ -266,50 +254,6 @@ public class TestOrcReaderDwrfStripeCaching
                 NO_ENCRYPTION,
                 DwrfKeyProvider.EMPTY);
         return stripeMetadataSourceFactory.getDwrfStripeCache();
-    }
-
-    static DwrfProto.Footer readFileFooter(File orcFile)
-            throws IOException
-    {
-        try (RandomAccessFile file = new RandomAccessFile(orcFile, "r")) {
-            // read postscript size
-            file.seek(file.length() - 1);
-            int postScriptSize = file.read() & 0xff;
-
-            // read postscript
-            long postScriptPos = file.length() - postScriptSize - 1;
-            byte[] postScriptBytes = readBytes(file, postScriptPos, postScriptSize);
-            CodedInputStream postScriptInput = CodedInputStream.newInstance(postScriptBytes, 0, postScriptSize);
-            DwrfProto.PostScript postScript = DwrfProto.PostScript.parseFrom(postScriptInput);
-
-            // read footer
-            long footerPos = postScriptPos - postScript.getFooterLength();
-            int footerLen = toIntExact(postScript.getFooterLength());
-            byte[] footerBytes = readBytes(file, footerPos, postScript.getFooterLength());
-
-            int compressionBufferSize = toIntExact(postScript.getCompressionBlockSize());
-            OrcDataSourceId dataSourceId = new OrcDataSourceId(orcFile.getName());
-            Optional<OrcDecompressor> decompressor = OrcDecompressor.createOrcDecompressor(dataSourceId, ZLIB, compressionBufferSize);
-            InputStream footerInputStream = new OrcInputStream(
-                    dataSourceId,
-                    new SharedBuffer(NOOP_ORC_LOCAL_MEMORY_CONTEXT),
-                    Slices.wrappedBuffer(footerBytes).slice(0, footerLen).getInput(),
-                    decompressor,
-                    Optional.empty(),
-                    NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
-                    footerLen);
-
-            return DwrfProto.Footer.parseFrom(footerInputStream);
-        }
-    }
-
-    private static byte[] readBytes(RandomAccessFile file, long offset, long length)
-            throws IOException
-    {
-        byte[] buf = new byte[toIntExact(length)];
-        file.seek(offset);
-        file.readFully(buf, 0, buf.length);
-        return buf;
     }
 
     private static class CapturingStripeMetadataSourceFactory
