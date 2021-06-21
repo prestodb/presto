@@ -96,6 +96,7 @@ public class OrcFileWriter
                     dwrfWriterEncryption,
                     dwrfEncryptionProvider,
                     options,
+                    Optional.empty(),
                     metadata,
                     hiveStorageTimeZone,
                     validationInputFactory.isPresent(),

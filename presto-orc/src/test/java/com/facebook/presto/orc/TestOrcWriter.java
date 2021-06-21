@@ -88,6 +88,7 @@ public class TestOrcWriter
                     Optional.empty(),
                     NO_ENCRYPTION,
                     orcWriterOptions,
+                    Optional.empty(),
                     ImmutableMap.of(),
                     HIVE_STORAGE_TIME_ZONE,
                     true,
@@ -150,6 +151,7 @@ public class TestOrcWriter
                         .withRowGroupMaxRowCount(ORC_ROW_GROUP_SIZE)
                         .withDictionaryMaxMemory(new DataSize(32, MEGABYTE))
                         .build(),
+                Optional.empty(),
                 ImmutableMap.of(),
                 HIVE_STORAGE_TIME_ZONE,
                 false,

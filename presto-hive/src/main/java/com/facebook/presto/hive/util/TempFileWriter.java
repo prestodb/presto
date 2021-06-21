@@ -93,6 +93,7 @@ public class TempFileWriter
                             .withStripeMinSize(new DataSize(64, MEGABYTE))
                             .withDictionaryMaxMemory(new DataSize(1, MEGABYTE))
                             .build(),
+                    Optional.empty(),
                     ImmutableMap.of(),
                     UTC,
                     false,
