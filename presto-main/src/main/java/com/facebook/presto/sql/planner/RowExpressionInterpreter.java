@@ -24,6 +24,7 @@ import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.metadata.CastType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorSession;
@@ -73,9 +74,6 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.expressions.DynamicFilters.isDynamicFilter;
 import static com.facebook.presto.metadata.CastType.CAST;
-import static com.facebook.presto.metadata.CastType.JSON_TO_ARRAY_CAST;
-import static com.facebook.presto.metadata.CastType.JSON_TO_MAP_CAST;
-import static com.facebook.presto.metadata.CastType.JSON_TO_ROW_CAST;
 import static com.facebook.presto.spi.function.FunctionImplementationType.BUILTIN;
 import static com.facebook.presto.spi.function.FunctionImplementationType.SQL;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
@@ -805,31 +803,13 @@ public class RowExpressionInterpreter
                         checkArgument(innerCall.getType().equals(JSON));
                         checkArgument(innerCall.getArguments().size() == 1);
                         TypeSignature returnType = functionAndTypeManager.getFunctionMetadata(callExpression.getFunctionHandle()).getReturnType();
-                        if (returnType.getBase().equals(ARRAY)) {
+                        String returnTypeBase = returnType.getBase();
+                        if (returnTypeBase.equals(ARRAY) || returnTypeBase.equals(MAP) || returnTypeBase.equals(ROW)) {
+                            CastType castType = CastType.getCastTypeFromTypeSignature(returnType);
                             return changed(call(
-                                    JSON_TO_ARRAY_CAST.name(),
+                                    castType.name(),
                                     functionAndTypeManager.lookupCast(
-                                            JSON_TO_ARRAY_CAST,
-                                            parseTypeSignature(StandardTypes.VARCHAR),
-                                            returnType),
-                                    callExpression.getType(),
-                                    innerCall.getArguments()));
-                        }
-                        if (returnType.getBase().equals(MAP)) {
-                            return changed(call(
-                                    JSON_TO_MAP_CAST.name(),
-                                    functionAndTypeManager.lookupCast(
-                                            JSON_TO_MAP_CAST,
-                                            parseTypeSignature(StandardTypes.VARCHAR),
-                                            returnType),
-                                    callExpression.getType(),
-                                    innerCall.getArguments()));
-                        }
-                        if (returnType.getBase().equals(ROW)) {
-                            return changed(call(
-                                    JSON_TO_ROW_CAST.name(),
-                                    functionAndTypeManager.lookupCast(
-                                            JSON_TO_ROW_CAST,
+                                            castType,
                                             parseTypeSignature(StandardTypes.VARCHAR),
                                             returnType),
                                     callExpression.getType(),
