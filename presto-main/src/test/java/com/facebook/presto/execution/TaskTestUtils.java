@@ -18,6 +18,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.cost.StatsAndCosts;
+import com.facebook.presto.dispatcher.NoOpQueryManager;
 import com.facebook.presto.event.SplitMonitor;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.buffer.OutputBuffers;
@@ -143,7 +144,9 @@ public final class TaskTestUtils
                 new InMemoryNodeManager(),
                 new NodeSelectionStats(),
                 new NodeSchedulerConfig().setIncludeCoordinator(true),
-                new NodeTaskMap(finalizerService));
+                new NodeTaskMap(finalizerService),
+                Optional.empty(),
+                new NoOpQueryManager());
         PartitioningProviderManager partitioningProviderManager = new PartitioningProviderManager();
         NodePartitioningManager nodePartitioningManager = new NodePartitioningManager(nodeScheduler, partitioningProviderManager);
 

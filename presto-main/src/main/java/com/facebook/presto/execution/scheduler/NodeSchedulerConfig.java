@@ -24,19 +24,13 @@ import javax.validation.constraints.NotNull;
 @DefunctConfig({"node-scheduler.location-aware-scheduling-enabled", "node-scheduler.multiple-tasks-per-node-enabled"})
 public class NodeSchedulerConfig
 {
-    public static class NetworkTopologyType
-    {
-        public static final String LEGACY = "legacy";
-        public static final String FLAT = "flat";
-        public static final String BENCHMARK = "benchmark";
-    }
-
     private int minCandidates = 10;
     private boolean includeCoordinator = true;
     private int maxSplitsPerNode = 100;
     private int maxPendingSplitsPerTask = 10;
     private int maxUnacknowledgedSplitsPerTask = 500;
     private String networkTopology = NetworkTopologyType.LEGACY;
+    private ResourceAwareSchedulingStrategy resourceAwareSchedulingStrategy = ResourceAwareSchedulingStrategy.RANDOM;
 
     @NotNull
     public String getNetworkTopology()
@@ -76,17 +70,17 @@ public class NodeSchedulerConfig
         return this;
     }
 
+    public int getMaxPendingSplitsPerTask()
+    {
+        return maxPendingSplitsPerTask;
+    }
+
     @Config("node-scheduler.max-pending-splits-per-task")
     @LegacyConfig({"node-scheduler.max-pending-splits-per-node-per-task", "node-scheduler.max-pending-splits-per-node-per-stage"})
     public NodeSchedulerConfig setMaxPendingSplitsPerTask(int maxPendingSplitsPerTask)
     {
         this.maxPendingSplitsPerTask = maxPendingSplitsPerTask;
         return this;
-    }
-
-    public int getMaxPendingSplitsPerTask()
-    {
-        return maxPendingSplitsPerTask;
     }
 
     public int getMaxSplitsPerNode()
@@ -113,5 +107,30 @@ public class NodeSchedulerConfig
     {
         this.maxUnacknowledgedSplitsPerTask = maxUnacknowledgedSplitsPerTask;
         return this;
+    }
+
+    public ResourceAwareSchedulingStrategy getResourceAwareSchedulingStrategy()
+    {
+        return resourceAwareSchedulingStrategy;
+    }
+
+    @Config("experimental.resource-aware-scheduling-strategy")
+    public NodeSchedulerConfig setResourceAwareSchedulingStrategy(ResourceAwareSchedulingStrategy resourceAwareSchedulingStrategy)
+    {
+        this.resourceAwareSchedulingStrategy = resourceAwareSchedulingStrategy;
+        return this;
+    }
+
+    public enum ResourceAwareSchedulingStrategy
+    {
+        RANDOM,
+        TTL
+    }
+
+    public static class NetworkTopologyType
+    {
+        public static final String LEGACY = "legacy";
+        public static final String FLAT = "flat";
+        public static final String BENCHMARK = "benchmark";
     }
 }

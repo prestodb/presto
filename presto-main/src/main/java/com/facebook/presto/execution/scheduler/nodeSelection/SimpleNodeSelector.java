@@ -126,12 +126,14 @@ public class SimpleNodeSelector
     @Override
     public List<InternalNode> selectRandomNodes(int limit, Set<InternalNode> excludedNodes)
     {
+        log.info("NORMAL_SELECTRANDOMNODES");
         return selectNodes(limit, randomizedNodes(nodeMap.get().get(), includeCoordinator, excludedNodes));
     }
 
     @Override
     public SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks)
     {
+        log.info("NORMAL_COMPUTEASSIGNMENTS");
         Multimap<InternalNode, Split> assignment = HashMultimap.create();
         NodeMap nodeMap = this.nodeMap.get().get();
         NodeAssignmentStats assignmentStats = new NodeAssignmentStats(nodeTaskMap, nodeMap, existingTasks);
@@ -217,10 +219,11 @@ public class SimpleNodeSelector
     @Override
     public SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks, BucketNodeMap bucketNodeMap)
     {
+        log.info("NORMAL_COMPUTEASSIGNMENTS2");
         return selectDistributionNodes(nodeMap.get().get(), nodeTaskMap, maxSplitsPerNode, maxPendingSplitsPerTask, maxUnacknowledgedSplitsPerTask, splits, existingTasks, bucketNodeMap, nodeSelectionStats);
     }
 
-    private Optional<InternalNodeInfo> chooseLeastBusyNode(List<InternalNode> candidateNodes, ToIntFunction<InternalNode> splitCountProvider, OptionalInt preferredNodeCount, int maxSplitCount, NodeAssignmentStats assignmentStats)
+    public Optional<InternalNodeInfo> chooseLeastBusyNode(List<InternalNode> candidateNodes, ToIntFunction<InternalNode> splitCountProvider, OptionalInt preferredNodeCount, int maxSplitCount, NodeAssignmentStats assignmentStats)
     {
         int min = Integer.MAX_VALUE;
         InternalNode chosenNode = null;

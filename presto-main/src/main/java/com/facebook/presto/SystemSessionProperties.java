@@ -17,6 +17,7 @@ import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.execution.scheduler.NodeSchedulerConfig.ResourceAwareSchedulingStrategy;
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.execution.warnings.WarningHandlingLevel;
 import com.facebook.presto.memory.MemoryManagerConfig;
@@ -187,6 +188,7 @@ public final class SystemSessionProperties
     public static final String PARTIAL_RESULTS_ENABLED = "partial_results_enabled";
     public static final String PARTIAL_RESULTS_COMPLETION_RATIO_THRESHOLD = "partial_results_completion_ratio_threshold";
     public static final String PARTIAL_RESULTS_MAX_EXECUTION_TIME_MULTIPLIER = "partial_results_max_execution_time_multiplier";
+    public static final String RESOURCE_AWARE_SCHEDULING_STRATEGY = "resource_aware_scheduling_strategy";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1002,7 +1004,19 @@ public final class SystemSessionProperties
                         PARTIAL_RESULTS_MAX_EXECUTION_TIME_MULTIPLIER,
                         "This value is multiplied by the time taken to reach the completion ratio threshold and is set as max task end time",
                         featuresConfig.getPartialResultsMaxExecutionTimeMultiplier(),
-                        false));
+                        false),
+                new PropertyMetadata<>(
+                        RESOURCE_AWARE_SCHEDULING_STRATEGY,
+                        format("Task assignment strategy to use. Options are %s",
+                                Stream.of(ResourceAwareSchedulingStrategy.values())
+                                        .map(ResourceAwareSchedulingStrategy::name)
+                                        .collect(joining(","))),
+                        VARCHAR,
+                        ResourceAwareSchedulingStrategy.class,
+                        nodeSchedulerConfig.getResourceAwareSchedulingStrategy(),
+                        false,
+                        value -> ResourceAwareSchedulingStrategy.valueOf(((String) value).toUpperCase()),
+                        ResourceAwareSchedulingStrategy::name));
     }
 
     public static boolean isEmptyJoinOptimization(Session session)
@@ -1023,11 +1037,6 @@ public final class SystemSessionProperties
     public static boolean isAllowWindowOrderByLiterals(Session session)
     {
         return session.getSystemProperty(ALLOW_WINDOW_ORDER_BY_LITERALS, Boolean.class);
-    }
-
-    public List<PropertyMetadata<?>> getSessionProperties()
-    {
-        return sessionProperties;
     }
 
     public static String getExecutionPolicy(Session session)
@@ -1689,5 +1698,15 @@ public final class SystemSessionProperties
     public static double getPartialResultsMaxExecutionTimeMultiplier(Session session)
     {
         return session.getSystemProperty(PARTIAL_RESULTS_MAX_EXECUTION_TIME_MULTIPLIER, Double.class);
+    }
+
+    public static ResourceAwareSchedulingStrategy getResourceAwareSchedulingStrategy(Session session)
+    {
+        return session.getSystemProperty(RESOURCE_AWARE_SCHEDULING_STRATEGY, ResourceAwareSchedulingStrategy.class);
+    }
+
+    public List<PropertyMetadata<?>> getSessionProperties()
+    {
+        return sessionProperties;
     }
 }
