@@ -1007,7 +1007,7 @@ public class PlanPrinter
         @Override
         public Void visitIntersect(IntersectNode node, Void context)
         {
-            addNode(node, "Intersect");
+            addNode(node, "Intersect", node.isDistinct() ? "distinct" : "all");
 
             return processChildren(node, context);
         }
@@ -1015,7 +1015,7 @@ public class PlanPrinter
         @Override
         public Void visitExcept(ExceptNode node, Void context)
         {
-            addNode(node, "Except");
+            addNode(node, "Except", node.isDistinct() ? "distinct" : "all");
 
             return processChildren(node, context);
         }

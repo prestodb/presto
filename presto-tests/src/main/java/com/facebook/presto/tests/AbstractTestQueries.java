@@ -1415,9 +1415,105 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testIntersectAllFails()
+    public void testIntersectAll()
     {
-        assertQueryFails("SELECT * FROM (VALUES 1, 2, 3, 4) INTERSECT ALL SELECT * FROM (VALUES 3, 4)", "line 1:35: INTERSECT ALL not yet implemented");
+        assertQuery(
+                "SELECT * FROM (VALUES 1, 2, 3, 4) INTERSECT ALL SELECT * FROM (VALUES 3, 4)",
+                "VALUES 3, 4");
+
+        assertQuery(
+                "SELECT * FROM (VALUES 4, 4, 4, 3, 3, 2, 1) INTERSECT ALL SELECT * FROM (VALUES 3, 3, 3, 4, 4)",
+                "VALUES 3, 3, 4, 4");
+
+        assertQuery(
+                "SELECT * FROM (VALUES 1, 2, 3, 3, 4, 4, 4, null, null) INTERSECT ALL SELECT * FROM (VALUES 3, 3, 3, 4, 4, null, null)",
+                "VALUES 3, 3, 4, 4, null, null");
+        assertQuery(
+                "VALUES " +
+                        "(1, 'a'), " +
+                        "(1, 'b'), " +
+                        "(1, null), " +
+                        "(2, 'c'), " +
+                        "(null, 'a'), " +
+                        "(null, null) " +
+                        "INTERSECT ALL VALUES " +
+                        "(1, 'a'), " +
+                        "(1, 'a'), " +
+                        "(1, null), " +
+                        "(2, null), " +
+                        "(null, 'a'), " +
+                        "(null, 'x'), " +
+                        "(null, null)",
+                "VALUES " +
+                        "(1, 'a'), " +
+                        "(1, null), " +
+                        "(null, 'a'), " +
+                        "(null, null)");
+
+        // multiple INTERSECT nodes
+        assertQuery(
+                "VALUES 1, 1, 1 INTERSECT ALL VALUES 1, 1 INTERSECT ALL VALUES 1",
+                "VALUES 1");
+
+        assertQuery(
+                "(VALUES 1, 1, 1 INTERSECT ALL VALUES 1, 1) INTERSECT ALL VALUES 1",
+                "VALUES 1");
+
+        assertQuery(
+                "VALUES 1, 1, 1 INTERSECT ALL (VALUES 1, 1 INTERSECT ALL VALUES 1)",
+                "VALUES 1");
+    }
+
+    @Test
+    public void testExceptAll()
+    {
+        assertQuery(
+                "SELECT * FROM (VALUES 1, 2, 3, 4) EXCEPT ALL SELECT * FROM (VALUES 3, 4)",
+                "VALUES 1, 2");
+
+        assertQuery(
+                "SELECT * FROM (VALUES 4, 4, 4, 3, 3) EXCEPT ALL SELECT * FROM (VALUES 1, 2, 3, 3, 3, 4, 4)",
+                "VALUES 4");
+        assertQuery(
+                "SELECT * FROM (VALUES 4, 4, 4, 3, 3) EXCEPT ALL SELECT * FROM (VALUES 1, 2, 3, 3, 3, 4)",
+                "VALUES 4, 4");
+
+        assertQuery(
+                "SELECT * FROM (VALUES 1, 2, 3, 3, 4, 4, 4, null, null) EXCEPT ALL SELECT * FROM (VALUES 3, 3, 3, 4, 4, null)",
+                "VALUES 1, 2, 4, null");
+
+        assertQuery(
+                "VALUES " +
+                        "(1, 'a'), " +
+                        "(1, 'a'), " +
+                        "(1, null), " +
+                        "(2, 'c'), " +
+                        "(null, 'a'), " +
+                        "(null, null) " +
+                        "EXCEPT ALL VALUES " +
+                        "(1, 'a'), " +
+                        "(1, 'b'), " +
+                        "(1, null), " +
+                        "(2, null), " +
+                        "(null, 'a'), " +
+                        "(null, 'x'), " +
+                        "(null, null)",
+                "VALUES " +
+                        "(1, 'a'), " +
+                        "(2, 'c')");
+
+        // multiple EXCEPT nodes
+        assertQuery(
+                "VALUES 1, 1, 1 EXCEPT ALL VALUES 1, 1 EXCEPT ALL VALUES 1",
+                "SELECT 1 WHERE false");
+
+        assertQuery(
+                "(VALUES 1, 1, 1 EXCEPT ALL VALUES 1, 1) EXCEPT ALL VALUES 1",
+                "SELECT 1 WHERE false");
+
+        assertQuery(
+                "VALUES 1, 1, 1 EXCEPT ALL (VALUES 1, 1 EXCEPT ALL VALUES 1)",
+                "VALUES 1, 1");
     }
 
     @Test
@@ -1475,12 +1571,6 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT COUNT(a) FROM (SELECT nationkey AS a FROM (SELECT nationkey FROM nation EXCEPT SELECT regionkey FROM nation) n1 EXCEPT SELECT regionkey FROM nation) n2");
         assertQuery("SELECT COUNT(*), SUM(2), regionkey FROM (SELECT nationkey, regionkey FROM nation EXCEPT SELECT regionkey, regionkey FROM nation) n GROUP BY regionkey HAVING regionkey < 3");
         assertQuery("SELECT COUNT(*) FROM (SELECT nationkey FROM nation EXCEPT SELECT 10) n1 EXCEPT SELECT regionkey FROM nation");
-    }
-
-    @Test
-    public void testExceptAllFails()
-    {
-        assertQueryFails("SELECT * FROM (VALUES 1, 2, 3, 4) EXCEPT ALL SELECT * FROM (VALUES 3, 4)", "line 1:35: EXCEPT ALL not yet implemented");
     }
 
     @Test

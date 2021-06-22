@@ -67,4 +67,6 @@ public interface StandardFunctionResolution
     boolean isMinFunction(FunctionHandle functionHandle);
 
     FunctionHandle minFunction(Type valueType);
+
+    FunctionHandle rowNumberFunction();
 }

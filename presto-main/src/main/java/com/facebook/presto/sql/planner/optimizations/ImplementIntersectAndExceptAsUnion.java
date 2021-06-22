@@ -36,16 +36,21 @@ import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
+import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
+import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Maps;
 
@@ -59,11 +64,16 @@ import static com.facebook.presto.spi.plan.AggregationNode.Step;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.sql.planner.optimizations.SetOperationNodeUtils.fromListMultimap;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
+import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.UNBOUNDED_FOLLOWING;
+import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.UNBOUNDED_PRECEDING;
+import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType.ROWS;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
+import static com.facebook.presto.sql.tree.ArithmeticBinaryExpression.Operator.SUBTRACT;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
 import static java.util.Objects.requireNonNull;
@@ -165,10 +175,20 @@ public class ImplementIntersectAndExceptAsUnion
             List<VariableReferenceExpression> outputs = node.getOutputVariables();
             UnionNode union = union(withMarkers, ImmutableList.copyOf(concat(outputs, markers)));
 
+            List<VariableReferenceExpression> countOutputs = allocateVariables(markers.size(), "count", BIGINT);
+
             // add count aggregations and filter rows where any of the counts is >= 1
-            List<VariableReferenceExpression> aggregationOutputs = allocateVariables(markers.size(), "count", BIGINT);
-            AggregationNode aggregation = computeCounts(union, node.getOutputVariables(), markers, aggregationOutputs);
-            FilterNode filterNode = addFilterForIntersect(aggregation);
+            if (node.isDistinct()) {
+                AggregationNode aggregation = computeCounts(union, node.getOutputVariables(), markers, countOutputs);
+                FilterNode filterNode = addFilterForIntersectDistinct(aggregation);
+
+                return project(filterNode, outputs);
+            }
+
+            // add row_number, count aggregations and filter rows where row_number <= least(count)
+            VariableReferenceExpression rowNumber = variableAllocator.newVariable("row_number", BIGINT);
+            WindowNode window = computeCountsAndRowNumber(union, node.getOutputVariables(), markers, countOutputs, rowNumber);
+            FilterNode filterNode = addFilterForIntersectAll(window, countOutputs, rowNumber);
 
             return project(filterNode, outputs);
         }
@@ -190,11 +210,19 @@ public class ImplementIntersectAndExceptAsUnion
             List<VariableReferenceExpression> outputs = node.getOutputVariables();
             UnionNode union = union(withMarkers, ImmutableList.copyOf(concat(outputs, markers)));
 
-            // add count aggregations and filter rows where count for the first source is >= 1 and all others are 0
-            List<VariableReferenceExpression> aggregationOutputs = allocateVariables(markers.size(), "count", BIGINT);
-            AggregationNode aggregation = computeCounts(union, node.getOutputVariables(), markers, aggregationOutputs);
-            FilterNode filterNode = addFilterForExcept(aggregation, aggregationOutputs.get(0), aggregationOutputs.subList(1, aggregationOutputs.size()));
+            List<VariableReferenceExpression> countOutputs = allocateVariables(markers.size(), "count", BIGINT);
 
+            // add count aggregations and filter rows where count for the first source is >= 1 and all others are 0
+            if (node.isDistinct()) {
+                AggregationNode aggregation = computeCounts(union, node.getOutputVariables(), markers, countOutputs);
+                FilterNode filterNode = addFilterForExceptDistinct(aggregation, countOutputs.get(0), countOutputs.subList(1, countOutputs.size()));
+                return project(filterNode, outputs);
+            }
+
+            // add count aggregations and filter rows where count for the first source is >= 1 and all others are 0
+            VariableReferenceExpression rowNumber = variableAllocator.newVariable("row_number", BIGINT);
+            WindowNode window = computeCountsAndRowNumber(union, node.getOutputVariables(), markers, countOutputs, rowNumber);
+            FilterNode filterNode = addFilterForExceptAll(window, countOutputs, rowNumber);
             return project(filterNode, outputs);
         }
 
@@ -226,7 +254,7 @@ public class ImplementIntersectAndExceptAsUnion
             }
 
             // add extra marker fields to the projection
-            for (int i = 0; i < markers.size(); ++i) {
+            for (int i = 0; i < markers.size(); i++) {
                 Expression expression = (i == markerIndex) ? TRUE_LITERAL : new Cast(new NullLiteral(), StandardTypes.BOOLEAN);
                 assignments.put(variableAllocator.newVariable(markers.get(i).getName(), BOOLEAN), castToRowExpression(expression));
             }
@@ -247,7 +275,7 @@ public class ImplementIntersectAndExceptAsUnion
             return new UnionNode(idAllocator.getNextId(), nodes, ImmutableList.copyOf(mapping.keySet()), fromListMultimap(mapping));
         }
 
-        private AggregationNode computeCounts(UnionNode sourceNode, List<VariableReferenceExpression> originalColumns, List<VariableReferenceExpression> markers, List<VariableReferenceExpression> aggregationOutputs)
+        private AggregationNode computeCounts(PlanNode sourceNode, List<VariableReferenceExpression> originalColumns, List<VariableReferenceExpression> markers, List<VariableReferenceExpression> aggregationOutputs)
         {
             ImmutableMap.Builder<VariableReferenceExpression, Aggregation> aggregations = ImmutableMap.builder();
 
@@ -275,7 +303,56 @@ public class ImplementIntersectAndExceptAsUnion
                     Optional.empty());
         }
 
-        private FilterNode addFilterForIntersect(AggregationNode aggregation)
+        private WindowNode computeCountsAndRowNumber(UnionNode sourceNode, List<VariableReferenceExpression> originalColumns, List<VariableReferenceExpression> markers, List<VariableReferenceExpression> countOutputs, VariableReferenceExpression rowNumber)
+        {
+            ImmutableMap.Builder<VariableReferenceExpression, WindowNode.Function> functions = ImmutableMap.builder();
+            WindowNode.Frame defaultFrame = new WindowNode.Frame(ROWS, UNBOUNDED_PRECEDING, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty(), Optional.empty());
+
+            // Add WindowNode to compute row number for each entry
+            WindowNode window = new WindowNode(
+                    idAllocator.getNextId(),
+                    sourceNode,
+                    new WindowNode.Specification(originalColumns, Optional.empty()),
+                    ImmutableMap.of(
+                            rowNumber,
+                            new WindowNode.Function(
+                                new CallExpression(
+                                        "row_number",
+                                        functionResolution.rowNumberFunction(),
+                                        BIGINT,
+                                        ImmutableList.of(castToRowExpression(asSymbolReference(rowNumber)))),
+                                defaultFrame,
+                                false)),
+                    Optional.empty(),
+                    ImmutableSet.of(),
+                    0);
+
+            // Add WindowNode to compute count of each marker. We use different window nodes because ``WindowFilterPushDown``
+            // optimization assumes only one window function. Consecutive windows are later merged by ``GatherAndMergeWindows``.
+            for (int i = 0; i < markers.size(); ++i) {
+                window = new WindowNode(
+                        idAllocator.getNextId(),
+                        window,
+                        new WindowNode.Specification(originalColumns, Optional.empty()),
+                        ImmutableMap.of(
+                                countOutputs.get(i),
+                                new WindowNode.Function(
+                                        new CallExpression(
+                                                "count",
+                                                functionResolution.countFunction(markers.get(i).getType()),
+                                                BIGINT,
+                                                ImmutableList.of(castToRowExpression(asSymbolReference(markers.get(i))))),
+                                        defaultFrame,
+                                        false)),
+                        Optional.empty(),
+                        ImmutableSet.of(),
+                        0);
+            }
+
+            return window;
+        }
+
+        private FilterNode addFilterForIntersectDistinct(AggregationNode aggregation)
         {
             ImmutableList<Expression> predicates = aggregation.getAggregations().keySet().stream()
                     .map(column -> new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference(column.getName()), new GenericLiteral("BIGINT", "1")))
@@ -283,7 +360,17 @@ public class ImplementIntersectAndExceptAsUnion
             return new FilterNode(idAllocator.getNextId(), aggregation, castToRowExpression(ExpressionUtils.and(predicates)));
         }
 
-        private FilterNode addFilterForExcept(AggregationNode aggregation, VariableReferenceExpression firstSource, List<VariableReferenceExpression> remainingSources)
+        private FilterNode addFilterForIntersectAll(WindowNode window, List<VariableReferenceExpression> countOutputs, VariableReferenceExpression rowNumber)
+        {
+            Expression minCount = new SymbolReference(countOutputs.get(0).getName());
+            for (int i = 1; i < countOutputs.size(); ++i) {
+                minCount = new FunctionCall(QualifiedName.of("least"), ImmutableList.of(minCount, new SymbolReference(countOutputs.get(i).getName())));
+            }
+            Expression removeExtraRows = new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference(rowNumber.getName()), minCount);
+            return new FilterNode(idAllocator.getNextId(), window, castToRowExpression(removeExtraRows));
+        }
+
+        private FilterNode addFilterForExceptDistinct(AggregationNode aggregation, VariableReferenceExpression firstSource, List<VariableReferenceExpression> remainingSources)
         {
             ImmutableList.Builder<Expression> predicatesBuilder = ImmutableList.builder();
             predicatesBuilder.add(new ComparisonExpression(GREATER_THAN_OR_EQUAL, new SymbolReference(firstSource.getName()), new GenericLiteral("BIGINT", "1")));
@@ -292,6 +379,16 @@ public class ImplementIntersectAndExceptAsUnion
             }
 
             return new FilterNode(idAllocator.getNextId(), aggregation, castToRowExpression(ExpressionUtils.and(predicatesBuilder.build())));
+        }
+
+        private FilterNode addFilterForExceptAll(WindowNode window, List<VariableReferenceExpression> countOutputs, VariableReferenceExpression rowNumber)
+        {
+            Expression count = new SymbolReference(countOutputs.get(0).getName());
+            for (int i = 1; i < countOutputs.size(); ++i) {
+                count = new ArithmeticBinaryExpression(SUBTRACT, count, new SymbolReference(countOutputs.get(i).getName()));
+            }
+            Expression removeExtraRows = new ComparisonExpression(LESS_THAN_OR_EQUAL, new SymbolReference(rowNumber.getName()), count);
+            return new FilterNode(idAllocator.getNextId(), window, castToRowExpression(removeExtraRows));
         }
 
         private ProjectNode project(PlanNode node, List<VariableReferenceExpression> columns)

@@ -450,12 +450,26 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern intersect(PlanMatchPattern... sources)
     {
-        return node(IntersectNode.class, sources);
+        return node(IntersectNode.class, sources)
+                .with(new DistinctMatcher(true));
+    }
+
+    public static PlanMatchPattern intersect(boolean distinct, PlanMatchPattern... sources)
+    {
+        return node(IntersectNode.class, sources)
+                .with(new DistinctMatcher(distinct));
     }
 
     public static PlanMatchPattern except(PlanMatchPattern... sources)
     {
-        return node(ExceptNode.class, sources);
+        return node(ExceptNode.class, sources)
+                .with(new DistinctMatcher(true));
+    }
+
+    public static PlanMatchPattern except(boolean distinct, PlanMatchPattern... sources)
+    {
+        return node(ExceptNode.class, sources)
+                .with(new DistinctMatcher(distinct));
     }
 
     public static ExpectedValueProvider<JoinNode.EquiJoinClause> equiJoinClause(String left, String right)

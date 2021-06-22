@@ -93,6 +93,140 @@ public class TestSetFlatteningOptimizer
     }
 
     @Test
+    public void testFlattensIntersectAll()
+    {
+        assertPlan(
+                "(SELECT * FROM nation INTERSECT ALL SELECT * FROM nation)" +
+                        "INTERSECT ALL (SELECT * FROM nation INTERSECT ALL SELECT * FROM nation)",
+                anyTree(
+                        intersect(
+                                false,
+                                tableScan("nation"),
+                                tableScan("nation"),
+                                tableScan("nation"),
+                                tableScan("nation"))));
+    }
+
+    @Test
+    public void testFlattensIntersectDistinctOverAll()
+    {
+        assertPlan(
+                "(SELECT * FROM nation INTERSECT ALL SELECT * FROM nation)" +
+                        "INTERSECT DISTINCT (SELECT * FROM nation INTERSECT ALL SELECT * FROM nation)",
+                anyTree(
+                        intersect(
+                                true,
+                                tableScan("nation"),
+                                tableScan("nation"),
+                                tableScan("nation"),
+                                tableScan("nation"))));
+    }
+
+    @Test
+    public void testFlattensIntersectAllOverDistinct()
+    {
+        assertPlan(
+                "(SELECT * FROM nation INTERSECT DISTINCT SELECT * FROM nation)" +
+                        "INTERSECT ALL (SELECT * FROM nation INTERSECT ALL SELECT * FROM nation)",
+                anyTree(
+                        intersect(
+                                true,
+                                tableScan("nation"),
+                                tableScan("nation"),
+                                tableScan("nation"),
+                                tableScan("nation"))));
+
+        assertPlan(
+                "(SELECT * FROM nation INTERSECT ALL SELECT * FROM nation)" +
+                        "INTERSECT ALL (SELECT * FROM nation INTERSECT DISTINCT SELECT * FROM nation)",
+                anyTree(
+                        intersect(
+                                true,
+                                tableScan("nation"),
+                                tableScan("nation"),
+                                tableScan("nation"),
+                                tableScan("nation"))));
+    }
+
+    @Test
+    public void testFlattensExceptAll()
+    {
+        assertPlan(
+                "(SELECT * FROM nation EXCEPT ALL SELECT * FROM nation)" +
+                        "EXCEPT ALL (SELECT * FROM nation EXCEPT SELECT * FROM nation)",
+                anyTree(
+                        except(
+                                false,
+                                tableScan("nation"),
+                                tableScan("nation"),
+                                except(
+                                        tableScan("nation"),
+                                        tableScan("nation")))));
+        assertPlan(
+                "(SELECT * FROM nation EXCEPT ALL SELECT * FROM nation)" +
+                        "EXCEPT ALL (SELECT * FROM nation EXCEPT ALL SELECT * FROM nation)",
+                anyTree(
+                        except(
+                                false,
+                                tableScan("nation"),
+                                tableScan("nation"),
+                                except(
+                                        false,
+                                        tableScan("nation"),
+                                        tableScan("nation")))));
+    }
+
+    @Test
+    public void testFlattensExceptAllOverDistinct()
+    {
+        assertPlan(
+                "(SELECT * FROM nation EXCEPT DISTINCT SELECT * FROM nation)" +
+                        "EXCEPT ALL (SELECT * FROM nation EXCEPT SELECT * FROM nation)",
+                anyTree(
+                        except(
+                                tableScan("nation"),
+                                tableScan("nation"),
+                                except(
+                                        tableScan("nation"),
+                                        tableScan("nation")))));
+        assertPlan(
+                "(SELECT * FROM nation EXCEPT DISTINCT SELECT * FROM nation)" +
+                        "EXCEPT ALL (SELECT * FROM nation EXCEPT ALL SELECT * FROM nation)",
+                anyTree(
+                        except(
+                                tableScan("nation"),
+                                tableScan("nation"),
+                                except(
+                                        false,
+                                        tableScan("nation"),
+                                        tableScan("nation")))));
+    }
+
+    @Test
+    public void testDoesNotFlattenExceptDistinctOverAll()
+    {
+        assertPlan(
+                "(SELECT * FROM nation EXCEPT ALL SELECT * FROM nation)" +
+                        "EXCEPT DISTINCT (SELECT * FROM nation EXCEPT SELECT * FROM nation)",
+                anyTree(
+                        except(
+                                except(false, tableScan("nation"), tableScan("nation")),
+                                except(
+                                        tableScan("nation"),
+                                        tableScan("nation")))));
+        assertPlan(
+                "(SELECT * FROM nation EXCEPT ALL SELECT * FROM nation)" +
+                        "EXCEPT DISTINCT (SELECT * FROM nation EXCEPT ALL SELECT * FROM nation)",
+                anyTree(
+                        except(
+                                except(false, tableScan("nation"), tableScan("nation")),
+                                except(
+                                        false,
+                                        tableScan("nation"),
+                                        tableScan("nation")))));
+    }
+
+    @Test
     public void testFlattensOnlyFirstInputOfExcept()
     {
         assertPlan(
@@ -119,6 +253,20 @@ public class TestSetFlatteningOptimizer
                                         tableScan("nation"),
                                         tableScan("nation")),
                                 intersect(
+                                        tableScan("nation"),
+                                        tableScan("nation")))));
+
+        assertPlan(
+                "(SELECT * FROM nation EXCEPT SELECT * FROM nation)" +
+                        "INTERSECT ALL (SELECT * FROM nation EXCEPT ALL SELECT * FROM nation)",
+                anyTree(
+                        intersect(
+                                false,
+                                except(
+                                        tableScan("nation"),
+                                        tableScan("nation")),
+                                except(
+                                        false,
                                         tableScan("nation"),
                                         tableScan("nation")))));
     }

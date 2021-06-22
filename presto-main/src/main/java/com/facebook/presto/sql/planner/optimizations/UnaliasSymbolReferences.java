@@ -609,13 +609,13 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitIntersect(IntersectNode node, RewriteContext<Void> context)
         {
-            return new IntersectNode(node.getId(), rewriteSources(node, context).build(), canonicalizeSetOperationOutputVariables(node.getOutputVariables()), canonicalizeSetOperationVariableMap(node.getVariableMapping()));
+            return new IntersectNode(node.getId(), rewriteSources(node, context).build(), canonicalizeSetOperationOutputVariables(node.getOutputVariables()), canonicalizeSetOperationVariableMap(node.getVariableMapping()), node.isDistinct());
         }
 
         @Override
         public PlanNode visitExcept(ExceptNode node, RewriteContext<Void> context)
         {
-            return new ExceptNode(node.getId(), rewriteSources(node, context).build(), canonicalizeSetOperationOutputVariables(node.getOutputVariables()), canonicalizeSetOperationVariableMap(node.getVariableMapping()));
+            return new ExceptNode(node.getId(), rewriteSources(node, context).build(), canonicalizeSetOperationOutputVariables(node.getOutputVariables()), canonicalizeSetOperationVariableMap(node.getVariableMapping()), node.isDistinct());
         }
 
         private static ImmutableList.Builder<PlanNode> rewriteSources(SetOperationNode node, RewriteContext<Void> context)

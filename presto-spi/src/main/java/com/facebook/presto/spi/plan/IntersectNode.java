@@ -26,14 +26,24 @@ import java.util.Map;
 public final class IntersectNode
         extends SetOperationNode
 {
+    private final boolean distinct;
+
     @JsonCreator
     public IntersectNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("sources") List<PlanNode> sources,
             @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables,
-            @JsonProperty("outputToInputs") Map<VariableReferenceExpression, List<VariableReferenceExpression>> outputToInputs)
+            @JsonProperty("outputToInputs") Map<VariableReferenceExpression, List<VariableReferenceExpression>> outputToInputs,
+            @JsonProperty("distinct") boolean distinct)
     {
         super(id, sources, outputVariables, outputToInputs);
+        this.distinct = distinct;
+    }
+
+    @JsonProperty
+    public boolean isDistinct()
+    {
+        return distinct;
     }
 
     @Override
@@ -45,6 +55,6 @@ public final class IntersectNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new IntersectNode(getId(), newChildren, getOutputVariables(), getVariableMapping());
+        return new IntersectNode(getId(), newChildren, getOutputVariables(), getVariableMapping(), isDistinct());
     }
 }

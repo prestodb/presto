@@ -267,6 +267,12 @@ public final class FunctionResolution
     }
 
     @Override
+    public FunctionHandle rowNumberFunction()
+    {
+        return functionAndTypeManager.lookupFunction("row_number", ImmutableList.of());
+    }
+
+    @Override
     public FunctionHandle countFunction(Type valueType)
     {
         return functionAndTypeManager.lookupFunction("count", fromTypes(valueType));

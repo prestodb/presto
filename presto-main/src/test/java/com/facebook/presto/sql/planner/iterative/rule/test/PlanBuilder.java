@@ -799,7 +799,13 @@ public class PlanBuilder
     public IntersectNode intersect(ListMultimap<VariableReferenceExpression, VariableReferenceExpression> outputsToInputs, List<PlanNode> sources)
     {
         Map<VariableReferenceExpression, List<VariableReferenceExpression>> mapping = fromListMultimap(outputsToInputs);
-        return new IntersectNode(idAllocator.getNextId(), sources, ImmutableList.copyOf(mapping.keySet()), mapping);
+        return new IntersectNode(idAllocator.getNextId(), sources, ImmutableList.copyOf(mapping.keySet()), mapping, true);
+    }
+
+    public IntersectNode intersect(ListMultimap<VariableReferenceExpression, VariableReferenceExpression> outputsToInputs, List<PlanNode> sources, boolean distinct)
+    {
+        Map<VariableReferenceExpression, List<VariableReferenceExpression>> mapping = fromListMultimap(outputsToInputs);
+        return new IntersectNode(idAllocator.getNextId(), sources, ImmutableList.copyOf(mapping.keySet()), mapping, distinct);
     }
 
     public TableWriterNode tableWriter(List<VariableReferenceExpression> columns, List<String> columnNames, PlanNode source)
