@@ -51,6 +51,7 @@ import static com.facebook.presto.common.block.PageBuilderStatus.DEFAULT_MAX_PAG
 import static com.facebook.presto.execution.buffer.PageSplitterUtil.splitPage;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Iterators.transform;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -181,8 +182,9 @@ public class TempStorageSingleStreamSpiller
             tempStorageHandle = dataSink.commit();
 
             InputStream input = closer.register(tempStorage.open(tempDataOperationContext, tempStorageHandle));
-            Iterator<Page> pages = PagesSerdeUtil.readPages(serde, new InputStreamSliceInput(input));
-            return closeWhenExhausted(pages, input);
+            Iterator<Page> deserializedPages = PagesSerdeUtil.readPages(serde, new InputStreamSliceInput(input));
+            Iterator<Page> compactPages = transform(deserializedPages, Page::compact);
+            return closeWhenExhausted(compactPages, input);
         }
         catch (IOException e) {
             throw new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to read spilled pages", e);
