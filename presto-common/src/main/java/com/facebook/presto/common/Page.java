@@ -177,10 +177,10 @@ public final class Page
         return wrapBlocksWithoutCopy(positionCount, newBlocks);
     }
 
-    public void compact()
+    public Page compact()
     {
         if (getRetainedSizeInBytes() <= getSizeInBytes()) {
-            return;
+            return this;
         }
 
         for (int i = 0; i < blocks.length; i++) {
@@ -202,6 +202,7 @@ public final class Page
         }
 
         updateRetainedSize();
+        return this;
     }
 
     private Map<DictionaryId, DictionaryBlockIndexes> getRelatedDictionaryBlocks()
