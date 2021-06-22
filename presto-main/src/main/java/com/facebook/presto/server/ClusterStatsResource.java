@@ -21,6 +21,7 @@ import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.resourcemanager.ResourceManagerProxy;
 import com.facebook.presto.spi.NodeState;
+import com.facebook.presto.ttl.ClusterTTLProvider;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -62,6 +63,7 @@ public class ClusterStatsResource
     private final ClusterMemoryManager clusterMemoryManager;
     private final InternalNodeManager internalNodeManager;
     private final Optional<ResourceManagerProxy> proxyHelper;
+    private final ClusterTTLProvider clusterTTLProvider;
 
     @Inject
     public ClusterStatsResource(
@@ -71,7 +73,8 @@ public class ClusterStatsResource
             DispatchManager dispatchManager,
             ClusterMemoryManager clusterMemoryManager,
             InternalNodeManager internalNodeManager,
-            Optional<ResourceManagerProxy> proxyHelper)
+            Optional<ResourceManagerProxy> proxyHelper,
+            ClusterTTLProvider clusterTTLProvider)
     {
         this.isIncludeCoordinator = requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null").isIncludeCoordinator();
         this.resourceManagerEnabled = requireNonNull(serverConfig, "serverConfig is null").isResourceManagerEnabled();
@@ -80,6 +83,7 @@ public class ClusterStatsResource
         this.clusterMemoryManager = requireNonNull(clusterMemoryManager, "clusterMemoryManager is null");
         this.internalNodeManager = requireNonNull(internalNodeManager, "internalNodeManager is null");
         this.proxyHelper = requireNonNull(proxyHelper, "internalNodeManager is null");
+        this.clusterTTLProvider = requireNonNull(clusterTTLProvider, "clusterTTLProvider is null");
     }
 
     @GET
@@ -162,6 +166,13 @@ public class ClusterStatsResource
         return Response.ok()
                 .entity(clusterMemoryManager.getWorkerMemoryInfo())
                 .build();
+    }
+
+    @GET
+    @Path("ttl")
+    public Response getClusterTTL()
+    {
+        return Response.ok().entity(clusterTTLProvider.getClusterTTL()).build();
     }
 
     private void proxyClusterStats(HttpServletRequest servletRequest, AsyncResponse asyncResponse, String xForwardedProto, UriInfo uriInfo)

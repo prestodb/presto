@@ -151,6 +151,7 @@ import com.facebook.presto.transaction.ForTransactionManager;
 import com.facebook.presto.transaction.InMemoryTransactionManager;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.transaction.TransactionManagerConfig;
+import com.facebook.presto.ttl.ClusterTTLProviderModule;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Provides;
@@ -384,6 +385,8 @@ public class CoordinatorModule
 
         // cleanup
         binder.bind(ExecutorCleanup.class).in(Scopes.SINGLETON);
+
+        install(new ClusterTTLProviderModule());
     }
 
     @Provides
