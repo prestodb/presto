@@ -30,6 +30,7 @@ public class HiveTableHandle
 {
     private final String schemaName;
     private final String tableName;
+    private final Optional<Long> snapshotTimestampMS;
 
     private final Optional<List<List<String>>> analyzePartitionValues;
 
@@ -37,11 +38,21 @@ public class HiveTableHandle
     public HiveTableHandle(
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
+            @JsonProperty("snapshotTimestampMS") Optional<Long> snapshotTimestampMS,
             @JsonProperty("analyzePartitionValues") Optional<List<List<String>>> analyzePartitionValues)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
+        this.snapshotTimestampMS = snapshotTimestampMS;
         this.analyzePartitionValues = requireNonNull(analyzePartitionValues, "analyzePartitionValues is null");
+    }
+
+    public HiveTableHandle(
+            String schemaName,
+            String tableName,
+            Optional<List<List<String>>> analyzePartitionValues)
+    {
+        this(schemaName, tableName, null, analyzePartitionValues);
     }
 
     public HiveTableHandle(String schemaName, String tableName)
@@ -106,5 +117,12 @@ public class HiveTableHandle
                 .add("tableName", tableName)
                 .add("analyzePartitionValues", analyzePartitionValues)
                 .toString();
+    }
+
+    @Override
+    @JsonProperty
+    public Optional<Long> getSnapshotTimestampMS()
+    {
+        return snapshotTimestampMS;
     }
 }

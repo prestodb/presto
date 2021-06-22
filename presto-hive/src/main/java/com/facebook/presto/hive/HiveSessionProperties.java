@@ -36,6 +36,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.InsertExistingParti
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.longProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
@@ -118,6 +119,7 @@ public final class HiveSessionProperties
     public static final String MANIFEST_VERIFICATION_ENABLED = "manifest_verification_enabled";
     public static final String NEW_PARTITION_USER_SUPPLIED_PARAMETER = "new_partition_user_supplied_parameter";
     public static final String OPTIMIZED_PARTITION_UPDATE_SERIALIZATION_ENABLED = "optimized_partition_update_serialization_enabled";
+    public static final String SOURCE_HIVE_TABLE_SNAPSHOTS_TIMESTAMP_MS = "source_hive_table_snapshots_timestamp_ms";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -557,6 +559,11 @@ public final class HiveSessionProperties
                         OPTIMIZED_PARTITION_UPDATE_SERIALIZATION_ENABLED,
                         "Serialize PartitionUpdate objects using binary SMILE encoding and compress with the ZSTD compression",
                         hiveClientConfig.isOptimizedPartitionUpdateSerializationEnabled(),
+                        true),
+                longProperty(
+                        SOURCE_HIVE_TABLE_SNAPSHOTS_TIMESTAMP_MS,
+                        "timestamp_ms for reading specific snapshots of input tables",
+                        0L,
                         true));
     }
 
@@ -894,6 +901,11 @@ public final class HiveSessionProperties
     public static boolean isParquetBatchReaderVerificationEnabled(ConnectorSession session)
     {
         return session.getProperty(PARQUET_BATCH_READER_VERIFICATION_ENABLED, Boolean.class);
+    }
+
+    public static long getSourceHiveTableSnapshotsMS(ConnectorSession session)
+    {
+        return session.getProperty(SOURCE_HIVE_TABLE_SNAPSHOTS_TIMESTAMP_MS, Long.class);
     }
 
     public static PropertyMetadata<DataSize> dataSizeSessionProperty(String name, String description, DataSize defaultValue, boolean hidden)

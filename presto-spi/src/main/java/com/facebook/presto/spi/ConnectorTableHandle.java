@@ -13,6 +13,12 @@
  */
 package com.facebook.presto.spi;
 
+import java.util.Optional;
+
 public interface ConnectorTableHandle
 {
+    default Optional<Long> getSnapshotTimestampMS()
+    {
+        return Optional.empty();
+    }
 }

@@ -470,8 +470,16 @@ public class HiveMetadata
     @Override
     public HiveTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
+        return getTableHandle(session, tableName, Optional.empty());
+    }
+
+    @Override
+    public HiveTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<Long> snapshotTimestampMS)
+    {
         requireNonNull(tableName, "tableName is null");
         MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource());
+
+        // Todo(kaikalur) : Add APIs to get specific table snapshot at the given timestamp. For now, the connector just appends the timestamp the table name.
         Optional<Table> table = metastore.getTable(metastoreContext, tableName.getSchemaName(), tableName.getTableName());
         if (!table.isPresent()) {
             return null;
@@ -486,13 +494,13 @@ public class HiveMetadata
             verifyOnline(tableName, Optional.empty(), getProtectMode(table.get()), table.get().getParameters());
         }
 
-        return new HiveTableHandle(tableName.getSchemaName(), tableName.getTableName());
+        return new HiveTableHandle(tableName.getSchemaName(), tableName.getTableName(), snapshotTimestampMS, Optional.empty());
     }
 
     @Override
     public ConnectorTableHandle getTableHandleForStatisticsCollection(ConnectorSession session, SchemaTableName tableName, Map<String, Object> analyzeProperties)
     {
-        HiveTableHandle handle = getTableHandle(session, tableName);
+        HiveTableHandle handle = getTableHandle(session, tableName, Optional.empty());
         if (handle == null) {
             return null;
         }
@@ -541,7 +549,7 @@ public class HiveMetadata
 
     private Optional<SystemTable> getPartitionsSystemTable(ConnectorSession session, SchemaTableName tableName, SchemaTableName sourceTableName)
     {
-        HiveTableHandle sourceTableHandle = getTableHandle(session, sourceTableName);
+        HiveTableHandle sourceTableHandle = getTableHandle(session, sourceTableName, Optional.empty());
 
         if (sourceTableHandle == null) {
             return Optional.empty();

@@ -769,4 +769,9 @@ public interface ConnectorMetadata
     {
         return NOT_APPLICABLE;
     }
+
+    default ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<Long> snapshotTimestampMS)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support table snapshot timestamp specification");
+    }
 }
