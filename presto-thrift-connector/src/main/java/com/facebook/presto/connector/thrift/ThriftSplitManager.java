@@ -62,12 +62,14 @@ public class ThriftSplitManager
 {
     private final DriftClient<PrestoThriftService> client;
     private final ThriftHeaderProvider thriftHeaderProvider;
+    private final ThriftConnectorConfig config;
 
     @Inject
-    public ThriftSplitManager(DriftClient<PrestoThriftService> client, ThriftHeaderProvider thriftHeaderProvider)
+    public ThriftSplitManager(DriftClient<PrestoThriftService> client, ThriftHeaderProvider thriftHeaderProvider, ThriftConnectorConfig config)
     {
         this.client = requireNonNull(client, "client is null");
         this.thriftHeaderProvider = requireNonNull(thriftHeaderProvider, "thriftHeaderProvider is null");
+        this.config = requireNonNull(config, "config is null");
     }
 
     @Override
@@ -79,7 +81,7 @@ public class ThriftSplitManager
     {
         ThriftTableLayoutHandle layoutHandle = (ThriftTableLayoutHandle) layout;
         return new ThriftSplitSource(
-                client.get(thriftHeaderProvider.getHeaders(session)),
+                client.get(thriftHeaderProvider.getHeaders(session, config)),
                 new PrestoThriftSchemaTableName(layoutHandle.getSchemaName(), layoutHandle.getTableName()),
                 layoutHandle.getColumns().map(ThriftSplitManager::columnNames),
                 tupleDomainToThriftTupleDomain(layoutHandle.getConstraint()));

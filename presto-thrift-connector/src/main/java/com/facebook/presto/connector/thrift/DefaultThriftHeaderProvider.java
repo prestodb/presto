@@ -22,7 +22,7 @@ public class DefaultThriftHeaderProvider
         implements ThriftHeaderProvider
 {
     @Override
-    public Map<String, String> getHeaders(ConnectorSession session)
+    public Map<String, String> getHeaders(ConnectorSession session, ThriftConnectorConfig config)
     {
         return ImmutableMap.of();
     }

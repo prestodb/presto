@@ -19,5 +19,11 @@ import java.util.Map;
 
 public interface ThriftHeaderProvider
 {
-    Map<String, String> getHeaders(ConnectorSession session);
+    @Deprecated
+    default Map<String, String> getHeaders(ConnectorSession session)
+    {
+        return getHeaders(session, null);
+    }
+
+    Map<String, String> getHeaders(ConnectorSession session, ThriftConnectorConfig config);
 }
