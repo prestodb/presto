@@ -15,6 +15,7 @@ package com.facebook.presto.hive.orc;
 
 import com.facebook.presto.common.InvalidFunctionArgumentException;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
@@ -40,6 +41,7 @@ public class OrcSelectivePageSource
     private final OrcDataSource orcDataSource;
     private final OrcAggregatedMemoryContext systemMemoryContext;
     private final FileFormatDataSourceStats stats;
+    private final RuntimeStats runtimeStats;
 
     private boolean closed;
 
@@ -47,12 +49,20 @@ public class OrcSelectivePageSource
             OrcSelectiveRecordReader recordReader,
             OrcDataSource orcDataSource,
             OrcAggregatedMemoryContext systemMemoryContext,
-            FileFormatDataSourceStats stats)
+            FileFormatDataSourceStats stats,
+            RuntimeStats runtimeStats)
     {
         this.recordReader = requireNonNull(recordReader, "recordReader is null");
         this.orcDataSource = requireNonNull(orcDataSource, "orcDataSource is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
         this.stats = requireNonNull(stats, "stats is null");
+        this.runtimeStats = runtimeStats;
+    }
+
+    @Override
+    public RuntimeStats getRuntimeStats()
+    {
+        return runtimeStats;
     }
 
     @Override
