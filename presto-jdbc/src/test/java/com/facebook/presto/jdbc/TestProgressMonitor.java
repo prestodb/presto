@@ -90,7 +90,11 @@ public class TestProgressMonitor
                 nextUriId == null ? null : server.url(format("/v1/statement/%s/%s", queryId, nextUriId)).uri(),
                 responseColumns,
                 data,
-                new StatementStats(state, state.equals("WAITING_FOR_PREREQUISITES"), state.equals("QUEUED"), true, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null),
+                StatementStats.builder()
+                        .setState(state)
+                        .setWaitingForPrerequisites(state.equals("WAITING_FOR_PREREQUISITES"))
+                        .setScheduled(true)
+                        .build(),
                 null,
                 ImmutableList.of(),
                 null,

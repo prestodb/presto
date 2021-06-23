@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.memory.QueryContextVisitor;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.memory.context.LocalMemoryContext;
@@ -89,6 +90,7 @@ public class OperatorContext
     private final AtomicLong peakUserMemoryReservation = new AtomicLong();
     private final AtomicLong peakSystemMemoryReservation = new AtomicLong();
     private final AtomicLong peakTotalMemoryReservation = new AtomicLong();
+    private final RuntimeStats runtimeStats = new RuntimeStats();
 
     @GuardedBy("this")
     private boolean memoryRevokingRequested;
@@ -145,6 +147,16 @@ public class OperatorContext
     public boolean isDone()
     {
         return driverContext.isDone();
+    }
+
+    void updateStats(RuntimeStats stats)
+    {
+        runtimeStats.update(stats);
+    }
+
+    public RuntimeStats getRuntimeStats()
+    {
+        return runtimeStats;
     }
 
     void recordAddInput(OperationTimer operationTimer, Page page)
@@ -515,7 +527,8 @@ public class OperatorContext
                 succinctBytes(spillContext.getSpilledBytes()),
 
                 memoryFuture.get().isDone() ? Optional.empty() : Optional.of(WAITING_FOR_MEMORY),
-                info);
+                info,
+                runtimeStats);
     }
 
     public <C, R> R accept(QueryContextVisitor<C, R> visitor, C context)

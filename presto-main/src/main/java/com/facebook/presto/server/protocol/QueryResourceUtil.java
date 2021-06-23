@@ -147,6 +147,7 @@ public final class QueryResourceUtil
                 .setPeakTaskTotalMemoryBytes(queryStats.getPeakTaskTotalMemory().toBytes())
                 .setSpilledBytes(queryStats.getSpilledDataSize().toBytes())
                 .setRootStage(toStageStats(outputStage))
+                .setRuntimeStats(queryStats.getRuntimeStats())
                 .build();
     }
 
