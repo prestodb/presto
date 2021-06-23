@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.LazyBlock;
 import com.facebook.presto.common.block.LazyBlockLoader;
@@ -184,6 +185,12 @@ public class HivePageSource
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    @Override
+    public RuntimeStats getRuntimeStats()
+    {
+        return delegate.getRuntimeStats();
     }
 
     @Override
