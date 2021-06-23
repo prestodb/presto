@@ -115,6 +115,7 @@ public class PrestoSparkQueryRunner
     private static final Logger log = Logger.get(PrestoSparkQueryRunner.class);
 
     private static final int NODE_COUNT = 4;
+    private static final int TASK_CONCURRENCY = 4;
 
     private static final Map<String, PrestoSparkQueryRunner> instances = new ConcurrentHashMap<>();
     private static final SparkContextHolder sparkContextHolder = new SparkContextHolder();
@@ -170,6 +171,7 @@ public class PrestoSparkQueryRunner
         properties.put("experimental.temp-storage-buffer-size", "1MB");
         properties.put("spark.memory-revoking-threshold", "0.0");
         properties.put("experimental.spiller-spill-path", Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills").toString());
+        properties.put("experimental.spiller-threads", Integer.toString(NODE_COUNT * TASK_CONCURRENCY));
         properties.putAll(additionalConfigProperties);
         return createHivePrestoSparkQueryRunner(tables, properties);
     }
@@ -229,6 +231,7 @@ public class PrestoSparkQueryRunner
         configProperties.put("query.hash-partition-count", Integer.toString(NODE_COUNT * 2));
         configProperties.put("task.writer-count", Integer.toString(2));
         configProperties.put("task.partitioned-writer-count", Integer.toString(4));
+        configProperties.put("task.concurrency", Integer.toString(TASK_CONCURRENCY));
         configProperties.putAll(additionalConfigProperties);
 
         PrestoSparkInjectorFactory injectorFactory = new PrestoSparkInjectorFactory(
