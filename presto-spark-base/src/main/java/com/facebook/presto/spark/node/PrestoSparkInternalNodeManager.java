@@ -76,6 +76,12 @@ public class PrestoSparkInternalNodeManager
     }
 
     @Override
+    public Set<InternalNode> getShuttingDownCoordinator()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Set<InternalNode> getResourceManagers()
     {
         throw new UnsupportedOperationException();
