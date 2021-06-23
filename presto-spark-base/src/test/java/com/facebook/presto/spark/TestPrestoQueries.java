@@ -16,7 +16,7 @@ package com.facebook.presto.spark;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueries;
 
-public class TestPrestoSparkAbstractTestQueries
+public class TestPrestoQueries
         extends AbstractTestQueries
 {
     @Override
