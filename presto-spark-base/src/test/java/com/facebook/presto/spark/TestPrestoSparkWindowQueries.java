@@ -14,12 +14,12 @@
 package com.facebook.presto.spark;
 
 import com.facebook.presto.testing.QueryRunner;
-import com.facebook.presto.tests.AbstractTestOrderByQueries;
+import com.facebook.presto.tests.AbstractTestWindowQueries;
 
 import static com.facebook.presto.spark.PrestoSparkQueryRunner.createHivePrestoSparkQueryRunner;
 
-public class TestPrestoSparkAbstractTestOrderByQueries
-        extends AbstractTestOrderByQueries
+public class TestPrestoSparkWindowQueries
+        extends AbstractTestWindowQueries
 {
     @Override
     protected QueryRunner createQueryRunner()
