@@ -215,6 +215,13 @@ Spilled: 20GB
             if (stats.getSpilledBytes() > 0) {
                 reprintLine("Spilled: " + formatDataSize(bytes(stats.getSpilledBytes()), true));
             }
+
+            // bytesFromCache: sum=2K count=2 min=1K max=1K
+            if (stats.getRuntimeStats() != null) {
+                stats.getRuntimeStats().getMetrics().values().forEach(
+                        metric -> reprintLine(
+                                metric.getName() + ": sum=" + formatCount(metric.getSum()) + " count=" + formatCount(metric.getCount()) + " min=" + formatCount(metric.getMin()) + " max=" + formatCount(metric.getMax())));
+            }
         }
 
         // 0:32 [2.12GB, 15M rows] [67MB/s, 463K rows/s]
@@ -314,6 +321,12 @@ Spilled: 20GB
                 // Spilled Data: 20GB
                 if (stats.getSpilledBytes() > 0) {
                     reprintLine("Spilled: " + formatDataSize(bytes(stats.getSpilledBytes()), true));
+                }
+
+                if (stats.getRuntimeStats() != null) {
+                    stats.getRuntimeStats().getMetrics().values().forEach(
+                            metric -> reprintLine(
+                                    metric.getName() + ": sum=" + metric.getSum() + " count=" + metric.getCount() + " min=" + metric.getMin() + " max=" + metric.getMax()));
                 }
             }
 
