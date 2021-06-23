@@ -35,7 +35,8 @@ public class TestQueryConfigurationOverridesConfig
                 .setUsernameOverride(null)
                 .setPasswordOverride(null)
                 .setSessionPropertiesOverrideStrategy(NO_ACTION)
-                .setSessionPropertiesOverride(null));
+                .setSessionPropertiesOverride(null)
+                .setSessionPropertiesToRemove(null));
     }
 
     @Test
@@ -48,6 +49,7 @@ public class TestQueryConfigurationOverridesConfig
                 .put("password-override", "_password")
                 .put("session-properties-override-strategy", "SUBSTITUTE")
                 .put("session-properties-override", "{\"key\": \"value\"}")
+                .put("session-properties-removal", "key2,key3")
                 .build();
         QueryConfigurationOverridesConfig expected = new QueryConfigurationOverridesConfig()
                 .setCatalogOverride("_catalog")
@@ -55,7 +57,8 @@ public class TestQueryConfigurationOverridesConfig
                 .setUsernameOverride("_username")
                 .setPasswordOverride("_password")
                 .setSessionPropertiesOverrideStrategy(SUBSTITUTE)
-                .setSessionPropertiesOverride("{\"key\": \"value\"}");
+                .setSessionPropertiesOverride("{\"key\": \"value\"}")
+                .setSessionPropertiesToRemove("key2,key3");
 
         assertFullMapping(properties, expected);
     }

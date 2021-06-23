@@ -63,7 +63,7 @@ public class QueryConfiguration
                 sessionProperties.put(entry.getKey(), entry.getValue());
             }
         }
-
+        overrides.getSessionPropertiesToRemove().forEach(sessionProperties::remove);
         return new QueryConfiguration(
                 overrides.getCatalogOverride().orElse(catalog),
                 overrides.getSchemaOverride().orElse(schema),
