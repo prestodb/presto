@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.operator.BlockedReason;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.TableWriterOperator;
@@ -862,5 +863,13 @@ public class QueryStats
         return succinctBytes(operatorSummaries.stream()
                 .mapToLong(stats -> stats.getSpilledDataSize().toBytes())
                 .sum());
+    }
+
+    @JsonProperty
+    public RuntimeStats getRuntimeStats()
+    {
+        RuntimeStats runtimeStats = new RuntimeStats();
+        operatorSummaries.stream().forEach(stats -> runtimeStats.mergeWith(stats.getRuntimeStats()));
+        return runtimeStats;
     }
 }
