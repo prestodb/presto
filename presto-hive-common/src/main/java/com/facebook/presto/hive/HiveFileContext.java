@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.RuntimeStats;
+
 import java.util.Optional;
 
 import static com.facebook.presto.hive.CacheQuota.NO_CACHE_CONSTRAINTS;
@@ -26,6 +28,8 @@ public class HiveFileContext
     private final CacheQuota cacheQuota;
     private final Optional<ExtraHiveFileInfo<?>> extraFileInfo;
     private final Optional<Long> fileSize;
+
+    private final RuntimeStats stats = new RuntimeStats();
 
     public HiveFileContext(boolean cacheable, CacheQuota cacheQuota, Optional<ExtraHiveFileInfo<?>> extraFileInfo, Optional<Long> fileSize)
     {
@@ -64,5 +68,15 @@ public class HiveFileContext
     public interface ExtraHiveFileInfo<T>
     {
         T getExtraFileInfo();
+    }
+
+    public void incrementCounter(String name, long value)
+    {
+        stats.addMetricValue(name, value);
+    }
+
+    public RuntimeStats getStats()
+    {
+        return stats;
     }
 }
