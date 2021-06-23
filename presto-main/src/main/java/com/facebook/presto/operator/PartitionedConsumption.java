@@ -152,7 +152,6 @@ public final class PartitionedConsumption<T>
 
         public synchronized void release()
         {
-            checkState(loaded.isDone());
             pendingReleases--;
             checkState(pendingReleases >= 0);
             if (pendingReleases == 0) {

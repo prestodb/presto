@@ -70,6 +70,8 @@ import org.apache.spark.SparkContext;
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.Paths;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -150,9 +152,26 @@ public class PrestoSparkQueryRunner
         return createHivePrestoSparkQueryRunner(getTables());
     }
 
+    public static PrestoSparkQueryRunner createSpilledHivePrestoSparkQueryRunner(Iterable<TpchTable<?>> tables)
+    {
+        return createSpilledHivePrestoSparkQueryRunner(tables, ImmutableMap.of());
+    }
+
     public static PrestoSparkQueryRunner createHivePrestoSparkQueryRunner(Iterable<TpchTable<?>> tables)
     {
         return createHivePrestoSparkQueryRunner(tables, ImmutableMap.of());
+    }
+
+    public static PrestoSparkQueryRunner createSpilledHivePrestoSparkQueryRunner(Iterable<TpchTable<?>> tables, Map<String, String> additionalConfigProperties)
+    {
+        Map<String, String> properties = new HashMap<>();
+        properties.put("experimental.spill-enabled", "true");
+        properties.put("experimental.join-spill-enabled", "true");
+        properties.put("experimental.temp-storage-buffer-size", "1MB");
+        properties.put("spark.memory-revoking-threshold", "0.0");
+        properties.put("experimental.spiller-spill-path", Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills").toString());
+        properties.putAll(additionalConfigProperties);
+        return createHivePrestoSparkQueryRunner(tables, properties);
     }
 
     public static PrestoSparkQueryRunner createHivePrestoSparkQueryRunner(Iterable<TpchTable<?>> tables, Map<String, String> additionalConfigProperties)
