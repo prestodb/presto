@@ -297,7 +297,9 @@ jobs:
           - ":presto-elasticsearch"
           - ":presto-orc"
           - ":presto-thrift-connector"
-          - ":presto-spark-base"
+          - ":presto-spark-base -P presto-spark-tests-smoke"
+          - ":presto-spark-base -P presto-spark-tests-all-queries"
+          - ":presto-spark-base -P presto-spark-tests-spill-queries"
     timeout-minutes: 80
     steps:
       - uses: actions/checkout@v2
