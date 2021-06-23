@@ -14,11 +14,8 @@
 package com.facebook.presto.spark;
 
 import com.facebook.presto.testing.QueryRunner;
-import com.google.common.collect.ImmutableMap;
 
-import java.nio.file.Paths;
-
-import static com.facebook.presto.spark.PrestoSparkQueryRunner.createHivePrestoSparkQueryRunner;
+import static com.facebook.presto.spark.PrestoSparkQueryRunner.createSpilledHivePrestoSparkQueryRunner;
 import static io.airlift.tpch.TpchTable.getTables;
 
 public class TestPrestoSparkSpilledAggregations
@@ -27,12 +24,6 @@ public class TestPrestoSparkSpilledAggregations
     @Override
     protected QueryRunner createQueryRunner()
     {
-        ImmutableMap.Builder<String, String> configProperties = ImmutableMap.builder();
-        configProperties.put("experimental.spill-enabled", "true");
-        configProperties.put("experimental.join-spill-enabled", "true");
-        configProperties.put("experimental.temp-storage-buffer-size", "1MB");
-        configProperties.put("spark.memory-revoking-threshold", "0.0");
-        configProperties.put("experimental.spiller-spill-path", Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills").toString());
-        return createHivePrestoSparkQueryRunner(getTables(), configProperties.build());
+        return createSpilledHivePrestoSparkQueryRunner(getTables());
     }
 }

@@ -14,12 +14,8 @@
 package com.facebook.presto.spark;
 
 import com.facebook.presto.testing.QueryRunner;
-import com.google.common.collect.ImmutableMap;
-import org.testng.annotations.Test;
 
-import java.nio.file.Paths;
-
-import static com.facebook.presto.spark.PrestoSparkQueryRunner.createHivePrestoSparkQueryRunner;
+import static com.facebook.presto.spark.PrestoSparkQueryRunner.createSpilledHivePrestoSparkQueryRunner;
 import static io.airlift.tpch.TpchTable.getTables;
 
 public class TestPrestoSparkSpilledJoinQueries
@@ -28,25 +24,6 @@ public class TestPrestoSparkSpilledJoinQueries
     @Override
     protected QueryRunner createQueryRunner()
     {
-        ImmutableMap.Builder<String, String> configProperties = ImmutableMap.builder();
-        configProperties.put("experimental.spill-enabled", "true");
-        configProperties.put("experimental.join-spill-enabled", "true");
-        configProperties.put("task.concurrency", "2");
-        configProperties.put("experimental.temp-storage-buffer-size", "1MB");
-        configProperties.put("spark.memory-revoking-threshold", "0.0");
-        configProperties.put("experimental.spiller-spill-path", Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills").toString());
-        return createHivePrestoSparkQueryRunner(getTables(), configProperties.build());
-    }
-
-    // Presto on Spark execution triggers test hanging easily for some unknown reason
-    // Given this is a known flaky test https://github.com/prestodb/presto/issues/13859, disable it for now
-    @Test(enabled = false)
-    @Override
-    public void testLimitWithJoin()
-    {
-        // Join with limit triggers test hanging consistently in Presto on Spark environment
-        // It is related to limit cause because query always succeeds without limit clause,
-        // likely related to early termination of unSpilled partitions
-        // Decreasing task_concurrency and hash_partition_count makes this query succeed
+        return createSpilledHivePrestoSparkQueryRunner(getTables());
     }
 }
