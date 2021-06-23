@@ -386,6 +386,33 @@ public class TestResourceManagerClusterStateProvider
         assertWorkerMemoryInfo(provider, 0);
     }
 
+    @Test(timeOut = 15_000)
+    public void testShuttingDownCoordinatorHeartbeat()
+    {
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager();
+        nodeManager.addShuttingDownNode(new InternalNode("node1", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true));
+
+        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(nodeManager, new SessionPropertyManager(), 10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("5s"), Duration.valueOf("0s"), true, newSingleThreadScheduledExecutor());
+
+        assertEquals(provider.getClusterQueries(), ImmutableList.of());
+
+        provider.registerQueryHeartbeat("node1", createQueryInfo("1", QUEUED));
+        provider.registerQueryHeartbeat("node1", createQueryInfo("2", RUNNING));
+        provider.registerQueryHeartbeat("node1", createQueryInfo("3", FINISHED));
+        provider.registerQueryHeartbeat("node1", createQueryInfo("4", FAILED));
+
+        assertQueryInfos(provider.getClusterQueries(), 4, 2);
+
+        provider.registerQueryHeartbeat("node1", createQueryInfo("1", RUNNING));
+        provider.registerQueryHeartbeat("node1", createQueryInfo("2", FINISHING));
+
+        assertQueryInfos(provider.getClusterQueries(), 4, 2);
+
+        provider.registerQueryHeartbeat("node1", createQueryInfo("2", FINISHED));
+
+        assertQueryInfos(provider.getClusterQueries(), 4, 3);
+    }
+
     void assertWorkerMemoryInfo(ResourceManagerClusterStateProvider provider, int count)
     {
         Map<String, MemoryInfo> workerMemoryInfo = provider.getWorkerMemoryInfo();
