@@ -395,10 +395,19 @@ public final class InternalResourceGroupManager<C>
         return currentTimeMillis() - lastSchedulingCycleRunTimeMs.get();
     }
 
-    private static int getQueriesQueuedOnInternal(InternalResourceGroup resourceGroup)
+    private int getQueriesQueuedOnInternal(InternalResourceGroup resourceGroup)
     {
         if (resourceGroup.subGroups().isEmpty()) {
-            return Math.max(Math.min(resourceGroup.getQueuedQueries(), resourceGroup.getSoftConcurrencyLimit() - resourceGroup.getRunningQueries()), 0);
+            int queuedQueries = resourceGroup.getQueuedQueries();
+            int runningQueries = resourceGroup.getRunningQueries();
+            if (isResourceManagerEnabled) {
+                ResourceGroupRuntimeInfo resourceGroupRuntimeInfo = resourceGroupRuntimeInfos.get().get(resourceGroup.getId());
+                if (resourceGroupRuntimeInfo != null) {
+                    queuedQueries += resourceGroupRuntimeInfo.getQueuedQueries();
+                    runningQueries += resourceGroupRuntimeInfo.getRunningQueries();
+                }
+            }
+            return Math.max(Math.min(queuedQueries, resourceGroup.getSoftConcurrencyLimit() - runningQueries), 0);
         }
 
         int queriesQueuedInternal = 0;
