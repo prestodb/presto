@@ -103,11 +103,11 @@ import static com.facebook.presto.common.type.VarcharType.createUnboundedVarchar
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveFileContext.DEFAULT_HIVE_FILE_CONTEXT;
+import static com.facebook.presto.hive.HiveTestUtils.CONNECTOR_SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_RESOLUTION;
 import static com.facebook.presto.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static com.facebook.presto.hive.HiveTestUtils.ROW_EXPRESSION_SERVICE;
-import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.sql.relational.Expressions.field;
@@ -431,12 +431,12 @@ public class TestOrcBatchPageSourceMemoryTracking
 
         public ConnectorPageSource newPageSource()
         {
-            return newPageSource(new FileFormatDataSourceStats(), SESSION.toConnectorSession());
+            return newPageSource(new FileFormatDataSourceStats(), CONNECTOR_SESSION);
         }
 
         public ConnectorPageSource newPageSource(FileFormatDataSourceStats stats)
         {
-            return newPageSource(stats, SESSION.toConnectorSession());
+            return newPageSource(stats, CONNECTOR_SESSION);
         }
 
         public ConnectorPageSource newPageSource(FileFormatDataSourceStats stats, ConnectorSession session)
@@ -505,8 +505,8 @@ public class TestOrcBatchPageSourceMemoryTracking
             for (int i = 0; i < types.size(); i++) {
                 projectionsBuilder.add(field(i, types.get(i)));
             }
-            Supplier<CursorProcessor> cursorProcessor = EXPRESSION_COMPILER.compileCursorProcessor(SESSION.toConnectorSession().getSqlFunctionProperties(), Optional.empty(), projectionsBuilder.build(), "key");
-            Supplier<PageProcessor> pageProcessor = EXPRESSION_COMPILER.compilePageProcessor(SESSION.toConnectorSession().getSqlFunctionProperties(), Optional.empty(), projectionsBuilder.build());
+            Supplier<CursorProcessor> cursorProcessor = EXPRESSION_COMPILER.compileCursorProcessor(CONNECTOR_SESSION.getSqlFunctionProperties(), Optional.empty(), projectionsBuilder.build(), "key");
+            Supplier<PageProcessor> pageProcessor = EXPRESSION_COMPILER.compilePageProcessor(CONNECTOR_SESSION.getSqlFunctionProperties(), Optional.empty(), projectionsBuilder.build());
             SourceOperatorFactory sourceOperatorFactory = new ScanFilterAndProjectOperatorFactory(
                     0,
                     new PlanNodeId("test"),

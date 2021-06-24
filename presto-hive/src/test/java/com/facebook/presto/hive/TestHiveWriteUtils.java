@@ -20,7 +20,7 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.util.UUID;
 
-import static com.facebook.presto.hive.HiveTestUtils.SESSION;
+import static com.facebook.presto.hive.HiveTestUtils.CONNECTOR_SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.createTestHdfsEnvironment;
 import static com.facebook.presto.hive.HiveWriteUtils.createTemporaryPath;
 import static com.facebook.presto.hive.HiveWriteUtils.isS3FileSystem;
@@ -32,7 +32,7 @@ import static org.testng.Assert.fail;
 
 public class TestHiveWriteUtils
 {
-    private static final HdfsContext CONTEXT = new HdfsContext(SESSION.toConnectorSession(), "test_schema");
+    private static final HdfsContext CONTEXT = new HdfsContext(CONNECTOR_SESSION, "test_schema");
 
     @Test
     public void testIsS3FileSystem()
@@ -66,7 +66,7 @@ public class TestHiveWriteUtils
         hdfsEnvironment.getConfiguration(CONTEXT, viewfsPath).set("fs.viewfs.mounttable.ns-default.link./test-dir", "file://" + storageDir);
 
         //Make temporary folder under an existing data folder without staging folder ".hive-staging"
-        Path temporaryPath = createTemporaryPath(SESSION.toConnectorSession(), CONTEXT, hdfsEnvironment, viewfsPath);
+        Path temporaryPath = createTemporaryPath(CONNECTOR_SESSION, CONTEXT, hdfsEnvironment, viewfsPath);
 
         assertEquals(temporaryPath.getParent().toString(), "viewfs://ns-default/test-dir/.hive-staging");
         try {
@@ -77,7 +77,7 @@ public class TestHiveWriteUtils
         }
 
         //Make temporary folder under an existing data folder with an existing staging folder ".hive-staging"
-        temporaryPath = createTemporaryPath(SESSION.toConnectorSession(), CONTEXT, hdfsEnvironment, viewfsPath);
+        temporaryPath = createTemporaryPath(CONNECTOR_SESSION, CONTEXT, hdfsEnvironment, viewfsPath);
 
         assertEquals(temporaryPath.getParent().toString(), "viewfs://ns-default/test-dir/.hive-staging");
         try {
@@ -88,7 +88,7 @@ public class TestHiveWriteUtils
         }
 
         //Make temporary folder under a non-existing data folder (for new tables), it would use the temporary folder of the parent
-        temporaryPath = createTemporaryPath(SESSION.toConnectorSession(), CONTEXT, hdfsEnvironment, new Path(viewfsPath, "non-existing"));
+        temporaryPath = createTemporaryPath(CONNECTOR_SESSION, CONTEXT, hdfsEnvironment, new Path(viewfsPath, "non-existing"));
         assertEquals(temporaryPath.getParent().toString(), "viewfs://ns-default/test-dir/.hive-staging");
         try {
             UUID.fromString(temporaryPath.getName());
@@ -103,7 +103,7 @@ public class TestHiveWriteUtils
         HdfsEnvironment hdfsEnvironment = createTestHdfsEnvironment(new HiveClientConfig(), new MetastoreClientConfig());
         Path nonViewfsPath = new Path("file://" + Files.createTempDir());
 
-        Path temporaryPath = createTemporaryPath(SESSION.toConnectorSession(), CONTEXT, hdfsEnvironment, nonViewfsPath);
+        Path temporaryPath = createTemporaryPath(CONNECTOR_SESSION, CONTEXT, hdfsEnvironment, nonViewfsPath);
 
         assertEquals(temporaryPath.getParent().toString(), "file:/tmp/presto-user");
         try {

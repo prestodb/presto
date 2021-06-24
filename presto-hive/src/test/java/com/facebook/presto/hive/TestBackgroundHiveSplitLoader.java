@@ -70,7 +70,7 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
 import static com.facebook.presto.hive.CacheQuotaScope.GLOBAL;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxInitialSplitSize;
-import static com.facebook.presto.hive.HiveTestUtils.SESSION;
+import static com.facebook.presto.hive.HiveTestUtils.CONNECTOR_SESSION;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveUtil.getRegularColumnHandles;
@@ -254,7 +254,7 @@ public class TestBackgroundHiveSplitLoader
     public void testSplittableNotCheckedOnSmallFiles()
             throws Exception
     {
-        DataSize initialSplitSize = getMaxInitialSplitSize(SESSION.toConnectorSession());
+        DataSize initialSplitSize = getMaxInitialSplitSize(CONNECTOR_SESSION);
 
         Table.Builder builder = Table.builder(table(ImmutableList.of(), Optional.empty()));
         builder.getStorageBuilder().setStorageFormat(
@@ -263,7 +263,7 @@ public class TestBackgroundHiveSplitLoader
 
         //  Exactly minimum split size, no isSplittable check
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
-                SESSION.toConnectorSession(),
+                CONNECTOR_SESSION,
                 ImmutableList.of(locatedFileStatus(new Path(SAMPLE_PATH), initialSplitSize.toBytes())),
                 Optional.empty(),
                 Optional.empty(),
@@ -277,7 +277,7 @@ public class TestBackgroundHiveSplitLoader
 
         //  Large enough for isSplittable to be called
         backgroundHiveSplitLoader = backgroundHiveSplitLoader(
-                SESSION.toConnectorSession(),
+                CONNECTOR_SESSION,
                 ImmutableList.of(locatedFileStatus(new Path(SAMPLE_PATH), initialSplitSize.toBytes() + 1)),
                 Optional.empty(),
                 Optional.empty(),
@@ -570,7 +570,7 @@ public class TestBackgroundHiveSplitLoader
     private static HiveSplitSource hiveSplitSource(BackgroundHiveSplitLoader backgroundHiveSplitLoader)
     {
         return HiveSplitSource.allAtOnce(
-                SESSION.toConnectorSession(),
+                CONNECTOR_SESSION,
                 SIMPLE_TABLE.getDatabaseName(),
                 SIMPLE_TABLE.getTableName(),
                 new CacheQuotaRequirement(GLOBAL, Optional.empty()),

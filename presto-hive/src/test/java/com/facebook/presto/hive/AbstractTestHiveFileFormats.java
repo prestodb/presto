@@ -103,8 +103,8 @@ import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveManifestUtils.getFileSize;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
+import static com.facebook.presto.hive.HiveTestUtils.CONNECTOR_SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_MANAGER;
-import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.mapType;
 import static com.facebook.presto.hive.HiveUtil.isStructuralType;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.HIVE_DEFAULT_DYNAMIC_PARTITION;
@@ -732,7 +732,7 @@ public abstract class AbstractTestHiveFileFormats
             throws IOException
     {
         try {
-            MaterializedResult result = materializeSourceDataStream(SESSION.toConnectorSession(), pageSource, types);
+            MaterializedResult result = materializeSourceDataStream(CONNECTOR_SESSION, pageSource, types);
             assertEquals(result.getMaterializedRows().size(), rowCount);
             for (MaterializedRow row : result) {
                 for (int i = 0, testColumnsSize = testColumns.size(); i < testColumnsSize; i++) {
@@ -765,7 +765,7 @@ public abstract class AbstractTestHiveFileFormats
                         assertEquals(actualValue, expectedValue);
                     }
                     else if (testColumn.getObjectInspector().getTypeName().equals("timestamp")) {
-                        SqlTimestamp expectedTimestamp = sqlTimestampOf((Long) expectedValue, SESSION.toConnectorSession());
+                        SqlTimestamp expectedTimestamp = sqlTimestampOf((Long) expectedValue, CONNECTOR_SESSION);
                         assertEquals(actualValue, expectedTimestamp, "Wrong value for column " + testColumn.getName());
                     }
                     else if (testColumn.getObjectInspector().getTypeName().startsWith("char")) {
@@ -791,7 +791,7 @@ public abstract class AbstractTestHiveFileFormats
                     else {
                         BlockBuilder builder = type.createBlockBuilder(null, 1);
                         type.writeObject(builder, expectedValue);
-                        expectedValue = type.getObjectValue(SESSION.toConnectorSession().getSqlFunctionProperties(), builder.build(), 0);
+                        expectedValue = type.getObjectValue(CONNECTOR_SESSION.getSqlFunctionProperties(), builder.build(), 0);
                         assertEquals(actualValue, expectedValue, "Wrong value for column " + testColumn.getName());
                     }
                 }

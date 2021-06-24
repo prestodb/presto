@@ -25,7 +25,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.hive.HiveTestUtils.SESSION;
+import static com.facebook.presto.hive.HiveTestUtils.CONNECTOR_SESSION;
 import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
 import static com.facebook.presto.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -61,7 +61,7 @@ public class TestHiveEncryptionInformationProvider
                 new TestEncryptionInformationSource(Optional.empty()),
                 new TestEncryptionInformationSource(Optional.empty())));
 
-        assertFalse(provider.getReadEncryptionInformation(SESSION.toConnectorSession(), TEST_TABLE, Optional.empty()).isPresent());
+        assertFalse(provider.getReadEncryptionInformation(CONNECTOR_SESSION, TEST_TABLE, Optional.empty()).isPresent());
     }
 
     @Test
@@ -76,7 +76,7 @@ public class TestHiveEncryptionInformationProvider
                 new TestEncryptionInformationSource(Optional.of(encryptionInformation1)),
                 new TestEncryptionInformationSource(Optional.of(encryptionInformation2))));
 
-        assertEquals(provider.getReadEncryptionInformation(SESSION.toConnectorSession(), TEST_TABLE, Optional.empty()).get(), encryptionInformation1);
+        assertEquals(provider.getReadEncryptionInformation(CONNECTOR_SESSION, TEST_TABLE, Optional.empty()).get(), encryptionInformation1);
     }
 
     private static final class TestEncryptionInformationSource

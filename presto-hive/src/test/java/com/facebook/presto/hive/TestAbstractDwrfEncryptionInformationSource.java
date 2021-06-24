@@ -32,7 +32,7 @@ import static com.facebook.presto.hive.DwrfTableEncryptionProperties.forTable;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
-import static com.facebook.presto.hive.HiveTestUtils.SESSION;
+import static com.facebook.presto.hive.HiveTestUtils.CONNECTOR_SESSION;
 import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.TestDwrfEncryptionInformationSource.TEST_EXTRA_METADATA;
@@ -76,17 +76,17 @@ public class TestAbstractDwrfEncryptionInformationSource
     public void testNotDwrfTable()
     {
         Table table = createTable(ORC, Optional.of(forTable("foo", "AES_GCM_256", "TEST")), true);
-        assertFalse(encryptionInformationSource.getReadEncryptionInformation(SESSION.toConnectorSession(), table, Optional.of(ImmutableSet.of()), ImmutableMap.of()).isPresent());
-        assertFalse(encryptionInformationSource.getReadEncryptionInformation(SESSION.toConnectorSession(), table, Optional.of(ImmutableSet.of())).isPresent());
-        assertFalse(encryptionInformationSource.getWriteEncryptionInformation(SESSION.toConnectorSession(), new NonDwrfTableEncryptionProperties(), "db", "table").isPresent());
+        assertFalse(encryptionInformationSource.getReadEncryptionInformation(CONNECTOR_SESSION, table, Optional.of(ImmutableSet.of()), ImmutableMap.of()).isPresent());
+        assertFalse(encryptionInformationSource.getReadEncryptionInformation(CONNECTOR_SESSION, table, Optional.of(ImmutableSet.of())).isPresent());
+        assertFalse(encryptionInformationSource.getWriteEncryptionInformation(CONNECTOR_SESSION, new NonDwrfTableEncryptionProperties(), "db", "table").isPresent());
     }
 
     @Test
     public void testNotEncryptedTable()
     {
         Table table = createTable(DWRF, Optional.empty(), true);
-        assertFalse(encryptionInformationSource.getReadEncryptionInformation(SESSION.toConnectorSession(), table, Optional.of(ImmutableSet.of()), ImmutableMap.of()).isPresent());
-        assertFalse(encryptionInformationSource.getReadEncryptionInformation(SESSION.toConnectorSession(), table, Optional.of(ImmutableSet.of())).isPresent());
+        assertFalse(encryptionInformationSource.getReadEncryptionInformation(CONNECTOR_SESSION, table, Optional.of(ImmutableSet.of()), ImmutableMap.of()).isPresent());
+        assertFalse(encryptionInformationSource.getReadEncryptionInformation(CONNECTOR_SESSION, table, Optional.of(ImmutableSet.of())).isPresent());
     }
 
     @Test
@@ -94,7 +94,7 @@ public class TestAbstractDwrfEncryptionInformationSource
     {
         Table table = createTable(DWRF, Optional.of(forTable("table_level_key", "algo", "provider")), true);
         Optional<Map<String, EncryptionInformation>> encryptionInformation = encryptionInformationSource.getReadEncryptionInformation(
-                SESSION.toConnectorSession(),
+                CONNECTOR_SESSION,
                 table,
                 Optional.of(ImmutableSet.of(
                         // hiveColumnIndex value does not matter in this test
@@ -125,7 +125,7 @@ public class TestAbstractDwrfEncryptionInformationSource
     {
         Table table = createTable(DWRF, Optional.of(forTable("key1", "algo", "provider")), true);
         Optional<Map<String, EncryptionInformation>> encryptionInformation = encryptionInformationSource.getReadEncryptionInformation(
-                SESSION.toConnectorSession(),
+                CONNECTOR_SESSION,
                 table,
                 Optional.of(ImmutableSet.of()),
                 ImmutableMap.of(
@@ -145,7 +145,7 @@ public class TestAbstractDwrfEncryptionInformationSource
     {
         Table table = createTable(DWRF, Optional.of(forPerColumn(fromHiveProperty("key1:col_string,col_struct.b.b2;key2:col_bigint,col_struct.a"), "algo", "provider")), true);
         Optional<Map<String, EncryptionInformation>> encryptionInformation = encryptionInformationSource.getReadEncryptionInformation(
-                SESSION.toConnectorSession(),
+                CONNECTOR_SESSION,
                 table,
                 Optional.of(ImmutableSet.of(
                         // hiveColumnIndex value does not matter in this test
@@ -178,7 +178,7 @@ public class TestAbstractDwrfEncryptionInformationSource
     {
         Table table = createTable(DWRF, Optional.of(forPerColumn(fromHiveProperty("key1:col_string,col_struct.b.b2;key2:col_bigint,col_struct.a"), "algo", "provider")), false);
         Optional<EncryptionInformation> encryptionInformation = encryptionInformationSource.getReadEncryptionInformation(
-                SESSION.toConnectorSession(),
+                CONNECTOR_SESSION,
                 table,
                 Optional.of(ImmutableSet.of(
                         // hiveColumnIndex value does not matter in this test
@@ -204,7 +204,7 @@ public class TestAbstractDwrfEncryptionInformationSource
     @Test
     public void testGetWriteEncryptionInformation()
     {
-        Optional<EncryptionInformation> encryptionInformation = encryptionInformationSource.getWriteEncryptionInformation(SESSION.toConnectorSession(), forTable("table_level", "algo", "provider"), "dbName", "tableName");
+        Optional<EncryptionInformation> encryptionInformation = encryptionInformationSource.getWriteEncryptionInformation(CONNECTOR_SESSION, forTable("table_level", "algo", "provider"), "dbName", "tableName");
         assertTrue(encryptionInformation.isPresent());
         assertEquals(
                 encryptionInformation.get(),

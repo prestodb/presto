@@ -52,6 +52,7 @@ import com.facebook.presto.orc.StorageStripeMetadataSource;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.parquet.cache.MetadataReader;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
@@ -68,7 +69,6 @@ import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.relational.RowExpressionOptimizer;
-import com.facebook.presto.testing.TestingSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
@@ -92,10 +92,12 @@ public final class HiveTestUtils
     public static final JsonCodec<PartitionUpdate> PARTITION_UPDATE_CODEC = jsonCodec(PartitionUpdate.class);
     public static final SmileCodec<PartitionUpdate> PARTITION_UPDATE_SMILE_CODEC = smileCodec(PartitionUpdate.class);
 
-    public static final Session SESSION = TestingSession.testSessionBuilder(
+    public static final Session SESSION = Session.builder(
             new SessionPropertyManager(
                     new HiveSessionProperties(new HiveClientConfig(), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties()
             )).build();
+
+    public static final ConnectorSession CONNECTOR_SESSION = SESSION.toConnectorSession(new ConnectorId(SESSION.getCatalog().get()));
 
     public static final MetadataManager METADATA = MetadataManager.createTestMetadataManager();
 
