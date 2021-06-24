@@ -604,6 +604,7 @@ public class HashBuilderOperator
         localUserMemoryContext.setBytes(index.getEstimatedSize().toBytes(), enforceBroadcastMemoryLimit);
 
         close();
+        spilledLookupSourceHandle.setDisposeCompleted();
     }
 
     private LookupSourceSupplier buildLookupSource()

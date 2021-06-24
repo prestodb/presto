@@ -35,7 +35,8 @@ final class SpilledLookupSourceHandle
         SPILLED,
         UNSPILLING,
         PRODUCED,
-        DISPOSED
+        DISPOSE_REQUESTED,
+        DISPOSE_COMPLETED,
     }
 
     @GuardedBy("this")
@@ -48,6 +49,7 @@ final class SpilledLookupSourceHandle
     private SettableFuture<Supplier<LookupSource>> unspilledLookupSource;
 
     private final SettableFuture<?> disposeRequested = SettableFuture.create();
+    private final SettableFuture<?> disposeCompleted = SettableFuture.create();
 
     private final ListenableFuture<?> unspillingOrDisposeRequested = whenAnyComplete(ImmutableList.of(unspillingRequested, disposeRequested));
 
@@ -70,7 +72,7 @@ final class SpilledLookupSourceHandle
     {
         requireNonNull(lookupSource, "lookupSource is null");
 
-        if (state == State.DISPOSED) {
+        if (state == State.DISPOSE_REQUESTED || state == State.DISPOSE_COMPLETED) {
             return;
         }
 
@@ -85,12 +87,23 @@ final class SpilledLookupSourceHandle
     {
         disposeRequested.set(null);
         unspilledLookupSource = null; // let the memory go
-        setState(State.DISPOSED);
+        setState(State.DISPOSE_REQUESTED);
     }
 
     public SettableFuture<?> getDisposeRequested()
     {
         return disposeRequested;
+    }
+
+    public synchronized void setDisposeCompleted()
+    {
+        disposeCompleted.set(null);
+        setState(State.DISPOSE_COMPLETED);
+    }
+
+    public SettableFuture<?> getDisposeCompleted()
+    {
+        return disposeCompleted;
     }
 
     public ListenableFuture<?> getUnspillingOrDisposeRequested()
