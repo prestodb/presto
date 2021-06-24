@@ -320,7 +320,10 @@ public final class PartitionedLookupSourceFactory
                         i -> {
                             throw new UnsupportedOperationException();
                         },
-                        i -> {}));
+                        i -> {},
+                        i -> {
+                            throw new UnsupportedOperationException();
+                        }));
             }
 
             int operatorsCount = lookupJoinsCount
@@ -341,7 +344,8 @@ public final class PartitionedLookupSourceFactory
                         partitionedConsumptionParticipants.getAsInt(),
                         spilledPartitions.keySet(),
                         this::loadSpilledLookupSource,
-                        this::disposeSpilledLookupSource));
+                        this::disposeSpilledLookupSource,
+                        this::spilledLookupSourceDisposed));
             }
 
             return partitionedConsumption;
@@ -359,6 +363,11 @@ public final class PartitionedLookupSourceFactory
     private void disposeSpilledLookupSource(int partitionNumber)
     {
         getSpilledLookupSourceHandle(partitionNumber).dispose();
+    }
+
+    private SettableFuture<?> spilledLookupSourceDisposed(int partitionNumber)
+    {
+        return getSpilledLookupSourceHandle(partitionNumber).getDisposeCompleted();
     }
 
     private SpilledLookupSourceHandle getSpilledLookupSourceHandle(int partitionNumber)
