@@ -35,7 +35,7 @@ public class TpchConnectorFactory
     public static final String TPCH_COLUMN_NAMING_PROPERTY = "tpch.column-naming";
 
     private final int defaultSplitsPerNode;
-    private final boolean predicatePushdownEnabled;
+    protected final boolean predicatePushdownEnabled;
     private final boolean partitioningEnabled;
 
     public TpchConnectorFactory()
@@ -108,7 +108,7 @@ public class TpchConnectorFactory
         };
     }
 
-    private int getSplitsPerNode(Map<String, String> properties)
+    protected int getSplitsPerNode(Map<String, String> properties)
     {
         try {
             return Integer.parseInt(firstNonNull(properties.get("tpch.splits-per-node"), String.valueOf(defaultSplitsPerNode)));
@@ -118,7 +118,7 @@ public class TpchConnectorFactory
         }
     }
 
-    private boolean isPartitioningEnabled(Map<String, String> properties)
+    protected boolean isPartitioningEnabled(Map<String, String> properties)
     {
         return Boolean.parseBoolean(properties.getOrDefault("tpch.partitioning-enabled", String.valueOf(partitioningEnabled)));
     }

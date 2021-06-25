@@ -40,6 +40,12 @@ public final class PlanAssert
         assertPlan(session, metadata, statsProvider, actual, noLookup(), pattern, Function.identity());
     }
 
+    public static void assertPlanDoesNotMatch(Session session, Metadata metadata, StatsCalculator statsCalculator, Plan actual, PlanMatchPattern pattern)
+    {
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, actual.getTypes());
+        assertPlanDoesNotMatch(session, metadata, statsProvider, actual, noLookup(), pattern, Function.identity());
+    }
+
     public static void assertPlan(Session session, Metadata metadata, StatsProvider statsProvider, Plan actual, Lookup lookup, PlanMatchPattern pattern, Function<PlanNode, PlanNode> planSanitizer)
     {
         MatchResult matches = actual.getRoot().accept(new PlanMatchingVisitor(session, metadata, statsProvider, lookup), pattern);
@@ -49,6 +55,20 @@ public final class PlanAssert
             String resolvedFormattedPlan = textLogicalPlan(planSanitizer.apply(resolvedPlan), actual.getTypes(), metadata.getFunctionAndTypeManager(), StatsAndCosts.empty(), session, 0);
             throw new AssertionError(format(
                     "Plan does not match, expected [\n\n%s\n] but found [\n\n%s\n]",
+                    pattern,
+                    resolvedFormattedPlan));
+        }
+    }
+
+    public static void assertPlanDoesNotMatch(Session session, Metadata metadata, StatsProvider statsProvider, Plan actual, Lookup lookup, PlanMatchPattern pattern, Function<PlanNode, PlanNode> planSanitizer)
+    {
+        MatchResult matches = actual.getRoot().accept(new PlanMatchingVisitor(session, metadata, statsProvider, lookup), pattern);
+        // TODO (Issue #13231) add back printing unresolved plan once we have no need to translate OriginalExpression to RowExpression
+        if (matches.isMatch()) {
+            PlanNode resolvedPlan = resolveGroupReferences(actual.getRoot(), lookup);
+            String resolvedFormattedPlan = textLogicalPlan(planSanitizer.apply(resolvedPlan), actual.getTypes(), metadata.getFunctionAndTypeManager(), StatsAndCosts.empty(), session, 0);
+            throw new AssertionError(format(
+                    "Plan unexpectedly matches the pattern, pattern is [\n\n%s\n] and plan is [\n\n%s\n]",
                     pattern,
                     resolvedFormattedPlan));
         }

@@ -19,6 +19,7 @@ import com.facebook.presto.hive.ForCachingHiveMetastore;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.TableConstraint;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
@@ -86,11 +87,13 @@ public class CachingHiveMetastore
     }
 
     protected final ExtendedHiveMetastore delegate;
+
     private final LoadingCache<KeyAndContext<String>, Optional<Database>> databaseCache;
     private final LoadingCache<KeyAndContext<String>, List<String>> databaseNamesCache;
     private final LoadingCache<KeyAndContext<HiveTableName>, Optional<Table>> tableCache;
     private final LoadingCache<KeyAndContext<String>, Optional<List<String>>> tableNamesCache;
     private final LoadingCache<KeyAndContext<HiveTableName>, PartitionStatistics> tableStatisticsCache;
+    private final LoadingCache<KeyAndContext<HiveTableName>, List<TableConstraint<String>>> tableConstraintsCache;
     private final LoadingCache<KeyAndContext<HivePartitionName>, PartitionStatistics> partitionStatisticsCache;
     private final LoadingCache<KeyAndContext<String>, Optional<List<String>>> viewNamesCache;
     private final LoadingCache<KeyAndContext<HivePartitionName>, Optional<Partition>> partitionCache;
@@ -99,7 +102,6 @@ public class CachingHiveMetastore
     private final LoadingCache<KeyAndContext<UserTableKey>, Set<HivePrivilegeInfo>> tablePrivilegesCache;
     private final LoadingCache<KeyAndContext<String>, Set<String>> rolesCache;
     private final LoadingCache<KeyAndContext<PrestoPrincipal>, Set<RoleGrant>> roleGrantsCache;
-
     private final boolean metastoreImpersonationEnabled;
     private final boolean partitionVersioningEnabled;
     private final double partitionCacheValidationPercentage;
@@ -245,6 +247,9 @@ public class CachingHiveMetastore
         tableCache = newCacheBuilder(cacheExpiresAfterWriteMillis, cacheRefreshMills, cacheMaxSize)
                 .build(asyncReloading(CacheLoader.from(this::loadTable), executor));
 
+        tableConstraintsCache = newCacheBuilder(cacheExpiresAfterWriteMillis, cacheRefreshMills, cacheMaxSize)
+                .build(asyncReloading(CacheLoader.from(this::loadTableConstraints), executor));
+
         viewNamesCache = newCacheBuilder(cacheExpiresAfterWriteMillis, cacheRefreshMills, cacheMaxSize)
                 .build(asyncReloading(CacheLoader.from(this::loadAllViews), executor));
 
@@ -289,6 +294,7 @@ public class CachingHiveMetastore
         partitionNamesCache.invalidateAll();
         databaseCache.invalidateAll();
         tableCache.invalidateAll();
+        tableConstraintsCache.invalidateAll();
         partitionCache.invalidateAll();
         partitionFilterCache.invalidateAll();
         tablePrivilegesCache.invalidateAll();
@@ -349,6 +355,12 @@ public class CachingHiveMetastore
     }
 
     @Override
+    public List<TableConstraint<String>> getTableConstraints(MetastoreContext metastoreContext, String databaseName, String tableName)
+    {
+        return get(tableConstraintsCache, getCachingKey(metastoreContext, hiveTableName(databaseName, tableName)));
+    }
+
+    @Override
     public Set<ColumnStatisticType> getSupportedColumnStatistics(MetastoreContext metastoreContext, Type type)
     {
         return delegate.getSupportedColumnStatistics(metastoreContext, type);
@@ -357,6 +369,11 @@ public class CachingHiveMetastore
     private Optional<Table> loadTable(KeyAndContext<HiveTableName> hiveTableName)
     {
         return delegate.getTable(hiveTableName.getContext(), hiveTableName.getKey().getDatabaseName(), hiveTableName.getKey().getTableName());
+    }
+
+    private List<TableConstraint<String>> loadTableConstraints(KeyAndContext<HiveTableName> hiveTableName)
+    {
+        return delegate.getTableConstraints(hiveTableName.getContext(), hiveTableName.getKey().getDatabaseName(), hiveTableName.getKey().getTableName());
     }
 
     @Override
@@ -592,6 +609,10 @@ public class CachingHiveMetastore
         tableCache.asMap().keySet().stream()
                 .filter(hiveTableNameKey -> hiveTableNameKey.getKey().equals(hiveTableName))
                 .forEach(tableCache::invalidate);
+
+        tableConstraintsCache.asMap().keySet().stream()
+                .filter(hiveTableNameKey -> hiveTableNameKey.getKey().equals(hiveTableName))
+                .forEach(tableConstraintsCache::invalidate);
 
         tableNamesCache.asMap().keySet().stream()
                 .filter(tableNameKey -> tableNameKey.getKey().equals(databaseName))

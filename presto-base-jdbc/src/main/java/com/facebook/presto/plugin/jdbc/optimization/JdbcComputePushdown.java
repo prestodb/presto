@@ -155,7 +155,8 @@ public class JdbcComputePushdown
                     oldTableScanNode.getOutputVariables(),
                     oldTableScanNode.getAssignments(),
                     oldTableScanNode.getCurrentConstraint(),
-                    oldTableScanNode.getEnforcedConstraint());
+                    oldTableScanNode.getEnforcedConstraint(),
+                    oldTableScanNode.getTableConstraints());
 
             return new FilterNode(idAllocator.getNextId(), newTableScanNode, node.getPredicate());
         }

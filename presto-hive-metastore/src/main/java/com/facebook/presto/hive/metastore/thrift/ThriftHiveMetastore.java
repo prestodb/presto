@@ -31,9 +31,11 @@ import com.facebook.presto.hive.metastore.MetastoreUtil;
 import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.hive.metastore.PartitionWithStatistics;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.PrimaryKeyConstraint;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.UniqueConstraint;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
@@ -54,10 +56,14 @@ import org.apache.hadoop.hive.metastore.api.InvalidOperationException;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.apache.hadoop.hive.metastore.api.Partition;
+import org.apache.hadoop.hive.metastore.api.PrimaryKeysResponse;
 import org.apache.hadoop.hive.metastore.api.PrincipalType;
 import org.apache.hadoop.hive.metastore.api.PrivilegeBag;
 import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
+import org.apache.hadoop.hive.metastore.api.SQLPrimaryKey;
+import org.apache.hadoop.hive.metastore.api.SQLUniqueConstraint;
 import org.apache.hadoop.hive.metastore.api.Table;
+import org.apache.hadoop.hive.metastore.api.UniqueConstraintsResponse;
 import org.apache.hadoop.hive.metastore.api.UnknownDBException;
 import org.apache.hadoop.hive.metastore.api.UnknownTableException;
 import org.apache.thrift.TException;
@@ -67,6 +73,8 @@ import org.weakref.jmx.Managed;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -152,6 +160,79 @@ public class ThriftHiveMetastore
     public ThriftHiveMetastoreStats getStats()
     {
         return stats;
+    }
+
+    public Optional<PrimaryKeyConstraint<String>> getPrimaryKey(MetastoreContext metastoreContext, String dbName, String tableName)
+    {
+        try {
+            Optional<PrimaryKeysResponse> pkResponse = retry()
+                    .stopOnIllegalExceptions()
+                    .run("getPrimaryKey", stats.getGetPrimaryKey().wrap(() ->
+                            getMetastoreClientThenCall(metastoreContext, client -> client.getPrimaryKey(dbName, tableName))));
+
+            if (!pkResponse.isPresent()) {
+                return Optional.empty();
+            }
+
+            List<SQLPrimaryKey> pkCols = pkResponse.get().getPrimaryKeys();
+            boolean isEnabled = pkCols.get(0).isEnable_cstr();
+            boolean isRely = pkCols.get(0).isRely_cstr();
+            String pkName = pkCols.get(0).getPk_name();
+            Set<String> keyCols = pkCols.stream().map(pk -> pk.getColumn_name()).collect(Collectors.toSet());
+            return Optional.of(new PrimaryKeyConstraint<>(pkName, keyCols, isEnabled, isRely));
+        }
+        catch (TException e) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            throw propagate(e);
+        }
+    }
+
+    @Override
+    public List<UniqueConstraint<String>> getUniqueConstraints(MetastoreContext metastoreContext, String dbName, String tableName)
+    {
+        try {
+            Optional<UniqueConstraintsResponse> uniqueConstraintsResponse = retry()
+                    .stopOnIllegalExceptions()
+                    .run("getUniqueConstraints", stats.getGetUniqueConstraints().wrap(() ->
+                            getMetastoreClientThenCall(metastoreContext, client -> client.getUniqueConstraints("hive", dbName, tableName))));
+
+            if (!uniqueConstraintsResponse.isPresent()) {
+                return ImmutableList.of();
+            }
+
+            List<SQLUniqueConstraint> uniqueCols = uniqueConstraintsResponse.get().getUniqueConstraints();
+            //bucket the unique constraint columns by constraint name
+            Map<String, List<SQLUniqueConstraint>> bucketedConstraints = new HashMap<>();
+            uniqueCols.stream().forEach(uc -> {
+                String constraintName = uc.getUk_name();
+                if (bucketedConstraints.containsKey(constraintName)) {
+                    bucketedConstraints.get(constraintName).add(uc);
+                }
+                else {
+                    List<SQLUniqueConstraint> uniqueColumns = new ArrayList<>();
+                    uniqueColumns.add(uc);
+                    bucketedConstraints.put(constraintName, uniqueColumns);
+                }
+            });
+            //create a unique table constraint per bucket
+            List<UniqueConstraint<String>> result = new ArrayList<>();
+            bucketedConstraints.entrySet().stream().forEach(e -> {
+                String constraintName = e.getKey();
+                Set<String> columnNames = e.getValue().stream().map(c -> c.getColumn_name()).collect(Collectors.toSet());
+                boolean isEnabled = e.getValue().get(0).isEnable_cstr();
+                boolean isRely = e.getValue().get(0).isRely_cstr();
+                result.add(new UniqueConstraint<>(constraintName, columnNames, isEnabled, isRely));
+            });
+            return result;
+        }
+        catch (TException e) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            throw propagate(e);
+        }
     }
 
     @Override

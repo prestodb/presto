@@ -15,6 +15,7 @@ package com.facebook.presto.spi.plan;
 
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.TableConstraint;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -23,6 +24,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,8 +46,8 @@ public final class TableScanNode
     // TODO: think about how to get rid of this in new planner
     // TODO: these two fields will not be effective if they are created by connectors until we have refactored PickTableLayout
     private final TupleDomain<ColumnHandle> currentConstraint;
-
     private final TupleDomain<ColumnHandle> enforcedConstraint;
+    private final List<TableConstraint<ColumnHandle>> tableConstraints;
 
     /**
      * This constructor is for JSON deserialization only.  Do not use!
@@ -64,6 +66,7 @@ public final class TableScanNode
         checkArgument(assignments.keySet().containsAll(outputVariables), "assignments does not cover all of outputs");
         this.currentConstraint = null;
         this.enforcedConstraint = null;
+        this.tableConstraints = null;
     }
 
     public TableScanNode(
@@ -73,6 +76,18 @@ public final class TableScanNode
             Map<VariableReferenceExpression, ColumnHandle> assignments,
             TupleDomain<ColumnHandle> currentConstraint,
             TupleDomain<ColumnHandle> enforcedConstraint)
+    {
+        this (id, table, outputVariables, assignments, currentConstraint, enforcedConstraint, Collections.emptyList());
+    }
+
+    public TableScanNode(
+            PlanNodeId id,
+            TableHandle table,
+            List<VariableReferenceExpression> outputVariables,
+            Map<VariableReferenceExpression, ColumnHandle> assignments,
+            TupleDomain<ColumnHandle> currentConstraint,
+            TupleDomain<ColumnHandle> enforcedConstraint,
+            List<TableConstraint<ColumnHandle>> tableConstraints)
     {
         super(id);
         this.table = requireNonNull(table, "table is null");
@@ -84,6 +99,7 @@ public final class TableScanNode
         if (!currentConstraint.isAll() || !enforcedConstraint.isAll()) {
             checkArgument(table.getLayout().isPresent(), "tableLayout must be present when currentConstraint or enforcedConstraint is non-trivial");
         }
+        this.tableConstraints = requireNonNull(tableConstraints, "tableConstraints is null");
     }
 
     /**
@@ -93,6 +109,15 @@ public final class TableScanNode
     public TableHandle getTable()
     {
         return table;
+    }
+
+    /**
+     * Get table constraints defined by connector
+     */
+    @JsonProperty("tableConstraint")
+    public List<TableConstraint<ColumnHandle>> getTableConstraints()
+    {
+        return tableConstraints == null ? emptyList() : tableConstraints;
     }
 
     /**
@@ -139,6 +164,13 @@ public final class TableScanNode
     {
         // table scan should be the leaf node
         return emptyList();
+    }
+
+    @Override
+    public LogicalProperties computeLogicalProperties(LogicalPropertiesProvider logicalPropertiesProvider)
+    {
+        requireNonNull(logicalPropertiesProvider, "logicalPropertiesProvider cannot be null.");
+        return logicalPropertiesProvider.getTableScanProperties(this);
     }
 
     @Override

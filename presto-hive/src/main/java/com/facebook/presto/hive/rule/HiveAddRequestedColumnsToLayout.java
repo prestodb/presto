@@ -102,7 +102,8 @@ public class HiveAddRequestedColumnsToLayout
                     tableScan.getOutputVariables(),
                     tableScan.getAssignments(),
                     tableScan.getCurrentConstraint(),
-                    tableScan.getEnforcedConstraint());
+                    tableScan.getEnforcedConstraint(),
+                    tableScan.getTableConstraints());
         }
     }
 }

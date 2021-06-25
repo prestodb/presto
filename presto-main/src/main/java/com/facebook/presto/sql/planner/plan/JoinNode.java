@@ -14,6 +14,8 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.spi.plan.LogicalProperties;
+import com.facebook.presto.spi.plan.LogicalPropertiesProvider;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -288,6 +290,13 @@ public class JoinNode
     public List<PlanNode> getSources()
     {
         return ImmutableList.of(left, right);
+    }
+
+    @Override
+    public LogicalProperties computeLogicalProperties(LogicalPropertiesProvider logicalPropertiesProvider)
+    {
+        requireNonNull(logicalPropertiesProvider, "logicalPropertiesProvider cannot be null.");
+        return logicalPropertiesProvider.getJoinProperties(this);
     }
 
     @Override

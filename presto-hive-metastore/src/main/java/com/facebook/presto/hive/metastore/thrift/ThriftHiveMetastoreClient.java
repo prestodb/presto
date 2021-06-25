@@ -29,6 +29,8 @@ import org.apache.hadoop.hive.metastore.api.HiveObjectRef;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.PartitionsStatsRequest;
+import org.apache.hadoop.hive.metastore.api.PrimaryKeysRequest;
+import org.apache.hadoop.hive.metastore.api.PrimaryKeysResponse;
 import org.apache.hadoop.hive.metastore.api.PrincipalType;
 import org.apache.hadoop.hive.metastore.api.PrivilegeBag;
 import org.apache.hadoop.hive.metastore.api.Role;
@@ -36,6 +38,8 @@ import org.apache.hadoop.hive.metastore.api.RolePrincipalGrant;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.metastore.api.TableStatsRequest;
 import org.apache.hadoop.hive.metastore.api.ThriftHiveMetastore;
+import org.apache.hadoop.hive.metastore.api.UniqueConstraintsRequest;
+import org.apache.hadoop.hive.metastore.api.UniqueConstraintsResponse;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.protocol.TProtocol;
@@ -44,6 +48,7 @@ import org.apache.thrift.transport.TTransport;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -399,5 +404,47 @@ public class ThriftHiveMetastoreClient
             throws TException
     {
         client.set_ugi(userName, new ArrayList<>());
+    }
+
+    @Override
+    public Optional<PrimaryKeysResponse> getPrimaryKey(String dbName, String tableName)
+            throws TException
+    {
+        PrimaryKeysRequest pkRequest = new PrimaryKeysRequest(dbName, tableName);
+        PrimaryKeysResponse pkResponse;
+
+        try {
+            pkResponse = client.get_primary_keys(pkRequest);
+        }
+        catch (TException e) {
+            // If we are talking to Hive version < 3 which doesn't support table constraints,
+            // then we will get an error like "Invalid Method name : get_primary_keys"
+            if (e.getMessage().contains("Invalid method name: 'get_primary_keys'")) {
+                return Optional.empty();
+            }
+            throw e;
+        }
+
+        return Optional.of(pkResponse);
+    }
+
+    @Override
+    public Optional<UniqueConstraintsResponse> getUniqueConstraints(String catName, String dbName, String tableName)
+            throws TException
+    {
+        UniqueConstraintsRequest uniqueConstraintsRequest = new UniqueConstraintsRequest(catName, dbName, tableName);
+        UniqueConstraintsResponse uniqueConstraintsResponse;
+
+        try {
+            uniqueConstraintsResponse = client.get_unique_constraints(uniqueConstraintsRequest);
+        }
+        catch (TException e) {
+            if (e.getMessage().contains("Invalid method name: 'get_unique_constraints'")) {
+                return Optional.empty();
+            }
+            throw e;
+        }
+
+        return Optional.of(uniqueConstraintsResponse);
     }
 }
