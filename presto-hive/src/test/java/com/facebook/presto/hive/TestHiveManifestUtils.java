@@ -141,7 +141,7 @@ public class TestHiveManifestUtils
             Type type = types.get(i);
             BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(i);
             Object value = values.get(i);
-            String baseType =  type.getTypeSignature().getBase();
+            String baseType = type.getTypeSignature().getBase();
             StandardTypes.Types standardType = StandardTypes.Types.getTypeFromString(baseType);
             assertTrue(standardType != null);
             switch (standardType) {

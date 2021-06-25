@@ -138,26 +138,24 @@ public final class JsonUtil
         if (baseType.equals(UnknownType.NAME)) {
             return true;
         }
-        StandardTypes.Types standardType = StandardTypes.Types.valueOf(baseType);
-        if (standardType == null) {
-            throw new PrestoException(NOT_SUPPORTED, format("%s is not a supported type.", baseType));
-        }
-
-        if (standardType.equals(StandardTypes.Types.BOOLEAN) ||
-                standardType.equals(StandardTypes.Types.TINYINT) ||
-                standardType.equals(StandardTypes.Types.SMALLINT) ||
-                standardType.equals(StandardTypes.Types.INTEGER) ||
-                standardType.equals(StandardTypes.Types.BIGINT) ||
-                standardType.equals(StandardTypes.Types.REAL) ||
-                standardType.equals(StandardTypes.Types.DOUBLE) ||
-                standardType.equals(StandardTypes.Types.DECIMAL) ||
-                standardType.equals(StandardTypes.Types.VARCHAR) ||
-                standardType.equals(StandardTypes.Types.JSON) ||
-                standardType.equals(StandardTypes.Types.TIMESTAMP) ||
-                standardType.equals(StandardTypes.Types.DATE) ||
-                standardType.equals(StandardTypes.Types.VARCHAR_ENUM) ||
-                standardType.equals(StandardTypes.Types.BIGINT_ENUM)) {
-            return true;
+        StandardTypes.Types standardType = StandardTypes.Types.getTypeFromString(baseType);
+        if (standardType != null) {
+            if (standardType.equals(StandardTypes.Types.BOOLEAN) ||
+                    standardType.equals(StandardTypes.Types.TINYINT) ||
+                    standardType.equals(StandardTypes.Types.SMALLINT) ||
+                    standardType.equals(StandardTypes.Types.INTEGER) ||
+                    standardType.equals(StandardTypes.Types.BIGINT) ||
+                    standardType.equals(StandardTypes.Types.REAL) ||
+                    standardType.equals(StandardTypes.Types.DOUBLE) ||
+                    standardType.equals(StandardTypes.Types.DECIMAL) ||
+                    standardType.equals(StandardTypes.Types.VARCHAR) ||
+                    standardType.equals(StandardTypes.Types.JSON) ||
+                    standardType.equals(StandardTypes.Types.TIMESTAMP) ||
+                    standardType.equals(StandardTypes.Types.DATE) ||
+                    standardType.equals(StandardTypes.Types.VARCHAR_ENUM) ||
+                    standardType.equals(StandardTypes.Types.BIGINT_ENUM)) {
+                return true;
+            }
         }
         if (type instanceof ArrayType) {
             return canCastToJson(((ArrayType) type).getElementType());
@@ -180,22 +178,20 @@ public final class JsonUtil
         if (signature.isEnum()) {
             return true;
         }
-        StandardTypes.Types standardType = StandardTypes.Types.valueOf(signature.getBase());
-        if (standardType == null) {
-            throw new PrestoException(NOT_SUPPORTED, format("%s is not a supported type.", signature.getBase()));
-        }
-
-        if (standardType.equals(StandardTypes.Types.BOOLEAN) ||
-                standardType.equals(StandardTypes.Types.TINYINT) ||
-                standardType.equals(StandardTypes.Types.SMALLINT) ||
-                standardType.equals(StandardTypes.Types.INTEGER) ||
-                standardType.equals(StandardTypes.Types.BIGINT) ||
-                standardType.equals(StandardTypes.Types.REAL) ||
-                standardType.equals(StandardTypes.Types.DOUBLE) ||
-                standardType.equals(StandardTypes.Types.VARCHAR) ||
-                standardType.equals(StandardTypes.Types.DECIMAL) ||
-                standardType.equals(StandardTypes.Types.JSON)) {
-            return true;
+        StandardTypes.Types standardType = StandardTypes.Types.getTypeFromString(signature.getBase());
+        if (standardType != null) {
+            if (standardType.equals(StandardTypes.Types.BOOLEAN) ||
+                    standardType.equals(StandardTypes.Types.TINYINT) ||
+                    standardType.equals(StandardTypes.Types.SMALLINT) ||
+                    standardType.equals(StandardTypes.Types.INTEGER) ||
+                    standardType.equals(StandardTypes.Types.BIGINT) ||
+                    standardType.equals(StandardTypes.Types.REAL) ||
+                    standardType.equals(StandardTypes.Types.DOUBLE) ||
+                    standardType.equals(StandardTypes.Types.VARCHAR) ||
+                    standardType.equals(StandardTypes.Types.DECIMAL) ||
+                    standardType.equals(StandardTypes.Types.JSON)) {
+                return true;
+            }
         }
         if (type instanceof ArrayType) {
             return canCastFromJson(((ArrayType) type).getElementType());
