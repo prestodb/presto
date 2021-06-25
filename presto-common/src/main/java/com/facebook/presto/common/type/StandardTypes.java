@@ -14,7 +14,11 @@
 package com.facebook.presto.common.type;
 
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static java.util.Arrays.asList;
 import static java.util.Collections.unmodifiableSet;
@@ -67,4 +71,48 @@ public final class StandardTypes
             TDIGEST,
             BIGINT_ENUM,
             VARCHAR_ENUM)));
+
+    public enum Types
+    {
+        BIGINT,
+        INTEGER,
+        SMALLINT,
+        TINYINT,
+        BOOLEAN,
+        DATE,
+        DECIMAL,
+        REAL,
+        DOUBLE,
+        HYPER_LOG_LOG,
+        QDIGEST,
+        TDIGEST,
+        P4_HYPER_LOG_LOG,
+        INTERVAL_DAY_TO_SECOND,
+        INTERVAL_YEAR_TO_MONTH,
+        TIMESTAMP,
+        TIMESTAMP_WITH_TIME_ZONE,
+        TIME,
+        TIME_WITH_TIME_ZONE,
+        VARBINARY,
+        VARCHAR,
+        CHAR,
+        ROW,
+        ARRAY,
+        MAP,
+        JSON,
+        IPADDRESS,
+        IPPREFIX,
+        GEOMETRY,
+        BING_TILE,
+        BIGINT_ENUM,
+        VARCHAR_ENUM;
+
+        private static final Map<String, Types> TYPES_MAP = Stream.of(values())
+                .collect(Collectors.toMap(Types::toString, Function.identity()));
+
+        public static Types getTypeFromString(final String name)
+        {
+            return TYPES_MAP.get(name);
+        }
+    }
 }

@@ -396,7 +396,12 @@ public class ParquetPageSourceFactory
 
     private static boolean checkSchemaMatch(org.apache.parquet.schema.Type parquetType, Type type)
     {
-        String prestoType = type.getTypeSignature().getBase();
+        //String prestoType = type.getTypeSignature().getBase();
+        String baseType = type.getTypeSignature().getBase();
+        StandardTypes.Types prestoType = StandardTypes.Types.getTypeFromString(baseType);
+        if (prestoType == null) {
+            throw new IllegalArgumentException("Unsupported type name: " + baseType);
+        }
         if (parquetType instanceof GroupType) {
             GroupType groupType = parquetType.asGroupType();
             switch (prestoType) {
@@ -459,21 +464,21 @@ public class ParquetPageSourceFactory
         PrimitiveTypeName parquetTypeName = parquetType.asPrimitiveType().getPrimitiveTypeName();
         switch (parquetTypeName) {
             case INT64:
-                return prestoType.equals(BIGINT) || prestoType.equals(DECIMAL) || prestoType.equals(TIMESTAMP);
+                return prestoType.equals(StandardTypes.Types.BIGINT) || prestoType.equals(StandardTypes.Types.DECIMAL) || prestoType.equals(StandardTypes.Types.TIMESTAMP);
             case INT32:
-                return prestoType.equals(INTEGER) || prestoType.equals(BIGINT) || prestoType.equals(SMALLINT) || prestoType.equals(DATE) || prestoType.equals(DECIMAL) || prestoType.equals(TINYINT);
+                return prestoType.equals(StandardTypes.Types.INTEGER) || prestoType.equals(StandardTypes.Types.BIGINT) || prestoType.equals(StandardTypes.Types.SMALLINT) || prestoType.equals(StandardTypes.Types.DATE) || prestoType.equals(StandardTypes.Types.DECIMAL) || prestoType.equals(StandardTypes.Types.TINYINT);
             case BOOLEAN:
-                return prestoType.equals(StandardTypes.BOOLEAN);
+                return prestoType.equals(StandardTypes.Types.BOOLEAN);
             case FLOAT:
-                return prestoType.equals(REAL);
+                return prestoType.equals(StandardTypes.Types.REAL);
             case DOUBLE:
-                return prestoType.equals(StandardTypes.DOUBLE);
+                return prestoType.equals(StandardTypes.Types.DOUBLE);
             case BINARY:
-                return prestoType.equals(VARBINARY) || prestoType.equals(VARCHAR) || prestoType.startsWith(CHAR) || prestoType.equals(DECIMAL);
+                return prestoType.equals(StandardTypes.Types.VARBINARY) || prestoType.equals(StandardTypes.Types.VARCHAR) || baseType.startsWith(CHAR) || prestoType.equals(StandardTypes.Types.DECIMAL);
             case INT96:
-                return prestoType.equals(TIMESTAMP);
+                return prestoType.equals(StandardTypes.Types.TIMESTAMP);
             case FIXED_LEN_BYTE_ARRAY:
-                return prestoType.equals(DECIMAL);
+                return prestoType.equals(StandardTypes.Types.DECIMAL);
             default:
                 throw new IllegalArgumentException("Unexpected parquet type name: " + parquetTypeName);
         }

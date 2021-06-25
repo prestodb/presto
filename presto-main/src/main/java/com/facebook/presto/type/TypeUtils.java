@@ -117,13 +117,18 @@ public final class TypeUtils
 
     public static boolean isIntegralType(TypeSignature typeName, FunctionAndTypeManager functionAndTypeManager)
     {
-        switch (typeName.getBase()) {
-            case StandardTypes.BIGINT:
-            case StandardTypes.INTEGER:
-            case StandardTypes.SMALLINT:
-            case StandardTypes.TINYINT:
+        String baseType = typeName.getBase();
+        StandardTypes.Types standardType = StandardTypes.Types.getTypeFromString(baseType);
+        if (standardType == null) {
+            throw new PrestoException(NOT_SUPPORTED, String.format("%s is not a supported type.", baseType));
+        }
+        switch (standardType) {
+            case BIGINT:
+            case INTEGER:
+            case SMALLINT:
+            case TINYINT:
                 return true;
-            case StandardTypes.DECIMAL:
+            case DECIMAL:
                 DecimalType decimalType = (DecimalType) resolveType(typeName, functionAndTypeManager);
                 return decimalType.getScale() == 0;
             default:
