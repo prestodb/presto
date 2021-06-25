@@ -185,13 +185,17 @@ public abstract class StatisticalDigestAggregationFunction
     private MethodHandle getTDigestInputMethodHandle(Type valueType, int arity)
     {
         final MethodHandle inputFunction;
-        switch (valueType.getDisplayName()) {
-            case StandardTypes.DOUBLE:
+        StandardTypes.Types standardType = StandardTypes.Types.getTypeFromString(valueType.getDisplayName());
+        if (standardType == null) {
+            throw new PrestoException(NOT_SUPPORTED, format("%s is not a valid type", valueType.getDisplayName()));
+        }
+        switch (standardType) {
+            case DOUBLE:
                 inputFunction = T_DIGEST_INPUT_DOUBLE;
                 break;
-            case StandardTypes.REAL:
+            case REAL:
                 throw new PrestoException(NOT_SUPPORTED, "Cannot operate on a t-digest with real numbers");
-            case StandardTypes.BIGINT:
+            case BIGINT:
                 throw new PrestoException(NOT_SUPPORTED, "Cannot operate on a t-digest with longs");
             default:
                 throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Unsupported type %s supplied", valueType.getDisplayName()));
@@ -202,14 +206,18 @@ public abstract class StatisticalDigestAggregationFunction
     private static MethodHandle getQuantileDigestInputMethodHandle(Type valueType, int arity)
     {
         final MethodHandle inputFunction;
-        switch (valueType.getDisplayName()) {
-            case StandardTypes.DOUBLE:
+        StandardTypes.Types standardType = StandardTypes.Types.getTypeFromString(valueType.getDisplayName());
+        if (standardType == null) {
+            throw new PrestoException(NOT_SUPPORTED, format("%s is not a valid type", valueType.getDisplayName()));
+        }
+        switch (standardType) {
+            case DOUBLE:
                 inputFunction = QUANTILE_DIGEST_INPUT_DOUBLE;
                 break;
-            case StandardTypes.REAL:
+            case REAL:
                 inputFunction = INPUT_REAL;
                 break;
-            case StandardTypes.BIGINT:
+            case BIGINT:
                 inputFunction = INPUT_BIGINT;
                 break;
             default:

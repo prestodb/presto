@@ -52,13 +52,13 @@ final class MetadataUtil
     public static final class TestingTypeDeserializer
             extends FromStringDeserializer<Type>
     {
-        private final Map<String, Type> types = new ImmutableMap.Builder<String, Type>()
-                .put(StandardTypes.BOOLEAN, BOOLEAN)
-                .put(StandardTypes.BIGINT, BIGINT)
-                .put(StandardTypes.DOUBLE, DOUBLE)
-                .put(StandardTypes.TIMESTAMP, TIMESTAMP)
-                .put(StandardTypes.DATE, DATE)
-                .put(StandardTypes.VARCHAR, createUnboundedVarcharType())
+        private final Map<StandardTypes.Types, Type> types = new ImmutableMap.Builder<StandardTypes.Types, Type>()
+                .put(StandardTypes.Types.BOOLEAN, BOOLEAN)
+                .put(StandardTypes.Types.BIGINT, BIGINT)
+                .put(StandardTypes.Types.DOUBLE, DOUBLE)
+                .put(StandardTypes.Types.TIMESTAMP, TIMESTAMP)
+                .put(StandardTypes.Types.DATE, DATE)
+                .put(StandardTypes.Types.VARCHAR, createUnboundedVarcharType())
                 .build();
 
         public TestingTypeDeserializer()
@@ -69,7 +69,11 @@ final class MetadataUtil
         @Override
         protected Type _deserialize(String value, DeserializationContext context)
         {
-            Type type = types.get(value.toLowerCase(ENGLISH));
+            StandardTypes.Types standardType = StandardTypes.Types.getTypeFromString(value.toLowerCase(ENGLISH));
+            if (standardType == null) {
+                throw new IllegalArgumentException(String.valueOf(value + " is not a supported type."));
+            }
+            Type type = types.get(standardType);
             if (type == null) {
                 throw new IllegalArgumentException(String.valueOf("Unknown type " + value));
             }

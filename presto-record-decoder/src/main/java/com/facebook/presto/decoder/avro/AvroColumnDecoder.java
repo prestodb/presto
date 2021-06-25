@@ -18,6 +18,7 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.DoubleType;
+import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
@@ -46,6 +47,7 @@ import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.common.type.Varchars.truncateToLength;
 import static com.facebook.presto.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
@@ -253,7 +255,12 @@ public class AvroColumnDecoder
             return;
         }
 
-        switch (type.getTypeSignature().getBase()) {
+        StandardTypes.Types standardType = StandardTypes.Types.getTypeFromString(type.getTypeSignature().getBase());
+        if (standardType == null) {
+            throw new PrestoException(NOT_SUPPORTED, format("%s is not a valid type", type));
+        }
+
+        switch (standardType) {
             case BOOLEAN:
                 type.writeBoolean(blockBuilder, (Boolean) value);
                 break;

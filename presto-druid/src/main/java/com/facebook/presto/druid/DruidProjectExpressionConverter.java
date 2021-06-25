@@ -28,7 +28,7 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionVisitor;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 
 import java.util.Map;
 import java.util.Optional;
@@ -41,7 +41,8 @@ import static java.util.Objects.requireNonNull;
 class DruidProjectExpressionConverter
         implements RowExpressionVisitor<DruidExpression, Map<VariableReferenceExpression, Selection>>
 {
-    private static final Set<String> TIME_EQUIVALENT_TYPES = ImmutableSet.of(StandardTypes.BIGINT, StandardTypes.INTEGER, StandardTypes.TINYINT, StandardTypes.SMALLINT);
+   //private static final Set<String> TIME_EQUIVALENT_TYPES = ImmutableSet.of(StandardTypes.BIGINT, StandardTypes.INTEGER, StandardTypes.TINYINT, StandardTypes.SMALLINT);
+    private static final Set<StandardTypes.Types> TIME_EQUIVALENT_TYPES = Sets.immutableEnumSet(StandardTypes.Types.BIGINT, StandardTypes.Types.INTEGER, StandardTypes.Types.TINYINT, StandardTypes.Types.SMALLINT);
 
     protected final TypeManager typeManager;
     protected final StandardFunctionResolution standardFunctionResolution;
@@ -76,7 +77,13 @@ class DruidProjectExpressionConverter
         if (typeManager.canCoerce(inputType, resultType)) {
             return true;
         }
-        return resultType.getTypeSignature().getBase().equals(StandardTypes.TIMESTAMP) && TIME_EQUIVALENT_TYPES.contains(inputType.getTypeSignature().getBase());
+        /* This ensures previous behavior. We need to understand whether a null over here is actually a failure/exception scenario or not*/
+        StandardTypes.Types standardType = StandardTypes.Types.getTypeFromString(inputType.getTypeSignature().getBase());
+        if (standardType == null) {
+            return false;
+        }
+
+        return resultType.getTypeSignature().getBase().equals(StandardTypes.TIMESTAMP) && TIME_EQUIVALENT_TYPES.contains(standardType);
     }
 
     private DruidExpression handleCast(

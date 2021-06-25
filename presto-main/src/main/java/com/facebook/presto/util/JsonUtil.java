@@ -72,6 +72,7 @@ import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.type.TypeUtils.hashPosition;
 import static com.facebook.presto.type.TypeUtils.positionEqualsPosition;
 import static com.facebook.presto.util.DateTimeUtils.printDate;
@@ -134,21 +135,28 @@ public final class JsonUtil
     public static boolean canCastToJson(Type type)
     {
         String baseType = type.getTypeSignature().getStandardTypeSignature().getBase();
-        if (baseType.equals(UnknownType.NAME) ||
-                baseType.equals(StandardTypes.BOOLEAN) ||
-                baseType.equals(StandardTypes.TINYINT) ||
-                baseType.equals(StandardTypes.SMALLINT) ||
-                baseType.equals(StandardTypes.INTEGER) ||
-                baseType.equals(StandardTypes.BIGINT) ||
-                baseType.equals(StandardTypes.REAL) ||
-                baseType.equals(StandardTypes.DOUBLE) ||
-                baseType.equals(StandardTypes.DECIMAL) ||
-                baseType.equals(StandardTypes.VARCHAR) ||
-                baseType.equals(StandardTypes.JSON) ||
-                baseType.equals(StandardTypes.TIMESTAMP) ||
-                baseType.equals(StandardTypes.DATE) ||
-                baseType.equals(StandardTypes.VARCHAR_ENUM) ||
-                baseType.equals(StandardTypes.BIGINT_ENUM)) {
+        if (baseType.equals(UnknownType.NAME)) {
+            return true;
+        }
+        StandardTypes.Types standardType = StandardTypes.Types.valueOf(baseType);
+        if (standardType == null) {
+            throw new PrestoException(NOT_SUPPORTED, format("%s is not a supported type.", baseType));
+        }
+
+        if (standardType.equals(StandardTypes.Types.BOOLEAN) ||
+                standardType.equals(StandardTypes.Types.TINYINT) ||
+                standardType.equals(StandardTypes.Types.SMALLINT) ||
+                standardType.equals(StandardTypes.Types.INTEGER) ||
+                standardType.equals(StandardTypes.Types.BIGINT) ||
+                standardType.equals(StandardTypes.Types.REAL) ||
+                standardType.equals(StandardTypes.Types.DOUBLE) ||
+                standardType.equals(StandardTypes.Types.DECIMAL) ||
+                standardType.equals(StandardTypes.Types.VARCHAR) ||
+                standardType.equals(StandardTypes.Types.JSON) ||
+                standardType.equals(StandardTypes.Types.TIMESTAMP) ||
+                standardType.equals(StandardTypes.Types.DATE) ||
+                standardType.equals(StandardTypes.Types.VARCHAR_ENUM) ||
+                standardType.equals(StandardTypes.Types.BIGINT_ENUM)) {
             return true;
         }
         if (type instanceof ArrayType) {
@@ -169,20 +177,24 @@ public final class JsonUtil
     public static boolean canCastFromJson(Type type)
     {
         TypeSignature signature = type.getTypeSignature();
-        String baseType = signature.getBase();
         if (signature.isEnum()) {
             return true;
         }
-        if (baseType.equals(StandardTypes.BOOLEAN) ||
-                baseType.equals(StandardTypes.TINYINT) ||
-                baseType.equals(StandardTypes.SMALLINT) ||
-                baseType.equals(StandardTypes.INTEGER) ||
-                baseType.equals(StandardTypes.BIGINT) ||
-                baseType.equals(StandardTypes.REAL) ||
-                baseType.equals(StandardTypes.DOUBLE) ||
-                baseType.equals(StandardTypes.VARCHAR) ||
-                baseType.equals(StandardTypes.DECIMAL) ||
-                baseType.equals(StandardTypes.JSON)) {
+        StandardTypes.Types standardType = StandardTypes.Types.valueOf(signature.getBase());
+        if (standardType == null) {
+            throw new PrestoException(NOT_SUPPORTED, format("%s is not a supported type.", signature.getBase()));
+        }
+
+        if (standardType.equals(StandardTypes.Types.BOOLEAN) ||
+                standardType.equals(StandardTypes.Types.TINYINT) ||
+                standardType.equals(StandardTypes.Types.SMALLINT) ||
+                standardType.equals(StandardTypes.Types.INTEGER) ||
+                standardType.equals(StandardTypes.Types.BIGINT) ||
+                standardType.equals(StandardTypes.Types.REAL) ||
+                standardType.equals(StandardTypes.Types.DOUBLE) ||
+                standardType.equals(StandardTypes.Types.VARCHAR) ||
+                standardType.equals(StandardTypes.Types.DECIMAL) ||
+                standardType.equals(StandardTypes.Types.JSON)) {
             return true;
         }
         if (type instanceof ArrayType) {
@@ -200,15 +212,19 @@ public final class JsonUtil
     private static boolean isValidJsonObjectKeyType(Type type)
     {
         String baseType = type.getTypeSignature().getBase();
-        return baseType.equals(StandardTypes.BOOLEAN) ||
-                baseType.equals(StandardTypes.TINYINT) ||
-                baseType.equals(StandardTypes.SMALLINT) ||
-                baseType.equals(StandardTypes.INTEGER) ||
-                baseType.equals(StandardTypes.BIGINT) ||
-                baseType.equals(StandardTypes.REAL) ||
-                baseType.equals(StandardTypes.DOUBLE) ||
-                baseType.equals(StandardTypes.DECIMAL) ||
-                baseType.equals(StandardTypes.VARCHAR) ||
+        StandardTypes.Types standardType = StandardTypes.Types.getTypeFromString(baseType);
+        if (standardType == null) {
+            throw new PrestoException(NOT_SUPPORTED, format("%s is not a supported type.", baseType));
+        }
+        return standardType.equals(StandardTypes.Types.BOOLEAN) ||
+                standardType.equals(StandardTypes.Types.TINYINT) ||
+                standardType.equals(StandardTypes.Types.SMALLINT) ||
+                standardType.equals(StandardTypes.Types.INTEGER) ||
+                standardType.equals(StandardTypes.Types.BIGINT) ||
+                standardType.equals(StandardTypes.Types.REAL) ||
+                standardType.equals(StandardTypes.Types.DOUBLE) ||
+                standardType.equals(StandardTypes.Types.DECIMAL) ||
+                standardType.equals(StandardTypes.Types.VARCHAR) ||
                 type.getTypeSignature().isEnum();
     }
 
@@ -887,51 +903,55 @@ public final class JsonUtil
         static BlockBuilderAppender createBlockBuilderAppender(Type type)
         {
             TypeSignature signature = type.getTypeSignature();
-            String baseType = signature.getBase();
             if (signature.isBigintEnum()) {
                 return new BigintBlockBuilderAppender();
             }
             if (signature.isVarcharEnum()) {
                 return new VarcharBlockBuilderAppender(type);
             }
-            switch (baseType) {
-                case StandardTypes.BOOLEAN:
+            String baseType = signature.getBase();
+            StandardTypes.Types standardType = StandardTypes.Types.getTypeFromString(baseType);
+            if (standardType == null) {
+                throw new PrestoException(NOT_SUPPORTED, format("%s is not a supported type.", baseType));
+            }
+            switch (standardType) {
+                case BOOLEAN:
                     return new BooleanBlockBuilderAppender();
-                case StandardTypes.TINYINT:
+                case TINYINT:
                     return new TinyintBlockBuilderAppender();
-                case StandardTypes.SMALLINT:
+                case SMALLINT:
                     return new SmallintBlockBuilderAppender();
-                case StandardTypes.INTEGER:
+                case INTEGER:
                     return new IntegerBlockBuilderAppender();
-                case StandardTypes.BIGINT:
+                case BIGINT:
                     return new BigintBlockBuilderAppender();
-                case StandardTypes.REAL:
+                case REAL:
                     return new RealBlockBuilderAppender();
-                case StandardTypes.DOUBLE:
+                case DOUBLE:
                     return new DoubleBlockBuilderAppender();
-                case StandardTypes.DECIMAL:
+                case DECIMAL:
                     if (isShortDecimal(type)) {
                         return new ShortDecimalBlockBuilderAppender((DecimalType) type);
                     }
                     else {
                         return new LongDecimalBlockBuilderAppender((DecimalType) type);
                     }
-                case StandardTypes.VARCHAR:
+                case VARCHAR:
                     return new VarcharBlockBuilderAppender(type);
-                case StandardTypes.JSON:
+                case JSON:
                     return (parser, blockBuilder) -> {
                         String json = OBJECT_MAPPED_UNORDERED.writeValueAsString(parser.readValueAsTree());
                         JSON.writeSlice(blockBuilder, Slices.utf8Slice(json));
                     };
-                case StandardTypes.ARRAY:
+                case ARRAY:
                     return new ArrayBlockBuilderAppender(createBlockBuilderAppender(((ArrayType) type).getElementType()));
-                case StandardTypes.MAP:
+                case MAP:
                     MapType mapType = (MapType) type;
                     return new MapBlockBuilderAppender(
                             createBlockBuilderAppender(mapType.getKeyType()),
                             createBlockBuilderAppender(mapType.getValueType()),
                             mapType.getKeyType());
-                case StandardTypes.ROW:
+                case ROW:
                     RowType rowType = (RowType) type;
                     List<Field> rowFields = rowType.getFields();
                     BlockBuilderAppender[] fieldAppenders = new BlockBuilderAppender[rowFields.size()];
