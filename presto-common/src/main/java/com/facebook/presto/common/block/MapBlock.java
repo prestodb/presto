@@ -19,12 +19,9 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Arrays;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 
-import static com.facebook.presto.common.block.MapBlockBuilder.buildHashTable;
-import static com.facebook.presto.common.block.MapBlockBuilder.verify;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -42,10 +39,10 @@ public class MapBlock
     private final int[] offsets;
     private final Block keyBlock;
     private final Block valueBlock;
-    private HashTables hashTables;
+    private final HashTables hashTables;
+    private final long retainedSizeInBytes;
 
     private volatile long sizeInBytes;
-    private final long retainedSizeInBytes;
 
     /**
      * Create a map block directly from columnar nulls, keys, values, and offsets into the keys and values.
@@ -287,34 +284,9 @@ public class MapBlock
 
         // We need to synchronize access to the hashTables field as it may be shared by multiple MapBlock instances.
         synchronized (hashTables) {
-            if (isHashTablesPresent()) {
-                return;
+            if (!isHashTablesPresent()) {
+                hashTables.loadHashTables(hashTables.getExpectedHashTableCount(), offsets, mapIsNull, getRawKeyBlock(), keyBlockHashCode);
             }
-
-            int[] hashTables = new int[getRawKeyBlock().getPositionCount() * HASH_MULTIPLIER];
-            Arrays.fill(hashTables, -1);
-
-            verify(this.hashTables.getExpectedHashTableCount() <= offsets.length, "incorrect offsets size");
-
-            for (int i = 0; i < this.hashTables.getExpectedHashTableCount(); i++) {
-                int keyOffset = offsets[i];
-                int keyCount = offsets[i + 1] - keyOffset;
-                if (keyCount < 0) {
-                    throw new IllegalArgumentException(format("Offset is not monotonically ascending. offsets[%s]=%s, offsets[%s]=%s", i, offsets[i], i + 1, offsets[i + 1]));
-                }
-                if (mapIsNull != null && mapIsNull[i] && keyCount != 0) {
-                    throw new IllegalArgumentException("A null map must have zero entries");
-                }
-                buildHashTable(
-                        getRawKeyBlock(),
-                        keyOffset,
-                        keyCount,
-                        keyBlockHashCode,
-                        hashTables,
-                        keyOffset * HASH_MULTIPLIER,
-                        keyCount * HASH_MULTIPLIER);
-            }
-            this.hashTables.set(hashTables);
         }
     }
 }

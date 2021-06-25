@@ -20,6 +20,7 @@ import com.facebook.presto.common.block.DictionaryBlock;
 import com.facebook.presto.common.block.MapBlockBuilder;
 import com.facebook.presto.common.block.MethodHandleUtil;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
+import com.facebook.presto.common.block.SingleMapBlockWriter;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
@@ -40,7 +41,9 @@ import static com.facebook.presto.common.block.MethodHandleUtil.compose;
 import static com.facebook.presto.common.block.MethodHandleUtil.nativeValueGetter;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 
 public class TestColumnarMap
 {
@@ -69,6 +72,51 @@ public class TestColumnarMap
         BlockBuilder blockBuilderWithNull = createBlockBuilderWithValues(expectedValuesWithNull);
         verifyBlock(blockBuilderWithNull, expectedValuesWithNull);
         verifyBlock(blockBuilderWithNull.build(), expectedValuesWithNull);
+    }
+
+    @Test
+    public void testMapWithNullKeys()
+    {
+        // Presto Query Engine does not support Map with Null keys.
+        // Presto ORC reader and Writer are used as library in some other
+        // projects and it requires null keys to be supported in the Map.
+        MapBlockBuilder mapBlockBuilder = createMapBuilder(100);
+        mapBlockBuilder.appendNull();
+        for (int i = 1; i < 100; i++) {
+            Slice valueSlice = Slices.utf8Slice(Integer.toString(i));
+            SingleMapBlockWriter blockWriter = mapBlockBuilder.beginBlockEntry();
+            blockWriter.appendNull(); // Null Key
+            VARCHAR.writeSlice(blockWriter, valueSlice);
+            for (int j = 1; j < i; j++) {
+                Slice keySlice = Slices.utf8Slice(Integer.toString(j));
+                VARCHAR.writeSlice(blockWriter, keySlice);
+                VARCHAR.writeSlice(blockWriter, valueSlice);
+            }
+            mapBlockBuilder.closeEntry();
+        }
+
+        ColumnarMap columnarMap = toColumnarMap(mapBlockBuilder.build());
+        assertEquals(columnarMap.getPositionCount(), 100);
+        assertTrue(columnarMap.isNull(0));
+        for (int i = 1; i < 100; i++) {
+            assertFalse(columnarMap.isNull(i));
+            Slice valueSlice = Slices.utf8Slice(Integer.toString(i));
+            int offset = columnarMap.getOffset(i);
+            assertTrue(columnarMap.getKeysBlock().isNull(offset));
+            verifySlice(columnarMap.getValuesBlock(), offset, valueSlice);
+            for (int j = 1; j < i; j++) {
+                Slice keySlice = Slices.utf8Slice(Integer.toString(j));
+                verifySlice(columnarMap.getKeysBlock(), offset + j, keySlice);
+                verifySlice(columnarMap.getValuesBlock(), offset + j, valueSlice);
+            }
+        }
+    }
+
+    private void verifySlice(Block block, int position, Slice expectedSlice)
+    {
+        int sliceLength = block.getSliceLength(position);
+        Slice actualSlice = block.getSlice(position, 0, sliceLength);
+        assertEquals(actualSlice, expectedSlice);
     }
 
     private static void verifyBlock(Block block, Slice[][][] expectedValues)
@@ -175,10 +223,9 @@ public class TestColumnarMap
         return blockBuilder;
     }
 
-    private static BlockBuilder createMapBuilder(int expectedEntries)
+    private static MapBlockBuilder createMapBuilder(int expectedEntries)
     {
         MethodHandle varcharNativeEquals = MethodHandleUtil.methodHandle(Slice.class, "equals", Object.class).asType(MethodType.methodType(boolean.class, Slice.class, Slice.class));
-        MethodHandle varcharBlockNativeEquals = compose(varcharNativeEquals, nativeValueGetter(VARCHAR));
         MethodHandle varcharBlockEquals = compose(varcharNativeEquals, nativeValueGetter(VARCHAR), nativeValueGetter(VARCHAR));
 
         return new MapBlockBuilder(
