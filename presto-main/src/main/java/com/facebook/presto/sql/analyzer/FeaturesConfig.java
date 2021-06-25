@@ -144,6 +144,7 @@ public class FeaturesConfig
     private boolean useMarkDistinct = true;
     private boolean preferPartialAggregation = true;
     private PartialAggregationStrategy partialAggregationStrategy = PartialAggregationStrategy.ALWAYS;
+    private double partialAggregationByteReductionThreshold = 0.5;
     private boolean optimizeTopNRowNumber = true;
     private boolean pushLimitThroughOuterJoin = true;
 
@@ -772,6 +773,18 @@ public class FeaturesConfig
     public FeaturesConfig setPartialAggregationStrategy(PartialAggregationStrategy partialAggregationStrategy)
     {
         this.partialAggregationStrategy = partialAggregationStrategy;
+        return this;
+    }
+
+    public double getPartialAggregationByteReductionThreshold()
+    {
+        return partialAggregationByteReductionThreshold;
+    }
+
+    @Config("optimizer.partial-aggregation-byte-reduction-threshold")
+    public FeaturesConfig setPartialAggregationByteReductionThreshold(double partialAggregationByteReductionThreshold)
+    {
+        this.partialAggregationByteReductionThreshold = partialAggregationByteReductionThreshold;
         return this;
     }
 

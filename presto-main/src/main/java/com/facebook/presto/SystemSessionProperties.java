@@ -144,6 +144,7 @@ public final class SystemSessionProperties
     public static final String USE_MARK_DISTINCT = "use_mark_distinct";
     public static final String PREFER_PARTIAL_AGGREGATION = "prefer_partial_aggregation";
     public static final String PARTIAL_AGGREGATION_STRATEGY = "partial_aggregation_strategy";
+    public static final String PARTIAL_AGGREGATION_BYTE_REDUCTION_THRESHOLD = "partial_aggregation_byte_reduction_threshold";
     public static final String OPTIMIZE_TOP_N_ROW_NUMBER = "optimize_top_n_row_number";
     public static final String MAX_GROUPING_SETS = "max_grouping_sets";
     public static final String LEGACY_UNNEST = "legacy_unnest";
@@ -738,6 +739,11 @@ public final class SystemSessionProperties
                         false,
                         value -> PartialAggregationStrategy.valueOf(((String) value).toUpperCase()),
                         PartialAggregationStrategy::name),
+                doubleProperty(
+                        PARTIAL_AGGREGATION_BYTE_REDUCTION_THRESHOLD,
+                        "Byte reduction ratio threshold at which to disable partial aggregation",
+                        featuresConfig.getPartialAggregationByteReductionThreshold(),
+                        false),
                 booleanProperty(
                         OPTIMIZE_TOP_N_ROW_NUMBER,
                         "Use top N row number optimization",
@@ -1468,6 +1474,11 @@ public final class SystemSessionProperties
             return NEVER;
         }
         return session.getSystemProperty(PARTIAL_AGGREGATION_STRATEGY, PartialAggregationStrategy.class);
+    }
+
+    public static double getPartialAggregationByteReductionThreshold(Session session)
+    {
+        return session.getSystemProperty(PARTIAL_AGGREGATION_BYTE_REDUCTION_THRESHOLD, Double.class);
     }
 
     public static boolean isOptimizeTopNRowNumber(Session session)
