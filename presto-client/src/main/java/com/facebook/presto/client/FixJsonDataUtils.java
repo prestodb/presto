@@ -15,7 +15,6 @@ package com.facebook.presto.client;
 
 import com.facebook.presto.common.type.NamedTypeSignature;
 import com.facebook.presto.common.type.ParameterKind;
-import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.google.common.collect.ImmutableList;
@@ -134,7 +133,7 @@ final class FixJsonDataUtils
             }
             return ((Number) value).longValue();
         }
-        switch (StandardTypes.Types.valueOf(signature.getBase())) {
+        switch (signature.getBase()) {
             case BIGINT:
                 if (value instanceof String) {
                     return Long.parseLong((String) value);

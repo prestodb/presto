@@ -13,12 +13,11 @@
  */
 package com.facebook.presto.common.type;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static java.util.Arrays.asList;
 import static java.util.Collections.unmodifiableSet;
@@ -74,45 +73,58 @@ public final class StandardTypes
 
     public enum Types
     {
-        BIGINT,
-        INTEGER,
-        SMALLINT,
-        TINYINT,
-        BOOLEAN,
-        DATE,
-        DECIMAL,
-        REAL,
-        DOUBLE,
-        HYPER_LOG_LOG,
-        QDIGEST,
-        TDIGEST,
-        P4_HYPER_LOG_LOG,
-        INTERVAL_DAY_TO_SECOND,
-        INTERVAL_YEAR_TO_MONTH,
-        TIMESTAMP,
-        TIMESTAMP_WITH_TIME_ZONE,
-        TIME,
-        TIME_WITH_TIME_ZONE,
-        VARBINARY,
-        VARCHAR,
-        CHAR,
-        ROW,
-        ARRAY,
-        MAP,
-        JSON,
-        IPADDRESS,
-        IPPREFIX,
-        GEOMETRY,
-        BING_TILE,
-        BIGINT_ENUM,
-        VARCHAR_ENUM;
+        BIGINT("bigint"),
+        INTEGER("integer"),
+        SMALLINT("smallint"),
+        TINYINT("tinyint"),
+        BOOLEAN("boolean"),
+        DATE("date"),
+        DECIMAL("decimal"),
+        REAL("real"),
+        DOUBLE("double"),
+        HYPER_LOG_LOG("HyperLogLog"),
+        QDIGEST("qdigest"),
+        TDIGEST("tdigest"),
+        P4_HYPER_LOG_LOG("P4HyperLogLog"),
+        INTERVAL_DAY_TO_SECOND("interval day to second"),
+        INTERVAL_YEAR_TO_MONTH("interval year to month"),
+        TIMESTAMP("timestamp"),
+        TIMESTAMP_WITH_TIME_ZONE("timestamp with time zone"),
+        TIME("time"),
+        TIME_WITH_TIME_ZONE("time with time zone"),
+        VARBINARY("varbinary"),
+        VARCHAR("varchar"),
+        CHAR("char"),
+        ROW("row"),
+        ARRAY("array"),
+        MAP("map"),
+        JSON("json"),
+        IPADDRESS("ipaddress"),
+        IPPREFIX("ipprefix"),
+        GEOMETRY("Geometry"),
+        BING_TILE("BingTile"),
+        BIGINT_ENUM("BigintEnum"),
+        VARCHAR_ENUM("VarcharEnum");
 
-        private static final Map<String, Types> TYPES_MAP = Stream.of(values())
-                .collect(Collectors.toMap(Types::toString, Function.identity()));
-
-        public static Types getTypeFromString(final String name)
+        private final String valueType;
+        private Types(String setType)
         {
-            return TYPES_MAP.get(name);
+            this.valueType = setType;
+        }
+
+        private static final Map<String, Types> TYPES_MAP;
+
+        static {
+            Map<String, Types> map = new ConcurrentHashMap<String, Types>();
+            for (Types instance : Types.values()) {
+                map.put(instance.valueType, instance);
+            }
+            TYPES_MAP = Collections.unmodifiableMap(map);
+        }
+
+        public static Types getTypeFromString(final String typeName)
+        {
+            return TYPES_MAP.get(typeName);
         }
     }
 }
