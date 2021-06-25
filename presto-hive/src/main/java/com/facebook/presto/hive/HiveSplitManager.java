@@ -33,6 +33,7 @@ import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
+import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
@@ -55,7 +56,10 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import io.airlift.units.DataSize;
+import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
 import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
+import org.apache.hudi.hadoop.HoodieParquetInputFormat;
+import org.apache.hudi.hadoop.realtime.HoodieParquetRealtimeInputFormat;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -385,7 +389,18 @@ public class HiveSplitManager
             }
         }
 
-        Optional<HiveStorageFormat> storageFormat = getHiveStorageFormat(table.getStorage().getStorageFormat());
+        StorageFormat storageFormat = table.getStorage().getStorageFormat();
+        Optional<HiveStorageFormat> hiveStorageFormat = getHiveStorageFormat(storageFormat);
+
+        Optional<HiveStorageFormat> resolvedHiveStorageFormat;
+
+        if (isUseParquetColumnNames(session)) {
+            // Use Hive Storage Format as Parquet if table is of HUDI format
+            resolvedHiveStorageFormat = (!hiveStorageFormat.isPresent() && isHudiFormat(storageFormat)) ? Optional.of(PARQUET) : hiveStorageFormat;
+        }
+        else {
+            resolvedHiveStorageFormat = hiveStorageFormat;
+        }
 
         Iterable<List<HivePartition>> partitionNameBatches = partitionExponentially(hivePartitions, minPartitionBatchSize, maxPartitionBatchSize);
         Iterable<List<HivePartitionMetadata>> partitionBatches = transform(partitionNameBatches, partitionBatch -> {
@@ -448,7 +463,7 @@ public class HiveSplitManager
                 if ((tableColumns == null) || (partitionColumns == null)) {
                     throw new PrestoException(HIVE_INVALID_METADATA, format("Table '%s' or partition '%s' has null columns", tableName, partitionName));
                 }
-                TableToPartitionMapping tableToPartitionMapping = getTableToPartitionMapping(session, storageFormat, tableName, partitionName, tableColumns, partitionColumns);
+                TableToPartitionMapping tableToPartitionMapping = getTableToPartitionMapping(session, resolvedHiveStorageFormat, tableName, partitionName, tableColumns, partitionColumns);
 
                 if (hiveBucketHandle.isPresent() && !hiveBucketHandle.get().isVirtuallyBucketed()) {
                     Optional<HiveBucketProperty> partitionBucketProperty = partition.getStorage().getBucketProperty();
@@ -601,6 +616,21 @@ public class HiveSplitManager
                 partName,
                 partitionColumnName,
                 partitionType));
+    }
+
+    /**
+     * This method is used to check if a table is of HUDI format
+     *
+     * @param storageFormat Table Storage Format
+     * @return true if table is of HUDI format, else false
+     */
+    private boolean isHudiFormat(StorageFormat storageFormat)
+    {
+        String serde = storageFormat.getSerDeNullable();
+        String inputFormat = storageFormat.getInputFormatNullable();
+        return serde != null && serde.equals(ParquetHiveSerDe.class.getName())
+                && (inputFormat != null && (inputFormat.equals(HoodieParquetInputFormat.class.getName())
+                || inputFormat.equals(HoodieParquetRealtimeInputFormat.class.getName())));
     }
 
     private Map<String, PartitionSplitInfo> getPartitionSplitInfo(
