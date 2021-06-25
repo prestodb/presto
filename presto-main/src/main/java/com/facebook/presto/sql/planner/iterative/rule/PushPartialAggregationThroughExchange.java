@@ -44,6 +44,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.getPartialAggregationByteReductionThreshold;
 import static com.facebook.presto.SystemSessionProperties.getPartialAggregationStrategy;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.isDecomposable;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
@@ -65,8 +66,6 @@ import static java.util.Objects.requireNonNull;
 public class PushPartialAggregationThroughExchange
         implements Rule<AggregationNode>
 {
-    private static final double BYTE_REDUCTION_THRESHOLD = 0.5;
-
     private final FunctionAndTypeManager functionAndTypeManager;
 
     public PushPartialAggregationThroughExchange(FunctionAndTypeManager functionAndTypeManager)
@@ -284,8 +283,9 @@ public class PushPartialAggregationThroughExchange
         PlanNodeStatsEstimate aggregationStats = stats.getStats(aggregationNode);
         double inputBytes = exchangeStats.getOutputSizeInBytes(exchangeNode.getOutputVariables());
         double outputBytes = aggregationStats.getOutputSizeInBytes(aggregationNode.getOutputVariables());
+        double byteReductionThreshold = getPartialAggregationByteReductionThreshold(context.getSession());
 
-        return exchangeStats.isConfident() && outputBytes > inputBytes * BYTE_REDUCTION_THRESHOLD;
+        return exchangeStats.isConfident() && outputBytes > inputBytes * byteReductionThreshold;
     }
 
     private static boolean isLambda(RowExpression rowExpression)
