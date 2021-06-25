@@ -32,7 +32,10 @@ import static com.facebook.presto.common.block.BlockUtil.compactArray;
 import static com.facebook.presto.common.block.BlockUtil.compactOffsets;
 import static com.facebook.presto.common.block.BlockUtil.internalPositionInRange;
 import static com.facebook.presto.common.block.MapBlock.createMapBlockInternal;
+import static com.facebook.presto.common.block.MapBlockBuilder.buildHashTable;
+import static com.facebook.presto.common.block.MapBlockBuilder.verify;
 import static io.airlift.slice.SizeOf.sizeOfIntArray;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractMapBlock
@@ -437,6 +440,11 @@ public abstract class AbstractMapBlock
             this.expectedEntryCount = hashTables.length;
         }
 
+        void setExpectedHashTableCount(int count)
+        {
+            expectedHashTableCount = count;
+        }
+
         int getExpectedHashTableCount()
         {
             return expectedHashTableCount;
@@ -450,6 +458,34 @@ public abstract class AbstractMapBlock
         public long getRetainedSizeInBytes()
         {
             return INSTANCE_SIZE + sizeOfIntArray(expectedEntryCount);
+        }
+
+        public void loadHashTables(int positionCount, int[] offsets, boolean[] mapIsNull, Block keyBlock, MethodHandle keyBlockHashCode)
+        {
+            int[] hashTables = new int[keyBlock.getPositionCount() * HASH_MULTIPLIER];
+            Arrays.fill(hashTables, -1);
+
+            verify(positionCount < offsets.length, "incorrect offsets size");
+
+            for (int i = 0; i < positionCount; i++) {
+                int keyOffset = offsets[i];
+                int keyCount = offsets[i + 1] - keyOffset;
+                if (keyCount < 0) {
+                    throw new IllegalArgumentException(format("Offset is not monotonically ascending. offsets[%s]=%s, offsets[%s]=%s", i, offsets[i], i + 1, offsets[i + 1]));
+                }
+                if (mapIsNull != null && mapIsNull[i] && keyCount != 0) {
+                    throw new IllegalArgumentException("A null map must have zero entries");
+                }
+                buildHashTable(
+                        keyBlock,
+                        keyOffset,
+                        keyCount,
+                        keyBlockHashCode,
+                        hashTables,
+                        keyOffset * HASH_MULTIPLIER,
+                        keyCount * HASH_MULTIPLIER);
+            }
+            set(hashTables);
         }
     }
 
