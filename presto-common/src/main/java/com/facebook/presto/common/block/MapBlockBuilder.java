@@ -365,7 +365,8 @@ public class MapBlockBuilder
                 offsets,
                 keyBlockBuilder.build(),
                 valueBlockBuilder.build(),
-                new HashTables(Optional.ofNullable(mapBlockHashTables), positionCount));
+                new HashTables(Optional.ofNullable(mapBlockHashTables), positionCount),
+                Optional.of(keyBlockHashCode));
     }
 
     @Override
@@ -477,6 +478,21 @@ public class MapBlockBuilder
                 valueBlockBuilder.newBlockBuilderLike(blockBuilderStatus, nestedExpectedEntries),
                 newSize,
                 getNewHashTables(newSize));
+    }
+
+    @Override
+    protected void beforeEncoding()
+    {
+        // ELEMENT_AT(MAP_AGG()) is a common trick in presto to force broadcast hash joins.
+        // MAP_AGG produces MapBlockBuilder and hash should be computed once before the
+        // broadcast joins. After MapBlock is broadcast would result in CPU regressions.
+        ensureHashTableLoaded(keyBlockHashCode);
+    }
+
+    @Override
+    protected Optional<MethodHandle> getKeyBlockHashcode()
+    {
+        return Optional.of(keyBlockHashCode);
     }
 
     @Override

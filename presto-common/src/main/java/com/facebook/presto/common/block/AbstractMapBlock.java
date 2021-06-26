@@ -67,6 +67,13 @@ public abstract class AbstractMapBlock
     @Nullable
     protected abstract boolean[] getMapIsNull();
 
+    /**
+     * A hook to run custom code before encoding.
+     */
+    protected abstract void beforeEncoding();
+
+    protected abstract Optional<MethodHandle> getKeyBlockHashcode();
+
     protected abstract void ensureHashTableLoaded(MethodHandle keyBlockHashCode);
 
     int getOffset(int position)
@@ -136,7 +143,8 @@ public abstract class AbstractMapBlock
                 newOffsets,
                 newKeys,
                 newValues,
-                new HashTables(Optional.ofNullable(newRawHashTables), length));
+                new HashTables(Optional.ofNullable(newRawHashTables), length),
+                getKeyBlockHashcode());
     }
 
     @Override
@@ -152,7 +160,8 @@ public abstract class AbstractMapBlock
                 getOffsets(),
                 getRawKeyBlock(),
                 getRawValueBlock(),
-                getHashTables());
+                getHashTables(),
+                getKeyBlockHashcode());
     }
 
     @Override
@@ -274,7 +283,8 @@ public abstract class AbstractMapBlock
                 newOffsets,
                 newKeys,
                 newValues,
-                new HashTables(Optional.ofNullable(newRawHashTables), length));
+                new HashTables(Optional.ofNullable(newRawHashTables), length),
+                getKeyBlockHashcode());
     }
 
     @Override
@@ -333,7 +343,6 @@ public abstract class AbstractMapBlock
 
         int[] rawHashTables = getHashTables().get();
         int[] newRawHashTables = null;
-        int expectedNewHashTableEntries = (endValueOffset - startValueOffset) * HASH_MULTIPLIER;
         if (rawHashTables != null) {
             newRawHashTables = Arrays.copyOfRange(rawHashTables, startValueOffset * HASH_MULTIPLIER, endValueOffset * HASH_MULTIPLIER);
         }
@@ -345,7 +354,8 @@ public abstract class AbstractMapBlock
                 new int[] {0, valueLength},
                 newKeys,
                 newValues,
-                new HashTables(Optional.ofNullable(newRawHashTables), 1));
+                new HashTables(Optional.ofNullable(newRawHashTables), 1),
+                getKeyBlockHashcode());
     }
 
     @Override
@@ -502,7 +512,8 @@ public abstract class AbstractMapBlock
                 offsets,
                 getRawKeyBlock(),
                 getRawValueBlock(),
-                getHashTables());
+                getHashTables(),
+                getKeyBlockHashcode());
     }
 
     private void calculateLogicalSize()

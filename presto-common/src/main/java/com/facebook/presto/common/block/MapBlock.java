@@ -41,13 +41,13 @@ public class MapBlock
     private final Block valueBlock;
     private final HashTables hashTables;
     private final long retainedSizeInBytesExceptHashtable;
+    private final Optional<MethodHandle> keyBlockHashCode;
 
     private volatile long sizeInBytes;
 
     /**
      * Create a map block directly from columnar nulls, keys, values, and offsets into the keys and values.
      * A null map must have no entries.
-     *
      */
     public static MapBlock fromKeyValueBlock(
             int positionCount,
@@ -65,14 +65,14 @@ public class MapBlock
                 offsets,
                 keyBlock,
                 valueBlock,
-                new HashTables(Optional.empty(), positionCount));
+                new HashTables(Optional.empty(), positionCount),
+                Optional.empty());
     }
 
     /**
      * Create a map block directly without per element validations.
      * <p>
      * Internal use by this package and com.facebook.presto.spi.Type only.
-     *
      */
     public static MapBlock createMapBlockInternal(
             int startOffset,
@@ -81,7 +81,8 @@ public class MapBlock
             int[] offsets,
             Block keyBlock,
             Block valueBlock,
-            HashTables hashTables)
+            HashTables hashTables,
+            Optional<MethodHandle> keyBlockHashCode)
     {
         validateConstructorArguments(startOffset, positionCount, mapIsNull.orElse(null), offsets, keyBlock, valueBlock);
         requireNonNull(hashTables, "hashTables is null");
@@ -92,7 +93,8 @@ public class MapBlock
                 offsets,
                 keyBlock,
                 valueBlock,
-                hashTables);
+                hashTables,
+                keyBlockHashCode);
     }
 
     private static void validateConstructorArguments(
@@ -138,7 +140,8 @@ public class MapBlock
             int[] offsets,
             Block keyBlock,
             Block valueBlock,
-            HashTables hashTables)
+            HashTables hashTables,
+            Optional<MethodHandle> keyBlockHashCode)
     {
         int[] rawHashTables = hashTables.get();
         if (rawHashTables != null && rawHashTables.length < keyBlock.getPositionCount() * HASH_MULTIPLIER) {
@@ -152,6 +155,7 @@ public class MapBlock
         this.keyBlock = keyBlock;
         this.valueBlock = valueBlock;
         this.hashTables = hashTables;
+        this.keyBlockHashCode = keyBlockHashCode;
         this.sizeInBytes = -1;
         this.logicalSizeInBytes = -1;
 
@@ -200,6 +204,20 @@ public class MapBlock
     protected boolean[] getMapIsNull()
     {
         return mapIsNull;
+    }
+
+    @Override
+    protected void beforeEncoding()
+    {
+        if (keyBlockHashCode.isPresent()) {
+            ensureHashTableLoaded(keyBlockHashCode.get());
+        }
+    }
+
+    @Override
+    protected Optional<MethodHandle> getKeyBlockHashcode()
+    {
+        return keyBlockHashCode;
     }
 
     @Override
@@ -270,7 +288,8 @@ public class MapBlock
                 offsets,
                 keyBlock,
                 loadedValueBlock,
-                hashTables);
+                hashTables,
+                keyBlockHashCode);
     }
 
     @Override

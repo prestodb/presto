@@ -40,6 +40,7 @@ public class MapBlockEncoding
     public void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block)
     {
         AbstractMapBlock mapBlock = (AbstractMapBlock) block;
+        mapBlock.beforeEncoding();
 
         int positionCount = mapBlock.getPositionCount();
 
