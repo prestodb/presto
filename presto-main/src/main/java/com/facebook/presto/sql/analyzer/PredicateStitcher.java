@@ -28,6 +28,7 @@ import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Union;
+import com.facebook.presto.sql.tree.Unnest;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 
@@ -97,6 +98,12 @@ public class PredicateStitcher
                     node.getOffset(),
                     node.getLimit());
         }
+        return node;
+    }
+
+    @Override
+    protected Node visitUnnest(Unnest node, PredicateStitcherContext context)
+    {
         return node;
     }
 

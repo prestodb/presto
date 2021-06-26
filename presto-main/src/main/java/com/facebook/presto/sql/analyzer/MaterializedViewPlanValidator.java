@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Join;
@@ -21,6 +22,7 @@ import com.facebook.presto.sql.tree.JoinOn;
 import com.facebook.presto.sql.tree.JoinUsing;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.Unnest;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -47,23 +49,43 @@ public class MaterializedViewPlanValidator
             throw new SemanticException(NOT_SUPPORTED, query, "More than one join in materialized view is not supported yet.");
         }
 
-        if (!node.getType().equals(Join.Type.INNER)) {
-            throw new SemanticException(NOT_SUPPORTED, node, "Only inner join is supported for materialized view.");
-        }
-        if (!node.getCriteria().isPresent()) {
-            throw new SemanticException(NOT_SUPPORTED, node, "Join with no criteria is not supported for materialized view.");
+        switch (node.getType()) {
+            case INNER:
+                if (!node.getType().equals(Join.Type.INNER)) {
+                    throw new SemanticException(NOT_SUPPORTED, node, "Only inner join is supported for materialized view.");
+                }
+                if (!node.getCriteria().isPresent()) {
+                    throw new SemanticException(NOT_SUPPORTED, node, "Join with no criteria is not supported for materialized view.");
+                }
+
+                JoinCriteria joinCriteria = node.getCriteria().get();
+                if (!(joinCriteria instanceof JoinOn) && !(joinCriteria instanceof JoinUsing)) {
+                    throw new SemanticException(NOT_SUPPORTED, node, "Only join-on and join-using are supported for materialized view.");
+                }
+
+                context.setProcessingJoinNode(true);
+                if (joinCriteria instanceof JoinOn) {
+                    process(((JoinOn) joinCriteria).getExpression(), context);
+                }
+                context.setProcessingJoinNode(false);
+                break;
+            case CROSS:
+                if (!(node.getRight() instanceof AliasedRelation)) {
+                    throw new SemanticException(NOT_SUPPORTED, node, "Only cross join with unnest is supported for materialized view.");
+                }
+                AliasedRelation right = (AliasedRelation) node.getRight();
+                if (!(right.getRelation() instanceof Unnest)) {
+                    throw new SemanticException(NOT_SUPPORTED, node, "Only cross join with unnest is supported for materialized view.");
+                }
+
+                process(node.getLeft(), context);
+
+                break;
+
+            default:
+                throw new SemanticException(NOT_SUPPORTED, node, "Only inner join is supported for materialized view.");
         }
 
-        JoinCriteria joinCriteria = node.getCriteria().get();
-        if (!(joinCriteria instanceof JoinOn) && !(joinCriteria instanceof JoinUsing)) {
-            throw new SemanticException(NOT_SUPPORTED, node, "Only join-on and join-using are supported for materialized view.");
-        }
-
-        context.setProcessingJoinNode(true);
-        if (joinCriteria instanceof JoinOn) {
-            process(((JoinOn) joinCriteria).getExpression(), context);
-        }
-        context.setProcessingJoinNode(false);
         return null;
     }
 
