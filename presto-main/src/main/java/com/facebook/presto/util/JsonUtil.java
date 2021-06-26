@@ -208,10 +208,15 @@ public final class JsonUtil
     private static boolean isValidJsonObjectKeyType(Type type)
     {
         String baseType = type.getTypeSignature().getBase();
+        if (type.getTypeSignature().isEnum()) {
+            return true;
+        }
+
         StandardTypes.Types standardType = StandardTypes.Types.getTypeFromString(baseType);
         if (standardType == null) {
-            throw new PrestoException(NOT_SUPPORTED, format("%s is not a supported type.", baseType));
+            return false;
         }
+
         return standardType.equals(StandardTypes.Types.BOOLEAN) ||
                 standardType.equals(StandardTypes.Types.TINYINT) ||
                 standardType.equals(StandardTypes.Types.SMALLINT) ||
@@ -220,8 +225,7 @@ public final class JsonUtil
                 standardType.equals(StandardTypes.Types.REAL) ||
                 standardType.equals(StandardTypes.Types.DOUBLE) ||
                 standardType.equals(StandardTypes.Types.DECIMAL) ||
-                standardType.equals(StandardTypes.Types.VARCHAR) ||
-                type.getTypeSignature().isEnum();
+                standardType.equals(StandardTypes.Types.VARCHAR);
     }
 
     // transform the map key into string for use as JSON object key
