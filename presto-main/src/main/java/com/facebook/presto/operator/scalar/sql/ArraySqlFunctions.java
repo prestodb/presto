@@ -18,9 +18,9 @@ import com.facebook.presto.spi.function.SqlInvokedScalarFunction;
 import com.facebook.presto.spi.function.SqlParameter;
 import com.facebook.presto.spi.function.SqlType;
 
-public class ArrayArithmeticFunctions
+public class ArraySqlFunctions
 {
-    private ArrayArithmeticFunctions() {}
+    private ArraySqlFunctions() {}
 
     @SqlInvokedScalarFunction(value = "array_sum", deterministic = true, calledOnNullInput = false)
     @Description("Returns the sum of all array elements, or 0 if the array is empty. Ignores null elements.")
@@ -77,5 +77,45 @@ public class ArrayArithmeticFunctions
                 "MAP()," +
                 "(m, x) -> IF (x IS NOT NULL, MAP_CONCAT(m,MAP_FROM_ENTRIES(ARRAY[ROW(x, COALESCE(ELEMENT_AT(m,x) + 1, 1))])), m)," +
                 "m -> m)";
+    }
+
+    @SqlInvokedScalarFunction(value = "array_dupes", deterministic = true, calledOnNullInput = false)
+    @Description("Returns set of elements that have duplicates")
+    @SqlParameter(name = "input", type = "array(varchar)")
+    @SqlType("array(varchar)")
+    public static String arrayDupesVarchar()
+    {
+        return "RETURN CONCAT(" +
+                "CAST(IF (cardinality(filter(input, x -> x is NULL)) > 1, ARRAY[NULL], ARRAY[]) AS ARRAY(VARCHAR))," +
+                "map_keys(map_filter(array_frequency(input), (k, v) -> v > 1)))";
+    }
+
+    @SqlInvokedScalarFunction(value = "array_dupes", deterministic = true, calledOnNullInput = false)
+    @Description("Returns set of elements that have duplicates")
+    @SqlParameter(name = "input", type = "array(bigint)")
+    @SqlType("array(bigint)")
+    public static String arrayDupesBigint()
+    {
+        return "RETURN CONCAT(" +
+                "CAST(IF (cardinality(filter(input, x -> x is NULL)) > 1, ARRAY[NULL], ARRAY[]) AS ARRAY(BIGINT))," +
+                "map_keys(map_filter(array_frequency(input), (k, v) -> v > 1)))";
+    }
+
+    @SqlInvokedScalarFunction(value = "array_has_dupes", deterministic = true, calledOnNullInput = false)
+    @Description("Returns whether array has any duplicate element")
+    @SqlParameter(name = "input", type = "array(varchar)")
+    @SqlType("boolean")
+    public static String arrayHasDupesVarchar()
+    {
+        return "RETURN cardinality(array_dupes(input)) > 0";
+    }
+
+    @SqlInvokedScalarFunction(value = "array_has_dupes", deterministic = true, calledOnNullInput = false)
+    @Description("Returns whether array has any duplicate element")
+    @SqlParameter(name = "input", type = "array(bigint)")
+    @SqlType("boolean")
+    public static String arrayHasDupesBigint()
+    {
+        return "RETURN cardinality(array_dupes(input)) > 0";
     }
 }
