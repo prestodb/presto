@@ -1615,6 +1615,40 @@ public class TestHiveLogicalPlanner
         }
     }
 
+    @Test
+    public void testMaterializedViewForCrossJoinUnnest()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        String base = "orders_key_cross_join_unnest";
+        String view = "orders_view_cross_join_unnest";
+        try {
+            queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['ds']) AS " +
+                    "SELECT orderkey, ARRAY['MEDIUM', 'LOW'] as volume, '2020-01-01' as ds FROM orders WHERE orderkey < 1000 " +
+                    "UNION ALL " +
+                    "SELECT orderkey, ARRAY['HIGH'] as volume, '2019-01-02' as ds FROM orders WHERE orderkey > 1000 and orderkey < 2000", base));
+
+            assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds']) " +
+                    "AS SELECT orderkey AS view_orderkey, unnested.view_volume, ds " +
+                    "FROM %s CROSS JOIN UNNEST (volume) AS unnested(view_volume)", view, base));
+
+            assertTrue(queryRunner.tableExists(getSession(), view));
+
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2020-01-01'", view), 510);
+
+            String viewQuery = format("SELECT view_orderkey, view_volume, ds from %s where view_orderkey <  10000 ORDER BY view_orderkey, view_volume", view);
+            String baseQuery = format("SELECT orderkey AS view_orderkey, unnested.view_volume, ds " +
+                    "FROM %s CROSS JOIN UNNEST (volume) AS unnested(view_volume) " +
+                    "WHERE orderkey < 10000 ORDER BY orderkey, view_volume", base);
+            MaterializedResult viewTable = computeActual(viewQuery);
+            MaterializedResult baseTable = computeActual(baseQuery);
+            assertEquals(viewTable, baseTable);
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS " + view);
+            queryRunner.execute("DROP TABLE IF EXISTS " + base);
+        }
+    }
+
     // Make sure subfield pruning doesn't interfere with cost-based optimizer
     @Test
     public void testPushdownSubfieldsAndJoinReordering()

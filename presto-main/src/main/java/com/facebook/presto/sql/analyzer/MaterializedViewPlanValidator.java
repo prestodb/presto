@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Join;
@@ -23,6 +24,7 @@ import com.facebook.presto.sql.tree.JoinUsing;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.SetOperation;
+import com.facebook.presto.sql.tree.Unnest;
 import com.google.common.collect.ImmutableList;
 
 import java.util.LinkedList;
@@ -96,6 +98,19 @@ public class MaterializedViewPlanValidator
                     process(((JoinOn) joinCriteria).getExpression(), context);
                 }
                 context.setProcessingJoinNode(false);
+
+                break;
+
+            case CROSS:
+                if (!(node.getRight() instanceof AliasedRelation)) {
+                    throw new SemanticException(NOT_SUPPORTED, node, "Only cross join with unnest is supported for materialized view.");
+                }
+                AliasedRelation right = (AliasedRelation) node.getRight();
+                if (!(right.getRelation() instanceof Unnest)) {
+                    throw new SemanticException(NOT_SUPPORTED, node, "Only cross join with unnest is supported for materialized view.");
+                }
+
+                process(node.getLeft(), context);
 
                 break;
 
