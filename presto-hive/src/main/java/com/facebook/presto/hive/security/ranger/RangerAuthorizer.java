@@ -14,7 +14,6 @@
 package com.facebook.presto.hive.security.ranger;
 
 import com.amazonaws.util.StringUtils;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import okhttp3.Credentials;
 import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
@@ -30,9 +29,7 @@ import org.apache.ranger.plugin.policyengine.RangerPolicyEngineOptions;
 import org.apache.ranger.plugin.service.RangerBasePlugin;
 import org.apache.ranger.plugin.util.ServicePolicies;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.util.Set;
 
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
@@ -45,7 +42,6 @@ public class RangerAuthorizer
 
     public RangerAuthorizer(ServicePolicies servicePolicies)
     {
-
         RangerPolicyEngineOptions rangerPolicyEngineOptions = new RangerPolicyEngineOptions();
         Configuration conf = new Configuration();
         conf.set("hive.policyengine.option.disable.tagpolicy.evaluation", "true");
@@ -55,14 +51,6 @@ public class RangerAuthorizer
         plugin = new RangerBasePlugin(rangerPluginConfig);
         plugin.setResultProcessor(null);
         plugin.setPolicies(servicePolicies);
-    }
-
-    private static <T> T jsonParse(Response response, Class<T> clazz)
-            throws IOException
-    {
-        BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(response.body().byteStream()));
-        ObjectMapper mapper = new ObjectMapper();
-        return mapper.readValue(bufferedReader, clazz);
     }
 
     public static Interceptor basicAuth(String user, String password)

@@ -16,6 +16,7 @@ package com.facebook.presto.hive.security.ranger;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.client.JsonResponse;
+import com.facebook.presto.client.OkHttpUtil;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -40,6 +41,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URI;
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
@@ -88,12 +90,13 @@ public class RangerBasedAccessControl
         OkHttpClient httpClient = null;
         ServicePolicies servicePolicies;
         try {
-            OkHttpClient client = getAuthHttpClient(config.getBasicAuthUser(), config.getBasicAuthPassword());
+            OkHttpClient client = getAuthHttpClient(config);
+
             HttpUrl hiveServicePolicyUrl = requireNonNull(HttpUrl.get(URI.create(config.getRangerHttpEndPoint())))
                     .newBuilder()
                     .encodedPath(RANGER_REST_POLICY_MGR_DOWNLOAD_URL + "/" + config.getRangerHiveServiceName()).build();
 
-            HttpUrl getUsersUrl = HttpUrl.get(URI.create(config.getRangerHttpEndPoint()))
+            HttpUrl getUsersUrl = requireNonNull(HttpUrl.get(URI.create(config.getRangerHttpEndPoint())))
                     .newBuilder()
                     .encodedPath(RANGER_REST_USER_GROUP_URL)
                     .build();
@@ -103,7 +106,7 @@ public class RangerBasedAccessControl
             rangerAuthorizer = new RangerAuthorizer(servicePolicies);
         }
         catch (Exception e) {
-            log.error("Exception while querying ranger service " + e);
+            log.error("Exception while querying ranger service ", e);
             throw new AccessDeniedException("Exception while querying ranger service ");
         }
     }
@@ -147,10 +150,14 @@ public class RangerBasedAccessControl
     private static <T> T jsonParse(Response response, Class<T> clazz)
             throws IOException
     {
-        BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(response.body().byteStream()));
-        ObjectMapper mapper = new ObjectMapper();
-        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-        return mapper.readValue(bufferedReader, clazz);
+        if (response.body() != null) {
+            try (BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(response.body().byteStream()))) {
+                ObjectMapper mapper = new ObjectMapper();
+                mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+                return mapper.readValue(bufferedReader, clazz);
+            }
+        }
+        return null;
     }
 
     private boolean userExists(String userName)
@@ -483,11 +490,15 @@ public class RangerBasedAccessControl
                 .build());
     }
 
-    private static OkHttpClient getAuthHttpClient(String username, String password)
+    private static OkHttpClient getAuthHttpClient(RangerBasedAccessControlConfig controlConfig)
     {
         OkHttpClient httpClient = new OkHttpClient.Builder().build();
         OkHttpClient.Builder builder = httpClient.newBuilder();
-        builder.addInterceptor(basicAuth(username, password));
+        OkHttpUtil.setupSsl(builder, Optional.ofNullable(controlConfig.getRangerRestKeystorePath()),
+                Optional.ofNullable(controlConfig.getRangerRestKeystorePwd()),
+                Optional.ofNullable(controlConfig.getRangerRestTruststorePath()),
+                Optional.ofNullable(controlConfig.getRangerRestTruststorePwd()));
+        builder.addInterceptor(basicAuth(controlConfig.getBasicAuthUser(), controlConfig.getBasicAuthPassword()));
         return builder.build();
     }
 }

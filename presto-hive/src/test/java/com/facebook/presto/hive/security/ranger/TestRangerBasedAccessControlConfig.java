@@ -28,6 +28,10 @@ import static com.facebook.airlift.configuration.testing.ConfigAssertions.assert
 import static com.facebook.presto.hive.security.ranger.RangerBasedAccessControlConfig.RANGER_HTTP_END_POINT;
 import static com.facebook.presto.hive.security.ranger.RangerBasedAccessControlConfig.RANGER_POLICY_REFRESH_PERIOD;
 import static com.facebook.presto.hive.security.ranger.RangerBasedAccessControlConfig.RANGER_REST_POLICY_HIVE_SERVICE_NAME;
+import static com.facebook.presto.hive.security.ranger.RangerBasedAccessControlConfig.RANGER_REST_POLICY_MGR_KEYSTORE_PATH;
+import static com.facebook.presto.hive.security.ranger.RangerBasedAccessControlConfig.RANGER_REST_POLICY_MGR_KEYSTORE_PWD;
+import static com.facebook.presto.hive.security.ranger.RangerBasedAccessControlConfig.RANGER_REST_POLICY_MGR_TRUST_STORE_PATH;
+import static com.facebook.presto.hive.security.ranger.RangerBasedAccessControlConfig.RANGER_REST_POLICY_MGR_TRUST_STORE_PWD;
 import static com.facebook.presto.hive.security.ranger.RangerBasedAccessControlConfig.RANGER_REST_USER_GROUPS_AUTH_PASSWORD;
 import static com.facebook.presto.hive.security.ranger.RangerBasedAccessControlConfig.RANGER_REST_USER_GROUPS_AUTH_USERNAME;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -42,7 +46,11 @@ public class TestRangerBasedAccessControlConfig
                 .setRangerHttpEndPoint(null)
                 .setRangerHiveServiceName(null)
                 .setBasicAuthUser(null)
-                .setBasicAuthPassword(null));
+                .setBasicAuthPassword(null)
+                .setRangerRestKeystorePath(null)
+                .setRangerRestKeystorePwd(null)
+                .setRangerRestTruststorePath(null)
+                .setRangerRestTruststorePwd(null));
     }
 
     @Test
@@ -54,6 +62,10 @@ public class TestRangerBasedAccessControlConfig
                 .put(RANGER_REST_POLICY_HIVE_SERVICE_NAME, "hiveServiceName")
                 .put(RANGER_REST_USER_GROUPS_AUTH_USERNAME, "admin")
                 .put(RANGER_REST_USER_GROUPS_AUTH_PASSWORD, "admin")
+                .put(RANGER_REST_POLICY_MGR_KEYSTORE_PATH, "key_path")
+                .put(RANGER_REST_POLICY_MGR_KEYSTORE_PWD, "key_pwd")
+                .put(RANGER_REST_POLICY_MGR_TRUST_STORE_PATH, "trust_path")
+                .put(RANGER_REST_POLICY_MGR_TRUST_STORE_PWD, "trust_pwd")
                 .build();
 
         RangerBasedAccessControlConfig expected = new RangerBasedAccessControlConfig()
@@ -61,7 +73,11 @@ public class TestRangerBasedAccessControlConfig
                 .setRangerHttpEndPoint("http://test:6080")
                 .setRangerHiveServiceName("hiveServiceName")
                 .setBasicAuthUser("admin")
-                .setBasicAuthPassword("admin");
+                .setBasicAuthPassword("admin")
+                .setRangerRestKeystorePath("key_path")
+                .setRangerRestKeystorePwd("key_pwd")
+                .setRangerRestTruststorePath("trust_path")
+                .setRangerRestTruststorePwd("trust_pwd");
         assertFullMapping(properties, expected);
     }
 
