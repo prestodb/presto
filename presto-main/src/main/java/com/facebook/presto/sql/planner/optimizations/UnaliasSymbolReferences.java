@@ -133,7 +133,7 @@ public class UnaliasSymbolReferences
         requireNonNull(variableAllocator, "variableAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        return SimplePlanRewriter.rewriteWith(new Rewriter(types, functionAndTypeManager), plan);
+        return SimplePlanRewriter.rewriteWith(new Rewriter(types, functionAndTypeManager, warningCollector), plan);
     }
 
     private static class Rewriter
@@ -142,11 +142,13 @@ public class UnaliasSymbolReferences
         private final Map<String, String> mapping = new HashMap<>();
         private final TypeProvider types;
         private final RowExpressionDeterminismEvaluator determinismEvaluator;
+        private final WarningCollector warningCollector;
 
-        private Rewriter(TypeProvider types, FunctionAndTypeManager functionAndTypeManager)
+        private Rewriter(TypeProvider types, FunctionAndTypeManager functionAndTypeManager, WarningCollector warningCollector)
         {
             this.types = types;
             this.determinismEvaluator = new RowExpressionDeterminismEvaluator(functionAndTypeManager);
+            this.warningCollector = warningCollector;
         }
 
         @Override
@@ -154,7 +156,7 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = context.rewrite(node.getSource());
             //TODO: use mapper in other methods
-            SymbolMapper mapper = new SymbolMapper(mapping, types);
+            SymbolMapper mapper = new SymbolMapper(mapping, types, warningCollector);
             return mapper.map(node, source);
         }
 
@@ -406,7 +408,7 @@ public class UnaliasSymbolReferences
         public PlanNode visitStatisticsWriterNode(StatisticsWriterNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
-            SymbolMapper mapper = new SymbolMapper(mapping, types);
+            SymbolMapper mapper = new SymbolMapper(mapping, types, warningCollector);
             return mapper.map(node, source);
         }
 
@@ -414,7 +416,7 @@ public class UnaliasSymbolReferences
         public PlanNode visitTableFinish(TableFinishNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
-            SymbolMapper mapper = new SymbolMapper(mapping, types);
+            SymbolMapper mapper = new SymbolMapper(mapping, types, warningCollector);
             return mapper.map(node, source);
         }
 
@@ -504,7 +506,7 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = context.rewrite(node.getSource());
 
-            SymbolMapper mapper = new SymbolMapper(mapping, types);
+            SymbolMapper mapper = new SymbolMapper(mapping, types, warningCollector);
             return mapper.map(node, source, node.getId());
         }
 
@@ -624,7 +626,7 @@ public class UnaliasSymbolReferences
         public PlanNode visitTableWriter(TableWriterNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
-            SymbolMapper mapper = new SymbolMapper(mapping, types);
+            SymbolMapper mapper = new SymbolMapper(mapping, types, warningCollector);
             return mapper.map(node, source);
         }
 
@@ -632,7 +634,7 @@ public class UnaliasSymbolReferences
         public PlanNode visitTableWriteMerge(TableWriterMergeNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
-            SymbolMapper mapper = new SymbolMapper(mapping, types);
+            SymbolMapper mapper = new SymbolMapper(mapping, types, warningCollector);
             return mapper.map(node, source);
         }
 

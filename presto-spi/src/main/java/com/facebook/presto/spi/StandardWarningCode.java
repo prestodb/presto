@@ -21,7 +21,8 @@ public enum StandardWarningCode
     PERFORMANCE_WARNING(0x0000_0003),
     SEMANTIC_WARNING(0x0000_0004),
     REDUNDANT_ORDER_BY(0x0000_0005),
-    PARTIAL_RESULT_WARNING(0x0000_0006)
+    PARTIAL_RESULT_WARNING(0x0000_0006),
+    MULTIPLE_ORDER_BY(0x0000_0007),
     /**/;
     private final WarningCode warningCode;
 
