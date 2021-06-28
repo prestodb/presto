@@ -16,6 +16,8 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.expressions.RowExpressionRewriter;
 import com.facebook.presto.expressions.RowExpressionTreeRewriter;
+import com.facebook.presto.spi.PrestoWarning;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.Ordering;
@@ -44,12 +46,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import static com.facebook.presto.spi.StandardWarningCode.MULTIPLE_ORDER_BY;
 import static com.facebook.presto.spi.plan.AggregationNode.groupingSets;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
@@ -62,8 +66,9 @@ public class SymbolMapper
 {
     private final Map<String, String> mapping;
     private final TypeProvider types;
+    private final WarningCollector warningCollector;
 
-    public SymbolMapper(Map<VariableReferenceExpression, VariableReferenceExpression> mapping)
+    public SymbolMapper(Map<VariableReferenceExpression, VariableReferenceExpression> mapping, WarningCollector warningCollector)
     {
         requireNonNull(mapping, "mapping is null");
         this.mapping = mapping.entrySet().stream().collect(toImmutableMap(entry -> entry.getKey().getName(), entry -> entry.getValue().getName()));
@@ -73,13 +78,15 @@ public class SymbolMapper
             variables.add(entry.getValue());
         });
         this.types = TypeProvider.fromVariables(variables.build());
+        this.warningCollector = warningCollector;
     }
 
-    public SymbolMapper(Map<String, String> mapping, TypeProvider types)
+    public SymbolMapper(Map<String, String> mapping, TypeProvider types, WarningCollector warningCollector)
     {
         requireNonNull(mapping, "mapping is null");
         this.mapping = ImmutableMap.copyOf(mapping);
         this.types = requireNonNull(types, "types is null");
+        this.warningCollector = warningCollector;
     }
 
     public Symbol map(Symbol symbol)
@@ -135,14 +142,21 @@ public class SymbolMapper
     {
         // SymbolMapper inlines symbol with multiple level reference (SymbolInliner only inline single level).
         ImmutableList.Builder<VariableReferenceExpression> orderBy = ImmutableList.builder();
-        ImmutableMap.Builder<VariableReferenceExpression, SortOrder> ordering = ImmutableMap.builder();
+        HashMap<VariableReferenceExpression, SortOrder> orderingMap = new HashMap<VariableReferenceExpression, SortOrder>();
         for (VariableReferenceExpression variable : orderingScheme.getOrderByVariables()) {
             VariableReferenceExpression translated = map(variable);
-            orderBy.add(translated);
-            ordering.put(translated, orderingScheme.getOrdering(variable));
+            // Some variables may become duplicates after canonicalization, so we put them only once.
+            if (!orderingMap.containsKey(translated)) {
+                orderBy.add(translated);
+                orderingMap.put(translated, orderingScheme.getOrdering(variable));
+            }
+            else if (orderingMap.get(translated) != orderingScheme.getOrdering(variable)) {
+                warningCollector.add(new PrestoWarning(
+                        MULTIPLE_ORDER_BY,
+                        "Multiple ORDER BY for a variable were given, only first provided will be considered"));
+            }
         }
 
-        ImmutableMap<VariableReferenceExpression, SortOrder> orderingMap = ordering.build();
         return new OrderingScheme(orderBy.build().stream().map(variable -> new Ordering(variable, orderingMap.get(variable))).collect(toImmutableList()));
     }
 
@@ -322,18 +336,30 @@ public class SymbolMapper
         return builder.build();
     }
 
+    public static SymbolMapper.Builder builder(WarningCollector warningCollector)
+    {
+        return new Builder(warningCollector);
+    }
+
     public static SymbolMapper.Builder builder()
     {
-        return new Builder();
+        return new Builder(WarningCollector.NOOP);
     }
 
     public static class Builder
     {
-        private final ImmutableMap.Builder<VariableReferenceExpression, VariableReferenceExpression> mappingsBuilder = ImmutableMap.builder();
+        private final ImmutableMap.Builder<VariableReferenceExpression, VariableReferenceExpression> mappingsBuilder;
+        private final WarningCollector warningCollector;
+
+        public Builder(WarningCollector warningCollector)
+        {
+            this.warningCollector = warningCollector;
+            this.mappingsBuilder = ImmutableMap.builder();
+        }
 
         public SymbolMapper build()
         {
-            return new SymbolMapper(mappingsBuilder.build());
+            return new SymbolMapper(mappingsBuilder.build(), warningCollector);
         }
 
         public void put(VariableReferenceExpression from, VariableReferenceExpression to)
