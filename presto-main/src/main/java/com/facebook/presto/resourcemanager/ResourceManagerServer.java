@@ -72,6 +72,12 @@ public class ResourceManagerServer
         return executor.submit(clusterStateProvider::getClusterMemoryPoolInfo);
     }
 
+    @ThriftMethod
+    public ListenableFuture<Map<String, NodeStatus>> getNodeStatuses()
+    {
+        return executor.submit(clusterStateProvider::getNodeStatuses);
+    }
+
     /**
      * Registers a node heartbeat with the resource manager.
      */

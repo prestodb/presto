@@ -49,6 +49,7 @@ import com.facebook.presto.execution.MemoryRevokingScheduler;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.NodeTaskTracker;
 import com.facebook.presto.execution.QueryManagerConfig;
+import com.facebook.presto.execution.RemoteNodeTaskTracker;
 import com.facebook.presto.execution.SqlTaskManager;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
@@ -110,6 +111,7 @@ import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.TableCommitContext;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
+import com.facebook.presto.resourcemanager.ClusterNodeManagerService;
 import com.facebook.presto.resourcemanager.ClusterStatusSender;
 import com.facebook.presto.resourcemanager.ForResourceManager;
 import com.facebook.presto.resourcemanager.RandomResourceManagerAddressSelector;
@@ -317,7 +319,13 @@ public class ServerMainModule
         binder.bind(NodeSelectionStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(NodeSelectionStats.class).withGeneratedName();
         binder.bind(NodeSchedulerExporter.class).in(Scopes.SINGLETON);
-        binder.bind(NodeTaskTracker.class).to(NodeTaskMap.class).in(Scopes.SINGLETON);
+        if (serverConfig.isResourceManagerEnabled() && serverConfig.isCoordinator()) {
+            binder.bind(ClusterNodeManagerService.class).in(Scopes.SINGLETON);
+            binder.bind(NodeTaskTracker.class).to(RemoteNodeTaskTracker.class).in(Scopes.SINGLETON);
+        }
+        else {
+            binder.bind(NodeTaskTracker.class).to(NodeTaskMap.class).in(Scopes.SINGLETON);
+        }
         newExporter(binder).export(NodeScheduler.class).withGeneratedName();
 
         // network topology

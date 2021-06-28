@@ -67,6 +67,12 @@ class TestingResourceManagerClient
         return ImmutableMap.of();
     }
 
+    @Override
+    public Map<String, NodeStatus> getNodeStatuses()
+    {
+        return ImmutableMap.of();
+    }
+
     public int getQueryHeartbeats()
     {
         return queryHeartbeats.get();

@@ -21,6 +21,7 @@ import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.BasicQueryStats;
+import com.facebook.presto.server.NodeSplitStats;
 import com.facebook.presto.server.NodeStatus;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.QueryId;
@@ -304,7 +305,8 @@ public class TestResourceManagerClusterStateProvider
                 2.0,
                 1,
                 2,
-                3);
+                3,
+                new NodeSplitStats(4));
     }
 
     private MemoryPoolInfo createMemoryPoolInfo(int maxBytes, int reservedBytes, int reservedRevocableBytes)

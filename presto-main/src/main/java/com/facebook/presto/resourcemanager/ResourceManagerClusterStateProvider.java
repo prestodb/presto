@@ -224,6 +224,11 @@ public class ResourceManagerClusterStateProvider
         }, e -> e.getValue().getNodeStatus().getMemoryInfo()));
     }
 
+    public Map<String, NodeStatus> getNodeStatuses()
+    {
+        return nodeStatuses.entrySet().stream().collect(toImmutableMap(Map.Entry::getKey, v -> v.getValue().getNodeStatus()));
+    }
+
     private static class CoordinatorQueriesState
     {
         private final String nodeId;

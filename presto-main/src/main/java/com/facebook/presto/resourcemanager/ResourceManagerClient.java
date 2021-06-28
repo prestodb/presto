@@ -21,6 +21,7 @@ import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.NodeStatus;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolInfo;
 import com.facebook.presto.spi.memory.MemoryPoolId;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 import java.util.Map;
@@ -39,4 +40,7 @@ public interface ResourceManagerClient
 
     @ThriftMethod
     Map<MemoryPoolId, ClusterMemoryPoolInfo> getMemoryPoolInfo();
+
+    @ThriftMethod
+    Map<String, NodeStatus> getNodeStatuses();
 }
