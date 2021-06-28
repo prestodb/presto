@@ -20,10 +20,13 @@ import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.ranger.authorization.hadoop.config.RangerPluginConfig;
 import org.apache.ranger.plugin.policyengine.RangerAccessRequest;
 import org.apache.ranger.plugin.policyengine.RangerAccessRequestImpl;
 import org.apache.ranger.plugin.policyengine.RangerAccessResourceImpl;
 import org.apache.ranger.plugin.policyengine.RangerAccessResult;
+import org.apache.ranger.plugin.policyengine.RangerPolicyEngineOptions;
 import org.apache.ranger.plugin.service.RangerBasePlugin;
 import org.apache.ranger.plugin.util.ServicePolicies;
 
@@ -33,6 +36,7 @@ import java.io.InputStreamReader;
 import java.util.Set;
 
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class RangerAuthorizer
@@ -41,7 +45,14 @@ public class RangerAuthorizer
 
     public RangerAuthorizer(ServicePolicies servicePolicies)
     {
-        plugin = new RangerBasePlugin("hive", "standalone-hive");
+
+        RangerPolicyEngineOptions rangerPolicyEngineOptions = new RangerPolicyEngineOptions();
+        Configuration conf = new Configuration();
+        conf.set("hive.policyengine.option.disable.tagpolicy.evaluation", "true");
+        rangerPolicyEngineOptions.configureForPlugin(conf, "hive");
+        RangerPluginConfig rangerPluginConfig = new RangerPluginConfig("hive", null, "standalone-hive", null, null,
+                rangerPolicyEngineOptions);
+        plugin = new RangerBasePlugin(rangerPluginConfig);
         plugin.setResultProcessor(null);
         plugin.setPolicies(servicePolicies);
     }
@@ -78,7 +89,6 @@ public class RangerAuthorizer
         String keyDatabase = "database";
         String keyTable = "table";
         String keyColumn = "column";
-
         RangerAccessResourceImpl resource = new RangerAccessResourceImpl();
         if (!StringUtils.isNullOrEmpty(database)) {
             resource.setValue(keyDatabase, database);
@@ -92,10 +102,8 @@ public class RangerAuthorizer
             resource.setValue(keyColumn, column);
         }
 
-        RangerAccessRequest request = new RangerAccessRequestImpl(resource, accessType, user, userGroups);
-
+        RangerAccessRequest request = new RangerAccessRequestImpl(resource, accessType.toLowerCase(ENGLISH), user, userGroups, null);
         RangerAccessResult result = plugin.isAccessAllowed(request);
-
         return result != null && result.getIsAllowed();
     }
 
