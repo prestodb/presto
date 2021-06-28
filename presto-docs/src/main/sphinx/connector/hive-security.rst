@@ -561,7 +561,7 @@ verify the following prerequisites:
 Presto coordinator and workers have the appropriate network access to
 communicate with the Ranger service. Typically this is port 6080.
 
-Apache Ranger 0.7.0 or higher must be used
+Apache Ranger 2.1.0 or higher must be used
 
 Policies
 --------
@@ -605,6 +605,15 @@ Property Name                                      Description                  
 
 ``hive.ranger.service.basic-auth-password``        Ranger Hive plugin password configured with
                                                    for Basic HTTP auth.
+
+``hive.ranger.service.keystore.path``              Ranger SSL configuration - client keystore file path
+
+``hive.ranger.service.keystore.password``          Ranger SSL configuration - client keystore password
+
+``hive.ranger.service.truststore.path``            Ranger SSL configuration - client trust-store file path
+
+``hive.ranger.service.truststore.password``        Ranger SSL configuration - client trust-store password
+
 ================================================== ============================================================ ============
 
 HDFS wire encryption
