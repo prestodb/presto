@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.security.ranger;
 
 import com.amazonaws.util.StringUtils;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import okhttp3.Credentials;
 import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
@@ -29,7 +30,9 @@ import org.apache.ranger.plugin.policyengine.RangerPolicyEngineOptions;
 import org.apache.ranger.plugin.service.RangerBasePlugin;
 import org.apache.ranger.plugin.util.ServicePolicies;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.Set;
 
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
@@ -53,6 +56,17 @@ public class RangerAuthorizer
         plugin.setPolicies(servicePolicies);
     }
 
+    private static <T> T jsonParse(Response response, Class<T> clazz)
+            throws IOException
+    {
+        BufferedReader bufferedReader = null;
+        if (response.body() != null) {
+            bufferedReader = new BufferedReader(new InputStreamReader(response.body().byteStream()));
+        }
+        ObjectMapper mapper = new ObjectMapper();
+        return mapper.readValue(bufferedReader, clazz);
+    }
+
     public static Interceptor basicAuth(String user, String password)
     {
         requireNonNull(user, "user is null");
@@ -72,7 +86,7 @@ public class RangerAuthorizer
         return builder.build();
     }
 
-    public boolean authorizeHiveResource(String database, String table, String column, String accessType, String user, Set<String> userGroups)
+    public boolean authorizeHiveResource(String database, String table, String column, String accessType, String user, Set<String> userGroups, Set<String> userRoles)
     {
         String keyDatabase = "database";
         String keyTable = "table";
@@ -90,7 +104,7 @@ public class RangerAuthorizer
             resource.setValue(keyColumn, column);
         }
 
-        RangerAccessRequest request = new RangerAccessRequestImpl(resource, accessType.toLowerCase(ENGLISH), user, userGroups, null);
+        RangerAccessRequest request = new RangerAccessRequestImpl(resource, accessType.toLowerCase(ENGLISH), user, userGroups, userRoles);
         RangerAccessResult result = plugin.isAccessAllowed(request);
         return result != null && result.getIsAllowed();
     }

@@ -31,6 +31,7 @@ public class RangerBasedAccessControlConfig
 
     public static final String RANGER_REST_POLICY_MGR_DOWNLOAD_URL = "/service/plugins/policies/download";
     public static final String RANGER_REST_USER_GROUP_URL = "/service/xusers/users";
+    public static final String RANGER_REST_USER_ROLES_URL = "/service/roles/roles/user";
 
     public static final String RANGER_REST_POLICY_MGR_KEYSTORE_PATH = "hive.ranger.service.keystore.path";
     public static final String RANGER_REST_POLICY_MGR_KEYSTORE_PWD = "hive.ranger.service.keystore.password";

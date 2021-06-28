@@ -34,7 +34,13 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static org.testng.Assert.assertThrows;
 
@@ -47,12 +53,12 @@ public class TestRangerBasedAccessControl
     public void testTablePriviledgesRolesNotAllowed()
             throws IOException
     {
-        ConnectorAccessControl accessControl = createRangerAccessControl("default-allow-all.json", "user_groups.json");
+        ConnectorAccessControl accessControl = createRangerAccessControl("default-allow-all.json", "user_groups.json", "user_roles.json");
         assertDenied(() -> accessControl.checkCanRevokeTablePrivilege(TRANSACTION_HANDLE, user("anyuser"), CONTEXT, Privilege.SELECT,
                 new SchemaTableName("foodmart", "test"), new PrestoPrincipal(PrincipalType.ROLE, "role"), true));
         assertDenied(() -> accessControl.checkCanGrantTablePrivilege(TRANSACTION_HANDLE, user("anyuser"), CONTEXT, Privilege.SELECT,
                 new SchemaTableName("foodmart", "test"), new PrestoPrincipal(PrincipalType.ROLE, "role"), true));
-        assertDenied(() -> accessControl.checkCanCreateRole(TRANSACTION_HANDLE, user("anyuser"), CONTEXT, "schemaName", null));
+        assertDenied(() -> accessControl.checkCanCreateRole(TRANSACTION_HANDLE, user("anyuser"), CONTEXT, "schemaName", Optional.empty()));
         assertDenied(() -> accessControl.checkCanDropRole(TRANSACTION_HANDLE, user("anyuser"), CONTEXT, "schemaName"));
         assertDenied(() -> accessControl.checkCanGrantRoles(TRANSACTION_HANDLE, user("anyuser"), CONTEXT, ImmutableSet.of(""),
                 ImmutableSet.of(new PrestoPrincipal(PrincipalType.ROLE, "role")), true, Optional.empty(), ""));
@@ -63,7 +69,7 @@ public class TestRangerBasedAccessControl
     public void testDefaultAccessAllowedNotChecked()
             throws IOException
     {
-        ConnectorAccessControl accessControl = createRangerAccessControl("default-allow-all.json", "user_groups.json");
+        ConnectorAccessControl accessControl = createRangerAccessControl("default-allow-all.json", "user_groups.json", "user_roles.json");
         accessControl.checkCanShowTablesMetadata(TRANSACTION_HANDLE, user("anyuser"), CONTEXT, "schemaName");
         accessControl.checkCanSetCatalogSessionProperty(TRANSACTION_HANDLE, user("anyuser"), CONTEXT, "schemaName");
         accessControl.checkCanCreateSchema(TRANSACTION_HANDLE, user("anyuser"), CONTEXT, "schemaName");
@@ -74,7 +80,7 @@ public class TestRangerBasedAccessControl
     public void testDefaultTableAccessIfNotDefined()
             throws IOException
     {
-        ConnectorAccessControl accessControl = createRangerAccessControl("default-allow-all.json", "user_groups.json");
+        ConnectorAccessControl accessControl = createRangerAccessControl("default-allow-all.json", "user_groups.json", "user_roles.json");
         accessControl.checkCanCreateTable(TRANSACTION_HANDLE, user("admin"), CONTEXT, new SchemaTableName("test", "test"));
         accessControl.checkCanSelectFromColumns(TRANSACTION_HANDLE, user("alice"), CONTEXT, new SchemaTableName("test", "test"), ImmutableSet.of());
         accessControl.checkCanSelectFromColumns(TRANSACTION_HANDLE, user("bob"), CONTEXT, new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of());
@@ -88,7 +94,7 @@ public class TestRangerBasedAccessControl
     public void testTableOperations()
             throws IOException
     {
-        ConnectorAccessControl accessControl = createRangerAccessControl("default-schema-level-access.json", "user_groups.json");
+        ConnectorAccessControl accessControl = createRangerAccessControl("default-schema-level-access.json", "user_groups.json", "user_roles.json");
         // 'etladmin' group have all access {group - etladmin, user - alice}
         accessControl.checkCanCreateTable(TRANSACTION_HANDLE, user("alice"), CONTEXT, new SchemaTableName("foodmart", "test"));
         accessControl.checkCanRenameTable(TRANSACTION_HANDLE, user("alice"), CONTEXT, new SchemaTableName("foodmart", "test"), new SchemaTableName("foodmart", "test1"));
@@ -121,7 +127,7 @@ public class TestRangerBasedAccessControl
     public void testSelectUpdateAccess()
             throws IOException
     {
-        ConnectorAccessControl accessControl = createRangerAccessControl("default-table-select-update.json", "user_groups.json");
+        ConnectorAccessControl accessControl = createRangerAccessControl("default-table-select-update.json", "user_groups.json", "user_roles.json");
         // 'etladmin' group have all access {group - etladmin, user - alice}
         accessControl.checkCanSelectFromColumns(TRANSACTION_HANDLE, user("alice"), CONTEXT, new SchemaTableName("foodmart", "test"), ImmutableSet.of("column1"));
         accessControl.checkCanInsertIntoTable(TRANSACTION_HANDLE, user("alice"), CONTEXT, new SchemaTableName("foodmart", "test"));
@@ -139,7 +145,7 @@ public class TestRangerBasedAccessControl
     public void testColumnLevelAccess()
             throws IOException
     {
-        ConnectorAccessControl accessControl = createRangerAccessControl("default-table-column-access.json", "user_groups.json");
+        ConnectorAccessControl accessControl = createRangerAccessControl("default-table-column-access.json", "user_groups.json", "user_roles.json");
         // 'analyst' group have read acces {group - analyst, user - joe}
         accessControl.checkCanSelectFromColumns(TRANSACTION_HANDLE, user("joe"), CONTEXT, new SchemaTableName("foodmart", "salary"), ImmutableSet.of("currency_id", "overtime_paid"));
 
@@ -147,23 +153,59 @@ public class TestRangerBasedAccessControl
         assertDenied(() -> accessControl.checkCanSelectFromColumns(TRANSACTION_HANDLE, user("bob"), CONTEXT, new SchemaTableName("foodmart", "salary"), ImmutableSet.of("currency_id", "overtime_paid")));
     }
 
+    @Test
+    public void testRoleBasedAccess()
+            throws IOException
+    {
+        ConnectorAccessControl accessControl = createRangerAccessControl("ranger-role-based-access.json", "user_groups.json", "user_roles.json");
+
+        // 'admin_role' role have all access {user - raj, group - admin, role - admin_role}
+        accessControl.checkCanSelectFromColumns(TRANSACTION_HANDLE, user("raj"), CONTEXT, new SchemaTableName("default", "customer"), ImmutableSet.of("column1"));
+        accessControl.checkCanInsertIntoTable(TRANSACTION_HANDLE, user("raj"), CONTEXT, new SchemaTableName("default", "customer"));
+        accessControl.checkCanDropTable(TRANSACTION_HANDLE, user("raj"), CONTEXT, new SchemaTableName("default", "customer"));
+
+        // 'etl_role' role have all access {user - maria, group - etldev, role - etl_role}
+        accessControl.checkCanSelectFromColumns(TRANSACTION_HANDLE, user("maria"), CONTEXT, new SchemaTableName("default", "orders"), ImmutableSet.of("column1"));
+        accessControl.checkCanInsertIntoTable(TRANSACTION_HANDLE, user("maria"), CONTEXT, new SchemaTableName("default", "orders"));
+        accessControl.checkCanDropTable(TRANSACTION_HANDLE, user("maria"), CONTEXT, new SchemaTableName("default", "orders"));
+        //  Access denied to columns other than name & comment {user - maria, group - etldev, role - etl_role}
+        assertDenied(() -> accessControl.checkCanSelectFromColumns(TRANSACTION_HANDLE, user("maria"), CONTEXT, new SchemaTableName("default", "customer"), ImmutableSet.of("column1")));
+
+        // 'analyst_role' role have all access {user - sam, group - analyst, role - analyst_role}
+        accessControl.checkCanSelectFromColumns(TRANSACTION_HANDLE, user("sam"), CONTEXT, new SchemaTableName("default", "lineitem"), ImmutableSet.of("column1"));
+        accessControl.checkCanInsertIntoTable(TRANSACTION_HANDLE, user("sam"), CONTEXT, new SchemaTableName("default", "lineitem"));
+        accessControl.checkCanDropTable(TRANSACTION_HANDLE, user("sam"), CONTEXT, new SchemaTableName("default", "lineitem"));
+        //  Access denied {user - sam, group - analyst, role - analyst_role}
+        assertDenied(() -> accessControl.checkCanSelectFromColumns(TRANSACTION_HANDLE, user("sam"), CONTEXT, new SchemaTableName("default", "customer"), ImmutableSet.of("column1")));
+        assertDenied(() -> accessControl.checkCanSelectFromColumns(TRANSACTION_HANDLE, user("sam"), CONTEXT, new SchemaTableName("default", "supplier"), ImmutableSet.of("column1")));
+    }
+
     private static ConnectorIdentity user(String name)
     {
         return new ConnectorIdentity(name, Optional.empty(), Optional.empty());
     }
 
-    private ConnectorAccessControl createRangerAccessControl(String policyFile, String usersFile)
+    private ConnectorAccessControl createRangerAccessControl(String policyFile, String usersFile, String rolesFile)
             throws IOException
     {
         String policyFilePath = this.getClass().getClassLoader().getResource("com.facebook.presto.hive.security.ranger/" + policyFile).getPath();
         String usersFilePath = this.getClass().getClassLoader().getResource("com.facebook.presto.hive.security.ranger/" + usersFile).getPath();
+        String rolesFilePath = this.getClass().getClassLoader().getResource("com.facebook.presto.hive.security.ranger/" + rolesFile).getPath();
 
         ServicePolicies servicePolicies = jsonParse(new File(policyFilePath), ServicePolicies.class);
         Users users = jsonParse(new File(usersFilePath), Users.class);
+        HashMap<String, Set<String>> userRoles = Arrays.stream(jsonParse(new File(rolesFilePath), HashMap[].class)).findFirst().get();
+
+        Map<String, Set<String>> userRolesSet =
+                userRoles.entrySet().stream().collect(Collectors.toMap(
+                        entry -> entry.getKey(),
+                        entry -> new HashSet(entry.getValue())));
+
         RangerBasedAccessControl rangerBasedAccessControl = new RangerBasedAccessControl();
         RangerAuthorizer rangerAuthorizer = new RangerAuthorizer(servicePolicies);
         rangerBasedAccessControl.setRangerAuthorizer(rangerAuthorizer);
         rangerBasedAccessControl.setUsers(users);
+        rangerBasedAccessControl.setUserRoles(userRolesSet);
         return rangerBasedAccessControl;
     }
 

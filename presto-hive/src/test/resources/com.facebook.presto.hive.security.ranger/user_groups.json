@@ -82,6 +82,78 @@
         "ROLE_USER"
       ],
       "userSource": 1
+    },
+    {
+      "createDate": "2018-06-18T15:58:00Z",
+      "description": "raj - add from Unix box",
+      "firstName": "raj",
+      "groupIdList": [
+        2
+      ],
+      "groupNameList": [
+        "admin"
+      ],
+      "id": 11,
+      "isVisible": 1,
+      "lastName": "raj",
+      "name": "raj",
+      "owner": "Admin",
+      "password": "*****",
+      "status": 1,
+      "updateDate": "2020-10-13T10:03:10Z",
+      "updatedBy": "Admin",
+      "userRoleList": [
+        "ROLE_USER"
+      ],
+      "userSource": 1
+    },
+    {
+      "createDate": "2018-06-18T15:58:00Z",
+      "description": "maria - add from Unix box",
+      "firstName": "Maria",
+      "groupIdList": [
+        3
+      ],
+      "groupNameList": [
+        "etldev"
+      ],
+      "id": 12,
+      "isVisible": 1,
+      "lastName": "maria",
+      "name": "maria",
+      "owner": "Admin",
+      "password": "*****",
+      "status": 1,
+      "updateDate": "2020-10-13T10:03:10Z",
+      "updatedBy": "Admin",
+      "userRoleList": [
+        "ROLE_USER"
+      ],
+      "userSource": 1
+    },
+    {
+      "createDate": "2018-06-18T15:58:00Z",
+      "description": "sam - add from Unix box",
+      "firstName": "Sam",
+      "groupIdList": [
+        4
+      ],
+      "groupNameList": [
+        "analyst"
+      ],
+      "id": 13,
+      "isVisible": 1,
+      "lastName": "sam",
+      "name": "sam",
+      "owner": "Admin",
+      "password": "*****",
+      "status": 1,
+      "updateDate": "2020-10-13T10:03:10Z",
+      "updatedBy": "Admin",
+      "userRoleList": [
+        "ROLE_USER"
+      ],
+      "userSource": 1
     }
   ]
 }
