@@ -1046,6 +1046,39 @@ export class QueryDetail extends React.Component {
         }
     }
 
+    renderRuntimeStats() {
+        const query = this.state.query;
+        if (Object.values(query.queryStats.runtimeStats).length == 0) return null;
+        return (
+            <div className="row">
+                <div className="col-xs-6">
+                    <h3>RuntimeStats</h3>
+                    <hr className="h3-hr"/>
+                     <table className="table" id="runtime-stats-table">
+                         <tbody>
+                         <tr>
+                             <th className="info-text">Metric Name</th>
+                             <th className="info-text">Sum</th>
+                             <th className="info-text">Count</th>
+                             <th className="info-text">Max</th>
+                             <th className="info-text">Min</th>
+                         </tr>
+                         {Object.values(query.queryStats.runtimeStats).map((metric) =>
+                             <tr>
+                                 <td className="info-text">{metric.name}</td>
+                                 <td className="info-text">{formatCount(metric.sum)}</td>
+                                 <td className="info-text">{formatCount(metric.count)}</td>
+                                 <td className="info-text">{formatCount(metric.max)}</td>
+                                 <td className="info-text">{formatCount(metric.min)}</td>
+                             </tr>
+                         )}
+                         </tbody>
+                     </table>
+                </div>
+            </div>
+        );
+    }
+
     renderFailureInfo() {
         const query = this.state.query;
         if (query.failureInfo) {
@@ -1523,6 +1556,7 @@ export class QueryDetail extends React.Component {
                         </div>
                     </div>
                 </div>
+                {this.renderRuntimeStats()}
                 {this.renderWarningInfo()}
                 {this.renderFailureInfo()}
                 <div className="row">
