@@ -44,6 +44,12 @@ Array Functions
 
     Remove duplicate values from the array ``x``.
 
+.. function:: array_dupes(array(T)) -> array(bigint/varchar)
+
+    Returns a set of elements that occur more than once in ``array``.
+
+    ``T`` must be coercible to ``bigint`` or ``varchar``.
+
 .. function:: array_except(x, y) -> array
 
     Returns an array of elements in ``x`` but not in ``y``, without duplicates.
@@ -57,6 +63,12 @@ Array Functions
 
     Returns a map: keys are the unique elements in the ``array``, values are how many times the key appears.
     Ignores null elements. Empty array returns empty map.
+
+.. function:: array_has_dupes(array(T)) -> boolean
+
+    Returns a boolean: whether ``array`` has any elements that occur more than once.
+
+    ``T`` must be coercible to ``bigint`` or ``varchar``.
 
 .. function:: array_intersect(x, y) -> array
 
