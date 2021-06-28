@@ -104,7 +104,8 @@ public final class StandardTypes
         GEOMETRY("Geometry"),
         BING_TILE("BingTile"),
         BIGINT_ENUM("BigintEnum"),
-        VARCHAR_ENUM("VarcharEnum");
+        VARCHAR_ENUM("VarcharEnum"),
+        INVALID_TYPE("invalid");
 
         private final String valueType;
         private Types(String setType)

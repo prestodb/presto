@@ -236,28 +236,33 @@ public final class JsonUtil
         static ObjectKeyProvider createObjectKeyProvider(Type type)
         {
             TypeSignature signature = type.getTypeSignature();
-            String baseType = signature.getBase();
             if (signature.isBigintEnum()) {
                 return (block, position) -> String.valueOf(type.getLong(block, position));
             }
             if (signature.isVarcharEnum()) {
                 return (block, position) -> type.getSlice(block, position).toStringUtf8();
             }
-            switch (baseType) {
-                case UnknownType.NAME:
-                    return (block, position) -> null;
-                case StandardTypes.BOOLEAN:
+            String baseType = signature.getBase();
+            if (baseType.equals(UnknownType.NAME)) {
+                return (block, position) -> null;
+            }
+            StandardTypes.Types standardType = StandardTypes.Types.getTypeFromString(baseType);
+            if (standardType == null) {
+                standardType = StandardTypes.Types.INVALID_TYPE;
+            }
+            switch (standardType) {
+                case BOOLEAN:
                     return (block, position) -> type.getBoolean(block, position) ? "true" : "false";
-                case StandardTypes.TINYINT:
-                case StandardTypes.SMALLINT:
-                case StandardTypes.INTEGER:
-                case StandardTypes.BIGINT:
+                case TINYINT:
+                case SMALLINT:
+                case INTEGER:
+                case BIGINT:
                     return (block, position) -> String.valueOf(type.getLong(block, position));
-                case StandardTypes.REAL:
+                case REAL:
                     return (block, position) -> String.valueOf(intBitsToFloat((int) type.getLong(block, position)));
-                case StandardTypes.DOUBLE:
+                case DOUBLE:
                     return (block, position) -> String.valueOf(type.getDouble(block, position));
-                case StandardTypes.DECIMAL:
+                case DECIMAL:
                     DecimalType decimalType = (DecimalType) type;
                     if (isShortDecimal(decimalType)) {
                         return (block, position) -> Decimals.toString(decimalType.getLong(block, position), decimalType.getScale());
@@ -267,7 +272,7 @@ public final class JsonUtil
                                 decodeUnscaledValue(type.getSlice(block, position)),
                                 decimalType.getScale());
                     }
-                case StandardTypes.VARCHAR:
+                case VARCHAR:
                     return (block, position) -> type.getSlice(block, position).toStringUtf8();
                 default:
                     throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Unsupported type: %s", type));
@@ -285,54 +290,59 @@ public final class JsonUtil
         static JsonGeneratorWriter createJsonGeneratorWriter(Type type)
         {
             TypeSignature signature = type.getTypeSignature();
-            String baseType = signature.getBase();
             if (signature.isBigintEnum()) {
                 return new LongJsonGeneratorWriter(type);
             }
             if (signature.isVarcharEnum()) {
                 return new VarcharJsonGeneratorWriter(type);
             }
-            switch (baseType) {
-                case UnknownType.NAME:
-                    return new UnknownJsonGeneratorWriter();
-                case StandardTypes.BOOLEAN:
+            String baseType = signature.getBase();
+            if (baseType.equals(UnknownType.NAME)) {
+                return new UnknownJsonGeneratorWriter();
+            }
+            StandardTypes.Types standardType = StandardTypes.Types.getTypeFromString(baseType);
+            if (standardType == null) {
+                standardType = StandardTypes.Types.INVALID_TYPE;
+            }
+            switch (standardType) {
+                case BOOLEAN:
                     return new BooleanJsonGeneratorWriter();
-                case StandardTypes.TINYINT:
-                case StandardTypes.SMALLINT:
-                case StandardTypes.INTEGER:
-                case StandardTypes.BIGINT:
+                case TINYINT:
+                case SMALLINT:
+                case INTEGER:
+                case BIGINT:
                     return new LongJsonGeneratorWriter(type);
-                case StandardTypes.REAL:
+                case REAL:
                     return new RealJsonGeneratorWriter();
-                case StandardTypes.DOUBLE:
+                case DOUBLE:
                     return new DoubleJsonGeneratorWriter();
-                case StandardTypes.DECIMAL:
+                case DECIMAL:
                     if (isShortDecimal(type)) {
                         return new ShortDecimalJsonGeneratorWriter((DecimalType) type);
                     }
                     else {
                         return new LongDeicmalJsonGeneratorWriter((DecimalType) type);
                     }
-                case StandardTypes.VARCHAR:
+                case VARCHAR:
                     return new VarcharJsonGeneratorWriter(type);
-                case StandardTypes.JSON:
+                case JSON:
                     return new JsonJsonGeneratorWriter();
-                case StandardTypes.TIMESTAMP:
+                case TIMESTAMP:
                     return new TimestampJsonGeneratorWriter();
-                case StandardTypes.DATE:
+                case DATE:
                     return new DateGeneratorWriter();
-                case StandardTypes.ARRAY:
+                case ARRAY:
                     ArrayType arrayType = (ArrayType) type;
                     return new ArrayJsonGeneratorWriter(
                             arrayType,
                             createJsonGeneratorWriter(arrayType.getElementType()));
-                case StandardTypes.MAP:
+                case MAP:
                     MapType mapType = (MapType) type;
                     return new MapJsonGeneratorWriter(
                             mapType,
                             createObjectKeyProvider(mapType.getKeyType()),
                             createJsonGeneratorWriter(mapType.getValueType()));
-                case StandardTypes.ROW:
+                case ROW:
                     List<Type> fieldTypes = type.getTypeParameters();
                     List<JsonGeneratorWriter> fieldWriters = new ArrayList<>(fieldTypes.size());
                     for (int i = 0; i < fieldTypes.size(); i++) {
