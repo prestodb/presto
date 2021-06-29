@@ -29,6 +29,7 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.prerequisites.QueryPrerequisites;
 import com.facebook.presto.spi.prerequisites.QueryPrerequisitesContext;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
@@ -68,6 +69,7 @@ public class LocalDispatchQuery
     private final Consumer<DispatchQuery> queryQueuer;
     private final Consumer<QueryExecution> querySubmitter;
     private final SettableFuture<?> submitted = SettableFuture.create();
+    private volatile Optional<ResourceGroupQueryLimits> resourceGroupQueryLimits = Optional.empty();
 
     private final boolean retry;
 
@@ -182,6 +184,9 @@ public class LocalDispatchQuery
 
     private void startExecution(QueryExecution queryExecution)
     {
+        if (this.getResourceGroupQueryLimits().isPresent()) {
+            queryExecution.setResourceGroupQueryLimits(this.getResourceGroupQueryLimits().get());
+        }
         queryExecutor.execute(() -> {
             if (stateMachine.transitionToDispatching()) {
                 try {
@@ -348,6 +353,18 @@ public class LocalDispatchQuery
     public void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener)
     {
         stateMachine.addStateChangeListener(stateChangeListener);
+    }
+
+    @Override
+    public Optional<ResourceGroupQueryLimits> getResourceGroupQueryLimits()
+    {
+        return resourceGroupQueryLimits;
+    }
+
+    @Override
+    public void setResourceGroupQueryLimits(ResourceGroupQueryLimits resourceGroupQueryLimits)
+    {
+        this.resourceGroupQueryLimits = Optional.of(requireNonNull(resourceGroupQueryLimits, "resourceGroupQueryLimits is null"));
     }
 
     private Optional<QueryExecution> tryGetQueryExecution()

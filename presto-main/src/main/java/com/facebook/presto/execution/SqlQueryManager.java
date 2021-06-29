@@ -27,6 +27,7 @@ import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.version.EmbedVersion;
 import com.google.common.collect.Ordering;
@@ -45,6 +46,7 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -55,6 +57,11 @@ import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxCpuTime;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxOutputSize;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxScanRawInputBytes;
+import static com.facebook.presto.execution.QueryLimit.Source.QUERY;
+import static com.facebook.presto.execution.QueryLimit.Source.RESOURCE_GROUP;
+import static com.facebook.presto.execution.QueryLimit.Source.SYSTEM;
+import static com.facebook.presto.execution.QueryLimit.createDurationLimit;
+import static com.facebook.presto.execution.QueryLimit.getMinimum;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -334,10 +341,13 @@ public class SqlQueryManager
     {
         for (QueryExecution query : queryTracker.getAllQueries()) {
             Duration cpuTime = query.getTotalCpuTime();
-            Duration sessionLimit = getQueryMaxCpuTime(query.getSession());
-            Duration limit = Ordering.natural().min(maxQueryCpuTime, sessionLimit);
-            if (cpuTime.compareTo(limit) > 0) {
-                query.fail(new ExceededCpuLimitException(limit));
+            Optional<QueryLimit<Duration>> queryMaxCpuTimeLimit = getMinimum(
+                    createDurationLimit(maxQueryCpuTime, SYSTEM),
+                    query.getResourceGroupQueryLimits().flatMap(ResourceGroupQueryLimits::getCpuTimeLimit).map(
+                            rgLimit -> createDurationLimit(rgLimit, RESOURCE_GROUP)).orElse(null),
+                    createDurationLimit(getQueryMaxCpuTime(query.getSession()), QUERY));
+            if (queryMaxCpuTimeLimit.isPresent() && cpuTime.compareTo(queryMaxCpuTimeLimit.get().getLimit()) > 0) {
+                query.fail(new ExceededCpuLimitException(queryMaxCpuTimeLimit.get().getLimit(), queryMaxCpuTimeLimit.get().getLimitSource().name()));
             }
         }
     }

@@ -24,6 +24,7 @@ import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.resourceGroups.QueryType;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Statement;
@@ -62,6 +63,7 @@ public class DataDefinitionExecution<T extends Statement>
     private final AccessControl accessControl;
     private final QueryStateMachine stateMachine;
     private final List<Expression> parameters;
+    private volatile Optional<ResourceGroupQueryLimits> resourceGroupQueryLimits = Optional.empty();
 
     private DataDefinitionExecution(
             DataDefinitionTask<T> task,
@@ -167,6 +169,19 @@ public class DataDefinitionExecution<T extends Statement>
     public DataSize getOutputDataSize()
     {
         return DataSize.succinctBytes(0);
+    }
+
+    @Override
+    public Optional<ResourceGroupQueryLimits> getResourceGroupQueryLimits()
+    {
+        return resourceGroupQueryLimits;
+    }
+
+    @Override
+    public void setResourceGroupQueryLimits(ResourceGroupQueryLimits resourceGroupQueryLimits)
+    {
+        requireNonNull(resourceGroupQueryLimits, "resourceGroupQueryLimits is null");
+        this.resourceGroupQueryLimits = Optional.of(resourceGroupQueryLimits);
     }
 
     @Override

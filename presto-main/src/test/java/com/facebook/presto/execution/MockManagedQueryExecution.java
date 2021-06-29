@@ -20,6 +20,7 @@ import com.facebook.presto.server.BasicQueryStats;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
@@ -53,6 +54,7 @@ public class MockManagedQueryExecution
     private final Session session;
     private QueryState state = WAITING_FOR_PREREQUISITES;
     private Throwable failureCause;
+    private Optional<ResourceGroupQueryLimits> resourceGroupQueryLimits = Optional.empty();
 
     public MockManagedQueryExecution(long memoryUsage)
     {
@@ -202,6 +204,12 @@ public class MockManagedQueryExecution
     public void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener)
     {
         listeners.add(stateChangeListener);
+    }
+
+    @Override
+    public void setResourceGroupQueryLimits(ResourceGroupQueryLimits resourceGroupQueryLimits)
+    {
+        this.resourceGroupQueryLimits = Optional.of(resourceGroupQueryLimits);
     }
 
     private void fireStateChange()
