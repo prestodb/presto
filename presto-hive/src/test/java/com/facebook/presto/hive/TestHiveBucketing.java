@@ -229,7 +229,7 @@ public class TestHiveBucketing
         String typeBase = type.getTypeSignature().getBase();
         StandardTypes.Types standardType = StandardTypes.Types.getTypeFromString(typeBase);
         if (standardType == null) {
-            throw new UnsupportedOperationException(String.format("%s is not supported", typeBase));
+            throw new UnsupportedOperationException(String.format("%s is not supported.", typeBase));
         }
 
         switch (standardType) {

@@ -28,7 +28,7 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionVisitor;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.google.common.collect.Sets;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.Map;
 import java.util.Optional;
@@ -41,8 +41,7 @@ import static java.util.Objects.requireNonNull;
 class DruidProjectExpressionConverter
         implements RowExpressionVisitor<DruidExpression, Map<VariableReferenceExpression, Selection>>
 {
-   //private static final Set<String> TIME_EQUIVALENT_TYPES = ImmutableSet.of(StandardTypes.BIGINT, StandardTypes.INTEGER, StandardTypes.TINYINT, StandardTypes.SMALLINT);
-    private static final Set<StandardTypes.Types> TIME_EQUIVALENT_TYPES = Sets.immutableEnumSet(StandardTypes.Types.BIGINT, StandardTypes.Types.INTEGER, StandardTypes.Types.TINYINT, StandardTypes.Types.SMALLINT);
+    private static final Set<StandardTypes.Types> TIME_EQUIVALENT_TYPES = ImmutableSet.of(StandardTypes.Types.BIGINT, StandardTypes.Types.INTEGER, StandardTypes.Types.TINYINT, StandardTypes.Types.SMALLINT);
 
     protected final TypeManager typeManager;
     protected final StandardFunctionResolution standardFunctionResolution;

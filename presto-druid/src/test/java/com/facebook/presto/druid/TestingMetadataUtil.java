@@ -61,7 +61,7 @@ public final class TestingMetadataUtil
         {
             StandardTypes.Types standardType = StandardTypes.Types.getTypeFromString(value.toLowerCase(ENGLISH));
             if (standardType == null) {
-                throw new IllegalArgumentException(String.valueOf(value + " is not a supported type."));
+                throw new NullPointerException(String.valueOf(value + " is not a supported type."));
             }
             Type type = types.get(standardType);
             return requireNonNull(type, "Unknown type " + value);

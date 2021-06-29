@@ -695,6 +695,7 @@ public class JoinCompiler
             // At that point, we'll be able to fully deprecate Type.equalTo (and friends) and remove this hack.
             if (type.getJavaType().equals(Slice.class)) {
                 StandardTypes.Types standardType = StandardTypes.Types.getTypeFromString(type.getTypeSignature().getBase());
+                // Ensures prior behavior
                 if (standardType != null) {
                     switch (standardType) {
                         case CHAR:

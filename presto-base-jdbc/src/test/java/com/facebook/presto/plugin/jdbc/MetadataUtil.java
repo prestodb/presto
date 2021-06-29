@@ -63,7 +63,7 @@ final class MetadataUtil
         protected Type _deserialize(String value, DeserializationContext context)
         {
             StandardTypes.Types standardType = StandardTypes.Types.getTypeFromString(value.toLowerCase(ENGLISH));
-            checkArgument(standardType != null, "Unknown type %s", value);
+            checkArgument(standardType != null, "%s type is not supported.", value);
             Type type = types.get(standardType);
             checkArgument(type != null, "Unknown type %s", value);
             return type;

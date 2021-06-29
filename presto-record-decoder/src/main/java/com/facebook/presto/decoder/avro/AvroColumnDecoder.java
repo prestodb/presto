@@ -37,9 +37,6 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.common.type.StandardTypes.ARRAY;
-import static com.facebook.presto.common.type.StandardTypes.BIGINT;
-import static com.facebook.presto.common.type.StandardTypes.BOOLEAN;
-import static com.facebook.presto.common.type.StandardTypes.DOUBLE;
 import static com.facebook.presto.common.type.StandardTypes.MAP;
 import static com.facebook.presto.common.type.StandardTypes.VARBINARY;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
@@ -47,7 +44,6 @@ import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.common.type.Varchars.truncateToLength;
 import static com.facebook.presto.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
@@ -257,7 +253,7 @@ public class AvroColumnDecoder
 
         StandardTypes.Types standardType = StandardTypes.Types.getTypeFromString(type.getTypeSignature().getBase());
         if (standardType == null) {
-            throw new PrestoException(NOT_SUPPORTED, format("%s is not a valid type", type));
+            throw new PrestoException(DECODER_CONVERSION_NOT_SUPPORTED, format("cannot decode object of '%s' as '%s' for column '%s'", value.getClass(), type, columnName));
         }
 
         switch (standardType) {

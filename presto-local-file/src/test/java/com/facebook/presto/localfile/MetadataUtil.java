@@ -71,11 +71,11 @@ final class MetadataUtil
         {
             StandardTypes.Types standardType = StandardTypes.Types.getTypeFromString(value.toLowerCase(ENGLISH));
             if (standardType == null) {
-                throw new IllegalArgumentException(String.valueOf(value + " is not a supported type."));
+                throw new IllegalArgumentException(value + " is not a supported type.");
             }
             Type type = types.get(standardType);
             if (type == null) {
-                throw new IllegalArgumentException(String.valueOf("Unknown type " + value));
+                throw new IllegalArgumentException("Unknown type " + value);
             }
             return type;
         }

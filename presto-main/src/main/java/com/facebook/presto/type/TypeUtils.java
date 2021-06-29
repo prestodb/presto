@@ -119,6 +119,7 @@ public final class TypeUtils
     {
         String baseType = typeName.getBase();
         StandardTypes.Types standardType = StandardTypes.Types.getTypeFromString(baseType);
+        // This is behavior change but enforces check that invalid types are not getting passed around.
         if (standardType == null) {
             throw new PrestoException(NOT_SUPPORTED, String.format("%s is not a supported type.", baseType));
         }

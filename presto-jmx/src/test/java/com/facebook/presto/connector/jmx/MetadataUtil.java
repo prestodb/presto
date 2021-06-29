@@ -64,7 +64,7 @@ public final class MetadataUtil
         {
             StandardTypes.Types standardType = StandardTypes.Types.getTypeFromString(value.toLowerCase(ENGLISH));
             if (standardType == null) {
-                throw new IllegalArgumentException(String.valueOf(value + " is not a supported type."));
+                throw new IllegalArgumentException(value + " is not a supported type.");
             }
             Type type = types.get(standardType);
             checkArgument(type != null, "Unknown type %s", value);
