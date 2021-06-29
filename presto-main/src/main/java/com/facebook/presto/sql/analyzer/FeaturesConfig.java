@@ -198,6 +198,8 @@ public class FeaturesConfig
     private double partialResultsCompletionRatioThreshold = 0.5;
     private double partialResultsMaxExecutionTimeMultiplier = 2.0;
 
+    private boolean queryOptimizationWithMaterializedViewEnabled;
+
     private boolean offsetClauseEnabled;
 
     public enum PartitioningPrecisionStrategy
@@ -1728,6 +1730,18 @@ public class FeaturesConfig
     public FeaturesConfig setPartialResultsMaxExecutionTimeMultiplier(double partialResultsMaxExecutionTimeMultiplier)
     {
         this.partialResultsMaxExecutionTimeMultiplier = partialResultsMaxExecutionTimeMultiplier;
+        return this;
+    }
+
+    public boolean isQueryOptimizationWithMaterializedViewEnabled()
+    {
+        return queryOptimizationWithMaterializedViewEnabled;
+    }
+
+    @Config("query-optimization-with-materialized-view-enabled")
+    public FeaturesConfig setQueryOptimizationWithMaterializedViewEnabled(boolean value)
+    {
+        this.queryOptimizationWithMaterializedViewEnabled = value;
         return this;
     }
 

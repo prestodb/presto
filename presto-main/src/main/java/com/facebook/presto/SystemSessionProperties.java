@@ -194,6 +194,7 @@ public final class SystemSessionProperties
     public static final String PARTIAL_RESULTS_ENABLED = "partial_results_enabled";
     public static final String PARTIAL_RESULTS_COMPLETION_RATIO_THRESHOLD = "partial_results_completion_ratio_threshold";
     public static final String PARTIAL_RESULTS_MAX_EXECUTION_TIME_MULTIPLIER = "partial_results_max_execution_time_multiplier";
+    public static final String QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED = "query_optimization_with_materialized_view_enabled";
     public static final String OFFSET_CLAUSE_ENABLED = "offset_clause_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
@@ -1042,6 +1043,11 @@ public final class SystemSessionProperties
                         PARTIAL_RESULTS_MAX_EXECUTION_TIME_MULTIPLIER,
                         "This value is multiplied by the time taken to reach the completion ratio threshold and is set as max task end time",
                         featuresConfig.getPartialResultsMaxExecutionTimeMultiplier(),
+                        false),
+                booleanProperty(
+                        QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED,
+                        "Enable query optimization with materialized view",
+                        featuresConfig.isQueryOptimizationWithMaterializedViewEnabled(),
                         false));
     }
 
@@ -1756,5 +1762,10 @@ public final class SystemSessionProperties
     public static boolean isOffsetClauseEnabled(Session session)
     {
         return session.getSystemProperty(OFFSET_CLAUSE_ENABLED, Boolean.class);
+    }
+
+    public static boolean isQueryOptimizationWithMaterializedViewEnabled(Session session)
+    {
+        return session.getSystemProperty(QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED, Boolean.class);
     }
 }
