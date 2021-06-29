@@ -55,12 +55,12 @@ public final class MetadataUtil
     public static final class TestingTypeDeserializer
             extends FromStringDeserializer<Type>
     {
-        private final Map<String, Type> types = ImmutableMap.of(
-                StandardTypes.BOOLEAN, BOOLEAN,
-                StandardTypes.BIGINT, BIGINT,
-                StandardTypes.INTEGER, INTEGER,
-                StandardTypes.DOUBLE, DOUBLE,
-                StandardTypes.VARCHAR, createUnboundedVarcharType());
+        private final Map<StandardTypes.Types, Type> types = ImmutableMap.of(
+                StandardTypes.Types.BOOLEAN, BOOLEAN,
+                StandardTypes.Types.BIGINT, BIGINT,
+                StandardTypes.Types.INTEGER, INTEGER,
+                StandardTypes.Types.DOUBLE, DOUBLE,
+                StandardTypes.Types.VARCHAR, createUnboundedVarcharType());
 
         public TestingTypeDeserializer()
         {
@@ -70,9 +70,13 @@ public final class MetadataUtil
         @Override
         protected Type _deserialize(String value, DeserializationContext context)
         {
-            Type type = types.get(value.toLowerCase(ENGLISH));
+            StandardTypes.Types standardType = StandardTypes.Types.getTypeFromString(value.toLowerCase(ENGLISH));
+            if (standardType == null) {
+                throw new IllegalArgumentException("Unknown type " + value);
+            }
+            Type type = types.get(standardType);
             if (type == null) {
-                throw new IllegalArgumentException(String.valueOf("Unknown type " + value));
+                throw new IllegalArgumentException("Unknown type " + value);
             }
             return type;
         }

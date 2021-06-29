@@ -141,11 +141,14 @@ public class TestHiveManifestUtils
             Type type = types.get(i);
             BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(i);
             Object value = values.get(i);
-            switch (type.getTypeSignature().getBase()) {
+            String baseType = type.getTypeSignature().getBase();
+            StandardTypes.Types standardType = StandardTypes.Types.getTypeFromString(baseType);
+            assertTrue(standardType != null);
+            switch (standardType) {
                 case BOOLEAN:
                     type.writeBoolean(blockBuilder, (Boolean) value);
                     break;
-                case StandardTypes.BIGINT:
+                case BIGINT:
                     type.writeLong(blockBuilder, (Long) value);
                     break;
                 case DOUBLE:

@@ -19,6 +19,7 @@ import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.BigintType;
+import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
@@ -29,16 +30,6 @@ import javax.annotation.Nullable;
 import java.util.Objects;
 
 import static com.facebook.drift.annotations.ThriftField.Requiredness.OPTIONAL;
-import static com.facebook.presto.common.type.StandardTypes.ARRAY;
-import static com.facebook.presto.common.type.StandardTypes.BIGINT;
-import static com.facebook.presto.common.type.StandardTypes.BOOLEAN;
-import static com.facebook.presto.common.type.StandardTypes.DATE;
-import static com.facebook.presto.common.type.StandardTypes.DOUBLE;
-import static com.facebook.presto.common.type.StandardTypes.HYPER_LOG_LOG;
-import static com.facebook.presto.common.type.StandardTypes.INTEGER;
-import static com.facebook.presto.common.type.StandardTypes.JSON;
-import static com.facebook.presto.common.type.StandardTypes.TIMESTAMP;
-import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -258,7 +249,11 @@ public final class PrestoThriftBlock
 
     public static PrestoThriftBlock fromBlock(Block block, Type type)
     {
-        switch (type.getTypeSignature().getBase()) {
+        StandardTypes.Types standardType = StandardTypes.Types.getTypeFromString(type.getTypeSignature().getBase());
+        if (standardType == null) {
+            throw new IllegalArgumentException(type + " is not a valid type.");
+        }
+        switch (standardType) {
             case INTEGER:
                 return PrestoThriftInteger.fromBlock(block);
             case BIGINT:
@@ -293,7 +288,11 @@ public final class PrestoThriftBlock
     public static PrestoThriftBlock fromRecordSetColumn(RecordSet recordSet, int columnIndex, int totalRecords)
     {
         Type type = recordSet.getColumnTypes().get(columnIndex);
-        switch (type.getTypeSignature().getBase()) {
+        StandardTypes.Types standardType = StandardTypes.Types.getTypeFromString(type.getTypeSignature().getBase());
+        if (standardType == null) {
+            throw new IllegalArgumentException("Unsupported block type: " + type);
+        }
+        switch (standardType) {
             // use more efficient implementations for numeric types which are likely to be used in index join
             case INTEGER:
                 return PrestoThriftInteger.fromRecordSetColumn(recordSet, columnIndex, totalRecords);
