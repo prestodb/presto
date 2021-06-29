@@ -95,6 +95,7 @@ public class MaterializedViewQueryOptimizer
                 node.getWith(),
                 rewrittenQueryBody,
                 node.getOrderBy(),
+                node.getOffset(),
                 node.getLimit());
     }
 
@@ -137,6 +138,7 @@ public class MaterializedViewQueryOptimizer
                 rewrittenGroupBy,
                 rewrittenHaving,
                 rewrittenOrderBy,
+                node.getOffset(),
                 node.getLimit());
     }
 
