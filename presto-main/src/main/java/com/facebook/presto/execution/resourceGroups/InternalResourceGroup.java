@@ -688,6 +688,7 @@ public class InternalResourceGroup
                 query.fail(new QueryQueueFullException(id));
                 return;
             }
+            query.setResourceGroupQueryLimits(perQueryLimits);
             if (canRun && queuedQueries.isEmpty()) {
                 startInBackground(query);
             }
