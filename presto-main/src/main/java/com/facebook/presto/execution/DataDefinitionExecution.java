@@ -24,6 +24,7 @@ import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.resourceGroups.QueryType;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Statement;
@@ -41,6 +42,7 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -62,6 +64,7 @@ public class DataDefinitionExecution<T extends Statement>
     private final AccessControl accessControl;
     private final QueryStateMachine stateMachine;
     private final List<Expression> parameters;
+    private final AtomicReference<Optional<ResourceGroupQueryLimits>> resourceGroupQueryLimits = new AtomicReference<>(Optional.empty());
 
     private DataDefinitionExecution(
             DataDefinitionTask<T> task,
@@ -167,6 +170,20 @@ public class DataDefinitionExecution<T extends Statement>
     public DataSize getOutputDataSize()
     {
         return DataSize.succinctBytes(0);
+    }
+
+    @Override
+    public Optional<ResourceGroupQueryLimits> getResourceGroupQueryLimits()
+    {
+        return resourceGroupQueryLimits.get();
+    }
+
+    @Override
+    public void setResourceGroupQueryLimits(ResourceGroupQueryLimits resourceGroupQueryLimits)
+    {
+        if (!this.resourceGroupQueryLimits.compareAndSet(Optional.empty(), Optional.of(requireNonNull(resourceGroupQueryLimits, "resourceGroupQueryLimits is null")))) {
+            throw new IllegalStateException("Cannot set resourceGroupQueryLimits more than once");
+        }
     }
 
     @Override

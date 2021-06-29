@@ -21,6 +21,7 @@ import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -184,4 +185,14 @@ public class FailedDispatchQuery
     {
         return new DataSize(0, BYTE);
     }
+
+    @Override
+    public Optional<ResourceGroupQueryLimits> getResourceGroupQueryLimits()
+    {
+        return Optional.empty();
+    }
+
+    @Override
+    public void setResourceGroupQueryLimits(ResourceGroupQueryLimits resourceGroupQueryLimits)
+    { }
 }

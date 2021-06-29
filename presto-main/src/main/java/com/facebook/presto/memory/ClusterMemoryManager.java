@@ -21,6 +21,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryIdGenerator;
+import com.facebook.presto.execution.QueryLimit;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.memory.LowMemoryKiller.QueryMemoryInfo;
 import com.facebook.presto.metadata.InternalNode;
@@ -35,6 +36,7 @@ import com.facebook.presto.spi.memory.ClusterMemoryPoolInfo;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.memory.MemoryPoolInfo;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -75,6 +77,11 @@ import static com.facebook.presto.SystemSessionProperties.RESOURCE_OVERCOMMIT;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxMemory;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxTotalMemory;
 import static com.facebook.presto.SystemSessionProperties.resourceOvercommit;
+import static com.facebook.presto.execution.QueryLimit.Source.QUERY;
+import static com.facebook.presto.execution.QueryLimit.Source.RESOURCE_GROUP;
+import static com.facebook.presto.execution.QueryLimit.Source.SYSTEM;
+import static com.facebook.presto.execution.QueryLimit.createDataSizeLimit;
+import static com.facebook.presto.execution.QueryLimit.getMinimum;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.facebook.presto.memory.LocalMemoryManager.RESERVED_POOL;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
@@ -264,14 +271,18 @@ public class ClusterMemoryManager
                     query.fail(exceededGlobalUserLimit(succinctBytes(userMemoryLimit)));
                     queryKilled = true;
                 }
-
-                long totalMemoryLimit = min(maxQueryTotalMemory.toBytes(), getQueryMaxTotalMemory(query.getSession()).toBytes());
-                if (totalMemoryReservation > totalMemoryLimit) {
-                    query.fail(exceededGlobalTotalLimit(succinctBytes(totalMemoryLimit)));
+                QueryLimit<DataSize> queryTotalMemoryLimit = getMinimum(
+                        createDataSizeLimit(maxQueryTotalMemory, SYSTEM),
+                        query.getResourceGroupQueryLimits()
+                                .flatMap(ResourceGroupQueryLimits::getTotalMemoryLimit)
+                                .map(rgLimit -> createDataSizeLimit(rgLimit, RESOURCE_GROUP))
+                                .orElse(null),
+                        createDataSizeLimit(getQueryMaxTotalMemory(query.getSession()), QUERY));
+                if (totalMemoryReservation > queryTotalMemoryLimit.getLimit().toBytes()) {
+                    query.fail(exceededGlobalTotalLimit(queryTotalMemoryLimit.getLimit(), queryTotalMemoryLimit.getLimitSource().name()));
                     queryKilled = true;
                 }
             }
-
             totalUserMemoryBytes += userMemoryReservation;
             totalMemoryBytes += totalMemoryReservation;
         }
