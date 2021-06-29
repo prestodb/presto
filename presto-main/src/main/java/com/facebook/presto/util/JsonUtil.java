@@ -72,7 +72,6 @@ import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.type.TypeUtils.hashPosition;
 import static com.facebook.presto.type.TypeUtils.positionEqualsPosition;
 import static com.facebook.presto.util.DateTimeUtils.printDate;
@@ -207,12 +206,13 @@ public final class JsonUtil
 
     private static boolean isValidJsonObjectKeyType(Type type)
     {
-        String baseType = type.getTypeSignature().getBase();
         if (type.getTypeSignature().isEnum()) {
             return true;
         }
 
+        String baseType = type.getTypeSignature().getBase();
         StandardTypes.Types standardType = StandardTypes.Types.getTypeFromString(baseType);
+        // Ensuring prior behavior
         if (standardType == null) {
             return false;
         }
@@ -248,7 +248,7 @@ public final class JsonUtil
             }
             StandardTypes.Types standardType = StandardTypes.Types.getTypeFromString(baseType);
             if (standardType == null) {
-                standardType = StandardTypes.Types.INVALID_TYPE;
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Unsupported type: %s", type));
             }
             switch (standardType) {
                 case BOOLEAN:
@@ -302,7 +302,7 @@ public final class JsonUtil
             }
             StandardTypes.Types standardType = StandardTypes.Types.getTypeFromString(baseType);
             if (standardType == null) {
-                standardType = StandardTypes.Types.INVALID_TYPE;
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Unsupported type: %s", type));
             }
             switch (standardType) {
                 case BOOLEAN:
@@ -922,7 +922,7 @@ public final class JsonUtil
             String baseType = signature.getBase();
             StandardTypes.Types standardType = StandardTypes.Types.getTypeFromString(baseType);
             if (standardType == null) {
-                throw new PrestoException(NOT_SUPPORTED, format("%s is not a supported type.", baseType));
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Unsupported type: %s", type));
             }
             switch (standardType) {
                 case BOOLEAN:

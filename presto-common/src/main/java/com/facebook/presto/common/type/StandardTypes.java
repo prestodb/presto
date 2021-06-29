@@ -108,7 +108,7 @@ public final class StandardTypes
         INVALID_TYPE("invalid");
 
         private final String valueType;
-        private Types(String setType)
+        Types(String setType)
         {
             this.valueType = setType;
         }

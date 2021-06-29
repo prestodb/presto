@@ -187,7 +187,7 @@ public abstract class StatisticalDigestAggregationFunction
         final MethodHandle inputFunction;
         StandardTypes.Types standardType = StandardTypes.Types.getTypeFromString(valueType.getDisplayName());
         if (standardType == null) {
-            throw new PrestoException(NOT_SUPPORTED, format("%s is not a valid type", valueType.getDisplayName()));
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("%s is not a valid type.", valueType.getDisplayName()));
         }
         switch (standardType) {
             case DOUBLE:
@@ -208,7 +208,7 @@ public abstract class StatisticalDigestAggregationFunction
         final MethodHandle inputFunction;
         StandardTypes.Types standardType = StandardTypes.Types.getTypeFromString(valueType.getDisplayName());
         if (standardType == null) {
-            standardType = StandardTypes.Types.INVALID_TYPE;
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("%s is not a valid type.", valueType.getDisplayName()));
         }
         switch (standardType) {
             case DOUBLE:

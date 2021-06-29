@@ -383,11 +383,10 @@ public class ParquetPageSourceFactory
 
     private static boolean checkSchemaMatch(org.apache.parquet.schema.Type parquetType, Type type)
     {
-        //String prestoType = type.getTypeSignature().getBase();
         String baseType = type.getTypeSignature().getBase();
         StandardTypes.Types prestoType = StandardTypes.Types.getTypeFromString(baseType);
         if (prestoType == null) {
-            throw new IllegalArgumentException("Unsupported type name: " + baseType);
+            throw new IllegalArgumentException("Unsupported type: " + baseType);
         }
         if (parquetType instanceof GroupType) {
             GroupType groupType = parquetType.asGroupType();

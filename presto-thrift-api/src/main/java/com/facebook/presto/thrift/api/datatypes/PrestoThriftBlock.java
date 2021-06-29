@@ -21,7 +21,6 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import io.airlift.slice.Slice;
@@ -31,12 +30,10 @@ import javax.annotation.Nullable;
 import java.util.Objects;
 
 import static com.facebook.drift.annotations.ThriftField.Requiredness.OPTIONAL;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static java.lang.String.format;
 
 @ThriftStruct
 public final class PrestoThriftBlock
@@ -254,7 +251,7 @@ public final class PrestoThriftBlock
     {
         StandardTypes.Types standardType = StandardTypes.Types.getTypeFromString(type.getTypeSignature().getBase());
         if (standardType == null) {
-            throw new PrestoException(NOT_SUPPORTED, format("%s is not a valid type", type));
+            throw new IllegalArgumentException(type + " is not a valid type.");
         }
         switch (standardType) {
             case INTEGER:
