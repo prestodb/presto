@@ -133,6 +133,10 @@ Mathematical Functions
 
     Returns the modulus (remainder) of ``n`` divided by ``m``.
 
+.. function:: remainder(n, m) -> [same as input]
+
+    Returns the modulus (remainder) of m - (n * Math.round(m / n)).
+
 .. function:: pi() -> double
 
     Returns the constant Pi.

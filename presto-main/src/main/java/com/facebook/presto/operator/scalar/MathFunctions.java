@@ -615,6 +615,60 @@ public final class MathFunctions
         return floatToRawIntBits(intBitsToFloat((int) num1) % intBitsToFloat((int) num2));
     }
 
+    @Description("remainder of given quotient")
+    @ScalarFunction("remainder")
+    @SqlType(StandardTypes.TINYINT)
+    public static long remainderTinyint(@SqlType(StandardTypes.TINYINT) long num1,
+                                        @SqlType(StandardTypes.TINYINT) long num2)
+    {
+        return num2 - (num1 * Math.round(num2 / num1));
+    }
+
+    @Description("remainder of given quotient")
+    @ScalarFunction("remainder")
+    @SqlType(StandardTypes.SMALLINT)
+    public static long remainderSmallint(@SqlType(StandardTypes.SMALLINT) long num1,
+                                         @SqlType(StandardTypes.SMALLINT) long num2)
+    {
+        return num2 - (num1 * Math.round(num2 / num1));
+    }
+
+    @Description("remainder of given quotient")
+    @ScalarFunction("remainder")
+    @SqlType(StandardTypes.INTEGER)
+    public static long remainderInteger(@SqlType(StandardTypes.INTEGER) long num1,
+                                        @SqlType(StandardTypes.INTEGER) long num2)
+    {
+        return num2 - (num1 * Math.round(num2 / num1));
+    }
+
+    @Description("remainder of given quotient")
+    @ScalarFunction
+    @SqlType(StandardTypes.BIGINT)
+    public static long remainder(@SqlType(StandardTypes.BIGINT) long num1, @SqlType(StandardTypes.BIGINT) long num2)
+    {
+        return num2 - (num1 * Math.round(num2 / num1));
+    }
+
+    @Description("remainder of given quotient")
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double remainder(@SqlType(StandardTypes.DOUBLE) double num1,
+                                   @SqlType(StandardTypes.DOUBLE) double num2)
+    {
+        return num2 - (num1 * Math.round(num2 / num1));
+    }
+
+    @Description("remainder of given quotient")
+    @ScalarFunction("remainder")
+    @SqlType(StandardTypes.REAL)
+    public static long remainderFloat(@SqlType(StandardTypes.REAL) long num1, @SqlType(StandardTypes.REAL) long num2)
+    {
+        float n1 = intBitsToFloat((int) num1);
+        float n2 = intBitsToFloat((int) num2);
+        return floatToRawIntBits(n2 - (n1 * Math.round(n2 / n1)));
+    }
+
     @Description("the constant Pi")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)

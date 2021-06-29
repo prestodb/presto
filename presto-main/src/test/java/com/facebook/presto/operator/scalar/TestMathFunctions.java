@@ -564,6 +564,86 @@ public class TestMathFunctions
     }
 
     @Test
+    public void testRemainder()
+    {
+        for (int left : intLefts) {
+            if (left == 0) {
+                continue;
+            }
+            for (int right : intRights) {
+                assertFunction("remainder(" + left + ", " + right + ")", INTEGER, (right - (left * Math.round(right / left))));
+            }
+        }
+
+        for (int left : intLefts) {
+            if (left == 0) {
+                continue;
+            }
+            for (int right : intRights) {
+                assertFunction("remainder( BIGINT '" + left + "' , BIGINT '" + right + "')", BIGINT, (long) (right - (left * Math.round(right / left))));
+            }
+        }
+
+        for (int left : intLefts) {
+            if (left == 0) {
+                continue;
+            }
+            for (double right : doubleRights) {
+                assertFunction("remainder(" + left + ", DOUBLE '" + right + "')", DOUBLE, (right - (left * Math.round(right / left))));
+            }
+        }
+
+        for (int left : intLefts) {
+            if (left == 0) {
+                continue;
+            }
+            for (double right : doubleRights) {
+                float floatRight = (float) right;
+                assertFunction("remainder(" + left + ", REAL '" + floatRight + "')", REAL, (floatRight - (left * Math.round(floatRight / left))));
+            }
+        }
+
+        for (double left : doubleLefts) {
+            if (left == 0) {
+                continue;
+            }
+            for (long right : intRights) {
+                assertFunction("remainder(DOUBLE '" + left + "', " + right + ")", DOUBLE, (right - (left * Math.round(right / left))));
+            }
+        }
+
+        for (double left : doubleLefts) {
+            if (left == 0) {
+                continue;
+            }
+            for (long right : intRights) {
+                float floatLeft = (float) left;
+                assertFunction("remainder(REAL '" + floatLeft + "', " + right + ")", REAL, (right - (floatLeft * Math.round(right / floatLeft))));
+            }
+        }
+
+        for (double left : doubleLefts) {
+            if (left == 0) {
+                continue;
+            }
+            for (double right : doubleRights) {
+                assertFunction("remainder(DOUBLE '" + left + "', DOUBLE '" + right + "')", DOUBLE, (right - (left * Math.round(right / left))));
+            }
+        }
+
+        for (double left : doubleLefts) {
+            if (left == 0) {
+                continue;
+            }
+            for (double right : doubleRights) {
+                float floatLeft = (float) left;
+                float floatRight = (float) right;
+                assertFunction("remainder(REAL '" + floatLeft + "', REAL '" + floatRight + "')", REAL, (floatRight - (floatLeft * Math.round(floatRight / floatLeft))));
+            }
+        }
+    }
+
+    @Test
     public void testPi()
     {
         assertFunction("pi()", DOUBLE, Math.PI);
