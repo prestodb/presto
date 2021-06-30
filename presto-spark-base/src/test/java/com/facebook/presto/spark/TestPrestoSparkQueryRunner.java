@@ -840,6 +840,45 @@ public class TestPrestoSparkQueryRunner
                 "SELECT o.custkey, l.orderkey " +
                         "FROM (SELECT * FROM lineitem WHERE linenumber = 4) l " +
                         "CROSS JOIN (SELECT * FROM orders WHERE orderkey = 5) o");
+
+        assertQuery(session,
+                "WITH broadcast_table1 AS ( " +
+                        "    SELECT " +
+                        "        * " +
+                        "    FROM lineitem " +
+                        "    WHERE " +
+                        "        linenumber = 1 " +
+                        ")," +
+                        "broadcast_table2 AS ( " +
+                        "    SELECT " +
+                        "        * " +
+                        "    FROM lineitem " +
+                        "    WHERE " +
+                        "        linenumber = 2 " +
+                        ")," +
+                        "broadcast_table3 AS ( " +
+                        "    SELECT " +
+                        "        * " +
+                        "    FROM lineitem " +
+                        "    WHERE " +
+                        "        linenumber = 3 " +
+                        ")," +
+                        "broadcast_table4 AS ( " +
+                        "    SELECT " +
+                        "        * " +
+                        "    FROM lineitem " +
+                        "    WHERE " +
+                        "        linenumber = 4 " +
+                        ")" +
+                        "SELECT " +
+                        "    * " +
+                        "FROM broadcast_table1 a " +
+                        "JOIN broadcast_table2 b " +
+                        "    ON a.orderkey = b.orderkey " +
+                        "JOIN broadcast_table3 c " +
+                        "    ON a.orderkey = c.orderkey " +
+                        "JOIN broadcast_table4 d " +
+                        "    ON a.orderkey = d.orderkey");
     }
 
     @Test
