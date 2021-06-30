@@ -534,9 +534,19 @@ public class SignatureBinder
         if (allowCoercion) {
             return functionAndTypeManager.canCoerce(fromType, functionAndTypeManager.getType(toTypeSignature));
         }
-        else {
-            return fromType.getTypeSignature().equals(toTypeSignature);
+        else if (fromType.getTypeSignature().equals(toTypeSignature)) {
+            return true;
         }
+        // Convert user defined type to base type
+        else if (fromType instanceof TypeWithName) {
+            return fromType.getTypeSignature().getTypeSignatureBase().getStandardTypeBase().equals(toTypeSignature.getTypeSignatureBase());
+        }
+        // Convert base type to user defined type
+        if (toTypeSignature.getTypeSignatureBase().hasTypeName() && toTypeSignature.getTypeSignatureBase().hasStandardType()) {
+            return fromType.getTypeSignature().getBase().equals(toTypeSignature.getTypeSignatureBase().getStandardTypeBase());
+        }
+
+        return false;
     }
 
     private static List<TypeSignature> getLambdaArgumentTypeSignatures(TypeSignature lambdaTypeSignature)

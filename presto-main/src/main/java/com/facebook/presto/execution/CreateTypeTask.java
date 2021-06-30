@@ -21,7 +21,6 @@ import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.UserDefinedType;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.CreateType;
 import com.facebook.presto.sql.tree.Expression;
@@ -36,7 +35,6 @@ import java.util.Optional;
 
 import static com.facebook.presto.common.type.StandardTypes.ROW;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.lang.String.format;
@@ -68,16 +66,20 @@ public class CreateTypeTask
     @Override
     public ListenableFuture<?> execute(CreateType statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
-        if (statement.getDistinctType().isPresent()) {
-            throw new PrestoException(NOT_SUPPORTED, "Creating distinct types is not yet supported");
-        }
+        TypeSignature signature;
 
-        List<TypeSignatureParameter> typeParameters = Streams.zip(
-                statement.getParameterNames().stream(),
-                statement.getParameterTypes().stream(),
-                (name, type) -> TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName(name, false)), parseTypeSignature(type))))
-                .collect(toImmutableList());
-        TypeSignature signature = new TypeSignature(ROW, typeParameters);
+        if (statement.getDistinctType().isPresent()) {
+            signature = new TypeSignature(statement.getDistinctType().get());
+        }
+        else {
+            List<TypeSignatureParameter> typeParameters =
+                    Streams.zip(
+                            statement.getParameterNames().stream(),
+                            statement.getParameterTypes().stream(),
+                            (name, type) -> TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName(name, false)), parseTypeSignature(type))))
+                            .collect(toImmutableList());
+            signature = new TypeSignature(ROW, typeParameters);
+        }
 
         UserDefinedType userDefinedType = new UserDefinedType(QualifiedObjectName.valueOf(statement.getTypeName().toString()), signature);
         metadata.getFunctionAndTypeManager().addUserDefinedType(userDefinedType);
