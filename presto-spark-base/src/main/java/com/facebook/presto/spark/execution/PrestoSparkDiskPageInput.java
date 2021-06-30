@@ -172,6 +172,6 @@ public class PrestoSparkDiskPageInput
 
     public long getRetainedSizeInBytes()
     {
-        return prestoSparkBroadcastTableCacheManager.getCacheSizeInBytes();
+        return prestoSparkBroadcastTableCacheManager.getBroadcastTableSizeInBytes(stageId, planNodeId);
     }
 }
