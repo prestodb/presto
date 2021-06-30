@@ -29,7 +29,7 @@ public class PrestoSparkBroadcastTableCacheManager
 {
     // Currently we cache HT from a single stage. When a task from another stage is scheduled, the cache will be cleared
     private final Map<BroadcastTableCacheKey, List<List<Page>>> cache = new HashMap<>();
-    private long cacheSizeInBytes;
+    private final Map<BroadcastTableCacheKey, Long> broadcastTableToSizeMap = new HashMap<>();
 
     public synchronized void removeCachedTablesForStagesOtherThan(StageId stageId)
     {
@@ -37,8 +37,8 @@ public class PrestoSparkBroadcastTableCacheManager
         while (iterator.hasNext()) {
             Map.Entry<BroadcastTableCacheKey, List<List<Page>>> entry = iterator.next();
             if (!entry.getKey().getStageId().equals(stageId)) {
-                cacheSizeInBytes -= entry.getValue().stream().mapToLong(pageList -> pageList.stream().mapToLong(Page::getRetainedSizeInBytes).sum()).sum();
                 iterator.remove();
+                broadcastTableToSizeMap.remove(entry.getKey());
             }
         }
     }
@@ -50,13 +50,17 @@ public class PrestoSparkBroadcastTableCacheManager
 
     public synchronized void cache(StageId stageId, PlanNodeId planNodeId, List<List<Page>> broadcastTable)
     {
-        cache.put(new BroadcastTableCacheKey(stageId, planNodeId), broadcastTable);
-        cacheSizeInBytes += broadcastTable.stream().mapToLong(pageList -> pageList.stream().mapToLong(Page::getRetainedSizeInBytes).sum()).sum();
+        BroadcastTableCacheKey broadcastTableCacheKey = new BroadcastTableCacheKey(stageId, planNodeId);
+        cache.put(broadcastTableCacheKey, broadcastTable);
+
+        // Update the HT size in the map
+        long broadcastTableSize = broadcastTable.stream().mapToLong(pageList -> pageList.stream().mapToLong(Page::getRetainedSizeInBytes).sum()).sum();
+        broadcastTableToSizeMap.put(broadcastTableCacheKey, broadcastTableSize);
     }
 
-    public synchronized long getCacheSizeInBytes()
+    public synchronized long getBroadcastTableSizeInBytes(StageId stageId, PlanNodeId planNodeId)
     {
-        return cacheSizeInBytes;
+        return broadcastTableToSizeMap.get(new BroadcastTableCacheKey(stageId, planNodeId));
     }
 
     private static class BroadcastTableCacheKey
