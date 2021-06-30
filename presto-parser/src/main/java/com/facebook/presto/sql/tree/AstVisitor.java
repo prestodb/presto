@@ -547,6 +547,11 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    protected R visitCreateType(CreateType node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitCreateTableAsSelect(CreateTableAsSelect node, C context)
     {
         return visitStatement(node, context);
