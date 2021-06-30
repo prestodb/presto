@@ -58,6 +58,9 @@ statement
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         ADD COLUMN (IF NOT EXISTS)? column=columnDefinition            #addColumn
     | ANALYZE qualifiedName (WITH properties)?                         #analyze
+    | CREATE TYPE qualifiedName AS (
+        '(' sqlParameterDeclaration (',' sqlParameterDeclaration)* ')'
+        | type)                                                        #createType
     | CREATE (OR REPLACE)? VIEW qualifiedName
             (SECURITY (DEFINER | INVOKER))? AS query                   #createView
     | DROP VIEW (IF EXISTS)? qualifiedName                             #dropView
