@@ -14,6 +14,7 @@
 package com.facebook.presto.dispatcher;
 
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.prerequisites.QueryPrerequisites;
 import com.facebook.presto.spi.prerequisites.QueryPrerequisitesContext;
 
@@ -27,7 +28,7 @@ public class DefaultQueryPrerequisites
     private static final CompletableFuture<?> COMPLETED_FUTURE = completedFuture(null);
 
     @Override
-    public CompletableFuture<?> waitForPrerequisites(QueryId queryId, QueryPrerequisitesContext context)
+    public CompletableFuture<?> waitForPrerequisites(QueryId queryId, QueryPrerequisitesContext context, WarningCollector warningCollector)
     {
         return COMPLETED_FUTURE;
     }

@@ -15,6 +15,7 @@ package com.facebook.presto.dispatcher;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.prerequisites.QueryPrerequisites;
 import com.facebook.presto.spi.prerequisites.QueryPrerequisitesContext;
 import com.facebook.presto.spi.prerequisites.QueryPrerequisitesFactory;
@@ -76,10 +77,10 @@ public class QueryPrerequisitesManager
     }
 
     @Override
-    public CompletableFuture<?> waitForPrerequisites(QueryId queryId, QueryPrerequisitesContext context)
+    public CompletableFuture<?> waitForPrerequisites(QueryId queryId, QueryPrerequisitesContext context, WarningCollector warningCollector)
     {
         checkState(queryPrerequisites.get() != null, "Query prerequisites not initiated");
-        return queryPrerequisites.get().waitForPrerequisites(queryId, context);
+        return queryPrerequisites.get().waitForPrerequisites(queryId, context, warningCollector);
     }
 
     @Override

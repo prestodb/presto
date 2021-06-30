@@ -30,6 +30,7 @@ import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.operator.OperatorInfo;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
 import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
@@ -156,7 +157,7 @@ public class TestLocalDispatchQuery
                     throw new AccessDeniedException("sdf");
                 },
                 false,
-                (queryId, context) -> {
+                (queryId, context, warningCollector) -> {
                     CompletableFuture<?> future = new CompletableFuture<>();
                     future.completeExceptionally(new PrestoException(ABANDONED_TASK, "something went wrong"));
                     return future;
@@ -190,7 +191,7 @@ public class TestLocalDispatchQuery
                     throw new AccessDeniedException("sdf");
                 },
                 false,
-                (queryId, context) -> {
+                (queryId, context, warningCollector) -> {
                     throw new PrestoException(ABANDONED_QUERY, "something went wrong");
                 });
 
@@ -229,7 +230,7 @@ public class TestLocalDispatchQuery
                 false,
                 new QueryPrerequisites() {
                     @Override
-                    public CompletableFuture<?> waitForPrerequisites(QueryId queryId, QueryPrerequisitesContext context)
+                    public CompletableFuture<?> waitForPrerequisites(QueryId queryId, QueryPrerequisitesContext context, WarningCollector warningCollector)
                     {
                         return prequisitesFuture;
                     }
@@ -267,7 +268,7 @@ public class TestLocalDispatchQuery
                 dispatchQuery -> {},
                 execution -> {},
                 false,
-                (queryId, context) -> prequisitesFuture);
+                (queryId, context, warningCollector) -> prequisitesFuture);
 
         assertEquals(query.getBasicQueryInfo().getState(), WAITING_FOR_PREREQUISITES);
         assertFalse(eventListener.getQueryCompletedEvent().isPresent());
@@ -297,7 +298,7 @@ public class TestLocalDispatchQuery
                 },
                 execution -> {},
                 false,
-                (queryId, context) -> prerequisitesFuture);
+                (queryId, context, warningCollector) -> prerequisitesFuture);
 
         assertEquals(stateMachine.getBasicQueryInfo(Optional.empty()).getState(), WAITING_FOR_PREREQUISITES);
         query.startWaitingForPrerequisites();

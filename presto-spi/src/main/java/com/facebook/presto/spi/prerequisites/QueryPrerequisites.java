@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.prerequisites;
 
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.WarningCollector;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -28,7 +29,7 @@ public interface QueryPrerequisites
      * when the query is ready to be queued for execution. If the returned future finishes successfully,
      * it will trigger the query to be queued and its failure will fail the query.
      */
-    CompletableFuture<?> waitForPrerequisites(QueryId queryId, QueryPrerequisitesContext context);
+    CompletableFuture<?> waitForPrerequisites(QueryId queryId, QueryPrerequisitesContext context, WarningCollector warningCollector);
 
     /**
      * Optional method for the implementations to implement if they want to be informed about the finishing

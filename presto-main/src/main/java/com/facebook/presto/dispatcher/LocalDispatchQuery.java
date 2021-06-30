@@ -26,6 +26,7 @@ import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.prerequisites.QueryPrerequisites;
 import com.facebook.presto.spi.prerequisites.QueryPrerequisitesContext;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -71,6 +72,7 @@ public class LocalDispatchQuery
     private final boolean retry;
 
     private final QueryPrerequisites queryPrerequisites;
+    private final WarningCollector warningCollector;
 
     public LocalDispatchQuery(
             QueryStateMachine stateMachine,
@@ -92,7 +94,7 @@ public class LocalDispatchQuery
         this.querySubmitter = requireNonNull(querySubmitter, "querySubmitter is null");
         this.retry = retry;
         this.queryPrerequisites = requireNonNull(queryPrerequisites, "queryPrerequisites is null");
-
+        this.warningCollector = requireNonNull(stateMachine.getWarningCollector(), "warningCollector is null");
         addExceptionCallback(queryExecutionFuture, throwable -> {
             if (stateMachine.transitionToFailed(throwable)) {
                 queryMonitor.queryImmediateFailureEvent(stateMachine.getBasicQueryInfo(Optional.empty()), toFailure(throwable));
@@ -123,7 +125,8 @@ public class LocalDispatchQuery
                             session.getSchema(),
                             stateMachine.getBasicQueryInfo(Optional.empty()).getQuery(),
                             session.getSystemProperties(),
-                            session.getConnectorProperties()));
+                            session.getConnectorProperties()),
+                    warningCollector);
 
             addStateChangeListener(state -> {
                 if (state.isDone()) {
