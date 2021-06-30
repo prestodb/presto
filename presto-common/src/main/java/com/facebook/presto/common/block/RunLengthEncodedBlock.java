@@ -299,6 +299,12 @@ public class RunLengthEncodedBlock
     }
 
     @Override
+    public boolean mayHaveNull()
+    {
+        return positionCount > 0 && value.isNull(0);
+    }
+
+    @Override
     public String toString()
     {
         return format("RunLengthEncodedBlock(%d){positionCount=%d,value=%s}", hashCode(), getPositionCount(), value);
