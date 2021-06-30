@@ -35,13 +35,21 @@ public class TestUserDefinedTypes
     }
 
     @Test
-    public void testCreateType()
+    public void testStructType()
     {
-        assertQueryFails("CREATE TYPE testing.type.num AS integer", "Creating distinct types is not yet supported");
         assertQuerySucceeds("CREATE TYPE testing.type.pair AS (fst integer, snd integer)");
         assertQuerySucceeds("CREATE TYPE testing.type.pair3 AS (fst testing.type.pair, snd integer)");
         assertQuery("SELECT p.fst.fst FROM(SELECT CAST(ROW(CAST(ROW(1,2) AS testing.type.pair), 3) AS testing.type.pair3) AS p)", "SELECT 1");
         assertQuerySucceeds("CREATE TYPE testing.type.pair3Alt AS (fst ROW(fst integer, snd integer), snd integer)");
         assertQuery("SELECT p.fst.snd FROM(SELECT CAST(ROW(ROW(1,2), 3) AS testing.type.pair3Alt) AS p)", "SELECT 2");
+    }
+
+    @Test
+    public void testDistinctType()
+    {
+        assertQuerySucceeds("CREATE TYPE testing.type.num AS integer");
+        assertQuery("SELECT x FROM (SELECT CAST(4 as testing.type.num) AS x)", "SELECT 4");
+        assertQuerySucceeds("CREATE TYPE testing.type.mypair AS (fst testing.type.num, snd integer)");
+        assertQuery("SELECT p.fst FROM (SELECT CAST(ROW(CAST(4 AS testing.type.num),3) as testing.type.mypair) AS p)", "SELECT 4");
     }
 }
