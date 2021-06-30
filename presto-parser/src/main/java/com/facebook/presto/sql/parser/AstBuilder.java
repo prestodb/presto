@@ -41,6 +41,7 @@ import com.facebook.presto.sql.tree.CreateRole;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
+import com.facebook.presto.sql.tree.CreateType;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Cube;
 import com.facebook.presto.sql.tree.CurrentTime;
@@ -326,6 +327,27 @@ class AstBuilder
                 context.EXISTS() != null,
                 properties,
                 comment);
+    }
+
+    @Override
+    public Node visitCreateType(SqlBaseParser.CreateTypeContext context)
+    {
+        if (context.type() == null) {
+            try {
+                return new CreateType(
+                        getQualifiedName(context.qualifiedName()),
+                        context.sqlParameterDeclaration().stream().map(p -> ((Identifier) visit(p.identifier())).getValue()).collect(toImmutableList()),
+                        context.sqlParameterDeclaration().stream().map(p -> getType(p.type())).collect(toImmutableList()));
+            }
+            catch (IllegalArgumentException e) {
+                throw parseError(e.getMessage(), context);
+            }
+        }
+        else {
+            return new CreateType(
+                    getQualifiedName(context.qualifiedName()),
+                    getType(context.type()));
+        }
     }
 
     @Override

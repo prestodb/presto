@@ -48,6 +48,7 @@ import com.facebook.presto.execution.CommitTask;
 import com.facebook.presto.execution.CreateFunctionTask;
 import com.facebook.presto.execution.CreateMaterializedViewTask;
 import com.facebook.presto.execution.CreateTableTask;
+import com.facebook.presto.execution.CreateTypeTask;
 import com.facebook.presto.execution.CreateViewTask;
 import com.facebook.presto.execution.DataDefinitionTask;
 import com.facebook.presto.execution.DeallocateTask;
@@ -170,6 +171,7 @@ import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.CreateFunction;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.CreateTable;
+import com.facebook.presto.sql.tree.CreateType;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.DropFunction;
@@ -471,6 +473,7 @@ public class LocalQueryRunner
                 .put(CreateTable.class, new CreateTableTask())
                 .put(CreateView.class, new CreateViewTask(jsonCodec(ViewDefinition.class), sqlParser, new FeaturesConfig()))
                 .put(CreateMaterializedView.class, new CreateMaterializedViewTask(sqlParser))
+                .put(CreateType.class, new CreateTypeTask(sqlParser))
                 .put(CreateFunction.class, new CreateFunctionTask(sqlParser))
                 .put(AlterFunction.class, new AlterFunctionTask(sqlParser))
                 .put(DropFunction.class, new DropFunctionTask(sqlParser))
