@@ -64,6 +64,11 @@ public final class TypeUtils
         return type.equals(DOUBLE) || type.equals(REAL);
     }
 
+    public static boolean isEnumType(Type type)
+    {
+        return type instanceof EnumType || type instanceof TypeWithName && ((TypeWithName) type).getType() instanceof EnumType;
+    }
+
     /**
      * Get the native value as an object in the value at {@code position} of {@code block}.
      */
