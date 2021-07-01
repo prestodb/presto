@@ -674,7 +674,7 @@ public class CachingHiveMetastore
                 partitionCache.invalidate(partitionNameKey);
                 partitionStatisticsCache.invalidate(partitionNameKey);
             }
-            else {
+            if (partition != null && partition.isPresent()) {
                 Optional<Long> partitionVersion = partition.get().getPartitionVersion();
                 if (!partitionVersion.isPresent() || !partitionVersion.equals(partitionNameWithVersion.getPartitionVersion())) {
                     partitionCache.invalidate(partitionNameKey);
