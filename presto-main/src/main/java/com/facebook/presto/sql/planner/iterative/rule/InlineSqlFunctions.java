@@ -21,6 +21,7 @@ import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.SqlInvokedScalarFunctionImplementation;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
@@ -59,6 +60,7 @@ public class InlineSqlFunctions
                 expression,
                 context.getSession(),
                 metadata,
+                context.getVariableAllocator(),
                 getExpressionTypes(
                         context.getSession(),
                         metadata,
@@ -84,10 +86,10 @@ public class InlineSqlFunctions
     {
         private InlineSqlFunctionsRewriter() {}
 
-        public static Expression rewrite(Expression expression, Session session, Metadata metadata, Map<NodeRef<Expression>, Type> expressionTypes)
+        public static Expression rewrite(Expression expression, Session session, Metadata metadata, PlanVariableAllocator variableAllocator, Map<NodeRef<Expression>, Type> expressionTypes)
         {
             if (isInlineSqlFunctions(session)) {
-                return ExpressionTreeRewriter.rewriteWith(new Visitor(session, metadata, expressionTypes), expression);
+                return ExpressionTreeRewriter.rewriteWith(new Visitor(session, metadata, variableAllocator, expressionTypes), expression);
             }
             return expression;
         }
@@ -97,12 +99,14 @@ public class InlineSqlFunctions
         {
             private final Session session;
             private final Metadata metadata;
+            private final PlanVariableAllocator variableAllocator;
             private final Map<NodeRef<Expression>, Type> expressionTypes;
 
-            public Visitor(Session session, Metadata metadata, Map<NodeRef<Expression>, Type> expressionTypes)
+            public Visitor(Session session, Metadata metadata, PlanVariableAllocator variableAllocator, Map<NodeRef<Expression>, Type> expressionTypes)
             {
                 this.session = requireNonNull(session, "session is null");
                 this.metadata = requireNonNull(metadata, "metadata is null");
+                this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
                 this.expressionTypes = expressionTypes;
             }
 
@@ -130,6 +134,7 @@ public class InlineSqlFunctions
                         functionMetadata,
                         (SqlInvokedScalarFunctionImplementation) metadata.getFunctionAndTypeManager().getScalarFunctionImplementation(functionHandle),
                         metadata,
+                        variableAllocator,
                         session.getSqlFunctionProperties(),
                         rewrittenArguments);
             }

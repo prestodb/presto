@@ -30,7 +30,9 @@ import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.ExpressionUtils;
+import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
 import com.facebook.presto.sql.tree.Expression;
@@ -59,6 +61,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expres
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static org.testng.Assert.assertEquals;
 
 public class TestInlineSqlFunctions
@@ -151,7 +154,7 @@ public class TestInlineSqlFunctions
     @Test
     public void testInlineFunctionContainingLambda()
     {
-        assertInlined(tester, "unittest.memory.add_1_int(x)", "transform(x, x -> x + 1)", ImmutableMap.of("x", new ArrayType(IntegerType.INTEGER)));
+        assertInlined(tester, "unittest.memory.add_1_int(x)", "transform(x, \"x$lambda\" -> \"x$lambda\" + 1)", ImmutableMap.of("x", new ArrayType(IntegerType.INTEGER)));
     }
 
     @Test
@@ -159,7 +162,7 @@ public class TestInlineSqlFunctions
     {
         assertInlined(tester,
                 "unittest.memory.add_1_bigint(x)",
-                "transform(x, x -> x + CAST(1 AS bigint))",
+                "transform(x, \"x$lambda\" -> \"x$lambda\" + CAST(1 AS bigint))",
                 ImmutableMap.of("x", new ArrayType(BigintType.BIGINT)));
     }
 
@@ -168,7 +171,7 @@ public class TestInlineSqlFunctions
     {
         assertInlined(tester,
                 "array_sum(x)",
-                "reduce(x, BIGINT '0', (s, x) -> (s + coalesce(x, BIGINT '0')), (s -> s))",
+                "reduce(x, BIGINT '0', (\"s$lambda\", \"x$lambda\") -> \"s$lambda\" + COALESCE(\"x$lambda\", BIGINT '0'), \"s$lambda_0\" -> \"s$lambda_0\")",
                 ImmutableMap.of("x", new ArrayType(IntegerType.INTEGER)));
     }
 
@@ -220,7 +223,14 @@ public class TestInlineSqlFunctions
                 inputSqlExpression,
                 ImmutableList.of(),
                 WarningCollector.NOOP);
-        Expression inlinedExpression = InlineSqlFunctions.InlineSqlFunctionsRewriter.rewrite(inputSqlExpression, session, metadata, expressionTypes);
+        Expression inlinedExpression = InlineSqlFunctions.InlineSqlFunctionsRewriter.rewrite(
+                inputSqlExpression,
+                session,
+                metadata,
+                new PlanVariableAllocator(variableTypes.entrySet().stream()
+                        .map(entry -> new VariableReferenceExpression(entry.getKey(), entry.getValue()))
+                        .collect(toImmutableList())),
+                expressionTypes);
         inlinedExpression = ExpressionUtils.rewriteIdentifiersToSymbolReferences(inlinedExpression);
         Expression expectedExpression = PlanBuilder.expression(expected);
         assertEquals(inlinedExpression, expectedExpression);
