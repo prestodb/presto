@@ -951,7 +951,7 @@ public class ExpressionInterpreter
             }
             else {
                 checkState(implementationType.equals(SQL));
-                Expression function = getSqlFunctionExpression(functionMetadata, (SqlInvokedScalarFunctionImplementation) metadata.getFunctionAndTypeManager().getScalarFunctionImplementation(functionHandle), metadata, session.getSqlFunctionProperties(), node.getArguments());
+                Expression function = getSqlFunctionExpression(functionMetadata, (SqlInvokedScalarFunctionImplementation) metadata.getFunctionAndTypeManager().getScalarFunctionImplementation(functionHandle), metadata, new PlanVariableAllocator(), session.getSqlFunctionProperties(), node.getArguments());
                 ExpressionInterpreter functionInterpreter = new ExpressionInterpreter(
                         function,
                         metadata,
