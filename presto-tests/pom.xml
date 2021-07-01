@@ -434,7 +434,7 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
-                                <include>**/tests/*.java</include>
+                                <include>**/com/facebook/presto/**/Test*.java</include>
                             </includes>
                             <excludes>
                                 <exclude>**/TestDistributedQueriesNoHashGeneration.java</exclude>
@@ -445,6 +445,10 @@
                                 <exclude>**/TestOptimizeMixedDistinctAggregations.java</exclude>
                                 <exclude>**/TestSpilledAggregations.java</exclude>
                                 <exclude>**/TestQueryPlanDeterminism.java</exclude>
+                                <exclude>**/resourcemanager/Test*.java</exclude>
+                                <exclude>**/execution/*.java</exclude>
+                                <exclude>**/connector/informationschema/*.java</exclude>
+                                <exclude>**/memory/*.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
