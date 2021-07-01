@@ -959,6 +959,10 @@ public class ExpressionInterpreter
                         getExpressionTypes(session, metadata, new SqlParser(), TypeProvider.empty(), function, emptyList(), WarningCollector.NOOP),
                         optimize);
                 result = functionInterpreter.visitor.process(function, context);
+                if (result instanceof FunctionCall) {
+                    // Cannot interpret function to constant
+                    return new FunctionCall(node.getName(), node.getWindow(), node.isDistinct(), node.isIgnoreNulls(), toExpressions(argumentValues, argumentTypes));
+                }
             }
 
             if (optimize && !isSerializable(result, type(node))) {
