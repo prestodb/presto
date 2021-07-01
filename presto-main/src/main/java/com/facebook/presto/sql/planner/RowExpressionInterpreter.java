@@ -294,6 +294,9 @@ public class RowExpressionInterpreter
                 else {
                     value = rowExpressionInterpreter.optimize();
                 }
+                if (value instanceof CallExpression) {
+                    return call(node.getDisplayName(), functionHandle, node.getType(), toRowExpressions(argumentValues, node.getArguments()));
+                }
             }
             if (optimizationLevel.ordinal() <= SERIALIZABLE.ordinal() && !isSerializable(value, node.getType())) {
                 return call(node.getDisplayName(), functionHandle, node.getType(), toRowExpressions(argumentValues, node.getArguments()));
