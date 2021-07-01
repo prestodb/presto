@@ -97,10 +97,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.common.type.TypeUtils.isEnumType;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.isEqualComparisonExpression;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.tryResolveEnumLiteral;
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.resolveEnumLiteral;
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.notSupportedException;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;
@@ -695,10 +696,10 @@ class RelationPlanner
             @Override
             public Expression rewriteDereferenceExpression(DereferenceExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
+                Type baseType = analysis.getType(node.getBase());
                 Type nodeType = analysis.getType(node);
-                Optional<Object> maybeEnumValue = tryResolveEnumLiteral(node, nodeType);
-                if (maybeEnumValue.isPresent()) {
-                    return new EnumLiteral(nodeType.getTypeSignature().toString(), maybeEnumValue.get());
+                if (isEnumType(baseType) && isEnumType(nodeType)) {
+                    return new EnumLiteral(nodeType.getTypeSignature().toString(), resolveEnumLiteral(node, nodeType));
                 }
                 return node;
             }

@@ -37,7 +37,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.tryResolveEnumLiteral;
+import static com.facebook.presto.common.type.TypeUtils.isEnumType;
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.resolveEnumLiteral;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -238,11 +239,10 @@ class TranslationMap
                 }
 
                 Type nodeType = analysis.getType(node);
-                Optional<Object> maybeEnumValue = tryResolveEnumLiteral(node, nodeType);
-                if (maybeEnumValue.isPresent()) {
-                    return new EnumLiteral(nodeType.getTypeSignature().toString(), maybeEnumValue.get());
+                Type baseType = analysis.getType(node.getBase());
+                if (isEnumType(baseType) && isEnumType(nodeType)) {
+                    return new EnumLiteral(nodeType.getTypeSignature().toString(), resolveEnumLiteral(node, nodeType));
                 }
-
                 return rewriteExpression(node, context, treeRewriter);
             }
 

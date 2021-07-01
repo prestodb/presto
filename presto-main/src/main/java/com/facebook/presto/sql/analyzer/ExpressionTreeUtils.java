@@ -126,7 +126,7 @@ public final class ExpressionTreeUtils
         return expression instanceof ComparisonExpression && ((ComparisonExpression) expression).getOperator() == ComparisonExpression.Operator.EQUAL;
     }
 
-    static Optional<TypeWithName> tryResolveEnumLiteralType(QualifiedName qualifiedName, FunctionAndTypeManager functionAndTypeManager)
+    public static Optional<TypeWithName> tryResolveEnumLiteralType(QualifiedName qualifiedName, FunctionAndTypeManager functionAndTypeManager)
     {
         Optional<QualifiedName> prefix = qualifiedName.getPrefix();
         if (!prefix.isPresent()) {
@@ -147,17 +147,15 @@ public final class ExpressionTreeUtils
         return Optional.empty();
     }
 
-    public static Optional<Object> tryResolveEnumLiteral(DereferenceExpression node, Type nodeType)
+    public static Object resolveEnumLiteral(DereferenceExpression node, Type nodeType)
     {
         QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(node);
-        if (!(nodeType instanceof TypeWithName && ((TypeWithName) nodeType).getType() instanceof EnumType) || qualifiedName == null) {
-            return Optional.empty();
-        }
+
         EnumType enumType = (EnumType) ((TypeWithName) nodeType).getType();
         String enumKey = qualifiedName.getSuffix().toUpperCase(ENGLISH);
         checkArgument(enumType.getEnumMap().containsKey(enumKey), format("No key '%s' in enum '%s'", enumKey, nodeType.getDisplayName()));
         Object enumValue = enumType.getEnumMap().get(enumKey);
-        return enumValue instanceof String ? Optional.of(utf8Slice((String) enumValue)) : Optional.of(enumValue);
+        return enumValue instanceof String ? utf8Slice((String) enumValue) : enumValue;
     }
 
     public static FieldId checkAndGetColumnReferenceField(Expression expression, Multimap<NodeRef<Expression>, FieldId> columnReferences)
