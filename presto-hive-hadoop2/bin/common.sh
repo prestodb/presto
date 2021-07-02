@@ -45,8 +45,11 @@ function exec_in_hadoop_master_container() {
 function stop_unnecessary_hadoop_services() {
   HADOOP_MASTER_CONTAINER=$(hadoop_master_container)
   docker exec ${HADOOP_MASTER_CONTAINER} supervisorctl status
-  docker exec ${HADOOP_MASTER_CONTAINER} supervisorctl stop yarn-resourcemanager
-  docker exec ${HADOOP_MASTER_CONTAINER} supervisorctl stop yarn-nodemanager
+
+  if [[ ${TESTS_HIVE_VERSION_MAJOR} -lt 3 ]]; then
+    docker exec ${HADOOP_MASTER_CONTAINER} supervisorctl stop yarn-resourcemanager
+    docker exec ${HADOOP_MASTER_CONTAINER} supervisorctl stop yarn-nodemanager
+  fi
 }
 
 function cleanup_docker_containers() {
@@ -63,6 +66,9 @@ function termination_handler(){
   cleanup_docker_containers
   exit 130
 }
+
+export HADOOP_BASE_IMAGE="${HADOOP_BASE_IMAGE:-prestodb/hdp2.6-hive}"
+export DOCKER_IMAGES_VERSION=${DOCKER_IMAGES_VERSION:-5}
 
 SCRIPT_DIR="${BASH_SOURCE%/*}"
 INTEGRATION_TESTS_ROOT="${SCRIPT_DIR}/.."
@@ -101,4 +107,14 @@ function start_docker_containers() {
 
   # wait until hadoop processes is started
   retry check_hadoop
+}
+
+function get_hive_major_version() {
+    local version
+    version=$(exec_in_hadoop_master_container hive --version 2>/dev/null | sed -n 's/^Hive.*[ ]\([0-9]\)\..*/\1/p')
+    if [[ "${version}" == "" ]]; then
+        echo "Could not obtain Hive major version" >&2
+        return 1
+    fi
+    echo "${version}"
 }
