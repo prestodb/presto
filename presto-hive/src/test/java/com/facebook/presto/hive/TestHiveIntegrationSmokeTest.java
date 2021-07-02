@@ -100,6 +100,7 @@ import static com.facebook.presto.hive.HiveQueryRunner.createBucketedSession;
 import static com.facebook.presto.hive.HiveQueryRunner.createMaterializeExchangesSession;
 import static com.facebook.presto.hive.HiveSessionProperties.FILE_RENAMING_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.MANIFEST_VERIFICATION_ENABLED;
+import static com.facebook.presto.hive.HiveSessionProperties.MAX_PARTITIONS_PER_SCAN;
 import static com.facebook.presto.hive.HiveSessionProperties.OPTIMIZED_PARTITION_UPDATE_SERIALIZATION_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.PREFER_MANIFESTS_TO_LIST_FILES;
 import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENABLED;
@@ -1784,6 +1785,83 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(session, "DROP TABLE " + tableName);
 
         assertFalse(getQueryRunner().tableExists(session, tableName));
+    }
+
+    @Test
+    public void testPartitionPerScanLimitSessionProperty()
+    {
+        TestingHiveStorageFormat storageFormat = new TestingHiveStorageFormat(getSession(), HiveStorageFormat.DWRF);
+        testWithStorageFormat(storageFormat, this::testPartitionPerScanLimitSessionProperty);
+    }
+
+    private void testPartitionPerScanLimitSessionProperty(Session session, HiveStorageFormat storageFormat)
+    {
+        Session defaultSession = getSession();
+
+        String tableName = "test_session_partition_per_scan_limit";
+        String partitionsTable = "\"" + tableName + "$partitions\"";
+
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE " + tableName + " " +
+                "(" +
+                "  foo VARCHAR," +
+                "  part BIGINT" +
+                ") " +
+                "WITH (" +
+                "format = '" + storageFormat + "', " +
+                "partitioned_by = ARRAY[ 'part' ]" +
+                ") ";
+
+        assertUpdate(defaultSession, createTable);
+
+        TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, tableName);
+        assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
+        assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), ImmutableList.of("part"));
+
+        // insert 500 partitions
+        for (int i = 0; i < 5; i++) {
+            int partStart = i * 100;
+            int partEnd = (i + 1) * 100 - 1;
+
+            @Language("SQL") String insertPartitions = "" +
+                    "INSERT INTO " + tableName + " " +
+                    "SELECT 'bar' foo, part " +
+                    "FROM UNNEST(SEQUENCE(" + partStart + ", " + partEnd + ")) AS TMP(part)";
+
+            assertUpdate(defaultSession, insertPartitions, 100);
+        }
+
+        // create a new session with session partition limit set to no more than 100
+        Session testSession = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, MAX_PARTITIONS_PER_SCAN, "100")
+                .build();
+
+        // can query less than 100 partitions
+        assertQuery(
+                testSession,
+                "SELECT * FROM " + partitionsTable + " WHERE part >= 100 and part < 110",
+                "VALUES 100, 101, 102, 103, 104, 105, 106, 107, 108, 109");
+        assertQuery(
+                testSession,
+                "SELECT count(foo) FROM " + tableName + " WHERE part < 100",
+                "SELECT 100");
+        // query more than 100 partition will be rejected
+        assertQueryFails(
+                testSession,
+                "SELECT * from " + tableName + " WHERE part < 101",
+                format("Query over table '%s' trying to access %s partitions, more than allowed limit of %s partitions",
+                        tableName, 101, 100));
+        // full scan of all 500 partitions also rejected
+        assertQueryFails(
+                testSession,
+                "SELECT * from " + tableName,
+                format("Query over table '%s' trying to access %s partitions, more than allowed limit of %s partitions",
+                        tableName, 500, 100));
+        // using the original default session, which doesn't have th 500 partition limit can succeed
+        assertQuery(
+                session,
+                "SELECT count(*) from " + tableName,
+                "SELECT 500");
     }
 
     @Test

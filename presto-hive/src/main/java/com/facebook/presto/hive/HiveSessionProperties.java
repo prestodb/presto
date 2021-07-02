@@ -118,6 +118,7 @@ public final class HiveSessionProperties
     public static final String MANIFEST_VERIFICATION_ENABLED = "manifest_verification_enabled";
     public static final String NEW_PARTITION_USER_SUPPLIED_PARAMETER = "new_partition_user_supplied_parameter";
     public static final String OPTIMIZED_PARTITION_UPDATE_SERIALIZATION_ENABLED = "optimized_partition_update_serialization_enabled";
+    public static final String MAX_PARTITIONS_PER_SCAN = "max_partitions_per_scan";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -557,7 +558,12 @@ public final class HiveSessionProperties
                         OPTIMIZED_PARTITION_UPDATE_SERIALIZATION_ENABLED,
                         "Serialize PartitionUpdate objects using binary SMILE encoding and compress with the ZSTD compression",
                         hiveClientConfig.isOptimizedPartitionUpdateSerializationEnabled(),
-                        true));
+                        true),
+                integerProperty(
+                        MAX_PARTITIONS_PER_SCAN,
+                        "Maximum allowed partitions for a single table scan",
+                        hiveClientConfig.getMaxPartitionsPerScan(),
+                        false));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -976,5 +982,10 @@ public final class HiveSessionProperties
     public static boolean isOptimizedPartitionUpdateSerializationEnabled(ConnectorSession session)
     {
         return session.getProperty(OPTIMIZED_PARTITION_UPDATE_SERIALIZATION_ENABLED, Boolean.class);
+    }
+
+    public static int getMaxPartitionsPerScan(ConnectorSession session)
+    {
+        return session.getProperty(MAX_PARTITIONS_PER_SCAN, Integer.class);
     }
 }

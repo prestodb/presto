@@ -74,7 +74,8 @@ public final class PlanChecker
                         new VerifyNoOriginalExpression(),
                         new VerifyProjectionLocality(),
                         new DynamicFiltersChecker(),
-                        new WarnOnScanWithoutPartitionPredicate(featuresConfig))
+                        new WarnOnScanWithoutPartitionPredicate(featuresConfig),
+                        new ValidateTableScan())
                 .build();
     }
 

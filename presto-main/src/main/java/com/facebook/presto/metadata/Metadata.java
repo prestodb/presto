@@ -446,6 +446,8 @@ public interface Metadata
      */
     List<GrantInfo> listTablePrivileges(Session session, QualifiedTablePrefix prefix);
 
+    default void validateScan(Session session, TableHandle table) {}
+
     /**
      * Commits page sink for table creation.
      */

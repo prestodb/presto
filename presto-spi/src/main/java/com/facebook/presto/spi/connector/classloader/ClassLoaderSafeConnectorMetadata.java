@@ -684,4 +684,12 @@ public class ClassLoaderSafeConnectorMetadata
             return delegate.getTableLayoutFilterCoverage(tableHandle, relevantPartitionColumns);
         }
     }
+
+    @Override
+    public void validateScan(ConnectorSession session, ConnectorTableHandle handle, Optional<ConnectorTableLayoutHandle> layout)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.validateScan(session, handle, layout);
+        }
+    }
 }

@@ -99,6 +99,7 @@ import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -183,6 +184,7 @@ import static com.facebook.presto.hive.HiveColumnHandle.PATH_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveColumnHandle.updateRowIdHandle;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_COLUMN_ORDER_MISMATCH;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CONCURRENT_MODIFICATION_DETECTED;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_EXCEEDED_PARTITION_LIMIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_READ_ONLY;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TIMEZONE_MISMATCH;
@@ -2778,6 +2780,26 @@ public class HiveMetadata
             return left;
         }
         return OptionalInt.of(Math.min(left.getAsInt(), right.getAsInt()));
+    }
+
+    @Override
+    public void validateScan(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<ConnectorTableLayoutHandle> layout)
+    {
+        if (layout.isPresent()) {
+            Preconditions.checkArgument(layout.get() instanceof HiveTableLayoutHandle, "Unexpected table layout type for Hive");
+            HiveTableLayoutHandle hiveLayout = (HiveTableLayoutHandle) layout.get();
+            if (hiveLayout.getPartitions().isPresent()) {
+                int partitionCount = hiveLayout.getPartitions().get().size();
+                int maxAllowedPartition = HiveSessionProperties.getMaxPartitionsPerScan(session);
+                if (partitionCount > maxAllowedPartition) {
+                    throw new PrestoException(HIVE_EXCEEDED_PARTITION_LIMIT, format(
+                            "Query over table '%s' trying to access %s partitions, more than allowed limit of %s partitions",
+                            ((HiveTableHandle) tableHandle).getTableName(),
+                            partitionCount,
+                            maxAllowedPartition));
+                }
+            }
+        }
     }
 
     @Override
