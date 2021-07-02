@@ -40,9 +40,11 @@ import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.JavaHiveDecimalObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
+import org.apache.parquet.format.Statistics;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.MessageTypeParser;
+import org.apache.parquet.schema.PrimitiveType;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -119,6 +121,8 @@ import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveO
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaTimestampObjectInspector;
 import static org.apache.parquet.schema.MessageTypeParser.parseMessageType;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
+import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 import static org.testng.Assert.assertEquals;
 
 public abstract class AbstractTestParquetReader
@@ -1557,6 +1561,16 @@ public abstract class AbstractTestParquetReader
                 structValues,
                 structType,
                 maxReadBlockSize);
+    }
+
+    @Test
+    public void testNullableNullCount()
+    {
+        PrimitiveType primitiveType = new PrimitiveType(OPTIONAL, BINARY, "testColumn");
+        Statistics statistics = new Statistics();
+        assertEquals(MetadataReader.readStats(statistics, primitiveType.getPrimitiveTypeName()).getNumNulls(), -1);
+        statistics.setNull_count(10);
+        assertEquals(MetadataReader.readStats(statistics, primitiveType.getPrimitiveTypeName()).getNumNulls(), 10);
     }
 
     @Test
