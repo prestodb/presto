@@ -79,7 +79,10 @@ public class HiveParquetDereferencePushDown
         this.rowExpressionService = requireNonNull(rowExpressionService, "rowExpressionService is null");
     }
 
-    private static Map<RowExpression, Subfield> extractDereferences(ConnectorSession session, ExpressionOptimizer expressionOptimizer, Set<RowExpression> expressions)
+    private static Map<RowExpression, Subfield> extractDereferences(
+            Map<String, HiveColumnHandle> regularHiveColumnHandles,
+            ConnectorSession session, ExpressionOptimizer expressionOptimizer,
+            Set<RowExpression> expressions)
     {
         Set<RowExpression> dereferenceAndVariableExpressions = new HashSet<>();
         expressions.forEach(e -> e.accept(new ExtractDereferenceAndVariables(session, expressionOptimizer), dereferenceAndVariableExpressions));
@@ -90,7 +93,8 @@ public class HiveParquetDereferencePushDown
                 .filter(expression -> expression instanceof SpecialFormExpression && ((SpecialFormExpression) expression).getForm() == DEREFERENCE)
                 .collect(Collectors.toList());
 
-        return dereferences.stream().collect(toMap(identity(), dereference -> createNestedColumn(dereference, expressionOptimizer, session)));
+        return dereferences.stream().collect(toMap(identity(), dereference -> createNestedColumn(
+                regularHiveColumnHandles, dereference, expressionOptimizer, session)));
     }
 
     private static boolean prefixExists(RowExpression expression, Set<RowExpression> allExpressions)
@@ -128,7 +132,9 @@ public class HiveParquetDereferencePushDown
         return referenceCount[0] > 1;
     }
 
-    private static Subfield createNestedColumn(RowExpression rowExpression, ExpressionOptimizer expressionOptimizer, ConnectorSession session)
+    private static Subfield createNestedColumn(Map<String, HiveColumnHandle> regularHiveColumnHandles,
+                                               RowExpression rowExpression, ExpressionOptimizer expressionOptimizer,
+                                               ConnectorSession session)
     {
         if (!(rowExpression instanceof SpecialFormExpression) || ((SpecialFormExpression) rowExpression).getForm() != DEREFERENCE) {
             throw new IllegalArgumentException("expecting SpecialFormExpression(DEREFERENCE), but got: " + rowExpression);
@@ -138,7 +144,11 @@ public class HiveParquetDereferencePushDown
         while (true) {
             if (rowExpression instanceof VariableReferenceExpression) {
                 Collections.reverse(elements);
-                return new Subfield(((VariableReferenceExpression) rowExpression).getName(), unmodifiableList(elements));
+                String name = ((VariableReferenceExpression) rowExpression).getName();
+                HiveColumnHandle handle = regularHiveColumnHandles.get(name);
+                checkArgument(handle != null, "Missing Hive column handle: " + name);
+                String originalColumnName = regularHiveColumnHandles.get(name).getName();
+                return new Subfield(originalColumnName, unmodifiableList(elements));
             }
 
             if (rowExpression instanceof SpecialFormExpression && ((SpecialFormExpression) rowExpression).getForm() == DEREFERENCE) {
@@ -329,17 +339,21 @@ public class HiveParquetDereferencePushDown
             if (!isParquetDereferenceEnabled(session, tableScan.getTable())) {
                 return visitPlan(project, context);
             }
+            Map<String, HiveColumnHandle> regularHiveColumnHandles = new HashMap<>();
+            regularHiveColumnHandles.putAll(tableScan.getAssignments().entrySet().stream()
+                    .collect(toMap(e -> e.getKey().getName(), e -> (HiveColumnHandle) e.getValue())));
+            regularHiveColumnHandles.putAll(tableScan.getAssignments().values().stream()
+                    .map(columnHandle -> (HiveColumnHandle) columnHandle)
+                    .collect(toMap(HiveColumnHandle::getName, identity())));
 
             Map<RowExpression, Subfield> dereferenceToNestedColumnMap = extractDereferences(
+                    regularHiveColumnHandles,
                     session,
                     rowExpressionService.getExpressionOptimizer(),
                     new HashSet<>(project.getAssignments().getExpressions()));
             if (dereferenceToNestedColumnMap.isEmpty()) {
                 return visitPlan(project, context);
             }
-
-            Map<String, HiveColumnHandle> regularHiveColumnHandles = tableScan.getAssignments().entrySet().stream()
-                    .collect(toMap(e -> e.getKey().getName(), e -> (HiveColumnHandle) e.getValue()));
 
             List<VariableReferenceExpression> newOutputVariables = new ArrayList<>(tableScan.getOutputVariables());
             Map<VariableReferenceExpression, ColumnHandle> newAssignments = new HashMap<>(tableScan.getAssignments());
