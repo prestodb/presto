@@ -26,7 +26,9 @@ import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
 import java.net.URI;
+import java.net.URISyntaxException;
 
+import static alluxio.Constants.SCHEME;
 import static alluxio.conf.PropertyKey.USER_CLIENT_CACHE_QUOTA_ENABLED;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.hash.Hashing.md5;
@@ -69,7 +71,17 @@ public class AlluxioCachingFileSystem
             }
         });
         this.cacheQuotaEnabled = configuration.getBoolean(USER_CLIENT_CACHE_QUOTA_ENABLED.getName(), false);
-        localCacheFileSystem.initialize(uri, configuration);
+
+        // create URI with alluxio:// scheme for use with Alluxio
+        URI alluxioUri;
+        try {
+            alluxioUri = new URI(SCHEME, uri.getSchemeSpecificPart(), uri.getFragment());
+        }
+        catch (URISyntaxException e) {
+            throw new IOException("Unable to create Alluxio URI", e);
+        }
+
+        localCacheFileSystem.initialize(alluxioUri, configuration);
     }
 
     @Override
