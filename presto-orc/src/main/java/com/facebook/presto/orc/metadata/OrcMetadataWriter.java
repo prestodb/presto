@@ -33,10 +33,12 @@ import io.airlift.slice.SliceOutput;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Math.toIntExact;
 import static java.util.stream.Collectors.toList;
 
@@ -145,7 +147,8 @@ public class OrcMetadataWriter
         Builder builder = Type.newBuilder()
                 .setKind(toTypeKind(type.getOrcTypeKind()))
                 .addAllSubtypes(type.getFieldTypeIndexes())
-                .addAllFieldNames(type.getFieldNames());
+                .addAllFieldNames(type.getFieldNames())
+                .addAllAttributes(toStringPairList(type.getAttributes()));
 
         if (type.getLength().isPresent()) {
             builder.setMaximumLength(type.getLength().get());
@@ -200,6 +203,16 @@ public class OrcMetadataWriter
                 return OrcProto.Type.Kind.UNION;
         }
         throw new IllegalArgumentException("Unsupported type: " + orcTypeKind);
+    }
+
+    private static List<OrcProto.StringPair> toStringPairList(Map<String, String> attributes)
+    {
+        return attributes.entrySet().stream()
+                .map(entry -> OrcProto.StringPair.newBuilder()
+                        .setKey(entry.getKey())
+                        .setValue(entry.getValue())
+                        .build())
+                .collect(toImmutableList());
     }
 
     private static OrcProto.ColumnStatistics toColumnStatistics(ColumnStatistics columnStatistics)
