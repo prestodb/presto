@@ -15,7 +15,9 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.iceberg.util.PageListBuilder;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -53,6 +55,9 @@ public class SnapshotsTable
                         .add(new ColumnMetadata("parent_id", BIGINT))
                         .add(new ColumnMetadata("operation", VARCHAR))
                         .add(new ColumnMetadata("manifest_list", VARCHAR))
+                        .add(new ColumnMetadata("summary", typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+                                TypeSignatureParameter.of(VARCHAR.getTypeSignature()),
+                                TypeSignatureParameter.of(VARCHAR.getTypeSignature())))))
                         .build());
     }
 
@@ -90,6 +95,9 @@ public class SnapshotsTable
             }
             if (checkNonNull(snapshot.manifestListLocation(), pagesBuilder)) {
                 pagesBuilder.appendVarchar(snapshot.manifestListLocation());
+            }
+            if (checkNonNull(snapshot.summary(), pagesBuilder)) {
+                pagesBuilder.appendVarcharVarcharMap(snapshot.summary());
             }
             pagesBuilder.endRow();
         });

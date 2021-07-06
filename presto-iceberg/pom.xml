@@ -23,11 +23,6 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-client</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.presto</groupId>
             <artifactId>presto-hive-common</artifactId>
         </dependency>
 
@@ -102,6 +97,11 @@
                     <artifactId>parquet-format</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-orc</artifactId>
         </dependency>
 
         <dependency>
