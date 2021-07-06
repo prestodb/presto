@@ -13,16 +13,40 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.hive.EncryptionInformation;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
+import com.facebook.presto.hive.HiveClientConfig;
+import com.facebook.presto.hive.HiveColumnHandle;
+import com.facebook.presto.hive.HiveDwrfEncryptionProvider;
+import com.facebook.presto.hive.HiveOrcAggregatedMemoryContext;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
+import com.facebook.presto.hive.orc.HdfsOrcDataSource;
+import com.facebook.presto.hive.orc.OrcBatchPageSource;
+import com.facebook.presto.hive.orc.ProjectionBasedDwrfKeyProvider;
 import com.facebook.presto.hive.parquet.ParquetPageSource;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
+import com.facebook.presto.orc.DwrfEncryptionProvider;
+import com.facebook.presto.orc.DwrfKeyProvider;
+import com.facebook.presto.orc.OrcAggregatedMemoryContext;
+import com.facebook.presto.orc.OrcBatchRecordReader;
+import com.facebook.presto.orc.OrcDataSource;
+import com.facebook.presto.orc.OrcDataSourceId;
+import com.facebook.presto.orc.OrcEncoding;
+import com.facebook.presto.orc.OrcPredicate;
+import com.facebook.presto.orc.OrcReader;
+import com.facebook.presto.orc.OrcReaderOptions;
+import com.facebook.presto.orc.StripeMetadataSource;
+import com.facebook.presto.orc.TupleDomainOrcPredicate;
+import com.facebook.presto.orc.cache.OrcFileTailSource;
+import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.parquet.Field;
 import com.facebook.presto.parquet.ParquetCorruptionException;
 import com.facebook.presto.parquet.ParquetDataSource;
@@ -45,6 +69,8 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.BlockMissingException;
 import org.apache.iceberg.FileFormat;
@@ -64,7 +90,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.stream.IntStream;
 
+import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveFileContext.DEFAULT_HIVE_FILE_CONTEXT;
 import static com.facebook.presto.hive.HiveSessionProperties.getParquetMaxReadBlockSize;
 import static com.facebook.presto.hive.HiveSessionProperties.isFailOnCorruptedParquetStatistics;
@@ -74,8 +102,22 @@ import static com.facebook.presto.hive.HiveSessionProperties.isUseParquetColumnN
 import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT;
+import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_MISSING_DATA;
+import static com.facebook.presto.iceberg.IcebergOrcColumn.ROOT_COLUMN_ID;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.getOrcLazyReadSmallRanges;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.getOrcMaxBufferSize;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.getOrcMaxMergeDistance;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.getOrcMaxReadBlockSize;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.getOrcStreamBufferSize;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.getOrcTinyStripeThreshold;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.isOrcBloomFiltersEnabled;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.isOrcZstdJniDecompressionEnabled;
+import static com.facebook.presto.iceberg.TypeConverter.ORC_ICEBERG_ID_KEY;
+import static com.facebook.presto.iceberg.TypeConverter.toHiveType;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static com.facebook.presto.orc.OrcEncoding.ORC;
+import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getColumnIO;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getDescriptors;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getParquetTypeByName;
@@ -84,24 +126,42 @@ import static com.facebook.presto.parquet.predicate.PredicateUtils.predicateMatc
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.Maps.uniqueIndex;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.parquet.io.ColumnIOConverter.constructField;
+import static org.joda.time.DateTimeZone.UTC;
 
 public class IcebergPageSourceProvider
         implements ConnectorPageSourceProvider
 {
     private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats fileFormatDataSourceStats;
+    private final TypeManager typeManager;
+    private final OrcFileTailSource orcFileTailSource;
+    private final StripeMetadataSource stripeMetadataSource;
+    private final DwrfEncryptionProvider dwrfEncryptionProvider;
+    private final HiveClientConfig hiveClientConfig;
 
     @Inject
     public IcebergPageSourceProvider(
             HdfsEnvironment hdfsEnvironment,
-            FileFormatDataSourceStats fileFormatDataSourceStats)
+            FileFormatDataSourceStats fileFormatDataSourceStats,
+            TypeManager typeManager,
+            OrcFileTailSource orcFileTailSource,
+            StripeMetadataSource stripeMetadataSource,
+            HiveDwrfEncryptionProvider dwrfEncryptionProvider,
+            HiveClientConfig hiveClientConfig)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.orcFileTailSource = requireNonNull(orcFileTailSource, "orcFileTailSource is null");
+        this.stripeMetadataSource = requireNonNull(stripeMetadataSource, "stripeMetadataSource is null");
+        this.dwrfEncryptionProvider = requireNonNull(dwrfEncryptionProvider, "DwrfEncryptionProvider is null").toDwrfEncryptionProvider();
+        this.hiveClientConfig = requireNonNull(hiveClientConfig, "hiveClientConfig is null");
     }
 
     @Override
@@ -139,7 +199,8 @@ public class IcebergPageSourceProvider
                 split.getFileFormat(),
                 table.getSchemaTableName(),
                 regularColumns,
-                table.getPredicate());
+                table.getPredicate(),
+                splitContext.isCacheable());
 
         return new IcebergPageSource(icebergColumns, partitionKeys, dataPageSource, session.getSqlFunctionProperties().getTimeZoneKey());
     }
@@ -153,10 +214,10 @@ public class IcebergPageSourceProvider
             FileFormat fileFormat,
             SchemaTableName tableName,
             List<IcebergColumnHandle> dataColumns,
-            TupleDomain<IcebergColumnHandle> predicate)
+            TupleDomain<IcebergColumnHandle> predicate,
+            boolean isCacheable)
     {
         switch (fileFormat) {
-            // TODO: support ORC for iceberg
             case PARQUET:
                 return createParquetPageSource(
                         hdfsEnvironment,
@@ -174,6 +235,46 @@ public class IcebergPageSourceProvider
                         isParquetBatchReaderVerificationEnabled(session),
                         predicate,
                         fileFormatDataSourceStats);
+            case ORC:
+                FileStatus fileStatus = null;
+                try {
+                    fileStatus = hdfsEnvironment.doAs(session.getUser(), () -> hdfsEnvironment.getFileSystem(hdfsContext, path).getFileStatus(path));
+                }
+                catch (IOException e) {
+                    throw new PrestoException(ICEBERG_FILESYSTEM_ERROR, e);
+                }
+                long fileSize = fileStatus.getLen();
+                OrcReaderOptions readerOptions = new OrcReaderOptions(
+                        getOrcMaxMergeDistance(session),
+                        getOrcTinyStripeThreshold(session),
+                        getOrcMaxReadBlockSize(session),
+                        isOrcZstdJniDecompressionEnabled(session));
+
+                // TODO: Implement EncryptionInformation in IcebergSplit instead of Optional.empty()
+                return createBatchOrcPageSource(
+                        hdfsEnvironment,
+                        session.getUser(),
+                        hdfsEnvironment.getConfiguration(hdfsContext, path),
+                        path,
+                        start,
+                        length,
+                        fileSize,
+                        isCacheable,
+                        dataColumns,
+                        typeManager,
+                        predicate,
+                        readerOptions,
+                        ORC,
+                        getOrcMaxBufferSize(session),
+                        getOrcStreamBufferSize(session),
+                        getOrcLazyReadSmallRanges(session),
+                        isOrcBloomFiltersEnabled(session),
+                        hiveClientConfig.getDomainCompactionThreshold(),
+                        orcFileTailSource,
+                        stripeMetadataSource,
+                        fileFormatDataSourceStats,
+                        Optional.empty(),
+                        dwrfEncryptionProvider);
         }
         throw new PrestoException(NOT_SUPPORTED, "File format not supported for Iceberg: " + fileFormat);
     }
@@ -311,5 +412,249 @@ public class IcebergPageSourceProvider
             }
         });
         return TupleDomain.withColumnDomains(predicate.build());
+    }
+
+    private static ConnectorPageSource createBatchOrcPageSource(
+            HdfsEnvironment hdfsEnvironment,
+            String user,
+            Configuration configuration,
+            Path path,
+            long start,
+            long length,
+            long fileSize,
+            boolean isCacheable,
+            List<IcebergColumnHandle> regularColumns,
+            TypeManager typeManager,
+            TupleDomain<IcebergColumnHandle> effectivePredicate,
+            OrcReaderOptions options,
+            OrcEncoding orcEncoding,
+            DataSize maxBufferSize,
+            DataSize streamBufferSize,
+            boolean lazyReadSmallRanges,
+            boolean orcBloomFiltersEnabled,
+            int domainCompactionThreshold,
+            OrcFileTailSource orcFileTailSource,
+            StripeMetadataSource stripeMetadataSource,
+            FileFormatDataSourceStats stats,
+            Optional<EncryptionInformation> encryptionInformation,
+            DwrfEncryptionProvider dwrfEncryptionProvider)
+    {
+        OrcDataSource orcDataSource = null;
+        try {
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem(user, path, configuration);
+            FSDataInputStream inputStream = hdfsEnvironment.doAs(user, () -> fileSystem.open(path));
+            orcDataSource = new HdfsOrcDataSource(
+                    new OrcDataSourceId(path.toString()),
+                    fileSize,
+                    options.getMaxMergeDistance(),
+                    maxBufferSize,
+                    streamBufferSize,
+                    lazyReadSmallRanges,
+                    inputStream,
+                    stats);
+
+            // Todo: pass real columns to ProjectionBasedDwrfKeyProvider instead of ImmutableList.of()
+            DwrfKeyProvider dwrfKeyProvider = new ProjectionBasedDwrfKeyProvider(encryptionInformation, ImmutableList.of(), true, path);
+            OrcReader reader = new OrcReader(
+                    orcDataSource,
+                    orcEncoding,
+                    orcFileTailSource,
+                    stripeMetadataSource,
+                    new HiveOrcAggregatedMemoryContext(),
+                    options,
+                    isCacheable,
+                    dwrfEncryptionProvider,
+                    dwrfKeyProvider);
+
+            List<HiveColumnHandle> physicalColumnHandles = new ArrayList<>(regularColumns.size());
+            ImmutableMap.Builder<Integer, Type> includedColumns = ImmutableMap.builder();
+            ImmutableList.Builder<TupleDomainOrcPredicate.ColumnReference<HiveColumnHandle>> columnReferences = ImmutableList.builder();
+
+            List<IcebergOrcColumn> fileOrcColumns = getFileOrcColumns(reader);
+
+            Map<Integer, IcebergOrcColumn> fileOrcColumnByIcebergId = fileOrcColumns.stream()
+                    .filter(orcColumn -> orcColumn.getAttributes().containsKey(ORC_ICEBERG_ID_KEY))
+                    .collect(toImmutableMap(
+                            orcColumn -> Integer.parseInt(orcColumn.getAttributes().get(ORC_ICEBERG_ID_KEY)),
+                            orcColumn -> IcebergOrcColumn.copy(orcColumn).setIcebergColumnId(Optional.of(Integer.parseInt(orcColumn.getAttributes().get(ORC_ICEBERG_ID_KEY))))));
+
+            Map<String, IcebergOrcColumn> fileOrcColumnsByName = uniqueIndex(fileOrcColumns, orcColumn -> orcColumn.getColumnName().toLowerCase(ENGLISH));
+
+            int nextMissingColumnIndex = fileOrcColumnsByName.size();
+            for (IcebergColumnHandle column : regularColumns) {
+                IcebergOrcColumn icebergOrcColumn;
+                boolean isExcludeColumn = false;
+
+                if (fileOrcColumnByIcebergId.isEmpty()) {
+                    icebergOrcColumn = fileOrcColumnsByName.get(column.getName());
+                }
+                else {
+                    icebergOrcColumn = fileOrcColumnByIcebergId.get(column.getId());
+                    if (icebergOrcColumn == null) {
+                        // Cannot get orc column from 'fileOrcColumnByIcebergId', which means SchemaEvolution may have happened, so we get orc column by column name.
+                        icebergOrcColumn = fileOrcColumnsByName.get(column.getName());
+                        if (icebergOrcColumn != null) {
+                            isExcludeColumn = true;
+                        }
+                    }
+                }
+
+                if (icebergOrcColumn != null) {
+                    HiveColumnHandle columnHandle = new HiveColumnHandle(
+                            // Todo: using orc file column name
+                            column.getName(),
+                            toHiveType(column.getType()),
+                            column.getType().getTypeSignature(),
+                            icebergOrcColumn.getOrcColumnId(),
+                            icebergOrcColumn.getColumnType(),
+                            Optional.empty(),
+                            Optional.empty());
+
+                    physicalColumnHandles.add(columnHandle);
+                    // Skip SchemaEvolution column
+                    if (!isExcludeColumn) {
+                        includedColumns.put(columnHandle.getHiveColumnIndex(), typeManager.getType(columnHandle.getTypeSignature()));
+                        columnReferences.add(new TupleDomainOrcPredicate.ColumnReference<>(columnHandle, columnHandle.getHiveColumnIndex(), typeManager.getType(columnHandle.getTypeSignature())));
+                    }
+                }
+                else {
+                    physicalColumnHandles.add(new HiveColumnHandle(
+                            column.getName(),
+                            toHiveType(column.getType()),
+                            column.getType().getTypeSignature(),
+                            nextMissingColumnIndex++,
+                            REGULAR,
+                            Optional.empty(),
+                            Optional.empty()));
+                }
+            }
+
+            TupleDomain<HiveColumnHandle> hiveColumnHandleTupleDomain = effectivePredicate.transform(column -> {
+                IcebergOrcColumn icebergOrcColumn;
+                if (fileOrcColumnByIcebergId.isEmpty()) {
+                    icebergOrcColumn = fileOrcColumnsByName.get(column.getName());
+                }
+                else {
+                    icebergOrcColumn = fileOrcColumnByIcebergId.get(column.getId());
+                    if (icebergOrcColumn == null) {
+                        // Cannot get orc column from 'fileOrcColumnByIcebergId', which means SchemaEvolution may have happened, so we get orc column by column name.
+                        icebergOrcColumn = fileOrcColumnsByName.get(column.getName());
+                    }
+                }
+
+                return new HiveColumnHandle(
+                        column.getName(),
+                        toHiveType(column.getType()),
+                        column.getType().getTypeSignature(),
+                        // Note: the HiveColumnHandle.hiveColumnIndex starts from '0' while the IcebergColumnHandle.id starts from '1'
+                        icebergOrcColumn != null ? icebergOrcColumn.getOrcColumnId() : column.getId() - 1,
+                        icebergOrcColumn != null ? icebergOrcColumn.getColumnType() : REGULAR,
+                        Optional.empty(),
+                        Optional.empty());
+            });
+
+            OrcPredicate predicate = new TupleDomainOrcPredicate<>(hiveColumnHandleTupleDomain, columnReferences.build(), orcBloomFiltersEnabled, Optional.of(domainCompactionThreshold));
+
+            OrcAggregatedMemoryContext systemMemoryUsage = new HiveOrcAggregatedMemoryContext();
+            OrcBatchRecordReader recordReader = reader.createBatchRecordReader(
+                    includedColumns.build(),
+                    predicate,
+                    start,
+                    length,
+                    UTC,
+                    systemMemoryUsage,
+                    INITIAL_BATCH_SIZE);
+
+            return new OrcBatchPageSource(
+                    recordReader,
+                    orcDataSource,
+                    physicalColumnHandles,
+                    typeManager,
+                    systemMemoryUsage,
+                    stats,
+                    new RuntimeStats());
+        }
+        catch (Exception e) {
+            if (orcDataSource != null) {
+                try {
+                    orcDataSource.close();
+                }
+                catch (IOException ignored) {
+                }
+            }
+            if (e instanceof PrestoException) {
+                throw (PrestoException) e;
+            }
+            String message = format("Error opening Iceberg split %s (offset=%s, length=%s): %s", path, start, length, e.getMessage());
+            if (e instanceof BlockMissingException) {
+                throw new PrestoException(ICEBERG_MISSING_DATA, message, e);
+            }
+            throw new PrestoException(ICEBERG_CANNOT_OPEN_SPLIT, message, e);
+        }
+    }
+
+    private static List<IcebergOrcColumn> getFileOrcColumns(OrcReader reader)
+    {
+        List<OrcType> orcTypes = reader.getFooter().getTypes();
+        OrcType rootOrcType = orcTypes.get(ROOT_COLUMN_ID);
+
+        List<IcebergOrcColumn> columnAttributes = ImmutableList.of();
+        if (rootOrcType.getOrcTypeKind() == OrcType.OrcTypeKind.STRUCT) {
+            columnAttributes = IntStream.range(0, rootOrcType.getFieldCount())
+                    .mapToObj(fieldId -> new IcebergOrcColumn(
+                            fieldId,
+                            rootOrcType.getFieldTypeIndex(fieldId),
+                            // We will filter out iceberg column by 'ORC_ICEBERG_ID_KEY' later,
+                            // so we use 'Optional.empty()' temporarily.
+                            Optional.empty(),
+                            rootOrcType.getFieldName(fieldId),
+                            REGULAR,
+                            orcTypes.get(rootOrcType.getFieldTypeIndex(fieldId)).getOrcTypeKind(),
+                            orcTypes.get(rootOrcType.getFieldTypeIndex(fieldId)).getAttributes()))
+                    .collect(toImmutableList());
+        }
+        else if (rootOrcType.getOrcTypeKind() == OrcType.OrcTypeKind.LIST) {
+            columnAttributes = ImmutableList.of(
+                    new IcebergOrcColumn(
+                            0,
+                            rootOrcType.getFieldTypeIndex(0),
+                            Optional.empty(),
+                            "item",
+                            REGULAR,
+                            orcTypes.get(rootOrcType.getFieldTypeIndex(0)).getOrcTypeKind(),
+                            orcTypes.get(rootOrcType.getFieldTypeIndex(0)).getAttributes()));
+        }
+        else if (rootOrcType.getOrcTypeKind() == OrcType.OrcTypeKind.MAP) {
+            columnAttributes = ImmutableList.of(
+                    new IcebergOrcColumn(
+                            0,
+                            rootOrcType.getFieldTypeIndex(0),
+                            Optional.empty(),
+                            "key",
+                            REGULAR,
+                            orcTypes.get(rootOrcType.getFieldTypeIndex(0)).getOrcTypeKind(),
+                            orcTypes.get(rootOrcType.getFieldTypeIndex(0)).getAttributes()),
+                    new IcebergOrcColumn(
+                            1,
+                            rootOrcType.getFieldTypeIndex(1),
+                            Optional.empty(),
+                            "value",
+                            REGULAR,
+                            orcTypes.get(rootOrcType.getFieldTypeIndex(1)).getOrcTypeKind(),
+                            orcTypes.get(rootOrcType.getFieldTypeIndex(1)).getAttributes()));
+        }
+        else if (rootOrcType.getOrcTypeKind() == OrcType.OrcTypeKind.UNION) {
+            columnAttributes = IntStream.range(0, rootOrcType.getFieldCount())
+                    .mapToObj(fieldId -> new IcebergOrcColumn(
+                            fieldId,
+                            rootOrcType.getFieldTypeIndex(fieldId),
+                            Optional.empty(),
+                            "field" + fieldId,
+                            REGULAR,
+                            orcTypes.get(rootOrcType.getFieldTypeIndex(fieldId)).getOrcTypeKind(),
+                            orcTypes.get(rootOrcType.getFieldTypeIndex(fieldId)).getAttributes()))
+                    .collect(toImmutableList());
+        }
+        return columnAttributes;
     }
 }
