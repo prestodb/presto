@@ -608,7 +608,7 @@
             <dependency>
                 <groupId>com.facebook.presto.orc</groupId>
                 <artifactId>orc-protobuf</artifactId>
-                <version>11</version>
+                <version>12</version>
             </dependency>
 
             <dependency>
