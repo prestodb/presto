@@ -72,7 +72,7 @@ public class TestQueryResource
         client = null;
     }
 
-    @Test(timeOut = 60_000)
+    @Test(timeOut = 60_000, enabled = false)
     public void testGetQueryInfos()
             throws Exception
     {
