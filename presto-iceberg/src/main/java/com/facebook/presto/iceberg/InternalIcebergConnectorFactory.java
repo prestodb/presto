@@ -17,8 +17,8 @@ import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.bootstrap.LifeCycleManager;
 import com.facebook.airlift.event.client.EventModule;
 import com.facebook.airlift.json.JsonModule;
-import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.hive.authentication.HiveAuthenticationModule;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HiveMetastoreModule;
@@ -60,7 +60,7 @@ public final class InternalIcebergConnectorFactory
                     new EventModule(),
                     new MBeanModule(),
                     new JsonModule(),
-                    new IcebergModule(),
+                    new IcebergModule(catalogName),
                     new IcebergMetastoreModule(),
                     new HiveS3Module(catalogName),
                     new HiveAuthenticationModule(),
