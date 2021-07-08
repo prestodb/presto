@@ -275,6 +275,12 @@ public class PartitionedOutputOperator
         return null;
     }
 
+    @Override
+    public void close()
+    {
+        partitionFunction.closeMemoryContext();
+    }
+
     private static class PagePartitioner
     {
         private final OutputBuffer outputBuffer;
@@ -341,6 +347,11 @@ public class PartitionedOutputOperator
             for (int i = 0; i < partitionCount; i++) {
                 pageBuilders[i] = PageBuilder.withMaxPageSize(pageSize, sourceTypes);
             }
+        }
+
+        public void closeMemoryContext()
+        {
+            systemMemoryContext.close();
         }
 
         public ListenableFuture<?> isFull()
