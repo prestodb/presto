@@ -16,20 +16,12 @@ package com.facebook.presto.hive.zorder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
-
-import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.String.format;
 
 /**
  * The ZOrderCurveSearcher class contains functions to search for addresses within given value ranges.
  */
 public class ZOrderCurveSearcher
 {
-    private enum RangeType {
-        INTEGER, LONG
-    }
-
     private final ZOrder zOrder;
 
     private final List<Integer> encodingBits;
@@ -50,15 +42,18 @@ public class ZOrderCurveSearcher
     }
 
     /**
-     * Public class "constructor" specifying ZOrder class variables and initializing <code>dimensions</code>.
-     * <p/>
-     * The <code>dimensions</code> array stores how many values are stored at each level of the Z-curve.
+     * Public class "constructor" specifying ZOrder class variables
      */
     public static ZOrderCurveSearcher createZOrderCurveSearcher(ZOrder zOrder, List<Integer> encodingBits, int totalBitLength, int maxBitLength)
     {
         return new ZOrderCurveSearcher(zOrder, encodingBits, totalBitLength, maxBitLength, initializeDimensions(encodingBits, maxBitLength));
     }
 
+    /**
+     * Initializes <code>dimensions</code> array, which stores how many values are stored at each level of the Z-curve.
+     * <p/>
+     * For example, given <code>encodingBits</code> = [2, 8, 6] and <code>maxBitLength</code> = 6, <code>dimensions</code> = [3, 3, 2, 2, 2, 2, 1, 1].
+     */
     private static int[] initializeDimensions(List<Integer> encodingBits, int maxBitLength)
     {
         int[] dimensions = new int[maxBitLength];
@@ -75,40 +70,24 @@ public class ZOrderCurveSearcher
     }
 
     /**
-     * Searches for and outputs ranges of long addresses within certain ranges in each dimension.
-     */
-    public List<ZAddressRange<Long>> zOrderSearchCurveLongs(List<ZValueRange> ranges)
-    {
-        return zOrderSearchCurve(ranges, RangeType.LONG);
-    }
-
-    /**
-     * Searches for and outputs ranges of integer addresses within certain ranges in each dimension.
-     */
-    public List<ZAddressRange<Integer>> zOrderSearchCurveIntegers(List<ZValueRange> ranges)
-    {
-        return zOrderSearchCurve(ranges, RangeType.INTEGER).stream()
-                .map(addressRange -> new ZAddressRange<>(addressRange.getMinimumAddress().intValue(), addressRange.getMaximumAddress().intValue())).collect(Collectors.toList());
-    }
-
-    /**
-     * Searches for and outputs ranges of addresses within certain ranges in each dimension.
+     * Searches for ranges of addresses within given value ranges in each dimension.
      * <p/>
      * Every two elements in the output list represent the minimum and maximum of an address range.
      * <p/>
      * For example, if the list is {1, 5, 10, 14}, the address ranges are from {1, 5} and {10, 14}.
      *
      * @param valueRanges the list of minimum and maximum values of each dimension
-     * @return the list of address ranges within the given value ranges
      */
-    private List<ZAddressRange<Long>> zOrderSearchCurve(List<ZValueRange> valueRanges, RangeType rangeType)
+    List<ZAddressRange<Long>> zOrderSearchCurve(List<ZValueRange> valueRanges)
     {
         List<ZAddressRange<Long>> addressRanges = new ArrayList<>();
-        findAddressesRecursively(maxBitLength - 1, 0L, totalBitLength, addressRanges, fillInNulls(valueRanges), rangeType);
-        return addressRanges;
+
+        findAddressesRecursively(maxBitLength - 1, 0L, totalBitLength, addressRanges, fillUnspecifiedRangesWithDefaults(valueRanges));
+
+        return combineAddressRanges(addressRanges);
     }
 
-    private List<ZValueRange> fillInNulls(List<ZValueRange> valueRanges)
+    private List<ZValueRange> fillUnspecifiedRangesWithDefaults(List<ZValueRange> valueRanges)
     {
         List<ZValueRange> nonNullValues = new ArrayList<>(valueRanges.size());
         for (int index = 0; index < valueRanges.size(); index++) {
@@ -139,7 +118,7 @@ public class ZOrderCurveSearcher
      * @param startAddress the starting address of the current Z-curve level
      * @param totalCurveBits the amount of bits in the current Z-curve level
      */
-    private void findAddressesRecursively(int level, long startAddress, int totalCurveBits, List<ZAddressRange<Long>> addressRanges, List<ZValueRange> valueRanges, RangeType rangeType)
+    private void findAddressesRecursively(int level, long startAddress, int totalCurveBits, List<ZAddressRange<Long>> addressRanges, List<ZValueRange> valueRanges)
     {
         long endAddress = startAddress + ((long) 1 << totalCurveBits) - 1;
 
@@ -147,7 +126,7 @@ public class ZOrderCurveSearcher
         List<Integer> endValues = zOrder.decode(endAddress);
 
         if (inRange(startValues, endValues, valueRanges)) {
-            addToAddressList(startAddress, endAddress, addressRanges, rangeType);
+            addressRanges.add(new ZAddressRange<>(startAddress, endAddress));
             return;
         }
 
@@ -158,26 +137,8 @@ public class ZOrderCurveSearcher
         totalCurveBits -= dimensions[level];
         int subtrees = 1 << dimensions[level];
         for (int i = 0; i < subtrees; i++) {
-            findAddressesRecursively(level - 1, startAddress, totalCurveBits, addressRanges, valueRanges, rangeType);
+            findAddressesRecursively(level - 1, startAddress, totalCurveBits, addressRanges, valueRanges);
             startAddress += ((long) 1 << totalCurveBits);
-        }
-    }
-
-    private void addToAddressList(long startAddress, long endAddress, List<ZAddressRange<Long>> addressRanges, RangeType rangeType)
-    {
-        if (rangeType == RangeType.INTEGER) {
-            checkArgument((startAddress <= Integer.MAX_VALUE) && (endAddress <= Integer.MAX_VALUE),
-                    format("The address range [%d, %d] contains addresses greater than integers.", startAddress, endAddress));
-        }
-
-        int lastIndex = addressRanges.size() - 1;
-
-        if ((addressRanges.size() > 0) && (startAddress == addressRanges.get(lastIndex).getMaximumAddress() + 1)) {
-            ZAddressRange<Long> addressRange = addressRanges.get(lastIndex);
-            addressRanges.set(lastIndex, new ZAddressRange<>(addressRange.getMinimumAddress(), endAddress));
-        }
-        else {
-            addressRanges.add(new ZAddressRange<>(startAddress, endAddress));
         }
     }
 
@@ -199,5 +160,44 @@ public class ZOrderCurveSearcher
             }
         }
         return false;
+    }
+
+    private static List<ZAddressRange<Long>> combineAddressRanges(List<ZAddressRange<Long>> addressRanges)
+    {
+        if (addressRanges.isEmpty()) {
+            return addressRanges;
+        }
+
+        addressRanges.sort((range1, range2) -> {
+            if (range1.equals(range2)) {
+                return 0;
+            }
+            if (range1.getMinimumAddress().equals(range2.getMinimumAddress())) {
+                return (range1.getMaximumAddress() > range2.getMaximumAddress()) ? 1 : -1;
+            }
+            return (range1.getMinimumAddress() > range2.getMinimumAddress()) ? 1 : -1;
+        });
+
+        List<ZAddressRange<Long>> combinedAddressRanges = new ArrayList<>();
+        combinedAddressRanges.add(addressRanges.get(0));
+
+        for (int index = 1; index < addressRanges.size(); index++) {
+            ZAddressRange<Long> previousAddressRange = combinedAddressRanges.get(combinedAddressRanges.size() - 1);
+            ZAddressRange<Long> currentAddressRange = addressRanges.get(index);
+
+            if (isOverlapping(previousAddressRange, currentAddressRange)) {
+                combinedAddressRanges.set(combinedAddressRanges.size() - 1, new ZAddressRange<>(previousAddressRange.getMinimumAddress(), currentAddressRange.getMaximumAddress()));
+            }
+            else {
+                combinedAddressRanges.add(currentAddressRange);
+            }
+        }
+
+        return combinedAddressRanges;
+    }
+
+    private static boolean isOverlapping(ZAddressRange<Long> previousAddressRange, ZAddressRange<Long> currentAddressRange)
+    {
+        return previousAddressRange.getMaximumAddress() > currentAddressRange.getMinimumAddress();
     }
 }
