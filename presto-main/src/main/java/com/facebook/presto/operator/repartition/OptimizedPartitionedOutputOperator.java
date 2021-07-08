@@ -185,6 +185,12 @@ public class OptimizedPartitionedOutputOperator
         return null;
     }
 
+    @Override
+    public void close()
+    {
+        systemMemoryContext.close();
+    }
+
     /**
      * Flatten the block and convert the nested-typed block into ColumnarArray/Map/Row.
      * For performance considerations we decode the block only once for each block instead of for each batch.
