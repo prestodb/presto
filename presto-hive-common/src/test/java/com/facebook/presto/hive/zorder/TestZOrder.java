@@ -40,31 +40,15 @@ public class TestZOrder
             {42, 43, 46, 47, 58, 59, 62, 63}};
 
     private static final ZValueRange[][] SEARCH_CURVE_RANGES = {
-            {new ZValueRange(Optional.of(4), Optional.of(5)), new ZValueRange(Optional.of(2), Optional.of(3))},
-            {new ZValueRange(Optional.of(3), Optional.of(4)), new ZValueRange(Optional.of(3), Optional.of(4))},
-            {new ZValueRange(Optional.of(4), Optional.of(5)), new ZValueRange(Optional.of(0), Optional.of(3))},
+            {new ZValueRange(Optional.of(0), Optional.of(1)), new ZValueRange(Optional.of(-2), Optional.of(-1))},
+            {new ZValueRange(Optional.of(-1), Optional.of(0)), new ZValueRange(Optional.of(-1), Optional.of(0))},
+            {new ZValueRange(Optional.of(0), Optional.of(1)), new ZValueRange(Optional.of(-4), Optional.of(-1))},
     };
 
     private static final ZAddressRange<Long>[][] EXPECTED_Z_ADDRESS_RANGES = new ZAddressRange[][] {
             new ZAddressRange[] {new ZAddressRange<>(36L, 39L)},
             new ZAddressRange[] {new ZAddressRange<>(15L, 15L), new ZAddressRange<>(26L, 26L), new ZAddressRange<>(37L, 37L), new ZAddressRange<>(48L, 48L)},
             new ZAddressRange[] {new ZAddressRange<>(32L, 39L)}};
-
-    @Test
-    public void testZOrderNegativeIntegers()
-    {
-        ZOrder zOrder = new ZOrder(ImmutableList.of(8, 8, 8, 8, 8, 8));
-        List<Integer> intColumns = ImmutableList.of(1, 2, 3, -10, 4, 5);
-
-        try {
-            zOrder.encodeToByteArray(intColumns);
-            fail("Expected test to fail: z-ordering does not support negative integers.");
-        }
-        catch (IllegalArgumentException e) {
-            String expectedMessage = "Current Z-Ordering implementation does not support negative input numbers.";
-            assertEquals(e.getMessage(), expectedMessage, format("Expected exception message '%s' to match '%s'", e.getMessage(), expectedMessage));
-        }
-    }
 
     @Test
     public void testZOrderDifferentListSizes()
@@ -194,18 +178,18 @@ public class TestZOrder
     @Test
     public void testZOrderToByteArray()
     {
-        ZOrder zOrder = new ZOrder(ImmutableList.of(3, 3));
+        ZOrder zOrder = new ZOrder(ImmutableList.of(2, 2));
 
-        for (int x = 0; x < 8; x++) {
-            for (int y = 0; y < 8; y++) {
+        for (int x = -4; x < 4; x++) {
+            for (int y = -4; y < 4; y++) {
                 List<Integer> intColumns = ImmutableList.of(x, y);
 
                 byte[] byteAddress = zOrder.encodeToByteArray(intColumns);
 
                 long address = zOrder.zOrderByteAddressToLong(byteAddress);
-                assertEquals(address, EXPECTED_Z_ADDRESSES[x][y]);
+                assertEquals(address, EXPECTED_Z_ADDRESSES[x + 4][y + 4]);
 
-                List<Integer> decodedIntCols = zOrder.decode(address);
+                List<Integer> decodedIntCols = zOrder.decode(byteAddress);
                 assertEquals(intColumns, decodedIntCols, "Integers decoded improperly");
             }
         }
@@ -214,14 +198,14 @@ public class TestZOrder
     @Test
     public void testZOrderToLong()
     {
-        ZOrder zOrder = new ZOrder(ImmutableList.of(3, 3));
+        ZOrder zOrder = new ZOrder(ImmutableList.of(2, 2));
 
-        for (int x = 0; x < 8; x++) {
-            for (int y = 0; y < 8; y++) {
+        for (int x = -4; x < 4; x++) {
+            for (int y = -4; y < 4; y++) {
                 List<Integer> intColumns = ImmutableList.of(x, y);
 
                 long address = zOrder.encodeToLong(intColumns);
-                assertEquals(address, EXPECTED_Z_ADDRESSES[x][y]);
+                assertEquals(address, EXPECTED_Z_ADDRESSES[x + 4][y + 4]);
 
                 List<Integer> decodedIntCols = zOrder.decode(address);
                 assertEquals(intColumns, decodedIntCols, "Integers decoded improperly");
@@ -232,14 +216,14 @@ public class TestZOrder
     @Test
     public void testZOrderToInt()
     {
-        ZOrder zOrder = new ZOrder(ImmutableList.of(3, 3));
+        ZOrder zOrder = new ZOrder(ImmutableList.of(2, 2));
 
-        for (int x = 0; x < 8; x++) {
-            for (int y = 0; y < 8; y++) {
+        for (int x = -4; x < 4; x++) {
+            for (int y = -4; y < 4; y++) {
                 List<Integer> intColumns = ImmutableList.of(x, y);
 
                 int address = zOrder.encodeToInteger(intColumns);
-                assertEquals(address, EXPECTED_Z_ADDRESSES[x][y]);
+                assertEquals(address, EXPECTED_Z_ADDRESSES[x + 4][y + 4]);
 
                 List<Integer> decodedIntCols = zOrder.decode(address);
                 assertEquals(intColumns, decodedIntCols, "Integers decoded improperly");
@@ -260,7 +244,7 @@ public class TestZOrder
             fail("Expected test to fail: total bits to encode is larger than the size of a long.");
         }
         catch (IllegalArgumentException e) {
-            String expectedMessage = format("The z-address type specified is not large enough to hold %d bits.", totalBitLength);
+            String expectedMessage = format("The z-address type specified is not large enough to hold %d values with a total of %d bits.", bitPositions.size(), totalBitLength);
             assertEquals(e.getMessage(), expectedMessage, format("Expected exception message '%s' to match '%s'", e.getMessage(), expectedMessage));
         }
     }
@@ -278,7 +262,7 @@ public class TestZOrder
             fail("Expected test to fail: total bits to encode is larger than the size of a integer.");
         }
         catch (IllegalArgumentException e) {
-            String expectedMessage = format("The z-address type specified is not large enough to hold %d bits.", totalBitLength);
+            String expectedMessage = format("The z-address type specified is not large enough to hold %d values with a total of %d bits.", bitPositions.size(), totalBitLength);
             assertEquals(e.getMessage(), expectedMessage, format("Expected exception message '%s' to match '%s'", e.getMessage(), expectedMessage));
         }
     }
@@ -286,7 +270,7 @@ public class TestZOrder
     @Test
     public void testZOrderSearchEvenCurves()
     {
-        List<Integer> bitPositions = ImmutableList.of(3, 3);
+        List<Integer> bitPositions = ImmutableList.of(2, 2);
         ZOrder zOrder = new ZOrder(bitPositions);
 
         for (int i = 0; i < SEARCH_CURVE_RANGES.length; i++) {
@@ -301,12 +285,12 @@ public class TestZOrder
     @Test
     public void testZOrderSearchUnevenCurves()
     {
-        List<Integer> bitPositions = ImmutableList.of(2, 3);
+        List<Integer> bitPositions = ImmutableList.of(1, 2);
         ZOrder zOrder = new ZOrder(bitPositions);
 
         List<ZValueRange> ranges = ImmutableList.of(
-                new ZValueRange(Optional.of(0), Optional.of(2)),
-                new ZValueRange(Optional.of(3), Optional.of(6)));
+                new ZValueRange(Optional.of(-2), Optional.of(0)),
+                new ZValueRange(Optional.of(-1), Optional.of(2)));
 
         List<ZAddressRange<Integer>> addresses = zOrder.zOrderSearchCurveIntegers(ranges);
 
@@ -317,13 +301,13 @@ public class TestZOrder
     @Test
     public void testZOrderSearchCurveIntegers()
     {
-        List<Integer> bitPositions = ImmutableList.of(1, 2, 4);
+        List<Integer> bitPositions = ImmutableList.of(0, 1, 3);
         ZOrder zOrder = new ZOrder(bitPositions);
 
         List<ZValueRange> ranges = ImmutableList.of(
-                new ZValueRange(Optional.empty(), Optional.of(0)),
-                new ZValueRange(Optional.of(1), Optional.empty()),
-                new ZValueRange(Optional.of(7), Optional.of(9)));
+                new ZValueRange(Optional.empty(), Optional.of(-1)),
+                new ZValueRange(Optional.of(-1), Optional.empty()),
+                new ZValueRange(Optional.of(-1), Optional.of(1)));
 
         List<ZAddressRange<Integer>> addresses = zOrder.zOrderSearchCurveIntegers(ranges);
 
@@ -337,7 +321,7 @@ public class TestZOrder
         List<Integer> bitPositions = ImmutableList.of(1);
         ZOrder zOrder = new ZOrder(bitPositions);
 
-        List<ZValueRange> ranges = ImmutableList.of(new ZValueRange(Optional.of(-1), Optional.of(-1)));
+        List<ZValueRange> ranges = ImmutableList.of(new ZValueRange(Optional.of(-3), Optional.of(-3)));
 
         List<ZAddressRange<Integer>> addresses = zOrder.zOrderSearchCurveIntegers(ranges);
 
