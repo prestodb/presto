@@ -33,7 +33,7 @@ public class ZOrder
 {
     public static final int MAX_INPUT_DIMENSIONS = 10;
 
-    // Assume encodingBits is 1-based
+    // Assume encodingBits is 0-based
     private final List<Integer> encodingBits;
     private final int totalBitLength;
     private final int maxBitLength;
@@ -50,8 +50,8 @@ public class ZOrder
 
         this.encodingBits = encodingBits;
 
-        totalBitLength = encodingBits.stream().mapToInt(Integer::intValue).sum();
-        maxBitLength = encodingBits.stream().mapToInt(Integer::intValue).max().getAsInt();
+        totalBitLength = encodingBits.stream().mapToInt(Integer::intValue).sum() + encodingBits.size();
+        maxBitLength = encodingBits.stream().mapToInt(Integer::intValue).max().getAsInt() + 1;
 
         dimensions = initializeDimensions();
     }
@@ -67,7 +67,7 @@ public class ZOrder
         List<Integer> bitLengths = new ArrayList<>(encodingBits);
         for (int dimensionIndex = maxBitLength - 1; dimensionIndex >= 0; dimensionIndex--) {
             for (int bitLengthIndex = 0; bitLengthIndex < bitLengths.size(); bitLengthIndex++) {
-                if (bitLengths.get(bitLengthIndex) > 0) {
+                if (bitLengths.get(bitLengthIndex) >= 0) {
                     dimensions[dimensionIndex]++;
                     bitLengths.set(bitLengthIndex, bitLengths.get(bitLengthIndex) - 1);
                 }
@@ -92,7 +92,16 @@ public class ZOrder
 
         // Find address byte length by rounding up (totalBitLength / 8)
         byte[] address = new byte[(totalBitLength + 7) >> 3];
+
+        // Modify sign bits to preserve ordering between positive and negative integers
         int bitIndex = totalBitLength - 1;
+        for (int value : input) {
+            byte signBit = (value < 0) ? (byte) 0 : 1;
+            address[bitIndex >> 3] |= signBit << (bitIndex & 7);
+            bitIndex--;
+        }
+
+        bitIndex = totalBitLength - encodingBits.size() - 1;
         // Interweave input bits into address from the most significant bit to preserve data locality
         for (int bitsProcessed = 0; bitsProcessed < maxBitLength; bitsProcessed++) {
             for (int index = 0; index < input.size(); index++) {
@@ -105,6 +114,7 @@ public class ZOrder
                 bitIndex--;
             }
         }
+
         return address;
     }
 
@@ -146,7 +156,7 @@ public class ZOrder
     {
         int[] output = new int[encodingBits.size()];
 
-        int bitIndex = totalBitLength - 1;
+        int bitIndex = totalBitLength - encodingBits.size() - 1;
         int bitsProcessed = 0;
         // Un-weave address into original integers
         while (bitIndex >= 0) {
@@ -160,6 +170,16 @@ public class ZOrder
                 bitIndex--;
             }
             bitsProcessed++;
+        }
+
+        // Set correct sign bit for outputs
+        bitIndex = totalBitLength - 1;
+        for (int index = 0; index < output.length; index++) {
+            byte signBit = (byte) ((address[bitIndex >> 3] >> (bitIndex & 7)) & 1);
+            if (signBit == 0) {
+                output[index] -= (1 << encodingBits.get(index));
+            }
+            bitIndex--;
         }
 
         return Arrays.stream(output).boxed().collect(ImmutableList.toImmutableList());
@@ -210,8 +230,8 @@ public class ZOrder
      */
     public byte[] zOrderLongToByteAddress(long address)
     {
-        byte[] byteAddress = new byte[(totalBitLength + 7) >> 3];
-        for (int bitIndex = 0; bitIndex < totalBitLength; bitIndex++) {
+        byte[] byteAddress = new byte[(totalBitLength + 7 + encodingBits.size()) >> 3];
+        for (int bitIndex = 0; bitIndex < totalBitLength + encodingBits.size(); bitIndex++) {
             byteAddress[bitIndex >> 3] |= ((address >> bitIndex) & 1) << (bitIndex & 7);
         }
         return byteAddress;
@@ -234,7 +254,8 @@ public class ZOrder
 
         List<ZAddressRange<Integer>> integerAddressRanges = new ArrayList<>();
         for (ZAddressRange<Long> addressRange : addressRanges) {
-            checkArgument((addressRange.getMinimumAddress() <= Integer.MAX_VALUE) && (addressRange.getMaximumAddress() <= Integer.MAX_VALUE),
+            checkArgument(
+                    (addressRange.getMinimumAddress() <= Integer.MAX_VALUE) && (addressRange.getMaximumAddress() <= Integer.MAX_VALUE),
                     format("The address range [%d, %d] contains addresses greater than integers.", addressRange.getMinimumAddress(), addressRange.getMaximumAddress()));
 
             integerAddressRanges.add(new ZAddressRange<>(addressRange.getMinimumAddress().intValue(), addressRange.getMaximumAddress().intValue()));
@@ -253,20 +274,17 @@ public class ZOrder
 
         checkArgument(!input.isEmpty(), "Input list size should be greater than zero.");
 
-        checkArgument((input.size() <= MAX_INPUT_DIMENSIONS), format(
-                "Current Z-Ordering implementation does not support more than %d input numbers.",
-                MAX_INPUT_DIMENSIONS));
+        checkArgument(
+                input.size() <= MAX_INPUT_DIMENSIONS,
+                format("Current Z-Ordering implementation does not support more than %d input numbers.", MAX_INPUT_DIMENSIONS));
 
-        checkArgument((input.size() == encodingBits.size()), format(
-                "Input list size (%d) does not match encoding bits list size (%d).",
-                input.size(),
-                encodingBits.size()));
-
-        input.forEach(value -> checkArgument(value >= 0, "Current Z-Ordering implementation does not support negative input numbers."));
+        checkArgument(
+                input.size() == encodingBits.size(),
+                format("Input list size (%d) does not match encoding bits list size (%d).", input.size(), encodingBits.size()));
 
         for (int i = 0; i < input.size(); i++) {
             checkArgument(
-                    input.get(i) < (1 << encodingBits.get(i)),
+                    input.get(i) >= 0 ? (input.get(i) < (1 << encodingBits.get(i))) : (input.get(i) >= -(1 << encodingBits.get(i))),
                     format("Input value %d at index %d should not have more than %d bits.", input.get(i), i, encodingBits.get(i)));
         }
     }
@@ -281,7 +299,9 @@ public class ZOrder
     {
         checkEncodeInputValidity(input);
 
-        checkArgument((totalBitLength <= maximumBits), format("The z-address type specified is not large enough to hold %d bits.", totalBitLength));
+        checkArgument(
+                totalBitLength <= maximumBits,
+                format("The z-address type specified is not large enough to hold %d values with a total of %d bits.", encodingBits.size(), totalBitLength - encodingBits.size()));
     }
 
     private List<ZAddressRange<Long>> zOrderSearchCurve(List<ZValueRange> valueRanges)
@@ -303,7 +323,7 @@ public class ZOrder
             Integer maximumValue = range.getMaximumValue();
 
             if (minimumValue == null) {
-                minimumValue = 0;
+                minimumValue = -(1 << encodingBits.get(index));
             }
             if (maximumValue == null) {
                 maximumValue = (1 << encodingBits.get(index)) - 1;
