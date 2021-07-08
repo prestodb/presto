@@ -170,6 +170,28 @@ public class TestZOrder
     }
 
     @Test
+    public void testNonMatchingEncodeBits()
+    {
+        List<Integer> bitPositions = ImmutableList.of(8, 2, 8, 4, 4, 2, 6, 4, 8, 2);
+        ZOrder zOrder = new ZOrder(bitPositions);
+        List<Integer> intColumns = ImmutableList.of(1, 6, 32, 3, 7, 0, 17, 5, 125, 1);
+
+        try {
+            zOrder.encodeToInteger(intColumns);
+            fail("Expected test to fail: encoding bits list should not be empty.");
+        }
+        catch (IllegalArgumentException e) {
+            int expectedErrorIndex = 1;
+            String expectedMessage = format(
+                    "Input value %d at index %d should not have more than %d bits.",
+                    intColumns.get(expectedErrorIndex),
+                    expectedErrorIndex,
+                    bitPositions.get(expectedErrorIndex));
+            assertEquals(e.getMessage(), expectedMessage, format("Expected exception message '%s' to match '%s'", e.getMessage(), expectedMessage));
+        }
+    }
+
+    @Test
     public void testZOrderToByteArray()
     {
         ZOrder zOrder = new ZOrder(ImmutableList.of(3, 3));
