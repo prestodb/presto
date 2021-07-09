@@ -16,10 +16,12 @@ package com.facebook.presto.sql.rewrite;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
 import com.facebook.presto.sql.analyzer.MaterializedViewCandidateExtractor;
 import com.facebook.presto.sql.analyzer.MaterializedViewQueryOptimizer;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Table;
@@ -38,6 +40,7 @@ public class MaterializedViewOptimizationRewriterUtils
             Metadata metadata,
             Session session,
             SqlParser sqlParser,
+            AccessControl accessControl,
             Query node)
     {
         Map<QualifiedObjectName, List<QualifiedObjectName>> baseTableToMaterializedViews = getBaseToMaterializedViews();
@@ -49,7 +52,7 @@ public class MaterializedViewOptimizationRewriterUtils
         }
         // Temporarily it returns the first candidate
         QualifiedObjectName materializedViewCandidate = materializedViewCandidates.iterator().next();
-        Query optimizedQuery = getQueryWithMaterializedViewOptimization(metadata, session, sqlParser, node, materializedViewCandidate);
+        Query optimizedQuery = getQueryWithMaterializedViewOptimization(metadata, session, sqlParser, accessControl, node, materializedViewCandidate);
         return Optional.of(optimizedQuery);
     }
 
@@ -57,6 +60,7 @@ public class MaterializedViewOptimizationRewriterUtils
             Metadata metadata,
             Session session,
             SqlParser sqlParser,
+            AccessControl accessControl,
             Query statement,
             QualifiedObjectName materializedViewQualifiedObjectName)
     {
@@ -64,7 +68,7 @@ public class MaterializedViewOptimizationRewriterUtils
         Table materializedViewTable = new Table(QualifiedName.of(materializedView.getTable()));
 
         Query materializedViewDefinition = (Query) sqlParser.createStatement(materializedView.getOriginalSql());
-        Query rewriteBaseToViewQuery = (Query) new MaterializedViewQueryOptimizer(materializedViewTable, materializedViewDefinition).rewrite(statement);
+        Query rewriteBaseToViewQuery = (Query) new MaterializedViewQueryOptimizer(metadata, session, sqlParser, accessControl, new RowExpressionDomainTranslator(metadata), materializedViewTable, materializedViewDefinition).rewrite(statement);
         return rewriteBaseToViewQuery;
     }
 
