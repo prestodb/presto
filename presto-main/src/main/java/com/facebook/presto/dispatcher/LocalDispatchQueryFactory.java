@@ -24,6 +24,7 @@ import com.facebook.presto.execution.QueryPreparer.PreparedQuery;
 import com.facebook.presto.execution.QueryStateMachine;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.resourceGroups.QueryType;
@@ -52,6 +53,7 @@ public class LocalDispatchQueryFactory
     private final Metadata metadata;
     private final QueryMonitor queryMonitor;
     private final LocationFactory locationFactory;
+    private final Boolean isResourceManagerEnabled;
 
     private final ClusterSizeMonitor clusterSizeMonitor;
 
@@ -71,7 +73,8 @@ public class LocalDispatchQueryFactory
             Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories,
             ClusterSizeMonitor clusterSizeMonitor,
             DispatchExecutor dispatchExecutor,
-            QueryPrerequisitesManager queryPrerequisitesManager)
+            QueryPrerequisitesManager queryPrerequisitesManager,
+            ServerConfig serverConfig)
     {
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
@@ -80,6 +83,7 @@ public class LocalDispatchQueryFactory
         this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
         this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
         this.executionFactories = requireNonNull(executionFactories, "executionFactories is null");
+        this.isResourceManagerEnabled = requireNonNull(serverConfig, "serverConfig is null").isResourceManagerEnabled();
 
         this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
 
@@ -132,6 +136,7 @@ public class LocalDispatchQueryFactory
                 queryQueuer,
                 queryManager::createQuery,
                 retryCount > 0,
-                queryPrerequisitesManager);
+                queryPrerequisitesManager,
+                isResourceManagerEnabled);
     }
 }

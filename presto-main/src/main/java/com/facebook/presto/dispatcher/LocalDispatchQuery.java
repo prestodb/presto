@@ -73,6 +73,7 @@ public class LocalDispatchQuery
     private final AtomicReference<Optional<ResourceGroupQueryLimits>> resourceGroupQueryLimits = new AtomicReference<>(Optional.empty());
 
     private final boolean retry;
+    private final boolean isResourceManagerEnabled;
 
     private final QueryPrerequisites queryPrerequisites;
     private final WarningCollector warningCollector;
@@ -86,7 +87,8 @@ public class LocalDispatchQuery
             Consumer<DispatchQuery> queryQueuer,
             Consumer<QueryExecution> querySubmitter,
             boolean retry,
-            QueryPrerequisites queryPrerequisites)
+            QueryPrerequisites queryPrerequisites,
+            boolean isResourceManagerEnabled)
     {
         this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
         this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
@@ -98,6 +100,8 @@ public class LocalDispatchQuery
         this.retry = retry;
         this.queryPrerequisites = requireNonNull(queryPrerequisites, "queryPrerequisites is null");
         this.warningCollector = requireNonNull(stateMachine.getWarningCollector(), "warningCollector is null");
+        this.isResourceManagerEnabled = isResourceManagerEnabled;
+
         addExceptionCallback(queryExecutionFuture, throwable -> {
             if (stateMachine.transitionToFailed(throwable)) {
                 queryMonitor.queryImmediateFailureEvent(stateMachine.getBasicQueryInfo(Optional.empty()), toFailure(throwable));
@@ -171,7 +175,12 @@ public class LocalDispatchQuery
     public void startWaitingForResources()
     {
         if (stateMachine.transitionToWaitingForResources()) {
-            waitForMinimumWorkers();
+            if (isResourceManagerEnabled) {
+                waitForMinimumResourceManagers();
+            }
+            else {
+                waitForMinimumWorkers();
+            }
         }
     }
 
@@ -181,6 +190,14 @@ public class LocalDispatchQuery
         // when worker requirement is met, wait for query execution to finish construction and then start the execution
         addSuccessCallback(minimumWorkerFuture, () -> addSuccessCallback(queryExecutionFuture, this::startExecution));
         addExceptionCallback(minimumWorkerFuture, throwable -> queryExecutor.execute(() -> fail(throwable)));
+    }
+
+    private void waitForMinimumResourceManagers()
+    {
+        ListenableFuture<?> minimumResourceManagersFuture = clusterSizeMonitor.waitForMinimumResourceManagers();
+        // when resource manager requirement is met, wait for minimum workers
+        addSuccessCallback(minimumResourceManagersFuture, this::waitForMinimumWorkers);
+        addExceptionCallback(minimumResourceManagersFuture, throwable -> queryExecutor.execute(() -> fail(throwable)));
     }
 
     private void startExecution(QueryExecution queryExecution)
