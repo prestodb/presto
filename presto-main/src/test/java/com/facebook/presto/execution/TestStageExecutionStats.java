@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.stats.Distribution;
 import com.facebook.airlift.stats.Distribution.DistributionSnapshot;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.spi.eventlistener.StageGcStatistics;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -86,7 +87,8 @@ public class TestStageExecutionStats
                     106,
                     107),
 
-            ImmutableList.of());
+            ImmutableList.of(),
+            new RuntimeStats());
 
     @Test
     public void testJson()

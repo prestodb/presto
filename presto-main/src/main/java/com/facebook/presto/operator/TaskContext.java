@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.airlift.stats.GcMonitor;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskMetadataContext;
@@ -131,6 +132,10 @@ public class TaskContext
     private final TaskMetadataContext taskMetadataContext;
 
     private final Optional<PlanNode> taskPlan;
+
+    // Only contains metrics exposed in this task. Doesn't contain the metrics exposed in the operators.
+    // This is merged with the operator metrics when generating the TaskStats in {@link #getTaskStats}.
+    private final RuntimeStats runtimeStats = new RuntimeStats();
 
     public static TaskContext createTaskContext(
             QueryContext queryContext,
@@ -438,6 +443,11 @@ public class TaskContext
         return toIntExact(max(0, endFullGcCount - startFullGcCount));
     }
 
+    public RuntimeStats getRuntimeStats()
+    {
+        return runtimeStats;
+    }
+
     public TaskStats getTaskStats()
     {
         // check for end state to avoid callback ordering problems
@@ -471,6 +481,7 @@ public class TaskContext
         long outputPositions = 0;
 
         long physicalWrittenDataSize = 0;
+        RuntimeStats mergedRuntimeStats = RuntimeStats.copyOf(runtimeStats);
 
         for (PipelineStats pipeline : pipelineStats) {
             if (pipeline.getLastEndTime() != null) {
@@ -505,6 +516,7 @@ public class TaskContext
             }
 
             physicalWrittenDataSize += pipeline.getPhysicalWrittenDataSizeInBytes();
+            pipeline.getOperatorSummaries().stream().forEach(stats -> mergedRuntimeStats.mergeWith(stats.getRuntimeStats()));
         }
 
         long startNanos = this.startNanos.get();
@@ -592,7 +604,8 @@ public class TaskContext
                 physicalWrittenDataSize,
                 fullGcCount,
                 fullGcTime.toMillis(),
-                pipelineStats);
+                pipelineStats,
+                mergedRuntimeStats);
     }
 
     public void updatePeakMemory()
