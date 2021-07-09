@@ -14,13 +14,11 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.sql.tree.AllColumns;
-import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.GroupBy;
 import com.facebook.presto.sql.tree.GroupingElement;
 import com.facebook.presto.sql.tree.Identifier;
-import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.Select;
@@ -51,6 +49,7 @@ public class MaterializedViewInformationExtractor
         if (node.getHaving().isPresent()) {
             throw new SemanticException(NOT_SUPPORTED, node, "Having clause is not supported in query optimizer");
         }
+        materializedViewInfo.setWhereClause(node.getWhere());
         return super.visitQuerySpecification(node, context);
     }
 
@@ -92,20 +91,6 @@ public class MaterializedViewInformationExtractor
     protected Void visitGroupBy(GroupBy node, Void context)
     {
         materializedViewInfo.setGroupBy(Optional.of(ImmutableSet.copyOf(node.getGroupingElements())));
-        return null;
-    }
-
-    @Override
-    protected Void visitLogicalBinaryExpression(LogicalBinaryExpression node, Void context)
-    {
-        materializedViewInfo.setWhereClause(Optional.of(node));
-        return null;
-    }
-
-    @Override
-    protected Void visitComparisonExpression(ComparisonExpression node, Void context)
-    {
-        materializedViewInfo.setWhereClause(Optional.of(node));
         return null;
     }
 
