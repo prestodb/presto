@@ -29,6 +29,11 @@ public class RuntimeMetric
     private long max = Long.MIN_VALUE;
     private long min = Long.MAX_VALUE;
 
+    /**
+     * Creates a new empty RuntimeMetric.
+     *
+     * @param name Name of this metric. If used in the presto core code base, this should be a value defined in {@link RuntimeMetricName}. But connectors could use arbitrary names.
+     */
     public RuntimeMetric(String name)
     {
         this.name = name;
