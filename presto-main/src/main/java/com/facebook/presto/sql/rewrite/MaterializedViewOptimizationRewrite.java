@@ -46,7 +46,7 @@ public class MaterializedViewOptimizationRewrite
             AccessControl accessControl,
             WarningCollector warningCollector)
     {
-        return (Statement) new MaterializedViewOptimizationRewrite.Visitor(metadata, session, parser).process(node, null);
+        return (Statement) new MaterializedViewOptimizationRewrite.Visitor(metadata, session, parser, accessControl).process(node, null);
     }
 
     private static final class Visitor
@@ -55,15 +55,18 @@ public class MaterializedViewOptimizationRewrite
         private final Metadata metadata;
         private final Session session;
         private final SqlParser sqlParser;
+        private final AccessControl accessControl;
 
         public Visitor(
                 Metadata metadata,
                 Session session,
-                SqlParser parser)
+                SqlParser parser,
+                AccessControl accessControl)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.session = requireNonNull(session, "session is null");
             this.sqlParser = requireNonNull(parser, "queryPreparer is null");
+            this.accessControl = requireNonNull(accessControl, "access control is null");
         }
 
         @Override
@@ -75,7 +78,7 @@ public class MaterializedViewOptimizationRewrite
         protected Node visitQuery(Query query, Void context)
         {
             if (SystemSessionProperties.isQueryOptimizationWithMaterializedViewEnabled(session)) {
-                return optimizeQueryUsingMaterializedView(metadata, session, sqlParser, query).orElse(query);
+                return optimizeQueryUsingMaterializedView(metadata, session, sqlParser, accessControl, query);
             }
             return query;
         }
