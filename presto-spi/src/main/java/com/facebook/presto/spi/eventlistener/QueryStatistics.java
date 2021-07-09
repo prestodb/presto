@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi.eventlistener;
 
+import com.facebook.presto.common.RuntimeStats;
+
 import java.time.Duration;
 import java.util.Optional;
 
@@ -54,6 +56,7 @@ public class QueryStatistics
 
     private final int completedSplits;
     private final boolean complete;
+    private final RuntimeStats runtimeStats;
 
     public QueryStatistics(
             Duration cpuTime,
@@ -85,7 +88,8 @@ public class QueryStatistics
             double cumulativeMemory,
             double cumulativeTotalMemory,
             int completedSplits,
-            boolean complete)
+            boolean complete,
+            RuntimeStats runtimeStats)
     {
         this.cpuTime = requireNonNull(cpuTime, "cpuTime is null");
         this.retriedCpuTime = requireNonNull(retriedCpuTime, "retriedCpuTime is null");
@@ -117,6 +121,7 @@ public class QueryStatistics
         this.cumulativeTotalMemory = cumulativeTotalMemory;
         this.completedSplits = completedSplits;
         this.complete = complete;
+        this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
     }
 
     public Duration getCpuTime()
@@ -267,5 +272,10 @@ public class QueryStatistics
     public boolean isComplete()
     {
         return complete;
+    }
+
+    public RuntimeStats getRuntimeStats()
+    {
+        return runtimeStats;
     }
 }

@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.common.RuntimeStats;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.joda.time.DateTime;
@@ -72,7 +73,8 @@ public class TestTaskStats
             26,
             27,
 
-            ImmutableList.of(TestPipelineStats.EXPECTED));
+            ImmutableList.of(TestPipelineStats.EXPECTED),
+            new RuntimeStats());
 
     @Test
     public void testJson()
