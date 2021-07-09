@@ -14,6 +14,23 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.Session;
+import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.expressions.LogicalRowExpressions;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.relational.FunctionResolution;
+import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
+import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
+import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
@@ -37,9 +54,19 @@ import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.Table;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
+import java.util.ArrayList;
+import java.util.Optional;
+
+import static com.facebook.presto.expressions.LogicalRowExpressions.and;
+import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
+import static com.facebook.presto.spi.relation.DomainTranslator.BASIC_COLUMN_EXTRACTOR;
+import static com.facebook.presto.spi.relation.DomainTranslator.ExtractionResult;
 import static com.facebook.presto.sql.analyzer.MaterializedViewInformationExtractor.MaterializedViewInfo;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.sql.relational.Expressions.call;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -48,15 +75,38 @@ public class MaterializedViewQueryOptimizer
 {
     private static final Logger logger = Logger.get(MaterializedViewQueryOptimizer.class);
 
+    private final Metadata metadata;
+    private final Session session;
+    private final SqlParser sqlParser;
+    private final AccessControl accessControl;
+    private final RowExpressionDomainTranslator domainTranslator;
     private final Table materializedView;
     private final Query materializedViewQuery;
+    private final LogicalRowExpressions logicalRowExpressions;
 
     private MaterializedViewInfo materializedViewInfo;
 
-    public MaterializedViewQueryOptimizer(Table materializedView, Query materializedViewQuery)
+    public MaterializedViewQueryOptimizer(
+            Metadata metadata,
+            Session session,
+            SqlParser sqlParser,
+            AccessControl accessControl,
+            RowExpressionDomainTranslator domainTranslator,
+            Table materializedView,
+            Query materializedViewQuery)
     {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.session = requireNonNull(session, "session is null");
+        this.sqlParser = requireNonNull(sqlParser, "sql parser is null");
+        this.accessControl = requireNonNull(accessControl, "access control is null");
+        this.domainTranslator = requireNonNull(domainTranslator, "row expression domain translator is null");
         this.materializedView = requireNonNull(materializedView, "materialized view is null");
         this.materializedViewQuery = requireNonNull(materializedViewQuery, "materialized view query is null");
+        FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
+        logicalRowExpressions = new LogicalRowExpressions(
+                new RowExpressionDeterminismEvaluator(functionAndTypeManager),
+                new FunctionResolution(functionAndTypeManager),
+                functionAndTypeManager);
     }
 
     public Node rewrite(Node node)
@@ -68,7 +118,7 @@ public class MaterializedViewQueryOptimizer
             return process(node);
         }
         catch (Exception ex) {
-            logger.error(ex.getMessage());
+            logger.warn(ex.getMessage());
             return node;
         }
     }
@@ -96,16 +146,51 @@ public class MaterializedViewQueryOptimizer
         if (!node.getFrom().isPresent()) {
             throw new IllegalStateException("Query with no From clause is not rewritable by materialized view");
         }
-        // TODO: Handle filter containment problem https://github.com/prestodb/presto/issues/16405
-        if (materializedViewInfo.getWhereClause().isPresent() && !materializedViewInfo.getWhereClause().equals(node.getWhere())) {
-            throw new IllegalStateException("Query with no where clause is not rewritable by materialized view with where clause");
-        }
         if (materializedViewInfo.getGroupBy().isPresent() && !node.getGroupBy().isPresent()) {
             throw new IllegalStateException("Query with no groupBy clause is not rewritable by materialized view with groupBy clause");
         }
         // TODO: Add HAVING validation to the validator https://github.com/prestodb/presto/issues/16406
         if (node.getHaving().isPresent()) {
             throw new SemanticException(NOT_SUPPORTED, node, "Having clause is not supported in query optimizer");
+        }
+        if (materializedViewInfo.getWhereClause().isPresent()) {
+            if (!node.getWhere().isPresent()) {
+                throw new IllegalStateException("Query with no where clause is not rewritable by materialized view with where clause");
+            }
+            if (!(node.getFrom().get() instanceof Table)) {
+                throw new SemanticException(NOT_SUPPORTED, node, "Relation other than Table is not supported in query optimizer");
+            }
+            Table baseTable = (Table) node.getFrom().get();
+            QualifiedObjectName baseTableName = createQualifiedObjectName(session, baseTable, baseTable.getName());
+
+            Optional<TableHandle> tableHandle = metadata.getTableHandle(session, baseTableName);
+            if (!tableHandle.isPresent()) {
+                throw new SemanticException(MISSING_TABLE, node, "Table does not exist");
+            }
+
+            ImmutableList.Builder<Field> fields = ImmutableList.builder();
+
+            for (ColumnHandle columnHandle : metadata.getColumnHandles(session, tableHandle.get()).values()) {
+                ColumnMetadata columnMetadata = metadata.getColumnMetadata(session, tableHandle.get(), columnHandle);
+                fields.add(Field.newUnqualified(columnMetadata.getName(), columnMetadata.getType()));
+            }
+
+            Scope scope = Scope.builder()
+                    .withRelationType(RelationId.anonymous(), new RelationType(fields.build()))
+                    .build();
+            RowExpression materializedViewWhereCondition = convertToRowExpression(materializedViewInfo.getWhereClause().get(), scope);
+            RowExpression baseQueryWhereCondition = convertToRowExpression(node.getWhere().get(), scope);
+            RowExpression rewriteLogicExpression = and(baseQueryWhereCondition,
+                    call("not",
+                            new FunctionResolution(metadata.getFunctionAndTypeManager()).notFunction(),
+                            materializedViewWhereCondition.getType(),
+                            materializedViewWhereCondition));
+            RowExpression disjunctiveNormalForm = logicalRowExpressions.convertToDisjunctiveNormalForm(rewriteLogicExpression);
+            ExtractionResult result = domainTranslator.fromPredicate(session.toConnectorSession(), disjunctiveNormalForm, BASIC_COLUMN_EXTRACTOR);
+
+            if (!result.getTupleDomain().equals(TupleDomain.none())) {
+                throw new IllegalStateException("View filter condition does not contain base query's filter condition");
+            }
         }
 
         return new QuerySpecification(
@@ -255,5 +340,24 @@ public class MaterializedViewQueryOptimizer
             rewrittenSimpleGroupBy.add((Expression) process(column, context));
         }
         return new SimpleGroupBy(rewrittenSimpleGroupBy.build());
+    }
+
+    private RowExpression convertToRowExpression(Expression expression, Scope scope)
+    {
+        ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
+                session,
+                metadata,
+                accessControl,
+                sqlParser,
+                scope,
+                new Analysis(null, new ArrayList<>(), false),
+                expression,
+                WarningCollector.NOOP);
+        return SqlToRowExpressionTranslator.translate(
+                expression,
+                expressionAnalysis.getExpressionTypes(),
+                ImmutableMap.of(),
+                metadata.getFunctionAndTypeManager(),
+                session);
     }
 }
