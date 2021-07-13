@@ -164,7 +164,7 @@ public interface Block
 
     /**
      * Gets the value at the specified position as a single element block.  The method
-     * must copy the data into a new block.
+     * must copy the data into a new block, if there are more elements in the block.
      * <p>
      * This method is useful for operators that hold on to a single value without
      * holding on to the entire block.

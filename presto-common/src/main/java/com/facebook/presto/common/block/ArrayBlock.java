@@ -208,4 +208,24 @@ public class ArrayBlock
                 offsets,
                 loadedValuesBlock);
     }
+
+    private boolean isSinglePositionBlock(int position)
+    {
+        // Verify the array has only one element
+        if (position == 0 && positionCount == 1) {
+            // verify offsets array has only one element.
+            return offsets.length == 2;
+        }
+        return false;
+    }
+
+    @Override
+    public Block getSingleValueBlock(int position)
+    {
+        if (isSinglePositionBlock(position)) {
+            return this;
+        }
+
+        return getSingleValueBlockInternal(position);
+    }
 }
