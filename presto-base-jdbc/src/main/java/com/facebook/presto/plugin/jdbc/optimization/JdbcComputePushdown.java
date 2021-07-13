@@ -28,17 +28,22 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.PlanVisitor;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.expressions.translator.FunctionTranslator.buildFunctionTranslator;
 import static com.facebook.presto.expressions.translator.RowExpressionTreeTranslator.translateWith;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class JdbcComputePushdown
@@ -132,16 +137,60 @@ public class JdbcComputePushdown
                     jdbcFilterToSqlTranslator,
                     oldTableScanNode.getAssignments());
 
-            // TODO if jdbcExpression is not present, walk through translated subtree to find out which parts can be pushed down
-            if (!oldTableHandle.getLayout().isPresent() || !jdbcExpression.getTranslated().isPresent()) {
+            if (!oldTableHandle.getLayout().isPresent()) {
                 return node;
             }
 
+            Optional<JdbcExpression> translated = jdbcExpression.getTranslated();
+            // All filter can pushdown
+            if (translated.isPresent()) {
+                return createNewTableScanNode(oldTableScanNode, oldTableHandle, oldConnectorTable, translated);
+            }
+            else {
+                // Find out which parts can be pushed down
+                List<RowExpression> pushable = new ArrayList<>();
+                List<RowExpression> nonPushable = new ArrayList<>();
+                List<JdbcExpression> translatedExpressions = new ArrayList<>();
+
+                List<RowExpression> rowExpressions = LogicalRowExpressions.extractConjuncts(predicate);
+                for (RowExpression expression : rowExpressions) {
+                    TranslatedExpression<JdbcExpression> translatedExpression = translateWith(
+                            expression,
+                            jdbcFilterToSqlTranslator,
+                            oldTableScanNode.getAssignments());
+
+                    if (!translatedExpression.getTranslated().isPresent()) {
+                        nonPushable.add(expression);
+                    }
+                    else {
+                        translatedExpressions.add(translatedExpression.getTranslated().get());
+                        pushable.add(expression);
+                    }
+                }
+
+                // All filter can't pushdown
+                if (!nonPushable.isEmpty() && pushable.isEmpty()) {
+                    return node;
+                }
+                else { // Part of the filter can be pushed down
+                    List<String> sqlBodies = JdbcFilterToSqlTranslator.mergeSqlBodies(translatedExpressions);
+                    List<ConstantExpression> variableBindings = JdbcFilterToSqlTranslator.mergeVariableBindings(translatedExpressions);
+                    translated = Optional.of(new JdbcExpression(format("%s", Joiner.on(" AND ").join(sqlBodies)), variableBindings));
+                    TableScanNode newTableScanNode = createNewTableScanNode(oldTableScanNode, oldTableHandle, oldConnectorTable, translated);
+
+                    return new FilterNode(idAllocator.getNextId(), newTableScanNode, logicalRowExpressions.combineConjuncts(nonPushable));
+                }
+            }
+        }
+
+        private TableScanNode createNewTableScanNode(TableScanNode oldTableScanNode, TableHandle oldTableHandle,
+                JdbcTableHandle oldConnectorTable, Optional<JdbcExpression> additionalPredicate)
+        {
             JdbcTableLayoutHandle oldTableLayoutHandle = (JdbcTableLayoutHandle) oldTableHandle.getLayout().get();
             JdbcTableLayoutHandle newTableLayoutHandle = new JdbcTableLayoutHandle(
                     oldConnectorTable,
                     oldTableLayoutHandle.getTupleDomain(),
-                    jdbcExpression.getTranslated());
+                    additionalPredicate);
 
             TableHandle tableHandle = new TableHandle(
                     oldTableHandle.getConnectorId(),
@@ -149,15 +198,13 @@ public class JdbcComputePushdown
                     oldTableHandle.getTransaction(),
                     Optional.of(newTableLayoutHandle));
 
-            TableScanNode newTableScanNode = new TableScanNode(
+            return new TableScanNode(
                     idAllocator.getNextId(),
                     tableHandle,
                     oldTableScanNode.getOutputVariables(),
                     oldTableScanNode.getAssignments(),
                     oldTableScanNode.getCurrentConstraint(),
                     oldTableScanNode.getEnforcedConstraint());
-
-            return new FilterNode(idAllocator.getNextId(), newTableScanNode, node.getPredicate());
         }
     }
 }

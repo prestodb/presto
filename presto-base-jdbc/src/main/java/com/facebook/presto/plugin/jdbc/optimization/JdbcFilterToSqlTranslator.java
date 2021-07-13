@@ -131,14 +131,8 @@ public class JdbcFilterToSqlTranslator
             return untranslated(specialForm, translatedExpressions);
         }
 
-        List<String> sqlBodies = jdbcExpressions.stream()
-                .map(JdbcExpression::getExpression)
-                .map(sql -> '(' + sql + ')')
-                .collect(toImmutableList());
-        List<ConstantExpression> variableBindings = jdbcExpressions.stream()
-                .map(JdbcExpression::getBoundConstantValues)
-                .flatMap(List::stream)
-                .collect(toImmutableList());
+        List<String> sqlBodies = mergeSqlBodies(jdbcExpressions);
+        List<ConstantExpression> variableBindings = mergeVariableBindings(jdbcExpressions);
 
         switch (specialForm.getForm()) {
             case AND:
@@ -158,6 +152,22 @@ public class JdbcFilterToSqlTranslator
                         translatedExpressions);
         }
         return untranslated(specialForm, translatedExpressions);
+    }
+
+    public static List<String> mergeSqlBodies(List<JdbcExpression> jdbcExpressions)
+    {
+        return jdbcExpressions.stream()
+                .map(JdbcExpression::getExpression)
+                .map(sql -> '(' + sql + ')')
+                .collect(toImmutableList());
+    }
+
+    public static List<ConstantExpression> mergeVariableBindings(List<JdbcExpression> jdbcExpressions)
+    {
+        return jdbcExpressions.stream()
+                .map(JdbcExpression::getBoundConstantValues)
+                .flatMap(List::stream)
+                .collect(toImmutableList());
     }
 
     private static boolean isSupportedType(Type type)
