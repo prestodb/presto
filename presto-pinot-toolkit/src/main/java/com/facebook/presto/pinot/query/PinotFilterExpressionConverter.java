@@ -90,6 +90,16 @@ public class PinotFilterExpressionConverter
                         .collect(Collectors.joining(", "))));
     }
 
+    private PinotExpression handleIsNull(
+            SpecialFormExpression specialForm,
+            boolean isWhitelist,
+            Function<VariableReferenceExpression, Selection> context)
+    {
+        return derived(format("(%s %s)",
+                specialForm.getArguments().get(0).accept(this, context).getDefinition(),
+                isWhitelist ? "IS NULL" : "IS NOT NULL"));
+    }
+
     private PinotExpression handleLogicalBinary(
             String operator,
             CallExpression call,
@@ -244,9 +254,12 @@ public class PinotFilterExpressionConverter
             RowExpression input = not.getArguments().get(0);
             if (input instanceof SpecialFormExpression) {
                 SpecialFormExpression specialFormExpression = (SpecialFormExpression) input;
-                // NOT operator is only supported on top of the IN expression
+                // NOT operator is only supported on top of the IN expression and IS NULL expression
                 if (specialFormExpression.getForm() == SpecialFormExpression.Form.IN) {
                     return handleIn(specialFormExpression, false, context);
+                }
+                else if (specialFormExpression.getForm() == SpecialFormExpression.Form.IS_NULL) {
+                    return handleIsNull(specialFormExpression, false, context);
                 }
             }
         }
@@ -370,7 +383,6 @@ public class PinotFilterExpressionConverter
             case NULL_IF:
             case SWITCH:
             case WHEN:
-            case IS_NULL:
             case COALESCE:
             case DEREFERENCE:
             case ROW_CONSTRUCTOR:
@@ -378,6 +390,8 @@ public class PinotFilterExpressionConverter
                 throw new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), "Pinot does not support the special form " + specialForm);
             case IN:
                 return handleIn(specialForm, true, context);
+            case IS_NULL:
+                return handleIsNull(specialForm, true, context);
             case AND:
             case OR:
                 return derived(format(
