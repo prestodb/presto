@@ -319,8 +319,7 @@ public abstract class AbstractMapBlock
         }
     }
 
-    @Override
-    public Block getSingleValueBlock(int position)
+    protected Block getSingleValueBlockInternal(int position)
     {
         checkReadablePosition(position);
 

@@ -174,6 +174,12 @@ public class MapBlockBuilder
     }
 
     @Override
+    public Block getSingleValueBlock(int position)
+    {
+        return getSingleValueBlockInternal(position);
+    }
+
+    @Override
     public SingleMapBlockWriter beginBlockEntry()
     {
         if (currentEntryOpened) {
