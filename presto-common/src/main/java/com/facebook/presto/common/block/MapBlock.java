@@ -47,7 +47,6 @@ public class MapBlock
     /**
      * Create a map block directly from columnar nulls, keys, values, and offsets into the keys and values.
      * A null map must have no entries.
-     *
      */
     public static MapBlock fromKeyValueBlock(
             int positionCount,
@@ -72,7 +71,6 @@ public class MapBlock
      * Create a map block directly without per element validations.
      * <p>
      * Internal use by this package and com.facebook.presto.spi.Type only.
-     *
      */
     public static MapBlock createMapBlockInternal(
             int startOffset,
@@ -215,6 +213,21 @@ public class MapBlock
             calculateSize();
         }
         return sizeInBytes;
+    }
+
+    private boolean isSinglePositionBlock(int position)
+    {
+        return position == 0 && positionCount == 1 && offsets.length == 2;
+    }
+
+    @Override
+    public Block getSingleValueBlock(int position)
+    {
+        if (isSinglePositionBlock(position)) {
+            return this;
+        }
+
+        return getSingleValueBlockInternal(position);
     }
 
     private void calculateSize()

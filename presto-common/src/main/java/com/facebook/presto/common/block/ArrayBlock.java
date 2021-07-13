@@ -208,4 +208,19 @@ public class ArrayBlock
                 offsets,
                 loadedValuesBlock);
     }
+
+    private boolean isSinglePositionBlock(int position)
+    {
+        return position == 0 && positionCount == 1 && offsets.length == 2;
+    }
+
+    @Override
+    public Block getSingleValueBlock(int position)
+    {
+        if (isSinglePositionBlock(position)) {
+            return this;
+        }
+
+        return getSingleValueBlockInternal(position);
+    }
 }
