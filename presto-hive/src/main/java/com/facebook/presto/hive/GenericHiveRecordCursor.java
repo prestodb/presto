@@ -565,6 +565,12 @@ class GenericHiveRecordCursor<K, V extends Writable>
     }
 
     @Override
+    public long getSystemMemoryUsage()
+    {
+        return totalBytes;
+    }
+
+    @Override
     public void close()
     {
         // some hive input formats are broken and bad things can happen if you close them multiple times
