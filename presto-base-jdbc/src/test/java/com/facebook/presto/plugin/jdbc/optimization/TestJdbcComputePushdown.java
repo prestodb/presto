@@ -126,7 +126,7 @@ public class TestJdbcComputePushdown
         PlanNode actual = this.jdbcComputePushdown.optimize(original, session, null, ID_ALLOCATOR);
         assertPlanMatch(
                 actual,
-                PlanMatchPattern.filter(expression, JdbcTableScanMatcher.jdbcTableScanPattern(jdbcTableLayoutHandle, columns)));
+                JdbcTableScanMatcher.jdbcTableScanPattern(jdbcTableLayoutHandle, columns));
     }
 
     @Test
@@ -151,7 +151,7 @@ public class TestJdbcComputePushdown
         PlanNode actual = this.jdbcComputePushdown.optimize(original, session, null, ID_ALLOCATOR);
         assertPlanMatch(
                 actual,
-                PlanMatchPattern.filter(expression, JdbcTableScanMatcher.jdbcTableScanPattern(jdbcTableLayoutHandle, columns)));
+                JdbcTableScanMatcher.jdbcTableScanPattern(jdbcTableLayoutHandle, columns));
     }
 
     @Test
@@ -197,9 +197,7 @@ public class TestJdbcComputePushdown
 
         ConnectorSession session = new TestingConnectorSession(ImmutableList.of());
         PlanNode actual = this.jdbcComputePushdown.optimize(original, session, null, ID_ALLOCATOR);
-        assertPlanMatch(actual, PlanMatchPattern.filter(
-                expression,
-                JdbcTableScanMatcher.jdbcTableScanPattern(jdbcTableLayoutHandle, columns)));
+        assertPlanMatch(actual, JdbcTableScanMatcher.jdbcTableScanPattern(jdbcTableLayoutHandle, columns));
     }
 
     @Test
@@ -219,6 +217,82 @@ public class TestJdbcComputePushdown
                 jdbcTableHandle,
                 TupleDomain.none(),
                 Optional.of(new JdbcExpression("(('c1') AND ((NOT('c2'))))")));
+
+        ConnectorSession session = new TestingConnectorSession(ImmutableList.of());
+        PlanNode actual = this.jdbcComputePushdown.optimize(original, session, null, ID_ALLOCATOR);
+        assertPlanMatch(actual, JdbcTableScanMatcher.jdbcTableScanPattern(jdbcTableLayoutHandle, columns));
+    }
+
+    @Test
+    public void testJdbcComputePartialPushdown()
+    {
+        String table = "test_table";
+        String schema = "test_schema";
+
+        // CAST(c1 AS varchar(1024)) = '123' cannot be pushed down, but c1 + c2 = 3 can.
+        String expression = "CAST(c1 AS varchar(1024)) = '123' and c1 + c2 = 3";
+        TypeProvider typeProvider = TypeProvider.copyOf(ImmutableMap.of("c1", BIGINT, "c2", BIGINT));
+        RowExpression rowExpression = sqlToRowExpressionTranslator.translateAndOptimize(expression(expression), typeProvider);
+        PlanNode original = filter(jdbcTableScan(schema, table, BIGINT, "c1", "c2"), rowExpression);
+
+        Set<ColumnHandle> columns = Stream.of("c1", "c2").map(TestJdbcComputePushdown::booleanJdbcColumnHandle).collect(Collectors.toSet());
+        JdbcTableHandle jdbcTableHandle = new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName(schema, table), CATALOG_NAME, schema, table);
+        JdbcTableLayoutHandle jdbcTableLayoutHandle = new JdbcTableLayoutHandle(
+                jdbcTableHandle,
+                TupleDomain.none(),
+                Optional.of(new JdbcExpression("((('c1' + 'c2') = ?))", ImmutableList.of(new ConstantExpression(3L, INTEGER)))));
+
+        ConnectorSession session = new TestingConnectorSession(ImmutableList.of());
+        PlanNode actual = this.jdbcComputePushdown.optimize(original, session, null, ID_ALLOCATOR);
+        assertPlanMatch(actual, PlanMatchPattern.filter(
+                "CAST(c1 AS varchar(1024)) = '123'",
+                JdbcTableScanMatcher.jdbcTableScanPattern(jdbcTableLayoutHandle, columns)));
+    }
+
+    @Test
+    public void testJdbcComputePartialPushdownWithOrOperator()
+    {
+        String table = "test_table";
+        String schema = "test_schema";
+
+        // CAST(c1 AS varchar(1024)) = '123' cannot be pushed down, but c1 + c2 = 3 or c1 <> c2 can.
+        String expression = "CAST(c1 AS varchar(1024)) = '123' and (c1 + c2 = 3 or c1 <> c2)";
+        TypeProvider typeProvider = TypeProvider.copyOf(ImmutableMap.of("c1", BIGINT, "c2", BIGINT));
+        RowExpression rowExpression = sqlToRowExpressionTranslator.translateAndOptimize(expression(expression), typeProvider);
+        PlanNode original = filter(jdbcTableScan(schema, table, BIGINT, "c1", "c2"), rowExpression);
+
+        Set<ColumnHandle> columns = Stream.of("c1", "c2").map(TestJdbcComputePushdown::booleanJdbcColumnHandle).collect(Collectors.toSet());
+        JdbcTableHandle jdbcTableHandle = new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName(schema, table), CATALOG_NAME, schema, table);
+        JdbcTableLayoutHandle jdbcTableLayoutHandle = new JdbcTableLayoutHandle(
+                jdbcTableHandle,
+                TupleDomain.none(),
+                Optional.of(new JdbcExpression("((((('c1' + 'c2') = ?)) OR (('c1' <> 'c2'))))", ImmutableList.of(new ConstantExpression(3L, INTEGER)))));
+
+        ConnectorSession session = new TestingConnectorSession(ImmutableList.of());
+        PlanNode actual = this.jdbcComputePushdown.optimize(original, session, null, ID_ALLOCATOR);
+        assertPlanMatch(actual, PlanMatchPattern.filter(
+                "CAST(c1 AS varchar(1024)) = '123'",
+                JdbcTableScanMatcher.jdbcTableScanPattern(jdbcTableLayoutHandle, columns)));
+    }
+
+    @Test
+    public void testJdbcComputeNoPushdown()
+    {
+        String table = "test_table";
+        String schema = "test_schema";
+
+        // no filter can be pushed down
+        String expression = "CAST(c1 AS varchar(1024)) = '123' and ((c1 - c2) > c2 or c1 <> c2)";
+        TypeProvider typeProvider = TypeProvider.copyOf(ImmutableMap.of("c1", BIGINT, "c2", BIGINT));
+        RowExpression rowExpression = sqlToRowExpressionTranslator.translateAndOptimize(expression(expression), typeProvider);
+        PlanNode original = filter(jdbcTableScan(schema, table, BIGINT, "c1", "c2"), rowExpression);
+
+        Set<ColumnHandle> columns = Stream.of("c1", "c2").map(TestJdbcComputePushdown::booleanJdbcColumnHandle).collect(Collectors.toSet());
+        JdbcTableHandle jdbcTableHandle = new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName(schema, table), CATALOG_NAME, schema, table);
+        JdbcTableLayoutHandle jdbcTableLayoutHandle = new JdbcTableLayoutHandle(
+                jdbcTableHandle,
+                TupleDomain.none(),
+                Optional.empty());
 
         ConnectorSession session = new TestingConnectorSession(ImmutableList.of());
         PlanNode actual = this.jdbcComputePushdown.optimize(original, session, null, ID_ALLOCATOR);
