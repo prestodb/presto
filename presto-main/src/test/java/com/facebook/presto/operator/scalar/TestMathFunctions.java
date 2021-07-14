@@ -1290,6 +1290,40 @@ public class TestMathFunctions
     }
 
     @Test
+    public void testLinearInterpolate()
+    {
+        // In between points
+        assertFunction("linear_interpolate(3, array[2, 4], array[1, 2])", DOUBLE, 1.5);
+        assertFunction("linear_interpolate(4.5, array[2, 4, 5, 9], array[1, 2, 3, 4])", DOUBLE, 2.5);
+        assertFunction("linear_interpolate(6, array[2, 4, 5, 9], array[1, 2, 3, 4])", DOUBLE, 3.25);
+        assertFunction("linear_interpolate(6, array[2, 4, 5, 9], array[1, 2, 3, 2])", DOUBLE, 2.75);
+        assertFunction("linear_interpolate(-1.0, array[-3.5, 2.5], array[-1, 5])", DOUBLE, 1.5);
+
+        // On point values
+        assertFunction("linear_interpolate(9, array[2, 4, 5, 9], array[1, 2, 3, 4])", DOUBLE, 4.0);
+        assertFunction("linear_interpolate(2, array[2, 4, 5, 9], array[1, 2, 3, 4])", DOUBLE, 1.0);
+
+        // Out of bounds
+        assertFunction("linear_interpolate(-1, array[2, 4], array[1, 2])", DOUBLE, 1.0);
+        assertFunction("linear_interpolate(5, array[2, 4], array[1, 2])", DOUBLE, 2.0);
+
+        // Handle null inputs, including NULLs in y array
+        assertFunction("linear_interpolate(NULL, array[2, 4], array[1, 2])", DOUBLE, null);
+        assertFunction("linear_interpolate(3, NULL, array[1, 2])", DOUBLE, null);
+        assertFunction("linear_interpolate(3, array[2, 4], NULL)", DOUBLE, null);
+        assertFunction("linear_interpolate(3, array[2, 4], array[NULL, 2])", DOUBLE, null);
+
+        // Do not evaluate on bad input, NULL in x array is invalid due to increasing condition
+        assertInvalidFunction("linear_interpolate(3, array[], array[])", "Arrays must have length >= 2");
+        assertInvalidFunction("linear_interpolate(3, array[1, 2], array[4, 5, 6])", "Arrays must be the same length");
+        assertInvalidFunction("linear_interpolate(3, array[2, NULL], array[1, 2])", "x array must be strictly increasing");
+        assertInvalidFunction("linear_interpolate(3, array[NULL, NULL], array[1, 2])", "x array must be strictly increasing");
+        assertInvalidFunction("linear_interpolate(3, array[NULL, 2], array[1, 2])", "x array must be strictly increasing");
+        assertInvalidFunction("linear_interpolate(3, array[2, 2], array[1, 2])", "x array must be strictly increasing");
+        assertInvalidFunction("linear_interpolate(3, array[2, 1], array[1, 2])", "x array must be strictly increasing");
+    }
+
+    @Test
     public void testCosineSimilarity()
     {
         assertFunction("cosine_similarity(map(array ['a', 'b'], array [1.0E0, 2.0E0]), map(array ['c', 'b'], array [1.0E0, 3.0E0]))",
