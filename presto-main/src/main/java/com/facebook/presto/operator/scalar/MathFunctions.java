@@ -32,6 +32,7 @@ import com.google.common.primitives.Doubles;
 import io.airlift.slice.Slice;
 import org.apache.commons.math3.distribution.BetaDistribution;
 import org.apache.commons.math3.distribution.BinomialDistribution;
+import org.apache.commons.math3.distribution.CauchyDistribution;
 import org.apache.commons.math3.distribution.ChiSquaredDistribution;
 import org.apache.commons.math3.distribution.PoissonDistribution;
 import org.apache.commons.math3.special.Erf;
@@ -733,6 +734,33 @@ public final class MathFunctions
         checkCondition(a > 0, INVALID_FUNCTION_ARGUMENT, "a must be > 0");
         checkCondition(b > 0, INVALID_FUNCTION_ARGUMENT, "b must be > 0");
         BetaDistribution distribution = new BetaDistribution(null, a, b, BetaDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
+        return distribution.cumulativeProbability(value);
+    }
+
+    @Description("Inverse of Cauchy cdf for a given probability, median, and scale (gamma)")
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double inverseCauchyCdf(
+            @SqlType(StandardTypes.DOUBLE) double median,
+            @SqlType(StandardTypes.DOUBLE) double scale,
+            @SqlType(StandardTypes.DOUBLE) double p)
+    {
+        checkCondition(p >= 0 && p <= 1, INVALID_FUNCTION_ARGUMENT, "p must be in the interval [0, 1]");
+        checkCondition(scale > 0, INVALID_FUNCTION_ARGUMENT, "scale must be greater than 0");
+        CauchyDistribution distribution = new CauchyDistribution(null, median, scale, CauchyDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
+        return distribution.inverseCumulativeProbability(p);
+    }
+
+    @Description("Cauchy cdf for a given value, median, and scale (gamma)")
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double cauchyCdf(
+            @SqlType(StandardTypes.DOUBLE) double median,
+            @SqlType(StandardTypes.DOUBLE) double scale,
+            @SqlType(StandardTypes.DOUBLE) double value)
+    {
+        checkCondition(scale > 0, INVALID_FUNCTION_ARGUMENT, "scale must be greater than 0");
+        CauchyDistribution distribution = new CauchyDistribution(null, median, scale, CauchyDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
         return distribution.cumulativeProbability(value);
     }
 
