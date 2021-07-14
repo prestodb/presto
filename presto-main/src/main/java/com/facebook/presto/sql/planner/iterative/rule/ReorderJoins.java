@@ -421,7 +421,7 @@ public class ReorderJoins
                 case AUTOMATIC:
                     ImmutableList.Builder<JoinEnumerationResult> result = ImmutableList.builder();
                     result.addAll(getPossibleJoinNodes(joinNode, PARTITIONED));
-                    if (isBelowMaxBroadcastSize(joinNode, context)) {
+                    if (isBelowMaxBroadcastSize(joinNode, context) || isBelowMaxBroadcastSize(joinNode.flipChildren(), context)) {
                         result.addAll(getPossibleJoinNodes(joinNode, REPLICATED));
                     }
                     return result.build();
