@@ -292,11 +292,10 @@ If it is the first time to launch the Hive Metastore, prepare corresponding conf
 
 .. code-block:: console
 
-    $ export HIVE_HOME=`pwd`
-    $ cp conf/hive-default.xml.template conf/hive-site.xml
-    $ mkdir -p hcatalog/var/log/
-    # only required for the first time
-    $ bin/schematool -dbType derby -initSchema
+    export HIVE_HOME=`pwd`
+    cp conf/hive-default.xml.template conf/hive-site.xml
+    mkdir -p hcatalog/var/log/
+    bin/schematool -dbType derby -initSchema
 
 If you want to access AWS S3, append the following lines in ``conf/hive-env.sh``.
 Hive needs the corresponding jars to access files with ``s3a://`` addresses, and AWS credentials as well to access an S3 bucket (even it is public).
@@ -309,11 +308,16 @@ or download from `maven central repository <https://repo1.maven.org/>`_.
     export AWS_ACCESS_KEY_ID=<Your AWS Access Key>
     export AWS_SECRET_ACCESS_KEY=<Your AWS Secret Key>
 
-Start a Hive Metastore which will run in the background and listen on port 9083 (by default).
+Start a Hive Metastore which will run in the background and listen on port 9083 (by default):
 
 .. code-block:: console
 
-    $ hcatalog/sbin/hcat_server.sh start
+    hcatalog/sbin/hcat_server.sh start
+
+The output is similar to the following:
+
+.. code-block:: console
+
     Started metastore server init, testing if initialized correctly...
     Metastore initialized successfully on port[9083].
 
