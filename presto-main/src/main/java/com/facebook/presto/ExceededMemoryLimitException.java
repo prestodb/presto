@@ -30,9 +30,9 @@ public class ExceededMemoryLimitException
         return new ExceededMemoryLimitException(EXCEEDED_GLOBAL_MEMORY_LIMIT, format("Query exceeded distributed user memory limit of %s", maxMemory));
     }
 
-    public static ExceededMemoryLimitException exceededGlobalTotalLimit(DataSize maxMemory)
+    public static ExceededMemoryLimitException exceededGlobalTotalLimit(DataSize maxMemory, String limitSource)
     {
-        return new ExceededMemoryLimitException(EXCEEDED_GLOBAL_MEMORY_LIMIT, format("Query exceeded distributed total memory limit of %s", maxMemory));
+        return new ExceededMemoryLimitException(EXCEEDED_GLOBAL_MEMORY_LIMIT, format("Query exceeded distributed total memory limit of %s defined at the %s", maxMemory, limitSource));
     }
 
     public static ExceededMemoryLimitException exceededLocalUserMemoryLimit(DataSize maxMemory, String additionalFailureInfo)
