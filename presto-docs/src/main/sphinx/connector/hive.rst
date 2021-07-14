@@ -231,6 +231,10 @@ Property Name                                        Description
 
 ``hive.metastore.glue.default-warehouse-dir``        Hive Glue metastore default warehouse directory
 
+``hive.metastore.glue.aws-credentials-provider``     Fully qualified name of the Java class to use for obtaining
+                                                     AWS credentials. Can be used to supply a custom credentials
+                                                     provider.
+
 ``hive.metastore.glue.aws-access-key``               AWS access key to use to connect to the Glue Catalog. If
                                                      specified along with ``hive.metastore.glue.aws-secret-key``,
                                                      this parameter takes precedence over
