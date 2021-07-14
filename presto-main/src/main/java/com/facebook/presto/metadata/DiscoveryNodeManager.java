@@ -456,6 +456,12 @@ public final class DiscoveryNodeManager
     }
 
     @Override
+    public Set<InternalNode> getShuttingDownCoordinator()
+    {
+        return getNodes(SHUTTING_DOWN).stream().filter(InternalNode::isCoordinator).collect(toImmutableSet());
+    }
+
+    @Override
     public synchronized Set<InternalNode> getResourceManagers()
     {
         return resourceManagers;

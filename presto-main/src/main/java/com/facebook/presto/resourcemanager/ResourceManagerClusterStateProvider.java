@@ -48,6 +48,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.SystemSessionProperties.resourceOvercommit;
 import static com.facebook.presto.execution.QueryState.QUEUED;
@@ -60,6 +61,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.stream.Stream.concat;
 
 public class ResourceManagerClusterStateProvider
 {
@@ -141,8 +143,10 @@ public class ResourceManagerClusterStateProvider
     {
         requireNonNull(nodeId, "nodeId is null");
         requireNonNull(basicQueryInfo, "basicQueryInfo is null");
+        Stream<InternalNode> activeOrShuttingDownCoordinators = concat(internalNodeManager.getCoordinators().stream(),
+                internalNodeManager.getShuttingDownCoordinator().stream());
         checkArgument(
-                internalNodeManager.getCoordinators().stream().anyMatch(i -> nodeId.equals(i.getNodeIdentifier())),
+                activeOrShuttingDownCoordinators.anyMatch(i -> nodeId.equals(i.getNodeIdentifier())),
                 "%s is not a coordinator (coordinators: %s)",
                 nodeId,
                 internalNodeManager.getCoordinators().stream().collect(toImmutableSet()));

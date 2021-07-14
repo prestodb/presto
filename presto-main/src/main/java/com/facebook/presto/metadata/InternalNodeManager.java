@@ -31,6 +31,8 @@ public interface InternalNodeManager
 
     Set<InternalNode> getCoordinators();
 
+    Set<InternalNode> getShuttingDownCoordinator();
+
     Set<InternalNode> getResourceManagers();
 
     AllNodes getAllNodes();
