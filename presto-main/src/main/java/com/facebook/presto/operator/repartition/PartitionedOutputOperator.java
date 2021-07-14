@@ -275,10 +275,16 @@ public class PartitionedOutputOperator
         return null;
     }
 
+    @Override
+    public void close()
+    {
+        partitionFunction.closeMemoryContext();
+    }
+
     private static class PagePartitioner
     {
         private final OutputBuffer outputBuffer;
-        private final List<Type> sourceTypes;
+        private final Type[] sourceTypes;
         private final PartitionFunction partitionFunction;
         private final int[] partitionChannels;
         @Nullable
@@ -286,7 +292,7 @@ public class PartitionedOutputOperator
         private final PagesSerde serde;
         private final PageBuilder[] pageBuilders;
         private final boolean replicatesAnyRow;
-        private final OptionalInt nullChannel; // when present, send the position to every partition if this channel is null.
+        private final int nullChannel; // when >= 0, send the position to every partition if this channel is null
         private final AtomicLong rowsAdded = new AtomicLong();
         private final AtomicLong pagesAdded = new AtomicLong();
         private boolean hasAnyRowBeenReplicated;
@@ -317,9 +323,9 @@ public class PartitionedOutputOperator
                 this.partitionConstantBlocks = null;
             }
             this.replicatesAnyRow = replicatesAnyRow;
-            this.nullChannel = requireNonNull(nullChannel, "nullChannel is null");
+            this.nullChannel = requireNonNull(nullChannel, "nullChannel is null").orElse(-1);
             this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
-            this.sourceTypes = requireNonNull(sourceTypes, "sourceTypes is null");
+            this.sourceTypes = requireNonNull(sourceTypes, "sourceTypes is null").toArray(new Type[0]);
             this.serde = requireNonNull(serdeFactory, "serdeFactory is null").createPagesSerde();
             this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
             this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext(PartitionedOutputOperator.class.getSimpleName());
@@ -341,6 +347,11 @@ public class PartitionedOutputOperator
             for (int i = 0; i < partitionCount; i++) {
                 pageBuilders[i] = PageBuilder.withMaxPageSize(pageSize, sourceTypes);
             }
+        }
+
+        public void closeMemoryContext()
+        {
+            systemMemoryContext.close();
         }
 
         public ListenableFuture<?> isFull()
@@ -384,18 +395,41 @@ public class PartitionedOutputOperator
         public void partitionPage(Page page)
         {
             requireNonNull(page, "page is null");
+            if (page.getPositionCount() == 0) {
+                return;
+            }
+
+            int position;
+            // Handle "any row" replication outside of the inner loop processing
+            if (replicatesAnyRow && !hasAnyRowBeenReplicated) {
+                for (PageBuilder pageBuilder : pageBuilders) {
+                    appendRow(pageBuilder, page, 0);
+                }
+                hasAnyRowBeenReplicated = true;
+                position = 1;
+            }
+            else {
+                position = 0;
+            }
 
             Page partitionFunctionArgs = getPartitionFunctionArguments(page);
-            for (int position = 0; position < page.getPositionCount(); position++) {
-                boolean shouldReplicate = (replicatesAnyRow && !hasAnyRowBeenReplicated) ||
-                        nullChannel.isPresent() && page.getBlock(nullChannel.getAsInt()).isNull(position);
-                if (shouldReplicate) {
-                    for (PageBuilder pageBuilder : pageBuilders) {
-                        appendRow(pageBuilder, page, position);
+            // Skip null block checks if mayHaveNull reports that no positions will be null
+            if (nullChannel >= 0 && page.getBlock(nullChannel).mayHaveNull()) {
+                Block nullsBlock = page.getBlock(nullChannel);
+                for (; position < page.getPositionCount(); position++) {
+                    if (nullsBlock.isNull(position)) {
+                        for (PageBuilder pageBuilder : pageBuilders) {
+                            appendRow(pageBuilder, page, position);
+                        }
                     }
-                    hasAnyRowBeenReplicated = true;
+                    else {
+                        int partition = partitionFunction.getPartition(partitionFunctionArgs, position);
+                        appendRow(pageBuilders[partition], page, position);
+                    }
                 }
-                else {
+            }
+            else {
+                for (; position < page.getPositionCount(); position++) {
                     int partition = partitionFunction.getPartition(partitionFunctionArgs, position);
                     appendRow(pageBuilders[partition], page, position);
                 }
@@ -431,8 +465,8 @@ public class PartitionedOutputOperator
         {
             pageBuilder.declarePosition();
 
-            for (int channel = 0; channel < sourceTypes.size(); channel++) {
-                Type type = sourceTypes.get(channel);
+            for (int channel = 0; channel < sourceTypes.length; channel++) {
+                Type type = sourceTypes[channel];
                 type.appendTo(page.getBlock(channel), position, pageBuilder.getBlockBuilder(channel));
             }
         }

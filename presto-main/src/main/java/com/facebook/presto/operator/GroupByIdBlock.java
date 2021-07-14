@@ -183,6 +183,12 @@ public class GroupByIdBlock
     }
 
     @Override
+    public boolean mayHaveNull()
+    {
+        return block.mayHaveNull();
+    }
+
+    @Override
     public int getPositionCount()
     {
         return block.getPositionCount();
