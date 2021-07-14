@@ -1161,6 +1161,7 @@ public class TestArrayOperators
         assertFunction("ARRAYS_OVERLAP(ARRAY [2, NULL], ARRAY [1, 2])", BooleanType.BOOLEAN, true);
         assertFunction("ARRAYS_OVERLAP(ARRAY [NULL, 3], ARRAY [2, 1])", BooleanType.BOOLEAN, null);
         assertFunction("ARRAYS_OVERLAP(ARRAY [3, NULL], ARRAY [2, 1])", BooleanType.BOOLEAN, null);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [3, NULL], ARRAY [2, 1, NULL])", BooleanType.BOOLEAN, null);
 
         assertFunction("ARRAYS_OVERLAP(ARRAY [CAST(1 AS BIGINT), 2], ARRAY [NULL, CAST(2 AS BIGINT)])", BooleanType.BOOLEAN, true);
         assertFunction("ARRAYS_OVERLAP(ARRAY [CAST(1 AS BIGINT), 2], ARRAY [CAST(2 AS BIGINT), NULL])", BooleanType.BOOLEAN, true);
@@ -1183,11 +1184,20 @@ public class TestArrayOperators
         assertFunction("ARRAYS_OVERLAP(ARRAY [], ARRAY [])", BooleanType.BOOLEAN, false);
         assertFunction("ARRAYS_OVERLAP(ARRAY [], ARRAY [1, 2])", BooleanType.BOOLEAN, false);
         assertFunction("ARRAYS_OVERLAP(ARRAY [], ARRAY [NULL])", BooleanType.BOOLEAN, false);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [NULL], ARRAY [])", BooleanType.BOOLEAN, false);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [NULL], ARRAY [NULL])", BooleanType.BOOLEAN, null);
 
         assertFunction("ARRAYS_OVERLAP(ARRAY [true], ARRAY [true, false])", BooleanType.BOOLEAN, true);
         assertFunction("ARRAYS_OVERLAP(ARRAY [false], ARRAY [true, true])", BooleanType.BOOLEAN, false);
         assertFunction("ARRAYS_OVERLAP(ARRAY [true, false], ARRAY [NULL])", BooleanType.BOOLEAN, null);
         assertFunction("ARRAYS_OVERLAP(ARRAY [false], ARRAY [true, NULL])", BooleanType.BOOLEAN, null);
+
+        assertFunction("ARRAYS_OVERLAP(ARRAY [2.01], ARRAY [2.01, 9.0, 9.4])", BooleanType.BOOLEAN, true);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [10.1, 9.1], ARRAY [9.09, 9.0])", BooleanType.BOOLEAN, false);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [NULL, 9.1], ARRAY [NULL])", BooleanType.BOOLEAN, null);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [NULL, 9.1], ARRAY [9.1, 10.2, 3.0])", BooleanType.BOOLEAN, true);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [2.4], ARRAY [2.4])", BooleanType.BOOLEAN, true);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [2.4, 9.0, 10.9999999, 9.1, 4.1, 8.1], ARRAY [2.1, 10.999])", BooleanType.BOOLEAN, false);
     }
 
     @Test
