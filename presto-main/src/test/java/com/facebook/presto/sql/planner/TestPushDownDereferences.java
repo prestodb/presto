@@ -167,7 +167,7 @@ public class TestPushDownDereferences
     public void testSort()
     {
         ImmutableList<Ordering> orderBy = ImmutableList.of(sort("b_x", ASCENDING, LAST));
-        assertPlan("WITH t(msg) AS ( SELECT * FROM (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))) " +
+        assertPlan("WITH t(msg) AS ( SELECT * FROM (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))), ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))) " +
                         "SELECT a.msg.x FROM t a JOIN t b ON a.msg.y = b.msg.y WHERE a.msg.x < bigint '10' ORDER BY b.msg.x",
                 output(ImmutableList.of("expr"),
                         project(ImmutableMap.of("expr", expression("a_x")),

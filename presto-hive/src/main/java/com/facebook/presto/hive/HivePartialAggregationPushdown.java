@@ -278,7 +278,8 @@ public class HivePartialAggregationPushdown
                     ImmutableList.copyOf(partialAggregationNode.getOutputVariables()),
                     ImmutableMap.copyOf(assignments),
                     oldTableScanNode.getCurrentConstraint(),
-                    oldTableScanNode.getEnforcedConstraint()));
+                    oldTableScanNode.getEnforcedConstraint(),
+                    oldTableScanNode.getTableConstraints()));
         }
 
         @Override

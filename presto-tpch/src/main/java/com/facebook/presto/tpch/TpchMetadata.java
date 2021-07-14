@@ -123,7 +123,7 @@ public class TpchMetadata
 
     private final String connectorId;
     private final Set<String> tableNames;
-    private final ColumnNaming columnNaming;
+    protected final ColumnNaming columnNaming;
     private final StatisticsEstimator statisticsEstimator;
     private final boolean predicatePushdownEnabled;
     private final boolean partitioningEnabled;
@@ -498,7 +498,7 @@ public class TpchMetadata
         return ImmutableList.of();
     }
 
-    private static String scaleFactorSchemaName(double scaleFactor)
+    protected static String scaleFactorSchemaName(double scaleFactor)
     {
         return "sf" + scaleFactor;
     }

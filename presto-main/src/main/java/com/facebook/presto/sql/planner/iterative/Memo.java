@@ -15,6 +15,8 @@ package com.facebook.presto.sql.planner.iterative;
 
 import com.facebook.presto.cost.PlanCostEstimate;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
+import com.facebook.presto.spi.plan.LogicalProperties;
+import com.facebook.presto.spi.plan.LogicalPropertiesProvider;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.google.common.collect.HashMultiset;
@@ -69,12 +71,18 @@ public class Memo
     private final int rootGroup;
 
     private final Map<Integer, Group> groups = new HashMap<>();
-
+    private final Optional<LogicalPropertiesProvider> logicalPropertiesProvider;
     private int nextGroupId = ROOT_GROUP_REF + 1;
 
     public Memo(PlanNodeIdAllocator idAllocator, PlanNode plan)
     {
+        this(idAllocator, plan, Optional.empty());
+    }
+
+    public Memo(PlanNodeIdAllocator idAllocator, PlanNode plan, Optional<LogicalPropertiesProvider> logicalPropertiesProvider)
+    {
         this.idAllocator = idAllocator;
+        this.logicalPropertiesProvider = logicalPropertiesProvider;
         rootGroup = insertRecursive(plan);
         groups.get(rootGroup).incomingReferences.add(ROOT_GROUP_REF);
     }
@@ -88,6 +96,12 @@ public class Memo
     {
         checkArgument(groups.containsKey(group), "Invalid group: %s", group);
         return groups.get(group);
+    }
+
+    public Optional<LogicalProperties> getLogicalProperties(int group)
+    {
+        checkArgument(groups.containsKey(group), "Invalid group: %s", group);
+        return groups.get(group).logicalProperties;
     }
 
     public PlanNode getNode(int group)
@@ -129,6 +143,21 @@ public class Memo
 
         incrementReferenceCounts(node, group);
         getGroup(group).membership = node;
+
+        if (logicalPropertiesProvider.isPresent()) {
+            // for now, we replace existing group logical properties with those computed for the new node
+            // as we cannot ensure equivalence for all plans in a group until we support functional dependencies
+            // once we can ensure equivalence we can simply reuse the previously computed properties for all plans in the group
+            LogicalProperties newLogicalProperties = node.computeLogicalProperties(logicalPropertiesProvider.get());
+            if (LogicalPropertiesImpl.verifyMemoGroupEquivalence()) {
+                LogicalProperties previousLogicalProperties = getGroup(group).logicalProperties.get();
+                checkState(LogicalPropertiesImpl.equal((LogicalPropertiesImpl) newLogicalProperties, (LogicalPropertiesImpl) previousLogicalProperties),
+                        "Previously computed logical properties of group %s are not equivalent to the computed logical properties of the top node $s of replacement expression.",
+                        Integer.valueOf(group).toString(),
+                        node.getClass().getSimpleName());
+            }
+            getGroup(group).logicalProperties = Optional.of(newLogicalProperties);
+        }
         decrementReferenceCounts(old, group);
         evictStatisticsAndCost(group);
 
@@ -212,11 +241,15 @@ public class Memo
     {
         return node.replaceChildren(
                 node.getSources().stream()
-                        .map(child -> new GroupReference(
-                                idAllocator.getNextId(),
-                                insertRecursive(child),
-                                child.getOutputVariables()))
-                        .collect(Collectors.toList()));
+                        .map(child -> {
+                            int childId = insertRecursive(child);
+                            Optional<LogicalProperties> logicalProperties = groups.get(childId).logicalProperties;
+                            return new GroupReference(
+                                    idAllocator.getNextId(),
+                                    childId,
+                                    child.getOutputVariables(),
+                                    logicalProperties);
+                        }).collect(Collectors.toList()));
     }
 
     private int insertRecursive(PlanNode node)
@@ -228,7 +261,7 @@ public class Memo
         int group = nextGroupId();
         PlanNode rewritten = insertChildrenAndRewrite(node);
 
-        groups.put(group, Group.withMember(rewritten));
+        groups.put(group, new Group(rewritten));
         incrementReferenceCounts(rewritten, group);
 
         return group;
@@ -244,15 +277,11 @@ public class Memo
         return groups.size();
     }
 
-    private static final class Group
+    private final class Group
     {
-        static Group withMember(PlanNode member)
-        {
-            return new Group(member);
-        }
-
-        private PlanNode membership;
         private final Multiset<Integer> incomingReferences = HashMultiset.create();
+        private PlanNode membership;
+        private Optional<LogicalProperties> logicalProperties;
         @Nullable
         private PlanNodeStatsEstimate stats;
         @Nullable
@@ -261,6 +290,12 @@ public class Memo
         private Group(PlanNode member)
         {
             this.membership = requireNonNull(member, "member is null");
+            if (logicalPropertiesProvider.isPresent()) {
+                this.logicalProperties = Optional.of(this.membership.computeLogicalProperties(logicalPropertiesProvider.get()));
+            }
+            else {
+                this.logicalProperties = Optional.empty();
+            }
         }
     }
 }

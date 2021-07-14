@@ -406,7 +406,8 @@ public class HiveParquetDereferencePushDown
                     newOutputVariables,
                     newAssignments,
                     tableScan.getCurrentConstraint(),
-                    tableScan.getEnforcedConstraint());
+                    tableScan.getEnforcedConstraint(),
+                    tableScan.getTableConstraints());
 
             Assignments.Builder newProjectAssignmentBuilder = Assignments.builder();
             for (Map.Entry<VariableReferenceExpression, RowExpression> entry : project.getAssignments().entrySet()) {

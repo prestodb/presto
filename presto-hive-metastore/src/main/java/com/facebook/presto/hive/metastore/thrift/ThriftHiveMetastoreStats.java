@@ -50,6 +50,8 @@ public class ThriftHiveMetastoreStats
     private final HiveMetastoreApiStats listRoleGrants = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats createRole = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats dropRole = new HiveMetastoreApiStats();
+    private final HiveMetastoreApiStats getPrimaryKey = new HiveMetastoreApiStats();
+    private final HiveMetastoreApiStats getUniqueConstraints = new HiveMetastoreApiStats();
 
     @Managed
     @Nested
@@ -273,5 +275,19 @@ public class ThriftHiveMetastoreStats
     public HiveMetastoreApiStats getDropRole()
     {
         return dropRole;
+    }
+
+    @Managed
+    @Nested
+    public HiveMetastoreApiStats getGetPrimaryKey()
+    {
+        return getPrimaryKey;
+    }
+
+    @Managed
+    @Nested
+    public HiveMetastoreApiStats getGetUniqueConstraints()
+    {
+        return getUniqueConstraints;
     }
 }

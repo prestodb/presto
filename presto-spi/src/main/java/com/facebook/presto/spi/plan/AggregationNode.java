@@ -94,6 +94,16 @@ public final class AggregationNode
         this.outputs = unmodifiableList(outputs);
     }
 
+    /**
+     * Whether this node corresponds to a DISTINCT operation in SQL
+     */
+    public static boolean isDistinct(AggregationNode node)
+    {
+        return node.getAggregations().isEmpty() &&
+                node.getOutputVariables().size() == node.getGroupingKeys().size() &&
+                node.getOutputVariables().containsAll(node.getGroupingKeys());
+    }
+
     public List<VariableReferenceExpression> getGroupingKeys()
     {
         return groupingSets.getGroupingKeys();
@@ -132,6 +142,13 @@ public final class AggregationNode
     public List<PlanNode> getSources()
     {
         return unmodifiableList(Collections.singletonList(source));
+    }
+
+    @Override
+    public LogicalProperties computeLogicalProperties(LogicalPropertiesProvider logicalPropertiesProvider)
+    {
+        requireNonNull(logicalPropertiesProvider, "logicalPropertiesProvider cannot be null.");
+        return logicalPropertiesProvider.getAggregationProperties(this);
     }
 
     @Override
@@ -392,6 +409,18 @@ public final class AggregationNode
             this.orderingScheme = requireNonNull(orderingScheme, "orderingScheme is null");
             this.isDistinct = isDistinct;
             this.mask = requireNonNull(mask, "mask is null");
+        }
+
+        public static AggregationNode.Aggregation removeDistinct(AggregationNode.Aggregation aggregation)
+        {
+            checkArgument(aggregation.isDistinct(), "Expected aggregation to have DISTINCT input");
+
+            return new AggregationNode.Aggregation(
+                    aggregation.getCall(),
+                    aggregation.getFilter(),
+                    aggregation.getOrderBy(),
+                    false,
+                    aggregation.getMask());
         }
 
         @JsonProperty
