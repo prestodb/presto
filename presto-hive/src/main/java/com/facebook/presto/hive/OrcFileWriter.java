@@ -29,6 +29,7 @@ import com.facebook.presto.orc.OrcWriter;
 import com.facebook.presto.orc.OrcWriterOptions;
 import com.facebook.presto.orc.WriterStats;
 import com.facebook.presto.orc.metadata.CompressionKind;
+import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import org.joda.time.DateTimeZone;
@@ -58,7 +59,7 @@ public class OrcFileWriter
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcFileWriter.class).instanceSize();
     private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
 
-    private final OrcWriter orcWriter;
+    protected final OrcWriter orcWriter;
     private final Callable<Void> rollbackAction;
     private final int[] fileInputColumnIndexes;
     private final List<Block> nullBlocks;
@@ -84,6 +85,43 @@ public class OrcFileWriter
             DwrfEncryptionProvider dwrfEncryptionProvider,
             Optional<DwrfWriterEncryption> dwrfWriterEncryption)
     {
+        this(
+                dataSink,
+                rollbackAction,
+                orcEncoding,
+                columnNames,
+                fileColumnTypes,
+                Optional.empty(),
+                compression,
+                options,
+                fileInputColumnIndexes,
+                metadata,
+                hiveStorageTimeZone,
+                validationInputFactory,
+                validationMode,
+                stats,
+                dwrfEncryptionProvider,
+                dwrfWriterEncryption);
+    }
+
+    public OrcFileWriter(
+            DataSink dataSink,
+            Callable<Void> rollbackAction,
+            OrcEncoding orcEncoding,
+            List<String> columnNames,
+            List<Type> fileColumnTypes,
+            Optional<List<OrcType>> fileColumnOrcTypes,
+            CompressionKind compression,
+            OrcWriterOptions options,
+            int[] fileInputColumnIndexes,
+            Map<String, String> metadata,
+            DateTimeZone hiveStorageTimeZone,
+            Optional<Supplier<OrcDataSource>> validationInputFactory,
+            OrcWriteValidationMode validationMode,
+            WriterStats stats,
+            DwrfEncryptionProvider dwrfEncryptionProvider,
+            Optional<DwrfWriterEncryption> dwrfWriterEncryption)
+    {
         requireNonNull(dataSink, "dataSink is null");
 
         try {
@@ -91,6 +129,7 @@ public class OrcFileWriter
                     dataSink,
                     columnNames,
                     fileColumnTypes,
+                    fileColumnOrcTypes,
                     orcEncoding,
                     compression,
                     dwrfWriterEncryption,

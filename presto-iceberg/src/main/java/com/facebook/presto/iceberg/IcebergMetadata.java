@@ -104,6 +104,7 @@ import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
@@ -200,7 +201,7 @@ public class IcebergMetadata
             return Optional.empty();
         }
 
-        org.apache.iceberg.Table table = getIcebergTable(metastore, hdfsEnvironment, session, tableName);
+        org.apache.iceberg.Table table = getIcebergTable(metastore, hdfsEnvironment, session, new SchemaTableName(tableName.getSchemaName(), name.getTableName()));
 
         SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), name.getTableNameWithType());
         switch (name.getTableType()) {
@@ -220,6 +221,8 @@ public class IcebergMetadata
                 return Optional.of(new PartitionTable(systemTableName, typeManager, table, getSnapshotId(table, name.getSnapshotId())));
             case MANIFESTS:
                 return Optional.of(new ManifestsTable(systemTableName, table, getSnapshotId(table, name.getSnapshotId())));
+            case FILES:
+                return Optional.of(new FilesTable(systemTableName, table, getSnapshotId(table, name.getSnapshotId()), typeManager));
         }
         return Optional.empty();
     }
@@ -261,7 +264,7 @@ public class IcebergMetadata
     @Override
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        List<SchemaTableName> tables = listTables(session, Optional.of(prefix.getSchemaName()));
+        List<SchemaTableName> tables = prefix.getTableName() != null ? singletonList(prefix.toSchemaTableName()) : listTables(session, Optional.of(prefix.getSchemaName()));
 
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
         for (SchemaTableName table : tables) {

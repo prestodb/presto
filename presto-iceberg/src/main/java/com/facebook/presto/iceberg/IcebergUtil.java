@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
@@ -30,6 +31,8 @@ import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableOperations;
+import org.apache.iceberg.TableScan;
+import org.apache.iceberg.expressions.Expression;
 
 import java.util.List;
 import java.util.Locale;
@@ -42,6 +45,7 @@ import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPS
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Lists.reverse;
+import static com.google.common.collect.Streams.stream;
 import static java.lang.String.format;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
 import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
@@ -140,5 +144,20 @@ final class IcebergUtil
             return name;
         }
         return '"' + name.replace("\"", "\"\"") + '"';
+    }
+
+    public static TableScan getTableScan(TupleDomain<IcebergColumnHandle> predicates, Optional<Long> snapshotId, Table icebergTable)
+    {
+        Expression expression = ExpressionConverter.toIcebergExpression(predicates);
+        TableScan tableScan = icebergTable.newScan().filter(expression);
+        return snapshotId
+                .map(id -> isSnapshot(icebergTable, id) ? tableScan.useSnapshot(id) : tableScan.asOfTime(id))
+                .orElse(tableScan);
+    }
+
+    private static boolean isSnapshot(Table icebergTable, Long id)
+    {
+        return stream(icebergTable.snapshots())
+                .anyMatch(snapshot -> snapshot.snapshotId() == id);
     }
 }

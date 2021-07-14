@@ -184,5 +184,9 @@
             <directory>${project.build.directory}/dependency/presto-bigquery-${project.version}</directory>
             <outputDirectory>plugin/presto-bigquery</outputDirectory>
         </fileSet>
+        <fileSet>
+            <directory>${project.build.directory}/dependency/presto-iceberg-${project.version}</directory>
+            <outputDirectory>plugin/iceberg</outputDirectory>
+        </fileSet>
     </fileSets>
 </assembly>

@@ -144,6 +144,9 @@ public class OrcWriter
     private long previouslyRecordedSizeInBytes;
     private boolean closed;
 
+    private long numberOfRows;
+    private List<ColumnStatistics> unencryptedStats;
+
     @Nullable
     private final OrcWriteValidation.OrcWriteValidationBuilder validationBuilder;
 
@@ -151,6 +154,41 @@ public class OrcWriter
             DataSink dataSink,
             List<String> columnNames,
             List<Type> types,
+            OrcEncoding orcEncoding,
+            CompressionKind compressionKind,
+            Optional<DwrfWriterEncryption> encryption,
+            DwrfEncryptionProvider dwrfEncryptionProvider,
+            OrcWriterOptions options,
+            Optional<DwrfWriterOptions> dwrfOptions,
+            Map<String, String> userMetadata,
+            DateTimeZone hiveStorageTimeZone,
+            boolean validate,
+            OrcWriteValidationMode validationMode,
+            WriterStats stats)
+    {
+        this(
+                dataSink,
+                columnNames,
+                types,
+                Optional.empty(),
+                orcEncoding,
+                compressionKind,
+                encryption,
+                dwrfEncryptionProvider,
+                options,
+                dwrfOptions,
+                userMetadata,
+                hiveStorageTimeZone,
+                validate,
+                validationMode,
+                stats);
+    }
+
+    public OrcWriter(
+            DataSink dataSink,
+            List<String> columnNames,
+            List<Type> types,
+            Optional<List<OrcType>> inputOrcTypes,
             OrcEncoding orcEncoding,
             CompressionKind compressionKind,
             Optional<DwrfWriterEncryption> encryption,
@@ -199,7 +237,8 @@ public class OrcWriter
         this.stats = requireNonNull(stats, "stats is null");
 
         requireNonNull(columnNames, "columnNames is null");
-        this.orcTypes = OrcType.createOrcRowType(0, columnNames, types);
+        requireNonNull(inputOrcTypes, "inputOrcTypes is null");
+        this.orcTypes = inputOrcTypes.orElseGet(() -> OrcType.createOrcRowType(0, columnNames, types));
         recordValidation(validation -> validation.setColumnNames(columnNames));
 
         dwrfWriterEncryption = requireNonNull(encryption, "encryption is null");
@@ -646,7 +685,7 @@ public class OrcWriter
         Slice metadataSlice = metadataWriter.writeMetadata(metadata);
         outputData.add(createDataOutput(metadataSlice));
 
-        long numberOfRows = closedStripes.stream()
+        numberOfRows = closedStripes.stream()
                 .mapToLong(stripe -> stripe.getStripeInformation().getNumberOfRows())
                 .sum();
 
@@ -660,7 +699,7 @@ public class OrcWriter
         Map<String, Slice> userMetadata = this.userMetadata.entrySet().stream()
                 .collect(Collectors.toMap(Entry::getKey, entry -> utf8Slice(entry.getValue())));
 
-        List<ColumnStatistics> unencryptedStats = new ArrayList<>();
+        unencryptedStats = new ArrayList<>();
         Map<Integer, Map<Integer, Slice>> encryptedStats = new HashMap<>();
         addStatsRecursive(fileStats, 0, new HashMap<>(), unencryptedStats, encryptedStats);
         Optional<DwrfEncryption> dwrfEncryption;
@@ -805,6 +844,18 @@ public class OrcWriter
                 new OrcReaderOptions(new DataSize(1, MEGABYTE), new DataSize(8, MEGABYTE), new DataSize(16, MEGABYTE), false),
                 dwrfEncryptionProvider,
                 DwrfKeyProvider.of(intermediateKeyMetadata.build()));
+    }
+
+    public long getFileRowCount()
+    {
+        checkState(closed, "File row count is not available until the writing has finished");
+        return numberOfRows;
+    }
+
+    public List<ColumnStatistics> getFileStats()
+    {
+        checkState(closed, "File statistics are not available until the writing has finished");
+        return unencryptedStats;
     }
 
     private static <T> List<T> toDenseList(Map<Integer, T> data, int expectedSize)

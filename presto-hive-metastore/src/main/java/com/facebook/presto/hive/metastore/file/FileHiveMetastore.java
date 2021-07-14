@@ -432,7 +432,7 @@ public class FileHiveMetastore
         checkArgument(!newTable.getTableType().equals(TEMPORARY_TABLE), "temporary tables must never be stored in the metastore");
 
         Table table = getRequiredTable(metastoreContext, databaseName, tableName);
-        if (!table.getTableType().equals(VIRTUAL_VIEW) || !newTable.getTableType().equals(VIRTUAL_VIEW)) {
+        if ((!table.getTableType().equals(VIRTUAL_VIEW) || !newTable.getTableType().equals(VIRTUAL_VIEW)) && !isIcebergTable(table.getParameters())) {
             throw new PrestoException(HIVE_METASTORE_ERROR, "Only views can be updated with replaceTable");
         }
         if (!table.getDatabaseName().equals(databaseName) || !table.getTableName().equals(tableName)) {
