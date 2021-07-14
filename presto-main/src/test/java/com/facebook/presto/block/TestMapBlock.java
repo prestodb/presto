@@ -52,6 +52,8 @@ import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
+import static org.testng.Assert.assertNotSame;
+import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
 public class TestMapBlock
@@ -88,6 +90,39 @@ public class TestMapBlock
     {
         assertLazyHashTableBuildOverBlockRegion(createTestMap(9, 3, 4, 0, 8, 0, 6, 5));
         assertLazyHashTableBuildOverBlockRegion(alternatingNullValues(createTestMap(9, 3, 4, 0, 8, 0, 6, 5)));
+    }
+
+    @Test
+    public void testSingleValueBlock()
+    {
+        // 1 entry map.
+        Map<String, Long>[] values = createTestMap(50);
+        BlockBuilder mapBlockBuilder = createBlockBuilderWithValues(values);
+        Block mapBlock = mapBlockBuilder.build();
+        assertSame(mapBlock, mapBlock.getSingleValueBlock(0));
+        assertNotSame(mapBlockBuilder, mapBlockBuilder.getSingleValueBlock(0));
+
+        // 2 entries map.
+        values = createTestMap(50, 50);
+        mapBlockBuilder = createBlockBuilderWithValues(values);
+        mapBlock = mapBlockBuilder.build();
+        Block firstElement = mapBlock.getRegion(0, 1);
+        assertNotSame(firstElement, firstElement.getSingleValueBlock(0));
+
+        Block secondElementCopy = mapBlock.copyRegion(1, 1);
+        assertSame(secondElementCopy, secondElementCopy.getSingleValueBlock(0));
+
+        // Test with null elements.
+        values = new Map[] {null};
+        mapBlockBuilder = createBlockBuilderWithValues(values);
+        mapBlock = mapBlockBuilder.build();
+        assertSame(mapBlock, mapBlock.getSingleValueBlock(0));
+
+        // Test with 2 null elements.
+        values = new Map[] {null, null};
+        mapBlockBuilder = createBlockBuilderWithValues(values);
+        mapBlock = mapBlockBuilder.build();
+        assertNotSame(mapBlock, mapBlock.getSingleValueBlock(0));
     }
 
     @Test
