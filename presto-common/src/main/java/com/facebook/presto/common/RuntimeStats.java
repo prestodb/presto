@@ -14,6 +14,7 @@
 package com.facebook.presto.common;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.HashMap;
@@ -34,7 +35,7 @@ public class RuntimeStats
     }
 
     @JsonCreator
-    public RuntimeStats(Map<String, RuntimeMetric> metrics)
+    public RuntimeStats(@JsonProperty("metrics") Map<String, RuntimeMetric> metrics)
     {
         this.metrics = requireNonNull(metrics, "metrics is null");
     }
