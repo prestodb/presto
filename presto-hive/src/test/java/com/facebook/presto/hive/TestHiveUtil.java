@@ -156,9 +156,6 @@ public class TestHiveUtil
 
         for (int index = 0; index < expectedKeyList.size(); index++) {
             String key = expectedKeyList.get(index);
-            if (!actual.containsKey(key)) {
-                break;
-            }
             checkState(actual.containsKey(key), "Actual result does not contains the key");
             String actualValue = actual.get(key);
             String expectedValue = expectedValueList.get(index);
