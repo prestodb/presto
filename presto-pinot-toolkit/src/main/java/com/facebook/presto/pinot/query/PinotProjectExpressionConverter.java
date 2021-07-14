@@ -41,7 +41,7 @@ import static java.util.Objects.requireNonNull;
 class PinotProjectExpressionConverter
         implements RowExpressionVisitor<PinotExpression, Map<VariableReferenceExpression, Selection>>
 {
-    private static final Set<String> TIME_EQUIVALENT_TYPES = ImmutableSet.of(StandardTypes.BIGINT, StandardTypes.INTEGER, StandardTypes.TINYINT, StandardTypes.SMALLINT);
+    private static final Set<StandardTypes.Types> TIME_EQUIVALENT_TYPES = ImmutableSet.of(StandardTypes.Types.BIGINT, StandardTypes.Types.INTEGER, StandardTypes.Types.TINYINT, StandardTypes.Types.SMALLINT);
 
     protected final TypeManager typeManager;
     protected final StandardFunctionResolution standardFunctionResolution;
@@ -76,7 +76,13 @@ class PinotProjectExpressionConverter
         if (typeManager.canCoerce(inputType, resultType)) {
             return true;
         }
-        return resultType.getTypeSignature().getBase().equals(StandardTypes.TIMESTAMP) && TIME_EQUIVALENT_TYPES.contains(inputType.getTypeSignature().getBase());
+        StandardTypes.Types standardType = StandardTypes.Types.getTypeFromString(inputType.getTypeSignature().getBase());
+        /* This ensures previous behavior. We need to understand whether a null over here is actually a failure/exception scenario or not*/
+        if (standardType == null) {
+            return false;
+        }
+
+        return resultType.getTypeSignature().getBase().equals(StandardTypes.TIMESTAMP) && TIME_EQUIVALENT_TYPES.contains(standardType);
     }
 
     private PinotExpression handleCast(

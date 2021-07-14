@@ -18,6 +18,7 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.DoubleType;
+import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
@@ -36,9 +37,6 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.common.type.StandardTypes.ARRAY;
-import static com.facebook.presto.common.type.StandardTypes.BIGINT;
-import static com.facebook.presto.common.type.StandardTypes.BOOLEAN;
-import static com.facebook.presto.common.type.StandardTypes.DOUBLE;
 import static com.facebook.presto.common.type.StandardTypes.MAP;
 import static com.facebook.presto.common.type.StandardTypes.VARBINARY;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
@@ -253,7 +251,12 @@ public class AvroColumnDecoder
             return;
         }
 
-        switch (type.getTypeSignature().getBase()) {
+        StandardTypes.Types standardType = StandardTypes.Types.getTypeFromString(type.getTypeSignature().getBase());
+        if (standardType == null) {
+            throw new PrestoException(DECODER_CONVERSION_NOT_SUPPORTED, format("cannot decode object of '%s' as '%s' for column '%s'", value.getClass(), type, columnName));
+        }
+
+        switch (standardType) {
             case BOOLEAN:
                 type.writeBoolean(blockBuilder, (Boolean) value);
                 break;
