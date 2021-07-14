@@ -332,7 +332,7 @@ public class TestingSemiTransactionalHiveMetastore
     }
 
     @Override
-    public synchronized void declareIntentionToWrite(HdfsContext context, MetastoreContext metastoreContext, LocationHandle.WriteMode writeMode, Path stagingPathRoot, Optional<Path> tempPathRoot, String filePrefix, SchemaTableName schemaTableName, boolean temporaryTable)
+    public synchronized void declareIntentionToWrite(HdfsContext context, MetastoreContext metastoreContext, LocationHandle.WriteMode writeMode, Path stagingPathRoot, Optional<Path> tempPathRoot, SchemaTableName schemaTableName, boolean temporaryTable)
     {
         throw new UnsupportedOperationException("method not implemented");
     }

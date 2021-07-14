@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -75,6 +77,12 @@ public class Partition
     public String getTableName()
     {
         return tableName;
+    }
+
+    @JsonIgnore
+    public SchemaTableName getSchemaTableName()
+    {
+        return new SchemaTableName(databaseName, tableName);
     }
 
     @JsonProperty

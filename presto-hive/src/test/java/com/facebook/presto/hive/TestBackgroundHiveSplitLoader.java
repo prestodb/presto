@@ -59,6 +59,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -74,6 +75,7 @@ import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveUtil.getRegularColumnHandles;
+import static com.facebook.presto.hive.HiveWriterFactory.getBucketNumber;
 import static com.facebook.presto.hive.StoragePartitionLoader.BucketSplitInfo.createBucketSplitInfo;
 import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
@@ -248,6 +250,23 @@ public class TestBackgroundHiveSplitLoader
                                 1000,
                                 ImmutableList.of("*", "test_dbname.test_table")),
                         "*,test_dbname.test_table"));
+    }
+
+    @Test
+    public void testGetBucketNumber()
+    {
+        assertEquals(getBucketNumber("0234_0"), OptionalInt.of(234));
+        assertEquals(getBucketNumber("000234_0"), OptionalInt.of(234));
+        assertEquals(getBucketNumber("0234_99"), OptionalInt.of(234));
+        assertEquals(getBucketNumber("0234_0.txt"), OptionalInt.of(234));
+        assertEquals(getBucketNumber("0234_0_copy_1"), OptionalInt.of(234));
+        assertEquals(getBucketNumber("20190526_072952_00009_fn7s5_bucket-00234"), OptionalInt.of(234));
+        assertEquals(getBucketNumber("20190526_072952_00009_fn7s5_bucket-00234.txt"), OptionalInt.of(234));
+        assertEquals(getBucketNumber("20190526_235847_87654_fn7s5_bucket-56789"), OptionalInt.of(56789));
+
+        assertEquals(getBucketNumber("234_99"), OptionalInt.empty());
+        assertEquals(getBucketNumber("0234.txt"), OptionalInt.empty());
+        assertEquals(getBucketNumber("0234.txt"), OptionalInt.empty());
     }
 
     @Test
