@@ -147,8 +147,8 @@ public class TestPinotExpressionConverters
         testFilter("totalfare between 20 and 30", "((fare + trip) BETWEEN 20 AND 30)", sessionHolder);
 
         // is null, is not null
-        testFilter("col IS NULL", "(col IS NULL)", sessionHolder);
-        testFilter("col IS NOT NULL", "(col IS NOT NULL)", sessionHolder);
+        testFilter("city IS NULL", "(city IS NULL)", sessionHolder);
+        testFilter("city IS NOT NULL", "(city IS NOT NULL)", sessionHolder);
 
         // in, not in
         testFilter("regionid in (20, 30, 40)", "(regionId IN (20, 30, 40))", sessionHolder);
