@@ -68,7 +68,8 @@ public class VariableWidthBlockEncoding
         boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount).orElse(null);
 
         int blockSize = sliceInput.readInt();
-        Slice slice = sliceInput.readSlice(blockSize);
+        Slice slice = Slices.allocate(blockSize);
+        sliceInput.readBytes(slice);
 
         return new VariableWidthBlock(0, positionCount, slice, offsets, valueIsNull);
     }
