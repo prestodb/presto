@@ -1365,6 +1365,14 @@ public class MetadataManager
         return metadata.getTableLayoutFilterCoverage(tableHandle.getLayout().get(), relevantPartitionColumns);
     }
 
+    @Override
+    public void validateScan(Session session, TableHandle table)
+    {
+        ConnectorId connectorId = table.getConnectorId();
+        ConnectorMetadata metadata = getMetadata(session, connectorId);
+        metadata.validateScan(session.toConnectorSession(connectorId), table.getConnectorHandle(), table.getLayout());
+    }
+
     private ViewDefinition deserializeView(String data)
     {
         try {
