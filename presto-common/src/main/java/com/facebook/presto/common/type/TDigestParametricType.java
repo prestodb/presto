@@ -23,7 +23,7 @@ public class TDigestParametricType
     @Override
     public String getName()
     {
-        return StandardTypes.TDIGEST;
+        return StandardTypes.TDIGEST.getEnumValue();
     }
 
     @Override

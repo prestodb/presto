@@ -28,7 +28,7 @@ public final class IntegerType
 
     private IntegerType()
     {
-        super(parseTypeSignature(StandardTypes.INTEGER));
+        super(parseTypeSignature(StandardTypes.INTEGER.getEnumValue()));
     }
 
     @Override

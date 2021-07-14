@@ -33,7 +33,7 @@ public final class DoubleType
 
     private DoubleType()
     {
-        super(parseTypeSignature(StandardTypes.DOUBLE), double.class);
+        super(parseTypeSignature(StandardTypes.DOUBLE.getEnumValue()), double.class);
     }
 
     @Override

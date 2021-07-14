@@ -39,7 +39,7 @@ public class VarcharEnumType
 
     public VarcharEnumType(VarcharEnumMap enumMap)
     {
-        super(VarcharType.UNBOUNDED_LENGTH, new TypeSignature(StandardTypes.VARCHAR_ENUM, TypeSignatureParameter.of(enumMap)));
+        super(VarcharType.UNBOUNDED_LENGTH, new TypeSignature(StandardTypes.VARCHAR_ENUM.getEnumValue(), TypeSignatureParameter.of(enumMap)));
         this.enumMap = enumMap;
     }
 

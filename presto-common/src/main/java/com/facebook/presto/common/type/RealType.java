@@ -31,7 +31,7 @@ public final class RealType
 
     private RealType()
     {
-        super(parseTypeSignature(StandardTypes.REAL));
+        super(parseTypeSignature(StandardTypes.REAL.getEnumValue()));
     }
 
     @Override

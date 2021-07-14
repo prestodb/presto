@@ -40,7 +40,7 @@ public class BigintEnumType
 
     public BigintEnumType(LongEnumMap enumMap)
     {
-        super(new TypeSignature(StandardTypes.BIGINT_ENUM, TypeSignatureParameter.of(enumMap)));
+        super(new TypeSignature(StandardTypes.BIGINT_ENUM.getEnumValue(), TypeSignatureParameter.of(enumMap)));
         this.enumMap = enumMap;
     }
 

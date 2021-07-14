@@ -29,7 +29,7 @@ public final class TimestampType
 
     private TimestampType()
     {
-        super(parseTypeSignature(StandardTypes.TIMESTAMP));
+        super(parseTypeSignature(StandardTypes.TIMESTAMP.getEnumValue()));
     }
 
     @Override

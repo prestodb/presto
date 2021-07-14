@@ -20,6 +20,6 @@ class TDigestType
 {
     TDigestType(Type type)
     {
-        super(TDIGEST, type);
+        super(TDIGEST.getEnumValue(), type);
     }
 }

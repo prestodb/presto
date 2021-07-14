@@ -34,7 +34,7 @@ public final class TinyintType
 
     private TinyintType()
     {
-        super(parseTypeSignature(StandardTypes.TINYINT), long.class);
+        super(parseTypeSignature(StandardTypes.TINYINT.getEnumValue()), long.class);
     }
 
     @Override

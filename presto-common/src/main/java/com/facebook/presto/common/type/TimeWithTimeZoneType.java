@@ -26,7 +26,7 @@ public final class TimeWithTimeZoneType
 
     private TimeWithTimeZoneType()
     {
-        super(parseTypeSignature(StandardTypes.TIME_WITH_TIME_ZONE));
+        super(parseTypeSignature(StandardTypes.TIME_WITH_TIME_ZONE.getEnumValue()));
     }
 
     @Override

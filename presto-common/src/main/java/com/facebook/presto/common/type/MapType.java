@@ -52,7 +52,7 @@ public class MapType
             MethodHandle keyBlockEquals,
             MethodHandle keyBlockHashCode)
     {
-        super(new TypeSignature(StandardTypes.MAP,
+        super(new TypeSignature(StandardTypes.MAP.getEnumValue(),
                         TypeSignatureParameter.of(keyType.getTypeSignature()),
                         TypeSignatureParameter.of(valueType.getTypeSignature())),
                 Block.class);

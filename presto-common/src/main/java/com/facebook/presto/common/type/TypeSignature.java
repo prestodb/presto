@@ -55,16 +55,16 @@ public class TypeSignature
     private static final Set<String> SIMPLE_TYPE_WITH_SPACES =
             new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
 
-    private static final String BIGINT_ENUM_PREFIX = BIGINT_ENUM.toLowerCase(ENGLISH);
+    private static final String BIGINT_ENUM_PREFIX = BIGINT_ENUM.getEnumValue().toLowerCase(ENGLISH);
     private static final Pattern ENUM_PREFIX = Pattern.compile("(varchar|bigint)enum\\(");
 
     static {
-        BASE_NAME_ALIAS_TO_CANONICAL.put("int", StandardTypes.INTEGER);
+        BASE_NAME_ALIAS_TO_CANONICAL.put("int", StandardTypes.INTEGER.getEnumValue());
 
-        SIMPLE_TYPE_WITH_SPACES.add(StandardTypes.TIME_WITH_TIME_ZONE);
-        SIMPLE_TYPE_WITH_SPACES.add(StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
-        SIMPLE_TYPE_WITH_SPACES.add(StandardTypes.INTERVAL_DAY_TO_SECOND);
-        SIMPLE_TYPE_WITH_SPACES.add(StandardTypes.INTERVAL_YEAR_TO_MONTH);
+        SIMPLE_TYPE_WITH_SPACES.add(StandardTypes.TIME_WITH_TIME_ZONE.getEnumValue());
+        SIMPLE_TYPE_WITH_SPACES.add(StandardTypes.TIMESTAMP_WITH_TIME_ZONE.getEnumValue());
+        SIMPLE_TYPE_WITH_SPACES.add(StandardTypes.INTERVAL_DAY_TO_SECOND.getEnumValue());
+        SIMPLE_TYPE_WITH_SPACES.add(StandardTypes.INTERVAL_YEAR_TO_MONTH.getEnumValue());
         SIMPLE_TYPE_WITH_SPACES.add("double precision");
     }
 
@@ -163,7 +163,7 @@ public class TypeSignature
         int posOfColon = signature.indexOf(":");
         if (posOfLessThan < 0 && posOfParent < 0 && posOfColon < 0) {
             // non-parametric standard type
-            if (signature.equalsIgnoreCase(StandardTypes.VARCHAR)) {
+            if (signature.equalsIgnoreCase(StandardTypes.VARCHAR.getEnumValue())) {
                 return VarcharType.createUnboundedVarcharType().getTypeSignature();
             }
             checkArgument(!literalCalculationParameters.contains(signature), "Bad type signature: '%s'", signature);
@@ -182,7 +182,7 @@ public class TypeSignature
                 return new TypeSignature(signature.substring(0, startOfParams), parseTypeSignature(signature.substring(posOfColon + 1)).getParameters());
             }
         }
-        if (lowerCaseSignature.startsWith(StandardTypes.ROW + "(")) {
+        if (lowerCaseSignature.startsWith(StandardTypes.ROW.getEnumValue() + "(")) {
             return parseRowTypeSignature(signature, literalCalculationParameters);
         }
 
@@ -394,7 +394,7 @@ public class TypeSignature
 
     private static TypeSignature parseRowTypeSignature(String signature, Set<String> literalParameters)
     {
-        checkArgument(signature.toLowerCase(ENGLISH).startsWith(StandardTypes.ROW + "("), "Not a row type signature: '%s'", signature);
+        checkArgument(signature.toLowerCase(ENGLISH).startsWith(StandardTypes.ROW.getEnumValue() + "("), "Not a row type signature: '%s'", signature);
 
         RowTypeSignatureParsingState state = RowTypeSignatureParsingState.START_OF_FIELD;
         int bracketLevel = 1;
@@ -403,7 +403,7 @@ public class TypeSignature
 
         List<TypeSignatureParameter> fields = new ArrayList<>();
 
-        for (int i = StandardTypes.ROW.length() + 1; i < signature.length(); i++) {
+        for (int i = StandardTypes.ROW.getEnumValue().length() + 1; i < signature.length(); i++) {
             char c = signature.charAt(i);
             switch (state) {
                 case START_OF_FIELD:
@@ -499,7 +499,7 @@ public class TypeSignature
         }
 
         checkArgument(state == RowTypeSignatureParsingState.FINISHED, "Bad type signature: '%s'", signature);
-        return new TypeSignature(signature.substring(0, StandardTypes.ROW.length()), fields);
+        return new TypeSignature(signature.substring(0, StandardTypes.ROW.getEnumValue().length()), fields);
     }
 
     private static TypeSignatureParameter parseTypeOrNamedType(String typeOrNamedType, Set<String> literalParameters)
@@ -569,7 +569,7 @@ public class TypeSignature
             return baseString;
         }
 
-        if (baseString.equalsIgnoreCase(StandardTypes.VARCHAR) &&
+        if (baseString.equalsIgnoreCase(StandardTypes.VARCHAR.getEnumValue()) &&
                 (parameters.size() == 1) &&
                 parameters.get(0).isLongLiteral() &&
                 parameters.get(0).getLongLiteral() == VarcharType.UNBOUNDED_LENGTH) {

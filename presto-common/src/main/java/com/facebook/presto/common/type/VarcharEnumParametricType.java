@@ -27,7 +27,7 @@ public final class VarcharEnumParametricType
     @Override
     public String getName()
     {
-        return StandardTypes.VARCHAR_ENUM;
+        return StandardTypes.VARCHAR_ENUM.getEnumValue();
     }
 
     @Override

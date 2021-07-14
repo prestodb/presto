@@ -22,7 +22,7 @@ public class QuantileDigestParametricType
     @Override
     public String getName()
     {
-        return StandardTypes.QDIGEST;
+        return StandardTypes.QDIGEST.getEnumValue();
     }
 
     @Override

@@ -34,7 +34,7 @@ public final class SmallintType
 
     private SmallintType()
     {
-        super(parseTypeSignature(StandardTypes.SMALLINT), long.class);
+        super(parseTypeSignature(StandardTypes.SMALLINT.getEnumValue()), long.class);
     }
 
     @Override

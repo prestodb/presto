@@ -32,7 +32,7 @@ public class HyperLogLogType
     @JsonCreator
     public HyperLogLogType()
     {
-        super(parseTypeSignature(StandardTypes.HYPER_LOG_LOG), Slice.class);
+        super(parseTypeSignature(StandardTypes.HYPER_LOG_LOG.getEnumValue()), Slice.class);
     }
 
     @Override

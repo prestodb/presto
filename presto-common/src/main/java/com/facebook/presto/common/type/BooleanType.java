@@ -31,7 +31,7 @@ public final class BooleanType
 
     private BooleanType()
     {
-        super(parseTypeSignature(StandardTypes.BOOLEAN), boolean.class);
+        super(parseTypeSignature(StandardTypes.BOOLEAN.getEnumValue()), boolean.class);
     }
 
     @Override
