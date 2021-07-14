@@ -201,6 +201,8 @@ public class FeaturesConfig
 
     private boolean offsetClauseEnabled;
 
+    private boolean queryOptimizationWithMaterializedViewEnabled;
+
     public enum PartitioningPrecisionStrategy
     {
         // Let Presto decide when to repartition
@@ -1755,6 +1757,18 @@ public class FeaturesConfig
     public FeaturesConfig setOffsetClauseEnabled(boolean offsetClauseEnabled)
     {
         this.offsetClauseEnabled = offsetClauseEnabled;
+        return this;
+    }
+
+    public boolean isQueryOptimizationWithMaterializedViewEnabled()
+    {
+        return queryOptimizationWithMaterializedViewEnabled;
+    }
+
+    @Config("query-optimization-with-materialized-view-enabled")
+    public FeaturesConfig setQueryOptimizationWithMaterializedViewEnabled(boolean value)
+    {
+        this.queryOptimizationWithMaterializedViewEnabled = value;
         return this;
     }
 }

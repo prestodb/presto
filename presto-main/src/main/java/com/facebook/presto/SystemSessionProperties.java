@@ -197,6 +197,7 @@ public final class SystemSessionProperties
     public static final String PARTIAL_RESULTS_MAX_EXECUTION_TIME_MULTIPLIER = "partial_results_max_execution_time_multiplier";
     public static final String OFFSET_CLAUSE_ENABLED = "offset_clause_enabled";
     public static final String VERBOSE_EXCEEDED_MEMORY_LIMIT_ERRORS_ENABLED = "verbose_exceeded_memory_limit_errors_enabled";
+    public static final String QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED = "query_optimization_with_materialized_view_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1054,6 +1055,11 @@ public final class SystemSessionProperties
                         VERBOSE_EXCEEDED_MEMORY_LIMIT_ERRORS_ENABLED,
                         "When enabled the error message for exceeded memory limit errors will contain additional operator memory allocation details",
                         nodeMemoryConfig.isVerboseExceededMemoryLimitErrorsEnabled(),
+                        false),
+                booleanProperty(
+                        QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED,
+                        "Enable query optimization with materialized view",
+                        featuresConfig.isQueryOptimizationWithMaterializedViewEnabled(),
                         false));
     }
 
@@ -1778,5 +1784,10 @@ public final class SystemSessionProperties
     public static boolean isVerboseExceededMemoryLimitErrorsEnabled(Session session)
     {
         return session.getSystemProperty(VERBOSE_EXCEEDED_MEMORY_LIMIT_ERRORS_ENABLED, Boolean.class);
+    }
+
+    public static boolean isQueryOptimizationWithMaterializedViewEnabled(Session session)
+    {
+        return session.getSystemProperty(QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED, Boolean.class);
     }
 }
