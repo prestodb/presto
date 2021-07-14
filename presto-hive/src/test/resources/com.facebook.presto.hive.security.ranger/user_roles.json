@@ -1,0 +1,14 @@
+[
+  {
+    "admin": [],
+    "raj": [
+      "admin_role"
+    ],
+    "maria": [
+      "etl_role"
+    ],
+    "sam": [
+      "analyst_role"
+    ]
+  }
+]
