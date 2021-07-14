@@ -80,7 +80,6 @@ import com.facebook.presto.sql.tree.DropMaterializedView;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
-import com.facebook.presto.sql.tree.Except;
 import com.facebook.presto.sql.tree.Execute;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.ExplainType;
@@ -97,7 +96,6 @@ import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.GroupingSets;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.Insert;
-import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.JoinCriteria;
@@ -1669,26 +1667,6 @@ class StatementAnalyzer
                         "UNION specified without ALL or DISTINCT keyword is equivalent to UNION DISTINCT, which is computationally expensive. " +
                                 "Consider using UNION ALL when possible, or specifically add the keyword DISTINCT if absolutely necessary"));
             }
-            return visitSetOperation(node, scope);
-        }
-
-        @Override
-        protected Scope visitIntersect(Intersect node, Optional<Scope> scope)
-        {
-            if (!node.isDistinct().orElse(true)) {
-                throw new SemanticException(NOT_SUPPORTED, node, "INTERSECT ALL not yet implemented");
-            }
-
-            return visitSetOperation(node, scope);
-        }
-
-        @Override
-        protected Scope visitExcept(Except node, Optional<Scope> scope)
-        {
-            if (!node.isDistinct().orElse(true)) {
-                throw new SemanticException(NOT_SUPPORTED, node, "EXCEPT ALL not yet implemented");
-            }
-
             return visitSetOperation(node, scope);
         }
 

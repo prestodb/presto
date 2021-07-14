@@ -25,13 +25,23 @@ import java.util.Map;
 public final class ExceptNode
         extends SetOperationNode
 {
+    private final boolean distinct;
+
     public ExceptNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("sources") List<PlanNode> sources,
             @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables,
-            @JsonProperty("outputToInputs") Map<VariableReferenceExpression, List<VariableReferenceExpression>> outputToInputs)
+            @JsonProperty("outputToInputs") Map<VariableReferenceExpression, List<VariableReferenceExpression>> outputToInputs,
+            @JsonProperty("distinct") boolean distinct)
     {
         super(id, sources, outputVariables, outputToInputs);
+        this.distinct = distinct;
+    }
+
+    @JsonProperty
+    public boolean isDistinct()
+    {
+        return distinct;
     }
 
     @Override
@@ -43,6 +53,6 @@ public final class ExceptNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new ExceptNode(getId(), newChildren, getOutputVariables(), getVariableMapping());
+        return new ExceptNode(getId(), newChildren, getOutputVariables(), getVariableMapping(), isDistinct());
     }
 }
