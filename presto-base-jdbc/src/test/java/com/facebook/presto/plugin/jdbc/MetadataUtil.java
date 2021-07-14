@@ -50,9 +50,9 @@ final class MetadataUtil
     public static final class TestingTypeDeserializer
             extends FromStringDeserializer<Type>
     {
-        private final Map<String, Type> types = ImmutableMap.of(
-                StandardTypes.BIGINT, BIGINT,
-                StandardTypes.VARCHAR, VARCHAR);
+        private final Map<StandardTypes.Types, Type> types = ImmutableMap.of(
+                StandardTypes.Types.BIGINT, BIGINT,
+                StandardTypes.Types.VARCHAR, VARCHAR);
 
         public TestingTypeDeserializer()
         {
@@ -62,7 +62,9 @@ final class MetadataUtil
         @Override
         protected Type _deserialize(String value, DeserializationContext context)
         {
-            Type type = types.get(value.toLowerCase(ENGLISH));
+            StandardTypes.Types standardType = StandardTypes.Types.getTypeFromString(value.toLowerCase(ENGLISH));
+            checkArgument(standardType != null, "%s type is not supported.", value);
+            Type type = types.get(standardType);
             checkArgument(type != null, "Unknown type %s", value);
             return type;
         }

@@ -694,17 +694,21 @@ public class JoinCompiler
             // The plan is to allow scalar function to optionally provide an additional implementation using Block+position calling convention.
             // At that point, we'll be able to fully deprecate Type.equalTo (and friends) and remove this hack.
             if (type.getJavaType().equals(Slice.class)) {
-                switch (type.getTypeSignature().getBase()) {
-                    case StandardTypes.CHAR:
-                    case StandardTypes.IPADDRESS:
-                    case StandardTypes.JSON:
-                    case StandardTypes.DECIMAL:
-                    case StandardTypes.VARBINARY:
-                    case StandardTypes.VARCHAR:
-                        body.append(new IfStatement()
-                                .condition(typeEquals(constantType(callSiteBinder, type), leftBlock, leftBlockPosition, rightBlock, rightPosition))
-                                .ifFalse(constantFalse().ret()));
-                        continue;
+                StandardTypes.Types standardType = StandardTypes.Types.getTypeFromString(type.getTypeSignature().getBase());
+                // Ensures prior behavior
+                if (standardType != null) {
+                    switch (standardType) {
+                        case CHAR:
+                        case IPADDRESS:
+                        case JSON:
+                        case DECIMAL:
+                        case VARBINARY:
+                        case VARCHAR:
+                            body.append(new IfStatement()
+                                    .condition(typeEquals(constantType(callSiteBinder, type), leftBlock, leftBlockPosition, rightBlock, rightPosition))
+                                    .ifFalse(constantFalse().ret()));
+                            continue;
+                    }
                 }
             }
             BuiltInScalarFunctionImplementation operator = functionAndTypeManager.getBuiltInScalarFunctionImplementation(functionAndTypeManager.resolveOperator(OperatorType.IS_DISTINCT_FROM, fromTypes(type, type)));

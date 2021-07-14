@@ -223,12 +223,17 @@ public class TestHiveBucketing
 
     private static Object toNativeContainerValue(Type type, Object hiveValue)
     {
-        String typeBase = type.getTypeSignature().getBase();
         if (hiveValue == null) {
             return null;
         }
-        switch (typeBase) {
-            case StandardTypes.ARRAY: {
+        String typeBase = type.getTypeSignature().getBase();
+        StandardTypes.Types standardType = StandardTypes.Types.getTypeFromString(typeBase);
+        if (standardType == null) {
+            throw new UnsupportedOperationException(String.format("%s is not supported.", typeBase));
+        }
+
+        switch (standardType) {
+            case ARRAY: {
                 BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
                 BlockBuilder subBlockBuilder = blockBuilder.beginBlockEntry();
                 for (Object subElement : (Iterable<?>) hiveValue) {
@@ -237,7 +242,7 @@ public class TestHiveBucketing
                 blockBuilder.closeEntry();
                 return type.getObject(blockBuilder, 0);
             }
-            case StandardTypes.ROW: {
+            case ROW: {
                 BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
                 BlockBuilder subBlockBuilder = blockBuilder.beginBlockEntry();
                 int field = 0;
@@ -248,7 +253,7 @@ public class TestHiveBucketing
                 blockBuilder.closeEntry();
                 return type.getObject(blockBuilder, 0);
             }
-            case StandardTypes.MAP: {
+            case MAP: {
                 BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
                 BlockBuilder subBlockBuilder = blockBuilder.beginBlockEntry();
                 for (Entry<?, ?> entry : ((Map<?, ?>) hiveValue).entrySet()) {
@@ -258,27 +263,27 @@ public class TestHiveBucketing
                 blockBuilder.closeEntry();
                 return type.getObject(blockBuilder, 0);
             }
-            case StandardTypes.BOOLEAN:
+            case BOOLEAN:
                 return hiveValue;
-            case StandardTypes.TINYINT:
+            case TINYINT:
                 return (long) (byte) hiveValue;
-            case StandardTypes.SMALLINT:
+            case SMALLINT:
                 return (long) (short) hiveValue;
-            case StandardTypes.INTEGER:
+            case INTEGER:
                 return (long) (int) hiveValue;
-            case StandardTypes.BIGINT:
+            case BIGINT:
                 return hiveValue;
-            case StandardTypes.REAL:
+            case REAL:
                 return (long) Float.floatToRawIntBits((float) hiveValue);
-            case StandardTypes.DOUBLE:
+            case DOUBLE:
                 return hiveValue;
-            case StandardTypes.VARCHAR:
+            case VARCHAR:
                 return Slices.utf8Slice(hiveValue.toString());
-            case StandardTypes.DATE:
+            case DATE:
                 long daysSinceEpochInLocalZone = ((Date) hiveValue).toLocalDate().toEpochDay();
                 assertEquals(daysSinceEpochInLocalZone, DateWritable.dateToDays((Date) hiveValue));
                 return daysSinceEpochInLocalZone;
-            case StandardTypes.TIMESTAMP:
+            case TIMESTAMP:
                 Instant instant = ((Timestamp) hiveValue).toInstant();
                 long epochSecond = instant.getEpochSecond();
                 int nano = instant.getNano();
