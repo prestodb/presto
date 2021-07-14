@@ -70,6 +70,7 @@
         <dep.druid.version>0.19.0</dep.druid.version>
         <dep.jaxb.version>2.3.1</dep.jaxb.version>
         <dep.hudi.version>0.5.3</dep.hudi.version>
+        <dep.testcontainers.version>1.15.1</dep.testcontainers.version>
         <!--
           America/Bahia_Banderas has:
            - offset change since 1970 (offset Jan 1970: -08:00, offset Jan 2018: -06:00)
@@ -119,6 +120,7 @@
         <module>presto-mysql</module>
         <module>presto-oracle</module>
         <module>presto-postgresql</module>
+        <module>presto-prometheus</module>
         <module>presto-redshift</module>
         <module>presto-sqlserver</module>
         <module>presto-mongodb</module>
@@ -384,11 +386,23 @@
             </dependency>
 
             <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-prometheus</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
                 <groupId>org.testcontainers</groupId>
                 <artifactId>testcontainers-bom</artifactId>
                 <version>1.14.3</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers</artifactId>
+                <version>${dep.testcontainers.version}</version>
             </dependency>
 
             <dependency>
@@ -965,6 +979,13 @@
                 <groupId>mysql</groupId>
                 <artifactId>mysql-connector-java</artifactId>
                 <version>5.1.48</version>
+            </dependency>
+
+            <dependency>
+                <!-- org.testcontainers:testcontainer's dependencies pull two different versions of this artifact and this is to negotiate the version -->
+                <groupId>net.java.dev.jna</groupId>
+                <artifactId>jna</artifactId>
+                <version>5.5.0</version>
             </dependency>
 
             <dependency>
@@ -1958,6 +1979,7 @@
                                     <exclude>org.alluxio:alluxio-shaded-client</exclude>
                                     <exclude>org.codehaus.plexus:plexus-utils</exclude>
                                     <exclude>com.google.guava:guava</exclude>
+                                    <exclude>com.fasterxml.jackson.core:jackson-annotations</exclude>
                                 </excludes>
                             </requireUpperBoundDeps>
                         </rules>
