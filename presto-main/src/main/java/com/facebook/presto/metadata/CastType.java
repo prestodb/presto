@@ -15,6 +15,8 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.common.type.TypeSignature;
 
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY_NAME;
@@ -60,6 +62,20 @@ public enum CastType
                 return OperatorType.SATURATED_FLOOR_CAST;
             default:
                 throw new IllegalArgumentException(format("No OperatorType for CastType %s", castType));
+        }
+    }
+
+    public static CastType getCastTypeFromTypeSignature(TypeSignature typeSignature)
+    {
+        switch (typeSignature.getBase()) {
+            case StandardTypes.ARRAY:
+                return JSON_TO_ARRAY_CAST;
+            case StandardTypes.MAP:
+                return JSON_TO_MAP_CAST;
+            case StandardTypes.ROW:
+                return JSON_TO_ROW_CAST;
+            default:
+                throw new IllegalArgumentException(format("No CastType for TypeSignature %s", typeSignature));
         }
     }
 }
