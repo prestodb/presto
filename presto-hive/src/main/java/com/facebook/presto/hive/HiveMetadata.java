@@ -131,6 +131,7 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -196,6 +197,7 @@ import static com.facebook.presto.hive.HiveMaterializedViewUtils.getMaterialized
 import static com.facebook.presto.hive.HiveMaterializedViewUtils.getViewToBasePartitionMap;
 import static com.facebook.presto.hive.HiveMaterializedViewUtils.validateMaterializedViewPartitionColumns;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
+import static com.facebook.presto.hive.HivePartitioningHandle.createClusteringPartitioningHandle;
 import static com.facebook.presto.hive.HivePartitioningHandle.createHiveCompatiblePartitioningHandle;
 import static com.facebook.presto.hive.HivePartitioningHandle.createPrestoNativePartitioningHandle;
 import static com.facebook.presto.hive.HiveSessionProperties.HIVE_STORAGE_FORMAT;
@@ -230,9 +232,12 @@ import static com.facebook.presto.hive.HiveStorageFormat.values;
 import static com.facebook.presto.hive.HiveTableProperties.AVRO_SCHEMA_URL;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
+import static com.facebook.presto.hive.HiveTableProperties.CLUSTERED_BY_PROPERTY;
+import static com.facebook.presto.hive.HiveTableProperties.CLUSTER_COUNT_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.CSV_ESCAPE;
 import static com.facebook.presto.hive.HiveTableProperties.CSV_QUOTE;
 import static com.facebook.presto.hive.HiveTableProperties.CSV_SEPARATOR;
+import static com.facebook.presto.hive.HiveTableProperties.DISTRIBUTION_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.DWRF_ENCRYPTION_ALGORITHM;
 import static com.facebook.presto.hive.HiveTableProperties.DWRF_ENCRYPTION_PROVIDER;
 import static com.facebook.presto.hive.HiveTableProperties.ENCRYPT_COLUMNS;
@@ -265,6 +270,9 @@ import static com.facebook.presto.hive.HiveUtil.columnExtraInfo;
 import static com.facebook.presto.hive.HiveUtil.decodeMaterializedViewData;
 import static com.facebook.presto.hive.HiveUtil.decodeViewData;
 import static com.facebook.presto.hive.HiveUtil.deserializeZstdCompressed;
+import static com.facebook.presto.hive.HiveUtil.encodeClusterCount;
+import static com.facebook.presto.hive.HiveUtil.encodeClusteredBy;
+import static com.facebook.presto.hive.HiveUtil.encodeDistribution;
 import static com.facebook.presto.hive.HiveUtil.encodeMaterializedViewData;
 import static com.facebook.presto.hive.HiveUtil.encodeViewData;
 import static com.facebook.presto.hive.HiveUtil.getPartitionKeyColumnHandles;
@@ -647,9 +655,17 @@ public class HiveMetadata
         // Bucket properties
         Optional<HiveBucketProperty> bucketProperty = table.get().getStorage().getBucketProperty();
         if (bucketProperty.isPresent()) {
-            properties.put(BUCKET_COUNT_PROPERTY, bucketProperty.get().getBucketCount());
-            properties.put(BUCKETED_BY_PROPERTY, bucketProperty.get().getBucketedBy());
-            properties.put(SORTED_BY_PROPERTY, bucketProperty.get().getSortedBy());
+            if (!bucketProperty.get().getBucketedBy().isEmpty()) {
+                properties.put(BUCKET_COUNT_PROPERTY, bucketProperty.get().getBucketCount());
+                properties.put(BUCKETED_BY_PROPERTY, bucketProperty.get().getBucketedBy());
+                properties.put(SORTED_BY_PROPERTY, bucketProperty.get().getSortedBy());
+            }
+
+            if (bucketProperty.get().getClusteredBy().isPresent()) {
+                properties.put(CLUSTERED_BY_PROPERTY, bucketProperty.get().getClusteredBy().get());
+                properties.put(CLUSTER_COUNT_PROPERTY, bucketProperty.get().getClusterCount().get());
+                properties.put(DISTRIBUTION_PROPERTY, bucketProperty.get().getDistribution().get());
+            }
         }
 
         // Preferred ordering columns
@@ -1030,12 +1046,18 @@ public class HiveMetadata
             List<String> partitionColumns = partitioning.getPartitionColumns();
             BucketFunctionType bucketFunctionType = partitioningHandle.getBucketFunctionType();
             switch (bucketFunctionType) {
+                case HIVE_CLUSTERING:
+                    throw new RuntimeException(
+                            "Clustering is not supported for creating temporary tables");
                 case HIVE_COMPATIBLE:
                     return new HiveBucketProperty(
                             partitionColumns,
                             partitioningHandle.getBucketCount(),
                             ImmutableList.of(),
                             HIVE_COMPATIBLE,
+                            Optional.empty(),
+                            Optional.empty(),
+                            Optional.empty(),
                             Optional.empty());
                 case PRESTO_NATIVE:
                     Map<String, Type> columnNameToTypeMap = columns.stream()
@@ -1047,7 +1069,10 @@ public class HiveMetadata
                             PRESTO_NATIVE,
                             Optional.of(partitionColumns.stream()
                                     .map(columnNameToTypeMap::get)
-                                    .collect(toImmutableList())));
+                                    .collect(toImmutableList())),
+                            Optional.empty(),
+                            Optional.empty(),
+                            Optional.empty());
                 default:
                     throw new IllegalArgumentException("Unsupported bucket function type " + bucketFunctionType);
             }
@@ -1528,6 +1553,7 @@ public class HiveMetadata
         HiveStorageFormat tableStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
         List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
         Optional<HiveBucketProperty> bucketProperty = getBucketProperty(tableMetadata.getProperties());
+
         List<SortingColumn> preferredOrderingColumns = getPreferredOrderingColumns(tableMetadata.getProperties());
 
         // get the root directory for the database
@@ -1645,6 +1671,7 @@ public class HiveMetadata
 
         partitionUpdates = PartitionUpdate.mergePartitionUpdates(partitionUpdates);
 
+        Map<String, String> bucketingProperties = new HashMap<>();
         if (handle.getBucketProperty().isPresent()) {
             ImmutableList<PartitionUpdate> partitionUpdatesForMissingBuckets = computePartitionUpdatesForMissingBuckets(
                     session,
@@ -1666,6 +1693,9 @@ public class HiveMetadata
                         handle.getCompressionCodec(),
                         getSchema(partition, table));
             }
+
+            // Attach clustering information to partition properties.
+            attachClusteringInfoIfAny(bucketingProperties, handle.getBucketProperty().get());
         }
 
         Map<String, Type> columnTypes = handle.getInputColumns().stream()
@@ -1695,6 +1725,8 @@ public class HiveMetadata
         }
         for (PartitionUpdate update : partitionUpdates) {
             Map<String, String> partitionParameters = partitionEncryptionParameters;
+            bucketingProperties.putAll(partitionParameters);
+            partitionParameters = bucketingProperties;
             if (isPreferManifestsToListFiles(session) && isFileRenamingEnabled(session)) {
                 // Store list of file names and sizes in partition metadata when prefer_manifests_to_list_files and file_renaming_enabled are set to true
                 partitionParameters = updatePartitionMetadataWithFileNamesAndSizes(update, partitionParameters);
@@ -1720,6 +1752,29 @@ public class HiveMetadata
                 partitionUpdates.stream()
                         .map(PartitionUpdate::getName)
                         .collect(Collectors.toList())));
+    }
+
+    private static void attachClusteringInfoIfAny(
+            Map<String, String> partitionParameters, HiveBucketProperty bucketProperty)
+    {
+        if (bucketProperty.getDistribution().isPresent()) {
+            checkArgument(bucketProperty.getClusterCount().isPresent(), "cluster count is missing");
+            checkArgument(bucketProperty.getClusteredBy().isPresent(), "cluster columns are missing");
+
+            partitionParameters.put(
+                    "cluster_count", encodeClusterCount(bucketProperty.getClusterCount().get()));
+            partitionParameters.put(
+                    "clustered_by", encodeClusteredBy(bucketProperty.getClusteredBy().get()));
+
+            try {
+                partitionParameters.put(
+                        "distribution", encodeDistribution(bucketProperty.getDistribution().get()));
+            }
+            catch (IOException e) {
+                // TODO: Better error handling.
+                throw new RuntimeException(e.getMessage());
+            }
+        }
     }
 
     public static boolean shouldCreateFilesForMissingBuckets(Table table, ConnectorSession session)
@@ -1952,6 +2007,7 @@ public class HiveMetadata
             throw new PrestoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Table format changed during insert");
         }
 
+        Map<String, String> clusteringParamters = new HashMap<>();
         if (handle.getBucketProperty().isPresent()) {
             ImmutableList<PartitionUpdate> partitionUpdatesForMissingBuckets = computePartitionUpdatesForMissingBuckets(
                     session,
@@ -1980,6 +2036,7 @@ public class HiveMetadata
                         handle.getCompressionCodec(),
                         getSchema(partition, table.get()));
             }
+            attachClusteringInfoIfAny(clusteringParamters, handle.getBucketProperty().get());
         }
 
         List<String> partitionedBy = table.get().getPartitionColumns().stream()
@@ -2036,6 +2093,11 @@ public class HiveMetadata
                 Map<String, String> extraPartitionMetadata = handle.getEncryptionInformation()
                         .map(encryptionInfo -> encryptionInfo.getDwrfEncryptionMetadata().map(DwrfEncryptionMetadata::getExtraMetadata).orElseGet(ImmutableMap::of))
                         .orElseGet(ImmutableMap::of);
+
+                // Store clustering parameters into partition parameters
+                extraPartitionMetadata = Stream.concat(
+                        extraPartitionMetadata.entrySet().stream(), clusteringParamters.entrySet().stream())
+                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
                 if (isPreferManifestsToListFiles(session) && isFileRenamingEnabled(session)) {
                     // Store list of file names and sizes in partition metadata when prefer_manifests_to_list_files and file_renaming_enabled are set to true
@@ -2701,6 +2763,17 @@ public class HiveMetadata
                                 bucketProperty.getTypes().get(),
                                 maxCompatibleBucketCount);
                         break;
+                    case HIVE_CLUSTERING:
+                        List<Type> columnTypes = hiveBucketHandle.getColumns().stream()
+                                .map(columnHandle -> columnHandle.getHiveType().getType(typeManager))
+                                .collect(toImmutableList());
+                        List<String> clusteredBy = bucketProperty.getClusteredBy().get();
+                        List<Integer> clusterCount = bucketProperty.getClusterCount().get();
+                        List<Object> distribution = bucketProperty.getDistribution().get();
+
+                        partitioningHandle = createClusteringPartitioningHandle(
+                                columnTypes, maxCompatibleBucketCount, clusteredBy, clusterCount, distribution);
+                        break;
                     default:
                         throw new IllegalArgumentException("Unsupported bucket function type " + bucketProperty.getBucketFunctionType());
                 }
@@ -2776,7 +2849,10 @@ public class HiveMetadata
                 maxCompatibleBucketCount,
                 leftHandle.getBucketFunctionType(),
                 leftHandle.getHiveTypes(),
-                leftHandle.getTypes()));
+                leftHandle.getTypes(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty()));
     }
 
     @Override
@@ -2873,6 +2949,8 @@ public class HiveMetadata
         }
 
         switch (bucketFunctionType) {
+            // TODO: Need to figure out if we should use clustering here or not.
+            case HIVE_CLUSTERING:
             case HIVE_COMPATIBLE:
                 return createHiveCompatiblePartitioningHandle(
                         partitionCount,
@@ -2978,6 +3056,18 @@ public class HiveMetadata
                         bucketProperty.getTypes().get(),
                         maxCompatibleBucketCount);
                 break;
+            case HIVE_CLUSTERING:
+                List<Type> columnTypes = bucketProperty.getClusteredBy().get().stream()
+                        .map(columnName -> table.getColumn(columnName).get())
+                        .map(columnType -> columnType.getType().getType(typeManager))
+                        .collect(toImmutableList());
+                partitioningHandle = createClusteringPartitioningHandle(
+                        columnTypes,
+                        maxCompatibleBucketCount,
+                        bucketProperty.getClusteredBy().get(),
+                        bucketProperty.getClusterCount().get(),
+                        bucketProperty.getDistribution().get());
+                break;
             default:
                 throw new IllegalArgumentException("Unsupported bucket function type " + bucketProperty.getBucketFunctionType());
         }
@@ -3032,25 +3122,42 @@ public class HiveMetadata
         if (!bucketProperty.isPresent()) {
             return Optional.empty();
         }
-        checkArgument(bucketProperty.get().getBucketFunctionType().equals(BucketFunctionType.HIVE_COMPATIBLE),
+        BucketFunctionType bucketFunctionType = bucketProperty.get().getBucketFunctionType();
+        checkArgument((bucketFunctionType.equals(BucketFunctionType.HIVE_COMPATIBLE) ||
+                        bucketFunctionType.equals(BucketFunctionType.HIVE_CLUSTERING)),
                 "bucketFunctionType is expected to be HIVE_COMPATIBLE, got: %s",
-                bucketProperty.get().getBucketFunctionType());
+                bucketFunctionType);
         if (!bucketProperty.get().getSortedBy().isEmpty() && !isSortedWritingEnabled(session)) {
             throw new PrestoException(NOT_SUPPORTED, "Writing to bucketed sorted Hive tables is disabled");
         }
 
         List<String> bucketedBy = bucketProperty.get().getBucketedBy();
-        Map<String, HiveType> hiveTypeMap = tableMetadata.getColumns().stream()
-                .collect(toMap(ColumnMetadata::getName, column -> toHiveType(typeTranslator, column.getType())));
+        // Using hash bucketing parameters to generate layout.
+        if (bucketProperty.get().getBucketFunctionType() == HIVE_COMPATIBLE) {
+            Map<String, HiveType> hiveTypeMap = tableMetadata.getColumns().stream()
+                    .collect(toMap(ColumnMetadata::getName, column -> toHiveType(typeTranslator, column.getType())));
 
-        return Optional.of(new ConnectorNewTableLayout(
-                createHiveCompatiblePartitioningHandle(
-                        bucketProperty.get().getBucketCount(),
-                        bucketedBy.stream()
-                                .map(hiveTypeMap::get)
-                                .collect(toImmutableList()),
-                        OptionalInt.of(bucketProperty.get().getBucketCount())),
-                bucketedBy));
+            return Optional.of(new ConnectorNewTableLayout(
+                    createHiveCompatiblePartitioningHandle(
+                            bucketProperty.get().getBucketCount(),
+                            bucketedBy.stream()
+                                    .map(hiveTypeMap::get)
+                                    .collect(toImmutableList()),
+                            OptionalInt.of(bucketProperty.get().getBucketCount())),
+                    bucketedBy));
+        }
+
+        // Using clustering parameters to generate layout.
+        Map<String, Type> typeMap = tableMetadata.getColumns().stream()
+                .collect(toMap(ColumnMetadata::getName, column -> column.getType()));
+        return Optional.of(new ConnectorNewTableLayout((
+                createClusteringPartitioningHandle(
+                        bucketProperty.get().getClusteredBy().get().stream().map(typeMap::get).collect(toImmutableList()),
+                        OptionalInt.of(bucketProperty.get().getBucketCount()),
+                        bucketProperty.get().getClusteredBy().get(),
+                        bucketProperty.get().getClusterCount().get(),
+                        bucketProperty.get().getDistribution().get())),
+                bucketProperty.get().getClusteredBy().get()));
     }
 
     @Override

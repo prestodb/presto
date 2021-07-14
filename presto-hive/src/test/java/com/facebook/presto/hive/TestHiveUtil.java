@@ -31,8 +31,10 @@ import org.joda.time.format.DateTimeFormat;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.AbstractList;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -164,6 +166,86 @@ public class TestHiveUtil
             String expectedValue = expectedValueList.get(index);
             checkState(actualValue.equals(expectedValue), "The actual value does not match the expected value");
         }
+    }
+
+    @Test
+    public void testEncodeClusterCount()
+    {
+        List<Integer> clusterCount = new ArrayList<>(Arrays.asList(3, 5, 100));
+        String encodedClusterCount = HiveUtil.encodeClusterCount(clusterCount);
+        assertEquals(encodedClusterCount, "3,5,100");
+
+        clusterCount = new ArrayList<>(Arrays.asList(3));
+        encodedClusterCount = HiveUtil.encodeClusterCount(clusterCount);
+        assertEquals(encodedClusterCount, "3");
+
+        clusterCount = new ArrayList<>(Arrays.asList(3, 2147483647));
+        encodedClusterCount = HiveUtil.encodeClusterCount(clusterCount);
+        assertEquals(encodedClusterCount, "3,2147483647");
+    }
+
+    @Test
+    public void testEncodeClusterBy()
+    {
+        List<String> clusteredBy = new ArrayList<>(Arrays.asList("c1", "c2", "c3"));
+        String encodedClusterCount = HiveUtil.encodeClusteredBy(clusteredBy);
+        assertEquals(encodedClusterCount, "c1,c2,c3");
+
+        clusteredBy = new ArrayList<>(Arrays.asList("_c1", "_c2", "_c3"));
+        encodedClusterCount = HiveUtil.encodeClusteredBy(clusteredBy);
+        assertEquals(encodedClusterCount, "_c1,_c2,_c3");
+    }
+
+    @Test
+    void testEncodeDistributionPoints()
+    {
+        List<Object> distribution = new ArrayList<>(Arrays.asList(
+                1, 2, 3, 1.1, 2.2, 3.3, "a", "b", "x"));
+        List<String> encodedDistributionPoints;
+        try {
+            encodedDistributionPoints = HiveUtil.encodeDistributionPoints(distribution);
+        }
+        catch (IOException e) {
+            throw new RuntimeException(
+                    "Can not encode all distribution points: " + e.getMessage());
+        }
+        List<String> expected = new ArrayList<>(Arrays.asList(
+                "rO0ABXNyABFqYXZhLmxhbmcuSW50ZWdlchLioKT3gYc4AgABSQAFdmFsdWV4cgAQamF2YS5sYW5nLk51bWJlcoaslR0LlOCLAgAAeHAAAAAB",
+                "c3IAEWphdmEubGFuZy5JbnRlZ2VyEuKgpPeBhzgCAAFJAAV2YWx1ZXhyABBqYXZhLmxhbmcuTnVtYmVyhqyVHQuU4IsCAAB4cAAAAAI=",
+                "c3IAEWphdmEubGFuZy5JbnRlZ2VyEuKgpPeBhzgCAAFJAAV2YWx1ZXhyABBqYXZhLmxhbmcuTnVtYmVyhqyVHQuU4IsCAAB4cAAAAAM=",
+                "c3IAEGphdmEubGFuZy5Eb3VibGWAs8JKKWv7BAIAAUQABXZhbHVleHIAEGphdmEubGFuZy5OdW1iZXKGrJUdC5TgiwIAAHhwP/GZmZmZmZo=",
+                "c3IAEGphdmEubGFuZy5Eb3VibGWAs8JKKWv7BAIAAUQABXZhbHVleHIAEGphdmEubGFuZy5OdW1iZXKGrJUdC5TgiwIAAHhwQAGZmZmZmZo=",
+                "c3IAEGphdmEubGFuZy5Eb3VibGWAs8JKKWv7BAIAAUQABXZhbHVleHIAEGphdmEubGFuZy5OdW1iZXKGrJUdC5TgiwIAAHhwQApmZmZmZmY=",
+                "dAABYQ==",
+                "dAABYg==",
+                "dAABeA=="));
+        assertEquals(encodedDistributionPoints, expected);
+    }
+
+    @Test
+    void testEncodeDistribution()
+    {
+        List<Object> distribution = new ArrayList<>(Arrays.asList(
+                1, 2, 3, 1.1, 2.2, 3.3, "a", "b", "x"));
+        String encodedDistribution;
+        try {
+            encodedDistribution = HiveUtil.encodeDistribution(distribution);
+        }
+        catch (IOException e) {
+            throw new RuntimeException(
+                    "Can not encode all distribution points: " + e.getMessage());
+        }
+        String expected = (
+                "rO0ABXNyABFqYXZhLmxhbmcuSW50ZWdlchLioKT3gYc4AgABSQAFdmFsdWV4cgAQamF2YS5sYW5nLk51bWJlcoaslR0LlOCLAgAAeHAAAAAB," +
+                "c3IAEWphdmEubGFuZy5JbnRlZ2VyEuKgpPeBhzgCAAFJAAV2YWx1ZXhyABBqYXZhLmxhbmcuTnVtYmVyhqyVHQuU4IsCAAB4cAAAAAI=," +
+                "c3IAEWphdmEubGFuZy5JbnRlZ2VyEuKgpPeBhzgCAAFJAAV2YWx1ZXhyABBqYXZhLmxhbmcuTnVtYmVyhqyVHQuU4IsCAAB4cAAAAAM=," +
+                "c3IAEGphdmEubGFuZy5Eb3VibGWAs8JKKWv7BAIAAUQABXZhbHVleHIAEGphdmEubGFuZy5OdW1iZXKGrJUdC5TgiwIAAHhwP/GZmZmZmZo=," +
+                "c3IAEGphdmEubGFuZy5Eb3VibGWAs8JKKWv7BAIAAUQABXZhbHVleHIAEGphdmEubGFuZy5OdW1iZXKGrJUdC5TgiwIAAHhwQAGZmZmZmZo=," +
+                "c3IAEGphdmEubGFuZy5Eb3VibGWAs8JKKWv7BAIAAUQABXZhbHVleHIAEGphdmEubGFuZy5OdW1iZXKGrJUdC5TgiwIAAHhwQApmZmZmZmY=," +
+                "dAABYQ==," +
+                "dAABYg==," +
+                "dAABeA==");
+        assertEquals(encodedDistribution, expected);
     }
 
     private static long parse(DateTime time, String pattern)

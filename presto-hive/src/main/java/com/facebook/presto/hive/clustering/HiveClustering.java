@@ -11,11 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive;
+package com.facebook.presto.hive.clustering;
 
-public enum BucketFunctionType
+import com.facebook.presto.common.Page;
+
+public interface HiveClustering
 {
-    HIVE_CLUSTERING,
-    HIVE_COMPATIBLE,
-    PRESTO_NATIVE
+    public int getCluster(Page page, int position);
 }

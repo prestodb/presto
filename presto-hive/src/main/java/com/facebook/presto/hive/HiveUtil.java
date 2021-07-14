@@ -93,6 +93,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.ObjectOutputStream;
 import java.io.UncheckedIOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
@@ -100,6 +101,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
@@ -155,6 +157,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Lists.newArrayList;
 import static com.google.common.collect.Lists.transform;
+import static io.netty.util.internal.StringUtil.COMMA;
 import static java.lang.Byte.parseByte;
 import static java.lang.Double.parseDouble;
 import static java.lang.Float.floatToRawIntBits;
@@ -1204,5 +1207,37 @@ public final class HiveUtil
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    public static String encodeDistribution(List<Object> distribution) throws IOException
+    {
+        List<String> encodedDistribution = encodeDistributionPoints(distribution);
+        return Joiner.on(COMMA).join(encodedDistribution);
+    }
+
+    public static List<String> encodeDistributionPoints(List<Object> distribution) throws IOException
+    {
+        List<String> encodedDistributionPoints = new ArrayList<>();
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        ObjectOutputStream objectOutputStream = new ObjectOutputStream(byteArrayOutputStream);
+        for (int i = 0; i < distribution.size(); ++i) {
+            objectOutputStream.writeObject(distribution.get(i));
+            objectOutputStream.close();
+            encodedDistributionPoints.add(
+                    Base64.getEncoder().encodeToString(byteArrayOutputStream.toByteArray()));
+            byteArrayOutputStream.reset();
+        }
+        return encodedDistributionPoints;
+    }
+
+    public static String encodeClusteredBy(List<String> clusteredBy)
+    {
+        return Joiner.on(COMMA).join(clusteredBy);
+    }
+
+    public static String encodeClusterCount(List<Integer> clusterCount)
+    {
+        return Joiner.on(COMMA).join(
+                clusterCount.stream().map(String::valueOf).collect(toImmutableList()));
     }
 }

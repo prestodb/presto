@@ -324,7 +324,8 @@ public final class StreamPropertyDerivations
                             FIXED,
                             Optional.of(node.getPartitioningScheme().getPartitioning().getArguments().stream()
                                     .map(VariableReferenceExpression.class::cast)
-                                    .collect(toImmutableList())), false);
+                                    .collect(toImmutableList())),
+                            false);
                 case REPLICATE:
                     return new StreamProperties(MULTIPLE, Optional.empty(), false);
             }
@@ -624,9 +625,9 @@ public final class StreamPropertyDerivations
             this.partitioningColumns = requireNonNull(partitioningColumns, "partitioningProperties is null")
                     .map(ImmutableList::copyOf);
 
-            checkArgument(distribution != SINGLE || this.partitioningColumns.equals(Optional.of(ImmutableList.of())),
+            checkArgument(distribution != SINGLE || this.partitioningColumns.equals(Optional.of(ImmutableList.of())) || this.partitioningColumns.equals((Optional.empty())),
                     "Single stream must be partitioned on empty set");
-            checkArgument(distribution == SINGLE || !this.partitioningColumns.equals(Optional.of(ImmutableList.of())),
+            checkArgument(distribution == SINGLE || !this.partitioningColumns.equals(Optional.of(ImmutableList.of())) || !this.partitioningColumns.equals(Optional.empty()),
                     "Multiple streams must not be partitioned on empty set");
 
             this.ordered = ordered;
