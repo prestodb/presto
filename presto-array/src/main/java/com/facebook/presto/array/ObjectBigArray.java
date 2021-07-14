@@ -61,6 +61,14 @@ public final class ObjectBigArray<T>
     }
 
     /**
+     * Returns the current capacity of this big array
+     */
+    public long getCapacity()
+    {
+        return capacity;
+    }
+
+    /**
      * Returns the element of this big array at specified index.
      *
      * @param index a position in this big array.
@@ -73,6 +81,24 @@ public final class ObjectBigArray<T>
     }
 
     /**
+     * Gets the element of this big array at specified index and then sets the provided
+     * replacement value to the same index
+     *
+     * @param index a position in this big array.
+     *
+     * @return the previously stored value for the specified index
+     */
+    @SuppressWarnings("unchecked")
+    public T getAndSet(long index, T replacement)
+    {
+        Object[] segment = array[segment(index)];
+        int offset = offset(index);
+        T result = (T) segment[offset];
+        segment[offset] = replacement;
+        return result;
+    }
+
+    /**
      * Sets the element of this big array at specified index.
      *
      * @param index a position in this big array.
@@ -80,6 +106,25 @@ public final class ObjectBigArray<T>
     public void set(long index, T value)
     {
         array[segment(index)][offset(index)] = value;
+    }
+
+    /**
+     * Sets the element of this big array at specified index if and only if the existing value
+     * at that index is null
+     *
+     * @param index a position in this big array.
+     *
+     * @return whether the previous value was null and the new value stored
+     */
+    public boolean setIfNull(long index, T value)
+    {
+        Object[] segment = array[segment(index)];
+        int offset = offset(index);
+        if (segment[offset] == null) {
+            segment[offset] = value;
+            return true;
+        }
+        return false;
     }
 
     /**
