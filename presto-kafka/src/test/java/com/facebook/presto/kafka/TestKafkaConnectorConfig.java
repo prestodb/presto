@@ -26,9 +26,9 @@ public class TestKafkaConnectorConfig
     public void testDefaults()
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(KafkaConnectorConfig.class)
-                .setNodes(null)
                 .setKafkaConnectTimeout("10s")
                 .setDefaultSchema("default")
+                .setClusterMetadataSupplier(FileTableDescriptionSupplier.NAME)
                 .setTableDescriptionSupplier(FileTableDescriptionSupplier.NAME)
                 .setHideInternalColumns(true)
                 .setMaxPartitionFetchBytes(1048576)
@@ -40,8 +40,8 @@ public class TestKafkaConnectorConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("kafka.table-description-supplier", "test")
+                .put("kafka.cluster-metadata-supplier", "test")
                 .put("kafka.default-schema", "kafka")
-                .put("kafka.nodes", "localhost:12345,localhost:23456")
                 .put("kafka.connect-timeout", "1h")
                 .put("kafka.hide-internal-columns", "false")
                 .put("kafka.max-partition-fetch-bytes", "1024")
@@ -50,8 +50,8 @@ public class TestKafkaConnectorConfig
 
         KafkaConnectorConfig expected = new KafkaConnectorConfig()
                 .setTableDescriptionSupplier("test")
+                .setClusterMetadataSupplier("test")
                 .setDefaultSchema("kafka")
-                .setNodes("localhost:12345, localhost:23456")
                 .setKafkaConnectTimeout("1h")
                 .setHideInternalColumns(false)
                 .setMaxPartitionFetchBytes(1024)

@@ -11,37 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.kafka;
+package com.facebook.presto.kafka.server;
 
-import com.facebook.presto.spi.HostAddress;
 import com.google.common.collect.ImmutableList;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.Objects.requireNonNull;
-
-public class KafkaStaticServerset
+public class KafkaClusterMetadataHelper
 {
-    private final List<HostAddress> nodes;
-
-    @Inject
-    public KafkaStaticServerset(KafkaConnectorConfig config)
+    private KafkaClusterMetadataHelper()
     {
-        requireNonNull(config.getNodes(), "nodes is null");
-        checkArgument(!config.getNodes().isEmpty(), "nodes must specify at least one URI");
-        this.nodes = config.getNodes();
     }
 
-    public HostAddress selectRandomServer()
-    {
-        return selectRandom(this.nodes);
-    }
-
-    private static <T> T selectRandom(Iterable<T> iterable)
+    public static <T> T selectRandom(Iterable<T> iterable)
     {
         List<T> list = ImmutableList.copyOf(iterable);
         return list.get(ThreadLocalRandom.current().nextInt(list.size()));

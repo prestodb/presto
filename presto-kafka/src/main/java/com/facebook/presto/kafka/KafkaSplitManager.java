@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.kafka;
 
+import com.facebook.presto.kafka.server.KafkaClusterMetadataHelper;
+import com.facebook.presto.kafka.server.KafkaClusterMetadataSupplier;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
@@ -61,20 +63,20 @@ public class KafkaSplitManager
 {
     private final String connectorId;
     private final KafkaConsumerManager consumerManager;
-    private final KafkaStaticServerset servers;
+    private final KafkaClusterMetadataSupplier clusterMetadataSupplier;
 
     @Inject
     public KafkaSplitManager(
             KafkaConnectorId connectorId,
             KafkaConnectorConfig kafkaConnectorConfig,
-            KafkaStaticServerset servers,
+            KafkaClusterMetadataSupplier clusterMetadataSupplier,
             KafkaConsumerManager consumerManager)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.consumerManager = requireNonNull(consumerManager, "consumerManager is null");
 
         requireNonNull(kafkaConnectorConfig, "kafkaConfig is null");
-        this.servers = servers;
+        this.clusterMetadataSupplier = requireNonNull(clusterMetadataSupplier, "clusterMetadataSupplier is null");
     }
 
     @Override
@@ -86,9 +88,9 @@ public class KafkaSplitManager
     {
         KafkaTableHandle kafkaTableHandle = convertLayout(layout).getTable();
         try {
-            HostAddress node = servers.selectRandomServer();
             String topic = kafkaTableHandle.getTopicName();
             KafkaTableLayoutHandle layoutHandle = (KafkaTableLayoutHandle) layout;
+            HostAddress node = KafkaClusterMetadataHelper.selectRandom(clusterMetadataSupplier.getNodes(layoutHandle.getTable().getSchemaName()));
 
             KafkaConsumer<ByteBuffer, ByteBuffer> consumer = consumerManager.createConsumer(Thread.currentThread().getName(), node);
             List<PartitionInfo> partitions = consumer.partitionsFor(topic);

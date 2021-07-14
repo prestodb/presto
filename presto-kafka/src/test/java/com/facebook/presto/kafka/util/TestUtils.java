@@ -20,6 +20,9 @@ import com.facebook.presto.kafka.KafkaPlugin;
 import com.facebook.presto.kafka.KafkaTopicDescription;
 import com.facebook.presto.kafka.schema.MapBasedTableDescriptionSupplier;
 import com.facebook.presto.kafka.schema.TableDescriptionSupplier;
+import com.facebook.presto.kafka.server.KafkaClusterMetadataSupplier;
+import com.facebook.presto.kafka.server.file.FileKafkaClusterMetadataSupplier;
+import com.facebook.presto.kafka.server.file.FileKafkaClusterMetadataSupplierConfig;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.TestingPrestoClient;
@@ -63,17 +66,24 @@ public final class TestUtils
 
     public static void installKafkaPlugin(EmbeddedKafka embeddedKafka, QueryRunner queryRunner, Map<SchemaTableName, KafkaTopicDescription> topicDescriptions)
     {
+        FileKafkaClusterMetadataSupplierConfig clusterMetadataSupplierConfig = new FileKafkaClusterMetadataSupplierConfig();
+        clusterMetadataSupplierConfig.setNodes(embeddedKafka.getConnectString());
         KafkaPlugin kafkaPlugin = new KafkaPlugin(combine(
                 installModuleIf(
                         KafkaConnectorConfig.class,
                         kafkaConfig -> kafkaConfig.getTableDescriptionSupplier().equalsIgnoreCase(TEST),
                         binder -> binder.bind(TableDescriptionSupplier.class)
-                                .toInstance(new MapBasedTableDescriptionSupplier(topicDescriptions)))));
+                                .toInstance(new MapBasedTableDescriptionSupplier(topicDescriptions))),
+                installModuleIf(
+                        KafkaConnectorConfig.class,
+                        kafkaConfig -> kafkaConfig.getClusterMetadataSupplier().equalsIgnoreCase(TEST),
+                        binder -> binder.bind(KafkaClusterMetadataSupplier.class)
+                                .toInstance(new FileKafkaClusterMetadataSupplier(clusterMetadataSupplierConfig)))));
 
         queryRunner.installPlugin(kafkaPlugin);
 
         Map<String, String> kafkaConfig = ImmutableMap.of(
-                "kafka.nodes", embeddedKafka.getConnectString(),
+                "kafka.cluster-metadata-supplier", TEST,
                 "kafka.table-description-supplier", TEST,
                 "kafka.connect-timeout", "120s",
                 "kafka.default-schema", "default");
