@@ -40,6 +40,7 @@ public class MapBlockEncoding
     public void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block)
     {
         AbstractMapBlock mapBlock = (AbstractMapBlock) block;
+        mapBlock.beforeEncoding();
 
         int positionCount = mapBlock.getPositionCount();
 
@@ -97,6 +98,6 @@ public class MapBlockEncoding
         int[] offsets = new int[positionCount + 1];
         sliceInput.readBytes(wrappedIntArray(offsets));
         Optional<boolean[]> mapIsNull = EncoderUtil.decodeNullBits(sliceInput, positionCount);
-        return MapType.createMapBlockInternal(0, positionCount, mapIsNull, offsets, keyBlock, valueBlock, new HashTables(Optional.ofNullable(hashTable), positionCount, hashTableLength));
+        return MapType.createMapBlockInternal(0, positionCount, mapIsNull, offsets, keyBlock, valueBlock, new HashTables(Optional.ofNullable(hashTable), positionCount));
     }
 }

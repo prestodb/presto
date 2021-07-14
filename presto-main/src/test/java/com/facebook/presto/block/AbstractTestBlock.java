@@ -36,6 +36,7 @@ import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
 
@@ -110,7 +111,7 @@ public abstract class AbstractTestBlock
                     continue;
                 }
                 Class<?> type = field.getType();
-                if (type.isPrimitive()) {
+                if (type.isPrimitive() || type == Optional.class) {
                     continue;
                 }
 

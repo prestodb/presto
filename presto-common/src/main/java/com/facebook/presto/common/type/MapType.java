@@ -273,6 +273,6 @@ public class MapType
     {
         // TypeManager caches types. Therefore, it is important that we go through it instead of coming up with the MethodHandles directly.
         // BIGINT is chosen arbitrarily here. Any type will do.
-        return MapBlock.createMapBlockInternal(startOffset, positionCount, mapIsNull, offsets, keyBlock, valueBlock, hashTables);
+        return MapBlock.createMapBlockInternal(startOffset, positionCount, mapIsNull, offsets, keyBlock, valueBlock, hashTables, Optional.empty());
     }
 }
