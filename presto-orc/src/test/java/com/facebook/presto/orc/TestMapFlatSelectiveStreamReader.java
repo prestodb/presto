@@ -122,6 +122,15 @@ public class TestMapFlatSelectiveStreamReader
     }
 
     @Test
+    public void testIntegerWithSharedDictionary()
+            throws Exception
+    {
+        runTest("test_flat_map/flat_map_dict_share_simple.dwrf",
+                INTEGER,
+                ExpectedValuesBuilder.get(Function.identity()).setNumRows(2048));
+    }
+
+    @Test
     public void testIntegerWithNull()
             throws Exception
     {
@@ -268,6 +277,17 @@ public class TestMapFlatSelectiveStreamReader
                 INTEGER,
                 mapType(VARCHAR, REAL),
                 ExpectedValuesBuilder.get(Function.identity(), TestMapFlatSelectiveStreamReader::intToMap).setNullValuesFrequency(SOME));
+    }
+
+    @Test
+    public void testMapWithSharedDictionary()
+            throws Exception
+    {
+        runTest(
+                "test_flat_map/flat_map_dict_share_nested.dwrf",
+                BIGINT,
+                mapType(VARCHAR, INTEGER),
+                ExpectedValuesBuilder.get(x -> (long) x, TestMapFlatSelectiveStreamReader::intToIntMap).setNumRows(2048));
     }
 
     @Test
@@ -522,6 +542,11 @@ public class TestMapFlatSelectiveStreamReader
         return ImmutableMap.of(Integer.toString(i * 3), (float) (i * 3), Integer.toString(i * 3 + 1), (float) (i * 3 + 1), Integer.toString(i * 3 + 2), (float) (i * 3 + 2));
     }
 
+    private static Map<String, Integer> intToIntMap(int i)
+    {
+        return ImmutableMap.of(Integer.toString(i * 3), i * 3, Integer.toString(i * 3 + 1), i * 3 + 1, Integer.toString(i * 3 + 2), i * 3 + 2);
+    }
+
     static class ExpectedValuesBuilder<K, V>
     {
         enum Frequency
@@ -539,6 +564,7 @@ public class TestMapFlatSelectiveStreamReader
         private Frequency emptyMapsFrequency = NONE;
         private boolean mixedEncodings;
         private boolean missingSequences;
+        private int numRows = NUM_ROWS;
 
         private ExpectedValuesBuilder(Function<Integer, K> keyConverter, Function<Integer, V> valueConverter)
         {
@@ -591,11 +617,17 @@ public class TestMapFlatSelectiveStreamReader
             return this;
         }
 
+        public ExpectedValuesBuilder<K, V> setNumRows(int numRows)
+        {
+            this.numRows = numRows;
+            return this;
+        }
+
         public List<Map<K, V>> build()
         {
-            List<Map<K, V>> result = new ArrayList<>(NUM_ROWS);
+            List<Map<K, V>> result = new ArrayList<>(numRows);
 
-            for (int i = 0; i < NUM_ROWS; ++i) {
+            for (int i = 0; i < numRows; ++i) {
                 if (passesFrequencyCheck(nullRowsFrequency, i)) {
                     result.add(null);
                 }
@@ -663,7 +695,8 @@ public class TestMapFlatSelectiveStreamReader
 
         public TestingFilterFunction(final Type mapType)
         {
-            super(TEST_SESSION.getSqlFunctionProperties(), true, new Predicate() {
+            super(TEST_SESSION.getSqlFunctionProperties(), true, new Predicate()
+            {
                 @Override
                 public int[] getInputChannels()
                 {
