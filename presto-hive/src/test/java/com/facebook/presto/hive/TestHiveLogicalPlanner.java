@@ -1061,6 +1061,14 @@ public class TestHiveLogicalPlanner
             MaterializedResult viewTable = computeActual(viewQuery);
             MaterializedResult baseTable = computeActual(baseQuery);
             assertEquals(viewTable, baseTable);
+            
+            String viewExplainQuery = "EXPLAIN SELECT orderkey from test_orders_view where orderkey <  10000 ORDER BY orderkey";
+            String baseExplainQuery = "EXPLAIN SELECT orderkey from orders_partitioned where orderkey <  10000 ORDER BY orderkey";
+
+            MaterializedResult viewExplainQueryResult = computeActual(viewExplainQuery);
+            MaterializedResult baseExplainQueryResult = computeActual(baseExplainQuery);
+            assertEquals(viewExplainQueryResult, baseExplainQueryResult);
+            
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS test_orders_view");
