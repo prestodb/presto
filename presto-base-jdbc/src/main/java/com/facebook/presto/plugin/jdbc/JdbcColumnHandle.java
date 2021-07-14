@@ -33,6 +33,7 @@ public final class JdbcColumnHandle
     private final JdbcTypeHandle jdbcTypeHandle;
     private final Type columnType;
     private final boolean nullable;
+    private final String comment;
 
     @JsonCreator
     public JdbcColumnHandle(
@@ -40,13 +41,15 @@ public final class JdbcColumnHandle
             @JsonProperty("columnName") String columnName,
             @JsonProperty("jdbcTypeHandle") JdbcTypeHandle jdbcTypeHandle,
             @JsonProperty("columnType") Type columnType,
-            @JsonProperty("nullable") boolean nullable)
+            @JsonProperty("nullable") boolean nullable,
+            @JsonProperty("comment") String comment)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.columnName = requireNonNull(columnName, "columnName is null");
         this.jdbcTypeHandle = requireNonNull(jdbcTypeHandle, "jdbcTypeHandle is null");
         this.columnType = requireNonNull(columnType, "columnType is null");
         this.nullable = nullable;
+        this.comment = comment;
     }
 
     @JsonProperty
@@ -79,9 +82,15 @@ public final class JdbcColumnHandle
         return nullable;
     }
 
+    @JsonProperty
+    public String getComment()
+    {
+        return comment;
+    }
+
     public ColumnMetadata getColumnMetadata()
     {
-        return new ColumnMetadata(columnName, columnType, nullable, null, null, false, emptyMap());
+        return new ColumnMetadata(columnName, columnType, nullable, comment, null, false, emptyMap());
     }
 
     @Override
@@ -113,6 +122,7 @@ public final class JdbcColumnHandle
                 .add("jdbcTypeHandle", jdbcTypeHandle)
                 .add("columnType", columnType)
                 .add("nullable", nullable)
+                .add("comment", comment)
                 .toString();
     }
 }

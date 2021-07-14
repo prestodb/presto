@@ -90,18 +90,18 @@ public class TestJdbcQueryBuilder
 
         session = new TestingConnectorSession(ImmutableList.of());
         columns = ImmutableList.of(
-                new JdbcColumnHandle("test_id", "col_0", JDBC_BIGINT, BIGINT, true),
-                new JdbcColumnHandle("test_id", "col_1", JDBC_DOUBLE, DOUBLE, true),
-                new JdbcColumnHandle("test_id", "col_2", JDBC_BOOLEAN, BOOLEAN, true),
-                new JdbcColumnHandle("test_id", "col_3", JDBC_VARCHAR, VARCHAR, true),
-                new JdbcColumnHandle("test_id", "col_4", JDBC_DATE, DATE, true),
-                new JdbcColumnHandle("test_id", "col_5", JDBC_TIME, TIME, true),
-                new JdbcColumnHandle("test_id", "col_6", JDBC_TIMESTAMP, TIMESTAMP, true),
-                new JdbcColumnHandle("test_id", "col_7", JDBC_TINYINT, TINYINT, true),
-                new JdbcColumnHandle("test_id", "col_8", JDBC_SMALLINT, SMALLINT, true),
-                new JdbcColumnHandle("test_id", "col_9", JDBC_INTEGER, INTEGER, true),
-                new JdbcColumnHandle("test_id", "col_10", JDBC_REAL, REAL, true),
-                new JdbcColumnHandle("test_id", "col_11", JDBC_CHAR, charType, true));
+                new JdbcColumnHandle("test_id", "col_0", JDBC_BIGINT, BIGINT, true, null),
+                new JdbcColumnHandle("test_id", "col_1", JDBC_DOUBLE, DOUBLE, true, null),
+                new JdbcColumnHandle("test_id", "col_2", JDBC_BOOLEAN, BOOLEAN, true, null),
+                new JdbcColumnHandle("test_id", "col_3", JDBC_VARCHAR, VARCHAR, true, null),
+                new JdbcColumnHandle("test_id", "col_4", JDBC_DATE, DATE, true, null),
+                new JdbcColumnHandle("test_id", "col_5", JDBC_TIME, TIME, true, null),
+                new JdbcColumnHandle("test_id", "col_6", JDBC_TIMESTAMP, TIMESTAMP, true, null),
+                new JdbcColumnHandle("test_id", "col_7", JDBC_TINYINT, TINYINT, true, null),
+                new JdbcColumnHandle("test_id", "col_8", JDBC_SMALLINT, SMALLINT, true, null),
+                new JdbcColumnHandle("test_id", "col_9", JDBC_INTEGER, INTEGER, true, null),
+                new JdbcColumnHandle("test_id", "col_10", JDBC_REAL, REAL, true, null),
+                new JdbcColumnHandle("test_id", "col_11", JDBC_CHAR, charType, true, null));
 
         Connection connection = database.getConnection();
         try (PreparedStatement preparedStatement = connection.prepareStatement("create table \"test_table\" (" + "" +
