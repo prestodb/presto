@@ -37,7 +37,6 @@ import static com.facebook.presto.hive.LocationHandle.TableType.TEMPORARY;
 import static com.facebook.presto.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
 import static com.facebook.presto.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_NEW_DIRECTORY;
 import static com.facebook.presto.hive.LocationHandle.WriteMode.STAGE_AND_MOVE_TO_TARGET_DIRECTORY;
-import static com.facebook.presto.hive.metastore.MetastoreUtil.createDirectory;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.pathExists;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -55,16 +54,16 @@ public class HiveLocationService
     }
 
     @Override
-    public LocationHandle forNewTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, String schemaName, String tableName, boolean tempPathRequired)
+    public LocationHandle forNewTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, String schemaName, String tableName, boolean tempPathRequired, Optional<Path> externalLocation)
     {
-        Path targetPath = getTableDefaultLocation(session, metastore, hdfsEnvironment, schemaName, tableName);
+        Path targetPath = externalLocation.orElseGet(() -> getTableDefaultLocation(session, metastore, hdfsEnvironment, schemaName, tableName));
 
         HdfsContext context = new HdfsContext(session, schemaName, tableName, targetPath.toString(), true);
         // verify the target directory for the table
         if (pathExists(context, hdfsEnvironment, targetPath)) {
             throw new PrestoException(HIVE_PATH_ALREADY_EXISTS, format("Target directory for table '%s.%s' already exists: %s", schemaName, tableName, targetPath));
         }
-        return createLocationHandle(context, session, targetPath, NEW, tempPathRequired);
+        return createLocationHandle(context, session, targetPath, NEW, tempPathRequired, externalLocation);
     }
 
     @Override
@@ -73,7 +72,7 @@ public class HiveLocationService
         String tablePath = table.getStorage().getLocation();
         HdfsContext context = new HdfsContext(session, table.getDatabaseName(), table.getTableName(), tablePath, false);
         Path targetPath = new Path(tablePath);
-        return createLocationHandle(context, session, targetPath, EXISTING, tempPathRequired);
+        return createLocationHandle(context, session, targetPath, EXISTING, tempPathRequired, Optional.empty());
     }
 
     @Override
@@ -91,12 +90,12 @@ public class HiveLocationService
                 DIRECT_TO_TARGET_NEW_DIRECTORY);
     }
 
-    private LocationHandle createLocationHandle(HdfsContext context, ConnectorSession session, Path targetPath, TableType tableType, boolean tempPathRequired)
+    private LocationHandle createLocationHandle(HdfsContext context, ConnectorSession session, Path targetPath, TableType tableType, boolean tempPathRequired, Optional<Path> externalLocation)
     {
         Optional<Path> tempPath = tempPathRequired ? Optional.of(createTemporaryPath(session, context, hdfsEnvironment, targetPath)) : Optional.empty();
-        if (shouldUseTemporaryDirectory(session, context, targetPath)) {
+
+        if (shouldUseTemporaryDirectory(session, context, targetPath, externalLocation)) {
             Path writePath = createTemporaryPath(session, context, hdfsEnvironment, targetPath);
-            createDirectory(context, hdfsEnvironment, writePath);
             return new LocationHandle(targetPath, writePath, tempPath, tableType, STAGE_AND_MOVE_TO_TARGET_DIRECTORY);
         }
         if (tableType.equals(EXISTING)) {
@@ -105,11 +104,13 @@ public class HiveLocationService
         return new LocationHandle(targetPath, targetPath, tempPath, tableType, DIRECT_TO_TARGET_NEW_DIRECTORY);
     }
 
-    private boolean shouldUseTemporaryDirectory(ConnectorSession session, HdfsContext context, Path path)
+    private boolean shouldUseTemporaryDirectory(ConnectorSession session, HdfsContext context, Path path, Optional<Path> externalLocation)
     {
         return isTemporaryStagingDirectoryEnabled(session)
                 // skip using temporary directory for S3
-                && !isS3FileSystem(context, hdfsEnvironment, path);
+                && !isS3FileSystem(context, hdfsEnvironment, path)
+                // Skip using temporary directory if destination is external. Target may be on a different file system.
+                && !externalLocation.isPresent();
     }
 
     @Override
