@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.operator.BlockedReason;
@@ -113,7 +114,8 @@ public class TestBasicQueryInfo
                                         105,
                                         106,
                                         107)),
-                                ImmutableList.of()),
+                                ImmutableList.of(),
+                                new RuntimeStats()),
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableMap.of(),

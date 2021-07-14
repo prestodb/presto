@@ -26,6 +26,7 @@ import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public final class FormatUtils
@@ -160,6 +161,9 @@ public final class FormatUtils
     public static String formatTime(Duration duration)
     {
         int totalSeconds = Ints.saturatedCast(duration.roundTo(SECONDS));
+        if (totalSeconds == 0) {
+            return format("%sms", Ints.saturatedCast(duration.roundTo(MILLISECONDS)));
+        }
         int minutes = totalSeconds / 60;
         int seconds = totalSeconds % 60;
 

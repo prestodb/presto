@@ -240,7 +240,8 @@ public class TestQueryStats
                     106,
                     107)),
 
-            OPERATOR_SUMMARIES);
+            OPERATOR_SUMMARIES,
+            new RuntimeStats(ImmutableMap.of(TEST_METRIC_NAME, RuntimeMetric.merge(TEST_RUNTIME_METRIC_1, TEST_RUNTIME_METRIC_2))));
 
     @Test
     public void testJson()

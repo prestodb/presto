@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.airlift.stats.Distribution;
 import com.facebook.airlift.stats.Distribution.DistributionSnapshot;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.operator.BlockedReason;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.spi.eventlistener.StageGcStatistics;
@@ -91,6 +92,9 @@ public class StageExecutionStats
 
     private final List<OperatorStats> operatorSummaries;
 
+    // RuntimeStats aggregated at the stage level including the metrics exposed in each task and each operator of this stage.
+    private final RuntimeStats runtimeStats;
+
     @JsonCreator
     public StageExecutionStats(
             @JsonProperty("schedulingComplete") DateTime schedulingComplete,
@@ -140,7 +144,8 @@ public class StageExecutionStats
 
             @JsonProperty("gcInfo") StageGcStatistics gcInfo,
 
-            @JsonProperty("operatorSummaries") List<OperatorStats> operatorSummaries)
+            @JsonProperty("operatorSummaries") List<OperatorStats> operatorSummaries,
+            @JsonProperty("runtimeStats") RuntimeStats runtimeStats)
     {
         this.schedulingComplete = schedulingComplete;
         this.getSplitDistribution = requireNonNull(getSplitDistribution, "getSplitDistribution is null");
@@ -203,6 +208,7 @@ public class StageExecutionStats
         this.gcInfo = requireNonNull(gcInfo, "gcInfo is null");
 
         this.operatorSummaries = ImmutableList.copyOf(requireNonNull(operatorSummaries, "operatorSummaries is null"));
+        this.runtimeStats = (runtimeStats == null) ? new RuntimeStats() : runtimeStats;
     }
 
     @JsonProperty
@@ -415,6 +421,12 @@ public class StageExecutionStats
         return operatorSummaries;
     }
 
+    @JsonProperty
+    public RuntimeStats getRuntimeStats()
+    {
+        return runtimeStats;
+    }
+
     public BasicStageExecutionStats toBasicStageStats(StageExecutionState stageExecutionState)
     {
         boolean isScheduled = (stageExecutionState == RUNNING) || stageExecutionState.isDone();
@@ -481,6 +493,7 @@ public class StageExecutionStats
                 0,
                 new DataSize(0, BYTE),
                 new StageGcStatistics(stageId, 0, 0, 0, 0, 0, 0, 0),
-                ImmutableList.of());
+                ImmutableList.of(),
+                new RuntimeStats());
     }
 }

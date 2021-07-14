@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.common.RuntimeMetric;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.operator.BlockedReason;
 import com.facebook.presto.operator.OperatorStats;
@@ -114,6 +115,9 @@ public class QueryStats
 
     private final List<OperatorStats> operatorSummaries;
 
+    // RuntimeStats aggregated at the query level including the metrics exposed in every task and every operator.
+    private final RuntimeStats runtimeStats;
+
     @JsonCreator
     public QueryStats(
             @JsonProperty("createTime") DateTime createTime,
@@ -181,7 +185,9 @@ public class QueryStats
 
             @JsonProperty("stageGcStatistics") List<StageGcStatistics> stageGcStatistics,
 
-            @JsonProperty("operatorSummaries") List<OperatorStats> operatorSummaries)
+            @JsonProperty("operatorSummaries") List<OperatorStats> operatorSummaries,
+
+            @JsonProperty("runtimeStats") RuntimeStats runtimeStats)
     {
         this.createTime = requireNonNull(createTime, "createTime is null");
         this.executionStartTime = executionStartTime;
@@ -261,6 +267,8 @@ public class QueryStats
         this.stageGcStatistics = ImmutableList.copyOf(requireNonNull(stageGcStatistics, "stageGcStatistics is null"));
 
         this.operatorSummaries = ImmutableList.copyOf(requireNonNull(operatorSummaries, "operatorSummaries is null"));
+
+        this.runtimeStats = (runtimeStats == null) ? new RuntimeStats() : runtimeStats;
     }
 
     public static QueryStats create(
@@ -317,6 +325,7 @@ public class QueryStats
 
         ImmutableList.Builder<OperatorStats> operatorStatsSummary = ImmutableList.builder();
         boolean completeInfo = true;
+        RuntimeStats mergedRuntimeStats = new RuntimeStats();
         for (StageInfo stageInfo : getAllStages(rootStage)) {
             StageExecutionStats stageExecutionStats = stageInfo.getLatestAttemptExecutionInfo().getStats();
             totalTasks += stageExecutionStats.getTotalTasks();
@@ -374,6 +383,13 @@ public class QueryStats
 
             completeInfo = completeInfo && stageInfo.isFinalStageInfo();
             operatorStatsSummary.addAll(stageExecutionStats.getOperatorSummaries());
+            // We prepend each metric name with the stage id to avoid merging metrics across stages.
+            int stageId = stageInfo.getStageId().getId();
+            stageExecutionStats.getRuntimeStats().getMetrics().values().forEach(metric -> {
+                String metricName = String.format("S%d-%s", stageId, metric.getName());
+                mergedRuntimeStats.getMetrics().computeIfAbsent(metricName, RuntimeMetric::new);
+                mergedRuntimeStats.getMetric(metricName).mergeWith(metric);
+            });
         }
 
         if (rootStage.isPresent()) {
@@ -447,7 +463,8 @@ public class QueryStats
 
                 stageGcStatistics.build(),
 
-                operatorStatsSummary.build());
+                operatorStatsSummary.build(),
+                mergedRuntimeStats);
     }
 
     private static boolean isScheduled(Optional<StageInfo> rootStage)
@@ -526,7 +543,8 @@ public class QueryStats
                 new DataSize(0, BYTE),
                 new DataSize(0, BYTE),
                 ImmutableList.of(),
-                ImmutableList.of());
+                ImmutableList.of(),
+                new RuntimeStats());
     }
 
     @JsonProperty
@@ -868,8 +886,6 @@ public class QueryStats
     @JsonProperty
     public RuntimeStats getRuntimeStats()
     {
-        RuntimeStats runtimeStats = new RuntimeStats();
-        operatorSummaries.stream().forEach(stats -> runtimeStats.mergeWith(stats.getRuntimeStats()));
         return runtimeStats;
     }
 }
