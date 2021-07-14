@@ -160,7 +160,7 @@ public class TestSyncPartitionMetadata
 
     private static void assertPartitions(String tableName, QueryAssert.Row... rows)
     {
-        QueryResult partitionListResult = query("SELECT * FROM \"" + tableName + "$partitions\" ORDER BY 1, 2");
+        QueryResult partitionListResult = query("SELECT col_x, col_y FROM \"" + tableName + "$partitions\" ORDER BY 1, 2");
         assertThat(partitionListResult).containsExactly(rows);
     }
 

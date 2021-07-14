@@ -105,17 +105,17 @@ public class TestHivePartitionsTable
 
         QueryResult partitionListResult;
 
-        partitionListResult = query("SELECT * FROM " + partitionsTable);
+        partitionListResult = query("SELECT part_col FROM " + partitionsTable);
         assertThat(partitionListResult).containsExactly(row(1), row(2));
         assertColumnNames(partitionListResult, "part_col");
 
-        partitionListResult = query(format("SELECT * FROM %s WHERE part_col = 1", partitionsTable));
+        partitionListResult = query(format("SELECT part_col FROM %s WHERE part_col = 1", partitionsTable));
         assertThat(partitionListResult).containsExactly(row(1));
         assertColumnNames(partitionListResult, "part_col");
 
-        assertThat(() -> query(format("SELECT * FROM %s WHERE no_such_column = 1", partitionsTable)))
+        assertThat(() -> query(format("SELECT part_col FROM %s WHERE no_such_column = 1", partitionsTable)))
                 .failsWithMessage("Column 'no_such_column' cannot be resolved");
-        assertThat(() -> query(format("SELECT * FROM %s WHERE col = 1", partitionsTable)))
+        assertThat(() -> query(format("SELECT part_col FROM %s WHERE col = 1", partitionsTable)))
                 .failsWithMessage("Column 'col' cannot be resolved");
     }
 
@@ -139,14 +139,14 @@ public class TestHivePartitionsTable
 
         QueryResult partitionListResult;
 
-        partitionListResult = query(format("SELECT * FROM %s WHERE part_col < 7", partitionsTable));
+        partitionListResult = query(format("SELECT part_col FROM %s WHERE part_col < 7", partitionsTable));
         assertThat(partitionListResult).containsExactly(row(0), row(1), row(2), row(3), row(4), row(5), row(6));
         assertColumnNames(partitionListResult, "part_col");
 
         partitionListResult = query(format("SELECT * FROM %s WHERE part_col < -10", partitionsTable));
         assertThat(partitionListResult).hasNoRows();
 
-        partitionListResult = query(format("SELECT * FROM %s ORDER BY part_col LIMIT 7", partitionsTable));
+        partitionListResult = query(format("SELECT part_col FROM %s ORDER BY part_col LIMIT 7", partitionsTable));
         assertThat(partitionListResult).containsExactly(row(0), row(1), row(2), row(3), row(4), row(5), row(6));
     }
 

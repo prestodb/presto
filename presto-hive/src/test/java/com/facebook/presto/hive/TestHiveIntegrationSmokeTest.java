@@ -1383,7 +1383,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertQuery(
                 session,
-                "SELECT * FROM " + partitionsTable,
+                "SELECT SHIP_PRIORITY, ORDER_STATUS FROM " + partitionsTable,
                 "SELECT shippriority, orderstatus FROM orders LIMIT 0");
 
         // Hive will reorder the partition keys, so we must insert into the table assuming the partition keys have been moved to the end
@@ -1403,17 +1403,17 @@ public class TestHiveIntegrationSmokeTest
 
         assertQuery(
                 session,
-                "SELECT * FROM " + partitionsTable,
+                "SELECT SHIP_PRIORITY, ORDER_STATUS FROM " + partitionsTable,
                 "SELECT DISTINCT shippriority, orderstatus FROM orders");
 
         assertQuery(
                 session,
-                "SELECT * FROM " + partitionsTable + " ORDER BY order_status LIMIT 2",
+                "SELECT SHIP_PRIORITY, ORDER_STATUS FROM " + partitionsTable + " ORDER BY order_status LIMIT 2",
                 "SELECT DISTINCT shippriority, orderstatus FROM orders ORDER BY orderstatus LIMIT 2");
 
         assertQuery(
                 session,
-                "SELECT * FROM " + partitionsTable + " WHERE order_status = 'O'",
+                "SELECT SHIP_PRIORITY, ORDER_STATUS FROM " + partitionsTable + " WHERE order_status = 'O'",
                 "SELECT DISTINCT shippriority, orderstatus FROM orders WHERE orderstatus = 'O'");
 
         assertQueryFails(session, "SELECT * FROM " + partitionsTable + " WHERE no_such_column = 1", "line \\S*: Column 'no_such_column' cannot be resolved");
@@ -1694,7 +1694,7 @@ public class TestHiveIntegrationSmokeTest
                 "VALUES ('hello', 'test'), ('world', null)");
 
         assertQuery(
-                "SELECT * FROM \"test_null_partition$partitions\"",
+                "SELECT part FROM \"test_null_partition$partitions\"",
                 "VALUES 'test', null");
 
         assertUpdate("DROP TABLE test_null_partition");
@@ -1744,17 +1744,17 @@ public class TestHiveIntegrationSmokeTest
         // we are not constrained by hive.max-partitions-per-scan when listing partitions
         assertQuery(
                 session,
-                "SELECT * FROM " + partitionsTable + " WHERE part > 490 and part <= 500",
+                "SELECT part FROM " + partitionsTable + " WHERE part > 490 and part <= 500",
                 "VALUES 491, 492, 493, 494, 495, 496, 497, 498, 499, 500");
 
         assertQuery(
                 session,
-                "SELECT * FROM " + partitionsTable + " WHERE part < 0",
+                "SELECT part FROM " + partitionsTable + " WHERE part < 0",
                 "SELECT null WHERE false");
 
         assertQuery(
                 session,
-                "SELECT * FROM " + partitionsTable,
+                "SELECT part FROM " + partitionsTable,
                 "VALUES " + LongStream.range(0, 1200)
                         .mapToObj(String::valueOf)
                         .collect(joining(",")));
@@ -1809,7 +1809,7 @@ public class TestHiveIntegrationSmokeTest
         assertQuery(
                 getSession(),
                 "SHOW COLUMNS FROM \"" + tableName + "$partitions\"",
-                "VALUES ('part1', 'bigint', '', ''), ('part2', 'varchar', '', '')");
+                "VALUES ('part1', 'bigint', '', ''), ('part2', 'varchar', '', ''), ('$partition_stats', 'json', '', 'Hive metastore PartitionStatistics for this partition')");
 
         assertQueryFails(
                 getSession(),
@@ -1825,6 +1825,40 @@ public class TestHiveIntegrationSmokeTest
                 getSession(),
                 "SHOW COLUMNS FROM \"blah$partitions\"",
                 ".*Table '.*\\.tpch\\.blah\\$partitions' does not exist");
+    }
+
+    @Test
+    public void testPartitionStats()
+    {
+        assertUpdate(getSession(),
+                "CREATE TABLE test_hive_partition_stats\n" +
+                        "WITH (\n" +
+                        "    partitioned_by = ARRAY['orderstatus']\n" +
+                        ") AS\n" +
+                        "SELECT\n" +
+                        "    custkey,\n" +
+                        "    custkey AS custkey2,\n" +
+                        "    comment,\n" +
+                        "    orderstatus\n" +
+                        "FROM tpch.tiny.orders\n" +
+                        "WHERE\n" +
+                        "    orderstatus IN ('F', 'O', 'P')",
+                15000);
+
+        assertQuerySucceeds(getSession(),
+                "SELECT * FROM \"test_hive_partition_stats$partitions\"");
+
+        assertQuerySucceeds(getSession(),
+                "SELECT \"$partition_stats\" FROM \"test_hive_partition_stats$partitions\"");
+
+        assertQuery(getSession(),
+                "SELECT\n" +
+                        "    JSON_EXTRACT_SCALAR(\"$partition_stats\", '$.basicStatistics.rowCount')\n" +
+                        "FROM \"test_hive_partition_stats$partitions\"",
+                "VALUES '7333', '7304', '363'");
+
+        assertUpdate(getSession(),
+                "DROP TABLE test_hive_partition_stats");
     }
 
     @Test

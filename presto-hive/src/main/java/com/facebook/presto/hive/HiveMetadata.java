@@ -155,6 +155,7 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.Chars.isCharType;
 import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.JsonType.JSON;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TypeUtils.isNumericType;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
@@ -374,6 +375,7 @@ public class HiveMetadata
     private static final String CSV_ESCAPE_KEY = OpenCSVSerde.ESCAPECHAR;
 
     private static final JsonCodec<ConnectorMaterializedViewDefinition> MATERIALIZED_VIEW_JSON_CODEC = jsonCodec(ConnectorMaterializedViewDefinition.class);
+    private static final JsonCodec<PartitionStatistics> PARTITION_STATISTICS_JSON_CODEC = jsonCodec(PartitionStatistics.class);
 
     private final boolean allowCorruptWritesForTesting;
     private final SemiTransactionalHiveMetastore metastore;
@@ -558,13 +560,23 @@ public class HiveMetadata
                 .map(typeManager::getType)
                 .collect(toImmutableList());
 
-        List<ColumnMetadata> partitionSystemTableColumns = partitionColumns.stream()
-                .map(column -> new ColumnMetadata(
-                        column.getName(),
-                        typeManager.getType(column.getTypeSignature()),
-                        column.getComment().orElse(null),
-                        column.isHidden()))
-                .collect(toImmutableList());
+        ColumnMetadata statsColumn = ColumnMetadata.builder()
+                .setName(SystemTableHandler.PARTITION_STATS_COLUMN_NAME)
+                .setType(SystemTableHandler.PARTITION_STATS_COLUMN_TYPE)
+                .setComment(SystemTableHandler.PARTITION_STATS_COLUMN_COMMENT)
+                .build();
+
+        List<ColumnMetadata> partitionSystemTableColumns = ImmutableList.<ColumnMetadata>builder()
+                .addAll(partitionColumns.stream()
+                        .map(column -> ColumnMetadata.builder()
+                                .setName(column.getName())
+                                .setType(typeManager.getType(column.getTypeSignature()))
+                                .setComment(column.getComment())
+                                .setHidden(column.isHidden())
+                                .build())
+                        .iterator())
+                .add(statsColumn)
+                .build();
 
         Map<Integer, HiveColumnHandle> fieldIdToColumnHandle =
                 IntStream.range(0, partitionColumns.size())
@@ -580,9 +592,11 @@ public class HiveMetadata
                     Iterable<List<Object>> records = () ->
                             stream(partitionManager.getPartitionsIterator(metastore, sourceTableHandle, targetConstraint, session))
                                     .map(hivePartition ->
-                                            IntStream.range(0, partitionColumns.size())
-                                                    .mapToObj(fieldIdToColumnHandle::get)
-                                                    .map(columnHandle -> ((HivePartition) hivePartition).getKeys().get(columnHandle).getValue())
+                                            Stream.concat(
+                                                    IntStream.range(0, partitionColumns.size())
+                                                            .mapToObj(fieldIdToColumnHandle::get)
+                                                            .map(columnHandle -> ((HivePartition) hivePartition).getKeys().get(columnHandle).getValue()),
+                                                    Stream.of(PARTITION_STATISTICS_JSON_CODEC.toJson(getPartitionStatistics(metastoreContext, sourceTableName, (HivePartition) hivePartition))))
                                                     .collect(toList()))
                                     .iterator();
 
@@ -594,6 +608,12 @@ public class HiveMetadata
     {
         Table sourceTable = metastore.getTable(metastoreContext, tableName.getSchemaName(), tableName.getTableName()).get();
         return getPartitionKeyColumnHandles(sourceTable);
+    }
+
+    private PartitionStatistics getPartitionStatistics(MetastoreContext metastoreContext, SchemaTableName tableName, HivePartition hivePartition)
+    {
+        return metastore.getPartitionStatistics(metastoreContext, tableName.getSchemaName(), tableName.getTableName(), ImmutableSet.of(hivePartition.getPartitionId()))
+                .get(hivePartition.getPartitionId());
     }
 
     @Override
@@ -3690,6 +3710,10 @@ public class HiveMetadata
         PARTITIONS, PROPERTIES;
 
         private final String suffix;
+
+        public static final String PARTITION_STATS_COLUMN_NAME = "$partition_stats";
+        public static final Type PARTITION_STATS_COLUMN_TYPE = JSON;
+        public static final Optional<String> PARTITION_STATS_COLUMN_COMMENT = Optional.of("Hive metastore PartitionStatistics for this partition");
 
         SystemTableHandler()
         {
