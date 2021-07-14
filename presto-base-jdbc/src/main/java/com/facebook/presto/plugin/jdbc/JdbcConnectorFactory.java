@@ -14,6 +14,7 @@
 package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.airlift.bootstrap.Bootstrap;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
@@ -67,6 +68,7 @@ public class JdbcConnectorFactory
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             Bootstrap app = new Bootstrap(
                     binder -> {
+                        binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                         binder.bind(FunctionMetadataManager.class).toInstance(context.getFunctionMetadataManager());
                         binder.bind(StandardFunctionResolution.class).toInstance(context.getStandardFunctionResolution());
                         binder.bind(RowExpressionService.class).toInstance(context.getRowExpressionService());

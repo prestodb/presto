@@ -233,6 +233,7 @@ public class BaseJdbcClient
                 while (resultSet.next()) {
                     JdbcTypeHandle typeHandle = new JdbcTypeHandle(
                             resultSet.getInt("DATA_TYPE"),
+                            resultSet.getString("TYPE_NAME"),
                             resultSet.getInt("COLUMN_SIZE"),
                             resultSet.getInt("DECIMAL_DIGITS"));
                     Optional<ReadMapping> columnMapping = toPrestoType(session, typeHandle);
