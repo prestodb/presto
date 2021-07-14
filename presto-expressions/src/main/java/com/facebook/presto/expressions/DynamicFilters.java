@@ -134,20 +134,9 @@ public final class DynamicFilters
         checkArgument(idExpression.getType() instanceof VarcharType);
         String id = ((Slice) ((ConstantExpression) idExpression).getValue()).toStringUtf8();
 
-        if (operator.equals(EQUAL.name())) {
-            return Optional.of(new DynamicFilterPlaceholder(id, probeSymbol, EQUAL));
-        }
-        if (operator.equals(LESS_THAN.name())) {
-            return Optional.of(new DynamicFilterPlaceholder(id, probeSymbol, LESS_THAN));
-        }
-        if (operator.equals(LESS_THAN_OR_EQUAL.name())) {
-            return Optional.of(new DynamicFilterPlaceholder(id, probeSymbol, LESS_THAN_OR_EQUAL));
-        }
-        if (operator.equals(GREATER_THAN.name())) {
-            return Optional.of(new DynamicFilterPlaceholder(id, probeSymbol, GREATER_THAN));
-        }
-        if (operator.equals(GREATER_THAN_OR_EQUAL.name())) {
-            return Optional.of(new DynamicFilterPlaceholder(id, probeSymbol, GREATER_THAN_OR_EQUAL));
+        OperatorType operatorType = OperatorType.valueOf(operator);
+        if (operatorType.isComparisonOperator()) {
+            return Optional.of(new DynamicFilterPlaceholder(id, probeSymbol, operatorType));
         }
         return Optional.empty();
     }

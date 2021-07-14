@@ -82,10 +82,10 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.SystemSessionProperties.isEnableDynamicFiltering;
 import static com.facebook.presto.common.function.OperatorType.BETWEEN;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
-import static com.facebook.presto.common.function.OperatorType.GREATER_THAN;
 import static com.facebook.presto.common.function.OperatorType.GREATER_THAN_OR_EQUAL;
-import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
+import static com.facebook.presto.common.function.OperatorType.IS_DISTINCT_FROM;
 import static com.facebook.presto.common.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.expressions.LogicalRowExpressions.FALSE_CONSTANT;
@@ -738,6 +738,11 @@ public class PredicatePushDown
                 return Optional.empty();
             }
 
+            OperatorType operator = OperatorType.valueOf(function);
+            if (!operator.isComparisonOperator() || operator == NOT_EQUAL || operator == IS_DISTINCT_FROM) {
+                return Optional.empty();
+            }
+
             if (node.getRight().getOutputVariables().contains(left)) {
                 shouldFlip = true;
             }
@@ -746,47 +751,11 @@ public class PredicatePushDown
             }
 
             if (shouldFlip) {
+                operator = operator.negate();
                 left = arguments.get(1);
                 right = arguments.get(0);
             }
 
-            OperatorType operator = null;
-            if (function.equals(LESS_THAN.name())) {
-                if (shouldFlip) {
-                    operator = GREATER_THAN_OR_EQUAL;
-                }
-                else {
-                    operator = LESS_THAN;
-                }
-            }
-            if (function.equals(LESS_THAN_OR_EQUAL.name())) {
-                if (shouldFlip) {
-                    operator = GREATER_THAN;
-                }
-                else {
-                    operator = LESS_THAN_OR_EQUAL;
-                }
-            }
-            if (function.equals(GREATER_THAN.name())) {
-                if (shouldFlip) {
-                    operator = LESS_THAN_OR_EQUAL;
-                }
-                else {
-                    operator = GREATER_THAN;
-                }
-            }
-            if (function.equals(GREATER_THAN_OR_EQUAL.name())) {
-                if (shouldFlip) {
-                    operator = LESS_THAN;
-                }
-                else {
-                    operator = GREATER_THAN_OR_EQUAL;
-                }
-            }
-
-            if (operator == null) {
-                return Optional.empty();
-            }
             return Optional.of(call(
                                 operator.name(),
                                 functionAndTypeManager.resolveOperator(operator, fromTypes(left.getType(), right.getType())),
