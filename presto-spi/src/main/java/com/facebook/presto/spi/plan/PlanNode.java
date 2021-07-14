@@ -48,8 +48,8 @@ public abstract class PlanNode
     public abstract List<PlanNode> getSources();
 
     /**
-     * The output from the upstream PlanNodes.
-     * It should serve as the input for the current PlanNode.
+     * The output from the current PlanNode.
+     * It should serve as a part of the input for the downstream PlanNode.
      */
     public abstract List<VariableReferenceExpression> getOutputVariables();
 
