@@ -96,6 +96,7 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.SystemSessionProperties.getExchangeMaterializationStrategy;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxStageCount;
 import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
+import static com.facebook.presto.SystemSessionProperties.isForceCoordinatorExecution;
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
 import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isRecoverableGroupedExecutionEnabled;
@@ -190,6 +191,9 @@ public class PlanFragmenter
         if (forceSingleNode || isForceSingleNodeOutput(session)) {
             properties = properties.setSingleNodeDistribution();
         }
+        if (isForceCoordinatorExecution(session) && canForceCoordinatorExecution(plan.getRoot())) {
+            properties = properties.setCoordinatorOnlyDistribution();
+        }
         PlanNode root = SimplePlanRewriter.rewriteWith(fragmenter, plan.getRoot(), properties);
 
         SubPlan subPlan = fragmenter.buildRootFragment(root, properties);
@@ -210,6 +214,41 @@ public class PlanFragmenter
                 config.getStageCountWarningThreshold());
 
         return subPlan;
+    }
+
+    private boolean canForceCoordinatorExecution(PlanNode planNode)
+    {
+        if (planNode == null) {
+            return true;
+        }
+        return isSelectValues(planNode);
+    }
+
+    /**
+     * type is mast be OutputNode、ExchangeNode、ValuesNode、ProjectNode
+     * and last node is mast be ValuesNode
+     * @param node planNode
+     * @return
+     */
+    private boolean isSelectValues(PlanNode node)
+    {
+        boolean onlyValue = node instanceof OutputNode || node instanceof ExchangeNode || node instanceof ValuesNode || node instanceof ProjectNode;
+        if (!onlyValue) {
+            return false;
+        }
+        List<PlanNode> sources = node.getSources();
+        if (sources != null) {
+            for (PlanNode source : sources) {
+                onlyValue = isSelectValues(source);
+                if (!onlyValue) {
+                    return false;
+                }
+            }
+        }
+        else {
+            return node instanceof ValuesNode;
+        }
+        return true;
     }
 
     private void sanityCheckFragmentedPlan(
