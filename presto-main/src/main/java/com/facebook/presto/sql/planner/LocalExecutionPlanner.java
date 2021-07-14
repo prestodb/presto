@@ -2009,14 +2009,19 @@ public class LocalExecutionPlanner
                     node.getId(),
                     nestedLoopJoinBridgeManager);
 
-            checkArgument(buildContext.getDriverInstanceCount().orElse(1) == 1, "Expected local execution to not be parallel");
+            int partitionCount = buildContext.getDriverInstanceCount().orElse(1);
+            checkArgument(partitionCount == 1, "Expected local execution to not be parallel");
+
+            ImmutableList.Builder<OperatorFactory> factoriesBuilder = new ImmutableList.Builder<>();
+            factoriesBuilder.addAll(buildSource.getOperatorFactories());
+            createDynamicFilter(buildSource, node, context, partitionCount).ifPresent(
+                    filter -> factoriesBuilder.add(createDynamicFilterSourceOperatorFactory(filter, node.getId(), buildSource, buildContext)));
+            factoriesBuilder.add(nestedLoopBuildOperatorFactory);
+
             context.addDriverFactory(
                     buildContext.isInputDriver(),
                     false,
-                    ImmutableList.<OperatorFactory>builder()
-                            .addAll(buildSource.getOperatorFactories())
-                            .add(nestedLoopBuildOperatorFactory)
-                            .build(),
+                    factoriesBuilder.build(),
                     buildContext.getDriverInstanceCount(),
                     buildSource.getPipelineExecutionStrategy(),
                     Optional.empty());

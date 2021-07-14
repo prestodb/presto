@@ -503,6 +503,13 @@ public class PlanPrinter
                             node.getFilteringSourceJoinVariable(),
                             formatHash(node.getSourceHashVariable(), node.getFilteringSourceHashVariable())));
             node.getDistributionType().ifPresent(distributionType -> nodeOutput.appendDetailsLine("Distribution: %s", distributionType));
+            if (!node.getDynamicFilters().isEmpty()) {
+                nodeOutput.appendDetails(
+                        "dynamicFilterAssignments = %s",
+                        node.getDynamicFilters().entrySet().stream()
+                                .map(filter -> filter.getValue() + " -> " + filter.getKey())
+                                .collect(Collectors.joining(", ", "{", "}")));
+            }
             node.getSource().accept(this, context);
             node.getFilteringSource().accept(this, context);
 

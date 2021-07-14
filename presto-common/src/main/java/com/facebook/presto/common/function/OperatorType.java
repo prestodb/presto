@@ -95,4 +95,46 @@ public enum OperatorType
     {
         return this.equals(ADD) || this.equals(SUBTRACT) || this.equals(MULTIPLY) || this.equals(DIVIDE) || this.equals(MODULUS);
     }
+
+    public OperatorType flip()
+    {
+        switch (this) {
+            case EQUAL:
+                return EQUAL;
+            case NOT_EQUAL:
+                return NOT_EQUAL;
+            case LESS_THAN:
+                return GREATER_THAN;
+            case LESS_THAN_OR_EQUAL:
+                return GREATER_THAN_OR_EQUAL;
+            case GREATER_THAN:
+                return LESS_THAN;
+            case GREATER_THAN_OR_EQUAL:
+                return LESS_THAN_OR_EQUAL;
+            case IS_DISTINCT_FROM:
+                return IS_DISTINCT_FROM;
+            default:
+                throw new IllegalArgumentException("Unsupported flip non-comparison operator: " + this);
+        }
+    }
+
+    public OperatorType negate()
+    {
+        switch (this) {
+            case EQUAL:
+                return NOT_EQUAL;
+            case NOT_EQUAL:
+                return EQUAL;
+            case LESS_THAN:
+                return GREATER_THAN_OR_EQUAL;
+            case LESS_THAN_OR_EQUAL:
+                return GREATER_THAN;
+            case GREATER_THAN:
+                return LESS_THAN_OR_EQUAL;
+            case GREATER_THAN_OR_EQUAL:
+                return LESS_THAN;
+            default:
+                throw new IllegalArgumentException("Unsupported flip non-comparison operator: " + this);
+        }
+    }
 }

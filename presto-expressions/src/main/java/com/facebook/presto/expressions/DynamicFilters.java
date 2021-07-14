@@ -14,6 +14,10 @@
 package com.facebook.presto.expressions;
 
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.Range;
+import com.facebook.presto.common.predicate.ValueSet;
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.spi.function.ScalarFunction;
@@ -31,6 +35,11 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.facebook.presto.common.function.OperatorType.EQUAL;
+import static com.facebook.presto.common.function.OperatorType.GREATER_THAN;
+import static com.facebook.presto.common.function.OperatorType.GREATER_THAN_OR_EQUAL;
+import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
+import static com.facebook.presto.common.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.common.type.StandardTypes.BOOLEAN;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
@@ -106,20 +115,30 @@ public final class DynamicFilters
         }
 
         CallExpression call = (CallExpression) expression;
+        List<RowExpression> arguments = call.getArguments();
 
         if (!call.getDisplayName().equals(DynamicFilterPlaceholderFunction.NAME)) {
             return Optional.empty();
         }
 
-        List<RowExpression> arguments = call.getArguments();
-        checkArgument(arguments.size() == 2, "invalid arguments count: %s", arguments.size());
+        checkArgument(arguments.size() == 3, "invalid arguments count: %s", arguments.size());
 
-        RowExpression firstArgument = arguments.get(0);
-        checkArgument(firstArgument instanceof ConstantExpression);
-        checkArgument(firstArgument.getType() instanceof VarcharType);
+        RowExpression probeSymbol = arguments.get(0);
+        RowExpression operatorExpression = arguments.get(1);
+        checkArgument(operatorExpression instanceof ConstantExpression);
+        checkArgument(operatorExpression.getType() instanceof VarcharType);
+        String operator = ((Slice) ((ConstantExpression) operatorExpression).getValue()).toStringUtf8();
 
-        String id = ((Slice) ((ConstantExpression) firstArgument).getValue()).toStringUtf8();
-        return Optional.of(new DynamicFilterPlaceholder(id, arguments.get(1)));
+        RowExpression idExpression = arguments.get(2);
+        checkArgument(idExpression instanceof ConstantExpression);
+        checkArgument(idExpression.getType() instanceof VarcharType);
+        String id = ((Slice) ((ConstantExpression) idExpression).getValue()).toStringUtf8();
+
+        OperatorType operatorType = OperatorType.valueOf(operator);
+        if (operatorType.isComparisonOperator()) {
+            return Optional.of(new DynamicFilterPlaceholder(id, probeSymbol, operatorType));
+        }
+        return Optional.empty();
     }
 
     public static RowExpression removeNestedDynamicFilters(RowExpression expression)
@@ -223,11 +242,18 @@ public final class DynamicFilters
     {
         private final String id;
         private final RowExpression input;
+        private final OperatorType operator;
 
-        public DynamicFilterPlaceholder(String id, RowExpression input)
+        public DynamicFilterPlaceholder(String id, RowExpression input, OperatorType operator)
         {
             this.id = requireNonNull(id, "id is null");
             this.input = requireNonNull(input, "input is null");
+            this.operator = requireNonNull(operator, "operator is null");
+        }
+
+        public DynamicFilterPlaceholder(String id, RowExpression input)
+        {
+            this(id, input, EQUAL);
         }
 
         public String getId()
@@ -238,6 +264,11 @@ public final class DynamicFilters
         public RowExpression getInput()
         {
             return input;
+        }
+
+        public OperatorType getOperator()
+        {
+            return operator;
         }
 
         @Override
@@ -251,13 +282,14 @@ public final class DynamicFilters
             }
             DynamicFilterPlaceholder that = (DynamicFilterPlaceholder) o;
             return Objects.equals(id, that.id) &&
-                    Objects.equals(input, that.input);
+                    Objects.equals(input, that.input) &&
+                    Objects.equals(operator, that.operator);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(id, input);
+            return Objects.hash(id, input, operator);
         }
 
         @Override
@@ -266,7 +298,38 @@ public final class DynamicFilters
             return toStringHelper(this)
                     .add("id", id)
                     .add("input", input)
+                    .add("operator", operator)
                     .toString();
+        }
+
+        public Domain applyComparison(Domain domain)
+        {
+            if (domain.isNone() || domain.isAll()) {
+                return domain;
+            }
+            Range span = domain.getValues().getRanges().getSpan();
+            switch (operator) {
+                case EQUAL:
+                    return domain;
+                case LESS_THAN: {
+                    Range range = Range.lessThan(span.getType(), span.getHigh().getValue());
+                    return Domain.create(ValueSet.ofRanges(range), false);
+                }
+                case LESS_THAN_OR_EQUAL: {
+                    Range range = Range.lessThanOrEqual(span.getType(), span.getHigh().getValue());
+                    return Domain.create(ValueSet.ofRanges(range), false);
+                }
+                case GREATER_THAN: {
+                    Range range = Range.greaterThan(span.getType(), span.getLow().getValue());
+                    return Domain.create(ValueSet.ofRanges(range), false);
+                }
+                case GREATER_THAN_OR_EQUAL: {
+                    Range range = Range.greaterThanOrEqual(span.getType(), span.getLow().getValue());
+                    return Domain.create(ValueSet.ofRanges(range), false);
+                }
+                default:
+                    throw new IllegalArgumentException("Unsupported dynamic filtering comparison operator: " + operator);
+            }
         }
     }
 
@@ -279,35 +342,35 @@ public final class DynamicFilters
 
         @TypeParameter("T")
         @SqlType(BOOLEAN)
-        public static boolean dynamicFilter(@SqlType(VARCHAR) Slice id, @SqlType("T") Block input)
+        public static boolean dynamicFilter(@SqlType("T") Block input, @SqlType(VARCHAR) Slice operator, @SqlType(VARCHAR) Slice id)
         {
             throw new UnsupportedOperationException();
         }
 
         @TypeParameter("T")
         @SqlType(BOOLEAN)
-        public static boolean dynamicFilter(@SqlType(VARCHAR) Slice id, @SqlType("T") Slice input)
+        public static boolean dynamicFilter(@SqlType("T") Slice input, @SqlType(VARCHAR) Slice operator, @SqlType(VARCHAR) Slice id)
         {
             throw new UnsupportedOperationException();
         }
 
         @TypeParameter("T")
         @SqlType(BOOLEAN)
-        public static boolean dynamicFilter(@SqlType(VARCHAR) Slice id, @SqlType("T") long input)
+        public static boolean dynamicFilter(@SqlType("T") long input, @SqlType(VARCHAR) Slice operator, @SqlType(VARCHAR) Slice id)
         {
             throw new UnsupportedOperationException();
         }
 
         @TypeParameter("T")
         @SqlType(BOOLEAN)
-        public static boolean dynamicFilter(@SqlType(VARCHAR) Slice id, @SqlType("T") boolean input)
+        public static boolean dynamicFilter(@SqlType("T") boolean input, @SqlType(VARCHAR) Slice operator, @SqlType(VARCHAR) Slice id)
         {
             throw new UnsupportedOperationException();
         }
 
         @TypeParameter("T")
         @SqlType(BOOLEAN)
-        public static boolean dynamicFilter(@SqlType(VARCHAR) Slice id, @SqlType("T") double input)
+        public static boolean dynamicFilter(@SqlType("T") double input, @SqlType(VARCHAR) Slice operator, @SqlType(VARCHAR) Slice id)
         {
             throw new UnsupportedOperationException();
         }
