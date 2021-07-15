@@ -470,6 +470,11 @@ public class MapBlockBuilder
                 newNegativeOneFilledArray(newSize * HASH_MULTIPLIER));
     }
 
+    public void loadHashTables()
+    {
+        ensureHashTableLoaded(keyBlockHashCode);
+    }
+
     @Override
     protected void ensureHashTableLoaded(MethodHandle keyBlockHashCode) {}
 
