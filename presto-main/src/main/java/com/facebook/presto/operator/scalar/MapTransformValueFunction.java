@@ -120,9 +120,9 @@ public final class MapTransformValueFunction
     @Override
     public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
-        Type keyType = boundVariables.getTypeVariable("K");
-        Type valueType = boundVariables.getTypeVariable("V1");
-        Type transformedValueType = boundVariables.getTypeVariable("V2");
+        Type keyType = boundVariables.getPhysicalType("K");
+        Type valueType = boundVariables.getPhysicalType("V1");
+        Type transformedValueType = boundVariables.getPhysicalType("V2");
         Type resultMapType = functionAndTypeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
                 TypeSignatureParameter.of(keyType.getTypeSignature()),
                 TypeSignatureParameter.of(transformedValueType.getTypeSignature())));

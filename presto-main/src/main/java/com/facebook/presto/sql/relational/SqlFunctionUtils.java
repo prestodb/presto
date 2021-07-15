@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.common.function.SqlFunctionProperties;
-import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.expressions.RowExpressionRewriter;
 import com.facebook.presto.expressions.RowExpressionTreeRewriter;
 import com.facebook.presto.metadata.Metadata;
@@ -138,12 +138,12 @@ public final class SqlFunctionUtils
         return new SqlParser().createReturn(functionImplementation.getImplementation(), parsingOptions).getExpression();
     }
 
-    private static Map<String, Type> getFunctionArgumentTypes(FunctionMetadata functionMetadata, Metadata metadata)
+    private static Map<String, TypeWithName> getFunctionArgumentTypes(FunctionMetadata functionMetadata, Metadata metadata)
     {
         List<String> argumentNames = functionMetadata.getArgumentNames().get();
-        List<Type> argumentTypes = functionMetadata.getArgumentTypes().stream().map(metadata::getType).collect(toImmutableList());
+        List<TypeWithName> argumentTypes = functionMetadata.getArgumentTypes().stream().map(type -> metadata.getFunctionAndTypeManager().getSemanticType(type)).collect(toImmutableList());
         checkState(argumentNames.size() == argumentTypes.size(), format("Expect argumentNames (size %d) and argumentTypes (size %d) to be of the same size", argumentNames.size(), argumentTypes.size()));
-        ImmutableMap.Builder<String, Type> typeBuilder = ImmutableMap.builder();
+        ImmutableMap.Builder<String, TypeWithName> typeBuilder = ImmutableMap.builder();
         for (int i = 0; i < argumentNames.size(); i++) {
             typeBuilder.put(argumentNames.get(i), argumentTypes.get(i));
         }
@@ -153,10 +153,10 @@ public final class SqlFunctionUtils
     private static Expression rewriteLambdaExpression(FunctionMetadata functionMetadata, Expression sqlFunction, SqlFunctionProperties sqlFunctionProperties, Metadata metadata, PlanVariableAllocator variableAllocator)
     {
         // Allocate variables for identifiers
-        Map<String, Type> argumentTypes = getFunctionArgumentTypes(functionMetadata, metadata);
+        Map<String, TypeWithName> argumentTypes = getFunctionArgumentTypes(functionMetadata, metadata);
         ExpressionAnalysis functionAnalysis = analyzeSqlFunctionExpression(metadata, sqlFunctionProperties, sqlFunction, argumentTypes);
         Map<NodeRef<Identifier>, LambdaArgumentDeclaration> lambdaArgumentReferences = functionAnalysis.getLambdaArgumentReferences();
-        Map<NodeRef<Expression>, Type> expressionTypes = functionAnalysis.getExpressionTypes();
+        Map<NodeRef<Expression>, TypeWithName> expressionTypes = functionAnalysis.getExpressionTypes();
         Map<NodeRef<LambdaArgumentDeclaration>, VariableReferenceExpression> variables = expressionTypes.entrySet().stream()
                 .filter(entry -> entry.getKey().getNode() instanceof LambdaArgumentDeclaration)
                 .distinct()
@@ -197,7 +197,7 @@ public final class SqlFunctionUtils
             {
                 Expression rewritten = treeRewriter.defaultRewrite(expression, null);
 
-                Type coercion = analysis.getCoercion(expression);
+                TypeWithName coercion = analysis.getCoercion(expression);
                 if (coercion != null) {
                     return new Cast(
                             rewritten,

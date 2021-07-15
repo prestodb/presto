@@ -85,8 +85,8 @@ public final class ApplyFunction
     @Override
     public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
-        Type argumentType = boundVariables.getTypeVariable("T");
-        Type returnType = boundVariables.getTypeVariable("U");
+        Type argumentType = boundVariables.getPhysicalType("T");
+        Type returnType = boundVariables.getPhysicalType("U");
         return new BuiltInScalarFunctionImplementation(
                 true,
                 ImmutableList.of(

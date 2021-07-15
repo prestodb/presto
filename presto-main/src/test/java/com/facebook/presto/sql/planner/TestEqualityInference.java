@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.relation.CallExpression;
@@ -43,12 +44,13 @@ import static com.facebook.presto.common.function.OperatorType.MULTIPLY;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.RowType.field;
-import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.expressions.LogicalRowExpressions.and;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.EqualityInference.Builder.isInferenceCandidate;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
+import static com.facebook.presto.type.TypeUtils.BIGINT_TYPE;
+import static com.facebook.presto.type.TypeUtils.VARCHAR_TYPE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -343,15 +345,15 @@ public class TestEqualityInference
     public Object[][] toRowExpressionProvider()
     {
         return new Object[][] {
-                {ROW_EXPRESSION_TRANSLATOR.translate("try_cast(b AS BIGINT)", ImmutableMap.of("b", VARCHAR))},
-                {ROW_EXPRESSION_TRANSLATOR.translate("\"$internal$try\"(() -> b)", ImmutableMap.of("b", BIGINT))},
-                {ROW_EXPRESSION_TRANSLATOR.translate("nullif(b, 1)", ImmutableMap.of("b", BIGINT))},
-                {ROW_EXPRESSION_TRANSLATOR.translate("if(b = 1, 1)", ImmutableMap.of("b", BIGINT))},
-                {ROW_EXPRESSION_TRANSLATOR.translate("b.x", ImmutableMap.of("b", RowType.from(ImmutableList.of(field("x", BIGINT)))))},
-                {ROW_EXPRESSION_TRANSLATOR.translate("IF(b in (NULL), b)", ImmutableMap.of("b", BIGINT))},
-                {ROW_EXPRESSION_TRANSLATOR.translate("case b when 1 then 1 END", ImmutableMap.of("b", BIGINT))}, //simple case
-                {ROW_EXPRESSION_TRANSLATOR.translate("case when b is not NULL then 1 END", ImmutableMap.of("b", BIGINT))}, //search case
-                {ROW_EXPRESSION_TRANSLATOR.translate("ARRAY [NULL][b]", ImmutableMap.of("b", BIGINT))}};
+                {ROW_EXPRESSION_TRANSLATOR.translate("try_cast(b AS BIGINT)", ImmutableMap.of("b", VARCHAR_TYPE))},
+                {ROW_EXPRESSION_TRANSLATOR.translate("\"$internal$try\"(() -> b)", ImmutableMap.of("b", BIGINT_TYPE))},
+                {ROW_EXPRESSION_TRANSLATOR.translate("nullif(b, 1)", ImmutableMap.of("b", BIGINT_TYPE))},
+                {ROW_EXPRESSION_TRANSLATOR.translate("if(b = 1, 1)", ImmutableMap.of("b", BIGINT_TYPE))},
+                {ROW_EXPRESSION_TRANSLATOR.translate("b.x", ImmutableMap.of("b", new TypeWithName(RowType.from(ImmutableList.of(field("x", BIGINT))))))},
+                {ROW_EXPRESSION_TRANSLATOR.translate("IF(b in (NULL), b)", ImmutableMap.of("b", BIGINT_TYPE))},
+                {ROW_EXPRESSION_TRANSLATOR.translate("case b when 1 then 1 END", ImmutableMap.of("b", BIGINT_TYPE))}, //simple case
+                {ROW_EXPRESSION_TRANSLATOR.translate("case when b is not NULL then 1 END", ImmutableMap.of("b", BIGINT_TYPE))}, //search case
+                {ROW_EXPRESSION_TRANSLATOR.translate("ARRAY [NULL][b]", ImmutableMap.of("b", BIGINT_TYPE))}};
     }
 
     private static Predicate<RowExpression> matchesVariableScope(final Predicate<VariableReferenceExpression> variableScope)

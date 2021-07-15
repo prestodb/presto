@@ -63,7 +63,7 @@ public class TestPolymorphicScalarFunction
     private static final TypeSignature INPUT_VARCHAR_TYPE = parseTypeSignature(INPUT_VARCHAR_SIGNATURE);
     private static final Slice INPUT_SLICE = Slices.allocate(toIntExact(INPUT_VARCHAR_LENGTH));
     private static final BoundVariables BOUND_VARIABLES = new BoundVariables(
-            ImmutableMap.of("V", FUNCTION_AND_TYPE_MANAGER.getType(INPUT_VARCHAR_TYPE)),
+            ImmutableMap.of("V", FUNCTION_AND_TYPE_MANAGER.getSemanticType(INPUT_VARCHAR_TYPE)),
             ImmutableMap.of("x", INPUT_VARCHAR_LENGTH));
 
     private static final TypeSignature DECIMAL_SIGNATURE = parseTypeSignature("decimal(a_precision, a_scale)", ImmutableSet.of("a_precision", "a_scale"));

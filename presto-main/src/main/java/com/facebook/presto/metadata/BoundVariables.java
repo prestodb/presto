@@ -14,6 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeWithName;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.HashMap;
@@ -26,10 +27,10 @@ import static java.util.Objects.requireNonNull;
 
 public class BoundVariables
 {
-    private final Map<String, Type> typeVariables;
+    private final Map<String, TypeWithName> typeVariables;
     private final Map<String, Long> longVariables;
 
-    public BoundVariables(Map<String, Type> typeVariables,
+    public BoundVariables(Map<String, TypeWithName> typeVariables,
             Map<String, Long> longVariables)
     {
         requireNonNull(typeVariables, "typeVariableBindings is null");
@@ -38,9 +39,14 @@ public class BoundVariables
         this.longVariables = ImmutableMap.copyOf(longVariables);
     }
 
-    public Type getTypeVariable(String variableName)
+    public TypeWithName getTypeVariable(String variableName)
     {
         return getValue(typeVariables, variableName);
+    }
+
+    public Type getPhysicalType(String variableName)
+    {
+        return getTypeVariable(variableName).getType();
     }
 
     public boolean containsTypeVariable(String variableName)
@@ -48,7 +54,7 @@ public class BoundVariables
         return containsValue(typeVariables, variableName);
     }
 
-    public Map<String, Type> getTypeVariables()
+    public Map<String, TypeWithName> getTypeVariables()
     {
         return typeVariables;
     }
@@ -125,15 +131,15 @@ public class BoundVariables
 
     public static class Builder
     {
-        private final Map<String, Type> typeVariables = new HashMap<>();
+        private final Map<String, TypeWithName> typeVariables = new HashMap<>();
         private final Map<String, Long> longVariables = new HashMap<>();
 
-        public Type getTypeVariable(String variableName)
+        public TypeWithName getTypeVariable(String variableName)
         {
             return getValue(typeVariables, variableName);
         }
 
-        public Builder setTypeVariable(String variableName, Type variableValue)
+        public Builder setTypeVariable(String variableName, TypeWithName variableValue)
         {
             setValue(typeVariables, variableName, variableValue);
             return this;
@@ -144,7 +150,7 @@ public class BoundVariables
             return containsValue(typeVariables, variableName);
         }
 
-        public Map<String, Type> getTypeVariables()
+        public Map<String, TypeWithName> getTypeVariables()
         {
             return typeVariables;
         }

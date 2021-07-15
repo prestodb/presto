@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.TableHandle;
@@ -221,7 +222,7 @@ class QueryPlanner
         }
 
         // add rowId column
-        Field rowIdField = Field.newUnqualified(Optional.empty(), rowIdType);
+        Field rowIdField = Field.newUnqualified(Optional.empty(), new TypeWithName(rowIdType));
         VariableReferenceExpression rowIdVariable = variableAllocator.newVariable("$rowId", rowIdField.getType());
         outputVariablesBuilder.add(rowIdVariable);
         columns.put(rowIdVariable, rowIdHandle);
@@ -367,8 +368,8 @@ class QueryPlanner
         ImmutableMap.Builder<VariableReferenceExpression, RowExpression> projections = ImmutableMap.builder();
 
         for (Expression expression : expressions) {
-            Type type = analysis.getType(expression);
-            Type coercion = analysis.getCoercion(expression);
+            TypeWithName type = analysis.getType(expression);
+            TypeWithName coercion = analysis.getCoercion(expression);
             VariableReferenceExpression variable = variableAllocator.newVariable(expression, firstNonNull(coercion, type));
             Expression rewritten = subPlan.rewrite(expression);
             if (coercion != null) {
@@ -692,7 +693,7 @@ class QueryPlanner
 
         for (GroupingOperation groupingOperation : analysis.getGroupingOperations(node)) {
             Expression rewritten = GroupingOperationRewriter.rewriteGroupingOperation(groupingOperation, descriptor, analysis.getColumnReferenceFields(), groupIdVariable);
-            Type coercion = analysis.getCoercion(groupingOperation);
+            TypeWithName coercion = analysis.getCoercion(groupingOperation);
             VariableReferenceExpression variable = variableAllocator.newVariable(rewritten, analysis.getTypeWithCoercions(groupingOperation));
             if (coercion != null) {
                 rewritten = new Cast(

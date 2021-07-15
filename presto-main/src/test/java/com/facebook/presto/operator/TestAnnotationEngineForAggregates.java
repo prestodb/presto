@@ -20,6 +20,7 @@ import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
+import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
@@ -412,7 +413,7 @@ public class TestAnnotationEngineForAggregates
         assertEquals(implementationLong.getStateClass(), NullableLongState.class);
 
         InternalAggregationFunction specialized = aggregation.specialize(
-                BoundVariables.builder().setTypeVariable("T", DoubleType.DOUBLE).build(),
+                BoundVariables.builder().setTypeVariable("T", new TypeWithName(DoubleType.DOUBLE)).build(),
                 1,
                 FUNCTION_AND_TYPE_MANAGER);
         assertEquals(specialized.getFinalType(), DoubleType.DOUBLE);
@@ -565,7 +566,7 @@ public class TestAnnotationEngineForAggregates
         assertFalse(implementation2.hasSpecializedTypeParameters());
         assertTrue(implementation2.getInputParameterMetadataTypes().equals(expectedMetadataTypes));
 
-        InternalAggregationFunction specialized = aggregation.specialize(BoundVariables.builder().setTypeVariable("T", DoubleType.DOUBLE).build(), 1, FUNCTION_AND_TYPE_MANAGER);
+        InternalAggregationFunction specialized = aggregation.specialize(BoundVariables.builder().setTypeVariable("T", new TypeWithName(DoubleType.DOUBLE)).build(), 1, FUNCTION_AND_TYPE_MANAGER);
         assertEquals(specialized.getFinalType(), DoubleType.DOUBLE);
         assertTrue(specialized.isDecomposable());
         assertEquals(specialized.name(), "implicit_specialized_aggregate");
@@ -656,7 +657,7 @@ public class TestAnnotationEngineForAggregates
         assertFalse(implementation2.hasSpecializedTypeParameters());
         assertTrue(implementation2.getInputParameterMetadataTypes().equals(expectedMetadataTypes));
 
-        InternalAggregationFunction specialized = aggregation.specialize(BoundVariables.builder().setTypeVariable("T", DoubleType.DOUBLE).build(), 1, FUNCTION_AND_TYPE_MANAGER);
+        InternalAggregationFunction specialized = aggregation.specialize(BoundVariables.builder().setTypeVariable("T", new TypeWithName(DoubleType.DOUBLE)).build(), 1, FUNCTION_AND_TYPE_MANAGER);
         assertEquals(specialized.getFinalType(), DoubleType.DOUBLE);
         assertTrue(specialized.isDecomposable());
         assertEquals(specialized.name(), "implicit_specialized_aggregate");
@@ -902,7 +903,7 @@ public class TestAnnotationEngineForAggregates
         List<AggregationMetadata.ParameterMetadata.ParameterType> expectedMetadataTypes = ImmutableList.of(AggregationMetadata.ParameterMetadata.ParameterType.STATE, AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL);
         assertTrue(implementation.getInputParameterMetadataTypes().equals(expectedMetadataTypes));
 
-        InternalAggregationFunction specialized = aggregation.specialize(BoundVariables.builder().setTypeVariable("T", DoubleType.DOUBLE).build(), 1, FUNCTION_AND_TYPE_MANAGER);
+        InternalAggregationFunction specialized = aggregation.specialize(BoundVariables.builder().setTypeVariable("T", new TypeWithName(DoubleType.DOUBLE)).build(), 1, FUNCTION_AND_TYPE_MANAGER);
         assertEquals(specialized.getFinalType(), DoubleType.DOUBLE);
         assertTrue(specialized.isDecomposable());
         assertEquals(specialized.name(), "inject_type_aggregate");
@@ -1188,7 +1189,7 @@ public class TestAnnotationEngineForAggregates
         assertEquals(implementationDouble.getStateClass(), NullableDoubleState.class);
 
         InternalAggregationFunction specialized = aggregation.specialize(
-                BoundVariables.builder().setTypeVariable("T1", DoubleType.DOUBLE).setTypeVariable("T2", DoubleType.DOUBLE).build(),
+                BoundVariables.builder().setTypeVariable("T1", new TypeWithName(DoubleType.DOUBLE)).setTypeVariable("T2", new TypeWithName(DoubleType.DOUBLE)).build(),
                 1,
                 FUNCTION_AND_TYPE_MANAGER);
         assertEquals(specialized.getFinalType(), DoubleType.DOUBLE);

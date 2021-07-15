@@ -89,7 +89,7 @@ public class CreateViewTask
 
         List<ViewColumn> columns = analysis.getOutputDescriptor(statement.getQuery())
                 .getVisibleFields().stream()
-                .map(field -> new ViewColumn(field.getName().get(), field.getType()))
+                .map(field -> new ViewColumn(field.getName().get(), field.getType().getType()))
                 .collect(toImmutableList());
 
         List<ColumnMetadata> columnMetadata = columns.stream()

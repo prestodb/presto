@@ -123,7 +123,7 @@ public abstract class StatisticalDigestAggregationFunction
     @Override
     public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
-        Type valueType = boundVariables.getTypeVariable("V");
+        Type valueType = boundVariables.getPhysicalType("V");
         Type outputType = functionAndTypeManager.getParameterizedType(
                 type,
                 ImmutableList.of(TypeSignatureParameter.of(valueType.getTypeSignature())));

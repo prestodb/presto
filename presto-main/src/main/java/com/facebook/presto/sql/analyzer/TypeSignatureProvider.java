@@ -15,6 +15,7 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.TypeWithName;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -29,7 +30,7 @@ public class TypeSignatureProvider
     // hasDependency field exists primarily to make manipulating types without dependencies easy,
     // and to make toString more friendly.
     private final boolean hasDependency;
-    private final Function<List<Type>, TypeSignature> typeSignatureResolver;
+    private final Function<List<TypeWithName>, TypeSignature> typeSignatureResolver;
 
     public TypeSignatureProvider(TypeSignature typeSignature)
     {
@@ -37,7 +38,7 @@ public class TypeSignatureProvider
         this.typeSignatureResolver = ignored -> typeSignature;
     }
 
-    public TypeSignatureProvider(Function<List<Type>, TypeSignature> typeSignatureResolver)
+    public TypeSignatureProvider(Function<List<TypeWithName>, TypeSignature> typeSignatureResolver)
     {
         this.hasDependency = true;
         this.typeSignatureResolver = requireNonNull(typeSignatureResolver, "typeSignatureResolver is null");
@@ -54,7 +55,7 @@ public class TypeSignatureProvider
         return typeSignatureResolver.apply(ImmutableList.of());
     }
 
-    public TypeSignature getTypeSignature(List<Type> boundTypeParameters)
+    public TypeSignature getTypeSignature(List<TypeWithName> boundTypeParameters)
     {
         checkState(hasDependency);
         return typeSignatureResolver.apply(boundTypeParameters);

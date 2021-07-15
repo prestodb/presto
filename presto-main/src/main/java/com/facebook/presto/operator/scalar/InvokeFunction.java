@@ -78,7 +78,7 @@ public final class InvokeFunction
     @Override
     public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
-        Type returnType = boundVariables.getTypeVariable("T");
+        Type returnType = boundVariables.getPhysicalType("T");
         return new BuiltInScalarFunctionImplementation(
                 true,
                 ImmutableList.of(functionTypeArgumentProperty(InvokeLambda.class)),

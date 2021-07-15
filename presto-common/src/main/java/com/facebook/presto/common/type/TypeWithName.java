@@ -29,15 +29,35 @@ import static java.util.Objects.requireNonNull;
 public class TypeWithName
         implements Type
 {
-    private final QualifiedObjectName name;
+    private final String name;
     private final Type type;
     private final TypeSignature typeSignature;
 
     public TypeWithName(QualifiedObjectName name, Type type)
     {
-        this.name = requireNonNull(name, "name is null");
-        this.type = requireNonNull(type, "type is null");
+        this.name = requireNonNull(name, "name is null").toString();
+        requireNonNull(type, "type is null");
+        if (type instanceof TypeWithName) {
+            this.type = ((TypeWithName) type).getType();
+        }
+        else {
+            this.type = type;
+        }
         this.typeSignature = new TypeSignature(new UserDefinedType(name, type.getTypeSignature()));
+    }
+
+    public TypeWithName(Type type)
+    {
+        requireNonNull(type, "type is null");
+        if (type instanceof TypeWithName) {
+            this.type = ((TypeWithName) type).getType();
+            this.name = ((TypeWithName) type).getName();
+        }
+        else {
+            this.type = type;
+            this.name = type.getTypeSignature().toString();
+        }
+        this.typeSignature = type.getTypeSignature();
     }
 
     @Override
@@ -49,12 +69,20 @@ public class TypeWithName
     @Override
     public String getDisplayName()
     {
-        return name.toString();
+        if (typeSignature.getTypeSignatureBase().hasTypeName()) {
+            return name;
+        }
+        return type.getDisplayName();
     }
 
-    public QualifiedObjectName getName()
+    public String getName()
     {
         return name;
+    }
+
+    public QualifiedObjectName getQualifiedObjectName()
+    {
+        return QualifiedObjectName.valueOf(name);
     }
 
     public Type getType()
