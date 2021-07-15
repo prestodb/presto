@@ -5776,4 +5776,12 @@ public abstract class AbstractTestQueries
     {
         assertQuerySucceeds("SELECT ARRAY_AGG( x ORDER BY x ASC, x DESC ) FROM ( SELECT 0 as x, 0 AS y)");
     }
+
+    @Test
+    public void tesMultipleConcat()
+    {
+        assertQuery("select concat('a', '','','', 'b', '', '', 'c', 'd', '', '', '', '')", "select 'abcd'");
+        assertQuery("select concat('', '','','', '', '', '', '', '', '', '')", "select ''");
+        assertQuery("select concat('', '','','', 'x', '', '', '', '', '', '')", "select 'x'");
+    }
 }
