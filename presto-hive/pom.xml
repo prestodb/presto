@@ -18,12 +18,6 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.eren-ck</groupId>
-            <artifactId>MortonLib</artifactId>
-            <version>1.0-SNAPSHOT</version>
-        </dependency>
-
-        <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-plugin-toolkit</artifactId>
         </dependency>

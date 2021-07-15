@@ -13,16 +13,18 @@
  */
 package com.facebook.presto.hive.clustering;
 
-import com.erenck.mortonlib.Morton3D;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.predicate.Marker;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.hive.zorder.ZOrder;
 import io.airlift.slice.Slice;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -33,7 +35,8 @@ public final class MortonCode
     private List<String> clusteredBy;
     private List<Type> types;
     private Map<String, List<Marker>> intervals;
-    private Morton3D codec;
+    private int[] encodingBits;
+    private ZOrder codec;
 
     public MortonCode(
             List<Integer> clusterCount,
@@ -44,52 +47,30 @@ public final class MortonCode
         this.clusterCount = clusterCount;
         this.clusteredBy = clusteredBy;
         this.types = types;
-
         intervals = IntervalExtractor.extractIntervals(
                  distribution, clusteredBy, types, clusterCount);
 
-        codec = new Morton3D();
+        encodingBits = getEncodingBits(this.clusteredBy, this.intervals);
+        codec = new ZOrder(
+                Arrays.stream(encodingBits).boxed().collect(Collectors.toList()), true);
+    }
+
+    public static int[] getEncodingBits(
+            List<String> clusteredBy, Map<String, List<Marker>> intervals)
+    {
+        int[] encodingBits = new int[intervals.size()];
+        for (int i = 0; i < clusteredBy.size(); ++i) {
+            List<Marker> delimiters = intervals.get(clusteredBy.get(i));
+            encodingBits[i] = (int) (Math.log(delimiters.size() + 1) / Math.log(2));
+        }
+        return encodingBits;
     }
 
     @Override
     public int getCluster(Page page, int position)
     {
         List<Integer> indices = getIntervalIndices(page, position);
-
-        // This could be used if there is no partition columns.
-        if (0 == indices.size()) {
-            return 0;
-        }
-
-        // (1) We have to realize that: the values of clusterId may not
-        // consecutive when (a) the values in each dimension may not and (b)
-        // the number of intervals for any dimension is not 2^N.
-        // (2) TODO: Morton library always 3 dimension, which produces
-        // clusterId larger than the bucket count. We should fix this
-        // writing our own library.
-        if (1 == indices.size()) {
-            return indices.get(0);
-        }
-        else if (2 == indices.size()) {
-            return interleaveBits(indices.get(0), indices.get(1));
-        }
-        else {
-            return (int) codec.encode(
-                    indices.get(0), indices.get(1), indices.get(2));
-        }
-    }
-
-    public static int interleaveBits(int first, int second)
-    {
-        int result = 0;
-        for (int i = 0; i < 16; ++i) {
-            int maskedFirst = (first & (1 << i));
-            int maskedSecond = (second & (1 << i));
-
-            result |= (maskedFirst << i);
-            result |= (maskedSecond << (i + 1));
-        }
-        return result;
+        return codec.encodeToInteger(indices);
     }
 
     private List<Integer> getIntervalIndices(Page page, int position)

@@ -25,10 +25,15 @@ import com.facebook.presto.tests.ResultWithQueryId;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
+import java.util.stream.DoubleStream;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.tpch.TpchTable.getTables;
@@ -180,6 +185,25 @@ public class TestHiveClustering
         result = computeActual(query);
         assertEquals(result.getRowCount(), 1L);
         assertEquals(result.getMaterializedRows().get(0).getField(1), 1L);
+
+        query = (
+                "Insert INTO hive_bucketed.tpch_bucketed.customer_created (custkey, ds) \n" +
+                        "VALUES (NULL, '2021-05-15'), (2000, '2021-05-15'), (1, '2021-05-15')");
+        result = computeActual(query);
+        assertEquals(result.getOnlyValue(), 3L);
+
+        query = (
+                "SELECT \"$path\", COUNT(1) FROM hive_bucketed.tpch_bucketed.customer_created WHERE custkey = 1 GROUP BY 1 ORDER BY 1");
+        result = computeActual(query);
+        assertEquals(result.getRowCount(), 1L);
+        String pathForFirstCluster = (String) result.getMaterializedRows().get(0).getField(0);
+
+        query = (
+                "SELECT \"$path\", COUNT(1) FROM hive_bucketed.tpch_bucketed.customer_created WHERE custkey IS NULL GROUP BY 1 ORDER BY 1");
+        result = computeActual(query);
+        assertEquals(result.getRowCount(), 1L);
+        String pathForNullValue = (String) result.getMaterializedRows().get(0).getField(0);
+        assertEquals(pathForNullValue, pathForFirstCluster);
     }
 
     @Test
@@ -189,14 +213,42 @@ public class TestHiveClustering
                 "CREATE TABLE hive_bucketed.tpch_bucketed.customer_multiple \n" +
                         " WITH (" +
                         "    format = 'ORC',\n" +
+                        "    partitioned_by = array['ds'], \n" +
                         "    clustered_by = array['custkey', 'acctbal'], \n" +
                         "    cluster_count = array[8, 8], \n" +
                         "    distribution = array['150', '300', '450', '600', '750', '900', '1050',\n" +
                         "    '81.06', '1317.56', '2292.67', '3274.3', '4344.52', '5527.61', '6557.51']) \n" +
-                        " AS SELECT * FROM customer");
+                        " AS SELECT *, '2021-05-01' AS ds FROM customer");
 
         MaterializedResult result = computeActual(query);
         assertEquals(result.getOnlyValue(), 1500L);
+
+        query = "SELECT \"$path\", COUNT(1) FROM hive_bucketed.tpch_bucketed.customer_multiple GROUP BY 1 ORDER BY 1";
+        result = computeActual(query);
+        long fileNumWithTwoDimensions = result.getRowCount();
+        long rowCount = 0;
+        for (int i = 0; i < result.getRowCount(); ++i) {
+            assertTrue((long) result.getMaterializedRows().get(i).getField(1) > 0);
+            rowCount += (long) result.getMaterializedRows().get(i).getField(1);
+        }
+        assertEquals(rowCount, 1500L);
+        assertEquals(result.toString(), "");
+
+        List<Integer> custkeySamples = new ArrayList<>(Arrays.asList(150, 300, 450, 600, 750, 900, 1050));
+        double[] acctbalPoints = {81.06, 1317.56, 2292.67, 3274.3, 4344.52, 5527.61, 6557.51};
+        List<Double> acctbalSamples = DoubleStream.of(acctbalPoints).boxed().collect(Collectors.toList());
+        assertEquals(custkeySamples.size(), acctbalSamples.size());
+        for (int i = 1; i < custkeySamples.size(); ++i) {
+            query = format(
+                    "SELECT \"$path\", COUNT(1) FROM hive_bucketed.tpch_bucketed.customer_multiple " +
+                            "WHERE custkey > %d and custkey <= %d and acctbal > %f and acctbal <= %f  GROUP BY 1 ORDER BY 1",
+                    custkeySamples.get(i - 1),
+                    custkeySamples.get(i),
+                    acctbalSamples.get(i - 1),
+                    acctbalSamples.get(i));
+            result = computeActual(query);
+            assertTrue(result.getRowCount() <= 1);
+        }
 
         query = "SELECT COUNT(*) FROM hive_bucketed.tpch_bucketed.customer_multiple WHERE custkey <= 100";
         DistributedQueryRunner distributedQueryRunner = (DistributedQueryRunner) getQueryRunner();
@@ -204,20 +256,51 @@ public class TestHiveClustering
         QueryInfo queryInfo = distributedQueryRunner.getCoordinator().getQueryManager().getFullQueryInfo(resultResultWithQueryId.getQueryId());
         assertEquals(
                 Math.ceil(queryInfo.getQueryStats().getProcessedInputDataSize().getValue()),
-                22.0);
+                24.0);
         assertEquals(
                 Math.ceil(queryInfo.getQueryStats().getRawInputDataSize().getValue()),
-                22.0);
+                24.0);
 
         query = "SELECT COUNT(*) FROM hive_bucketed.tpch_bucketed.customer_multiple WHERE acctbal <= 1000.0";
         resultResultWithQueryId = distributedQueryRunner.executeWithQueryId(getSession(), query);
         queryInfo = distributedQueryRunner.getCoordinator().getQueryManager().getFullQueryInfo(resultResultWithQueryId.getQueryId());
         assertEquals(
                 Math.ceil(queryInfo.getQueryStats().getProcessedInputDataSize().getValue()),
-                43.0);
+                47.0);
         assertEquals(
                 Math.ceil(queryInfo.getQueryStats().getRawInputDataSize().getValue()),
-                43.0);
+                47.0);
+
+        query = (
+                "SELECT COUNT(*) FROM hive_bucketed.tpch_bucketed.customer_multiple " +
+                        "WHERE acctbal <= 80.0 and custkey = 200");
+        resultResultWithQueryId = distributedQueryRunner.executeWithQueryId(getSession(), query);
+        queryInfo = distributedQueryRunner.getCoordinator().getQueryManager().getFullQueryInfo(resultResultWithQueryId.getQueryId());
+        assertEquals(
+                Math.ceil(queryInfo.getQueryStats().getProcessedInputDataSize().getValue()),
+                11.0);
+        assertEquals(
+                Math.ceil(queryInfo.getQueryStats().getRawInputDataSize().getValue()),
+                11.0);
+
+        query = (
+                "INSERT INTO hive_bucketed.tpch_bucketed.customer_multiple (custkey, acctbal, ds) VALUES " +
+                        "(NULL, 1.0, '2021-05-02'), " +  // first file
+                        "(1, NULL, '2021-05-02'), " +    // first file
+                        "(1, 1.0, '2021-05-02'), " +     // first file
+                        "(NULL, NULL, '2021-05-02'), " +   // first file
+                        "(NULL, 100.0, '2021-05-02'), " +  // second file
+                        "(1, 100.0, '2021-05-02'), " +     // second file
+                        "(200, NULL, '2021-05-02'), " +    // third file
+                        "(200, 100.0, '2021-05-02')");   // fourth file
+        result = computeActual(query);
+        assertEquals(result.getOnlyValue(), 8L);
+
+        query = (
+                "SELECT \"$path\", COUNT(1) FROM hive_bucketed.tpch_bucketed.customer_multiple " +
+                        "WHERE ds = '2021-05-02' GROUP BY 1 order by 1");
+        result = computeActual(query);
+        assertEquals(result.getRowCount(), 4);
 
         query = (
                 "CREATE TABLE hive_bucketed.tpch_bucketed.customer_multiple_again \n" +
@@ -249,5 +332,29 @@ public class TestHiveClustering
         assertEquals(
                 Math.ceil(queryInfo.getQueryStats().getRawInputDataSize().getValue()),
                 183.0);
+
+        query = (
+                "CREATE TABLE hive_bucketed.tpch_bucketed.customer_with_three_dimensions \n" +
+                        " WITH (" +
+                        "    format = 'ORC',\n" +
+                        "    partitioned_by = array['ds'], \n" +
+                        "    clustered_by = array['custkey', 'acctbal', 'mktsegment'], \n" +
+                        "    cluster_count = array[8, 8, 2], \n" +
+                        "    distribution = array['150', '300', '450', '600', '750', '900', '1050',\n" +
+                        "    '81.06', '1317.56', '2292.67', '3274.3', '4344.52', '5527.61', '6557.51', 'H']) \n" +
+                        " AS SELECT *, '2021-05-01' AS ds FROM customer");
+        result = computeActual(query);
+        assertEquals(result.getOnlyValue(), 1500L);
+
+        query = "SELECT \"$path\", COUNT(1) FROM hive_bucketed.tpch_bucketed.customer_with_three_dimensions GROUP BY 1 ORDER BY 1";
+        result = computeActual(query);
+        long fileNumWithThreeDimensions = result.getRowCount();
+        rowCount = 0;
+        for (int i = 0; i < result.getRowCount(); ++i) {
+            assertTrue((long) result.getMaterializedRows().get(i).getField(1) > 0);
+            rowCount += (long) result.getMaterializedRows().get(i).getField(1);
+        }
+        assertEquals(rowCount, 1500L);
+        assertEquals(fileNumWithThreeDimensions, fileNumWithTwoDimensions * 2);
     }
 }

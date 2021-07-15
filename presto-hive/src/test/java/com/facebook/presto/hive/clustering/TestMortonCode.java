@@ -33,7 +33,9 @@ import org.testng.annotations.Test;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.testng.Assert.assertEquals;
@@ -254,11 +256,36 @@ public class TestMortonCode
     }
 
     @Test
-    public void testInterleaveBits()
+    public void testGetEncodingBits()
     {
-        assertEquals(MortonCode.interleaveBits(0, 0), 0);
-        assertEquals(MortonCode.interleaveBits(0, 1), 2);
-        assertEquals(MortonCode.interleaveBits(2, 1), 6);
-        assertEquals(MortonCode.interleaveBits(10, 10), 204);
+        List<String> clusteredBy = new ArrayList<>(Arrays.asList("c1", "c2"));
+        Map<String, List<Marker>> intervals = new HashMap<>();
+        intervals.put("c1", new ArrayList<>(Arrays.asList(
+                new Marker(VarcharType.VARCHAR,
+                        Optional.of(
+                                Utils.nativeValueToBlock(VarcharType.VARCHAR,
+                                        Slices.utf8Slice((String) "a"))),
+                        Marker.Bound.EXACTLY))));
+        intervals.put("c2", new ArrayList<>(Arrays.asList(
+                new Marker(VarcharType.VARCHAR,
+                        Optional.of(
+                                Utils.nativeValueToBlock(VarcharType.VARCHAR,
+                                        Slices.utf8Slice((String) "a"))),
+                        Marker.Bound.EXACTLY),
+                new Marker(VarcharType.VARCHAR,
+                        Optional.of(
+                                Utils.nativeValueToBlock(VarcharType.VARCHAR,
+                                        Slices.utf8Slice((String) "a"))),
+                        Marker.Bound.EXACTLY),
+                new Marker(VarcharType.VARCHAR,
+                        Optional.of(
+                                Utils.nativeValueToBlock(VarcharType.VARCHAR,
+                                Slices.utf8Slice((String) "a"))),
+                        Marker.Bound.EXACTLY))));
+
+        int[] encodingBits = MortonCode.getEncodingBits(clusteredBy, intervals);
+        assertEquals((int) (Math.log(2) / Math.log(2)), 1);
+        assertEquals(encodingBits[0], 1);
+        assertEquals(encodingBits[1], 2);
     }
 }

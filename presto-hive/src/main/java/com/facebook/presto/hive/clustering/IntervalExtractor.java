@@ -20,6 +20,8 @@ import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -65,8 +67,13 @@ public final class IntervalExtractor
         List<Marker> delimiters = new ArrayList<>();
         for (int i = start; i < end; ++i) {
             Object value;
-            if (columnType == VarcharType.VARCHAR) {
-                value = distribution.get(i);
+            if (columnType instanceof VarcharType) {
+                if (distribution.get(i) instanceof String) {
+                    value = Slices.utf8Slice((String) distribution.get(i));
+                }
+                else {
+                    value = (Slice) distribution.get(i);
+                }
             }
             else if (columnType == IntegerType.INTEGER || columnType == BigintType.BIGINT) {
                 value = Long.valueOf(distribution.get(i).toString());
