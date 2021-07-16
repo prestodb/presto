@@ -74,6 +74,19 @@ public class TestDynamicFilter
     }
 
     @Test
+    public void testCrossJoinInequalityWithCast()
+    {
+        assertPlan("SELECT o.comment, l.comment FROM orders o, lineitem l WHERE o.comment < l.comment",
+                anyTree(filter("O_COMMENT < CAST(L_COMMENT AS varchar(79))",
+                        join(
+                                INNER,
+                                ImmutableList.of(),
+                                tableScan("orders", ImmutableMap.of("O_COMMENT", "comment")),
+                                exchange(
+                                        tableScan("lineitem", ImmutableMap.of("L_COMMENT", "comment")))))));
+    }
+
+    @Test
     public void testJoin()
     {
         assertPlan(
