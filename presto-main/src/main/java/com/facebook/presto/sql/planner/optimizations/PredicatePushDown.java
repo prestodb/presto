@@ -624,15 +624,6 @@ public class PredicatePushDown
             return new DynamicFiltersResult(dynamicFilters, predicates);
         }
 
-        private static RowExpression createDynamicFilterExpression(String id, VariableReferenceExpression input, FunctionAndTypeManager functionAndTypeManager)
-        {
-            return call(
-                    functionAndTypeManager,
-                    DynamicFilters.DynamicFilterPlaceholderFunction.NAME,
-                    BooleanType.BOOLEAN,
-                    ImmutableList.of(new ConstantExpression(Slices.utf8Slice(id), VarcharType.VARCHAR), input));
-        }
-
         private static DynamicFiltersResult createDynamicFilters(
                 VariableReferenceExpression probeVariable,
                 VariableReferenceExpression buildVariable,
