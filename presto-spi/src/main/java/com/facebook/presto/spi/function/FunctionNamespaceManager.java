@@ -72,9 +72,12 @@ public interface FunctionNamespaceManager<F extends SqlFunction>
 
     /**
      * List all functions managed by the {@link FunctionNamespaceManager}.
+     * likePattern and escape are from `SHOW FUNCTIONS LIKE [likePattern] escape [escape]`.
+     * Backends supporting like pattern / escape matching can use this to prefilter functions, but Presto will filter again, so it is fine if the backend doesn't
+     * use these parameters.
      * TODO: Support transaction
      */
-    Collection<F> listFunctions();
+    Collection<F> listFunctions(Optional<String> likePattern, Optional<String> escape);
 
     Collection<F> getFunctions(Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle, QualifiedObjectName functionName);
 

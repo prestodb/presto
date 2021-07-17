@@ -65,8 +65,6 @@ public interface Metadata
 
     Type getType(TypeSignature signature);
 
-    List<SqlFunction> listFunctions(Session session);
-
     void registerBuiltInFunctions(List<? extends SqlFunction> functions);
 
     boolean schemaExists(Session session, CatalogSchemaName schema);

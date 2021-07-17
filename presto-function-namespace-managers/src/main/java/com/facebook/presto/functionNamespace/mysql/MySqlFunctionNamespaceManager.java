@@ -96,9 +96,9 @@ public class MySqlFunctionNamespaceManager
     }
 
     @Override
-    public Collection<SqlInvokedFunction> listFunctions()
+    public Collection<SqlInvokedFunction> listFunctions(Optional<String> likePattern, Optional<String> escape)
     {
-        return functionNamespaceDao.listFunctions(getCatalogName());
+        return likePattern.map(pattern -> functionNamespaceDao.listFunctions(getCatalogName(), pattern, escape.orElse("\\"))).orElse(functionNamespaceDao.listFunctions(getCatalogName()));
     }
 
     @Override
