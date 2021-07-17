@@ -121,6 +121,35 @@ public interface FunctionNamespaceDao
             "WHERE\n" +
             "    NOT t.deleted")
     List<SqlInvokedFunction> listFunctions(@Bind("catalog_name") String catalogNames);
+    @SqlQuery("SELECT\n" +
+            "    t.catalog_name,\n" +
+            "    t.schema_name,\n" +
+            "    t.function_name,\n" +
+            "    t.parameters,\n" +
+            "    t.return_type,\n" +
+            "    t.description,\n" +
+            "    t.routine_characteristics,\n" +
+            "    t.body,\n" +
+            "    t.version\n" +
+            "FROM <sql_functions_table> t\n" +
+            "JOIN (\n" +
+            "    SELECT\n" +
+            "        function_id_hash,\n" +
+            "        function_id,\n" +
+            "        MAX(version) version\n" +
+            "    FROM <sql_functions_table>\n" +
+            "    WHERE catalog_name = :catalog_name" +
+            "      AND concat(catalog_name, '.', schema_name, '.', function_name) like :like_pattern escape :escape\n" +
+            "    GROUP BY\n" +
+            "        function_id_hash,\n" +
+            "        function_id\n" +
+            ") v\n" +
+            "    ON t.function_id_hash = v.function_id_hash\n" +
+            "    AND t.function_id = v.function_id\n " +
+            "    AND t.version = v.version\n" +
+            "WHERE\n" +
+            "    NOT t.deleted")
+    List<SqlInvokedFunction> listFunctions(@Bind("catalog_name") String catalogNames, @Bind("like_pattern") String likePattern, @Bind("escape") String escape);
 
     @SqlQuery("SELECT\n" +
             "    t.catalog_name,\n" +

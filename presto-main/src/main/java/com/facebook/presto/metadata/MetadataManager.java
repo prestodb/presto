@@ -269,12 +269,6 @@ public class MetadataManager
         return functionAndTypeManager.getType(signature);
     }
 
-    public List<SqlFunction> listFunctions(Session session)
-    {
-        // TODO: transactional when FunctionManager is made transactional
-        return functionAndTypeManager.listFunctions(session);
-    }
-
     @Override
     public void registerBuiltInFunctions(List<? extends SqlFunction> functionInfos)
     {

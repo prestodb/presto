@@ -73,12 +73,6 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public List<SqlFunction> listFunctions(Session session)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public void registerBuiltInFunctions(List<? extends SqlFunction> functions)
     {
         throw new UnsupportedOperationException();

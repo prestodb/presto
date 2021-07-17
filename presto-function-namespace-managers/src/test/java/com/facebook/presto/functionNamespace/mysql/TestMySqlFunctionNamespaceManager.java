@@ -158,6 +158,10 @@ public class TestMySqlFunctionNamespaceManager
         createFunction(function1, false);
         createFunction(function2, false);
         assertListFunctions(function1.withVersion("1"), function2.withVersion("1"));
+        assertListFunctions(Optional.of(format("%s.%%", TEST_CATALOG)), Optional.empty(), function1.withVersion("1"), function2.withVersion("1"));
+        assertListFunctions(Optional.of(format("%s.%s.%%", TEST_CATALOG, "schema1")), Optional.empty(), function1.withVersion("1"));
+        assertListFunctions(Optional.of("%schema%"), Optional.empty(), function1.withVersion("1"), function2.withVersion("1"));
+        assertListFunctions(Optional.of("%power$_tower"), Optional.of("$"), function1.withVersion("1"), function2.withVersion("1"));
     }
 
     @Test
@@ -443,9 +447,14 @@ public class TestMySqlFunctionNamespaceManager
         return function.get().getRequiredFunctionHandle();
     }
 
+    private void assertListFunctions(Optional<String> likePattern, Optional<String> escape, SqlInvokedFunction... functions)
+    {
+        assertEquals(ImmutableSet.copyOf(functionNamespaceManager.listFunctions(likePattern, escape)), ImmutableSet.copyOf(Arrays.asList(functions)));
+    }
+
     private void assertListFunctions(SqlInvokedFunction... functions)
     {
-        assertEquals(ImmutableSet.copyOf(functionNamespaceManager.listFunctions()), ImmutableSet.copyOf(Arrays.asList(functions)));
+        assertListFunctions(Optional.empty(), Optional.empty(), functions);
     }
 
     private void assertGetFunctions(QualifiedObjectName functionName, SqlInvokedFunction... functions)
