@@ -914,8 +914,11 @@ public class BuiltInTypeAndFunctionNamespaceManager
     {
     }
 
+    /**
+     * likePattern / escape is not used for optimization, returning all functions.
+     */
     @Override
-    public Collection<SqlFunction> listFunctions()
+    public Collection<SqlFunction> listFunctions(Optional<String> likePattern, Optional<String> escape)
     {
         return functions.list();
     }

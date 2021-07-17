@@ -158,7 +158,7 @@ public class TestFunctionAndTypeManager
     public void testListingVisibilityBetaFunctionsDisabled()
     {
         FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
-        List<SqlFunction> functions = functionAndTypeManager.listFunctions(TEST_SESSION);
+        List<SqlFunction> functions = functionAndTypeManager.listFunctions(TEST_SESSION, Optional.empty(), Optional.empty());
         List<String> names = transform(functions, input -> input.getSignature().getNameSuffix());
 
         assertTrue(names.contains("length"), "Expected function names " + names + " to contain 'length'");
@@ -180,7 +180,7 @@ public class TestFunctionAndTypeManager
                 .setSystemProperty(EXPERIMENTAL_FUNCTIONS_ENABLED, "true")
                 .build();
         FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
-        List<SqlFunction> functions = functionAndTypeManager.listFunctions(session);
+        List<SqlFunction> functions = functionAndTypeManager.listFunctions(session, Optional.empty(), Optional.empty());
         List<String> names = transform(functions, input -> input.getSignature().getNameSuffix());
 
         assertTrue(names.contains("length"), "Expected function names " + names + " to contain 'length'");
