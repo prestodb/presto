@@ -197,6 +197,7 @@ public final class SystemSessionProperties
     public static final String PARTIAL_RESULTS_MAX_EXECUTION_TIME_MULTIPLIER = "partial_results_max_execution_time_multiplier";
     public static final String OFFSET_CLAUSE_ENABLED = "offset_clause_enabled";
     public static final String VERBOSE_EXCEEDED_MEMORY_LIMIT_ERRORS_ENABLED = "verbose_exceeded_memory_limit_errors_enabled";
+    public static final String MATERIALIZED_VIEW_DATA_CONSISTENCY_ENABLED = "materialized_view_data_consistency_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1054,6 +1055,11 @@ public final class SystemSessionProperties
                         VERBOSE_EXCEEDED_MEMORY_LIMIT_ERRORS_ENABLED,
                         "When enabled the error message for exceeded memory limit errors will contain additional operator memory allocation details",
                         nodeMemoryConfig.isVerboseExceededMemoryLimitErrorsEnabled(),
+                        false),
+                booleanProperty(
+                        MATERIALIZED_VIEW_DATA_CONSISTENCY_ENABLED,
+                        "When enabled and reading from materialized view, partition stitching is applied to achieve data consistency",
+                        featuresConfig.isMaterializedViewDataConsistencyEnabled(),
                         false));
     }
 
@@ -1778,5 +1784,10 @@ public final class SystemSessionProperties
     public static boolean isVerboseExceededMemoryLimitErrorsEnabled(Session session)
     {
         return session.getSystemProperty(VERBOSE_EXCEEDED_MEMORY_LIMIT_ERRORS_ENABLED, Boolean.class);
+    }
+
+    public static boolean isMaterializedViewDataConsistencyEnabled(Session session)
+    {
+        return session.getSystemProperty(MATERIALIZED_VIEW_DATA_CONSISTENCY_ENABLED, Boolean.class);
     }
 }

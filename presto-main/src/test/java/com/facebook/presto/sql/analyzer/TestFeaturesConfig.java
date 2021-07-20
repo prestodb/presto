@@ -172,7 +172,8 @@ public class TestFeaturesConfig
                 .setPartialResultsEnabled(false)
                 .setPartialResultsCompletionRatioThreshold(0.5)
                 .setOffsetClauseEnabled(false)
-                .setPartialResultsMaxExecutionTimeMultiplier(2.0));
+                .setPartialResultsMaxExecutionTimeMultiplier(2.0)
+                .setMaterializedViewDataConsistencyEnabled(true));
     }
 
     @Test
@@ -297,6 +298,7 @@ public class TestFeaturesConfig
                 .put("partial-results-completion-ratio-threshold", "0.9")
                 .put("partial-results-max-execution-time-multiplier", "1.5")
                 .put("offset-clause-enabled", "true")
+                .put("materialized-view-data-consistency-enabled", "false")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -418,7 +420,8 @@ public class TestFeaturesConfig
                 .setPartialResultsEnabled(true)
                 .setPartialResultsCompletionRatioThreshold(0.9)
                 .setOffsetClauseEnabled(true)
-                .setPartialResultsMaxExecutionTimeMultiplier(1.5);
+                .setPartialResultsMaxExecutionTimeMultiplier(1.5)
+                .setMaterializedViewDataConsistencyEnabled(false);
         assertFullMapping(properties, expected);
     }
 

@@ -200,6 +200,7 @@ public class FeaturesConfig
     private double partialResultsMaxExecutionTimeMultiplier = 2.0;
 
     private boolean offsetClauseEnabled;
+    private boolean materializedViewDataConsistencyEnabled = true;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -1755,6 +1756,19 @@ public class FeaturesConfig
     public FeaturesConfig setOffsetClauseEnabled(boolean offsetClauseEnabled)
     {
         this.offsetClauseEnabled = offsetClauseEnabled;
+        return this;
+    }
+
+    public boolean isMaterializedViewDataConsistencyEnabled()
+    {
+        return materializedViewDataConsistencyEnabled;
+    }
+
+    @Config("materialized-view-data-consistency-enabled")
+    @ConfigDescription("When enabled and reading from materialized view, partition stitching is applied to achieve data consistency")
+    public FeaturesConfig setMaterializedViewDataConsistencyEnabled(boolean materializedViewDataConsistencyEnabled)
+    {
+        this.materializedViewDataConsistencyEnabled = materializedViewDataConsistencyEnabled;
         return this;
     }
 }
