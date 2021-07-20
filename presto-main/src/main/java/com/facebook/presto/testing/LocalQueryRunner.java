@@ -344,7 +344,7 @@ public class LocalQueryRunner
                 catalogManager,
                 notificationExecutor);
         this.partitioningProviderManager = new PartitioningProviderManager();
-        this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler, partitioningProviderManager);
+        this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler, partitioningProviderManager, new NodeSelectionStats());
         this.planOptimizerManager = new ConnectorPlanOptimizerManager();
         this.distributedMetadataManager = new ConnectorMetadataUpdaterManager();
 
