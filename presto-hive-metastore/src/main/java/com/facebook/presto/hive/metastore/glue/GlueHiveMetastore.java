@@ -19,7 +19,6 @@ import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
 import com.amazonaws.metrics.RequestMetricCollector;
@@ -217,9 +216,6 @@ public class GlueHiveMetastore
         if (config.getAwsAccessKey().isPresent() && config.getAwsSecretKey().isPresent()) {
             return new AWSStaticCredentialsProvider(
                     new BasicAWSCredentials(config.getAwsAccessKey().get(), config.getAwsSecretKey().get()));
-        }
-        if (config.isUseInstanceCredentials()) {
-            return InstanceProfileCredentialsProvider.getInstance();
         }
         if (config.getIamRole().isPresent()) {
             return new STSAssumeRoleSessionCredentialsProvider

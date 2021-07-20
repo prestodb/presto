@@ -40,8 +40,7 @@ public class TestGlueHiveMetastoreConfig
                 .setIamRole(null)
                 .setAwsAccessKey(null)
                 .setAwsSecretKey(null)
-                .setAwsCredentialsProvider(null)
-                .setUseInstanceCredentials(false));
+                .setAwsCredentialsProvider(null));
     }
 
     @Test
@@ -77,8 +76,7 @@ public class TestGlueHiveMetastoreConfig
                 .setIamRole("role")
                 .setAwsAccessKey("ABC")
                 .setAwsSecretKey("DEF")
-                .setAwsCredentialsProvider("custom")
-                .setUseInstanceCredentials(true);
+                .setAwsCredentialsProvider("custom");
 
         assertFullMapping(properties, expected);
     }

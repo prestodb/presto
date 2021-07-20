@@ -37,7 +37,6 @@ public class GlueHiveMetastoreConfig
     private Optional<String> awsAccessKey = Optional.empty();
     private Optional<String> awsSecretKey = Optional.empty();
     private Optional<String> awsCredentialsProvider = Optional.empty();
-    private boolean useInstanceCredentials;
 
     public Optional<String> getGlueRegion()
     {
@@ -197,18 +196,6 @@ public class GlueHiveMetastoreConfig
     public GlueHiveMetastoreConfig setAwsSecretKey(String awsSecretKey)
     {
         this.awsSecretKey = Optional.ofNullable(awsSecretKey);
-        return this;
-    }
-
-    public boolean isUseInstanceCredentials()
-    {
-        return useInstanceCredentials;
-    }
-
-    @Config("hive.metastore.glue.use-instance-credentials")
-    public GlueHiveMetastoreConfig setUseInstanceCredentials(boolean useInstanceCredentials)
-    {
-        this.useInstanceCredentials = useInstanceCredentials;
         return this;
     }
 
