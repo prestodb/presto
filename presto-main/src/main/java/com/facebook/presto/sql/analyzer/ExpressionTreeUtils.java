@@ -15,7 +15,7 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.common.type.EnumType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeWithName;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.sql.tree.ArrayConstructor;
@@ -131,7 +131,7 @@ public final class ExpressionTreeUtils
         return expression instanceof ComparisonExpression && ((ComparisonExpression) expression).getOperator() == ComparisonExpression.Operator.EQUAL;
     }
 
-    public static Optional<TypeWithName> tryResolveEnumLiteralType(QualifiedName qualifiedName, FunctionAndTypeManager functionAndTypeManager)
+    public static Optional<SemanticType> tryResolveEnumLiteralType(QualifiedName qualifiedName, FunctionAndTypeManager functionAndTypeManager)
     {
         Optional<QualifiedName> prefix = qualifiedName.getPrefix();
         if (!prefix.isPresent()) {
@@ -140,10 +140,10 @@ public final class ExpressionTreeUtils
         }
         try {
             Type baseType = functionAndTypeManager.getType(parseTypeSignature(prefix.get().toString()));
-            if (baseType instanceof TypeWithName
-                    && ((TypeWithName) baseType).getType() instanceof EnumType
-                    && ((EnumType<?>) ((TypeWithName) baseType).getType()).getEnumMap().containsKey(qualifiedName.getSuffix().toUpperCase(ENGLISH))) {
-                return Optional.of((TypeWithName) baseType);
+            if (baseType instanceof SemanticType
+                    && ((SemanticType) baseType).getType() instanceof EnumType
+                    && ((EnumType<?>) ((SemanticType) baseType).getType()).getEnumMap().containsKey(qualifiedName.getSuffix().toUpperCase(ENGLISH))) {
+                return Optional.of((SemanticType) baseType);
             }
         }
         catch (IllegalArgumentException e) {
@@ -156,7 +156,7 @@ public final class ExpressionTreeUtils
     {
         QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(node);
 
-        EnumType enumType = (EnumType) ((TypeWithName) nodeType).getType();
+        EnumType enumType = (EnumType) ((SemanticType) nodeType).getType();
         String enumKey = qualifiedName.getSuffix().toUpperCase(ENGLISH);
         checkArgument(enumType.getEnumMap().containsKey(enumKey), format("No key '%s' in enum '%s'", enumKey, nodeType.getDisplayName()));
         Object enumValue = enumType.getEnumMap().get(enumKey);

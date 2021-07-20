@@ -78,6 +78,11 @@ public class TypeSignature
         this(TypeSignatureBase.of(base), emptyList());
     }
 
+    public TypeSignature(QualifiedObjectName base, List<TypeSignatureParameter> parameters)
+    {
+        this(TypeSignatureBase.of(base), parameters);
+    }
+
     public TypeSignature(String base, TypeSignatureParameter... parameters)
     {
         this(base, asList(parameters));

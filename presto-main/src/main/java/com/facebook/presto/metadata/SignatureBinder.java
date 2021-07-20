@@ -20,7 +20,7 @@ import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
-import com.facebook.presto.common.type.TypeWithName;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.spi.function.LongVariableConstraint;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.TypeVariableConstraint;
@@ -192,8 +192,8 @@ public class SignatureBinder
         if (boundVariables.containsTypeVariable(baseType)) {
             checkState(typeSignature.getParameters().isEmpty(), "Type parameters cannot have parameters");
             Type type = boundVariables.getTypeVariable(baseType);
-            if (type instanceof TypeWithName) {
-                return ((TypeWithName) type).getType();
+            if (type instanceof SemanticType) {
+                return ((SemanticType) type).getType();
             }
             return type;
         }
@@ -640,7 +640,7 @@ public class SignatureBinder
                 // This check must not be skipped even if commonSuperType is equal to originalType
                 return SolverReturnStatus.UNSOLVABLE;
             }
-            if (commonSuperType.get().equals(originalType) || (originalType instanceof TypeWithName && commonSuperType.get().equals(((TypeWithName) originalType).getType()))) {
+            if (commonSuperType.get().equals(originalType) || (originalType instanceof SemanticType && commonSuperType.get().equals(((SemanticType) originalType).getType()))) {
                 return SolverReturnStatus.UNCHANGED_SATISFIED;
             }
             bindings.setTypeVariable(typeParameter, commonSuperType.get());

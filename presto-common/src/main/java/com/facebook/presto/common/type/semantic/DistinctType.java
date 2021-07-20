@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.common.type;
+package com.facebook.presto.common.type.semantic;
 
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.Block;
@@ -19,53 +19,39 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.BlockBuilderStatus;
 import com.facebook.presto.common.block.UncheckedBlock;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.UserDefinedType;
 import io.airlift.slice.Slice;
 
 import java.util.List;
 import java.util.Objects;
 
+import static com.facebook.presto.common.type.semantic.SemanticType.SemanticTypeCategory.DISTINCT_TYPE;
 import static java.util.Objects.requireNonNull;
 
-public class TypeWithName
-        implements Type
+public class DistinctType
+        extends SemanticType
 {
     private final QualifiedObjectName name;
     private final Type type;
-    private final TypeSignature typeSignature;
 
-    public TypeWithName(QualifiedObjectName name, Type type)
+    public DistinctType(QualifiedObjectName name, Type type)
     {
+        super(DISTINCT_TYPE, new TypeSignature(new UserDefinedType(name, type.getTypeSignature())));
+        // TODO We should disallow RowType here, as that should be a StructuredType instead.
         this.name = requireNonNull(name, "name is null");
         this.type = requireNonNull(type, "type is null");
-        this.typeSignature = new TypeSignature(new UserDefinedType(name, type.getTypeSignature()));
     }
 
-    @Override
-    public TypeSignature getTypeSignature()
-    {
-        return typeSignature;
-    }
-
-    @Override
-    public String getDisplayName()
+    public String getName()
     {
         return name.toString();
-    }
-
-    public QualifiedObjectName getName()
-    {
-        return name;
     }
 
     public Type getType()
     {
         return type;
-    }
-
-    @Override
-    public String toString()
-    {
-        return typeSignature.toString();
     }
 
     @Override
@@ -78,9 +64,10 @@ public class TypeWithName
             return false;
         }
 
-        TypeWithName other = (TypeWithName) obj;
+        DistinctType other = (DistinctType) obj;
 
-        return Objects.equals(this.name, other.name) &&
+        return super.equals(other) &&
+                Objects.equals(this.name, other.name) &&
                 Objects.equals(this.type, other.type);
     }
 
@@ -88,6 +75,12 @@ public class TypeWithName
     public int hashCode()
     {
         return Objects.hash(name, type);
+    }
+
+    @Override
+    public String getDisplayName()
+    {
+        return name.toString();
     }
 
     // All aspect related to execution are delegated to type

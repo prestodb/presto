@@ -27,8 +27,8 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureBase;
 import com.facebook.presto.common.type.TypeSignatureParameter;
-import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.UserDefinedType;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.PrestoException;
@@ -200,7 +200,7 @@ public class FunctionAndTypeManager
             Optional<Type> type = builtInTypeAndFunctionNamespaceManager.getType(signature.getStandardTypeSignature());
             if (type.isPresent()) {
                 if (signature.getTypeSignatureBase().hasTypeName()) {
-                    return new TypeWithName(signature.getTypeSignatureBase().getTypeName(), type.get());
+                    return SemanticType.from(signature.getTypeSignatureBase().getTypeName(), type.get());
                 }
                 return type.get();
             }
