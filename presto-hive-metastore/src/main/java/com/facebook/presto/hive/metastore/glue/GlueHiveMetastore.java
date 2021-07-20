@@ -138,7 +138,6 @@ import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Comparators.lexicographical;
-import static java.lang.String.format;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.UnaryOperator.identity;
@@ -217,30 +216,13 @@ public class GlueHiveMetastore
             return new AWSStaticCredentialsProvider(
                     new BasicAWSCredentials(config.getAwsAccessKey().get(), config.getAwsSecretKey().get()));
         }
-        if (config.getIamRole().isPresent()) {
+        else if (config.getIamRole().isPresent()) {
             return new STSAssumeRoleSessionCredentialsProvider
                     .Builder(config.getIamRole().get(), "roleSessionName")
                     .build();
         }
-        if (config.getAwsCredentialsProvider().isPresent()) {
-            return getCustomAWSCredentialsProvider(config.getAwsCredentialsProvider().get());
-        }
 
         return DefaultAWSCredentialsProviderChain.getInstance();
-    }
-
-    private static AWSCredentialsProvider getCustomAWSCredentialsProvider(String providerClass)
-    {
-        try {
-            Object instance = Class.forName(providerClass).getConstructor().newInstance();
-            if (!(instance instanceof AWSCredentialsProvider)) {
-                throw new RuntimeException("Invalid credentials provider class: " + instance.getClass().getName());
-            }
-            return (AWSCredentialsProvider) instance;
-        }
-        catch (ReflectiveOperationException e) {
-            throw new RuntimeException(format("Error creating an instance of %s", providerClass), e);
-        }
     }
 
     @Managed
