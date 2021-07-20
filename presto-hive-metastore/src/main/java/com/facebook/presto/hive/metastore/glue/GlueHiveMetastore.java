@@ -18,6 +18,7 @@ import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
 import com.amazonaws.metrics.RequestMetricCollector;
@@ -204,19 +205,24 @@ public class GlueHiveMetastore
             }
         }
 
-        if (config.getAwsAccessKey().isPresent() && config.getAwsSecretKey().isPresent()) {
-            AWSCredentialsProvider credentialsProvider = new AWSStaticCredentialsProvider(
-                    new BasicAWSCredentials(config.getAwsAccessKey().get(), config.getAwsSecretKey().get()));
-            asyncGlueClientBuilder.setCredentials(credentialsProvider);
-        }
-        else if (config.getIamRole().isPresent()) {
-            AWSCredentialsProvider credentialsProvider = new STSAssumeRoleSessionCredentialsProvider
-                    .Builder(config.getIamRole().get(), "roleSessionName")
-                    .build();
-            asyncGlueClientBuilder.setCredentials(credentialsProvider);
-        }
+        asyncGlueClientBuilder.setCredentials(getAwsCredentialsProvider(config));
 
         return asyncGlueClientBuilder.build();
+    }
+
+    private static AWSCredentialsProvider getAwsCredentialsProvider(GlueHiveMetastoreConfig config)
+    {
+        if (config.getAwsAccessKey().isPresent() && config.getAwsSecretKey().isPresent()) {
+            return new AWSStaticCredentialsProvider(
+                    new BasicAWSCredentials(config.getAwsAccessKey().get(), config.getAwsSecretKey().get()));
+        }
+        else if (config.getIamRole().isPresent()) {
+            return new STSAssumeRoleSessionCredentialsProvider
+                    .Builder(config.getIamRole().get(), "roleSessionName")
+                    .build();
+        }
+
+        return DefaultAWSCredentialsProviderChain.getInstance();
     }
 
     @Managed
