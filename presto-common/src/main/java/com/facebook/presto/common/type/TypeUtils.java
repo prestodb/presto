@@ -16,6 +16,7 @@ package com.facebook.presto.common.type;
 import com.facebook.presto.common.NotSupportedException;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
@@ -66,7 +67,7 @@ public final class TypeUtils
 
     public static boolean isEnumType(Type type)
     {
-        return type instanceof EnumType || type instanceof TypeWithName && ((TypeWithName) type).getType() instanceof EnumType;
+        return type instanceof EnumType || type instanceof SemanticType && ((SemanticType) type).getType() instanceof EnumType;
     }
 
     /**

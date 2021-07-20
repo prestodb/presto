@@ -25,8 +25,8 @@ import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignatureParameter;
-import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
@@ -446,7 +446,7 @@ public class ExpressionAnalyzer
                 }
                 // otherwise, try to match it to an enum literal (eg Mood.HAPPY)
                 if (!scope.isColumnReference(qualifiedName)) {
-                    Optional<TypeWithName> enumType = tryResolveEnumLiteralType(qualifiedName, functionAndTypeManager);
+                    Optional<SemanticType> enumType = tryResolveEnumLiteralType(qualifiedName, functionAndTypeManager);
                     if (enumType.isPresent()) {
                         setExpressionType(node.getBase(), enumType.get());
                         return setExpressionType(node, enumType.get());
@@ -456,8 +456,8 @@ public class ExpressionAnalyzer
             }
 
             Type baseType = process(node.getBase(), context);
-            if (((baseType instanceof TypeWithName) && ((TypeWithName) baseType).getType() instanceof RowType)) {
-                baseType = ((TypeWithName) baseType).getType();
+            if (((baseType instanceof SemanticType) && ((SemanticType) baseType).getType() instanceof RowType)) {
+                baseType = ((SemanticType) baseType).getType();
             }
             if (!(baseType instanceof RowType)) {
                 throw new SemanticException(TYPE_MISMATCH, node.getBase(), "Expression %s is not of type ROW", node.getBase());

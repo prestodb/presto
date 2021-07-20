@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
@@ -22,9 +23,9 @@ import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
-import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.UnknownType;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.khyperloglog.KHyperLogLogType;
@@ -494,16 +495,16 @@ public class TypeCoercer
 
     private Type toStandardType(Type type)
     {
-        if (type instanceof TypeWithName) {
-            return ((TypeWithName) type).getType();
+        if (type instanceof SemanticType) {
+            return ((SemanticType) type).getType();
         }
         return type;
     }
 
     private Type toSemanticType(Type originalType, Type standardType)
     {
-        if (originalType instanceof TypeWithName) {
-            return new TypeWithName(((TypeWithName) originalType).getName(), standardType);
+        if (originalType instanceof SemanticType) {
+            return SemanticType.from(QualifiedObjectName.valueOf(((SemanticType) originalType).getName()), standardType);
         }
         return standardType;
     }
@@ -552,8 +553,8 @@ public class TypeCoercer
 
         private TypeCompatibility toSemanticTypeCompatibility(Type type)
         {
-            if (commonSuperType.isPresent() && type instanceof TypeWithName) {
-                return new TypeCompatibility(Optional.of(new TypeWithName(((TypeWithName) type).getName(), commonSuperType.get())), coercible);
+            if (commonSuperType.isPresent() && type instanceof SemanticType) {
+                return new TypeCompatibility(Optional.of(SemanticType.from(QualifiedObjectName.valueOf(((SemanticType) type).getName()), commonSuperType.get())), coercible);
             }
             return this;
         }

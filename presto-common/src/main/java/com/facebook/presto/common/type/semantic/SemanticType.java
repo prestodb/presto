@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.common.type;
+package com.facebook.presto.common.type.semantic;
 
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.Block;
@@ -19,6 +19,8 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.BlockBuilderStatus;
 import com.facebook.presto.common.block.UncheckedBlock;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeSignature;
 import io.airlift.slice.Slice;
 
 import java.util.List;
@@ -26,40 +28,36 @@ import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public class TypeWithName
+public abstract class SemanticType
         implements Type
 {
-    private final QualifiedObjectName name;
-    private final Type type;
+    private final SemanticTypeCategory category;
     private final TypeSignature typeSignature;
+    private final Type type;
 
-    public TypeWithName(QualifiedObjectName name, Type type)
+    SemanticType(SemanticTypeCategory category, TypeSignature typeSignature, Type type)
     {
-        this.name = requireNonNull(name, "name is null");
+        this.category = requireNonNull(category, "category is null");
+        this.typeSignature = requireNonNull(typeSignature, "typeSignature is null");
         this.type = requireNonNull(type, "type is null");
-        this.typeSignature = new TypeSignature(new UserDefinedType(name, type.getTypeSignature()));
+    }
+
+    public static SemanticType from(QualifiedObjectName name, Type type)
+    {
+        return new DistinctType(name, type);
+    }
+
+    public abstract String getName();
+
+    public Type getType()
+    {
+        return type;
     }
 
     @Override
     public TypeSignature getTypeSignature()
     {
         return typeSignature;
-    }
-
-    @Override
-    public String getDisplayName()
-    {
-        return name.toString();
-    }
-
-    public QualifiedObjectName getName()
-    {
-        return name;
-    }
-
-    public Type getType()
-    {
-        return type;
     }
 
     @Override
@@ -78,16 +76,25 @@ public class TypeWithName
             return false;
         }
 
-        TypeWithName other = (TypeWithName) obj;
+        SemanticType other = (SemanticType) obj;
 
-        return Objects.equals(this.name, other.name) &&
+        return Objects.equals(this.category, other.category) &&
+                Objects.equals(this.typeSignature, other.typeSignature) &&
+                Objects.equals(this.getName(), other.getName()) &&
                 Objects.equals(this.type, other.type);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, type);
+        return Objects.hash(category, typeSignature, getName(), type);
+    }
+
+    public enum SemanticTypeCategory
+    {
+        BUILTIN_TYPE,
+        DISTINCT_TYPE,
+        STRUCTURED_TYPE
     }
 
     // All aspect related to execution are delegated to type
