@@ -145,7 +145,7 @@ public final class TaskTestUtils
                 new NodeSchedulerConfig().setIncludeCoordinator(true),
                 new NodeTaskMap(finalizerService));
         PartitioningProviderManager partitioningProviderManager = new PartitioningProviderManager();
-        NodePartitioningManager nodePartitioningManager = new NodePartitioningManager(nodeScheduler, partitioningProviderManager);
+        NodePartitioningManager nodePartitioningManager = new NodePartitioningManager(nodeScheduler, partitioningProviderManager, new NodeSelectionStats());
 
         PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(metadata, 0);
         return new LocalExecutionPlanner(

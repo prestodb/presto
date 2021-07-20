@@ -19,6 +19,7 @@ import com.facebook.presto.execution.scheduler.BucketNodeMap;
 import com.facebook.presto.execution.scheduler.FixedBucketNodeMap;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.group.DynamicBucketNodeMap;
+import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionStats;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.BucketPartitionFunction;
@@ -58,12 +59,14 @@ public class NodePartitioningManager
 {
     private final NodeScheduler nodeScheduler;
     private final PartitioningProviderManager partitioningProviderManager;
+    private final NodeSelectionStats nodeSelectionStats;
 
     @Inject
-    public NodePartitioningManager(NodeScheduler nodeScheduler, PartitioningProviderManager partitioningProviderManager)
+    public NodePartitioningManager(NodeScheduler nodeScheduler, PartitioningProviderManager partitioningProviderManager, NodeSelectionStats nodeSelectionStats)
     {
         this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
         this.partitioningProviderManager = requireNonNull(partitioningProviderManager, "partitioningProviderManager is null");
+        this.nodeSelectionStats = requireNonNull(nodeSelectionStats, "nodeSelectionStats is null");
     }
 
     public PartitionFunction getPartitionFunction(
@@ -274,6 +277,7 @@ public class NodePartitioningManager
                     node = allNodes.get(index);
                     index = (index + 1) % nodeCount;
                 }
+                nodeSelectionStats.incrementBucketedNonAliveNodeReplacedCount();
             }
             nodeBuilder.add(node);
         }
