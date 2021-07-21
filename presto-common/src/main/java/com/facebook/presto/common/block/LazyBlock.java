@@ -263,6 +263,13 @@ public class LazyBlock
         return block.isNull(position);
     }
 
+    @Override
+    public boolean mayHaveNull()
+    {
+        assureLoaded();
+        return block.mayHaveNull();
+    }
+
     public void setBlock(Block block)
     {
         if (this.block != null) {
