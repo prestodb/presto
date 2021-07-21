@@ -91,6 +91,7 @@ public class InternalHiveSplit
         checkArgument(start >= 0, "start must be positive");
         checkArgument(end >= 0, "end must be positive");
         checkArgument(fileSize >= 0, "fileSize must be positive");
+        checkArgument(fileModifiedTime >= 0, "fileModifiedTime must be positive");
         requireNonNull(relativeUri, "relativeUri is null");
         requireNonNull(readBucketNumber, "readBucketNumber is null");
         requireNonNull(tableBucketNumber, "tableBucketNumber is null");
