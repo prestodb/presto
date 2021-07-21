@@ -798,15 +798,18 @@ public class TestHiveIntegrationSmokeTest
     public void testCreatePartitionedBucketedTableAsFewRows()
     {
         // go through all storage formats to make sure the empty buckets are correctly created
-        testWithAllStorageFormats((session, format) -> testCreatePartitionedBucketedTableAsFewRows(session, format, false));
+        testWithAllStorageFormats((session, format) -> testCreatePartitionedBucketedTableAsFewRows(session, format, false, false));
+        testWithAllStorageFormats((session, format) -> testCreatePartitionedBucketedTableAsFewRows(session, format, false, true));
         // test with optimized PartitionUpdate serialization
-        testWithAllStorageFormats((session, format) -> testCreatePartitionedBucketedTableAsFewRows(session, format, true));
+        testWithAllStorageFormats((session, format) -> testCreatePartitionedBucketedTableAsFewRows(session, format, true, false));
+        testWithAllStorageFormats((session, format) -> testCreatePartitionedBucketedTableAsFewRows(session, format, true, true));
     }
 
     private void testCreatePartitionedBucketedTableAsFewRows(
             Session session,
             HiveStorageFormat storageFormat,
-            boolean optimizedPartitionUpdateSerializationEnabled)
+            boolean optimizedPartitionUpdateSerializationEnabled,
+            boolean createEmpty)
     {
         String tableName = "test_create_partitioned_bucketed_table_as_few_rows";
 
@@ -829,7 +832,9 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(
                 // make sure that we will get one file per bucket regardless of writer count configured
-                getTableWriteTestingSession(optimizedPartitionUpdateSerializationEnabled),
+                Session.builder(getTableWriteTestingSession(optimizedPartitionUpdateSerializationEnabled))
+                        .setCatalogSessionProperty(catalog, "create_empty_bucket_files", String.valueOf(createEmpty))
+                        .build(),
                 createTable,
                 3);
 
