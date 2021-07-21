@@ -119,7 +119,7 @@ public final class TDigestFunctions
         BlockBuilder meansBuilder = DOUBLE.createBlockBuilder(null, tDigest.centroidCount());
         BlockBuilder weightsBuilder = INTEGER.createBlockBuilder(null, tDigest.centroidCount());
         for (Centroid centroid : tDigest.centroids()) {
-            int weight = centroid.getWeight();
+            int weight = (int) centroid.getWeight();
             DOUBLE.writeDouble(meansBuilder, centroid.getMean());
             INTEGER.writeLong(weightsBuilder, weight);
         }
