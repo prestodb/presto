@@ -309,6 +309,22 @@ public final class Page
         return wrapBlocksWithoutCopy(positionCount, loadedBlocks);
     }
 
+    public Page getLoadedPage(int channel)
+    {
+        return wrapBlocksWithoutCopy(positionCount, new Block[]{this.blocks[channel].getLoadedBlock()});
+    }
+
+    public Page getLoadedPage(int... channels)
+    {
+        requireNonNull(channels, "channels is null");
+
+        Block[] blocks = new Block[channels.length];
+        for (int i = 0; i < channels.length; i++) {
+            blocks[i] = this.blocks[channels[i]].getLoadedBlock();
+        }
+        return wrapBlocksWithoutCopy(positionCount, blocks);
+    }
+
     @Override
     public String toString()
     {
