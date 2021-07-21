@@ -36,10 +36,8 @@ import com.facebook.presto.hive.util.FooterAwareRecordReader;
 import com.facebook.presto.hive.util.HudiRealtimeSplitConverter;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.SchemaTableName;
 import com.github.luben.zstd.ZstdInputStreamNoFinalizer;
 import com.github.luben.zstd.ZstdOutputStreamNoFinalizer;
 import com.google.common.base.Joiner;
@@ -865,11 +863,6 @@ public final class HiveUtil
             throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for %s partition key: %s", value, columnType.toString(), name));
         }
         return partitionKey;
-    }
-
-    public static SchemaTableName schemaTableName(ConnectorTableHandle tableHandle)
-    {
-        return ((HiveTableHandle) tableHandle).getSchemaTableName();
     }
 
     public static List<HiveColumnHandle> hiveColumnHandles(Table table)
