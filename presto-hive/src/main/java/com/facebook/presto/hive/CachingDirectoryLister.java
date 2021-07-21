@@ -77,15 +77,13 @@ public class CachingDirectoryLister
             PathFilter pathFilter,
             HiveDirectoryContext hiveDirectoryContext)
     {
-        SchemaTableName schemaTableName = new SchemaTableName(table.getDatabaseName(), table.getTableName());
-
         List<HiveFileInfo> files = cache.getIfPresent(path);
         if (files != null) {
             return files.iterator();
         }
 
         Iterator<HiveFileInfo> iterator = delegate.list(fileSystem, table, path, namenodeStats, pathFilter, hiveDirectoryContext);
-        if (hiveDirectoryContext.isCacheable() && cachedTableChecker.isCachedTable(schemaTableName)) {
+        if (hiveDirectoryContext.isCacheable() && cachedTableChecker.isCachedTable(table.getSchemaTableName())) {
             return cachingIterator(iterator, path);
         }
         return iterator;

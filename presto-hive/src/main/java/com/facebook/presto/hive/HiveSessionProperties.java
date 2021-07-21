@@ -70,6 +70,7 @@ public final class HiveSessionProperties
     private static final String COMPRESSION_CODEC = "compression_codec";
     private static final String ORC_COMPRESSION_CODEC = "orc_compression_codec";
     public static final String RESPECT_TABLE_FORMAT = "respect_table_format";
+    private static final String CREATE_EMPTY_BUCKET_FILES = "create_empty_bucket_files";
     private static final String PARQUET_USE_COLUMN_NAME = "parquet_use_column_names";
     private static final String PARQUET_FAIL_WITH_CORRUPTED_STATISTICS = "parquet_fail_with_corrupted_statistics";
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
@@ -300,6 +301,11 @@ public final class HiveSessionProperties
                         RESPECT_TABLE_FORMAT,
                         "Write new partitions using table format rather than default storage format",
                         hiveClientConfig.isRespectTableFormat(),
+                        false),
+                booleanProperty(
+                        CREATE_EMPTY_BUCKET_FILES,
+                        "Create empty files for buckets that have no data",
+                        hiveClientConfig.isCreateEmptyBucketFiles(),
                         false),
                 booleanProperty(
                         PARQUET_USE_COLUMN_NAME,
@@ -710,6 +716,11 @@ public final class HiveSessionProperties
     public static boolean isRespectTableFormat(ConnectorSession session)
     {
         return session.getProperty(RESPECT_TABLE_FORMAT, Boolean.class);
+    }
+
+    public static boolean isCreateEmptyBucketFiles(ConnectorSession session)
+    {
+        return session.getProperty(CREATE_EMPTY_BUCKET_FILES, Boolean.class);
     }
 
     public static boolean isUseParquetColumnNames(ConnectorSession session)

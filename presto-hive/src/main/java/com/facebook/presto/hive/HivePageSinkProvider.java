@@ -166,7 +166,7 @@ public class HivePageSinkProvider
                 sortedBy,
                 handle.getLocationHandle(),
                 locationService,
-                handle.getFilePrefix(),
+                session.getQueryId(),
                 // The scope of metastore cache is within a single HivePageSink object
                 // TODO: Extend metastore cache scope to the entire transaction
                 new HivePageSinkMetadataProvider(handle.getPageSinkMetadata(), memoizeMetastore(metastore, metastoreImpersonationEnabled, perTransactionMetastoreCacheMaximumSize), new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource())),
