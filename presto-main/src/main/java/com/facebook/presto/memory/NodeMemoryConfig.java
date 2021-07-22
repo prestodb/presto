@@ -42,7 +42,7 @@ public class NodeMemoryConfig
     private DataSize softMaxQueryTotalMemoryPerNode;
     private DataSize heapHeadroom = new DataSize(AVAILABLE_HEAP_MEMORY * 0.3, BYTE);
 
-    private boolean verboseExceededMemoryLimitErrorsEnabled;
+    private boolean verboseExceededMemoryLimitErrorsEnabled = true;
 
     @NotNull
     public DataSize getMaxQueryBroadcastMemory()
