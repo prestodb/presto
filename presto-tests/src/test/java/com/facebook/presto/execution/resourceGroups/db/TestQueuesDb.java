@@ -106,7 +106,8 @@ public class TestQueuesDb
         }
     }
 
-    @Test(timeOut = 60_000)
+    // Disabled, please look at https://github.com/prestodb/presto/issues/16461
+    @Test(timeOut = 60_000, enabled = false)
     public void testResourceGroupConcurrencyThreshold()
             throws Exception
     {
@@ -202,7 +203,8 @@ public class TestQueuesDb
         waitForCompleteQueryCount(queryRunner, 1);
     }
 
-    @Test(timeOut = 60_000)
+    // Test is flaky and disabled.
+    @Test(timeOut = 60_000, enabled = false)
     public void testTwoQueriesAtSameTime()
             throws Exception
     {
