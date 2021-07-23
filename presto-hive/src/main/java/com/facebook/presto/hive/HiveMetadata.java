@@ -1078,7 +1078,8 @@ public class HiveMetadata
         validateColumns(storageFormat, columnHandles);
 
         HiveStorageFormat finalStorageFormat = storageFormat;
-        String tableName = PRESTO_TEMPORARY_TABLE_NAME_PREFIX + finalStorageFormat.name() + "_" + randomUUID().toString().replaceAll("-", "_");
+        String tableName = PRESTO_TEMPORARY_TABLE_NAME_PREFIX + finalStorageFormat.name() +
+                "_" + session.getQueryId().replaceAll("-", "_") + "_" + randomUUID().toString().replaceAll("-", "_");
         Table table = Table.builder()
                 .setDatabaseName(schemaName)
                 .setTableName(tableName)
