@@ -106,8 +106,7 @@ public class TestQueuesDb
         }
     }
 
-    // Disabled, please look at https://github.com/prestodb/presto/issues/16461
-    @Test(timeOut = 60_000, enabled = false)
+    @Test(timeOut = 60_000)
     public void testResourceGroupConcurrencyThreshold()
             throws Exception
     {
@@ -123,7 +122,6 @@ public class TestQueuesDb
 
         QueryId secondAdhocQuery = createQuery(queryRunner, adhocSession(), LONG_LASTING_QUERY);
         // wait for the second "dashboard" query to be queued ("dashboard.${USER}" queue strategy only allows one "dashboard" query to be accepted for execution)
-        MILLISECONDS.sleep(100);
         waitForQueryState(queryRunner, secondAdhocQuery, QUEUED);
         MILLISECONDS.sleep(500);
         waitForQueryState(queryRunner, secondAdhocQuery, RUNNING);
