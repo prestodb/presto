@@ -244,7 +244,7 @@ public abstract class AbstractTestHiveFileSystem
                 HiveTestUtils.PARTITION_UPDATE_SMILE_CODEC,
                 new TestingNodeManager("fake-environment"),
                 new HiveEventClient(),
-                new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig()),
+                new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig(), new CacheConfig()),
                 new HiveWriterStats(),
                 getDefaultOrcFileWriterFactory(config, metastoreClientConfig));
         pageSourceProvider = new HivePageSourceProvider(config, hdfsEnvironment, getDefaultHiveRecordCursorProvider(config, metastoreClientConfig), getDefaultHiveBatchPageSourceFactories(config, metastoreClientConfig), getDefaultHiveSelectivePageSourceFactories(config, metastoreClientConfig), FUNCTION_AND_TYPE_MANAGER, ROW_EXPRESSION_SERVICE);
@@ -252,7 +252,7 @@ public abstract class AbstractTestHiveFileSystem
 
     protected ConnectorSession newSession()
     {
-        return new TestingConnectorSession(new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
+        return new TestingConnectorSession(new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig(), new CacheConfig()).getSessionProperties());
     }
 
     protected Transaction newTransaction()

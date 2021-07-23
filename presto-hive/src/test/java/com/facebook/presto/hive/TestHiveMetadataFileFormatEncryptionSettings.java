@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.hive.datasink.OutputStreamDataSinkFactory;
 import com.facebook.presto.hive.metastore.Database;
@@ -91,7 +92,7 @@ public class TestHiveMetadataFileFormatEncryptionSettings
     private static final String TEST_DB_NAME = "test_db";
     private static final JsonCodec<PartitionUpdate> PARTITION_CODEC = jsonCodec(PartitionUpdate.class);
     private static final ConnectorSession SESSION = new TestingConnectorSession(
-            new HiveSessionProperties(new HiveClientConfig(), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties(),
+            new HiveSessionProperties(new HiveClientConfig(), new OrcFileWriterConfig(), new ParquetFileWriterConfig(), new CacheConfig()).getSessionProperties(),
             ImmutableMap.of(NEW_PARTITION_USER_SUPPLIED_PARAMETER, "{}"));
 
     private HiveMetadataFactory metadataFactory;
@@ -496,7 +497,8 @@ public class TestHiveMetadataFileFormatEncryptionSettings
                 new HiveSessionProperties(
                         new HiveClientConfig().setRespectTableFormat(false).setHiveStorageFormat(ORC),
                         new OrcFileWriterConfig(),
-                        new ParquetFileWriterConfig()).getSessionProperties());
+                        new ParquetFileWriterConfig(),
+                        new CacheConfig()).getSessionProperties());
 
         ConnectorTableMetadata table = getConnectorTableMetadata(
                 tableName,
@@ -538,7 +540,8 @@ public class TestHiveMetadataFileFormatEncryptionSettings
                     new HiveSessionProperties(
                             new HiveClientConfig().setRespectTableFormat(false).setHiveStorageFormat(ORC),
                             new OrcFileWriterConfig(),
-                            new ParquetFileWriterConfig()).getSessionProperties());
+                            new ParquetFileWriterConfig(),
+                            new CacheConfig()).getSessionProperties());
 
             insertHiveMetadata.beginInsert(newSession, new HiveTableHandle(TEST_DB_NAME, tableName));
         }
