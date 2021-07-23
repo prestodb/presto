@@ -13,15 +13,18 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.facebook.presto.testing.TestingConnectorSession;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.hive.HiveSessionProperties.getNodeSelectionStrategy;
+import static com.facebook.presto.hive.HiveSessionProperties.isCacheEnabled;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestHiveSessionProperties
 {
@@ -32,7 +35,8 @@ public class TestHiveSessionProperties
                 new HiveSessionProperties(
                         new HiveClientConfig(),
                         new OrcFileWriterConfig(),
-                        new ParquetFileWriterConfig()).getSessionProperties());
+                        new ParquetFileWriterConfig(),
+                        new CacheConfig()).getSessionProperties());
         assertEquals(getNodeSelectionStrategy(connectorSession), NO_PREFERENCE);
     }
 
@@ -43,7 +47,8 @@ public class TestHiveSessionProperties
                 new HiveSessionProperties(
                         new HiveClientConfig().setNodeSelectionStrategy(NodeSelectionStrategy.valueOf("NO_PREFERENCE")),
                         new OrcFileWriterConfig(),
-                        new ParquetFileWriterConfig()).getSessionProperties());
+                        new ParquetFileWriterConfig(),
+                        new CacheConfig()).getSessionProperties());
         assertEquals(getNodeSelectionStrategy(connectorSession), NO_PREFERENCE);
     }
 
@@ -54,7 +59,20 @@ public class TestHiveSessionProperties
                 new HiveSessionProperties(
                         new HiveClientConfig().setNodeSelectionStrategy(HARD_AFFINITY),
                         new OrcFileWriterConfig(),
-                        new ParquetFileWriterConfig()).getSessionProperties());
+                        new ParquetFileWriterConfig(),
+                        new CacheConfig()).getSessionProperties());
         assertEquals(getNodeSelectionStrategy(connectorSession), HARD_AFFINITY);
+    }
+
+    @Test
+    public void testCacheEnabledConfig()
+    {
+        ConnectorSession connectorSession = new TestingConnectorSession(
+                new HiveSessionProperties(
+                        new HiveClientConfig(),
+                        new OrcFileWriterConfig(),
+                        new ParquetFileWriterConfig(),
+                        new CacheConfig().setCachingEnabled(true)).getSessionProperties());
+        assertTrue(isCacheEnabled(connectorSession));
     }
 }
