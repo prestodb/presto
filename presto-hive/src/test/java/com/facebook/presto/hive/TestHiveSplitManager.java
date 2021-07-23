@@ -549,7 +549,7 @@ public class TestHiveSplitManager
 
         ConnectorSplitSource splitSource = splitManager.getSplits(
                 new HiveTransactionHandle(),
-                new TestingConnectorSession(new HiveSessionProperties(hiveClientConfig, new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties()),
+                new TestingConnectorSession(new HiveSessionProperties(hiveClientConfig, new OrcFileWriterConfig(), new ParquetFileWriterConfig(), new CacheConfig()).getSessionProperties()),
                 new HiveTableLayoutHandle(
                         new SchemaTableName("test_schema", "test_table"),
                         "test_path",
