@@ -1792,6 +1792,12 @@ public class TestHashJoinOperator
                 }
 
                 @Override
+                public void commit()
+                {
+                    writing = false;
+                }
+
+                @Override
                 public void close()
                 {
                     writing = false;
