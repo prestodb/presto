@@ -168,6 +168,10 @@ public class TempStorageSingleStreamSpiller
                     });
         }
 
+        // Flush remaining buffered pages, if any
+        if (!bufferedPages.isEmpty()) {
+            flushBufferedPages();
+        }
         memoryContext.setBytes(bufferedBytes + dataSink.getRetainedSizeInBytes());
     }
 
