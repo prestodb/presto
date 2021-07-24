@@ -17,7 +17,13 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 
+import java.util.Set;
+
+import static com.facebook.presto.spi.security.PrincipalType.ROLE;
+import static com.facebook.presto.spi.security.PrincipalType.USER;
+import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 public class PrincipalPrivileges
 {
@@ -30,6 +36,20 @@ public class PrincipalPrivileges
     {
         this.userPrivileges = ImmutableSetMultimap.copyOf(requireNonNull(userPrivileges, "userPrivileges is null"));
         this.rolePrivileges = ImmutableSetMultimap.copyOf(requireNonNull(rolePrivileges, "rolePrivileges is null"));
+    }
+
+    public static PrincipalPrivileges fromHivePrivilegeInfos(Set<HivePrivilegeInfo> hivePrivileges)
+    {
+        Multimap<String, HivePrivilegeInfo> userPrivileges = hivePrivileges
+                .stream()
+                .filter(privilege -> privilege.getGrantee().getType() == USER)
+                .collect(toImmutableListMultimap(privilege -> privilege.getGrantee().getName(), identity()));
+
+        Multimap<String, HivePrivilegeInfo> rolePrivileges = hivePrivileges
+                .stream()
+                .filter(privilege -> privilege.getGrantee().getType() == ROLE)
+                .collect(toImmutableListMultimap(privilege -> privilege.getGrantee().getName(), identity()));
+        return new PrincipalPrivileges(userPrivileges, rolePrivileges);
     }
 
     public SetMultimap<String, HivePrivilegeInfo> getUserPrivileges()

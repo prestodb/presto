@@ -293,6 +293,7 @@ import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
 import static com.facebook.presto.hive.metastore.PrestoTableType.MATERIALIZED_VIEW;
 import static com.facebook.presto.hive.metastore.PrestoTableType.TEMPORARY_TABLE;
 import static com.facebook.presto.hive.metastore.PrestoTableType.VIRTUAL_VIEW;
+import static com.facebook.presto.hive.metastore.PrincipalPrivileges.fromHivePrivilegeInfos;
 import static com.facebook.presto.hive.metastore.Statistics.ReduceOperator.ADD;
 import static com.facebook.presto.hive.metastore.Statistics.createComputedStatisticsToPartitionMap;
 import static com.facebook.presto.hive.metastore.Statistics.createEmptyPartitionStatistics;
@@ -1998,18 +1999,43 @@ public class HiveMetadata
                 }
 
                 // insert into unpartitioned table
+                if (!table.get().getStorage().getStorageFormat().getInputFormat().equals(handle.getPartitionStorageFormat().getInputFormat()) && isRespectTableFormat(session)) {
+                    throw new PrestoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Table format changed during insert");
+                }
+
                 PartitionStatistics partitionStatistics = createPartitionStatistics(
                         session,
                         partitionUpdate.getStatistics(),
                         columnTypes,
                         getColumnStatistics(partitionComputedStatistics, ImmutableList.of()));
-                metastore.finishInsertIntoExistingTable(
-                        session,
-                        handle.getSchemaName(),
-                        handle.getTableName(),
-                        partitionUpdate.getWritePath(),
-                        getTargetFileNames(partitionUpdate.getFileWriteInfos()),
-                        partitionStatistics);
+
+                if (partitionUpdate.getUpdateMode() == OVERWRITE) {
+                    // get privileges from existing table
+                    PrincipalPrivileges principalPrivileges = fromHivePrivilegeInfos(
+                            metastore.listTablePrivileges(metastoreContext, handle.getSchemaName(), handle.getTableName(), null));
+
+                    // first drop it
+                    metastore.dropTable(
+                            new HdfsContext(session, handle.getSchemaName(), handle.getTableName()),
+                            handle.getSchemaName(),
+                            handle.getTableName());
+
+                    // create the table with the new location
+                    metastore.createTable(session, table.get(), principalPrivileges, Optional.of(partitionUpdate.getWritePath()), false, partitionStatistics);
+                }
+                else if (partitionUpdate.getUpdateMode() == NEW || partitionUpdate.getUpdateMode() == APPEND) {
+                    // insert into unpartitioned table
+                    metastore.finishInsertIntoExistingTable(
+                            session,
+                            handle.getSchemaName(),
+                            handle.getTableName(),
+                            partitionUpdate.getWritePath(),
+                            getTargetFileNames(partitionUpdate.getFileWriteInfos()),
+                            partitionStatistics);
+                }
+                else {
+                    throw new IllegalArgumentException("Unsupported update mode: " + partitionUpdate.getUpdateMode());
+                }
             }
             else if (partitionUpdate.getUpdateMode() == APPEND) {
                 if (handle.getEncryptionInformation().isPresent()) {
