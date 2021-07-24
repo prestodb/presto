@@ -29,9 +29,16 @@ public interface Spiller
     ListenableFuture<?> spill(Iterator<Page> pageIterator);
 
     /**
-     * Returns list of previously spilled Pages streams.
+     * Returns list of previously spilled Pages streams. Commits the spill file automatically
+     * if not committed
      */
     List<Iterator<Page>> getSpills();
+
+    /**
+     * Commit the spill file. Once committed, the spill file can no longer be modified
+     * If the spill file is already committed, invoking this method has no effect
+     */
+    void commit();
 
     /**
      * Close releases/removes all underlying resources used during spilling

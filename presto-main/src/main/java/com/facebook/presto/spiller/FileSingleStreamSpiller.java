@@ -72,6 +72,7 @@ public class FileSingleStreamSpiller
     private final ListeningExecutorService executor;
 
     private boolean writable = true;
+    private boolean committed;
     private long spilledPagesInMemorySize;
     private ListenableFuture<?> spillInProgress = Futures.immediateFuture(null);
 
@@ -139,9 +140,16 @@ public class FileSingleStreamSpiller
         return executor.submit(() -> ImmutableList.copyOf(getSpilledPages()));
     }
 
+    @Override
+    public void commit()
+    {
+        committed = true;
+    }
+
     private void writePages(Iterator<Page> pageIterator)
     {
         checkState(writable, "Spilling no longer allowed. The spiller has been made non-writable on first read for subsequent reads to be consistent");
+        checkState(!committed, "Spilling no longer allowed. Spill file is already committed");
         try (SliceOutput output = new OutputStreamSliceOutput(targetFile.newOutputStream(APPEND), BUFFER_SIZE)) {
             while (pageIterator.hasNext()) {
                 Page page = pageIterator.next();
@@ -168,6 +176,11 @@ public class FileSingleStreamSpiller
         writable = false;
 
         try {
+            if (!committed) {
+                commit();
+            }
+
+            checkState(committed, "Cannot read pages since spill file is not committed");
             InputStream input = closer.register(targetFile.newInputStream());
             Iterator<Page> deserializedPages = PagesSerdeUtil.readPages(serde, new InputStreamSliceInput(input, BUFFER_SIZE));
             Iterator<Page> compactPages = transform(deserializedPages, Page::compact);
