@@ -198,9 +198,6 @@ public class FunctionAndTypeManager
         if (signature.getTypeSignatureBase().hasStandardType()) {
             Optional<Type> type = builtInTypeAndFunctionNamespaceManager.getType(signature.getStandardTypeSignature());
             if (type.isPresent()) {
-                if (signature.getTypeSignatureBase().hasTypeName()) {
-                    return SemanticType.from(signature.getTypeSignatureBase().getTypeName(), type.get());
-                }
                 return type.get();
             }
         }
@@ -219,8 +216,7 @@ public class FunctionAndTypeManager
     {
         Type type = getType(signature);
         if (signature.getTypeSignatureBase().hasTypeName()) {
-            checkState(type instanceof SemanticType, "Expected SemanticType, get %s", type);
-            return (SemanticType) type;
+            return SemanticType.from(signature.getTypeSignatureBase().getTypeName(), type);
         }
         return SemanticType.from(type);
     }
