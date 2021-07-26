@@ -63,7 +63,7 @@ public class TestZOrder
     public void testZOrderDifferentListSizes()
     {
         List<Integer> bitPositions = ImmutableList.of(8, 8, 8, 8, 8, 8, 8, 8);
-        ZOrder zOrder = new ZOrder(bitPositions);
+        ZOrder zOrder = new ZOrder(bitPositions, true);
         List<Integer> intColumns = ImmutableList.of(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
 
         try {
@@ -93,7 +93,7 @@ public class TestZOrder
             bitPositions.add(getHighestSetBitPosition(value) + 1);
         }
 
-        ZOrder zOrder = new ZOrder(bitPositions);
+        ZOrder zOrder = new ZOrder(bitPositions, true);
 
         try {
             zOrder.encodeToByteArray(intColumns);
@@ -108,7 +108,7 @@ public class TestZOrder
     @Test
     public void testZOrderNullInput()
     {
-        ZOrder zOrder = new ZOrder(ImmutableList.of(8, 8));
+        ZOrder zOrder = new ZOrder(ImmutableList.of(8, 8), true);
 
         try {
             zOrder.encodeToByteArray(null);
@@ -123,7 +123,7 @@ public class TestZOrder
     @Test
     public void testZOrderEmptyInput()
     {
-        ZOrder zOrder = new ZOrder(ImmutableList.of(8, 8));
+        ZOrder zOrder = new ZOrder(ImmutableList.of(8, 8), true);
         List<Integer> intColumns = ImmutableList.of();
 
         try {
@@ -140,7 +140,7 @@ public class TestZOrder
     public void testZOrderNullEncodingBits()
     {
         try {
-            new ZOrder(null);
+            new ZOrder(null, true);
             fail("Expected test to fail: encoding bits list should not be null.");
         }
         catch (NullPointerException e) {
@@ -153,7 +153,7 @@ public class TestZOrder
     public void testZOrderEmptyEncodingBits()
     {
         try {
-            new ZOrder(ImmutableList.of());
+            new ZOrder(ImmutableList.of(), true);
             fail("Expected test to fail: encoding bits list should not be empty.");
         }
         catch (IllegalArgumentException e) {
@@ -185,7 +185,27 @@ public class TestZOrder
     }
 
     @Test
-    public void testZOrderToByteArray()
+    public void testZOrderToByteArrayWithoutNegatives()
+    {
+        ZOrder zOrder = new ZOrder(ImmutableList.of(3, 3), true);
+
+        for (int x = 0; x < 8; x++) {
+            for (int y = 0; y < 8; y++) {
+                List<Integer> intColumns = ImmutableList.of(x, y);
+
+                byte[] byteAddress = zOrder.encodeToByteArray(intColumns);
+
+                long address = zOrder.zOrderByteAddressToLong(byteAddress);
+                assertEquals(address, EXPECTED_Z_ADDRESSES[x][y]);
+
+                List<Integer> decodedIntCols = zOrder.decode(byteAddress);
+                assertEquals(intColumns, decodedIntCols, "Integers decoded improperly");
+            }
+        }
+    }
+
+    @Test
+    public void testZOrderToByteArrayWithNegatives()
     {
         ZOrder zOrder = new ZOrder(ImmutableList.of(2, 2));
 
