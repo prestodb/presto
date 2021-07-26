@@ -68,6 +68,7 @@ import com.facebook.presto.operator.aggregation.MaxDataSizeForStats;
 import com.facebook.presto.operator.aggregation.MergeHyperLogLogAggregation;
 import com.facebook.presto.operator.aggregation.MergeQuantileDigestFunction;
 import com.facebook.presto.operator.aggregation.MergeTDigestFunction;
+import com.facebook.presto.operator.aggregation.OddsRatioAggregation;
 import com.facebook.presto.operator.aggregation.RealCorrelationAggregation;
 import com.facebook.presto.operator.aggregation.RealCovarianceAggregation;
 import com.facebook.presto.operator.aggregation.RealGeometricMeanAggregations;
@@ -635,6 +636,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .aggregates(ClassificationThresholdsAggregation.class)
                 .aggregates(VarcharApproximateMostFrequent.class)
                 .aggregates(BigintApproximateMostFrequent.class)
+                .aggregates(OddsRatioAggregation.class)
                 .scalar(RepeatFunction.class)
                 .scalars(SequenceFunction.class)
                 .scalars(SessionFunctions.class)
