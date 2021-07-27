@@ -50,6 +50,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestElasticsearchIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
+    private final String elasticsearchServer = "docker.elastic.co/elasticsearch/elasticsearch-oss:6.0.0";
     private ElasticsearchServer elasticsearch;
     private RestHighLevelClient client;
 
@@ -57,12 +58,15 @@ public class TestElasticsearchIntegrationSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        elasticsearch = new ElasticsearchServer();
+        elasticsearch = new ElasticsearchServer(elasticsearchServer, ImmutableMap.of());
 
         HostAndPort address = elasticsearch.getAddress();
         client = new RestHighLevelClient(RestClient.builder(new HttpHost(address.getHost(), address.getPort())));
 
-        return createElasticsearchQueryRunner(elasticsearch.getAddress(), TpchTable.getTables());
+        return createElasticsearchQueryRunner(elasticsearch.getAddress(),
+                TpchTable.getTables(),
+                ImmutableMap.of(),
+                ImmutableMap.of());
     }
 
     @AfterClass(alwaysRun = true)
@@ -138,15 +142,15 @@ public class TestElasticsearchIntegrationSmokeTest
     {
         assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
                 .isEqualTo("CREATE TABLE elasticsearch.tpch.orders (\n" +
-                        "   clerk varchar,\n" +
-                        "   comment varchar,\n" +
-                        "   custkey bigint,\n" +
-                        "   orderdate timestamp,\n" +
-                        "   orderkey bigint,\n" +
-                        "   orderpriority varchar,\n" +
-                        "   orderstatus varchar,\n" +
-                        "   shippriority bigint,\n" +
-                        "   totalprice real\n" +
+                        "   \"clerk\" varchar,\n" +
+                        "   \"comment\" varchar,\n" +
+                        "   \"custkey\" bigint,\n" +
+                        "   \"orderdate\" timestamp,\n" +
+                        "   \"orderkey\" bigint,\n" +
+                        "   \"orderpriority\" varchar,\n" +
+                        "   \"orderstatus\" varchar,\n" +
+                        "   \"shippriority\" bigint,\n" +
+                        "   \"totalprice\" real\n" +
                         ")");
     }
 
@@ -730,14 +734,7 @@ public class TestElasticsearchIntegrationSmokeTest
                 "SELECT count(*) FROM orders_alias",
                 "SELECT count(*) FROM orders");
 
-        embeddedElasticsearchNode.getClient()
-                .admin()
-                .indices()
-                .aliases(indexAliasesRequest()
-                        .addAliasAction(IndicesAliasesRequest.AliasActions.remove()
-                                .index("orders")
-                                .alias("orders_alias")))
-                .actionGet();
+        removeAlias("orders", "orders_alias");
     }
 
     @Test(enabled = false)
@@ -793,6 +790,13 @@ public class TestElasticsearchIntegrationSmokeTest
     {
         client.getLowLevelClient()
                 .performRequest("PUT", format("/%s/_alias/%s", index, alias));
+    }
+
+    private void removeAlias(String index, String alias)
+            throws IOException
+    {
+        client.getLowLevelClient()
+                .performRequest("DELETE", format("/%s/_alias/%s", index, alias));
     }
 
     private void createIndex(String indexName, @Language("JSON") String mapping)

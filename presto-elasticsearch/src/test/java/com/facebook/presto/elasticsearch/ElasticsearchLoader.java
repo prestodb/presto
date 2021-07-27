@@ -24,7 +24,6 @@ import com.facebook.presto.tests.AbstractTestingPrestoClient;
 import com.facebook.presto.tests.ResultsSession;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.index.IndexRequest;
-import org.elasticsearch.action.support.WriteRequest;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 
@@ -43,6 +42,7 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
+import static org.elasticsearch.action.support.WriteRequest.RefreshPolicy.IMMEDIATE;
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 
 public class ElasticsearchLoader
@@ -108,7 +108,7 @@ public class ElasticsearchLoader
                     throw new UncheckedIOException("Error loading data into Elasticsearch index: " + tableName, e);
                 }
             }
-            request.setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
+            request.setRefreshPolicy(IMMEDIATE);
             try {
                 restClient.bulk(request);
             }
