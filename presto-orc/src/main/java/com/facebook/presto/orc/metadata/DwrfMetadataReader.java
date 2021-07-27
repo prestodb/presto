@@ -286,7 +286,7 @@ public class DwrfMetadataReader
             keyMetadata = previousKeyMetadata;
         }
         return new StripeInformation(
-                toIntExact(stripeInformation.getNumberOfRows()),
+                stripeInformation.getNumberOfRows(),
                 stripeInformation.getOffset(),
                 stripeInformation.getIndexLength(),
                 stripeInformation.getDataLength(),

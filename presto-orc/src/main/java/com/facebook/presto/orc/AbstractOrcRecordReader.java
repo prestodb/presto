@@ -689,7 +689,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
         }
     }
 
-    private void validateWriteStripe(int rowCount)
+    private void validateWriteStripe(long rowCount)
     {
         if (writeChecksumBuilder.isPresent()) {
             writeChecksumBuilder.get().addStripe(rowCount);

@@ -57,7 +57,7 @@ public class OrcWriterFlushStats
         return dictionaryBytes;
     }
 
-    public void recordStripeWritten(long stripeBytes, int stripeRows, int dictionaryBytes)
+    public void recordStripeWritten(long stripeBytes, long stripeRows, int dictionaryBytes)
     {
         this.stripeBytes.add(stripeBytes);
         this.stripeRows.add(stripeRows);
