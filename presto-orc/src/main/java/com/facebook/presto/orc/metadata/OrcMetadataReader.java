@@ -163,7 +163,7 @@ public class OrcMetadataReader
     private static StripeInformation toStripeInformation(OrcProto.StripeInformation stripeInformation)
     {
         return new StripeInformation(
-                toIntExact(stripeInformation.getNumberOfRows()),
+                stripeInformation.getNumberOfRows(),
                 stripeInformation.getOffset(),
                 stripeInformation.getIndexLength(),
                 stripeInformation.getDataLength(),

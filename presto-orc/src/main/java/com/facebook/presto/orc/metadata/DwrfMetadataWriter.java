@@ -24,6 +24,7 @@ import com.facebook.presto.orc.proto.DwrfProto.Type.Builder;
 import com.facebook.presto.orc.proto.DwrfProto.UserMetadataItem;
 import com.facebook.presto.orc.protobuf.ByteString;
 import com.facebook.presto.orc.protobuf.MessageLite;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.CountingOutputStream;
@@ -136,7 +137,8 @@ public class DwrfMetadataWriter
         return writeProtobufObject(output, footerProtobuf.build());
     }
 
-    private static DwrfProto.StripeInformation toStripeInformation(StripeInformation stripe)
+    @VisibleForTesting
+    static DwrfProto.StripeInformation toStripeInformation(StripeInformation stripe)
     {
         return DwrfProto.StripeInformation.newBuilder()
                 .setNumberOfRows(stripe.getNumberOfRows())

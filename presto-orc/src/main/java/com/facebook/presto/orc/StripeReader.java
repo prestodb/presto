@@ -420,7 +420,7 @@ public class StripeReader
     }
 
     private List<RowGroup> createRowGroups(
-            int rowsInStripe,
+            long rowsInStripe,
             Map<StreamId, Stream> streams,
             Map<StreamId, ValueInputStream<?>> valueStreams,
             Map<StreamId, List<RowGroupIndex>> columnIndexes,
@@ -433,7 +433,7 @@ public class StripeReader
         for (int rowGroupId : selectedRowGroups) {
             Map<StreamId, StreamCheckpoint> checkpoints = getStreamCheckpoints(includedOrcColumns, types, decompressor.isPresent(), rowGroupId, encodings, streams, columnIndexes);
             int rowOffset = rowGroupId * rowsInRowGroup;
-            int rowsInGroup = Math.min(rowsInStripe - rowOffset, rowsInRowGroup);
+            int rowsInGroup = toIntExact(Math.min(rowsInStripe - rowOffset, rowsInRowGroup));
             long minAverageRowBytes = columnIndexes
                     .entrySet()
                     .stream()
@@ -536,13 +536,13 @@ public class StripeReader
 
     private Set<Integer> selectRowGroups(StripeInformation stripe, Map<StreamId, List<RowGroupIndex>> columnIndexes)
     {
-        int rowsInStripe = toIntExact(stripe.getNumberOfRows());
+        long rowsInStripe = stripe.getNumberOfRows();
         int groupsInStripe = ceil(rowsInStripe, rowsInRowGroup);
 
         ImmutableSet.Builder<Integer> selectedRowGroups = ImmutableSet.builder();
-        int remainingRows = rowsInStripe;
+        long remainingRows = rowsInStripe;
         for (int rowGroup = 0; rowGroup < groupsInStripe; ++rowGroup) {
-            int rows = Math.min(remainingRows, rowsInRowGroup);
+            int rows = toIntExact(Math.min(remainingRows, rowsInRowGroup));
             Map<Integer, ColumnStatistics> statistics = getRowGroupStatistics(types.get(0), columnIndexes, rowGroup);
             if (predicate.matches(rows, statistics)) {
                 selectedRowGroups.add(rowGroup);
@@ -613,9 +613,10 @@ public class StripeReader
     /**
      * Ceiling of integer division
      */
-    private static int ceil(int dividend, int divisor)
+    private static int ceil(long dividend, int divisor)
     {
-        return ((dividend + divisor) - 1) / divisor;
+        long ceil = ((dividend + divisor) - 1) / divisor;
+        return toIntExact(ceil);
     }
 
     public static class StripeId
