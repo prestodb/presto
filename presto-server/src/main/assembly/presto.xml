@@ -185,6 +185,10 @@
             <outputDirectory>plugin/presto-druid</outputDirectory>
         </fileSet>
         <fileSet>
+            <directory>${project.build.directory}/dependency/presto-maxcompute-${project.version}</directory>
+            <outputDirectory>plugin/presto-maxcompute</outputDirectory>
+        </fileSet>
+        <fileSet>
             <directory>${project.build.directory}/dependency/presto-bigquery-${project.version}</directory>
             <outputDirectory>plugin/presto-bigquery</outputDirectory>
         </fileSet>

@@ -71,6 +71,7 @@
         <dep.jaxb.version>2.3.1</dep.jaxb.version>
         <dep.hudi.version>0.5.3</dep.hudi.version>
         <dep.testcontainers.version>1.15.1</dep.testcontainers.version>
+        <dep.odps.version>0.36.4-public</dep.odps.version>
         <!--
           America/Bahia_Banderas has:
            - offset change since 1970 (offset Jan 1970: -08:00, offset Jan 2018: -06:00)
@@ -168,6 +169,7 @@
         <module>presto-spark-launcher</module>
         <module>presto-spark-testing</module>
         <module>presto-druid</module>
+        <module>presto-maxcompute</module>
         <module>presto-common</module>
         <module>presto-thrift-testing-udf-server</module>
         <module>presto-thrift-spec</module>
@@ -599,6 +601,30 @@
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-spark-package</artifactId>
                 <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.aliyun.odps</groupId>
+                <artifactId>odps-sdk-core</artifactId>
+                <version>${dep.odps.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.aliyun.odps</groupId>
+                <artifactId>odps-sdk-commons</artifactId>
+                <version>${dep.odps.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-lang3</artifactId>
+                <version>3.8.1</version>
+            </dependency>
+
+            <dependency>
+                <groupId>commons-io</groupId>
+                <artifactId>commons-io</artifactId>
+                <version>2.4</version>
             </dependency>
 
             <dependency>
