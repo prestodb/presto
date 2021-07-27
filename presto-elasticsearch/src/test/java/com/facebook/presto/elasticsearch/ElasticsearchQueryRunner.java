@@ -46,7 +46,11 @@ public final class ElasticsearchQueryRunner
     private static final String TPCH_SCHEMA = "tpch";
     private static final int NODE_COUNT = 2;
 
-    public static DistributedQueryRunner createElasticsearchQueryRunner(HostAndPort address, Iterable<TpchTable<?>> tables)
+    public static DistributedQueryRunner createElasticsearchQueryRunner(
+            HostAndPort address,
+            Iterable<TpchTable<?>> tables,
+            Map<String, String> extraProperties,
+            Map<String, String> extraConnectorProperties)
             throws Exception
     {
         RestHighLevelClient client = null;
@@ -54,6 +58,7 @@ public final class ElasticsearchQueryRunner
         try {
             queryRunner = DistributedQueryRunner.builder(createSession())
                     .setNodeCount(NODE_COUNT)
+                    .setExtraProperties(extraProperties)
                     .build();
 
             queryRunner.installPlugin(new TpchPlugin());
@@ -61,7 +66,7 @@ public final class ElasticsearchQueryRunner
 
             TestingElasticsearchConnectorFactory testFactory = new TestingElasticsearchConnectorFactory();
 
-            installElasticsearchPlugin(address, queryRunner, testFactory);
+            installElasticsearchPlugin(address, queryRunner, testFactory, extraConnectorProperties);
 
             TestingPrestoClient prestoClient = queryRunner.getRandomClient();
 
@@ -83,8 +88,11 @@ public final class ElasticsearchQueryRunner
         }
     }
 
-    private static void installElasticsearchPlugin(HostAndPort address, QueryRunner queryRunner, TestingElasticsearchConnectorFactory factory)
-            throws Exception
+    private static void installElasticsearchPlugin(
+            HostAndPort address,
+            QueryRunner queryRunner,
+            TestingElasticsearchConnectorFactory factory,
+            Map<String, String> extraConnectorProperties)
     {
         queryRunner.installPlugin(new ElasticsearchPlugin(factory));
         Map<String, String> config = ImmutableMap.<String, String>builder()
@@ -98,6 +106,7 @@ public final class ElasticsearchQueryRunner
                 .put("elasticsearch.scroll-timeout", "1m")
                 .put("elasticsearch.max-hits", "1000000")
                 .put("elasticsearch.request-timeout", "2m")
+                .putAll(extraConnectorProperties)
                 .build();
 
         queryRunner.createCatalog("elasticsearch", "elasticsearch", config);
@@ -124,8 +133,12 @@ public final class ElasticsearchQueryRunner
         // docker run -p 9200:9200 -e "discovery.type=single-node" docker.elastic.co/elasticsearch/elasticsearch:7.6.2
 
         Logging.initialize();
-        HostAndPort address = HostAndPort.fromParts("localhost", 9200);
-        DistributedQueryRunner queryRunner = createElasticsearchQueryRunner(address, TpchTable.getTables());
+
+        DistributedQueryRunner queryRunner = createElasticsearchQueryRunner(
+                HostAndPort.fromParts("localhost", 9200),
+                TpchTable.getTables(),
+                ImmutableMap.of("http-server.http.port", "8080"),
+                ImmutableMap.of());
         Logger log = Logger.get(ElasticsearchQueryRunner.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
