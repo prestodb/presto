@@ -22,22 +22,31 @@ import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
+import org.assertj.core.api.AbstractAssert;
+import org.assertj.core.api.AssertProvider;
+import org.assertj.core.api.ListAssert;
+import org.assertj.core.presentation.Representation;
+import org.assertj.core.presentation.StandardRepresentation;
 import org.intellij.lang.annotations.Language;
 
 import java.io.Closeable;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import static com.facebook.airlift.testing.Assertions.assertEqualsIgnoreOrder;
+import static com.facebook.presto.sql.query.QueryAssertions.QueryAssert.newQueryAssert;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.base.Strings.nullToEmpty;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
-class QueryAssertions
+public class QueryAssertions
         implements Closeable
 {
     protected QueryRunner runner;
@@ -74,6 +83,26 @@ class QueryAssertions
         return runner;
     }
 
+    public Session.SessionBuilder sessionBuilder()
+    {
+        return Session.builder(runner.getDefaultSession());
+    }
+
+    public Session getDefaultSession()
+    {
+        return runner.getDefaultSession();
+    }
+
+    public AssertProvider<QueryAssert> query(@Language("SQL") String query)
+    {
+        return query(query, runner.getDefaultSession());
+    }
+
+    public AssertProvider<QueryAssert> query(@Language("SQL") String query, Session session)
+    {
+        return newQueryAssert(query, runner, session);
+    }
+
     public void assertFails(@Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
     {
         try {
@@ -104,7 +133,7 @@ class QueryAssertions
         assertQuery(actual, expected, false);
     }
 
-    public void assertQuery(@Language("SQL") String actual, @Language("SQL") String expected, boolean ensureOrdering)
+    private void assertQuery(@Language("SQL") String actual, @Language("SQL") String expected, boolean ensureOrdering)
     {
         MaterializedResult actualResults = null;
         try {
@@ -141,5 +170,84 @@ class QueryAssertions
     public void close()
     {
         runner.close();
+    }
+
+    public static class QueryAssert
+            extends AbstractAssert<QueryAssert, MaterializedResult>
+    {
+        private static final Representation ROWS_REPRESENTATION = new StandardRepresentation()
+        {
+            @Override
+            public String toStringOf(Object object)
+            {
+                if (object instanceof List) {
+                    List<?> list = (List<?>) object;
+                    return list.stream()
+                            .map(this::toStringOf)
+                            .collect(Collectors.joining(", "));
+                }
+                if (object instanceof MaterializedRow) {
+                    MaterializedRow row = (MaterializedRow) object;
+
+                    return row.getFields().stream()
+                            .map(Object::toString)
+                            .collect(Collectors.joining(", ", "(", ")"));
+                }
+                else {
+                    return super.toStringOf(object);
+                }
+            }
+        };
+
+        private final QueryRunner runner;
+        private final Session session;
+        private boolean ordered;
+
+        static AssertProvider<QueryAssert> newQueryAssert(String query, QueryRunner runner, Session session)
+        {
+            MaterializedResult result = runner.execute(session, query);
+            return () -> new QueryAssert(runner, session, result);
+        }
+
+        public QueryAssert(QueryRunner runner, Session session, MaterializedResult actual)
+        {
+            super(actual, Object.class);
+            this.runner = runner;
+            this.session = session;
+        }
+
+        public QueryAssert matches(BiFunction<Session, QueryRunner, MaterializedResult> evaluator)
+        {
+            MaterializedResult expected = evaluator.apply(session, runner);
+            return isEqualTo(expected);
+        }
+
+        public QueryAssert ordered()
+        {
+            ordered = true;
+            return this;
+        }
+
+        public QueryAssert matches(@Language("SQL") String query)
+        {
+            MaterializedResult expected = runner.execute(session, query);
+
+            return satisfies(actual -> {
+                assertThat(actual.getTypes())
+                        .as("Output types")
+                        .isEqualTo(expected.getTypes());
+
+                ListAssert<MaterializedRow> assertion = assertThat(actual.getMaterializedRows())
+                        .as("Rows")
+                        .withRepresentation(ROWS_REPRESENTATION);
+
+                if (ordered) {
+                    assertion.containsExactlyElementsOf(expected.getMaterializedRows());
+                }
+                else {
+                    assertion.containsExactlyInAnyOrder(expected.getMaterializedRows().toArray(new MaterializedRow[0]));
+                }
+            });
+        }
     }
 }
