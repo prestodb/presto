@@ -120,6 +120,9 @@ public final class ElasticsearchQueryRunner
     public static void main(String[] args)
             throws Exception
     {
+        // To start Elasticsearch:
+        // docker run -p 9200:9200 -e "discovery.type=single-node" docker.elastic.co/elasticsearch/elasticsearch:7.6.2
+
         Logging.initialize();
         HostAndPort address = HostAndPort.fromParts("localhost", 9200);
         DistributedQueryRunner queryRunner = createElasticsearchQueryRunner(address, TpchTable.getTables());
