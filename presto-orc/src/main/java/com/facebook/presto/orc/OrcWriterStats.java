@@ -45,7 +45,7 @@ public class OrcWriterStats
             StripeInformation stripeInformation)
     {
         long stripeBytes = stripeInformation.getTotalLength();
-        int stripeRows = stripeInformation.getNumberOfRows();
+        long stripeRows = stripeInformation.getNumberOfRows();
         getFlushStats(flushReason).recordStripeWritten(stripeBytes, stripeRows, dictionaryBytes);
         allFlush.recordStripeWritten(stripeBytes, stripeRows, dictionaryBytes);
     }
