@@ -52,6 +52,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static com.facebook.presto.spark.SparkErrorCode.SPARK_EXECUTOR_LOST;
 import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_TASK;
 import static com.facebook.presto.spi.StandardErrorCode.ADMINISTRATIVELY_PREEMPTED;
 import static com.facebook.presto.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
@@ -133,6 +134,8 @@ public class PrestoExceptionClassifier
                 .addRetryableError(HIVE_METASTORE_ERROR)
                 // From JdbcErrorCode
                 .addRetryableError(JDBC_ERROR)
+                // From SparkErrorCode
+                .addRetryableError(SPARK_EXECUTOR_LOST)
                 // From ThriftErrorCode
                 .addRetryableError(THRIFT_SERVICE_CONNECTION_ERROR)
                 // Conditional Retryable Errors
