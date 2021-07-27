@@ -102,12 +102,6 @@
         </dependency>
 
         <dependency>
-            <groupId>org.elasticsearch</groupId>
-            <artifactId>elasticsearch</artifactId>
-            <version>${dep.elasticsearch.version}</version>
-        </dependency>
-
-        <dependency>
             <groupId>org.elasticsearch.client</groupId>
             <artifactId>elasticsearch-rest-high-level-client</artifactId>
             <version>${dep.elasticsearch.version}</version>
@@ -250,6 +244,33 @@
         </dependency>
 
         <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>elasticsearch</artifactId>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-api</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.commons</groupId>
+                    <artifactId>commons-compress</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>net.java.dev.jna</groupId>
+                    <artifactId>jna</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-main</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-client</artifactId>
             <scope>test</scope>
@@ -325,6 +346,18 @@
                     <groupId>io.netty</groupId>
                     <artifactId>*</artifactId>
                  </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.elasticsearch</groupId>
+            <artifactId>elasticsearch</artifactId>
+            <version>${dep.elasticsearch.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.elasticsearch</groupId>
+                    <artifactId>jna</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
     </dependencies>
