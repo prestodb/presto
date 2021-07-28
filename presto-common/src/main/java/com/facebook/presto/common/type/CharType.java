@@ -16,19 +16,30 @@ package com.facebook.presto.common.type;
 import com.facebook.presto.common.InvalidFunctionArgumentException;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.function.BlockIndex;
+import com.facebook.presto.common.function.BlockPosition;
+import com.facebook.presto.common.function.ScalarOperator;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.airlift.slice.XxHash64;
 
 import java.util.Objects;
 
+import static com.facebook.presto.common.function.OperatorType.COMPARISON;
+import static com.facebook.presto.common.function.OperatorType.EQUAL;
+import static com.facebook.presto.common.function.OperatorType.XX_HASH_64;
 import static com.facebook.presto.common.type.Chars.compareChars;
+import static com.facebook.presto.common.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static java.lang.String.format;
+import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Collections.singletonList;
 
 public final class CharType
         extends AbstractVariableWidthType
 {
+    private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(CharType.class, lookup(), Slice.class);
+
     public static final int MAX_LENGTH = 65_536;
 
     private final int length;
@@ -67,6 +78,12 @@ public final class CharType
     public boolean isOrderable()
     {
         return true;
+    }
+
+    @Override
+    public TypeOperatorDeclaration getTypeOperatorDeclaration(TypeOperators typeOperators)
+    {
+        return TYPE_OPERATOR_DECLARATION;
     }
 
     @Override
@@ -181,5 +198,40 @@ public final class CharType
     public String toString()
     {
         return getDisplayName();
+    }
+
+    @ScalarOperator(EQUAL)
+    private static boolean equalOperator(Slice left, Slice right)
+    {
+        return left.equals(right);
+    }
+
+    @ScalarOperator(EQUAL)
+    private static boolean equalOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    {
+        int leftLength = leftBlock.getSliceLength(leftPosition);
+        int rightLength = rightBlock.getSliceLength(rightPosition);
+        if (leftLength != rightLength) {
+            return false;
+        }
+        return leftBlock.equals(leftPosition, 0, rightBlock, rightPosition, 0, leftLength);
+    }
+
+    @ScalarOperator(XX_HASH_64)
+    private static long xxHash64Operator(Slice value)
+    {
+        return XxHash64.hash(value);
+    }
+
+    @ScalarOperator(XX_HASH_64)
+    private static long xxHash64Operator(@BlockPosition Block block, @BlockIndex int position)
+    {
+        return block.hash(position, 0, block.getSliceLength(position));
+    }
+
+    @ScalarOperator(COMPARISON)
+    private static long comparisonOperator(Slice left, Slice right)
+    {
+        return compareChars(left, right);
     }
 }

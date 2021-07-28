@@ -15,14 +15,26 @@ package com.facebook.presto.common.type;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.function.BlockIndex;
+import com.facebook.presto.common.function.BlockPosition;
+import com.facebook.presto.common.function.ScalarOperator;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.function.SqlNullable;
 import io.airlift.slice.Slice;
+import io.airlift.slice.XxHash64;
 
+import static com.facebook.presto.common.function.OperatorType.COMPARISON;
+import static com.facebook.presto.common.function.OperatorType.EQUAL;
+import static com.facebook.presto.common.function.OperatorType.XX_HASH_64;
+import static com.facebook.presto.common.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static java.lang.invoke.MethodHandles.lookup;
 
 public final class VarbinaryType
         extends AbstractVariableWidthType
 {
+    private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(VarbinaryType.class, lookup(), Slice.class);
+
     public static final VarbinaryType VARBINARY = new VarbinaryType();
 
     private VarbinaryType()
@@ -45,6 +57,12 @@ public final class VarbinaryType
     public boolean isOrderable()
     {
         return true;
+    }
+
+    @Override
+    public TypeOperatorDeclaration getTypeOperatorDeclaration(TypeOperators typeOperators)
+    {
+        return TYPE_OPERATOR_DECLARATION;
     }
 
     @Override
@@ -122,5 +140,49 @@ public final class VarbinaryType
     public int hashCode()
     {
         return getClass().hashCode();
+    }
+
+    @ScalarOperator(EQUAL)
+    private static boolean equalOperator(Slice left, Slice right)
+    {
+        return left.equals(right);
+    }
+
+    @ScalarOperator(EQUAL)
+    @SqlNullable
+    private static Boolean equalOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    {
+        int leftLength = leftBlock.getSliceLength(leftPosition);
+        int rightLength = rightBlock.getSliceLength(rightPosition);
+        if (leftLength != rightLength) {
+            return false;
+        }
+        return leftBlock.equals(leftPosition, 0, rightBlock, rightPosition, 0, leftLength);
+    }
+
+    @ScalarOperator(XX_HASH_64)
+    private static long xxHash64Operator(Slice value)
+    {
+        return XxHash64.hash(value);
+    }
+
+    @ScalarOperator(XX_HASH_64)
+    private static long xxHash64Operator(@BlockPosition Block block, @BlockIndex int position)
+    {
+        return block.hash(position, 0, block.getSliceLength(position));
+    }
+
+    @ScalarOperator(COMPARISON)
+    private static long comparisonOperator(Slice left, Slice right)
+    {
+        return left.compareTo(right);
+    }
+
+    @ScalarOperator(COMPARISON)
+    private static long comparisonOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    {
+        int leftLength = leftBlock.getSliceLength(leftPosition);
+        int rightLength = rightBlock.getSliceLength(rightPosition);
+        return leftBlock.compareTo(leftPosition, 0, leftLength, rightBlock, rightPosition, 0, rightLength);
     }
 }

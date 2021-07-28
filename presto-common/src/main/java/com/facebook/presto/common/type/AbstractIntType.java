@@ -19,14 +19,26 @@ import com.facebook.presto.common.block.BlockBuilderStatus;
 import com.facebook.presto.common.block.IntArrayBlockBuilder;
 import com.facebook.presto.common.block.PageBuilderStatus;
 import com.facebook.presto.common.block.UncheckedBlock;
+import com.facebook.presto.common.function.ScalarOperator;
 import io.airlift.slice.Slice;
+import io.airlift.slice.XxHash64;
 
+import static com.facebook.presto.common.function.OperatorType.COMPARISON;
+import static com.facebook.presto.common.function.OperatorType.EQUAL;
+import static com.facebook.presto.common.function.OperatorType.HASH_CODE;
+import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
+import static com.facebook.presto.common.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static com.facebook.presto.common.function.OperatorType.XX_HASH_64;
+import static com.facebook.presto.common.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static java.lang.Long.rotateLeft;
+import static java.lang.invoke.MethodHandles.lookup;
 
 public abstract class AbstractIntType
         extends AbstractType
         implements FixedWidthType
 {
+    private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(AbstractIntType.class, lookup(), long.class);
+
     protected AbstractIntType(TypeSignature signature)
     {
         super(signature, long.class);
@@ -48,6 +60,12 @@ public abstract class AbstractIntType
     public boolean isOrderable()
     {
         return true;
+    }
+
+    @Override
+    public TypeOperatorDeclaration getTypeOperatorDeclaration(TypeOperators typeOperators)
+    {
+        return TYPE_OPERATOR_DECLARATION;
     }
 
     @Override
@@ -140,5 +158,41 @@ public abstract class AbstractIntType
     {
         // xxhash64 mix
         return rotateLeft(value * 0xC2B2AE3D27D4EB4FL, 31) * 0x9E3779B185EBCA87L;
+    }
+
+    @ScalarOperator(EQUAL)
+    private static boolean equalOperator(long left, long right)
+    {
+        return left == right;
+    }
+
+    @ScalarOperator(HASH_CODE)
+    private static long hashCodeOperator(long value)
+    {
+        return AbstractLongType.hash((int) value);
+    }
+
+    @ScalarOperator(XX_HASH_64)
+    private static long xxHash64Operator(long value)
+    {
+        return XxHash64.hash((int) value);
+    }
+
+    @ScalarOperator(COMPARISON)
+    private static long comparisonOperator(long left, long right)
+    {
+        return Integer.compare((int) left, (int) right);
+    }
+
+    @ScalarOperator(LESS_THAN)
+    private static boolean lessThanOperator(long left, long right)
+    {
+        return ((int) left) < ((int) right);
+    }
+
+    @ScalarOperator(LESS_THAN_OR_EQUAL)
+    private static boolean lessThanOrEqualOperator(long left, long right)
+    {
+        return ((int) left) <= ((int) right);
     }
 }

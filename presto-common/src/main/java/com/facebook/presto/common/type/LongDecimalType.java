@@ -18,24 +18,41 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.BlockBuilderStatus;
 import com.facebook.presto.common.block.Int128ArrayBlockBuilder;
 import com.facebook.presto.common.block.PageBuilderStatus;
+import com.facebook.presto.common.function.BlockIndex;
+import com.facebook.presto.common.function.BlockPosition;
+import com.facebook.presto.common.function.ScalarOperator;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.airlift.slice.XxHash64;
 
 import static com.facebook.presto.common.block.Int128ArrayBlock.INT128_BYTES;
+import static com.facebook.presto.common.function.OperatorType.COMPARISON;
+import static com.facebook.presto.common.function.OperatorType.EQUAL;
+import static com.facebook.presto.common.function.OperatorType.XX_HASH_64;
 import static com.facebook.presto.common.type.Decimals.MAX_PRECISION;
 import static com.facebook.presto.common.type.Decimals.decodeUnscaledValue;
+import static com.facebook.presto.common.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.UNSCALED_DECIMAL_128_SLICE_LENGTH;
 import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.compare;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static java.lang.invoke.MethodHandles.lookup;
 
 final class LongDecimalType
         extends DecimalType
 {
+    private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(LongDecimalType.class, lookup(), Slice.class);
+
     LongDecimalType(int precision, int scale)
     {
         super(precision, scale, Slice.class);
         validatePrecisionScale(precision, scale, MAX_PRECISION);
+    }
+
+    @Override
+    public TypeOperatorDeclaration getTypeOperatorDeclaration(TypeOperators typeOperators)
+    {
+        return TYPE_OPERATOR_DECLARATION;
     }
 
     @Override
@@ -141,5 +158,63 @@ final class LongDecimalType
         return Slices.wrappedLongArray(
                 block.getLong(position, 0),
                 block.getLong(position, SIZE_OF_LONG));
+    }
+
+    @ScalarOperator(EQUAL)
+    private static boolean equalOperator(Slice left, Slice right)
+    {
+        return equal(
+                left.getLong(0),
+                left.getLong(SIZE_OF_LONG),
+                right.getLong(0),
+                right.getLong(SIZE_OF_LONG));
+    }
+
+    @ScalarOperator(EQUAL)
+    private static boolean equalOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    {
+        return equal(
+                leftBlock.getLong(leftPosition, 0),
+                leftBlock.getLong(leftPosition, SIZE_OF_LONG),
+                rightBlock.getLong(rightPosition, 0),
+                rightBlock.getLong(rightPosition, SIZE_OF_LONG));
+    }
+
+    private static boolean equal(long leftLow, long leftHigh, long rightLow, long rightHigh)
+    {
+        return leftLow == rightLow && leftHigh == rightHigh;
+    }
+
+    @ScalarOperator(XX_HASH_64)
+    private static long xxHash64Operator(Slice value)
+    {
+        return xxHash64(value.getLong(0), value.getLong(SIZE_OF_LONG));
+    }
+
+    @ScalarOperator(XX_HASH_64)
+    private static long xxHash64Operator(@BlockPosition Block block, @BlockIndex int position)
+    {
+        return xxHash64(block.getLong(position, 0), block.getLong(position, SIZE_OF_LONG));
+    }
+
+    private static long xxHash64(long low, long high)
+    {
+        return XxHash64.hash(low) ^ XxHash64.hash(high);
+    }
+
+    @ScalarOperator(COMPARISON)
+    private static long comparisonOperator(Slice left, Slice right)
+    {
+        return compare(left, right);
+    }
+
+    @ScalarOperator(COMPARISON)
+    private static long comparisonOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    {
+        long leftLow = leftBlock.getLong(leftPosition, 0);
+        long leftHigh = leftBlock.getLong(leftPosition, SIZE_OF_LONG);
+        long rightLow = rightBlock.getLong(rightPosition, 0);
+        long rightHigh = rightBlock.getLong(rightPosition, SIZE_OF_LONG);
+        return compare(leftLow, leftHigh, rightLow, rightHigh);
     }
 }

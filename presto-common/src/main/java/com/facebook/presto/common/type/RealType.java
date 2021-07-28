@@ -16,22 +16,42 @@ package com.facebook.presto.common.type;
 import com.facebook.presto.common.GenericInternalException;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.function.IsNull;
+import com.facebook.presto.common.function.ScalarOperator;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import io.airlift.slice.XxHash64;
 
+import static com.facebook.presto.common.function.OperatorType.COMPARISON;
+import static com.facebook.presto.common.function.OperatorType.EQUAL;
+import static com.facebook.presto.common.function.OperatorType.HASH_CODE;
+import static com.facebook.presto.common.function.OperatorType.IS_DISTINCT_FROM;
+import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
+import static com.facebook.presto.common.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static com.facebook.presto.common.function.OperatorType.XX_HASH_64;
+import static com.facebook.presto.common.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.lang.invoke.MethodHandles.lookup;
 
 public final class RealType
         extends AbstractIntType
 {
+    private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(RealType.class, lookup(), long.class);
+
     public static final RealType REAL = new RealType();
 
     private RealType()
     {
         super(parseTypeSignature(StandardTypes.REAL));
+    }
+
+    @Override
+    public TypeOperatorDeclaration getTypeOperatorDeclaration(TypeOperators typeOperators)
+    {
+        return TYPE_OPERATOR_DECLARATION;
     }
 
     @Override
@@ -93,5 +113,64 @@ public final class RealType
     public int hashCode()
     {
         return getClass().hashCode();
+    }
+
+    @ScalarOperator(EQUAL)
+    private static boolean equalOperator(long left, long right)
+    {
+        return intBitsToFloat((int) left) == intBitsToFloat((int) right);
+    }
+
+    @ScalarOperator(HASH_CODE)
+    private static long hashCodeOperator(long value)
+    {
+        float realValue = intBitsToFloat((int) value);
+        if (realValue == 0) {
+            realValue = 0;
+        }
+        return AbstractLongType.hash(floatToIntBits(realValue));
+    }
+
+    @ScalarOperator(XX_HASH_64)
+    private static long xxHash64Operator(long value)
+    {
+        float realValue = intBitsToFloat((int) value);
+        if (realValue == 0) {
+            realValue = 0;
+        }
+        return XxHash64.hash(floatToIntBits(realValue));
+    }
+
+    @ScalarOperator(IS_DISTINCT_FROM)
+    private static boolean distinctFromOperator(long left, @IsNull boolean leftNull, long right, @IsNull boolean rightNull)
+    {
+        if (leftNull || rightNull) {
+            return leftNull != rightNull;
+        }
+
+        float leftFloat = intBitsToFloat((int) left);
+        float rightFloat = intBitsToFloat((int) right);
+        if (Float.isNaN(leftFloat) && Float.isNaN(rightFloat)) {
+            return false;
+        }
+        return leftFloat != rightFloat;
+    }
+
+    @ScalarOperator(COMPARISON)
+    private static long comparisonOperator(long left, long right)
+    {
+        return Float.compare(intBitsToFloat((int) left), intBitsToFloat((int) right));
+    }
+
+    @ScalarOperator(LESS_THAN)
+    private static boolean lessThanOperator(long left, long right)
+    {
+        return intBitsToFloat((int) left) < intBitsToFloat((int) right);
+    }
+
+    @ScalarOperator(LESS_THAN_OR_EQUAL)
+    private static boolean lessThanOrEqualOperator(long left, long right)
+    {
+        return intBitsToFloat((int) left) <= intBitsToFloat((int) right);
     }
 }

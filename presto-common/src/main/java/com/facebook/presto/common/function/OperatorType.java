@@ -34,6 +34,7 @@ public enum OperatorType
     NEGATION("-", false),
     EQUAL("=", false),
     NOT_EQUAL("<>", false),
+    COMPARISON("COMPARISON", false),
     LESS_THAN("<", false),
     LESS_THAN_OR_EQUAL("<=", false),
     GREATER_THAN(">", false),

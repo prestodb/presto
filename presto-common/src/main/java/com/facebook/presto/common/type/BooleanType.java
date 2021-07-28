@@ -19,14 +19,28 @@ import com.facebook.presto.common.block.BlockBuilderStatus;
 import com.facebook.presto.common.block.ByteArrayBlockBuilder;
 import com.facebook.presto.common.block.PageBuilderStatus;
 import com.facebook.presto.common.block.UncheckedBlock;
+import com.facebook.presto.common.function.ScalarOperator;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import io.airlift.slice.XxHash64;
 
+import static com.facebook.presto.common.function.OperatorType.COMPARISON;
+import static com.facebook.presto.common.function.OperatorType.EQUAL;
+import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
+import static com.facebook.presto.common.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static com.facebook.presto.common.function.OperatorType.XX_HASH_64;
+import static com.facebook.presto.common.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static java.lang.invoke.MethodHandles.lookup;
 
 public final class BooleanType
         extends AbstractType
         implements FixedWidthType
 {
+    private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(BooleanType.class, lookup(), boolean.class);
+
+    private static final long TRUE_XX_HASH = XxHash64.hash(1);
+    private static final long FALSE_XX_HASH = XxHash64.hash(0);
+
     public static final BooleanType BOOLEAN = new BooleanType();
 
     private BooleanType()
@@ -77,6 +91,12 @@ public final class BooleanType
     public boolean isOrderable()
     {
         return true;
+    }
+
+    @Override
+    public TypeOperatorDeclaration getTypeOperatorDeclaration(TypeOperators typeOperators)
+    {
+        return TYPE_OPERATOR_DECLARATION;
     }
 
     @Override
@@ -151,5 +171,35 @@ public final class BooleanType
     public int hashCode()
     {
         return getClass().hashCode();
+    }
+
+    @ScalarOperator(EQUAL)
+    private static boolean equalOperator(boolean left, boolean right)
+    {
+        return left == right;
+    }
+
+    @ScalarOperator(XX_HASH_64)
+    private static long xxHash64Operator(boolean value)
+    {
+        return value ? TRUE_XX_HASH : FALSE_XX_HASH;
+    }
+
+    @ScalarOperator(COMPARISON)
+    private static long comparisonOperator(boolean left, boolean right)
+    {
+        return Boolean.compare(left, right);
+    }
+
+    @ScalarOperator(LESS_THAN)
+    private static boolean lessThanOperator(boolean left, boolean right)
+    {
+        return !left && right;
+    }
+
+    @ScalarOperator(LESS_THAN_OR_EQUAL)
+    private static boolean lessThanOrEqualOperator(boolean left, boolean right)
+    {
+        return !left || right;
     }
 }

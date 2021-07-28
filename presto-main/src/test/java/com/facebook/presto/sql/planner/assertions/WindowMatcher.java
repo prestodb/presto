@@ -85,7 +85,8 @@ public final class WindowMatcher
         }
 
         if (!specification
-                .map(expectedSpecification -> matchSpecification(windowNode.getSpecification(), expectedSpecification.getExpectedValue(symbolAliases)))
+                .map(expectedSpecification -> matchSpecification(windowNode.getSpecification(), expectedSpecification.getExpectedValue(symbolAliases)) ||
+                        (expectedSpecification instanceof SpecificationProvider && matchSpecification(windowNode.getSpecification(), (SpecificationProvider) expectedSpecification)))
                 .orElse(true)) {
             return NO_MATCH;
         }

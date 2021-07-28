@@ -20,24 +20,64 @@ import com.facebook.presto.common.block.BlockBuilderStatus;
 import com.facebook.presto.common.block.MapBlock;
 import com.facebook.presto.common.block.MapBlockBuilder;
 import com.facebook.presto.common.block.SingleMapBlock;
+import com.facebook.presto.common.function.InvocationConvention;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodHandles.Lookup;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.common.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
+import static com.facebook.presto.common.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static com.facebook.presto.common.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
+import static com.facebook.presto.common.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static com.facebook.presto.common.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
+import static com.facebook.presto.common.function.InvocationConvention.simpleConvention;
+import static com.facebook.presto.common.type.TypeUtils.NULL_HASH_CODE;
 import static com.facebook.presto.common.type.TypeUtils.checkElementNotNull;
 import static com.facebook.presto.common.type.TypeUtils.hashPosition;
 import static java.lang.String.format;
+import static java.lang.invoke.MethodType.methodType;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
 public class MapType
         extends AbstractType
 {
+    private static final InvocationConvention EQUAL_CONVENTION = simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL);
+    private static final InvocationConvention HASH_CODE_CONVENTION = simpleConvention(FAIL_ON_NULL, NEVER_NULL);
+    private static final InvocationConvention DISTINCT_FROM_CONVENTION = simpleConvention(FAIL_ON_NULL, BOXED_NULLABLE, BOXED_NULLABLE);
+    private static final InvocationConvention INDETERMINATE_CONVENTION = simpleConvention(FAIL_ON_NULL, NULL_FLAG);
+
+    private static final MethodHandle EQUAL;
+    private static final MethodHandle HASH_CODE;
+
+    private static final MethodHandle SEEK_KEY;
+    private static final MethodHandle DISTINCT_FROM;
+    private static final MethodHandle INDETERMINATE;
+
+    static {
+        try {
+            Lookup lookup = MethodHandles.lookup();
+            EQUAL = lookup.findStatic(MapType.class, "equalOperator", methodType(Boolean.class, MethodHandle.class, MethodHandle.class, Block.class, Block.class));
+            HASH_CODE = lookup.findStatic(MapType.class, "hashOperator", methodType(long.class, MethodHandle.class, MethodHandle.class, Block.class));
+            DISTINCT_FROM = lookup.findStatic(MapType.class, "distinctFromOperator", methodType(boolean.class, MethodHandle.class, MethodHandle.class, Block.class, Block.class));
+            INDETERMINATE = lookup.findStatic(MapType.class, "indeterminate", methodType(boolean.class, MethodHandle.class, Block.class, boolean.class));
+            SEEK_KEY = lookup.findVirtual(
+                    SingleMapBlock.class,
+                    "seekKey",
+                    methodType(int.class, MethodHandle.class, MethodHandle.class, Block.class, int.class));
+        }
+        catch (NoSuchMethodException | IllegalAccessException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     private final Type keyType;
     private final Type valueType;
     private static final String MAP_NULL_ELEMENT_MSG = "MAP comparison not supported for null value elements";
@@ -274,5 +314,120 @@ public class MapType
         // TypeManager caches types. Therefore, it is important that we go through it instead of coming up with the MethodHandles directly.
         // BIGINT is chosen arbitrarily here. Any type will do.
         return MapBlock.createMapBlockInternal(startOffset, positionCount, mapIsNull, offsets, keyBlock, valueBlock, hashTables);
+    }
+
+    private static long hashOperator(MethodHandle keyOperator, MethodHandle valueOperator, Block block)
+            throws Throwable
+    {
+        long result = 0;
+        for (int i = 0; i < block.getPositionCount(); i += 2) {
+            result += invokeHashOperator(keyOperator, block, i) ^ invokeHashOperator(valueOperator, block, i + 1);
+        }
+        return result;
+    }
+
+    private static long invokeHashOperator(MethodHandle keyOperator, Block block, int position)
+            throws Throwable
+    {
+        if (block.isNull(position)) {
+            return NULL_HASH_CODE;
+        }
+        return (long) keyOperator.invokeExact(block, position);
+    }
+
+    private static Boolean equalOperator(
+            MethodHandle seekKey,
+            MethodHandle valueEqualOperator,
+            Block leftBlock,
+            Block rightBlock)
+            throws Throwable
+    {
+        if (leftBlock.getPositionCount() != rightBlock.getPositionCount()) {
+            return false;
+        }
+
+        SingleMapBlock leftSingleMapLeftBlock = (SingleMapBlock) leftBlock;
+        SingleMapBlock rightSingleMapBlock = (SingleMapBlock) rightBlock;
+
+        boolean unknown = false;
+        for (int position = 0; position < leftSingleMapLeftBlock.getPositionCount(); position += 2) {
+            int leftPosition = position + 1;
+            int rightPosition = (int) seekKey.invokeExact(rightSingleMapBlock, leftBlock, position);
+            if (rightPosition == -1) {
+                return false;
+            }
+
+            if (leftBlock.isNull(leftPosition) || rightBlock.isNull(rightPosition)) {
+                unknown = true;
+            }
+            else {
+                Boolean result = (Boolean) valueEqualOperator.invokeExact((Block) leftSingleMapLeftBlock, leftPosition, (Block) rightSingleMapBlock, rightPosition);
+                if (result == null) {
+                    unknown = true;
+                }
+                else if (!result) {
+                    return false;
+                }
+            }
+        }
+
+        if (unknown) {
+            return null;
+        }
+        return true;
+    }
+
+    private static boolean distinctFromOperator(
+            MethodHandle seekKey,
+            MethodHandle valueDistinctFromOperator,
+            Block leftBlock,
+            Block rightBlock)
+            throws Throwable
+    {
+        boolean leftIsNull = leftBlock == null;
+        boolean rightIsNull = rightBlock == null;
+        if (leftIsNull || rightIsNull) {
+            return leftIsNull != rightIsNull;
+        }
+
+        if (leftBlock.getPositionCount() != rightBlock.getPositionCount()) {
+            return true;
+        }
+
+        SingleMapBlock leftSingleMapLeftBlock = (SingleMapBlock) leftBlock;
+        SingleMapBlock rightSingleMapBlock = (SingleMapBlock) rightBlock;
+
+        for (int position = 0; position < leftSingleMapLeftBlock.getPositionCount(); position += 2) {
+            int leftPosition = position + 1;
+            int rightPosition = (int) seekKey.invokeExact(rightSingleMapBlock, leftBlock, position);
+            if (rightPosition == -1) {
+                return true;
+            }
+
+            boolean result = (boolean) valueDistinctFromOperator.invokeExact((Block) leftSingleMapLeftBlock, leftPosition, (Block) rightSingleMapBlock, rightPosition);
+            if (result) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static boolean indeterminate(MethodHandle valueIndeterminateFunction, Block block, boolean isNull)
+            throws Throwable
+    {
+        if (isNull) {
+            return true;
+        }
+        for (int i = 0; i < block.getPositionCount(); i += 2) {
+            // since maps are not allowed to have indeterminate keys we only check values here
+            if (block.isNull(i + 1)) {
+                return true;
+            }
+            if ((boolean) valueIndeterminateFunction.invokeExact(block, i + 1)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

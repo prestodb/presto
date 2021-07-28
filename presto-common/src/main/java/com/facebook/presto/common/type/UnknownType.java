@@ -18,12 +18,21 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.BlockBuilderStatus;
 import com.facebook.presto.common.block.ByteArrayBlockBuilder;
 import com.facebook.presto.common.block.PageBuilderStatus;
+import com.facebook.presto.common.function.ScalarOperator;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+
+import static com.facebook.presto.common.function.OperatorType.COMPARISON;
+import static com.facebook.presto.common.function.OperatorType.EQUAL;
+import static com.facebook.presto.common.function.OperatorType.XX_HASH_64;
+import static com.facebook.presto.common.type.TypeOperatorDeclaration.extractOperatorDeclaration;
+import static java.lang.invoke.MethodHandles.lookup;
 
 public final class UnknownType
         extends AbstractType
         implements FixedWidthType
 {
+    private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(UnknownType.class, lookup(), boolean.class);
+
     public static final UnknownType UNKNOWN = new UnknownType();
     public static final String NAME = "unknown";
 
@@ -85,6 +94,12 @@ public final class UnknownType
     public boolean isOrderable()
     {
         return true;
+    }
+
+    @Override
+    public TypeOperatorDeclaration getTypeOperatorDeclaration(TypeOperators typeOperators)
+    {
+        return TYPE_OPERATOR_DECLARATION;
     }
 
     @Override
@@ -150,5 +165,23 @@ public final class UnknownType
         }
 
         blockBuilder.appendNull();
+    }
+
+    @ScalarOperator(EQUAL)
+    private static boolean equalOperator(boolean unusedLeft, boolean unusedRight)
+    {
+        throw new AssertionError("value of unknown type should all be NULL");
+    }
+
+    @ScalarOperator(XX_HASH_64)
+    private static long xxHash64Operator(boolean unusedValue)
+    {
+        throw new AssertionError("value of unknown type should all be NULL");
+    }
+
+    @ScalarOperator(COMPARISON)
+    private static long comparisonOperator(boolean unusedLeft, boolean unusedRight)
+    {
+        throw new AssertionError("value of unknown type should all be NULL");
     }
 }

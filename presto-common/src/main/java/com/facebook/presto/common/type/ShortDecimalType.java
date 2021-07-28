@@ -19,20 +19,38 @@ import com.facebook.presto.common.block.BlockBuilderStatus;
 import com.facebook.presto.common.block.LongArrayBlockBuilder;
 import com.facebook.presto.common.block.PageBuilderStatus;
 import com.facebook.presto.common.block.UncheckedBlock;
+import com.facebook.presto.common.function.ScalarOperator;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import io.airlift.slice.XxHash64;
 
 import java.math.BigInteger;
 
+import static com.facebook.presto.common.function.OperatorType.COMPARISON;
+import static com.facebook.presto.common.function.OperatorType.EQUAL;
+import static com.facebook.presto.common.function.OperatorType.HASH_CODE;
+import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
+import static com.facebook.presto.common.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static com.facebook.presto.common.function.OperatorType.XX_HASH_64;
 import static com.facebook.presto.common.type.Decimals.MAX_SHORT_PRECISION;
+import static com.facebook.presto.common.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static java.lang.invoke.MethodHandles.lookup;
 
-final class ShortDecimalType
+public final class ShortDecimalType
         extends DecimalType
 {
-    ShortDecimalType(int precision, int scale)
+    private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(ShortDecimalType.class, lookup(), long.class);
+
+    public ShortDecimalType(int precision, int scale)
     {
         super(precision, scale, long.class);
         validatePrecisionScale(precision, scale, MAX_SHORT_PRECISION);
+    }
+
+    @Override
+    public TypeOperatorDeclaration getTypeOperatorDeclaration(TypeOperators typeOperators)
+    {
+        return TYPE_OPERATOR_DECLARATION;
     }
 
     @Override
@@ -127,5 +145,41 @@ final class ShortDecimalType
     public void writeLong(BlockBuilder blockBuilder, long value)
     {
         blockBuilder.writeLong(value).closeEntry();
+    }
+
+    @ScalarOperator(EQUAL)
+    private static boolean equalOperator(long left, long right)
+    {
+        return left == right;
+    }
+
+    @ScalarOperator(HASH_CODE)
+    private static long hashCodeOperator(long value)
+    {
+        return value;
+    }
+
+    @ScalarOperator(XX_HASH_64)
+    private static long xxHash64Operator(long value)
+    {
+        return XxHash64.hash(value);
+    }
+
+    @ScalarOperator(COMPARISON)
+    private static long comparisonOperator(long left, long right)
+    {
+        return Long.compare(left, right);
+    }
+
+    @ScalarOperator(LESS_THAN)
+    private static boolean lessThanOperator(long left, long right)
+    {
+        return left < right;
+    }
+
+    @ScalarOperator(LESS_THAN_OR_EQUAL)
+    private static boolean lessThanOrEqualOperator(long left, long right)
+    {
+        return left <= right;
     }
 }

@@ -37,6 +37,7 @@ import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.function.SqlInvokedFunction;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.type.TypeOperators;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.SystemConnectorModule;
 import com.facebook.presto.cost.FilterStatsCalculator;
@@ -173,7 +174,9 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.statusservice.NodeStatusService;
 import com.facebook.presto.transaction.TransactionManagerConfig;
+import com.facebook.presto.type.BlockTypeOperators;
 import com.facebook.presto.type.TypeDeserializer;
+import com.facebook.presto.type.TypeOperatorsCache;
 import com.facebook.presto.util.FinalizerService;
 import com.facebook.presto.util.GcStatusMonitor;
 import com.facebook.presto.version.EmbedVersion;
@@ -500,6 +503,10 @@ public class ServerMainModule
         binder.bind(FunctionAndTypeManager.class).in(Scopes.SINGLETON);
         binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
         binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
+        binder.bind(TypeOperatorsCache.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(TypeOperatorsCache.class).as(factory -> factory.generatedNameOf(TypeOperators.class));
+        binder.bind(BlockTypeOperators.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(TypeOperatorsCache.class).withGeneratedName();
 
         // row expression utils
         binder.bind(DomainTranslator.class).to(RowExpressionDomainTranslator.class).in(Scopes.SINGLETON);
@@ -648,6 +655,13 @@ public class ServerMainModule
 
         //Optional Status Detector
         newOptionalBinder(binder, NodeStatusService.class);
+    }
+
+    @Provides
+    @Singleton
+    public static TypeOperators createTypeOperators(TypeOperatorsCache typeOperatorsCache)
+    {
+        return new TypeOperators(typeOperatorsCache);
     }
 
     @Provides

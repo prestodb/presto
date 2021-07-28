@@ -294,6 +294,7 @@
             <groupId>org.weakref</groupId>
             <artifactId>jmxutils</artifactId>
             <scope>compile</scope>
+            <version>1.21</version>
         </dependency>
 
         <!-- used by tests but also needed transitively -->

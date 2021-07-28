@@ -11,20 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.common.function;
+package com.facebook.presto.server;
 
-import com.facebook.presto.common.CatalogSchemaName;
-import com.facebook.presto.common.NotSupportedException;
+import com.facebook.airlift.configuration.Config;
 
-/**
- * FunctionHandle is a unique handle to identify the function implementation from namespaces.
- * However, currently it is still under changes, so please don't assume it is backward compatible.
- */
-public interface FunctionHandle
+public class JmxNamingConfig
 {
-    CatalogSchemaName getCatalogSchemaName();
-    default Signature getSignature()
+    private String domainBase = "presto";
+
+    public String getDomainBase()
     {
-        throw new NotSupportedException("Method getSignature is not implemented.");
+        return domainBase;
+    }
+
+    @Config("jmx.base-name")
+    public JmxNamingConfig setDomainBase(String domainBase)
+    {
+        this.domainBase = domainBase;
+        return this;
     }
 }

@@ -31,6 +31,12 @@
                 <artifactId>threetenbp</artifactId>
                 <version>1.4.4</version>
             </dependency>
+
+            <dependency>
+                <groupId>org.weakref</groupId>
+                <artifactId>jmxutils</artifactId>
+                <version>1.21</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 

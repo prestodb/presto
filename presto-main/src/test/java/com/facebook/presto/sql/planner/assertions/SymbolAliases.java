@@ -105,13 +105,15 @@ public final class SymbolAliases
                 RowExpression expression = assignment.getValue();
                 if (isExpression(expression) && castToExpression(expression).equals(existingAlias.getValue())) {
                     // Simple symbol rename
-                    mapUpdate.put(existingAlias.getKey(), asSymbolReference(assignment.getKey()));
+                    // mapUpdate.put(existingAlias.getKey(), asSymbolReference(assignment.getKey()));
+                    updateMap(mapUpdate, existingAlias.getKey(), asSymbolReference(assignment.getKey()));
                 }
                 else if (!isExpression(expression) &&
                         (expression instanceof VariableReferenceExpression) &&
                         ((VariableReferenceExpression) expression).getName().equals(existingAlias.getValue().getName())) {
                     // Simple symbol rename
-                    mapUpdate.put(existingAlias.getKey(), new SymbolReference(assignment.getKey().getName()));
+                    // mapUpdate.put(existingAlias.getKey(), new SymbolReference(assignment.getKey().getName()));
+                    updateMap(mapUpdate, existingAlias.getKey(), new SymbolReference(assignment.getKey().getName()));
                 }
                 else if (new SymbolReference(assignment.getKey().getName()).equals(existingAlias.getValue())) {
                     /*
@@ -124,11 +126,19 @@ public final class SymbolAliases
                      * At the beginning for the function, map contains { NEW_ALIAS: SymbolReference("expr_2" }
                      * and the assignments map contains { expr_2 := <some expression> }.
                      */
-                    mapUpdate.put(existingAlias.getKey(), existingAlias.getValue());
+                    // mapUpdate.put(existingAlias.getKey(), existingAlias.getValue());
+                    updateMap(mapUpdate, existingAlias.getKey(), existingAlias.getValue());
                 }
             }
         }
         return mapUpdate.build();
+    }
+
+    private void updateMap(ImmutableMap.Builder<String, SymbolReference> mapUpdate, String key, SymbolReference symbolRef)
+    {
+        if (!key.equals(symbolRef.getName())) {
+            mapUpdate.put(key, symbolRef);
+        }
     }
 
     /*

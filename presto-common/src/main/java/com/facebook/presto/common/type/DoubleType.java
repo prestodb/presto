@@ -19,16 +19,30 @@ import com.facebook.presto.common.block.BlockBuilderStatus;
 import com.facebook.presto.common.block.LongArrayBlockBuilder;
 import com.facebook.presto.common.block.PageBuilderStatus;
 import com.facebook.presto.common.block.UncheckedBlock;
+import com.facebook.presto.common.function.IsNull;
+import com.facebook.presto.common.function.ScalarOperator;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import io.airlift.slice.XxHash64;
 
+import static com.facebook.presto.common.function.OperatorType.COMPARISON;
+import static com.facebook.presto.common.function.OperatorType.EQUAL;
+import static com.facebook.presto.common.function.OperatorType.HASH_CODE;
+import static com.facebook.presto.common.function.OperatorType.IS_DISTINCT_FROM;
+import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
+import static com.facebook.presto.common.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static com.facebook.presto.common.function.OperatorType.XX_HASH_64;
+import static com.facebook.presto.common.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static java.lang.Double.doubleToLongBits;
 import static java.lang.Double.longBitsToDouble;
+import static java.lang.invoke.MethodHandles.lookup;
 
 public final class DoubleType
         extends AbstractType
         implements FixedWidthType
 {
+    private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(DoubleType.class, lookup(), double.class);
+
     public static final DoubleType DOUBLE = new DoubleType();
 
     private DoubleType()
@@ -52,6 +66,12 @@ public final class DoubleType
     public boolean isOrderable()
     {
         return true;
+    }
+
+    @Override
+    public TypeOperatorDeclaration getTypeOperatorDeclaration(TypeOperators typeOperators)
+    {
+        return TYPE_OPERATOR_DECLARATION;
     }
 
     @Override
@@ -156,5 +176,60 @@ public final class DoubleType
     public int hashCode()
     {
         return getClass().hashCode();
+    }
+
+    @ScalarOperator(EQUAL)
+    private static boolean equalOperator(double left, double right)
+    {
+        return left == right;
+    }
+
+    @ScalarOperator(HASH_CODE)
+    private static long hashCodeOperator(double value)
+    {
+        if (value == 0) {
+            value = 0;
+        }
+        return AbstractLongType.hash(doubleToLongBits(value));
+    }
+
+    @ScalarOperator(XX_HASH_64)
+    public static long xxHash64(double value)
+    {
+        if (value == 0) {
+            value = 0;
+        }
+        return XxHash64.hash(doubleToLongBits(value));
+    }
+
+    @ScalarOperator(IS_DISTINCT_FROM)
+    private static boolean distinctFromOperator(double left, @IsNull boolean leftNull, double right, @IsNull boolean rightNull)
+    {
+        if (leftNull || rightNull) {
+            return leftNull != rightNull;
+        }
+
+        if (Double.isNaN(left) && Double.isNaN(right)) {
+            return false;
+        }
+        return left != right;
+    }
+
+    @ScalarOperator(COMPARISON)
+    private static long comparisonOperator(double left, double right)
+    {
+        return Double.compare(left, right);
+    }
+
+    @ScalarOperator(LESS_THAN)
+    private static boolean lessThanOperator(double left, double right)
+    {
+        return left < right;
+    }
+
+    @ScalarOperator(LESS_THAN_OR_EQUAL)
+    private static boolean lessThanOrEqualOperator(double left, double right)
+    {
+        return left <= right;
     }
 }

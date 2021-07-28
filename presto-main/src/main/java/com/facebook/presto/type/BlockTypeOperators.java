@@ -41,6 +41,8 @@ public final class BlockTypeOperators
     private static final InvocationConvention HASH_CODE_CONVENTION = simpleConvention(FAIL_ON_NULL, BLOCK_POSITION);
     private static final InvocationConvention XX_HASH_64_CONVENTION = simpleConvention(FAIL_ON_NULL, BLOCK_POSITION);
     private static final InvocationConvention IS_DISTINCT_FROM_CONVENTION = simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION);
+    private static final InvocationConvention COMPARISON_CONVENTION = simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION);
+    private static final InvocationConvention LESS_THAN_CONVENTION = simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION);
 
     private final ConcurrentMap<GeneratedBlockOperatorKey<?>, GeneratedBlockOperator<?>> generatedBlockOperatorCache = new ConcurrentHashMap<>();
     private final TypeOperators typeOperators;
@@ -107,6 +109,57 @@ public final class BlockTypeOperators
     public interface BlockPositionIsDistinctFrom
     {
         boolean isDistinctFrom(Block left, int leftPosition, Block right, int rightPosition);
+    }
+
+    public BlockPositionComparison getComparisonOperator(Type type)
+    {
+        return getBlockOperator(type, BlockPositionComparison.class, () -> typeOperators.getComparisonOperator(type, COMPARISON_CONVENTION));
+    }
+
+    public interface BlockPositionComparison
+    {
+        long compare(Block left, int leftPosition, Block right, int rightPosition);
+
+        default BlockPositionComparison reversed()
+        {
+            return ReversedBlockPositionComparison.createReversedBlockPositionComparison(this);
+        }
+    }
+
+    private static class ReversedBlockPositionComparison
+            implements BlockPositionComparison
+    {
+        private final BlockPositionComparison comparison;
+
+        static BlockPositionComparison createReversedBlockPositionComparison(BlockPositionComparison comparison)
+        {
+            if (comparison instanceof ReversedBlockPositionComparison) {
+                return ((ReversedBlockPositionComparison) comparison).comparison;
+            }
+            return new ReversedBlockPositionComparison(comparison);
+        }
+
+        private ReversedBlockPositionComparison(BlockPositionComparison comparison)
+        {
+            this.comparison = comparison;
+        }
+
+        @Override
+        public long compare(Block leftBlock, int leftIndex, Block rightBlock, int rightIndex)
+        {
+            // TODO generate this so it becomes mono monomorphic
+            return comparison.compare(rightBlock, rightIndex, leftBlock, leftIndex);
+        }
+    }
+
+    public BlockPositionLessThan generateBlockPositionLessThan(Type type)
+    {
+        return getBlockOperator(type, BlockPositionLessThan.class, () -> typeOperators.getLessThanOperator(type, LESS_THAN_CONVENTION));
+    }
+
+    public interface BlockPositionLessThan
+    {
+        boolean lessThan(Block left, int leftPosition, Block right, int rightPosition);
     }
 
     private <T> T getBlockOperator(Type type, Class<T> operatorInterface, Supplier<MethodHandle> methodHandleSupplier)

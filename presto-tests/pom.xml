@@ -165,6 +165,7 @@
         <dependency>
             <groupId>org.weakref</groupId>
             <artifactId>jmxutils</artifactId>
+            <version>1.21</version>
         </dependency>
 
         <dependency>

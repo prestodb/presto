@@ -23,7 +23,9 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static java.util.Objects.requireNonNull;
@@ -106,10 +108,14 @@ class PlanBuilder
         }
 
         ImmutableMap.Builder<VariableReferenceExpression, Expression> newTranslations = ImmutableMap.builder();
+        Set<Expression> processedExpressions = new HashSet<>();
         for (Expression expression : expressions) {
-            VariableReferenceExpression variable = variableAllocator.newVariable(expression, getAnalysis().getTypeWithCoercions(expression));
-            projections.put(variable, castToRowExpression(translations.rewrite(expression)));
-            newTranslations.put(variable, expression);
+            if (!processedExpressions.contains(expression)) {
+                VariableReferenceExpression variable = variableAllocator.newVariable(expression, getAnalysis().getTypeWithCoercions(expression));
+                projections.put(variable, castToRowExpression(translations.rewrite(expression)));
+                newTranslations.put(variable, expression);
+                processedExpressions.add(expression);
+            }
         }
         // Now append the new translations into the TranslationMap
         for (Map.Entry<VariableReferenceExpression, Expression> entry : newTranslations.build().entrySet()) {

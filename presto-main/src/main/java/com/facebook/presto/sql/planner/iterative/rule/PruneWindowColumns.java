@@ -62,6 +62,8 @@ public class PruneWindowColumns
             referencedInputs.addAll(WindowNodeUtil.extractWindowFunctionUniqueVariables(windowFunction, variableAllocator.getTypes()));
             windowFunction.getFrame().getStartValue().ifPresent(referencedInputs::add);
             windowFunction.getFrame().getEndValue().ifPresent(referencedInputs::add);
+            windowFunction.getFrame().getSortKeyCoercedForFrameStartComparison().ifPresent(referencedInputs::add);
+            windowFunction.getFrame().getSortKeyCoercedForFrameEndComparison().ifPresent(referencedInputs::add);
         }
 
         PlanNode prunedWindowNode = new WindowNode(
