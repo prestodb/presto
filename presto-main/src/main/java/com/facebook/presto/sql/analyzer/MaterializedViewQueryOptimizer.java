@@ -353,7 +353,7 @@ public class MaterializedViewQueryOptimizer
                 new Analysis(null, new ArrayList<>(), false),
                 expression,
                 WarningCollector.NOOP);
-        return SqlToRowExpressionTranslator.translate(
+        return SqlToRowExpressionTranslator.translateWithUnboundedVarcharType(
                 expression,
                 expressionAnalysis.getExpressionTypes(),
                 ImmutableMap.of(),

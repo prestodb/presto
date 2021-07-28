@@ -742,9 +742,8 @@ public class TestMaterializedViewQueryOptimizer
         assertOptimizedQuery(originalViewSql, baseQuerySql, expectedRewrittenSql);
     }
 
-    // Mismatch Domain Type Problem: https://github.com/prestodb/presto/issues/16530
-    @Test(enabled = false)
-    public void testFilterContainmentWithMismatchStringLength()
+    @Test
+    public void testFilterContainmentWithDifferentStringLength()
     {
         String originalViewSql = format("SELECT a, b FROM %s WHERE b <> 'banana'", BASE_TABLE_6);
         String baseQuerySql = format("SELECT a, b FROM %s WHERE b = 'apple'", BASE_TABLE_6);

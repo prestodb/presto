@@ -109,6 +109,7 @@ import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.TypeUtils.isEnumType;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.metadata.CastType.TRY_CAST;
@@ -180,6 +181,47 @@ public final class SqlToRowExpressionTranslator
             Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions)
     {
         Visitor visitor = new Visitor(
+                types,
+                layout,
+                functionAndTypeManager,
+                user,
+                transactionId,
+                sqlFunctionProperties,
+                sessionFunctions);
+        RowExpression result = visitor.process(expression, null);
+        requireNonNull(result, "translated expression is null");
+        return result;
+    }
+
+    public static RowExpression translateWithUnboundedVarcharType(
+            Expression expression,
+            Map<NodeRef<Expression>, Type> types,
+            Map<VariableReferenceExpression, Integer> layout,
+            FunctionAndTypeManager functionAndTypeManager,
+            Session session)
+    {
+        return translateWithUnboundedVarcharType(
+                expression,
+                types,
+                layout,
+                functionAndTypeManager,
+                Optional.of(session.getUser()),
+                session.getTransactionId(),
+                session.getSqlFunctionProperties(),
+                session.getSessionFunctions());
+    }
+
+    public static RowExpression translateWithUnboundedVarcharType(
+            Expression expression,
+            Map<NodeRef<Expression>, Type> types,
+            Map<VariableReferenceExpression, Integer> layout,
+            FunctionAndTypeManager functionAndTypeManager,
+            Optional<String> user,
+            Optional<TransactionId> transactionId,
+            SqlFunctionProperties sqlFunctionProperties,
+            Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions)
+    {
+        UnboundedVarcharTypeTranslator visitor = new UnboundedVarcharTypeTranslator(
                 types,
                 layout,
                 functionAndTypeManager,
@@ -803,6 +845,28 @@ public final class SqlToRowExpressionTranslator
                     .collect(toImmutableList());
             Type returnType = getType(node);
             return specialForm(ROW_CONSTRUCTOR, returnType, arguments);
+        }
+    }
+
+    private static class UnboundedVarcharTypeTranslator
+            extends Visitor
+    {
+        private UnboundedVarcharTypeTranslator(
+                Map<NodeRef<Expression>, Type> types,
+                Map<VariableReferenceExpression, Integer> layout,
+                FunctionAndTypeManager functionAndTypeManager,
+                Optional<String> user,
+                Optional<TransactionId> transactionId,
+                SqlFunctionProperties sqlFunctionProperties,
+                Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions)
+        {
+            super(types, layout, functionAndTypeManager, user, transactionId, sqlFunctionProperties, sessionFunctions);
+        }
+
+        @Override
+        protected RowExpression visitStringLiteral(StringLiteral node, Void context)
+        {
+            return constant(node.getSlice(), createUnboundedVarcharType());
         }
     }
 }
