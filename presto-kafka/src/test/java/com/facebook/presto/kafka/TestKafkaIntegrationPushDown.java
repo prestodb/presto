@@ -60,7 +60,7 @@ public class TestKafkaIntegrationPushDown
 
     @Override
     protected QueryRunner createQueryRunner()
-        throws Exception
+            throws Exception
     {
         return createKafkaQueryRunner();
     }

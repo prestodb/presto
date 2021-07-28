@@ -20,12 +20,13 @@ import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import java.io.IOException;
-import java.util.List;
-import java.util.stream.Collectors;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
+
+import java.io.IOException;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.kafka.util.EmbeddedKafka.createEmbeddedKafka;
 import static com.facebook.presto.testing.TestngUtils.toDataProvider;
