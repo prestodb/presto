@@ -48,6 +48,7 @@ import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
+import com.facebook.presto.sql.planner.plan.HdfsWriterNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
@@ -337,6 +338,13 @@ public class PushdownSubfields
 
         @Override
         public PlanNode visitTableWriter(TableWriterNode node, RewriteContext<Context> context)
+        {
+            context.get().variables.addAll(node.getColumns());
+            return context.defaultRewrite(node, context.get());
+        }
+
+        @Override
+        public PlanNode visitHdfsWriter(HdfsWriterNode node, RewriteContext<Context> context)
         {
             context.get().variables.addAll(node.getColumns());
             return context.defaultRewrite(node, context.get());

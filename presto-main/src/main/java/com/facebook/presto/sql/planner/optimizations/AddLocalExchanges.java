@@ -39,6 +39,8 @@ import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
+import com.facebook.presto.sql.planner.plan.HdfsFinishNode;
+import com.facebook.presto.sql.planner.plan.HdfsWriterNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -218,6 +220,12 @@ public class AddLocalExchanges
         {
             // table commit requires that all data be in one stream
             // this node changes the input organization completely, so we do not pass through parent preferences
+            return planAndEnforceChildren(node, singleStream(), defaultParallelism(session));
+        }
+
+        @Override
+        public PlanWithProperties visitHdfsFinish(HdfsFinishNode node, StreamPreferredProperties parentPreferences)
+        {
             return planAndEnforceChildren(node, singleStream(), defaultParallelism(session));
         }
 
@@ -479,6 +487,12 @@ public class AddLocalExchanges
             }
 
             return planAndEnforceChildren(node, requiredProperties, requiredProperties);
+        }
+
+        @Override
+        public PlanWithProperties visitHdfsWriter(HdfsWriterNode originalHdfsWriterNode, StreamPreferredProperties parentPreferences)
+        {
+            return planAndEnforceChildren(originalHdfsWriterNode, fixedParallelism(), fixedParallelism());
         }
 
         //

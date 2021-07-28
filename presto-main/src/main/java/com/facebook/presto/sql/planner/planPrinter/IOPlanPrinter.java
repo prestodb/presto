@@ -35,6 +35,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.HdfsFinishNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
@@ -489,6 +490,12 @@ public class IOPlanPrinter
                     writerTarget.getConnectorId().getCatalogName(),
                     writerTarget.getSchemaTableName().getSchemaName(),
                     writerTarget.getSchemaTableName().getTableName()));
+            return processChildren(node, context);
+        }
+
+        @Override
+        public Void visitHdfsFinish(HdfsFinishNode node, IOPlanBuilder context)
+        {
             return processChildren(node, context);
         }
 

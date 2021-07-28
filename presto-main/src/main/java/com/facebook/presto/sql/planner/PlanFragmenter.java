@@ -56,6 +56,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
+import com.facebook.presto.sql.planner.plan.HdfsWriterNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
@@ -491,6 +492,12 @@ public class PlanFragmenter
             if (node.getPreferredShufflePartitioningScheme().isPresent()) {
                 context.get().setDistribution(node.getPreferredShufflePartitioningScheme().get().getPartitioning().getHandle(), metadata, session);
             }
+            return context.defaultRewrite(node, context.get());
+        }
+
+        @Override
+        public PlanNode visitHdfsWriter(HdfsWriterNode node, RewriteContext<FragmentProperties> context)
+        {
             return context.defaultRewrite(node, context.get());
         }
 
@@ -1138,6 +1145,19 @@ public class PlanFragmenter
             else {
                 recoveryEligible = false;
             }
+            return new GroupedExecutionProperties(
+                    properties.isCurrentNodeCapable(),
+                    properties.isSubTreeUseful(),
+                    properties.getCapableTableScanNodes(),
+                    properties.getTotalLifespans(),
+                    recoveryEligible);
+        }
+
+        @Override
+        public GroupedExecutionProperties visitHdfsWriter(HdfsWriterNode node, Void context)
+        {
+            GroupedExecutionProperties properties = node.getSource().accept(this, null);
+            boolean recoveryEligible = properties.isRecoveryEligible();
             return new GroupedExecutionProperties(
                     properties.isCurrentNodeCapable(),
                     properties.isSubTreeUseful(),

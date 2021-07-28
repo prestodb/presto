@@ -111,7 +111,7 @@ public class HiveTypeTranslator
             throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type: %s. Supported CHAR types: CHAR(<=%d).",
                     type, HiveChar.MAX_CHAR_LENGTH));
         }
-        if (VARBINARY.equals(type)) {
+        if (VARBINARY.equals(type) || type.getTypeSignature().getBase().equalsIgnoreCase("unknown")) {
             return HIVE_BINARY.getTypeInfo();
         }
         if (DATE.equals(type)) {

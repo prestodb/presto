@@ -24,6 +24,9 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Execute;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Identifier;
+import com.facebook.presto.sql.tree.InsertDirectory;
+import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.util.StatementUtils;
 import com.google.common.collect.ImmutableList;
@@ -34,7 +37,9 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.getInsertIntoHdfsPath;
 import static com.facebook.presto.SystemSessionProperties.getWarningHandlingLevel;
+import static com.facebook.presto.SystemSessionProperties.isInsertIntoHdfsEnabled;
 import static com.facebook.presto.SystemSessionProperties.isLogFormattedQueryEnabled;
 import static com.facebook.presto.execution.ParameterExtractor.getParameterCount;
 import static com.facebook.presto.execution.warnings.WarningHandlingLevel.AS_ERROR;
@@ -68,6 +73,12 @@ public class QueryPreparer
                             .map(PrestoWarning::getMessage)
                             .collect(joining(System.lineSeparator()))));
         }
+        if (isInsertIntoHdfsEnabled(session)) {
+            String hdfsPath = getInsertIntoHdfsPath(session);
+            if (hdfsPath != null) {
+                wrappedStatement = addInsertDirectoryNode(wrappedStatement, hdfsPath);
+            }
+        }
         return prepareQuery(session, wrappedStatement, warningCollector);
     }
 
@@ -92,6 +103,14 @@ public class QueryPreparer
             formattedQuery = Optional.of(getFormattedQuery(statement, parameters));
         }
         return new PreparedQuery(statement, parameters, formattedQuery);
+    }
+
+    private Statement addInsertDirectoryNode(Statement statement, String path)
+    {
+        if (statement instanceof Query) {
+            statement = new InsertDirectory(new Identifier(path), (Query) statement);
+        }
+        return statement;
     }
 
     private static String getFormattedQuery(Statement statement, List<Expression> parameters)

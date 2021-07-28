@@ -16,8 +16,10 @@ package com.facebook.presto.hive;
 import com.facebook.airlift.event.client.EventClient;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.smile.SmileCodec;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.HivePageSinkMetadata;
 import com.facebook.presto.hive.metastore.HivePageSinkMetadataProvider;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.SortingColumn;
@@ -29,9 +31,11 @@ import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSinkContext;
 import com.facebook.presto.spi.PageSorter;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorMetadataUpdater;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -44,8 +48,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.HiveType.toHiveType;
+import static com.facebook.presto.hive.LocationHandle.TableType.NEW;
+import static com.facebook.presto.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_NEW_DIRECTORY;
 import static com.facebook.presto.hive.metastore.CachingHiveMetastore.memoizeMetastore;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
@@ -76,6 +86,11 @@ public class HivePageSinkProvider
     private final OrcFileWriterFactory orcFileWriterFactory;
     private final long perTransactionMetastoreCacheMaximumSize;
     private final boolean metastoreImpersonationEnabled;
+
+    private static final String FAKE_SCHEMA_NAME = "fake_schema_name";
+    private static final String FAKE_TABLE_NAME = "fake_table_name";
+    private static final String FAKE_TABLE_OWNER = "fake_table_owner";
+    private static final String PARQUET_FILE_PREFIX = "part";
 
     @Inject
     public HivePageSinkProvider(
@@ -128,6 +143,42 @@ public class HivePageSinkProvider
         Optional<ConnectorMetadataUpdater> hiveMetadataUpdater = pageSinkContext.getMetadataUpdater();
         checkArgument(hiveMetadataUpdater.isPresent(), "Metadata Updater for HivePageSink is null");
         return createPageSink(handle, true, session, (HiveMetadataUpdater) hiveMetadataUpdater.get(), pageSinkContext.isCommitRequired(), handle.getAdditionalTableParameters());
+    }
+
+    @Override
+    public ConnectorPageSink createPageSink(ConnectorSession session, String path, List<String> columnsNames, List<Type> columnTypes, PageSinkContext pageSinkContext)
+    {
+        LocationHandle locationHandle = new LocationHandle(path, path, Optional.empty(), NEW, DIRECT_TO_TARGET_NEW_DIRECTORY);
+        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource());
+        HiveOutputTableHandle handle = new HiveOutputTableHandle(
+                FAKE_SCHEMA_NAME,
+                FAKE_TABLE_NAME,
+                getColumnHandles(columnsNames, columnTypes),
+                PARQUET_FILE_PREFIX,
+                new HivePageSinkMetadata(new SchemaTableName(FAKE_SCHEMA_NAME, FAKE_TABLE_NAME), metastore.getTable(metastoreContext, FAKE_SCHEMA_NAME, FAKE_TABLE_NAME), ImmutableMap.of()),
+                locationHandle,
+                HiveStorageFormat.PARQUET,
+                HiveStorageFormat.PARQUET,
+                HiveStorageFormat.PARQUET,
+                HiveCompressionCodec.GZIP,
+                ImmutableList.of(),
+                Optional.empty(),
+                ImmutableList.of(),
+                FAKE_TABLE_OWNER,
+                ImmutableMap.of(),
+                Optional.empty());
+        Optional<ConnectorMetadataUpdater> hiveMetadataUpdater = pageSinkContext.getMetadataUpdater();
+        checkArgument(hiveMetadataUpdater.isPresent(), "Metadata Updater for HivePageSink is null");
+        return createPageSink(handle, true, session, (HiveMetadataUpdater) hiveMetadataUpdater.get(), pageSinkContext.isCommitRequired(), ImmutableMap.of());
+    }
+
+    private List<HiveColumnHandle> getColumnHandles(List<String> columnsNames, List<Type> columnTypes)
+    {
+        HiveTypeTranslator typeTranslator = new HiveTypeTranslator();
+        return IntStream.range(0, columnsNames.size()).mapToObj(i -> {
+            HiveType hiveType = toHiveType(typeTranslator, columnTypes.get(i));
+            return new HiveColumnHandle(columnsNames.get(i), hiveType, hiveType.getTypeSignature(), i, REGULAR, Optional.empty(), Optional.empty());
+        }).collect(Collectors.toList());
     }
 
     @Override

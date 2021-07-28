@@ -45,6 +45,8 @@ import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
+import com.facebook.presto.sql.planner.plan.HdfsFinishNode;
+import com.facebook.presto.sql.planner.plan.HdfsWriterNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -714,6 +716,21 @@ public class PruneUnreferencedOutputs
         }
 
         @Override
+        public PlanNode visitHdfsWriter(HdfsWriterNode node, RewriteContext<Set<VariableReferenceExpression>> context)
+        {
+            ImmutableSet.Builder<VariableReferenceExpression> expectedInputs = ImmutableSet.<VariableReferenceExpression>builder()
+                    .addAll(node.getColumns());
+            PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
+            return new HdfsWriterNode(
+                    node.getId(),
+                    source,
+                    node.getPath(),
+                    node.getColumns(),
+                    node.getColumnNames(),
+                    node.getRowCountVariable());
+        }
+
+        @Override
         public PlanNode visitTableWriteMerge(TableWriterMergeNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
             PlanNode source = context.rewrite(node.getSource(), ImmutableSet.copyOf(node.getSource().getOutputVariables()));
@@ -750,6 +767,18 @@ public class PruneUnreferencedOutputs
                     node.getRowCountVariable(),
                     node.getStatisticsAggregation(),
                     node.getStatisticsAggregationDescriptor());
+        }
+
+        @Override
+        public PlanNode visitHdfsFinish(HdfsFinishNode node, RewriteContext<Set<VariableReferenceExpression>> context)
+        {
+            PlanNode source = context.rewrite(node.getSource(), ImmutableSet.copyOf(node.getSource().getOutputVariables()));
+            return new HdfsFinishNode(
+                    node.getId(),
+                    source,
+                    node.getSchema(),
+                    node.getSchemaVariable(),
+                    node.getRowCountVariable());
         }
 
         @Override

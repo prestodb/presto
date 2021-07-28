@@ -57,6 +57,7 @@ import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode.Scope;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
+import com.facebook.presto.sql.planner.plan.HdfsFinishNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
@@ -711,6 +712,33 @@ public class AddExchanges
 
             ExchangeNode gather;
             // in case the input is a union (see PushTableWriteThroughUnion), don't add another exchange
+            if (child instanceof ExchangeNode) {
+                ExchangeNode exchangeNode = (ExchangeNode) child;
+                gather = new ExchangeNode(
+                        idAllocator.getNextId(),
+                        GATHER,
+                        REMOTE_STREAMING,
+                        new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), exchangeNode.getOutputVariables()),
+                        exchangeNode.getSources(),
+                        exchangeNode.getInputs(),
+                        true,
+                        Optional.empty());
+            }
+            else {
+                gather = ensureSourceOrderingGatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, child);
+            }
+
+            return withDerivedProperties(
+                    ChildReplacer.replaceChildren(node, ImmutableList.of(gather)),
+                    ImmutableList.of());
+        }
+
+        @Override
+        public PlanWithProperties visitHdfsFinish(HdfsFinishNode node, PreferredProperties context)
+        {
+            PlanNode child = planChild(node, PreferredProperties.any()).getNode();
+            ExchangeNode gather;
+
             if (child instanceof ExchangeNode) {
                 ExchangeNode exchangeNode = (ExchangeNode) child;
                 gather = new ExchangeNode(

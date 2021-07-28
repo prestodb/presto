@@ -199,6 +199,8 @@ public final class SystemSessionProperties
     public static final String VERBOSE_EXCEEDED_MEMORY_LIMIT_ERRORS_ENABLED = "verbose_exceeded_memory_limit_errors_enabled";
     public static final String MATERIALIZED_VIEW_DATA_CONSISTENCY_ENABLED = "materialized_view_data_consistency_enabled";
     public static final String QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED = "query_optimization_with_materialized_view_enabled";
+    public static final String INSERT_INTO_HDFS_ENABLED = "insert_into_hdfs_enabled";
+    public static final String INSERT_INTO_HDFS_PATH = "insert_into_hdfs_path";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1066,6 +1068,16 @@ public final class SystemSessionProperties
                         QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED,
                         "Enable query optimization with materialized view",
                         featuresConfig.isQueryOptimizationWithMaterializedViewEnabled(),
+                        true),
+                booleanProperty(
+                        INSERT_INTO_HDFS_ENABLED,
+                        "Enable sink to query result to hdfs",
+                        false,
+                        true),
+                stringProperty(
+                        INSERT_INTO_HDFS_PATH,
+                        "Path of insert into Hdfs",
+                        null,
                         true));
     }
 
@@ -1800,5 +1812,15 @@ public final class SystemSessionProperties
     public static boolean isQueryOptimizationWithMaterializedViewEnabled(Session session)
     {
         return session.getSystemProperty(QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED, Boolean.class);
+    }
+
+    public static boolean isInsertIntoHdfsEnabled(Session session)
+    {
+        return session.getSystemProperty(INSERT_INTO_HDFS_ENABLED, Boolean.class);
+    }
+
+    public static String getInsertIntoHdfsPath(Session session)
+    {
+        return session.getSystemProperty(INSERT_INTO_HDFS_PATH, String.class);
     }
 }

@@ -44,6 +44,8 @@ import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
+import com.facebook.presto.sql.planner.plan.HdfsFinishNode;
+import com.facebook.presto.sql.planner.plan.HdfsWriterNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
@@ -584,6 +586,15 @@ public final class ValidateDependenciesChecker
         }
 
         @Override
+        public Void visitHdfsWriter(HdfsWriterNode node, Set<VariableReferenceExpression> boundVariables)
+        {
+            PlanNode source = node.getSource();
+            source.accept(this, boundVariables); // visit child
+
+            return null;
+        }
+
+        @Override
         public Void visitTableWriteMerge(TableWriterMergeNode node, Set<VariableReferenceExpression> boundVariables)
         {
             PlanNode source = node.getSource();
@@ -627,6 +638,14 @@ public final class ValidateDependenciesChecker
 
         @Override
         public Void visitTableFinish(TableFinishNode node, Set<VariableReferenceExpression> boundVariables)
+        {
+            node.getSource().accept(this, boundVariables); // visit child
+
+            return null;
+        }
+
+        @Override
+        public Void visitHdfsFinish(HdfsFinishNode node, Set<VariableReferenceExpression> boundVariables)
         {
             node.getSource().accept(this, boundVariables); // visit child
 

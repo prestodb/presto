@@ -51,6 +51,8 @@ import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
+import com.facebook.presto.sql.planner.plan.HdfsFinishNode;
+import com.facebook.presto.sql.planner.plan.HdfsWriterNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -428,6 +430,14 @@ public class UnaliasSymbolReferences
         }
 
         @Override
+        public PlanNode visitHdfsFinish(HdfsFinishNode node, RewriteContext<Void> context)
+        {
+            PlanNode source = context.rewrite(node.getSource());
+            SymbolMapper mapper = new SymbolMapper(mapping, types, warningCollector);
+            return mapper.map(node, source);
+        }
+
+        @Override
         public PlanNode visitRowNumber(RowNumberNode node, RewriteContext<Void> context)
         {
             return new RowNumberNode(node.getId(), context.rewrite(node.getSource()), canonicalizeAndDistinct(node.getPartitionBy()), canonicalize(node.getRowNumberVariable()), node.getMaxRowCountPerPartition(), canonicalize(node.getHashVariable()));
@@ -639,6 +649,14 @@ public class UnaliasSymbolReferences
 
         @Override
         public PlanNode visitTableWriteMerge(TableWriterMergeNode node, RewriteContext<Void> context)
+        {
+            PlanNode source = context.rewrite(node.getSource());
+            SymbolMapper mapper = new SymbolMapper(mapping, types, warningCollector);
+            return mapper.map(node, source);
+        }
+
+        @Override
+        public PlanNode visitHdfsWriter(HdfsWriterNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
             SymbolMapper mapper = new SymbolMapper(mapping, types, warningCollector);

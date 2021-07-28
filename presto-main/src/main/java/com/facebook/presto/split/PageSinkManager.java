@@ -14,6 +14,7 @@
 package com.facebook.presto.split;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.InsertTableHandle;
 import com.facebook.presto.metadata.OutputTableHandle;
 import com.facebook.presto.spi.ConnectorId;
@@ -22,6 +23,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PageSinkContext;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -60,6 +62,13 @@ public class PageSinkManager
         // assumes connectorId and catalog are the same
         ConnectorSession connectorSession = session.toConnectorSession(tableHandle.getConnectorId());
         return providerFor(tableHandle.getConnectorId()).createPageSink(tableHandle.getTransactionHandle(), connectorSession, tableHandle.getConnectorHandle(), pageSinkContext);
+    }
+
+    public ConnectorPageSink createPageSink(Session session, String path, List<String> columnNames, List<Type> columnTypes, PageSinkContext pageSinkContext)
+    {
+        ConnectorId connectorId = new ConnectorId("lf_hl_hive");
+        ConnectorSession connectorSession = session.toConnectorSession(connectorId);
+        return providerFor(connectorId).createPageSink(connectorSession, path, columnNames, columnTypes, pageSinkContext);
     }
 
     private ConnectorPageSinkProvider providerFor(ConnectorId connectorId)

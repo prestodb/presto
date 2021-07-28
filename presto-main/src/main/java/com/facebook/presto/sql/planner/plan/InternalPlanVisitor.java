@@ -105,6 +105,16 @@ public abstract class InternalPlanVisitor<R, C>
         return visitPlan(node, context);
     }
 
+    public R visitHdfsWriter(HdfsWriterNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitHdfsFinish(HdfsFinishNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
     public R visitStatisticsWriterNode(StatisticsWriterNode node, C context)
     {
         return visitPlan(node, context);

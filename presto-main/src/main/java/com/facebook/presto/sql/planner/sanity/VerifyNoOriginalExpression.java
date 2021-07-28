@@ -26,6 +26,8 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.SimplePlanVisitor;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
+import com.facebook.presto.sql.planner.plan.HdfsFinishNode;
+import com.facebook.presto.sql.planner.plan.HdfsWriterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticAggregations;
@@ -139,6 +141,20 @@ public class VerifyNoOriginalExpression
             visitPlan(node, context);
 
             checkStatisticsAggregation(node.getStatisticsAggregation());
+            return null;
+        }
+
+        @Override
+        public Void visitHdfsWriter(HdfsWriterNode node, Void context)
+        {
+            visitPlan(node, context);
+            return null;
+        }
+
+        @Override
+        public Void visitHdfsFinish(HdfsFinishNode node, Void context)
+        {
+            visitPlan(node, context);
             return null;
         }
 

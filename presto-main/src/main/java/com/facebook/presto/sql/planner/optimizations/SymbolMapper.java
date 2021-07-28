@@ -32,6 +32,8 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.planner.plan.HdfsFinishNode;
+import com.facebook.presto.sql.planner.plan.HdfsWriterNode;
 import com.facebook.presto.sql.planner.plan.StatisticAggregations;
 import com.facebook.presto.sql.planner.plan.StatisticAggregationsDescriptor;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
@@ -255,6 +257,14 @@ public class SymbolMapper
                 node.getStatisticsAggregation().map(this::map));
     }
 
+    public HdfsWriterNode map(HdfsWriterNode node, PlanNode source)
+    {
+        ImmutableList<VariableReferenceExpression> columns = node.getColumns().stream()
+                .map(this::map)
+                .collect(toImmutableList());
+        return new HdfsWriterNode(node.getId(), source, node.getPath(), columns, node.getColumnNames(), node.getRowCountVariable());
+    }
+
     public StatisticsWriterNode map(StatisticsWriterNode node, PlanNode source)
     {
         return new StatisticsWriterNode(
@@ -275,6 +285,16 @@ public class SymbolMapper
                 map(node.getRowCountVariable()),
                 node.getStatisticsAggregation().map(this::map),
                 node.getStatisticsAggregationDescriptor().map(descriptor -> descriptor.map(this::map)));
+    }
+
+    public HdfsFinishNode map(HdfsFinishNode node, PlanNode source)
+    {
+        return new HdfsFinishNode(
+                node.getId(),
+                source,
+                node.getSchema(),
+                node.getSchemaVariable().map(this::map),
+                map(node.getRowCountVariable()));
     }
 
     public TableWriterMergeNode map(TableWriterMergeNode node, PlanNode source)

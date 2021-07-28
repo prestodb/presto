@@ -41,6 +41,7 @@ import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionKind;
@@ -97,6 +98,7 @@ import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.GroupingSets;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.Insert;
+import com.facebook.presto.sql.tree.InsertDirectory;
 import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.Join;
@@ -522,6 +524,23 @@ class StatementAnalyzer
                     }
                 }
             }
+        }
+
+        @Override
+        protected Scope visitInsertDirectory(InsertDirectory node, Optional<Scope> scope)
+        {
+            Scope queryScope = process(node.getQuery(), scope);
+            Set<String> columnNames = new HashSet<>();
+            queryScope.getRelationType().getVisibleFields().stream()
+                    .map(Field::getName)
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    .forEach(name -> {
+                        if (!columnNames.add(name)) {
+                            throw new PrestoException(StandardErrorCode.NOT_SUPPORTED, "Unsupported to write duplicate column name: " + name);
+                        }
+                    });
+            return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
         }
 
         @Override

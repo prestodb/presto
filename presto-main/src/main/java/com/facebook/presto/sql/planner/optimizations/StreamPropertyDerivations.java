@@ -40,6 +40,8 @@ import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
+import com.facebook.presto.sql.planner.plan.HdfsFinishNode;
+import com.facebook.presto.sql.planner.plan.HdfsWriterNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
@@ -406,6 +408,14 @@ public final class StreamPropertyDerivations
         }
 
         @Override
+        public StreamProperties visitHdfsFinish(HdfsFinishNode node, List<StreamProperties> inputProperties)
+        {
+            StreamProperties properties = Iterables.getOnlyElement(inputProperties);
+            // table finish only outputs the row count
+            return properties.withUnspecifiedPartitioning();
+        }
+
+        @Override
         public StreamProperties visitDelete(DeleteNode node, List<StreamProperties> inputProperties)
         {
             StreamProperties properties = Iterables.getOnlyElement(inputProperties);
@@ -418,6 +428,14 @@ public final class StreamPropertyDerivations
         {
             StreamProperties properties = Iterables.getOnlyElement(inputProperties);
             // table writer only outputs the row count
+            return properties.withUnspecifiedPartitioning();
+        }
+
+        @Override
+        public StreamProperties visitHdfsWriter(HdfsWriterNode node, List<StreamProperties> inputProperties)
+        {
+            StreamProperties properties = Iterables.getOnlyElement(inputProperties);
+            // hdfs writer only outputs the row count
             return properties.withUnspecifiedPartitioning();
         }
 

@@ -68,6 +68,8 @@ import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
+import com.facebook.presto.sql.planner.plan.HdfsFinishNode;
+import com.facebook.presto.sql.planner.plan.HdfsWriterNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
@@ -1047,6 +1049,18 @@ public class PlanPrinter
         }
 
         @Override
+        public Void visitHdfsWriter(HdfsWriterNode node, Void context)
+        {
+            NodeRepresentation nodeOutput = addNode(node, "HdfsWriter");
+            for (int i = 0; i < node.getColumnNames().size(); i++) {
+                String name = node.getColumnNames().get(i);
+                VariableReferenceExpression variable = node.getColumns().get(i);
+                nodeOutput.appendDetailsLine("%s := %s", name, variable);
+            }
+            return processChildren(node, context);
+        }
+
+        @Override
         public Void visitTableWriteMerge(TableWriterMergeNode node, Void context)
         {
             addNode(node, "TableWriterMerge");
@@ -1064,6 +1078,13 @@ public class PlanPrinter
         public Void visitTableFinish(TableFinishNode node, Void context)
         {
             addNode(node, "TableCommit", format("[%s]", node.getTarget()));
+            return processChildren(node, context);
+        }
+
+        @Override
+        public Void visitHdfsFinish(HdfsFinishNode node, Void context)
+        {
+            addNode(node, "HdfsFinish");
             return processChildren(node, context);
         }
 

@@ -58,6 +58,8 @@ import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.DynamicFilterSourceOperator;
 import com.facebook.presto.operator.EnforceSingleRowOperator;
 import com.facebook.presto.operator.ExplainAnalyzeOperator.ExplainAnalyzeOperatorFactory;
+import com.facebook.presto.operator.FileCommitOperator;
+import com.facebook.presto.operator.FileWriterOperator;
 import com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory;
 import com.facebook.presto.operator.FragmentResultCacheManager;
 import com.facebook.presto.operator.GroupIdOperator;
@@ -181,6 +183,8 @@ import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
+import com.facebook.presto.sql.planner.plan.HdfsFinishNode;
+import com.facebook.presto.sql.planner.plan.HdfsWriterNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
@@ -2580,6 +2584,42 @@ public class LocalExecutionPlanner
                 return TASK_COMMIT;
             }
             return NO_COMMIT;
+        }
+
+        @Override
+        public PhysicalOperation visitHdfsWriter(HdfsWriterNode node, LocalExecutionPlanContext context)
+        {
+            context.setDriverInstanceCount(getTaskWriterCount(session));
+            PhysicalOperation source = node.getSource().accept(this, context);
+            Function<Page, Page> pagePreprocessor = enforceLayoutProcessor(node.getColumns(), source.getLayout());
+            OperatorFactory operatorFactory = new FileWriterOperator.FileWriterOperatorFactory(
+                    context.getNextOperatorId(),
+                    node.getId(),
+                    pageSinkManager,
+                    session,
+                    node.getPath(),
+                    node.getColumnNames(),
+                    node.getColumns().stream().map(VariableReferenceExpression::getType).collect(Collectors.toList()),
+                    pagePreprocessor);
+            Map<VariableReferenceExpression, Integer> layout = ImmutableMap.of(node.getRowCountVariable(), 0);
+            return new PhysicalOperation(operatorFactory, layout, context, source);
+        }
+
+        @Override
+        public PhysicalOperation visitHdfsFinish(HdfsFinishNode node, LocalExecutionPlanContext context)
+        {
+            PhysicalOperation source = node.getSource().accept(this, context);
+            OperatorFactory fileFinishOperatorFactory = new FileCommitOperator.FileFinishOperatorFactory(
+                    context.getNextOperatorId(),
+                    node.getId(),
+                    node.getSchema(),
+                    session);
+            ImmutableMap.Builder<VariableReferenceExpression, Integer> outputMapping = ImmutableMap.builder();
+            outputMapping.put(node.getRowCountVariable(), 0);
+            if (node.getSchemaVariable().isPresent()) {
+                outputMapping.put(node.getSchemaVariable().get(), 1);
+            }
+            return new PhysicalOperation(fileFinishOperatorFactory, outputMapping.build(), context, source);
         }
 
         @Override

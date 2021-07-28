@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.connector.classloader;
 
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
@@ -21,6 +22,8 @@ import com.facebook.presto.spi.PageSinkContext;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+
+import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
@@ -49,6 +52,14 @@ public final class ClassLoaderSafeConnectorPageSinkProvider
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return new ClassLoaderSafeConnectorPageSink(delegate.createPageSink(transactionHandle, session, insertTableHandle, pageSinkContext), classLoader);
+        }
+    }
+
+    @Override
+    public ConnectorPageSink createPageSink(ConnectorSession session, String path, List<String> columnsNames, List<Type> columnTypes, PageSinkContext pageSinkContext)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return new ClassLoaderSafeConnectorPageSink(delegate.createPageSink(session, path, columnsNames, columnTypes, pageSinkContext), classLoader);
         }
     }
 }

@@ -55,6 +55,8 @@ import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
+import com.facebook.presto.sql.planner.plan.HdfsFinishNode;
+import com.facebook.presto.sql.planner.plan.HdfsWriterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
@@ -72,6 +74,7 @@ import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.Insert;
+import com.facebook.presto.sql.tree.InsertDirectory;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.NullLiteral;
@@ -91,6 +94,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.isPrintStatsForNonJoinQuery;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -225,6 +230,10 @@ public class LogicalPlanner
                     ImmutableList.of(variable),
                     ImmutableList.of(ImmutableList.of(constant(0L, BIGINT))));
             return new OutputNode(idAllocator.getNextId(), source, ImmutableList.of("rows"), ImmutableList.of(variable));
+        }
+        else if (statement instanceof InsertDirectory) {
+            RelationPlan plan = createInsertDirectoryPlan(analysis, (InsertDirectory) statement);
+            return new OutputNode(idAllocator.getNextId(), plan.getRoot(), ImmutableList.of("rows"), plan.getFieldMappings());
         }
         return createOutputPlan(planStatementWithoutOutput(analysis, statement), analysis);
     }
@@ -524,6 +533,30 @@ public class LogicalPlanner
                 variableAllocator.newVariable("rows", BIGINT),
                 Optional.empty(),
                 Optional.empty());
+        return new RelationPlan(commitNode, analysis.getRootScope(), commitNode.getOutputVariables());
+    }
+
+    private RelationPlan createInsertDirectoryPlan(Analysis analysis, InsertDirectory node)
+    {
+        RelationPlan plan = createRelationPlan(analysis, node.getQuery());
+        PlanNode source = plan.getRoot();
+        final AtomicLong index = new AtomicLong(0);
+        List<String> columnNames = plan.getDescriptor().getVisibleFields().stream().map(field -> field.getName().orElseGet(() -> "_col" + index.getAndIncrement())).collect(Collectors.toList());
+        HdfsWriterNode hdfsWriterNode = new HdfsWriterNode(
+                idAllocator.getNextId(),
+                source,
+                node.getPath().getValue(),
+                plan.getFieldMappings(),
+                columnNames,
+                variableAllocator.newVariable("rows", BIGINT));
+
+        HdfsFinishNode commitNode = new HdfsFinishNode(
+                idAllocator.getNextId(),
+                hdfsWriterNode,
+                Optional.empty(),
+                Optional.empty(),
+                variableAllocator.newVariable("rows", BIGINT));
+
         return new RelationPlan(commitNode, analysis.getRootScope(), commitNode.getOutputVariables());
     }
 
