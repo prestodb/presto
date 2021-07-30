@@ -83,6 +83,7 @@ public class TestKafkaIntegrationPushDown
                         .build())
                 .setExtraKafkaProperties(ImmutableMap.<String, String>builder()
                         .put("kafka.messages-per-split", "100")
+                        .put("kafka.hide-internal-columns", "false")
                         .build())
                 .build();
         embeddedKafka.createTopicWithConfig(2, 1, topicNamePartition, false);
@@ -113,12 +114,12 @@ public class TestKafkaIntegrationPushDown
     public void testOffsetPushDown()
     {
         createMessages(topicNameOffset);
-        assertProcessedInputPossitions(format("SELECT count(*) FROM default.%s WHERE _partition_offset between 2 and 10", topicNameOffset), 18);
-        assertProcessedInputPossitions(format("SELECT count(*) FROM default.%s WHERE _partition_offset > 2 and _partition_offset < 10", topicNameOffset), 14);
-        assertProcessedInputPossitions(format("SELECT count(*) FROM default.%s WHERE _partition_offset = 3", topicNameOffset), 2);
+        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _partition_offset between 2 and 10", topicNameOffset), 18);
+        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _partition_offset > 2 and _partition_offset < 10", topicNameOffset), 14);
+        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _partition_offset = 3", topicNameOffset), 2);
     }
 
-    private void assertProcessedInputPossitions(String sql, long expectedProcessedInputPositions)
+    private void assertProcessedInputPositions(String sql, long expectedProcessedInputPositions)
     {
         DistributedQueryRunner queryRunner = getDistributedQueryRunner();
         assertEventually(() -> {
@@ -180,6 +181,17 @@ public class TestKafkaIntegrationPushDown
         assertEventually(() -> {
             ResultWithQueryId<MaterializedResult> queryResult = queryRunner.executeWithQueryId(getSession(), sql);
             assertThat(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputPositions())
+                    .isEqualTo(2);
+        });
+
+        String selectWithTimestamp = format(
+                "SELECT _timestamp FROM default.%s WHERE _timestamp >= %d AND _timestamp < %d",
+                topicNameLogAppend,
+                recordMessage.startTime,
+                recordMessage.endTime);
+        assertEventually(() -> {
+            ResultWithQueryId<MaterializedResult> queryResult = queryRunner.executeWithQueryId(getSession(), selectWithTimestamp);
+            assertThat(queryResult.getResult().getRowCount())
                     .isEqualTo(2);
         });
     }

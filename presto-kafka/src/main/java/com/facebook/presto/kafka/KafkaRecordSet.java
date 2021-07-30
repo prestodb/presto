@@ -196,7 +196,6 @@ public class KafkaRecordSet
                             currentRowValuesMap.put(columnHandle, longValueProvider(keyData.length));
                             break;
                         case OFFSET_TIMESTAMP_FIELD:
-                            timeStamp = TimeUnit.SECONDS.toMillis(timeStamp);
                             currentRowValuesMap.put(columnHandle, longValueProvider(timeStamp));
                             break;
                         case KEY_CORRUPT_FIELD:
