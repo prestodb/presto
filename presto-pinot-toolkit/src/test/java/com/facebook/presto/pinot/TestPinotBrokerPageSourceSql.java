@@ -153,6 +153,12 @@ public class TestPinotBrokerPageSourceSql
                     "{ \"resultTable\": { \"dataSchema\": { \"columnDataTypes\": [\"BIGINT\"], \"columnNames\": [\"tag_nums\"] }, \"rows\": [ [[\"1\"]], [[\"1\", \"2\"]], [[\"3\", \"2\"]], [[\"0\"]], [[\"4\", \"5\", \"6\", \"7\"]], [[\"0\"]] ] }, \"exceptions\": [], \"numServersQueried\": 1, \"numServersResponded\": 1, \"numSegmentsQueried\": 1, \"numSegmentsProcessed\": 1, \"numSegmentsMatched\": 1, \"numConsumingSegmentsQueried\": 1, \"numDocsScanned\": 10, \"numEntriesScannedInFilter\": 0, \"numEntriesScannedPostFilter\": 100, \"numGroupsLimitReached\": false, \"totalDocs\": 1425, \"timeUsedMs\": 10, \"segmentStatistics\": [], \"traceInfo\": {}, \"minConsumingFreshnessTimeMs\": 1592910063563 }",
                     ImmutableList.of(array(BIGINT, "tag_nums")),
                     ImmutableList.of(0),
+                    Optional.empty()},
+                {
+                    "select group_country from meetupRsvp where group_country IN ('az')",
+                    "{ \"resultTable\": { \"dataSchema\": { \"columnNames\": [\"group_country\"], \"columnDataTypes\": [\"STRING\"] }, \"rows\": [] }, \"exceptions\": [], \"numServersQueried\": 1, \"numServersResponded\": 1, \"numSegmentsQueried\": 5, \"numSegmentsProcessed\": 4, \"numSegmentsMatched\": 4, \"numConsumingSegmentsQueried\": 1, \"numDocsScanned\": 67077, \"numEntriesScannedInFilter\": 0, \"numEntriesScannedPostFilter\": 67077, \"numGroupsLimitReached\": false, \"totalDocs\": 67077, \"timeUsedMs\": 44, \"segmentStatistics\": [], \"traceInfo\": {}, \"minConsumingFreshnessTimeMs\": 9223372036854775807 }",
+                    ImmutableList.of(groupCountry),
+                    ImmutableList.of(0),
                     Optional.empty()}
         };
     }
