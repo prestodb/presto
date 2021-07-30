@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
@@ -36,6 +37,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.SystemSessionProperties.isAggregationIfToFilterRewriteEnabled;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.or;
 import static com.facebook.presto.matching.Capture.newCapture;
@@ -65,6 +67,12 @@ public class RewriteAggregationIfToFilter
 
     private static final Pattern<AggregationNode> PATTERN = aggregation()
             .with(source().matching(project().capturedAs(CHILD)));
+
+    @Override
+    public boolean isEnabled(Session session)
+    {
+        return isAggregationIfToFilterRewriteEnabled(session);
+    }
 
     @Override
     public Pattern<AggregationNode> getPattern()
