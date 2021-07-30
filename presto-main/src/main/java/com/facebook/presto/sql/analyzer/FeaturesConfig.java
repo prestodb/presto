@@ -203,6 +203,7 @@ public class FeaturesConfig
     private boolean materializedViewDataConsistencyEnabled = true;
 
     private boolean queryOptimizationWithMaterializedViewEnabled;
+    private boolean aggregationIfToFilterRewriteEnabled = true;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -1784,6 +1785,19 @@ public class FeaturesConfig
     public FeaturesConfig setQueryOptimizationWithMaterializedViewEnabled(boolean value)
     {
         this.queryOptimizationWithMaterializedViewEnabled = value;
+        return this;
+    }
+
+    public boolean isAggregationIfToFilterRewriteEnabled()
+    {
+        return aggregationIfToFilterRewriteEnabled;
+    }
+
+    @Config("optimizer.aggregation-if-to-filter-rewrite-enabled")
+    @ConfigDescription("Enable rewriting the IF expression inside an aggregation function to a filter clause outside the aggregation")
+    public FeaturesConfig setAggregationIfToFilterRewriteEnabled(boolean value)
+    {
+        this.aggregationIfToFilterRewriteEnabled = value;
         return this;
     }
 }
