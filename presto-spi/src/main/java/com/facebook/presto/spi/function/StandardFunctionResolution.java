@@ -34,6 +34,10 @@ public interface StandardFunctionResolution
 
     boolean isLikeFunction(FunctionHandle functionHandle);
 
+    FunctionHandle likePatternFunction();
+
+    boolean isLikePatternFunction(FunctionHandle functionHandle);
+
     FunctionHandle arrayConstructor(List<? extends Type> argumentTypes);
 
     FunctionHandle arithmeticFunction(OperatorType operator, Type leftType, Type rightType);
