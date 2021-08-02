@@ -63,6 +63,9 @@ public class TestLogicalRowExpressions
     private static final RowExpression f = name("f");
     private static final RowExpression g = name("g");
     private static final RowExpression h = name("h");
+    private static final VariableReferenceExpression V_0 = variable("v0");
+    private static final VariableReferenceExpression V_1 = variable("v1");
+    private static final VariableReferenceExpression V_2 = variable("v2");
 
     @BeforeClass
     public void setup()
@@ -96,6 +99,18 @@ public class TestLogicalRowExpressions
     }
 
     @Test
+    public void testAndWithSubclassOfRowExpression()
+    {
+        assertEquals(
+                LogicalRowExpressions.and(V_0, V_1, V_2),
+                and(and(V_0, V_1), V_2));
+
+        assertEquals(
+                LogicalRowExpressions.and(ImmutableList.of(V_0, V_1, V_2)),
+                and(and(V_0, V_1), V_2));
+    }
+
+    @Test
     public void testOr()
     {
         assertEquals(
@@ -113,6 +128,18 @@ public class TestLogicalRowExpressions
         assertEquals(
                 extractPredicates(or(or(or(a, b), or(c, d)), e)),
                 ImmutableList.of(a, b, c, d, e));
+    }
+
+    @Test
+    public void testOrWithSubclassOfRowExpression()
+    {
+        assertEquals(
+                LogicalRowExpressions.or(V_0, V_1, V_2),
+                or(or(V_0, V_1), V_2));
+
+        assertEquals(
+                LogicalRowExpressions.or(ImmutableList.of(V_0, V_1, V_2)),
+                or(or(V_0, V_1), V_2));
     }
 
     @Test
@@ -498,6 +525,11 @@ public class TestLogicalRowExpressions
     }
 
     private static RowExpression name(String name)
+    {
+        return new VariableReferenceExpression(name, BOOLEAN);
+    }
+
+    private static VariableReferenceExpression variable(String name)
     {
         return new VariableReferenceExpression(name, BOOLEAN);
     }
