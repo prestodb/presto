@@ -122,7 +122,7 @@ public final class LogicalRowExpressions
         return and(asList(expressions));
     }
 
-    public static RowExpression and(Collection<RowExpression> expressions)
+    public static RowExpression and(Collection<? extends RowExpression> expressions)
     {
         return binaryExpression(AND, expressions);
     }
@@ -132,12 +132,12 @@ public final class LogicalRowExpressions
         return or(asList(expressions));
     }
 
-    public static RowExpression or(Collection<RowExpression> expressions)
+    public static RowExpression or(Collection<? extends RowExpression> expressions)
     {
         return binaryExpression(OR, expressions);
     }
 
-    public static RowExpression binaryExpression(Form form, Collection<RowExpression> expressions)
+    public static RowExpression binaryExpression(Form form, Collection<? extends RowExpression> expressions)
     {
         requireNonNull(form, "operator is null");
         requireNonNull(expressions, "expressions is null");
