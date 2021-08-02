@@ -21,12 +21,14 @@ import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.CastType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.planPrinter.RowExpressionFormatter;
 import com.facebook.presto.sql.relational.FunctionResolution;
+import com.facebook.presto.sql.relational.RowExpressionOptimizer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.BaseEncoding;
 import io.airlift.slice.Slice;
@@ -65,6 +67,7 @@ import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
+import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IS_NULL;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
@@ -72,6 +75,7 @@ import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.constantNull;
+import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.facebook.presto.type.ColorType.COLOR;
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
@@ -79,6 +83,7 @@ import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.floatToIntBits;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestRowExpressionFormatter
 {
@@ -88,6 +93,7 @@ public class TestRowExpressionFormatter
     private static final VariableReferenceExpression C_BIGINT = new VariableReferenceExpression("c_bigint", BIGINT);
     private static final VariableReferenceExpression C_BIGINT_ARRAY = new VariableReferenceExpression("c_bigint_array", new ArrayType(BIGINT));
     private static final VariableReferenceExpression C_VARCHAR = new VariableReferenceExpression("c_varchar", VARCHAR);
+    private static final RowExpressionOptimizer OPTIMIZER = new RowExpressionOptimizer(MetadataManager.createTestMetadataManager());
 
     @Test
     public void testConstants()
@@ -255,6 +261,9 @@ public class TestRowExpressionFormatter
                         constant(utf8Slice("prefix%"), VARCHAR)));
         assertEquals(format(callExpression), "c_varchar LIKE VARCHAR'prefix%'");
 
+        callExpression = OPTIMIZER.optimize(callExpression, OPTIMIZED, SESSION);
+        assertTrue(format(callExpression).startsWith("c_varchar LIKE LIKEPATTERN'io.airlift.joni.Regex@"));
+
         // like escape
         callExpression = call(
                 "LIKE",
@@ -268,6 +277,9 @@ public class TestRowExpressionFormatter
                         constant(utf8Slice("%escaped$_"), VARCHAR),
                         constant(utf8Slice("$"), VARCHAR)));
         assertEquals(format(callExpression), "c_varchar LIKE VARCHAR'%escaped$_' ESCAPE VARCHAR'$'");
+
+        callExpression = OPTIMIZER.optimize(callExpression, OPTIMIZED, SESSION);
+        assertTrue(format(callExpression).startsWith("c_varchar LIKE LIKEPATTERN'io.airlift.joni.Regex@"));
     }
 
     @Test
