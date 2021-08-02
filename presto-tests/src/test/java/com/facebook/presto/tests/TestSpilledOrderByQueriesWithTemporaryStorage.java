@@ -14,11 +14,15 @@
 
 package com.facebook.presto.tests;
 
+import com.facebook.presto.testing.QueryRunner;
+
 public class TestSpilledOrderByQueriesWithTemporaryStorage
         extends TestSpilledOrderByQueries
 {
-    public TestSpilledOrderByQueriesWithTemporaryStorage()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(TestDistributedSpilledQueriesWithTempStorage::createQueryRunner);
+        return TestDistributedSpilledQueriesWithTempStorage.localCreateQueryRunner();
     }
 }

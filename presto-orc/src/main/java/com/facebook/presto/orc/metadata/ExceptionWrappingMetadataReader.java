@@ -85,11 +85,11 @@ public class ExceptionWrappingMetadataReader
     }
 
     @Override
-    public StripeFooter readStripeFooter(List<OrcType> types, InputStream inputStream)
+    public StripeFooter readStripeFooter(OrcDataSourceId orcDataSourceId, List<OrcType> types, InputStream inputStream)
             throws IOException
     {
         try {
-            return delegate.readStripeFooter(types, inputStream);
+            return delegate.readStripeFooter(orcDataSourceId, types, inputStream);
         }
         catch (IOException e) {
             throw propagate(e, "Invalid stripe footer");

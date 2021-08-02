@@ -42,6 +42,7 @@ import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.SchemaTableName;
@@ -266,12 +267,6 @@ public class MetadataManager
     public Type getType(TypeSignature signature)
     {
         return functionAndTypeManager.getType(signature);
-    }
-
-    public List<SqlFunction> listFunctions(Session session)
-    {
-        // TODO: transactional when FunctionManager is made transactional
-        return functionAndTypeManager.listFunctions(session);
     }
 
     @Override
@@ -1073,6 +1068,35 @@ public class MetadataManager
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
         metadata.dropMaterializedView(session.toConnectorSession(connectorId), toSchemaTableName(viewName));
+    }
+
+    @Override
+    public MaterializedViewStatus getMaterializedViewStatus(Session session, QualifiedObjectName materializedViewName)
+    {
+        Optional<TableHandle> materializedViewHandle = getTableHandle(session, materializedViewName);
+
+        ConnectorId connectorId = materializedViewHandle.get().getConnectorId();
+        ConnectorMetadata metadata = getMetadata(session, connectorId);
+        return metadata.getMaterializedViewStatus(session.toConnectorSession(connectorId), toSchemaTableName(materializedViewName));
+    }
+
+    @Override
+    public InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle)
+    {
+        ConnectorId connectorId = tableHandle.getConnectorId();
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, connectorId);
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        ConnectorTransactionHandle transactionHandle = catalogMetadata.getTransactionHandleFor(connectorId);
+        ConnectorInsertTableHandle handle = metadata.beginRefreshMaterializedView(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle());
+        return new InsertTableHandle(tableHandle.getConnectorId(), transactionHandle, handle);
+    }
+
+    @Override
+    public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    {
+        ConnectorId connectorId = tableHandle.getConnectorId();
+        ConnectorMetadata metadata = getMetadata(session, connectorId);
+        return metadata.finishRefreshMaterializedView(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), fragments, computedStatistics);
     }
 
     @Override

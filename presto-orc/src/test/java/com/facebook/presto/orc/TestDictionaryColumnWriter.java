@@ -16,17 +16,12 @@ package com.facebook.presto.orc;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
-import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
-import com.facebook.presto.orc.metadata.CompressionKind;
-import com.facebook.presto.orc.metadata.CompressionParameters;
 import com.facebook.presto.orc.metadata.StripeFooter;
 import com.facebook.presto.orc.writer.DictionaryColumnWriter;
-import com.facebook.presto.orc.writer.SliceDictionaryColumnWriter;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
@@ -35,10 +30,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Random;
 import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
@@ -49,8 +42,6 @@ import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcTester.createCustomOrcSelectiveRecordReader;
 import static com.facebook.presto.orc.OrcTester.createOrcWriter;
-import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_MAX_COMPRESSION_BUFFER_SIZE;
-import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_MAX_STRING_STATISTICS_LIMIT;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY_V2;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
@@ -89,39 +80,13 @@ public class TestDictionaryColumnWriter
     }
 
     @Test
-    public void testStringDirectConversion()
-    {
-        CompressionParameters compressionParameters = new CompressionParameters(
-                CompressionKind.NONE,
-                OptionalInt.empty(),
-                toIntExact(DEFAULT_MAX_COMPRESSION_BUFFER_SIZE.toBytes()));
-        DictionaryColumnWriter writer = new SliceDictionaryColumnWriter(
-                0,
-                VARCHAR,
-                compressionParameters,
-                Optional.empty(),
-                ORC,
-                DEFAULT_MAX_STRING_STATISTICS_LIMIT,
-                ORC.createMetadataWriter());
-
-        // a single row group exceeds 2G after direct conversion
-        byte[] value = new byte[megabytes(1)];
-        ThreadLocalRandom.current().nextBytes(value);
-        Block data = RunLengthEncodedBlock.create(VARCHAR, Slices.wrappedBuffer(value), 3000);
-        writer.beginRowGroup();
-        writer.writeBlock(data);
-        writer.finishRowGroup();
-        assertFalse(writer.tryConvertToDirect(megabytes(64)).isPresent());
-    }
-
-    @Test
     public void testStringNoRows()
             throws Exception
     {
         List<String> values = ImmutableList.of();
-        for (OrcEncoding encoding : OrcEncoding.values()) {
+        for (StringDictionaryInput input : StringDictionaryInput.values()) {
             DirectConversionTester directConversionTester = new DirectConversionTester();
-            List<StripeFooter> stripeFooters = testStringDictionary(directConversionTester, encoding, values);
+            List<StripeFooter> stripeFooters = testStringDictionary(directConversionTester, input, values);
             assertEquals(stripeFooters.size(), getStripeSize(values.size()));
         }
     }
@@ -131,13 +96,13 @@ public class TestDictionaryColumnWriter
             throws Exception
     {
         List<String> values = newArrayList(limit(cycle(new String[] {null}), 90_000));
-        for (OrcEncoding encoding : OrcEncoding.values()) {
+        for (StringDictionaryInput input : StringDictionaryInput.values()) {
             DirectConversionTester directConversionTester = new DirectConversionTester();
             directConversionTester.add(7, megabytes(1), true);
             directConversionTester.add(14, megabytes(1), true);
             directConversionTester.add(32, megabytes(1), true);
-            List<StripeFooter> stripeFooters = testStringDictionary(directConversionTester, encoding, values);
-            verifyDirectEncoding(getStripeSize(values.size()), encoding, stripeFooters);
+            List<StripeFooter> stripeFooters = testStringDictionary(directConversionTester, input, values);
+            verifyDirectEncoding(getStripeSize(values.size()), input.getEncoding(), stripeFooters);
         }
     }
 
@@ -149,10 +114,10 @@ public class TestDictionaryColumnWriter
         for (int i = 0; i < 60_000; i++) {
             values.add(RANDOM.nextBoolean() ? null : UUID.randomUUID().toString());
         }
-        for (OrcEncoding encoding : OrcEncoding.values()) {
+        for (StringDictionaryInput input : StringDictionaryInput.values()) {
             DirectConversionTester directConversionTester = new DirectConversionTester();
-            List<StripeFooter> stripeFooters = testStringDictionary(directConversionTester, encoding, values);
-            verifyDirectEncoding(getStripeSize(values.size()), encoding, stripeFooters);
+            List<StripeFooter> stripeFooters = testStringDictionary(directConversionTester, input, values);
+            verifyDirectEncoding(getStripeSize(values.size()), input.getEncoding(), stripeFooters);
         }
     }
 
@@ -179,10 +144,10 @@ public class TestDictionaryColumnWriter
         Collections.shuffle(stripeValues);
         values.addAll(stripeValues);
 
-        for (OrcEncoding encoding : OrcEncoding.values()) {
+        for (StringDictionaryInput input : StringDictionaryInput.values()) {
             DirectConversionTester directConversionTester = new DirectConversionTester();
-            List<StripeFooter> stripeFooters = testStringDictionary(directConversionTester, encoding, values);
-            verifyDictionaryEncoding(getStripeSize(values.size()), encoding, stripeFooters, ImmutableList.of(dictionarySize, dictionarySize, dictionarySize));
+            List<StripeFooter> stripeFooters = testStringDictionary(directConversionTester, input, values);
+            verifyDictionaryEncoding(getStripeSize(values.size()), input.getEncoding(), stripeFooters, ImmutableList.of(dictionarySize, dictionarySize, dictionarySize));
         }
     }
 
@@ -195,10 +160,10 @@ public class TestDictionaryColumnWriter
             builder.add(Integer.toString(i));
         }
         List<String> values = builder.build();
-        for (OrcEncoding encoding : OrcEncoding.values()) {
+        for (StringDictionaryInput input : StringDictionaryInput.values()) {
             DirectConversionTester directConversionTester = new DirectConversionTester();
-            List<StripeFooter> stripeFooters = testStringDictionary(directConversionTester, encoding, values);
-            verifyDirectEncoding(getStripeSize(values.size()), encoding, stripeFooters);
+            List<StripeFooter> stripeFooters = testStringDictionary(directConversionTester, input, values);
+            verifyDirectEncoding(getStripeSize(values.size()), input.getEncoding(), stripeFooters);
         }
     }
 
@@ -211,10 +176,13 @@ public class TestDictionaryColumnWriter
             builder.add(Integer.toString(i));
         }
         List<String> values = builder.build();
-        for (OrcEncoding encoding : OrcEncoding.values()) {
+        for (StringDictionaryInput input : StringDictionaryInput.values()) {
             DirectConversionTester directConversionTester = new DirectConversionTester();
-            OrcWriterOptions writerOptions = new OrcWriterOptions().withRowGroupMaxRowCount(14_876).withStripeMaxRowCount(STRIPE_MAX_ROWS);
-            testDictionary(VARCHAR, encoding, writerOptions, directConversionTester, values);
+            OrcWriterOptions writerOptions = OrcWriterOptions.builder()
+                    .withRowGroupMaxRowCount(14_876)
+                    .withStripeMaxRowCount(STRIPE_MAX_ROWS)
+                    .build();
+            testDictionary(VARCHAR, input.getEncoding(), writerOptions, directConversionTester, values);
         }
     }
 
@@ -227,11 +195,11 @@ public class TestDictionaryColumnWriter
             // Make a 7 letter String, by using million as base to force dictionary encoding.
             builder.add(Integer.toString((i % 1000) + 1_000_000));
         }
-        for (OrcEncoding encoding : OrcEncoding.values()) {
+        for (StringDictionaryInput input : StringDictionaryInput.values()) {
             DirectConversionTester directConversionTester = new DirectConversionTester();
             List<String> values = builder.build();
-            List<StripeFooter> stripeFooters = testStringDictionary(directConversionTester, encoding, values);
-            verifyDictionaryEncoding(getStripeSize(values.size()), encoding, stripeFooters, ImmutableList.of(1000, 1000, 1000, 1000));
+            List<StripeFooter> stripeFooters = testStringDictionary(directConversionTester, input, values);
+            verifyDictionaryEncoding(getStripeSize(values.size()), input.getEncoding(), stripeFooters, ImmutableList.of(1000, 1000, 1000, 1000));
         }
     }
 
@@ -245,18 +213,18 @@ public class TestDictionaryColumnWriter
         }
         List<String> values = builder.build();
 
-        for (OrcEncoding encoding : OrcEncoding.values()) {
+        for (StringDictionaryInput input : StringDictionaryInput.values()) {
             DirectConversionTester directConversionTester = new DirectConversionTester();
             directConversionTester.add(0, megabytes(1), true);
             directConversionTester.add(16, 5_000, false);
             directConversionTester.add(16, megabytes(1), true);
 
-            List<StripeFooter> stripeFooters = testStringDictionary(directConversionTester, encoding, values);
+            List<StripeFooter> stripeFooters = testStringDictionary(directConversionTester, input, values);
             assertEquals(getStripeSize(values.size()), stripeFooters.size());
-            verifyDirectEncoding(stripeFooters, encoding, 0);
-            verifyDirectEncoding(stripeFooters, encoding, 1);
-            verifyDictionaryEncoding(stripeFooters, encoding, 2, 2000);
-            verifyDictionaryEncoding(stripeFooters, encoding, 3, 2000);
+            verifyDirectEncoding(stripeFooters, input.getEncoding(), 0);
+            verifyDirectEncoding(stripeFooters, input.getEncoding(), 1);
+            verifyDictionaryEncoding(stripeFooters, input.getEncoding(), 2, 2000);
+            verifyDictionaryEncoding(stripeFooters, input.getEncoding(), 3, 2000);
         }
     }
 
@@ -310,7 +278,11 @@ public class TestDictionaryColumnWriter
     {
         List<Integer> values = generateRandomIntegers(90_000);
         DirectConversionTester directConversionTester = new DirectConversionTester();
-        OrcWriterOptions writerOptions = new OrcWriterOptions().withStripeMaxRowCount(STRIPE_MAX_ROWS).withIntegerDictionaryEncodingEnabled(true).withRowGroupMaxRowCount(14_998);
+        OrcWriterOptions writerOptions = OrcWriterOptions.builder()
+                .withStripeMaxRowCount(STRIPE_MAX_ROWS)
+                .withIntegerDictionaryEncodingEnabled(true)
+                .withRowGroupMaxRowCount(14_998)
+                .build();
         testDictionary(INTEGER, DWRF, writerOptions, directConversionTester, values);
     }
 
@@ -338,7 +310,11 @@ public class TestDictionaryColumnWriter
     {
         List<Long> values = generateRandomLongs(80_000);
         DirectConversionTester directConversionTester = new DirectConversionTester();
-        OrcWriterOptions writerOptions = new OrcWriterOptions().withStripeMaxRowCount(STRIPE_MAX_ROWS).withIntegerDictionaryEncodingEnabled(true).withRowGroupMaxRowCount(14_998);
+        OrcWriterOptions writerOptions = OrcWriterOptions.builder()
+                .withStripeMaxRowCount(STRIPE_MAX_ROWS)
+                .withIntegerDictionaryEncodingEnabled(true)
+                .withRowGroupMaxRowCount(14_998)
+                .build();
         testDictionary(BIGINT, DWRF, writerOptions, directConversionTester, values);
     }
 
@@ -369,7 +345,7 @@ public class TestDictionaryColumnWriter
         verifyDictionaryEncoding(getStripeSize(values.size()), DWRF, stripeFooters, ImmutableList.of(repeatInterval + baseList.size(), repeatInterval, repeatInterval));
 
         // Now disable Integer dictionary encoding and verify that integer dictionary encoding is disabled
-        stripeFooters = testDictionary(INTEGER, DWRF, false, new DirectConversionTester(), values);
+        stripeFooters = testDictionary(INTEGER, DWRF, false, true, new DirectConversionTester(), values);
         verifyDwrfDirectEncoding(getStripeSize(values.size()), stripeFooters);
     }
 
@@ -476,7 +452,7 @@ public class TestDictionaryColumnWriter
         }
         DirectConversionTester directConversionTester = new DirectConversionTester();
         Type listType = new ArrayType(INTEGER);
-        testDictionary(listType, DWRF, true, directConversionTester, values);
+        testDictionary(listType, DWRF, true, true, directConversionTester, values);
     }
 
     @Test
@@ -491,7 +467,7 @@ public class TestDictionaryColumnWriter
         }
         DirectConversionTester directConversionTester = new DirectConversionTester();
         Type listType = new ArrayType(INTEGER);
-        testDictionary(listType, DWRF, true, directConversionTester, values);
+        testDictionary(listType, DWRF, true, true, directConversionTester, values);
     }
 
     @Test
@@ -514,7 +490,7 @@ public class TestDictionaryColumnWriter
         }
         DirectConversionTester directConversionTester = new DirectConversionTester();
         Type listType = new ArrayType(VARCHAR);
-        testDictionary(listType, DWRF, true, directConversionTester, values);
+        testDictionary(listType, DWRF, true, true, directConversionTester, values);
     }
 
     @Test
@@ -529,7 +505,7 @@ public class TestDictionaryColumnWriter
         }
         DirectConversionTester directConversionTester = new DirectConversionTester();
         Type listType = new ArrayType(VARCHAR);
-        testDictionary(listType, DWRF, true, directConversionTester, values);
+        testDictionary(listType, DWRF, true, true, directConversionTester, values);
     }
 
     private ColumnEncoding getColumnEncoding(List<StripeFooter> stripeFooters, int stripeId)
@@ -596,25 +572,29 @@ public class TestDictionaryColumnWriter
     private List<StripeFooter> testLongDictionary(DirectConversionTester directConversionTester, List<?> values)
             throws IOException
     {
-        return testDictionary(BIGINT, DWRF, true, directConversionTester, values);
+        return testDictionary(BIGINT, DWRF, true, true, directConversionTester, values);
     }
 
     private List<StripeFooter> testIntegerDictionary(DirectConversionTester directConversionTester, List<?> values)
             throws IOException
     {
-        return testDictionary(INTEGER, DWRF, true, directConversionTester, values);
+        return testDictionary(INTEGER, DWRF, true, true, directConversionTester, values);
     }
 
-    private List<StripeFooter> testStringDictionary(DirectConversionTester directConversionTester, OrcEncoding encoding, List<String> values)
+    private List<StripeFooter> testStringDictionary(DirectConversionTester directConversionTester, StringDictionaryInput dictionaryInput, List<String> values)
             throws IOException
     {
-        return testDictionary(VARCHAR, encoding, false, directConversionTester, values);
+        return testDictionary(VARCHAR, dictionaryInput.getEncoding(), false, dictionaryInput.isSortStringDictionaryKeys(), directConversionTester, values);
     }
 
-    private List<StripeFooter> testDictionary(Type type, OrcEncoding encoding, boolean enableIntDictionary, DirectConversionTester directConversionTester, List<?> values)
+    private List<StripeFooter> testDictionary(Type type, OrcEncoding encoding, boolean enableIntDictionary, boolean sortStringDictionaryKeys, DirectConversionTester directConversionTester, List<?> values)
             throws IOException
     {
-        OrcWriterOptions orcWriterOptions = new OrcWriterOptions().withStripeMaxRowCount(STRIPE_MAX_ROWS).withIntegerDictionaryEncodingEnabled(enableIntDictionary);
+        OrcWriterOptions orcWriterOptions = OrcWriterOptions.builder()
+                .withStripeMaxRowCount(STRIPE_MAX_ROWS)
+                .withIntegerDictionaryEncodingEnabled(enableIntDictionary)
+                .withStringDictionarySortingEnabled(sortStringDictionaryKeys)
+                .build();
         return testDictionary(type, encoding, orcWriterOptions, directConversionTester, values);
     }
 
@@ -724,7 +704,37 @@ public class TestDictionaryColumnWriter
         return index;
     }
 
-    static class DirectConversionTester
+    private static class StringDictionaryInput
+    {
+        private final OrcEncoding encoding;
+        private final boolean sortStringDictionaryKeys;
+
+        StringDictionaryInput(OrcEncoding encoding, boolean sortStringDictionaryKeys)
+        {
+            this.encoding = encoding;
+            this.sortStringDictionaryKeys = sortStringDictionaryKeys;
+        }
+
+        public OrcEncoding getEncoding()
+        {
+            return encoding;
+        }
+
+        public boolean isSortStringDictionaryKeys()
+        {
+            return sortStringDictionaryKeys;
+        }
+
+        static List<StringDictionaryInput> values()
+        {
+            return ImmutableList.of(
+                    new StringDictionaryInput(ORC, true),
+                    new StringDictionaryInput(DWRF, true),
+                    new StringDictionaryInput(DWRF, false));
+        }
+    }
+
+    private static class DirectConversionTester
     {
         private final List<Integer> batchIds = new ArrayList<>();
         private final List<Integer> maxDirectBytes = new ArrayList<>();

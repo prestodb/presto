@@ -64,10 +64,11 @@ contents:
 The config file is specified in JSON format.
 
 * It contains the rules defining which catalog can be accessed by which user (see Catalog Rules below).
+* The schema access rules defining which schema can be accessed by which user (see Schema Rules below).
 * The principal rules specifying what principals can identify as what users (see Principal Rules below).
 
-This plugin currently only supports catalog access control rules and principal
-rules. If you want to limit access on a system level in any other way, you
+This plugin currently supports catalog access control rules, schema access control rules
+and principal rules. If you want to limit access on a system level in any other way, you
 must implement a custom SystemAccessControl plugin
 (see :doc:`/develop/system-access-control`).
 
@@ -132,6 +133,48 @@ and deny all other access, you can use the following rules:
         {
           "catalog": "system",
           "allow": "none"
+        }
+      ]
+    }
+
+Schema Rules
+------------
+
+These rules allow you to grant ownership of a schema. Having ownership of an
+schema allows users to execute ``DROP SCHEMA``, ``ALTER SCHEMA`` and
+``CREATE SCHEMA``. The user is granted ownership of a schema, based on
+the first matching rule read from top to bottom. If no rule matches, ownership
+is not granted. Each rule is composed of the following fields:
+
+* ``user`` (optional): regex to match against user name. Defaults to ``.*``.
+* ``schema`` (optional): regex to match against schema name. Defaults to ``.*``.
+* ``owner`` (required): boolean indicating whether the user is to be considered
+  an owner of the schema. Defaults to ``false``.
+
+For example, to provide ownership of all schemas to user ``admin``, treat all
+users as owners of ``default`` schema and prevent user ``guest`` from ownership
+of any schema, you can use the following rules:
+
+.. code-block:: json
+    {
+      "catalogs": [
+        {
+          "allow": true
+        }
+      ],
+      "schemas": [
+        {
+          "user": "admin",
+          "schema": ".*",
+          "owner": true
+        },
+        {
+          "user": "guest",
+          "owner": false
+        },
+        {
+          "schema": "default",
+          "owner": true
         }
       ]
     }

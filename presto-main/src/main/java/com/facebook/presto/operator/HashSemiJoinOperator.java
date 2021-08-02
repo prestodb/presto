@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.SetBuilderOperator.SetSupplier;
@@ -136,6 +137,8 @@ public class HashSemiJoinOperator
     {
         requireNonNull(page, "page is null");
         checkState(!finishing, "Operator is finishing");
+        // use an effectively-final local variable instead of the non-final instance field inside of the loop
+        ChannelSet channelSet = this.channelSet;
         checkState(channelSet != null, "Set has not been built yet");
         checkState(outputPage == null, "Operator still has pending output");
 
@@ -143,11 +146,12 @@ public class HashSemiJoinOperator
         // we know the exact size required for the block
         BlockBuilder blockBuilder = BOOLEAN.createFixedSizeBlockBuilder(page.getPositionCount());
 
-        Page probeJoinPage = page.extractChannel(probeJoinChannel);
+        Page probeJoinPage = page.getLoadedPage(probeJoinChannel);
+        Block probeJoinNulls = probeJoinPage.getBlock(0).mayHaveNull() ? probeJoinPage.getBlock(0) : null;
 
         // update hashing strategy to use probe cursor
         for (int position = 0; position < page.getPositionCount(); position++) {
-            if (probeJoinPage.getBlock(0).isNull(position)) {
+            if (probeJoinNulls != null && probeJoinNulls.isNull(position)) {
                 if (channelSet.isEmpty()) {
                     BOOLEAN.writeBoolean(blockBuilder, false);
                 }

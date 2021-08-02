@@ -32,6 +32,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
 import static com.facebook.airlift.testing.Assertions.assertBetweenInclusive;
 import static com.facebook.airlift.testing.Assertions.assertGreaterThan;
 import static com.facebook.airlift.testing.Assertions.assertLessThan;
@@ -91,7 +92,8 @@ public final class GroupByHashYieldAssertion
                 EXECUTOR,
                 SCHEDULED_EXECUTOR,
                 new DataSize(512, MEGABYTE),
-                new SpillSpaceTracker(new DataSize(512, MEGABYTE)));
+                new SpillSpaceTracker(new DataSize(512, MEGABYTE)),
+                listJsonCodec(TaskMemoryReservationSummary.class));
 
         DriverContext driverContext = createTaskContext(queryContext, EXECUTOR, TEST_SESSION)
                 .addPipelineContext(0, true, true, false)

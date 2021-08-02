@@ -410,7 +410,8 @@ public class OrcSelectivePageSourceFactory
                     recordReader,
                     reader.getOrcDataSource(),
                     systemMemoryUsage,
-                    stats);
+                    stats,
+                    hiveFileContext.getStats());
         }
         catch (Exception e) {
             try {

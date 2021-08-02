@@ -41,6 +41,7 @@ import com.facebook.presto.execution.CreateMaterializedViewTask;
 import com.facebook.presto.execution.CreateRoleTask;
 import com.facebook.presto.execution.CreateSchemaTask;
 import com.facebook.presto.execution.CreateTableTask;
+import com.facebook.presto.execution.CreateTypeTask;
 import com.facebook.presto.execution.CreateViewTask;
 import com.facebook.presto.execution.DataDefinitionTask;
 import com.facebook.presto.execution.DeallocateTask;
@@ -55,6 +56,8 @@ import com.facebook.presto.execution.ExplainAnalyzeContext;
 import com.facebook.presto.execution.ForQueryExecution;
 import com.facebook.presto.execution.GrantRolesTask;
 import com.facebook.presto.execution.GrantTask;
+import com.facebook.presto.execution.NodeResourceStatusConfig;
+import com.facebook.presto.execution.PartialResultQueryManager;
 import com.facebook.presto.execution.PrepareTask;
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryExecutionMBean;
@@ -98,9 +101,12 @@ import com.facebook.presto.memory.TotalReservationOnBlockedNodesLowMemoryKiller;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.operator.OperatorInfo;
+import com.facebook.presto.resourcemanager.ForResourceManager;
+import com.facebook.presto.resourcemanager.ResourceManagerProxy;
 import com.facebook.presto.server.protocol.ExecutingStatementResource;
 import com.facebook.presto.server.protocol.LocalQueryProvider;
 import com.facebook.presto.server.protocol.QueuedStatementResource;
+import com.facebook.presto.server.protocol.RetryCircuitBreaker;
 import com.facebook.presto.server.remotetask.HttpRemoteTaskFactory;
 import com.facebook.presto.server.remotetask.RemoteTaskStats;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
@@ -118,6 +124,7 @@ import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.CreateRole;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
+import com.facebook.presto.sql.tree.CreateType;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.DropColumn;
@@ -177,6 +184,7 @@ import static com.facebook.presto.execution.SqlQueryExecution.SqlQueryExecutionF
 import static com.facebook.presto.util.StatementUtils.getAllQueryTypes;
 import static com.google.common.base.Verify.verify;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -237,6 +245,8 @@ public class CoordinatorModule
         newExporter(binder).export(InternalResourceGroupManager.class).withGeneratedName();
         binder.bind(ResourceGroupManager.class).to(InternalResourceGroupManager.class);
         binder.bind(LegacyResourceGroupConfigurationManager.class).in(Scopes.SINGLETON);
+        binder.bind(RetryCircuitBreaker.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(RetryCircuitBreaker.class).withGeneratedName();
 
         binder.bind(LocalQueryProvider.class).in(Scopes.SINGLETON);
 
@@ -322,11 +332,13 @@ public class CoordinatorModule
         getAllQueryTypes().entrySet().stream()
                 .filter(entry -> entry.getValue() != QueryType.DATA_DEFINITION)
                 .forEach(entry -> executionBinder.addBinding(entry.getKey()).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON));
+        binder.bind(PartialResultQueryManager.class).in(Scopes.SINGLETON);
 
         binder.bind(DataDefinitionExecutionFactory.class).in(Scopes.SINGLETON);
         bindDataDefinitionTask(binder, executionBinder, CreateSchema.class, CreateSchemaTask.class);
         bindDataDefinitionTask(binder, executionBinder, DropSchema.class, DropSchemaTask.class);
         bindDataDefinitionTask(binder, executionBinder, RenameSchema.class, RenameSchemaTask.class);
+        bindDataDefinitionTask(binder, executionBinder, CreateType.class, CreateTypeTask.class);
         bindDataDefinitionTask(binder, executionBinder, AddColumn.class, AddColumnTask.class);
         bindDataDefinitionTask(binder, executionBinder, CreateTable.class, CreateTableTask.class);
         bindDataDefinitionTask(binder, executionBinder, RenameTable.class, RenameTableTask.class);
@@ -360,6 +372,18 @@ public class CoordinatorModule
         MapBinder<String, ExecutionPolicy> executionPolicyBinder = newMapBinder(binder, String.class, ExecutionPolicy.class);
         executionPolicyBinder.addBinding("all-at-once").to(AllAtOnceExecutionPolicy.class);
         executionPolicyBinder.addBinding("phased").to(PhasedExecutionPolicy.class);
+
+        configBinder(binder).bindConfig(NodeResourceStatusConfig.class);
+        binder.bind(NodeResourceStatusProvider.class).to(NodeResourceStatus.class).in(Scopes.SINGLETON);
+
+        newOptionalBinder(binder, ResourceManagerProxy.class);
+        install(installModuleIf(
+                ServerConfig.class,
+                ServerConfig::isResourceManagerEnabled,
+                rmBinder -> {
+                    httpClientBinder(rmBinder).bindHttpClient("resourceManager", ForResourceManager.class);
+                    rmBinder.bind(ResourceManagerProxy.class).in(Scopes.SINGLETON);
+                }));
 
         // cleanup
         binder.bind(ExecutorCleanup.class).in(Scopes.SINGLETON);

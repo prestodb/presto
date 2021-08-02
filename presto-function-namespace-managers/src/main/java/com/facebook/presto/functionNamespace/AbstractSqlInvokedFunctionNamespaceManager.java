@@ -278,7 +278,8 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
                 function.getRoutineCharacteristics().getLanguage(),
                 getFunctionImplementationType(function),
                 function.isDeterministic(),
-                function.isCalledOnNullInput());
+                function.isCalledOnNullInput(),
+                function.getVersion());
     }
 
     protected FunctionImplementationType getFunctionImplementationType(SqlInvokedFunction function)

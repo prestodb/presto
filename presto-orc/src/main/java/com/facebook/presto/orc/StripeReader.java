@@ -67,9 +67,8 @@ import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY_V2;
 import static com.facebook.presto.orc.metadata.DwrfMetadataReader.toStripeEncryptionGroup;
 import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.STRUCT;
+import static com.facebook.presto.orc.metadata.Stream.StreamArea.INDEX;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.BLOOM_FILTER;
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.BLOOM_FILTER_UTF8;
-import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_COUNT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_INDEX;
@@ -292,7 +291,7 @@ public class StripeReader
                 Optional.of(decryptor),
                 systemMemoryUsage,
                 encryptedGroup.length());
-        return toStripeEncryptionGroup(orcInputStream, types);
+        return toStripeEncryptionGroup(orcDataSource.getId(), orcInputStream, types);
     }
 
     /**
@@ -421,7 +420,7 @@ public class StripeReader
     }
 
     private List<RowGroup> createRowGroups(
-            int rowsInStripe,
+            long rowsInStripe,
             Map<StreamId, Stream> streams,
             Map<StreamId, ValueInputStream<?>> valueStreams,
             Map<StreamId, List<RowGroupIndex>> columnIndexes,
@@ -434,7 +433,7 @@ public class StripeReader
         for (int rowGroupId : selectedRowGroups) {
             Map<StreamId, StreamCheckpoint> checkpoints = getStreamCheckpoints(includedOrcColumns, types, decompressor.isPresent(), rowGroupId, encodings, streams, columnIndexes);
             int rowOffset = rowGroupId * rowsInRowGroup;
-            int rowsInGroup = Math.min(rowsInStripe - rowOffset, rowsInRowGroup);
+            int rowsInGroup = toIntExact(Math.min(rowsInStripe - rowOffset, rowsInRowGroup));
             long minAverageRowBytes = columnIndexes
                     .entrySet()
                     .stream()
@@ -485,13 +484,13 @@ public class StripeReader
                 Optional.empty(),
                 systemMemoryUsage,
                 footerLength)) {
-            return metadataReader.readStripeFooter(types, inputStream);
+            return metadataReader.readStripeFooter(orcDataSource.getId(), types, inputStream);
         }
     }
 
     static boolean isIndexStream(Stream stream)
     {
-        return stream.getStreamKind() == ROW_INDEX || stream.getStreamKind() == DICTIONARY_COUNT || stream.getStreamKind() == BLOOM_FILTER || stream.getStreamKind() == BLOOM_FILTER_UTF8;
+        return stream.getStreamKind().getStreamArea() == INDEX;
     }
 
     private Map<Integer, List<HiveBloomFilter>> readBloomFilterIndexes(Map<StreamId, Stream> streams, Map<StreamId, OrcInputStream> streamsData)
@@ -537,13 +536,13 @@ public class StripeReader
 
     private Set<Integer> selectRowGroups(StripeInformation stripe, Map<StreamId, List<RowGroupIndex>> columnIndexes)
     {
-        int rowsInStripe = toIntExact(stripe.getNumberOfRows());
+        long rowsInStripe = stripe.getNumberOfRows();
         int groupsInStripe = ceil(rowsInStripe, rowsInRowGroup);
 
         ImmutableSet.Builder<Integer> selectedRowGroups = ImmutableSet.builder();
-        int remainingRows = rowsInStripe;
+        long remainingRows = rowsInStripe;
         for (int rowGroup = 0; rowGroup < groupsInStripe; ++rowGroup) {
-            int rows = Math.min(remainingRows, rowsInRowGroup);
+            int rows = toIntExact(Math.min(remainingRows, rowsInRowGroup));
             Map<Integer, ColumnStatistics> statistics = getRowGroupStatistics(types.get(0), columnIndexes, rowGroup);
             if (predicate.matches(rows, statistics)) {
                 selectedRowGroups.add(rowGroup);
@@ -614,9 +613,10 @@ public class StripeReader
     /**
      * Ceiling of integer division
      */
-    private static int ceil(int dividend, int divisor)
+    private static int ceil(long dividend, int divisor)
     {
-        return ((dividend + divisor) - 1) / divisor;
+        long ceil = ((dividend + divisor) - 1) / divisor;
+        return toIntExact(ceil);
     }
 
     public static class StripeId

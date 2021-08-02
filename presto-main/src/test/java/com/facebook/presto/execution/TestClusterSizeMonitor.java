@@ -41,6 +41,7 @@ public class TestClusterSizeMonitor
     public static final ConnectorId CONNECTOR_ID = new ConnectorId("dummy");
     public static final int DESIRED_WORKER_COUNT = 10;
     public static final int DESIRED_COORDINATOR_COUNT = 3;
+    public static final int DESIRED_WORKER_COUNT_ACTIVE = 10;
 
     private InMemoryNodeManager nodeManager;
     private ClusterSizeMonitor monitor;
@@ -64,6 +65,7 @@ public class TestClusterSizeMonitor
                 nodeManager,
                 false,
                 DESIRED_WORKER_COUNT,
+                DESIRED_WORKER_COUNT_ACTIVE,
                 new Duration(4, SECONDS),
                 DESIRED_COORDINATOR_COUNT,
                 new Duration(4, SECONDS));
@@ -91,6 +93,7 @@ public class TestClusterSizeMonitor
             assertFalse(workersTimeout.get());
             addWorker(nodeManager);
         }
+        assertFalse(monitor.hasRequiredWorkers());
         assertFalse(workersTimeout.get());
         assertEquals(minWorkersLatch.getCount(), 1);
         addWorker(nodeManager);
@@ -108,6 +111,7 @@ public class TestClusterSizeMonitor
         minCoordinatorsLatch.await(2, SECONDS);
         assertTrue(coordinatorsFuture.isDone());
         assertFalse(coordinatorsTimeout.get());
+        assertTrue(monitor.hasRequiredWorkers());
     }
 
     @Test(timeOut = 10_000)

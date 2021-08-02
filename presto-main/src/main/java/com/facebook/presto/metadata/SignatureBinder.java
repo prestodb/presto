@@ -630,7 +630,7 @@ public class SignatureBinder
                 // This check must not be skipped even if commonSuperType is equal to originalType
                 return SolverReturnStatus.UNSOLVABLE;
             }
-            if (commonSuperType.get().equals(originalType)) {
+            if (commonSuperType.get().equals(originalType) || (originalType instanceof TypeWithName && commonSuperType.get().equals(((TypeWithName) originalType).getType()))) {
                 return SolverReturnStatus.UNCHANGED_SATISFIED;
             }
             bindings.setTypeVariable(typeParameter, commonSuperType.get());

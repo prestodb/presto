@@ -25,6 +25,10 @@ import java.util.concurrent.TimeUnit;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.airlift.units.DataSize.Unit.PETABYTE;
+import static java.util.concurrent.TimeUnit.HOURS;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestQueryManagerConfig
 {
@@ -40,6 +44,9 @@ public class TestQueryManagerConfig
                 .setMaxTotalRunningTaskCountToKillQuery(Integer.MAX_VALUE)
                 .setMaxQueryRunningTaskCount(Integer.MAX_VALUE)
                 .setMaxTotalRunningTaskCountToNotExecuteNewQuery(Integer.MAX_VALUE)
+                .setConcurrencyThresholdToEnableResourceGroupRefresh(1)
+                .setResourceGroupRunTimeInfoRefreshInterval(new Duration(100, MILLISECONDS))
+                .setResourceGroupRunTimeInfoMinFreshness(new Duration(1, TimeUnit.SECONDS))
                 .setClientTimeout(new Duration(5, TimeUnit.MINUTES))
                 .setScheduleSplitBatchSize(1000)
                 .setMinScheduleSplitBatchSize(100)
@@ -63,7 +70,11 @@ public class TestQueryManagerConfig
                 .setRequiredCoordinators(1)
                 .setRequiredCoordinatorsMaxWait(new Duration(5, TimeUnit.MINUTES))
                 .setQuerySubmissionMaxThreads(Runtime.getRuntime().availableProcessors() * 2)
-                .setUseStreamingExchangeForMarkDistinct(false));
+                .setUseStreamingExchangeForMarkDistinct(false)
+                .setPerQueryRetryLimit(0)
+                .setPerQueryRetryMaxExecutionTime(new Duration(5, MINUTES))
+                .setGlobalQueryRetryFailureLimit(150)
+                .setGlobalQueryRetryFailureWindow(new Duration(5, MINUTES)));
     }
 
     @Test
@@ -79,6 +90,9 @@ public class TestQueryManagerConfig
                 .put("max-total-running-task-count-to-kill-query", "60000")
                 .put("max-query-running-task-count", "10000")
                 .put("experimental.max-total-running-task-count-to-not-execute-new-query", "50000")
+                .put("concurrency-threshold-to-enable-resource-group-refresh", "2")
+                .put("resource-group-runtimeinfo-refresh-interval", "10ms")
+                .put("resource-group-runtimeinfo-min-freshness", "101ms")
                 .put("query.schedule-split-batch-size", "99")
                 .put("query.min-schedule-split-batch-size", "9")
                 .put("query.max-concurrent-queries", "10")
@@ -102,6 +116,10 @@ public class TestQueryManagerConfig
                 .put("query-manager.experimental.required-coordinators", "999")
                 .put("query-manager.experimental.required-coordinators-max-wait", "99m")
                 .put("query-manager.experimental.query-submission-max-threads", "5")
+                .put("per-query-retry-limit", "10")
+                .put("per-query-retry-max-execution-time", "1h")
+                .put("global-query-retry-failure-limit", "200")
+                .put("global-query-retry-failure-window", "1h")
                 .build();
 
         QueryManagerConfig expected = new QueryManagerConfig()
@@ -113,6 +131,9 @@ public class TestQueryManagerConfig
                 .setMaxTotalRunningTaskCountToKillQuery(60000)
                 .setMaxQueryRunningTaskCount(10000)
                 .setMaxTotalRunningTaskCountToNotExecuteNewQuery(50000)
+                .setConcurrencyThresholdToEnableResourceGroupRefresh(2)
+                .setResourceGroupRunTimeInfoRefreshInterval(new Duration(10, MILLISECONDS))
+                .setResourceGroupRunTimeInfoMinFreshness(new Duration(101, MILLISECONDS))
                 .setClientTimeout(new Duration(10, TimeUnit.SECONDS))
                 .setScheduleSplitBatchSize(99)
                 .setMinScheduleSplitBatchSize(9)
@@ -122,8 +143,8 @@ public class TestQueryManagerConfig
                 .setPartitioningProviderCatalog("hive")
                 .setExchangeMaterializationStrategy(ExchangeMaterializationStrategy.ALL)
                 .setQueryManagerExecutorPoolSize(11)
-                .setRemoteTaskMinErrorDuration(new Duration(60, TimeUnit.SECONDS))
-                .setRemoteTaskMaxErrorDuration(new Duration(60, TimeUnit.SECONDS))
+                .setRemoteTaskMinErrorDuration(new Duration(60, SECONDS))
+                .setRemoteTaskMaxErrorDuration(new Duration(60, SECONDS))
                 .setRemoteTaskMaxCallbackThreads(10)
                 .setQueryExecutionPolicy("phased")
                 .setQueryMaxRunTime(new Duration(2, TimeUnit.HOURS))
@@ -136,7 +157,11 @@ public class TestQueryManagerConfig
                 .setRequiredCoordinators(999)
                 .setRequiredCoordinatorsMaxWait(new Duration(99, TimeUnit.MINUTES))
                 .setQuerySubmissionMaxThreads(5)
-                .setUseStreamingExchangeForMarkDistinct(true);
+                .setUseStreamingExchangeForMarkDistinct(true)
+                .setPerQueryRetryLimit(10)
+                .setPerQueryRetryMaxExecutionTime(new Duration(1, HOURS))
+                .setGlobalQueryRetryFailureLimit(200)
+                .setGlobalQueryRetryFailureWindow(new Duration(1, HOURS));
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

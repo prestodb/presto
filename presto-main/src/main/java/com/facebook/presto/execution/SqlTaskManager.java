@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.airlift.concurrent.ThreadPoolExecutorMBean;
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.node.NodeInfo;
 import com.facebook.airlift.stats.CounterStat;
@@ -37,6 +38,7 @@ import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.operator.FragmentResultCacheManager;
+import com.facebook.presto.operator.TaskMemoryReservationSummary;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.connector.ConnectorMetadataUpdater;
@@ -46,7 +48,6 @@ import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -78,6 +79,7 @@ import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxBroadcastMemory;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxMemoryPerNode;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxTotalMemoryPerNode;
+import static com.facebook.presto.SystemSessionProperties.isVerboseExceededMemoryLimitErrorsEnabled;
 import static com.facebook.presto.SystemSessionProperties.resourceOvercommit;
 import static com.facebook.presto.execution.SqlTask.createSqlTask;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
@@ -108,6 +110,7 @@ public class SqlTaskManager
     private final Duration clientTimeout;
 
     private final LocalMemoryManager localMemoryManager;
+    private final JsonCodec<List<TaskMemoryReservationSummary>> memoryReservationSummaryJsonCodec;
     private final LoadingCache<QueryId, QueryContext> queryContexts;
     private final LoadingCache<TaskId, SqlTask> tasks;
 
@@ -127,6 +130,7 @@ public class SqlTaskManager
             SplitMonitor splitMonitor,
             NodeInfo nodeInfo,
             LocalMemoryManager localMemoryManager,
+            JsonCodec<List<TaskMemoryReservationSummary>> memoryReservationSummaryJsonCodec,
             TaskManagementExecutor taskManagementExecutor,
             TaskManagerConfig config,
             NodeMemoryConfig nodeMemoryConfig,
@@ -163,6 +167,7 @@ public class SqlTaskManager
                 config);
 
         this.localMemoryManager = requireNonNull(localMemoryManager, "localMemoryManager is null");
+        this.memoryReservationSummaryJsonCodec = requireNonNull(memoryReservationSummaryJsonCodec, "memoryReservationSummaryJsonCodec is null");
         DataSize maxQueryUserMemoryPerNode = nodeMemoryConfig.getMaxQueryMemoryPerNode();
         DataSize maxQueryTotalMemoryPerNode = nodeMemoryConfig.getMaxQueryTotalMemoryPerNode();
         DataSize maxQuerySpillPerNode = nodeSpillConfig.getQueryMaxSpillPerNode();
@@ -214,7 +219,8 @@ public class SqlTaskManager
                 taskNotificationExecutor,
                 driverYieldExecutor,
                 maxQuerySpillPerNode,
-                localSpillManager.getSpillSpaceTracker());
+                localSpillManager.getSpillSpaceTracker(),
+                memoryReservationSummaryJsonCodec);
     }
 
     @Override
@@ -410,6 +416,8 @@ public class SqlTaskManager
             }
         }
 
+        queryContext.setVerboseExceededMemoryLimitErrorsEnabled(isVerboseExceededMemoryLimitErrorsEnabled(session));
+
         sqlTask.recordHeartbeat();
         return sqlTask.updateTask(session, fragment, sources, outputBuffers, tableWriteInfo);
     }
@@ -545,7 +553,6 @@ public class SqlTaskManager
         tasks.getUnchecked(taskId).addStateChangeListener(stateChangeListener);
     }
 
-    @VisibleForTesting
     public QueryContext getQueryContext(QueryId queryId)
 
     {

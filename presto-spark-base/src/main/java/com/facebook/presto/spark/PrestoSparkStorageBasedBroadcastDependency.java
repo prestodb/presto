@@ -27,6 +27,7 @@ import scala.Tuple2;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeoutException;
 
 import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalBroadcastMemoryLimit;
@@ -43,30 +44,35 @@ public class PrestoSparkStorageBasedBroadcastDependency
 {
     private static final Logger log = Logger.get(PrestoSparkStorageBasedBroadcastDependency.class);
 
-    private final RddAndMore<PrestoSparkStorageHandle> broadcastDependency;
+    private RddAndMore<PrestoSparkStorageHandle> broadcastDependency;
     private final DataSize maxBroadcastSize;
     private final long queryCompletionDeadline;
     private final TempStorage tempStorage;
     private final TempDataOperationContext tempDataOperationContext;
+    private final Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics;
 
     private Broadcast<List<PrestoSparkStorageHandle>> broadcastVariable;
 
-    public PrestoSparkStorageBasedBroadcastDependency(RddAndMore<PrestoSparkStorageHandle> broadcastDependency, DataSize maxBroadcastSize, long queryCompletionDeadline, TempStorage tempStorage, TempDataOperationContext tempDataOperationContext)
+    public PrestoSparkStorageBasedBroadcastDependency(RddAndMore<PrestoSparkStorageHandle> broadcastDependency, DataSize maxBroadcastSize, long queryCompletionDeadline, TempStorage tempStorage, TempDataOperationContext tempDataOperationContext, Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics)
     {
         this.broadcastDependency = requireNonNull(broadcastDependency, "broadcastDependency cannot be null");
         this.maxBroadcastSize = requireNonNull(maxBroadcastSize, "maxBroadcastSize cannot be null");
         this.queryCompletionDeadline = queryCompletionDeadline;
         this.tempStorage = requireNonNull(tempStorage, "tempStorage cannot be null");
         this.tempDataOperationContext = requireNonNull(tempDataOperationContext, "tempDataOperationContext cannot be null");
+        this.waitTimeMetrics = requireNonNull(waitTimeMetrics, "waitTimeMetrics cannot be null");
     }
 
     @Override
     public Broadcast<List<PrestoSparkStorageHandle>> executeBroadcast(JavaSparkContext sparkContext)
             throws SparkException, TimeoutException
     {
-        List<PrestoSparkStorageHandle> broadcastValue = broadcastDependency.collectAndDestroyDependenciesWithTimeout(computeNextTimeout(queryCompletionDeadline), MILLISECONDS).stream()
+        List<PrestoSparkStorageHandle> broadcastValue = broadcastDependency.collectAndDestroyDependenciesWithTimeout(computeNextTimeout(queryCompletionDeadline), MILLISECONDS, waitTimeMetrics).stream()
                 .map(Tuple2::_2)
                 .collect(toList());
+
+        // release memory retained by the RDD (splits and dependencies)
+        broadcastDependency = null;
 
         long compressedBroadcastSizeInBytes = broadcastValue.stream()
                 .mapToLong(metadata -> metadata.getCompressedSizeInBytes())

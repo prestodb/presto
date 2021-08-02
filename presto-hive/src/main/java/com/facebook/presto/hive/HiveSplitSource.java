@@ -498,7 +498,7 @@ class HiveSplitSource
                         internalSplit.getTableBucketNumber(),
                         internalSplit.getNodeSelectionStrategy(),
                         internalSplit.getPartitionInfo().getPartitionDataColumnCount(),
-                        internalSplit.getPartitionSchemaDifference(),
+                        internalSplit.getTableToPartitionMapping(),
                         internalSplit.getBucketConversion(),
                         internalSplit.isS3SelectPushdownEnabled(),
                         internalSplit.getExtraFileInfo(),

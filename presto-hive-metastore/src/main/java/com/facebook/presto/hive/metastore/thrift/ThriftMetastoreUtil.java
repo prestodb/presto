@@ -20,6 +20,7 @@ import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
+import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.MetastoreUtil;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.PartitionWithStatistics;
@@ -252,47 +253,47 @@ public final class ThriftMetastoreUtil
         });
     }
 
-    public static boolean isRoleApplicable(SemiTransactionalHiveMetastore metastore, PrestoPrincipal principal, String role)
+    public static boolean isRoleApplicable(SemiTransactionalHiveMetastore metastore, ConnectorIdentity identity, PrestoPrincipal principal, MetastoreContext metastoreContext, String role)
     {
         if (principal.getType() == ROLE && principal.getName().equals(role)) {
             return true;
         }
-        return listApplicableRoles(metastore, principal)
+        return listApplicableRoles(metastore, identity, principal, metastoreContext)
                 .anyMatch(role::equals);
     }
 
-    public static Stream<String> listApplicableRoles(SemiTransactionalHiveMetastore metastore, PrestoPrincipal principal)
+    public static Stream<String> listApplicableRoles(SemiTransactionalHiveMetastore metastore, ConnectorIdentity identity, PrestoPrincipal principal, MetastoreContext metastoreContext)
     {
-        return listApplicableRoles(principal, metastore::listRoleGrants)
+        return listApplicableRoles(principal, (PrestoPrincipal p) -> metastore.listRoleGrants(metastoreContext, p))
                 .map(RoleGrant::getRoleName);
     }
 
-    public static Stream<PrestoPrincipal> listEnabledPrincipals(SemiTransactionalHiveMetastore metastore, ConnectorIdentity identity)
+    public static Stream<PrestoPrincipal> listEnabledPrincipals(SemiTransactionalHiveMetastore metastore, ConnectorIdentity identity, MetastoreContext metastoreContext)
     {
         return Stream.concat(
                 Stream.of(new PrestoPrincipal(USER, identity.getUser())),
-                listEnabledRoles(identity, metastore::listRoleGrants)
+                listEnabledRoles(identity, (PrestoPrincipal p) -> metastore.listRoleGrants(metastoreContext, p))
                         .map(role -> new PrestoPrincipal(ROLE, role)));
     }
 
-    public static Stream<HivePrivilegeInfo> listEnabledTablePrivileges(SemiTransactionalHiveMetastore metastore, String databaseName, String tableName, ConnectorIdentity identity)
+    public static Stream<HivePrivilegeInfo> listEnabledTablePrivileges(SemiTransactionalHiveMetastore metastore, String databaseName, String tableName, ConnectorIdentity identity, MetastoreContext metastoreContext)
     {
-        return listTablePrivileges(metastore, databaseName, tableName, listEnabledPrincipals(metastore, identity));
+        return listTablePrivileges(identity, metastoreContext, metastore, databaseName, tableName, listEnabledPrincipals(metastore, identity, metastoreContext));
     }
 
-    public static Stream<HivePrivilegeInfo> listApplicableTablePrivileges(SemiTransactionalHiveMetastore metastore, String databaseName, String tableName, String user)
+    public static Stream<HivePrivilegeInfo> listApplicableTablePrivileges(SemiTransactionalHiveMetastore metastore, ConnectorIdentity identity, MetastoreContext metastoreContext, String databaseName, String tableName, String user)
     {
         PrestoPrincipal userPrincipal = new PrestoPrincipal(USER, user);
         Stream<PrestoPrincipal> principals = Stream.concat(
                 Stream.of(userPrincipal),
-                listApplicableRoles(metastore, userPrincipal)
+                listApplicableRoles(metastore, identity, userPrincipal, metastoreContext)
                         .map(role -> new PrestoPrincipal(ROLE, role)));
-        return listTablePrivileges(metastore, databaseName, tableName, principals);
+        return listTablePrivileges(identity, metastoreContext, metastore, databaseName, tableName, principals);
     }
 
-    private static Stream<HivePrivilegeInfo> listTablePrivileges(SemiTransactionalHiveMetastore metastore, String databaseName, String tableName, Stream<PrestoPrincipal> principals)
+    private static Stream<HivePrivilegeInfo> listTablePrivileges(ConnectorIdentity identity, MetastoreContext metastoreContext, SemiTransactionalHiveMetastore metastore, String databaseName, String tableName, Stream<PrestoPrincipal> principals)
     {
-        return principals.flatMap(principal -> metastore.listTablePrivileges(databaseName, tableName, principal).stream());
+        return principals.flatMap(principal -> metastore.listTablePrivileges(metastoreContext, databaseName, tableName, principal).stream());
     }
 
     public static boolean isRoleEnabled(ConnectorIdentity identity, Function<PrestoPrincipal, Set<RoleGrant>> listRoleGrants, String role)
@@ -417,7 +418,9 @@ public final class ThriftMetastoreUtil
         // Materialized view fetched from Hive Metastore uses TableType.MANAGED_TABLE before Hive 3.0. Cast it back to MATERIALIZED_VIEW here.
         PrestoTableType tableType = PrestoTableType.optionalValueOf(table.getTableType()).orElse(OTHER);
         if (table.getParameters() != null && "true".equals(table.getParameters().get(PRESTO_MATERIALIZED_VIEW_FLAG))) {
-            checkState(TableType.MANAGED_TABLE.name().equals(table.getTableType()), "Materialized view %s has incorrect table type %s from Metastore.", table.getTableName(), table.getTableType());
+            checkState(
+                    TableType.MANAGED_TABLE.name().equals(table.getTableType()),
+                    "Materialized view %s has incorrect table type %s from Metastore.", table.getTableName(), table.getTableType());
             tableType = MATERIALIZED_VIEW;
         }
 

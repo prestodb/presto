@@ -56,6 +56,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 import static com.facebook.airlift.testing.Assertions.assertEqualsIgnoreOrder;
@@ -101,7 +102,7 @@ public class TestRaptorMetadata
     public void setupDatabase()
     {
         FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
-        dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
+        dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + "_" + ThreadLocalRandom.current().nextInt());
         dbi.registerMapper(new TableColumn.Mapper(functionAndTypeManager));
         dbi.registerMapper(new Distribution.Mapper(functionAndTypeManager));
         dummyHandle = dbi.open();

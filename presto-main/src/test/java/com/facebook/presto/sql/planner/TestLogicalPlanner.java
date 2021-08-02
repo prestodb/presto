@@ -23,7 +23,9 @@ import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
+import com.facebook.presto.sql.planner.assertions.ExpressionMatcher;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
+import com.facebook.presto.sql.planner.assertions.RowNumberSymbolMatcher;
 import com.facebook.presto.sql.planner.optimizations.AddLocalExchanges;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
@@ -50,6 +52,7 @@ import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_SORT;
 import static com.facebook.presto.SystemSessionProperties.ENFORCE_FIXED_DISTRIBUTION_FOR_OUTPUT_OPERATOR;
 import static com.facebook.presto.SystemSessionProperties.FORCE_SINGLE_NODE_OUTPUT;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_JOINS_WITH_EMPTY_SOURCES;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_NULLS_IN_JOINS;
@@ -86,6 +89,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.semiJo
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.sort;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.specification;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictTableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.topN;
@@ -104,6 +108,7 @@ import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static com.facebook.presto.sql.tree.SortItem.NullOrdering.LAST;
+import static com.facebook.presto.sql.tree.SortItem.Ordering.ASCENDING;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.DESCENDING;
 import static com.facebook.presto.tests.QueryTemplate.queryTemplate;
 import static com.facebook.presto.util.MorePredicates.isInstanceOfAny;
@@ -1075,6 +1080,57 @@ public class TestLogicalPlanner
                 applyEmptyJoinOptimization, true,
                 output(values("orderkey_0")));
 
+        // Empty left child with left outer join
+        assertPlanWithSession(
+                "WITH DT AS (SELECT orderkey FROM (select custkey C from orders limit 0) left outer join orders on orderkey=C) SELECT * FROM DT LIMIT 2",
+                applyEmptyJoinOptimization, true,
+                output(limit(2, values("orderkey_0"))));
+
+        // 3 way join with empty non-null producing side for outer join
+        assertPlanWithSession(
+                "WITH DT AS (SELECT orderkey FROM (select custkey C from orders limit 0) left outer join orders on orderkey=C  " +
+                        " left outer join customer C2 on C2.custkey = C) " +
+                        " SELECT * FROM DT LIMIT 2",
+                applyEmptyJoinOptimization, true,
+                output(limit(2, values("orderkey_0"))));
+
+        // Empty right child with right outer join
+        assertPlanWithSession(
+                "WITH DT AS (SELECT orderkey FROM orders right outer join (select custkey C from orders limit 0) on orderkey=C) SELECT * FROM DT LIMIT 2",
+                applyEmptyJoinOptimization, true,
+                output(limit(2, values("orderkey_0"))));
+
+        // Empty right child with no projections and left outer join
+        assertPlanWithSession(
+                "WITH DT AS (SELECT orderkey FROM orders left outer join (select custkey C from orders limit 0) on orderkey=C) SELECT * FROM DT",
+                applyEmptyJoinOptimization, true,
+                output(node(TableScanNode.class)));
+
+        // Empty left child with projections and right outer join
+        assertPlanWithSession(
+                "WITH DT AS (SELECT C, orderkey FROM (select custkey C from orders limit 0) right outer join orders on orderkey=C) SELECT * FROM DT",
+                applyEmptyJoinOptimization, true,
+                output(project(node(TableScanNode.class))));
+
+        // Empty right child with projections and left outer join
+        assertPlanWithSession(
+                "WITH DT AS (SELECT orderkey, C FROM orders left outer join (select custkey C from orders limit 0) on orderkey=C) SELECT * FROM DT",
+                applyEmptyJoinOptimization, true,
+                output(project(node(TableScanNode.class))));
+
+        // Empty right child with projections and full outer join
+        assertPlanWithSession(
+                "WITH DT AS (SELECT orderkey, C FROM orders full outer join (select custkey C from orders limit 0) on orderkey=C) SELECT * FROM DT",
+                applyEmptyJoinOptimization, true,
+                output(project(node(TableScanNode.class))));
+
+        // Both Left and Right child empty and full outer join.
+        assertPlanWithSession(
+                "SELECt orderkey,custkey FROM (SELECT orderkey FROM orders where 1=0) full outer join (select custkey from orders where 1=0) on orderkey=custkey",
+                applyEmptyJoinOptimization, true,
+                output(
+                        values("orderkey_0", "custkey_0")));
+
         // Negative tests. Both children are not empty
         assertPlanWithSession(
                 "SELECT orderkey FROM (select custkey as C from orders where 1>0) join orders on orderkey=C",
@@ -1277,5 +1333,44 @@ public class TestLogicalPlanner
                                                                         .partial(true),
 
                                                                 project(tableScan("orders", ImmutableMap.of("orderstatus", "orderstatus", "custkey", "custkey"))))))))));
+    }
+
+    @Test
+    public void testOffset()
+    {
+        Session enableOffset = Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(OFFSET_CLAUSE_ENABLED, "true")
+                .build();
+        assertPlanWithSession("SELECT name FROM nation OFFSET 2 ROWS",
+                enableOffset,
+                true,
+                any(
+                        strictProject(
+                                ImmutableMap.of("name", new ExpressionMatcher("name")),
+                                filter(
+                                        "(row_num > BIGINT '2')",
+                                        rowNumber(
+                                                pattern -> pattern
+                                                        .partitionBy(ImmutableList.of()),
+                                                any(
+                                                        tableScan("nation", ImmutableMap.of("NAME", "name"))))
+                                                .withAlias("row_num", new RowNumberSymbolMatcher())))));
+        assertPlanWithSession("SELECT name FROM nation ORDER BY regionkey OFFSET 2 ROWS",
+                enableOffset,
+                true,
+                any(
+                        strictProject(
+                                ImmutableMap.of("name", new ExpressionMatcher("name")),
+                                filter(
+                                        "row_num > BIGINT '2'",
+                                        rowNumber(
+                                                pattern -> pattern
+                                                        .partitionBy(ImmutableList.of()),
+                                                anyTree(
+                                                        sort(
+                                                                ImmutableList.of(sort("regionkey", ASCENDING, LAST)),
+                                                                any(
+                                                                        tableScan("nation", ImmutableMap.of("name", "name", "regionkey", "regionkey"))))))
+                                                .withAlias("row_num", new RowNumberSymbolMatcher())))));
     }
 }

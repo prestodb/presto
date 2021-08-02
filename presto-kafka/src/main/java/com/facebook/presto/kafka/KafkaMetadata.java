@@ -17,6 +17,7 @@ import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.Marker;
 import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.decoder.dummy.DummyRowDecoder;
+import com.facebook.presto.kafka.schema.TableDescriptionSupplier;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
@@ -62,27 +63,25 @@ public class KafkaMetadata
 {
     private final String connectorId;
     private final boolean hideInternalColumns;
-    private final Set<TableDescriptionSupplier> tableDescriptions;
+    private final TableDescriptionSupplier tableDescriptionSupplier;
 
     @Inject
     public KafkaMetadata(
             KafkaConnectorId connectorId,
             KafkaConnectorConfig kafkaConnectorConfig,
-            Set<TableDescriptionSupplier> tableDescriptions)
+            TableDescriptionSupplier tableDescriptionSupplier)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
 
         requireNonNull(kafkaConnectorConfig, "kafkaConfig is null");
         this.hideInternalColumns = kafkaConnectorConfig.isHideInternalColumns();
-        this.tableDescriptions = requireNonNull(tableDescriptions, "tableDescriptions is null");
+        this.tableDescriptionSupplier = requireNonNull(tableDescriptionSupplier, "tableDescriptionSupplier is null");
     }
 
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
-        return tableDescriptions.stream()
-                .map(TableDescriptionSupplier::listTables)
-                .flatMap(Set::stream)
+        return tableDescriptionSupplier.listTables().stream()
                 .map(SchemaTableName::getSchemaName)
                 .collect(toImmutableList());
     }
@@ -120,9 +119,7 @@ public class KafkaMetadata
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
-        return tableDescriptions.stream()
-                .map(TableDescriptionSupplier::listTables)
-                .flatMap(Set::stream)
+        return tableDescriptionSupplier.listTables().stream()
                 .filter(tableName -> schemaName.map(tableName.getSchemaName()::equals).orElse(true))
                 .collect(toImmutableList());
     }
@@ -303,10 +300,6 @@ public class KafkaMetadata
 
     private Optional<KafkaTopicDescription> getTopicDescription(SchemaTableName schemaTableName)
     {
-        return tableDescriptions.stream()
-                .map(kafkaTableDescriptionSupplier -> kafkaTableDescriptionSupplier.getTopicDescription(schemaTableName))
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .findFirst();
+        return tableDescriptionSupplier.getTopicDescription(schemaTableName);
     }
 }

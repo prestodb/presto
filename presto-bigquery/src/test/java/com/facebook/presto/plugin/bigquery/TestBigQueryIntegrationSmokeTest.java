@@ -28,12 +28,8 @@ import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 public class TestBigQueryIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    public TestBigQueryIntegrationSmokeTest()
-    {
-        super(TestBigQueryIntegrationSmokeTest::createQueryRunner);
-    }
-
-    static QueryRunner createQueryRunner()
+    @Override
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
         return BigQueryQueryRunner.createQueryRunner(ImmutableMap.of());

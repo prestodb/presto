@@ -14,6 +14,7 @@
 package com.facebook.presto.tpcds;
 
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import org.testng.annotations.Test;
 
@@ -27,10 +28,11 @@ import static java.util.stream.IntStream.range;
 public class TestTpcds
         extends AbstractTestQueryFramework
 {
-    @SuppressWarnings("unused")
-    public TestTpcds()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(TpcdsQueryRunner::createQueryRunner);
+        return TpcdsQueryRunner.createQueryRunner();
     }
 
     @Test

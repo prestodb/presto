@@ -33,7 +33,6 @@ import java.util.Optional;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 
@@ -45,7 +44,6 @@ public class TempStorageSingleStreamSpillerFactory
     private final PagesSerdeFactory serdeFactory;
     private final SpillerStats spillerStats;
     private final boolean spillEncryptionEnabled;
-    private final int bufferSizeInBytes;
     private final String tempStorageName;
 
     @Inject
@@ -65,7 +63,6 @@ public class TempStorageSingleStreamSpillerFactory
                 spillerStats,
                 requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").isSpillCompressionEnabled(),
                 requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").isSpillEncryptionEnabled(),
-                toIntExact(requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").getTempStorageBufferSize().toBytes()),
                 requireNonNull(featuresConfig, "featuresConfig is null").getSpillerTempStorage());
     }
 
@@ -77,7 +74,6 @@ public class TempStorageSingleStreamSpillerFactory
             SpillerStats spillerStats,
             boolean spillCompressionEnabled,
             boolean spillEncryptionEnabled,
-            int bufferSizeInBytes,
             String tempStorageName)
     {
         this.tempStorageManager = requireNonNull(tempStorageManager, "tempStorageManager is null");
@@ -85,7 +81,6 @@ public class TempStorageSingleStreamSpillerFactory
         this.executor = requireNonNull(executor, "executor is null");
         this.spillerStats = requireNonNull(spillerStats, "spillerStats can not be null");
         this.spillEncryptionEnabled = spillEncryptionEnabled;
-        this.bufferSizeInBytes = bufferSizeInBytes;
         this.tempStorageName = requireNonNull(tempStorageName, "tempStorageName is null");
     }
 
@@ -110,7 +105,6 @@ public class TempStorageSingleStreamSpillerFactory
                 spillerStats,
                 spillContext,
                 memoryContext,
-                spillCipher,
-                bufferSizeInBytes);
+                spillCipher);
     }
 }

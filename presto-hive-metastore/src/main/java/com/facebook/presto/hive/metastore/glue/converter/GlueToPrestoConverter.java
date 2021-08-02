@@ -40,7 +40,7 @@ import java.util.function.UnaryOperator;
 
 import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
-import static com.facebook.presto.hive.metastore.PrestoTableType.OTHER;
+import static com.facebook.presto.hive.metastore.PrestoTableType.EXTERNAL_TABLE;
 import static com.facebook.presto.hive.metastore.util.Memoizers.memoizeLast;
 import static com.google.common.base.Strings.nullToEmpty;
 import static java.lang.String.format;
@@ -73,7 +73,8 @@ public final class GlueToPrestoConverter
                 .setDatabaseName(dbName)
                 .setTableName(glueTable.getName())
                 .setOwner(nullToEmpty(glueTable.getOwner()))
-                .setTableType(PrestoTableType.optionalValueOf(glueTable.getTableType()).orElse(OTHER))
+                // Athena treats missing table type as EXTERNAL_TABLE.
+                .setTableType(PrestoTableType.optionalValueOf(glueTable.getTableType()).orElse(EXTERNAL_TABLE))
                 .setDataColumns(convertColumns(sd.getColumns()))
                 .setParameters(convertParameters(glueTable.getParameters()))
                 .setViewOriginalText(Optional.ofNullable(glueTable.getViewOriginalText()))

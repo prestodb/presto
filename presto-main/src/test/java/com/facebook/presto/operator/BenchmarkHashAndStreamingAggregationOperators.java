@@ -168,6 +168,8 @@ public class BenchmarkHashAndStreamingAggregationOperators
                     100_000,
                     Optional.of(new DataSize(16, MEGABYTE)),
                     false,
+                    false,
+                    false,
                     succinctBytes(8),
                     succinctBytes(Integer.MAX_VALUE),
                     spillerFactory,

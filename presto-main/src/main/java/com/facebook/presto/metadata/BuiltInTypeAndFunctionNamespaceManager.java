@@ -106,8 +106,10 @@ import com.facebook.presto.operator.scalar.ArrayMaxFunction;
 import com.facebook.presto.operator.scalar.ArrayMinFunction;
 import com.facebook.presto.operator.scalar.ArrayNgramsFunction;
 import com.facebook.presto.operator.scalar.ArrayNoneMatchFunction;
+import com.facebook.presto.operator.scalar.ArrayNormalizeFunction;
 import com.facebook.presto.operator.scalar.ArrayNotEqualOperator;
 import com.facebook.presto.operator.scalar.ArrayPositionFunction;
+import com.facebook.presto.operator.scalar.ArrayPositionWithIndexFunction;
 import com.facebook.presto.operator.scalar.ArrayRemoveFunction;
 import com.facebook.presto.operator.scalar.ArrayReverseFunction;
 import com.facebook.presto.operator.scalar.ArrayShuffleFunction;
@@ -162,7 +164,7 @@ import com.facebook.presto.operator.scalar.UrlFunctions;
 import com.facebook.presto.operator.scalar.VarbinaryFunctions;
 import com.facebook.presto.operator.scalar.WilsonInterval;
 import com.facebook.presto.operator.scalar.WordStemFunction;
-import com.facebook.presto.operator.scalar.sql.ArrayArithmeticFunctions;
+import com.facebook.presto.operator.scalar.sql.ArraySqlFunctions;
 import com.facebook.presto.operator.scalar.sql.MapNormalizeFunction;
 import com.facebook.presto.operator.window.CumulativeDistributionFunction;
 import com.facebook.presto.operator.window.DenseRankFunction;
@@ -710,6 +712,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalar(ArrayContains.class)
                 .scalar(ArrayFilterFunction.class)
                 .scalar(ArrayPositionFunction.class)
+                .scalar(ArrayPositionWithIndexFunction.class)
                 .scalars(CombineHashFunction.class)
                 .scalars(JsonOperators.class)
                 .scalar(JsonOperators.JsonDistinctFromOperator.class)
@@ -751,6 +754,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalar(ArrayAllMatchFunction.class)
                 .scalar(ArrayAnyMatchFunction.class)
                 .scalar(ArrayNoneMatchFunction.class)
+                .scalar(ArrayNormalizeFunction.class)
                 .scalar(MapDistinctFromOperator.class)
                 .scalar(MapEqualOperator.class)
                 .scalar(MapEntriesFunction.class)
@@ -831,7 +835,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .functions(TDIGEST_AGG, TDIGEST_AGG_WITH_WEIGHT, TDIGEST_AGG_WITH_WEIGHT_AND_COMPRESSION)
                 .function(MergeTDigestFunction.MERGE)
                 .sqlInvokedScalar(MapNormalizeFunction.class)
-                .sqlInvokedScalars(ArrayArithmeticFunctions.class)
+                .sqlInvokedScalars(ArraySqlFunctions.class)
                 .sqlInvokedScalars(ArrayIntersectFunction.class)
                 .scalar(DynamicFilterPlaceholderFunction.class)
                 .scalars(EnumCasts.class)
@@ -910,8 +914,11 @@ public class BuiltInTypeAndFunctionNamespaceManager
     {
     }
 
+    /**
+     * likePattern / escape is not used for optimization, returning all functions.
+     */
     @Override
-    public Collection<SqlFunction> listFunctions()
+    public Collection<SqlFunction> listFunctions(Optional<String> likePattern, Optional<String> escape)
     {
         return functions.list();
     }
@@ -965,7 +972,8 @@ public class BuiltInTypeAndFunctionNamespaceManager
                     sqlFunction.getRoutineCharacteristics().getLanguage(),
                     SQL,
                     function.isDeterministic(),
-                    function.isCalledOnNullInput());
+                    function.isCalledOnNullInput(),
+                    sqlFunction.getVersion());
         }
         else {
             return new FunctionMetadata(

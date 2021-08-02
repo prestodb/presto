@@ -50,7 +50,7 @@ import static java.util.Objects.requireNonNull;
 public class OrcFileWriter
         implements FileWriter
 {
-    public static final OrcWriterOptions DEFAULT_OPTION = new OrcWriterOptions();
+    public static final OrcWriterOptions DEFAULT_OPTION = OrcWriterOptions.builder().build();
     private static final JsonCodec<OrcFileMetadata> METADATA_CODEC = jsonCodec(OrcFileMetadata.class);
 
     private final OrcWriter orcWriter;
@@ -103,6 +103,7 @@ public class OrcFileWriter
                     Optional.empty(),
                     NO_ENCRYPTION,
                     DEFAULT_OPTION,
+                    Optional.empty(),
                     userMetadata,
                     DEFAULT_STORAGE_TIMEZONE,
                     validate,

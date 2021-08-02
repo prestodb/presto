@@ -25,6 +25,7 @@ import com.facebook.presto.execution.TaskMetadataContext;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.CreateHandle;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.InsertHandle;
+import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.RefreshMaterializedViewHandle;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.metadata.ConnectorMetadataUpdaterManager;
 import com.facebook.presto.operator.OperationTimer.OperationTiming;
@@ -50,6 +51,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Supplier;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.airlift.concurrent.MoreFutures.toListenableFuture;
@@ -111,7 +113,9 @@ public class TableWriterOperator
             this.pageSinkManager = requireNonNull(pageSinkManager, "pageSinkManager is null");
             this.metadataUpdaterManager = requireNonNull(metadataUpdaterManager, "metadataUpdaterManager is null");
             this.taskMetadataContext = requireNonNull(taskMetadataContext, "taskMetadataContext is null");
-            checkArgument(writerTarget instanceof CreateHandle || writerTarget instanceof InsertHandle, "writerTarget must be CreateHandle or InsertHandle");
+            checkArgument(
+                    writerTarget instanceof CreateHandle || writerTarget instanceof InsertHandle || writerTarget instanceof RefreshMaterializedViewHandle,
+                    "writerTarget must be CreateHandle or InsertHandle or RefreshMaterializedViewHandle");
             this.target = requireNonNull(writerTarget, "writerTarget is null");
             this.session = session;
             this.statisticsAggregationOperatorFactory = requireNonNull(statisticsAggregationOperatorFactory, "statisticsAggregationOperatorFactory is null");
@@ -158,6 +162,9 @@ public class TableWriterOperator
             if (target instanceof InsertHandle) {
                 return pageSinkManager.createPageSink(session, ((InsertHandle) target).getHandle(), pageSinkContextBuilder.build());
             }
+            if (target instanceof RefreshMaterializedViewHandle) {
+                return pageSinkManager.createPageSink(session, ((RefreshMaterializedViewHandle) target).getHandle(), pageSinkContextBuilder.build());
+            }
             throw new UnsupportedOperationException("Unhandled target type: " + target.getClass().getName());
         }
 
@@ -169,6 +176,10 @@ public class TableWriterOperator
 
             if (handle instanceof InsertHandle) {
                 return ((InsertHandle) handle).getHandle().getConnectorId();
+            }
+
+            if (handle instanceof RefreshMaterializedViewHandle) {
+                return ((RefreshMaterializedViewHandle) handle).getHandle().getConnectorId();
             }
 
             throw new UnsupportedOperationException("Unhandled target type: " + handle.getClass().getName());
@@ -228,6 +239,8 @@ public class TableWriterOperator
     private final JsonCodec<TableCommitContext> tableCommitContextCodec;
     private final PageSinkCommitStrategy pageSinkCommitStrategy;
 
+    private final Supplier<TableWriterInfo> tableWriterInfoSupplier;
+
     public TableWriterOperator(
             OperatorContext operatorContext,
             ConnectorPageSink pageSink,
@@ -245,12 +258,13 @@ public class TableWriterOperator
         this.columnChannels = requireNonNull(columnChannels, "columnChannels is null");
         this.notNullChannelColumnNames = requireNonNull(notNullChannelColumnNames, "notNullChannelColumnNames is null");
         checkArgument(columnChannels.size() == notNullChannelColumnNames.size(), "columnChannels and notNullColumnNames have different sizes");
-        this.operatorContext.setInfoSupplier(this::getInfo);
         this.statisticAggregationOperator = requireNonNull(statisticAggregationOperator, "statisticAggregationOperator is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.statisticsCpuTimerEnabled = statisticsCpuTimerEnabled;
         this.tableCommitContextCodec = requireNonNull(tableCommitContextCodec, "tableCommitContextCodec is null");
         this.pageSinkCommitStrategy = requireNonNull(pageSinkCommitStrategy, "pageSinkCommitStrategy is null");
+        this.tableWriterInfoSupplier = createTableWriterInfoSupplier(pageSinkPeakMemoryUsage, statisticsTiming, pageSink);
+        this.operatorContext.setInfoSupplier(tableWriterInfoSupplier);
     }
 
     @Override
@@ -462,7 +476,15 @@ public class TableWriterOperator
     @VisibleForTesting
     TableWriterInfo getInfo()
     {
-        return new TableWriterInfo(
+        return tableWriterInfoSupplier.get();
+    }
+
+    private static Supplier<TableWriterInfo> createTableWriterInfoSupplier(AtomicLong pageSinkPeakMemoryUsage, OperationTiming statisticsTiming, ConnectorPageSink pageSink)
+    {
+        requireNonNull(pageSinkPeakMemoryUsage, "pageSinkPeakMemoryUsage is null");
+        requireNonNull(statisticsTiming, "statisticsTiming is null");
+        requireNonNull(pageSink, "pageSink is null");
+        return () -> new TableWriterInfo(
                 pageSinkPeakMemoryUsage.get(),
                 succinctNanos(statisticsTiming.getWallNanos()),
                 succinctNanos(statisticsTiming.getCpuNanos()),

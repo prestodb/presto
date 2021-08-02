@@ -23,7 +23,7 @@ import static java.util.Objects.requireNonNull;
 
 public class StripeInformation
 {
-    private final int numberOfRows;
+    private final long numberOfRows;
     private final long offset;
     private final long indexLength;
     private final long dataLength;
@@ -34,7 +34,7 @@ public class StripeInformation
     // only set for run start, and reuse until next run
     private final List<byte[]> keyMetadata;
 
-    public StripeInformation(int numberOfRows, long offset, long indexLength, long dataLength, long footerLength, List<byte[]> keyMetadata)
+    public StripeInformation(long numberOfRows, long offset, long indexLength, long dataLength, long footerLength, List<byte[]> keyMetadata)
     {
         // dataLength can be zero when the stripe only contains empty flat maps.
         checkArgument(numberOfRows > 0, "Stripe must have at least one row");
@@ -48,7 +48,7 @@ public class StripeInformation
         this.keyMetadata = ImmutableList.copyOf(requireNonNull(keyMetadata, "keyMetadata is null"));
     }
 
-    public int getNumberOfRows()
+    public long getNumberOfRows()
     {
         return numberOfRows;
     }

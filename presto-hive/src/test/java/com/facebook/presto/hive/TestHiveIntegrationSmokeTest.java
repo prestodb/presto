@@ -50,6 +50,7 @@ import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import com.facebook.presto.tests.QueryAssertions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -98,9 +99,9 @@ import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveQueryRunner.TPCH_SCHEMA;
 import static com.facebook.presto.hive.HiveQueryRunner.createBucketedSession;
 import static com.facebook.presto.hive.HiveQueryRunner.createMaterializeExchangesSession;
-import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
 import static com.facebook.presto.hive.HiveSessionProperties.FILE_RENAMING_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.MANIFEST_VERIFICATION_ENABLED;
+import static com.facebook.presto.hive.HiveSessionProperties.OPTIMIZED_PARTITION_UPDATE_SERIALIZATION_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.PREFER_MANIFESTS_TO_LIST_FILES;
 import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.RCFILE_OPTIMIZED_WRITER_ENABLED;
@@ -134,6 +135,7 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.tpch.TpchTable.CUSTOMER;
 import static io.airlift.tpch.TpchTable.LINE_ITEM;
+import static io.airlift.tpch.TpchTable.NATION;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static io.airlift.tpch.TpchTable.PART_SUPPLIER;
 import static java.lang.String.format;
@@ -161,25 +163,29 @@ public class TestHiveIntegrationSmokeTest
     @SuppressWarnings("unused")
     public TestHiveIntegrationSmokeTest()
     {
-        this(() -> createQueryRunner(ORDERS, CUSTOMER, LINE_ITEM, PART_SUPPLIER),
-                createBucketedSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))),
+        this(createBucketedSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))),
                 createMaterializeExchangesSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))),
                 HIVE_CATALOG,
                 new HiveTypeTranslator());
     }
 
     protected TestHiveIntegrationSmokeTest(
-            QueryRunnerSupplier queryRunnerSupplier,
             Session bucketedSession,
             Session materializeExchangesSession,
             String catalog,
             TypeTranslator typeTranslator)
     {
-        super(queryRunnerSupplier);
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.bucketedSession = requireNonNull(bucketedSession, "bucketSession is null");
         this.materializeExchangesSession = requireNonNull(materializeExchangesSession, "materializeExchangesSession is null");
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
+    }
+
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
+    {
+        return HiveQueryRunner.createQueryRunner(ORDERS, CUSTOMER, LINE_ITEM, PART_SUPPLIER, NATION);
     }
 
     private List<?> getPartitions(HiveTableLayoutHandle tableLayoutHandle)
@@ -792,10 +798,15 @@ public class TestHiveIntegrationSmokeTest
     public void testCreatePartitionedBucketedTableAsFewRows()
     {
         // go through all storage formats to make sure the empty buckets are correctly created
-        testWithAllStorageFormats(this::testCreatePartitionedBucketedTableAsFewRows);
+        testWithAllStorageFormats((session, format) -> testCreatePartitionedBucketedTableAsFewRows(session, format, false));
+        // test with optimized PartitionUpdate serialization
+        testWithAllStorageFormats((session, format) -> testCreatePartitionedBucketedTableAsFewRows(session, format, true));
     }
 
-    private void testCreatePartitionedBucketedTableAsFewRows(Session session, HiveStorageFormat storageFormat)
+    private void testCreatePartitionedBucketedTableAsFewRows(
+            Session session,
+            HiveStorageFormat storageFormat,
+            boolean optimizedPartitionUpdateSerializationEnabled)
     {
         String tableName = "test_create_partitioned_bucketed_table_as_few_rows";
 
@@ -818,7 +829,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(
                 // make sure that we will get one file per bucket regardless of writer count configured
-                getParallelWriteSession(),
+                getTableWriteTestingSession(optimizedPartitionUpdateSerializationEnabled),
                 createTable,
                 3);
 
@@ -836,10 +847,11 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testCreatePartitionedBucketedTableAs()
     {
-        testCreatePartitionedBucketedTableAs(HiveStorageFormat.RCBINARY);
+        testCreatePartitionedBucketedTableAs(HiveStorageFormat.RCBINARY, false);
+        testCreatePartitionedBucketedTableAs(HiveStorageFormat.RCBINARY, true);
     }
 
-    private void testCreatePartitionedBucketedTableAs(HiveStorageFormat storageFormat)
+    private void testCreatePartitionedBucketedTableAs(HiveStorageFormat storageFormat, boolean optimizedPartitionUpdateSerializationEnabled)
     {
         String tableName = "test_create_partitioned_bucketed_table_as";
 
@@ -857,7 +869,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(
                 // make sure that we will get one file per bucket regardless of writer count configured
-                getParallelWriteSession(),
+                getTableWriteTestingSession(optimizedPartitionUpdateSerializationEnabled),
                 createTable,
                 "SELECT count(*) from orders");
 
@@ -870,10 +882,11 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testCreatePartitionedBucketedTableAsWithUnionAll()
     {
-        testCreatePartitionedBucketedTableAsWithUnionAll(HiveStorageFormat.RCBINARY);
+        testCreatePartitionedBucketedTableAsWithUnionAll(HiveStorageFormat.RCBINARY, false);
+        testCreatePartitionedBucketedTableAsWithUnionAll(HiveStorageFormat.RCBINARY, true);
     }
 
-    private void testCreatePartitionedBucketedTableAsWithUnionAll(HiveStorageFormat storageFormat)
+    private void testCreatePartitionedBucketedTableAsWithUnionAll(HiveStorageFormat storageFormat, boolean optimizedPartitionUpdateSerializationEnabled)
     {
         String tableName = "test_create_partitioned_bucketed_table_as_with_union_all";
 
@@ -896,7 +909,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(
                 // make sure that we will get one file per bucket regardless of writer count configured
-                getParallelWriteSession(),
+                getTableWriteTestingSession(optimizedPartitionUpdateSerializationEnabled),
                 createTable,
                 "SELECT count(*) from orders");
 
@@ -993,10 +1006,12 @@ public class TestHiveIntegrationSmokeTest
     public void testInsertPartitionedBucketedTableFewRows()
     {
         // go through all storage formats to make sure the empty buckets are correctly created
-        testWithAllStorageFormats(this::testInsertPartitionedBucketedTableFewRows);
+        testWithAllStorageFormats((session, format) -> testInsertPartitionedBucketedTableFewRows(session, format, false));
+        // test with optimized PartitionUpdate serialization
+        testWithAllStorageFormats((session, format) -> testInsertPartitionedBucketedTableFewRows(session, format, true));
     }
 
-    private void testInsertPartitionedBucketedTableFewRows(Session session, HiveStorageFormat storageFormat)
+    private void testInsertPartitionedBucketedTableFewRows(Session session, HiveStorageFormat storageFormat, boolean optimizedPartitionUpdateSerializationEnabled)
     {
         String tableName = "test_insert_partitioned_bucketed_table_few_rows";
 
@@ -1013,7 +1028,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(
                 // make sure that we will get one file per bucket regardless of writer count configured
-                getParallelWriteSession(),
+                getTableWriteTestingSession(optimizedPartitionUpdateSerializationEnabled),
                 "INSERT INTO " + tableName + " " +
                         "VALUES " +
                         "  (VARCHAR 'a', VARCHAR 'b', VARCHAR 'c'), " +
@@ -1079,6 +1094,12 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testCreateEmptyNonBucketedPartition()
     {
+        testCreateEmptyNonBucketedPartition(false);
+        testCreateEmptyNonBucketedPartition(true);
+    }
+
+    public void testCreateEmptyNonBucketedPartition(boolean optimizedPartitionUpdateSerializationEnabled)
+    {
         String tableName = "test_insert_empty_partitioned_unbucketed_table";
         assertUpdate("" +
                 "CREATE TABLE " + tableName + " (" +
@@ -1091,7 +1112,11 @@ public class TestHiveIntegrationSmokeTest
         assertQuery(format("SELECT count(*) FROM \"%s$partitions\"", tableName), "SELECT 0");
 
         // create an empty partition
-        assertUpdate(format("CALL system.create_empty_partition('%s', '%s', ARRAY['part'], ARRAY['%s'])", TPCH_SCHEMA, tableName, "empty"));
+        assertUpdate(
+                Session.builder(getSession())
+                        .setCatalogSessionProperty(catalog, OPTIMIZED_PARTITION_UPDATE_SERIALIZATION_ENABLED, optimizedPartitionUpdateSerializationEnabled + "")
+                        .build(),
+                format("CALL system.create_empty_partition('%s', '%s', ARRAY['part'], ARRAY['%s'])", TPCH_SCHEMA, tableName, "empty"));
         assertQuery(format("SELECT count(*) FROM \"%s$partitions\"", tableName), "SELECT 1");
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -1118,11 +1143,12 @@ public class TestHiveIntegrationSmokeTest
     public void testCreateEmptyBucketedPartition()
     {
         for (TestingHiveStorageFormat storageFormat : getAllTestingHiveStorageFormat()) {
-            testCreateEmptyBucketedPartition(storageFormat.getFormat());
+            testCreateEmptyBucketedPartition(storageFormat.getFormat(), false);
+            testCreateEmptyBucketedPartition(storageFormat.getFormat(), true);
         }
     }
 
-    public void testCreateEmptyBucketedPartition(HiveStorageFormat storageFormat)
+    public void testCreateEmptyBucketedPartition(HiveStorageFormat storageFormat, boolean optimizedPartitionUpdateSerializationEnabled)
     {
         String tableName = "test_insert_empty_partitioned_bucketed_table";
         createPartitionedBucketedTable(tableName, storageFormat);
@@ -1130,7 +1156,11 @@ public class TestHiveIntegrationSmokeTest
         List<String> orderStatusList = ImmutableList.of("F", "O", "P");
         for (int i = 0; i < orderStatusList.size(); i++) {
             String sql = format("CALL system.create_empty_partition('%s', '%s', ARRAY['orderstatus'], ARRAY['%s'])", TPCH_SCHEMA, tableName, orderStatusList.get(i));
-            assertUpdate(sql);
+            assertUpdate(
+                    Session.builder(getSession())
+                            .setCatalogSessionProperty(catalog, OPTIMIZED_PARTITION_UPDATE_SERIALIZATION_ENABLED, optimizedPartitionUpdateSerializationEnabled + "")
+                            .build(),
+                    sql);
             assertQuery(
                     format("SELECT count(*) FROM \"%s$partitions\"", tableName),
                     "SELECT " + (i + 1));
@@ -1145,10 +1175,11 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testInsertPartitionedBucketedTable()
     {
-        testInsertPartitionedBucketedTable(HiveStorageFormat.RCBINARY);
+        testInsertPartitionedBucketedTable(HiveStorageFormat.RCBINARY, false);
+        testInsertPartitionedBucketedTable(HiveStorageFormat.RCBINARY, true);
     }
 
-    private void testInsertPartitionedBucketedTable(HiveStorageFormat storageFormat)
+    private void testInsertPartitionedBucketedTable(HiveStorageFormat storageFormat, boolean optimizedPartitionUpdateSerializationEnabled)
     {
         String tableName = "test_insert_partitioned_bucketed_table";
         createPartitionedBucketedTable(tableName, storageFormat);
@@ -1158,7 +1189,7 @@ public class TestHiveIntegrationSmokeTest
             String orderStatus = orderStatusList.get(i);
             assertUpdate(
                     // make sure that we will get one file per bucket regardless of writer count configured
-                    getParallelWriteSession(),
+                    getTableWriteTestingSession(optimizedPartitionUpdateSerializationEnabled),
                     format(
                             "INSERT INTO " + tableName + " " +
                                     "SELECT custkey, custkey AS custkey2, comment, orderstatus " +
@@ -1192,10 +1223,11 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testInsertPartitionedBucketedTableWithUnionAll()
     {
-        testInsertPartitionedBucketedTableWithUnionAll(HiveStorageFormat.RCBINARY);
+        testInsertPartitionedBucketedTableWithUnionAll(HiveStorageFormat.RCBINARY, false);
+        testInsertPartitionedBucketedTableWithUnionAll(HiveStorageFormat.RCBINARY, true);
     }
 
-    private void testInsertPartitionedBucketedTableWithUnionAll(HiveStorageFormat storageFormat)
+    private void testInsertPartitionedBucketedTableWithUnionAll(HiveStorageFormat storageFormat, boolean optimizedPartitionUpdateSerializationEnabled)
     {
         String tableName = "test_insert_partitioned_bucketed_table_with_union_all";
 
@@ -1216,7 +1248,7 @@ public class TestHiveIntegrationSmokeTest
             String orderStatus = orderStatusList.get(i);
             assertUpdate(
                     // make sure that we will get one file per bucket regardless of writer count configured
-                    getParallelWriteSession(),
+                    getTableWriteTestingSession(optimizedPartitionUpdateSerializationEnabled),
                     format(
                             "INSERT INTO " + tableName + " " +
                                     "SELECT custkey, custkey AS custkey2, comment, orderstatus " +
@@ -2594,45 +2626,60 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testShowCreateTable()
     {
-        String createTableSql = format("" +
-                        "CREATE TABLE %s.%s.%s (\n" +
-                        "   c1 bigint,\n" +
-                        "   c2 double,\n" +
-                        "   \"c 3\" varchar,\n" +
-                        "   \"c'4\" array(bigint),\n" +
-                        "   c5 map(bigint, varchar)\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   format = 'RCBINARY'\n" +
-                        ")",
+        String createTableFormat = "CREATE TABLE %s.%s.%s (\n" +
+                "   %s bigint,\n" +
+                "   %s double,\n" +
+                "   \"c 3\" varchar,\n" +
+                "   \"c'4\" array(bigint),\n" +
+                "   %s map(bigint, varchar)\n" +
+                ")\n" +
+                "WITH (\n" +
+                "   format = 'RCBINARY'\n" +
+                ")";
+        String createTableSql = format(
+                createTableFormat,
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
-                "test_show_create_table");
-
+                "test_show_create_table",
+                "c1",
+                "c2",
+                "c5");
+        String expectedShowCreateTable = format(
+                createTableFormat,
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                "test_show_create_table",
+                "\"c1\"",
+                "\"c2\"",
+                "\"c5\"");
         assertUpdate(createTableSql);
         MaterializedResult actualResult = computeActual("SHOW CREATE TABLE test_show_create_table");
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
+        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), expectedShowCreateTable);
 
-        createTableSql = format("" +
-                        "CREATE TABLE %s.%s.%s (\n" +
-                        "   c1 bigint,\n" +
-                        "   \"c 2\" varchar,\n" +
-                        "   \"c'3\" array(bigint),\n" +
-                        "   c4 map(bigint, varchar) COMMENT 'comment test4',\n" +
-                        "   c5 double COMMENT 'comment test5'\n)\n" +
-                        "COMMENT 'test'\n" +
-                        "WITH (\n" +
-                        "   bucket_count = 5,\n" +
-                        "   bucketed_by = ARRAY['c1','c 2'],\n" +
-                        "   format = 'ORC',\n" +
-                        "   orc_bloom_filter_columns = ARRAY['c1','c2'],\n" +
-                        "   orc_bloom_filter_fpp = 7E-1,\n" +
-                        "   partitioned_by = ARRAY['c5'],\n" +
-                        "   sorted_by = ARRAY['c1','c 2 DESC']\n" +
-                        ")",
+        createTableFormat = "CREATE TABLE %s.%s.%s (\n" +
+                "   %s bigint,\n" +
+                "   \"c 2\" varchar,\n" +
+                "   \"c'3\" array(bigint),\n" +
+                "   %s map(bigint, varchar) COMMENT 'comment test4',\n" +
+                "   %s double COMMENT 'comment test5'\n)\n" +
+                "COMMENT 'test'\n" +
+                "WITH (\n" +
+                "   bucket_count = 5,\n" +
+                "   bucketed_by = ARRAY['c1','c 2'],\n" +
+                "   format = 'ORC',\n" +
+                "   orc_bloom_filter_columns = ARRAY['c1','c2'],\n" +
+                "   orc_bloom_filter_fpp = 7E-1,\n" +
+                "   partitioned_by = ARRAY['c5'],\n" +
+                "   sorted_by = ARRAY['c1','c 2 DESC']\n" +
+                ")";
+        createTableSql = format(
+                createTableFormat,
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
-                "\"test_show_create_table'2\"");
+                "\"test_show_create_table'2\"",
+                "\"c1\"",
+                "\"c2\"",
+                "\"c5\"");
         assertUpdate(createTableSql);
         actualResult = computeActual("SHOW CREATE TABLE \"test_show_create_table'2\"");
         assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
@@ -2648,7 +2695,7 @@ public class TestHiveIntegrationSmokeTest
 
         @Language("SQL") String createTableSql = format("" +
                         "CREATE TABLE %s.%s.test_create_external (\n" +
-                        "   name varchar\n" +
+                        "   \"name\" varchar\n" +
                         ")\n" +
                         "WITH (\n" +
                         "   external_location = '%s',\n" +
@@ -4744,8 +4791,8 @@ public class TestHiveIntegrationSmokeTest
     private String getAvroCreateTableSql(String tableName, String schemaFile)
     {
         return format("CREATE TABLE %s.%s.%s (\n" +
-                        "   dummy_col varchar,\n" +
-                        "   another_dummy_col varchar\n" +
+                        "   \"dummy_col\" varchar,\n" +
+                        "   \"another_dummy_col\" varchar\n" +
                         ")\n" +
                         "WITH (\n" +
                         "   avro_schema_url = '%s',\n" +
@@ -5304,43 +5351,64 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testCreateMaterializedView()
     {
-        computeActual("CREATE TABLE test_customer_base WITH (partitioned_by = ARRAY['nationkey']) AS SELECT custkey, name, address, nationkey FROM customer LIMIT 10");
-        computeActual("CREATE TABLE test_orders_base WITH (partitioned_by = ARRAY['orderstatus']) AS SELECT orderkey, custkey, totalprice, orderstatus FROM orders LIMIT 10");
+        computeActual("CREATE TABLE test_customer_base WITH (partitioned_by = ARRAY['nationkey']) " +
+                "AS SELECT custkey, name, address, nationkey FROM customer LIMIT 10");
+        computeActual("CREATE TABLE test_orders_base WITH (partitioned_by = ARRAY['orderstatus']) " +
+                "AS SELECT orderkey, custkey, totalprice, orderstatus FROM orders LIMIT 10");
 
         // Test successful create
-        assertUpdate("CREATE MATERIALIZED VIEW test_customer_mv WITH (partitioned_by = ARRAY['nationkey']" + retentionDays(30) + ") AS SELECT name, nationkey FROM test_customer_base");
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_customer_mv"));
-        assertTableColumnNames("test_customer_mv", "name", "nationkey");
+        assertUpdate("CREATE MATERIALIZED VIEW test_customer_view WITH (partitioned_by = ARRAY['nationkey']" + retentionDays(30) + ") " +
+                "AS SELECT name, nationkey FROM test_customer_base");
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_customer_view"));
+        assertTableColumnNames("test_customer_view", "name", "nationkey");
 
         // Test if exists
         assertQueryFails(
-                "CREATE MATERIALIZED VIEW test_customer_mv AS SELECT name FROM test_customer_base",
-                format(".* Materialized view '%s.%s.test_customer_mv' already exists", getSession().getCatalog().get(), getSession().getSchema().get()));
-        assertQuerySucceeds("CREATE MATERIALIZED VIEW IF NOT EXISTS test_customer_mv AS SELECT name FROM test_customer_base");
+                "CREATE MATERIALIZED VIEW test_customer_view AS SELECT name FROM test_customer_base",
+                format(
+                ".* Materialized view '%s.%s.test_customer_view' already exists",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get()));
+        assertQuerySucceeds("CREATE MATERIALIZED VIEW IF NOT EXISTS test_customer_view AS SELECT name FROM test_customer_base");
 
         // Test partition mapping
         assertQueryFails(
-                "CREATE MATERIALIZED VIEW test_customer_mv_no_partition " + withRetentionDays(30) + " AS SELECT name FROM test_customer_base",
+                "CREATE MATERIALIZED VIEW test_customer_view_no_partition " + withRetentionDays(30) + " AS SELECT name FROM test_customer_base",
                 ".*Unpartitioned materialized view is not supported.");
         assertQueryFails(
-                "CREATE MATERIALIZED VIEW test_customer_mv_no_direct_partition_mapped WITH (partitioned_by = ARRAY['nationkey']" + retentionDays(30) + ") AS SELECT name, CAST(nationkey AS BIGINT) AS nationkey FROM test_customer_base",
-                format(".*Materialized view %s.test_customer_mv_no_direct_partition_mapped must have at least one partition directly defined by a base table partition.", getSession().getSchema().get()));
+                "CREATE MATERIALIZED VIEW test_customer_view_no_direct_partition_mapped WITH (partitioned_by = ARRAY['nationkey']" + retentionDays(30) + ") " +
+                        "AS SELECT name, CAST(nationkey AS BIGINT) AS nationkey FROM test_customer_base",
+                format(".*Materialized view %s.test_customer_view_no_direct_partition_mapped must have at least partition to base table partition mapping for all base tables.",
+                        getSession().getSchema().get()));
 
         // Test nested
         assertQueryFails(
-                "CREATE MATERIALIZED VIEW test_customer_nested_mv WITH (partitioned_by = ARRAY['nationkey']" + retentionDays(30) + ") AS SELECT name, nationkey FROM test_customer_mv",
-                format(".*CreateMaterializedView on a materialized view %s.%s.test_customer_mv is not supported.", getSession().getCatalog().get(), getSession().getSchema().get()));
+                "CREATE MATERIALIZED VIEW test_customer_nested_view WITH (partitioned_by = ARRAY['nationkey']" + retentionDays(30) + ") " +
+                        "AS SELECT name, nationkey FROM test_customer_view",
+                format(".*CreateMaterializedView on a materialized view %s.%s.test_customer_view is not supported.",
+                        getSession().getCatalog().get(), getSession().getSchema().get()));
 
         // Test query shape
-        assertUpdate("CREATE MATERIALIZED VIEW test_customer_agg_mv WITH (partitioned_by = ARRAY['nationkey']" + retentionDays(30) + ") AS SELECT COUNT(DISTINCT name) AS num, nationkey FROM (SELECT name, nationkey FROM test_customer_base GROUP BY 1, 2) a GROUP BY nationkey");
-        assertUpdate("CREATE MATERIALIZED VIEW test_customer_union_mv WITH (partitioned_by = ARRAY['nationkey']" + retentionDays(30) + ") AS SELECT name, nationkey FROM ( SELECT name, nationkey FROM test_customer_base WHERE nationkey = 1 UNION ALL SELECT name, nationkey FROM test_customer_base WHERE nationkey = 2)");
-        assertUpdate("CREATE MATERIALIZED VIEW test_customer_order_join_mv WITH (partitioned_by = ARRAY['orderstatus', 'nationkey']" + retentionDays(30) + ") AS SELECT orders.totalprice, orders.orderstatus, customer.nationkey FROM test_customer_base customer JOIN test_orders_base orders ON orders.custkey = customer.custkey");
+        assertUpdate("CREATE MATERIALIZED VIEW test_customer_agg_view WITH (partitioned_by = ARRAY['nationkey']" + retentionDays(30) + ") " +
+                "AS SELECT COUNT(DISTINCT name) AS num, nationkey FROM (SELECT name, nationkey FROM test_customer_base GROUP BY 1, 2) a GROUP BY nationkey");
+        assertUpdate("CREATE MATERIALIZED VIEW test_customer_union_view WITH (partitioned_by = ARRAY['nationkey']" + retentionDays(30) + ") " +
+                "AS SELECT name, nationkey FROM ( SELECT name, nationkey FROM test_customer_base WHERE nationkey = 1 UNION ALL " +
+                "SELECT name, nationkey FROM test_customer_base WHERE nationkey = 2)");
+        assertUpdate("CREATE MATERIALIZED VIEW test_customer_order_join_view WITH (partitioned_by = ARRAY['orderstatus', 'nationkey']" + retentionDays(30) + ") " +
+                "AS SELECT orders.totalprice, orders.orderstatus, customer.nationkey FROM test_customer_base customer JOIN " +
+                "test_orders_base orders ON orders.custkey = customer.custkey");
         assertQueryFails(
-                "CREATE MATERIALIZED VIEW test_customer_order_join_mv_no_base_partition_mapped WITH (partitioned_by = ARRAY['custkey']" + retentionDays(30) + ") AS SELECT orders.totalprice, customer.nationkey, customer.custkey FROM test_customer_base customer JOIN test_orders_base orders ON orders.custkey = customer.custkey",
-                format(".*Materialized view %s.test_customer_order_join_mv_no_base_partition_mapped must have at least one partition directly defined by a base table partition.", getSession().getSchema().get()));
+                "CREATE MATERIALIZED VIEW test_customer_order_join_view_no_base_partition_mapped WITH (partitioned_by = ARRAY['custkey']" + retentionDays(30) + ") " +
+                        "AS SELECT orders.totalprice, customer.nationkey, customer.custkey FROM test_customer_base customer JOIN " +
+                        "test_orders_base orders ON orders.custkey = customer.custkey",
+                format(".*Materialized view %s.test_customer_order_join_view_no_base_partition_mapped must have at least partition to base table partition " +
+                        "mapping for all base tables.", getSession().getSchema().get()));
         assertQueryFails(
-                "CREATE MATERIALIZED VIEW test_customer_order_join_mv_no_base_partition_mapped WITH (partitioned_by = ARRAY['nation_order']" + retentionDays(30) + ") AS SELECT orders.totalprice, CONCAT(CAST(customer.nationkey AS VARCHAR), orders.orderstatus) AS nation_order FROM test_customer_base customer JOIN test_orders_base orders ON orders.custkey = customer.custkey",
-                format(".*Materialized view %s.test_customer_order_join_mv_no_base_partition_mapped must have at least one partition directly defined by a base table partition.", getSession().getSchema().get()));
+                "CREATE MATERIALIZED VIEW test_customer_order_join_view_no_base_partition_mapped WITH (partitioned_by = ARRAY['nation_order']" + retentionDays(30) + ") " +
+                        "AS SELECT orders.totalprice, CONCAT(CAST(customer.nationkey AS VARCHAR), orders.orderstatus) AS nation_order " +
+                        "FROM test_customer_base customer JOIN test_orders_base orders ON orders.custkey = customer.custkey",
+                format(".*Materialized view %s.test_customer_order_join_view_no_base_partition_mapped must have at least partition to base table partition " +
+                        "mapping for all base tables.", getSession().getSchema().get()));
 
         // Clean up
         computeActual("DROP TABLE IF EXISTS test_customer_base");
@@ -5350,7 +5418,7 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testShowCreateOnMaterializedView()
     {
-        String createMaterializedViewSql = formatSqlText(format("CREATE MATERIALIZED VIEW %s.%s.test_customer_mv_1\n" +
+        String createMaterializedViewSql = formatSqlText(format("CREATE MATERIALIZED VIEW %s.%s.test_customer_view_1\n" +
                 "WITH (\n" +
                 "   format = 'ORC'," +
                 "   partitioned_by = ARRAY['nationkey']\n" +
@@ -5366,18 +5434,27 @@ public class TestHiveIntegrationSmokeTest
         computeActual("CREATE TABLE test_customer_base_1 WITH (partitioned_by = ARRAY['nationkey']) AS SELECT custkey, name, address, nationkey FROM customer LIMIT 10");
         computeActual(createMaterializedViewSql);
 
-        MaterializedResult actualResult = computeActual("SHOW CREATE MATERIALIZED VIEW test_customer_mv_1");
+        MaterializedResult actualResult = computeActual("SHOW CREATE MATERIALIZED VIEW test_customer_view_1");
         assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createMaterializedViewSql.trim());
 
         assertQueryFails(
                 "SHOW CREATE MATERIALIZED VIEW test_customer_base_1",
-                format(".*Relation '%s.%s.test_customer_base_1' is a table, not a materialized view", getSession().getCatalog().get(), getSession().getSchema().get()));
+                format(
+                        ".*Relation '%s.%s.test_customer_base_1' is a table, not a materialized view",
+                        getSession().getCatalog().get(),
+                        getSession().getSchema().get()));
         assertQueryFails(
-                "SHOW CREATE VIEW test_customer_mv_1",
-                format(".*Relation '%s.%s.test_customer_mv_1' is a materialized view, not a view", getSession().getCatalog().get(), getSession().getSchema().get()));
+                "SHOW CREATE VIEW test_customer_view_1",
+                format(
+                        ".*Relation '%s.%s.test_customer_view_1' is a materialized view, not a view",
+                        getSession().getCatalog().get(),
+                        getSession().getSchema().get()));
         assertQueryFails(
-                "SHOW CREATE TABLE test_customer_mv_1",
-                format(".*Relation '%s.%s.test_customer_mv_1' is a materialized view, not a table", getSession().getCatalog().get(), getSession().getSchema().get()));
+                "SHOW CREATE TABLE test_customer_view_1",
+                format(
+                        ".*Relation '%s.%s.test_customer_view_1' is a materialized view, not a table",
+                        getSession().getCatalog().get(),
+                        getSession().getSchema().get()));
 
         // Clean up
         computeActual("DROP TABLE IF EXISTS test_customer_base_1");
@@ -5387,20 +5464,31 @@ public class TestHiveIntegrationSmokeTest
     public void testAlterOnMaterializedView()
     {
         computeActual("CREATE TABLE test_customer_base_2 WITH (partitioned_by = ARRAY['nationkey']) AS SELECT custkey, name, address, nationkey FROM customer LIMIT 10");
-        computeActual("CREATE MATERIALIZED VIEW test_customer_mv_2 WITH (partitioned_by = ARRAY['nationkey']" + retentionDays(30) + ") AS SELECT name, nationkey FROM test_customer_base_2");
+        computeActual("CREATE MATERIALIZED VIEW test_customer_view_2 WITH (partitioned_by = ARRAY['nationkey']" + retentionDays(30) + ") " +
+                "AS SELECT name, nationkey FROM test_customer_base_2");
 
         assertQueryFails(
-                "ALTER TABLE test_customer_mv_2 RENAME TO test_customer_mv_new",
-                format(".*'%s.%s.test_customer_mv_2' is a materialized view, and rename is not supported", getSession().getCatalog().get(), getSession().getSchema().get()));
+                "ALTER TABLE test_customer_view_2 RENAME TO test_customer_view_new",
+                format(
+                        ".*'%s.%s.test_customer_view_2' is a materialized view, and rename is not supported",
+                        getSession().getCatalog().get(),
+                        getSession().getSchema().get()));
         assertQueryFails(
-                "ALTER TABLE test_customer_mv_2 ADD COLUMN timezone VARCHAR",
-                format(".*'%s.%s.test_customer_mv_2' is a materialized view, and add column is not supported", getSession().getCatalog().get(), getSession().getSchema().get()));
+                "ALTER TABLE test_customer_view_2 ADD COLUMN timezone VARCHAR",
+                format(
+                        ".*'%s.%s.test_customer_view_2' is a materialized view, and add column is not supported",
+                        getSession().getCatalog().get(),
+                        getSession().getSchema().get()));
         assertQueryFails(
-                "ALTER TABLE test_customer_mv_2 DROP COLUMN address",
-                format(".*'%s.%s.test_customer_mv_2' is a materialized view, and drop column is not supported", getSession().getCatalog().get(), getSession().getSchema().get()));
+                "ALTER TABLE test_customer_view_2 DROP COLUMN address",
+                format(".*'%s.%s.test_customer_view_2' is a materialized view, and drop column is not supported",
+                        getSession().getCatalog().get(),
+                        getSession().getSchema().get()));
         assertQueryFails(
-                "ALTER TABLE test_customer_mv_2 RENAME COLUMN name TO custname",
-                format(".*'%s.%s.test_customer_mv_2' is a materialized view, and rename column is not supported", getSession().getCatalog().get(), getSession().getSchema().get()));
+                "ALTER TABLE test_customer_view_2 RENAME COLUMN name TO custname",
+                format(".*'%s.%s.test_customer_view_2' is a materialized view, and rename column is not supported",
+                        getSession().getCatalog().get(),
+                        getSession().getSchema().get()));
 
         // Clean up
         computeActual("DROP TABLE IF EXISTS test_customer_base_2");
@@ -5410,13 +5498,14 @@ public class TestHiveIntegrationSmokeTest
     public void testInsertDeleteOnMaterializedView()
     {
         computeActual("CREATE TABLE test_customer_base_3 WITH (partitioned_by = ARRAY['nationkey']) AS SELECT custkey, name, address, nationkey FROM customer LIMIT 10");
-        computeActual("CREATE MATERIALIZED VIEW test_customer_mv_3 WITH (partitioned_by = ARRAY['nationkey']" + retentionDays(30) + ") AS SELECT name, nationkey FROM test_customer_base_3");
+        computeActual("CREATE MATERIALIZED VIEW test_customer_view_3 WITH (partitioned_by = ARRAY['nationkey']" + retentionDays(30) + ") " +
+                "AS SELECT name, nationkey FROM test_customer_base_3");
 
         assertQueryFails(
-                "INSERT INTO test_customer_mv_3 SELECT name, nationkey FROM test_customer_base_2",
+                "INSERT INTO test_customer_view_3 SELECT name, nationkey FROM test_customer_base_2",
                 ".*Inserting into materialized views is not supported");
         assertQueryFails(
-                "DELETE FROM test_customer_mv_3",
+                "DELETE FROM test_customer_view_3",
                 ".*Deleting from materialized views is not supported");
 
         // Clean up
@@ -5427,20 +5516,125 @@ public class TestHiveIntegrationSmokeTest
     public void testDropMaterializedView()
     {
         computeActual("CREATE TABLE test_customer_base_4 WITH (partitioned_by = ARRAY['nationkey']) AS SELECT custkey, name, address, nationkey FROM customer LIMIT 10");
-        computeActual("CREATE MATERIALIZED VIEW test_customer_mv_4 WITH (partitioned_by = ARRAY['nationkey']" + retentionDays(30) + ") AS SELECT name, nationkey FROM test_customer_base_4");
+        computeActual("CREATE MATERIALIZED VIEW test_customer_view_4 WITH (partitioned_by = ARRAY['nationkey']" + retentionDays(30) + ") " +
+                "AS SELECT name, nationkey FROM test_customer_base_4");
 
         assertQueryFails(
-                "DROP TABLE test_customer_mv_4",
-                format(".*'%s.%s.test_customer_mv_4' is a materialized view, not a table. Use DROP MATERIALIZED VIEW to drop.", getSession().getCatalog().get(), getSession().getSchema().get()));
+                "DROP TABLE test_customer_view_4",
+                format(
+                        ".*'%s.%s.test_customer_view_4' is a materialized view, not a table. Use DROP MATERIALIZED VIEW to drop.",
+                        getSession().getCatalog().get(),
+                        getSession().getSchema().get()));
         assertQueryFails(
-                "DROP VIEW test_customer_mv_4",
-                format(".*View '%s.%s.test_customer_mv_4' does not exist", getSession().getCatalog().get(), getSession().getSchema().get()));
+                "DROP VIEW test_customer_view_4",
+                format(
+                        ".*View '%s.%s.test_customer_view_4' does not exist",
+                        getSession().getCatalog().get(),
+                        getSession().getSchema().get()));
 
-        assertUpdate("DROP MATERIALIZED VIEW test_customer_mv_4");
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_customer_mv_4"));
+        assertUpdate("DROP MATERIALIZED VIEW test_customer_view_4");
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_customer_view_4"));
 
         // Clean up
         computeActual("DROP TABLE IF EXISTS test_customer_base_4");
+    }
+
+    @Test
+    public void testRefreshMaterializedViewSimple()
+    {
+        Session session = getSession();
+        QueryRunner queryRunner = getQueryRunner();
+
+        computeActual(
+                "CREATE TABLE orders_partitioned WITH (partitioned_by = ARRAY['ds']) " +
+                        "AS SELECT orderkey, orderpriority, '2020-01-01' as ds FROM orders WHERE orderkey < 1000 " +
+                        "UNION ALL " +
+                        "SELECT orderkey, orderpriority, '2019-01-02' as ds FROM orders WHERE orderkey > 1000");
+        computeActual(
+                "CREATE MATERIALIZED VIEW test_orders_view WITH (partitioned_by = ARRAY['ds']) " +
+                        "AS SELECT orderkey, orderpriority, ds FROM orders_partitioned");
+
+        String refreshSql = "REFRESH MATERIALIZED VIEW test_orders_view WHERE ds='2020-01-01'";
+        String expectedInsertQuery = "SELECT orderkey, orderpriority, ds " +
+                "FROM (" +
+                "  SELECT * FROM orders_partitioned WHERE ds='2020-01-01'" +
+                ") orders_partitioned";
+        QueryAssertions.assertQuery(
+                queryRunner,
+                session,
+                refreshSql,
+                queryRunner,
+                "SELECT COUNT(*) FROM ( " + expectedInsertQuery + " )",
+                false, true);
+    }
+
+    @Test
+    public void testRefreshMaterializedView()
+    {
+        Session session = getSession();
+        QueryRunner queryRunner = getQueryRunner();
+
+        computeActual("CREATE TABLE test_nation_base_5 WITH (partitioned_by = ARRAY['nationkey', 'regionkey']) AS SELECT name, nationkey, regionkey FROM nation");
+        computeActual("CREATE TABLE test_customer_base_5 WITH (partitioned_by = ARRAY['nationkey']) AS SELECT custkey, name, mktsegment, nationkey FROM customer");
+        computeActual(
+                "CREATE MATERIALIZED VIEW test_customer_view_5 WITH (partitioned_by = ARRAY['marketsegment', 'nationkey', 'regionkey']" + retentionDays(30) + ") " +
+                        "AS SELECT test_nation_base_5.name AS nationname, customer.custkey, customer.name AS customername, UPPER(customer.mktsegment) AS marketsegment, customer.nationkey, regionkey " +
+                        "FROM test_nation_base_5 JOIN test_customer_base_5 customer ON (test_nation_base_5.nationkey = customer.nationkey)");
+
+        // Test predicate columns from two base tables
+        String refreshSql = "REFRESH MATERIALIZED VIEW test_customer_view_5 WHERE marketsegment = 'AUTOMOBILE' AND nationkey = 24 AND regionkey = 1";
+        String expectedInsertQuery = "SELECT *" +
+                "FROM (" +
+                "  SELECT nation.name AS nationname, customer.custkey, customer.name AS customername, UPPER(customer.mktsegment) AS marketsegment, customer.nationkey, regionkey " +
+                "  FROM (" +
+                "    SELECT * FROM test_nation_base_5 WHERE regionkey = 1" +
+                "  ) nation JOIN (" +
+                "    SELECT * FROM test_customer_base_5 WHERE nationkey = 24" +
+                "  ) customer ON (nation.nationkey = customer.nationkey)" +
+                ") WHERE marketsegment = 'AUTOMOBILE'";
+        QueryAssertions.assertQuery(
+                queryRunner,
+                session,
+                refreshSql,
+                queryRunner,
+                "SELECT COUNT(*) FROM ( " + expectedInsertQuery + " )",
+                false, true);
+
+        // Test predicate columns from one base table
+        refreshSql = "REFRESH MATERIALIZED VIEW test_customer_view_5 WHERE marketsegment = 'AUTOMOBILE' AND nationkey = 24";
+        expectedInsertQuery = "SELECT *" +
+                "FROM (" +
+                "  SELECT nation.name AS nationname, customer.custkey, customer.name AS customername, UPPER(customer.mktsegment) AS marketsegment, customer.nationkey, regionkey " +
+                "  FROM test_nation_base_5 nation JOIN (" +
+                "    SELECT * FROM test_customer_base_5 WHERE nationkey = 24" +
+                "  ) customer ON (nation.nationkey = customer.nationkey)" +
+                ") WHERE marketsegment = 'AUTOMOBILE'";
+        QueryAssertions.assertQuery(
+                queryRunner,
+                session,
+                refreshSql,
+                queryRunner,
+                "SELECT COUNT(*) FROM ( " + expectedInsertQuery + " )",
+                false, true);
+
+        refreshSql = "REFRESH MATERIALIZED VIEW test_customer_view_5 WHERE regionkey = 1";
+        expectedInsertQuery = "SELECT nation.name AS nationname, customer.custkey, customer.name AS customername, UPPER(customer.mktsegment) AS marketsegment, customer.nationkey, regionkey " +
+                "FROM (" +
+                "  SELECT * FROM test_nation_base_5 WHERE regionkey = 1" +
+                ") nation JOIN test_customer_base_5 customer ON (nation.nationkey = customer.nationkey)";
+        QueryAssertions.assertQuery(
+                queryRunner,
+                session,
+                refreshSql,
+                queryRunner,
+                "SELECT COUNT(*) FROM ( " + expectedInsertQuery + " )",
+                false, true);
+
+        // Test invalid predicates
+        assertQueryFails("REFRESH MATERIALIZED VIEW test_customer_view_5 WHERE nationname = 'UNITED STATES'", ".*Refresh materialized view by column nationname is not supported.*");
+        assertQueryFails("REFRESH MATERIALIZED VIEW test_customer_view_5 WHERE regionkey = 1 OR nationkey = 24", ".*Only logical AND is supported in WHERE clause.*");
+        assertQueryFails("REFRESH MATERIALIZED VIEW test_customer_view_5 WHERE regionkey + nationkey = 25", ".*Only columns specified on literals are supported in WHERE clause.*");
+        assertQueryFails("REFRESH MATERIALIZED VIEW test_customer_view_5", ".*mismatched input '<EOF>'\\. Expecting: '\\.', 'WHERE'.*");
     }
 
     protected String retentionDays(int days)
@@ -5453,10 +5647,11 @@ public class TestHiveIntegrationSmokeTest
         return "";
     }
 
-    private Session getParallelWriteSession()
+    private Session getTableWriteTestingSession(boolean optimizedPartitionUpdateSerializationEnabled)
     {
         return Session.builder(getSession())
                 .setSystemProperty("task_writer_count", "4")
+                .setCatalogSessionProperty(catalog, OPTIMIZED_PARTITION_UPDATE_SERIALIZATION_ENABLED, optimizedPartitionUpdateSerializationEnabled + "")
                 .build();
     }
 

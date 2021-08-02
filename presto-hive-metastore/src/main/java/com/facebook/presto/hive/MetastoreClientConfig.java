@@ -14,11 +14,14 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.presto.hive.metastore.CachingHiveMetastore.MetastoreCacheScope;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
+import javax.validation.constraints.DecimalMax;
+import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
@@ -44,6 +47,8 @@ public class MetastoreClientConfig
     private Duration recordingDuration = new Duration(0, MINUTES);
     private boolean partitionVersioningEnabled;
     private MetastoreCacheScope metastoreCacheScope = MetastoreCacheScope.ALL;
+    private boolean metastoreImpersonationEnabled;
+    private double partitionCacheValidationPercentage;
 
     public HostAndPort getMetastoreSocksProxy()
     {
@@ -220,6 +225,33 @@ public class MetastoreClientConfig
     public MetastoreClientConfig setMetastoreCacheScope(MetastoreCacheScope metastoreCacheScope)
     {
         this.metastoreCacheScope = metastoreCacheScope;
+        return this;
+    }
+
+    public boolean isMetastoreImpersonationEnabled()
+    {
+        return metastoreImpersonationEnabled;
+    }
+
+    @Config("hive.metastore-impersonation-enabled")
+    @ConfigDescription("Should Presto user be impersonated when communicating with Hive Metastore")
+    public MetastoreClientConfig setMetastoreImpersonationEnabled(boolean metastoreImpersonationEnabled)
+    {
+        this.metastoreImpersonationEnabled = metastoreImpersonationEnabled;
+        return this;
+    }
+
+    @DecimalMin("0.0")
+    @DecimalMax("100.0")
+    public double getPartitionCacheValidationPercentage()
+    {
+        return partitionCacheValidationPercentage;
+    }
+
+    @Config("hive.partition-cache-validation-percentage")
+    public MetastoreClientConfig setPartitionCacheValidationPercentage(double partitionCacheValidationPercentage)
+    {
+        this.partitionCacheValidationPercentage = partitionCacheValidationPercentage;
         return this;
     }
 }

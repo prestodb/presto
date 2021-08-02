@@ -117,6 +117,7 @@ public final class HiveSessionProperties
     public static final String PREFER_MANIFESTS_TO_LIST_FILES = "prefer_manifests_to_list_files";
     public static final String MANIFEST_VERIFICATION_ENABLED = "manifest_verification_enabled";
     public static final String NEW_PARTITION_USER_SUPPLIED_PARAMETER = "new_partition_user_supplied_parameter";
+    public static final String OPTIMIZED_PARTITION_UPDATE_SERIALIZATION_ENABLED = "optimized_partition_update_serialization_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -551,6 +552,11 @@ public final class HiveSessionProperties
                         NEW_PARTITION_USER_SUPPLIED_PARAMETER,
                         "\"user_supplied\" parameter added to all newly created partitions",
                         null,
+                        true),
+                booleanProperty(
+                        OPTIMIZED_PARTITION_UPDATE_SERIALIZATION_ENABLED,
+                        "Serialize PartitionUpdate objects using binary SMILE encoding and compress with the ZSTD compression",
+                        hiveClientConfig.isOptimizedPartitionUpdateSerializationEnabled(),
                         true));
     }
 
@@ -965,5 +971,10 @@ public final class HiveSessionProperties
     public static Optional<String> getNewPartitionUserSuppliedParameter(ConnectorSession session)
     {
         return Optional.ofNullable(session.getProperty(NEW_PARTITION_USER_SUPPLIED_PARAMETER, String.class));
+    }
+
+    public static boolean isOptimizedPartitionUpdateSerializationEnabled(ConnectorSession session)
+    {
+        return session.getProperty(OPTIMIZED_PARTITION_UPDATE_SERIALIZATION_ENABLED, Boolean.class);
     }
 }

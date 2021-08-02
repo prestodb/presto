@@ -37,6 +37,7 @@ import com.facebook.presto.execution.scheduler.ExecutionWriterTarget;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.CreateHandle;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.DeleteHandle;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.InsertHandle;
+import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.RefreshMaterializedViewHandle;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.execution.scheduler.TableWriteInfo.DeleteScanInfo;
 import com.facebook.presto.expressions.DynamicFilters;
@@ -44,6 +45,7 @@ import com.facebook.presto.expressions.DynamicFilters.DynamicFilterExtractResult
 import com.facebook.presto.expressions.DynamicFilters.DynamicFilterPlaceholder;
 import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.index.IndexManager;
+import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.metadata.AnalyzeTableHandle;
 import com.facebook.presto.metadata.ConnectorMetadataUpdaterManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
@@ -244,18 +246,21 @@ import static com.facebook.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static com.facebook.presto.SystemSessionProperties.getAggregationOperatorUnspillMemoryLimit;
 import static com.facebook.presto.SystemSessionProperties.getDynamicFilteringMaxPerDriverRowCount;
 import static com.facebook.presto.SystemSessionProperties.getDynamicFilteringMaxPerDriverSize;
+import static com.facebook.presto.SystemSessionProperties.getDynamicFilteringRangeRowLimitPerDriver;
 import static com.facebook.presto.SystemSessionProperties.getFilterAndProjectMinOutputPageRowCount;
 import static com.facebook.presto.SystemSessionProperties.getFilterAndProjectMinOutputPageSize;
 import static com.facebook.presto.SystemSessionProperties.getIndexLoaderTimeout;
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
 import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
+import static com.facebook.presto.SystemSessionProperties.isDistinctAggregationSpillEnabled;
 import static com.facebook.presto.SystemSessionProperties.isEnableDynamicFiltering;
 import static com.facebook.presto.SystemSessionProperties.isExchangeChecksumEnabled;
 import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isJoinSpillingEnabled;
 import static com.facebook.presto.SystemSessionProperties.isOptimizeCommonSubExpressions;
 import static com.facebook.presto.SystemSessionProperties.isOptimizedRepartitioningEnabled;
+import static com.facebook.presto.SystemSessionProperties.isOrderByAggregationSpillEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -357,6 +362,7 @@ public class LocalExecutionPlanner
     private final LogicalRowExpressions logicalRowExpressions;
     private final FragmentResultCacheManager fragmentResultCacheManager;
     private final ObjectMapper objectMapper;
+    private final boolean tableFinishOperatorMemoryTrackingEnabled;
 
     private static final TypeSignature SPHERICAL_GEOGRAPHY_TYPE_SIGNATURE = parseTypeSignature("SphericalGeography");
 
@@ -375,6 +381,7 @@ public class LocalExecutionPlanner
             JoinFilterFunctionCompiler joinFilterFunctionCompiler,
             IndexJoinLookupStats indexJoinLookupStats,
             TaskManagerConfig taskManagerConfig,
+            MemoryManagerConfig memoryManagerConfig,
             SpillerFactory spillerFactory,
             SingleStreamSpillerFactory singleStreamSpillerFactory,
             PartitioningSpillerFactory partitioningSpillerFactory,
@@ -419,6 +426,7 @@ public class LocalExecutionPlanner
                 metadata.getFunctionAndTypeManager());
         this.fragmentResultCacheManager = requireNonNull(fragmentResultCacheManager, "fragmentResultCacheManager is null");
         this.objectMapper = requireNonNull(objectMapper, "objectMapper is null");
+        this.tableFinishOperatorMemoryTrackingEnabled = requireNonNull(memoryManagerConfig, "memoryManagerConfig is null").isTableFinishOperatorMemoryTrackingEnabled();
     }
 
     public LocalExecutionPlan plan(
@@ -1236,7 +1244,14 @@ public class LocalExecutionPlanner
             boolean spillEnabled = isSpillEnabled(context.getSession());
             DataSize unspillMemoryLimit = getAggregationOperatorUnspillMemoryLimit(context.getSession());
 
-            return planGroupByAggregation(node, source, spillEnabled, unspillMemoryLimit, context);
+            return planGroupByAggregation(
+                    node,
+                    source,
+                    spillEnabled,
+                    isDistinctAggregationSpillEnabled(session),
+                    isOrderByAggregationSpillEnabled(session),
+                    unspillMemoryLimit,
+                    context);
         }
 
         @Override
@@ -1994,14 +2009,19 @@ public class LocalExecutionPlanner
                     node.getId(),
                     nestedLoopJoinBridgeManager);
 
-            checkArgument(buildContext.getDriverInstanceCount().orElse(1) == 1, "Expected local execution to not be parallel");
+            int partitionCount = buildContext.getDriverInstanceCount().orElse(1);
+            checkArgument(partitionCount == 1, "Expected local execution to not be parallel");
+
+            ImmutableList.Builder<OperatorFactory> factoriesBuilder = new ImmutableList.Builder<>();
+            factoriesBuilder.addAll(buildSource.getOperatorFactories());
+            createDynamicFilter(buildSource, node, context, partitionCount).ifPresent(
+                    filter -> factoriesBuilder.add(createDynamicFilterSourceOperatorFactory(filter, node.getId(), buildSource, buildContext)));
+            factoriesBuilder.add(nestedLoopBuildOperatorFactory);
+
             context.addDriverFactory(
                     buildContext.isInputDriver(),
                     false,
-                    ImmutableList.<OperatorFactory>builder()
-                            .addAll(buildSource.getOperatorFactories())
-                            .add(nestedLoopBuildOperatorFactory)
-                            .build(),
+                    factoriesBuilder.build(),
                     buildContext.getDriverInstanceCount(),
                     buildSource.getPipelineExecutionStrategy(),
                     Optional.empty());
@@ -2155,10 +2175,24 @@ public class LocalExecutionPlanner
             PhysicalOperation probeSource = probeNode.accept(this, context);
 
             // Plan build
-            JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory =
-                    createLookupSourceFactory(node, buildNode, buildVariables, buildHashVariable, probeSource, context);
+            LocalExecutionPlanContext buildContext = context.createSubContext();
+            PhysicalOperation buildSource = buildNode.accept(this, buildContext);
+            if (buildSource.getPipelineExecutionStrategy() == GROUPED_EXECUTION) {
+                checkState(
+                        probeSource.getPipelineExecutionStrategy() == GROUPED_EXECUTION,
+                        "Build execution is GROUPED_EXECUTION. Probe execution is expected be GROUPED_EXECUTION, but is UNGROUPED_EXECUTION.");
+            }
 
-            OperatorFactory operator = createLookupJoin(node, probeSource, probeVariables, probeHashVariable, lookupSourceFactory, context);
+            boolean buildOuter = node.getType() == RIGHT || node.getType() == FULL;
+            // spill does not work for probe only grouped execution because PartitionedLookupSourceFactory.finishProbe() expects a defined number of probe operators
+            boolean isProbeOnlyGroupedExecution = probeSource.getPipelineExecutionStrategy() == GROUPED_EXECUTION && buildSource.getPipelineExecutionStrategy() != GROUPED_EXECUTION;
+            boolean spillEnabled = isSpillEnabled(context.getSession()) && isJoinSpillingEnabled(context.getSession()) && !buildOuter && !isProbeOnlyGroupedExecution;
+
+            // Plan build
+            JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory =
+                    createLookupSourceFactory(node, buildSource, buildContext, buildVariables, buildHashVariable, probeSource, spillEnabled, context);
+
+            OperatorFactory operator = createLookupJoin(node, probeSource, probeVariables, probeHashVariable, lookupSourceFactory, spillEnabled, context);
 
             ImmutableMap.Builder<VariableReferenceExpression, Integer> outputMappings = ImmutableMap.builder();
             List<VariableReferenceExpression> outputVariables = node.getOutputVariables();
@@ -2171,25 +2205,14 @@ public class LocalExecutionPlanner
 
         private JoinBridgeManager<PartitionedLookupSourceFactory> createLookupSourceFactory(
                 JoinNode node,
-                PlanNode buildNode,
+                PhysicalOperation buildSource,
+                LocalExecutionPlanContext buildContext,
                 List<VariableReferenceExpression> buildVariables,
                 Optional<VariableReferenceExpression> buildHashVariable,
                 PhysicalOperation probeSource,
+                boolean spillEnabled,
                 LocalExecutionPlanContext context)
         {
-            // Determine if planning broadcast join
-            Optional<JoinNode.DistributionType> distributionType = node.getDistributionType();
-            boolean isBroadcastJoin = distributionType.isPresent() && distributionType.get() == REPLICATED;
-
-            LocalExecutionPlanContext buildContext = context.createSubContext();
-            PhysicalOperation buildSource = buildNode.accept(this, buildContext);
-
-            if (buildSource.getPipelineExecutionStrategy() == GROUPED_EXECUTION) {
-                checkState(
-                        probeSource.getPipelineExecutionStrategy() == GROUPED_EXECUTION,
-                        "Build execution is GROUPED_EXECUTION. Probe execution is expected be GROUPED_EXECUTION, but is UNGROUPED_EXECUTION.");
-            }
-
             List<VariableReferenceExpression> buildOutputVariables = node.getOutputVariables().stream()
                     .filter(node.getRight().getOutputVariables()::contains)
                     .collect(toImmutableList());
@@ -2197,10 +2220,6 @@ public class LocalExecutionPlanner
             List<Integer> buildChannels = ImmutableList.copyOf(getChannelsForVariables(buildVariables, buildSource.getLayout()));
             OptionalInt buildHashChannel = buildHashVariable.map(variableChannelGetter(buildSource))
                     .map(OptionalInt::of).orElse(OptionalInt.empty());
-
-            boolean spillEnabled = isSpillEnabled(context.getSession()) && isJoinSpillingEnabled(context.getSession());
-            boolean buildOuter = node.getType() == RIGHT || node.getType() == FULL;
-            int partitionCount = buildContext.getDriverInstanceCount().orElse(1);
 
             Optional<JoinFilterFunctionFactory> filterFunctionFactory = node.getFilter()
                     .map(filterExpression -> compileJoinFilterFunction(
@@ -2234,6 +2253,8 @@ public class LocalExecutionPlanner
             ImmutableList<Type> buildOutputTypes = buildOutputChannels.stream()
                     .map(buildSource.getTypes()::get)
                     .collect(toImmutableList());
+            boolean buildOuter = node.getType() == RIGHT || node.getType() == FULL;
+            int partitionCount = buildContext.getDriverInstanceCount().orElse(1);
             JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager = new JoinBridgeManager<>(
                     buildOuter,
                     probeSource.getPipelineExecutionStrategy(),
@@ -2255,8 +2276,9 @@ public class LocalExecutionPlanner
             createDynamicFilter(buildSource, node, context, partitionCount).ifPresent(
                     filter -> factoriesBuilder.add(createDynamicFilterSourceOperatorFactory(filter, node.getId(), buildSource, buildContext)));
 
-            // spill does not work for probe only grouped execution because PartitionedLookupSourceFactory.finishProbe() expects a defined number of probe operators
-            boolean isProbeOnlyGroupedExecution = probeSource.getPipelineExecutionStrategy() == GROUPED_EXECUTION && buildSource.getPipelineExecutionStrategy() != GROUPED_EXECUTION;
+            // Determine if planning broadcast join
+            Optional<JoinNode.DistributionType> distributionType = node.getDistributionType();
+            boolean isBroadcastJoin = distributionType.isPresent() && distributionType.get() == REPLICATED;
 
             HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(
                     buildContext.getNextOperatorId(),
@@ -2270,7 +2292,7 @@ public class LocalExecutionPlanner
                     searchFunctionFactories,
                     10_000,
                     pagesIndexFactory,
-                    spillEnabled && !buildOuter && partitionCount > 1 && !isProbeOnlyGroupedExecution,
+                    spillEnabled && partitionCount > 1,
                     singleStreamSpillerFactory,
                     isBroadcastJoin);
 
@@ -2307,7 +2329,8 @@ public class LocalExecutionPlanner
                     dynamicFilter.getTupleDomainConsumer(),
                     filterBuildChannels,
                     getDynamicFilteringMaxPerDriverRowCount(context.getSession()),
-                    getDynamicFilteringMaxPerDriverSize(context.getSession()));
+                    getDynamicFilteringMaxPerDriverSize(context.getSession()),
+                    getDynamicFilteringRangeRowLimitPerDriver(context.getSession()));
         }
 
         private Optional<LocalDynamicFilter> createDynamicFilter(PhysicalOperation buildSource, AbstractJoinNode node, LocalExecutionPlanContext context, int partitionCount)
@@ -2360,6 +2383,7 @@ public class LocalExecutionPlanner
                 List<VariableReferenceExpression> probeVariables,
                 Optional<VariableReferenceExpression> probeHashVariable,
                 JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactoryManager,
+                boolean spillEnabled,
                 LocalExecutionPlanContext context)
         {
             List<Type> probeTypes = probeSource.getTypes();
@@ -2370,7 +2394,7 @@ public class LocalExecutionPlanner
             List<Integer> probeJoinChannels = ImmutableList.copyOf(getChannelsForVariables(probeVariables, probeSource.getLayout()));
             OptionalInt probeHashChannel = probeHashVariable.map(variableChannelGetter(probeSource))
                     .map(OptionalInt::of).orElse(OptionalInt.empty());
-            OptionalInt totalOperatorsCount = getJoinOperatorsCountForSpill(context, session);
+            OptionalInt totalOperatorsCount = getJoinOperatorsCountForSpill(context, spillEnabled);
 
             switch (node.getType()) {
                 case INNER:
@@ -2386,13 +2410,14 @@ public class LocalExecutionPlanner
             }
         }
 
-        private OptionalInt getJoinOperatorsCountForSpill(LocalExecutionPlanContext context, Session session)
+        private OptionalInt getJoinOperatorsCountForSpill(LocalExecutionPlanContext context, boolean spillEnabled)
         {
-            OptionalInt driverInstanceCount = context.getDriverInstanceCount();
-            if (isSpillEnabled(session) && isJoinSpillingEnabled(session)) {
+            if (spillEnabled) {
+                OptionalInt driverInstanceCount = context.getDriverInstanceCount();
                 checkState(driverInstanceCount.isPresent(), "A fixed distribution is required for JOIN when spilling is enabled");
+                return driverInstanceCount;
             }
-            return driverInstanceCount;
+            return OptionalInt.empty();
         }
 
         private Map<VariableReferenceExpression, Integer> createJoinSourcesLayout(Map<VariableReferenceExpression, Integer> lookupSourceLayout, Map<VariableReferenceExpression, Integer> probeSourceLayout)
@@ -2504,6 +2529,8 @@ public class LocalExecutionPlanner
                         false,
                         false,
                         false,
+                        false,
+                        false,
                         new DataSize(0, BYTE),
                         context,
                         STATS_START_CHANNEL,
@@ -2607,6 +2634,8 @@ public class LocalExecutionPlanner
                         false,
                         false,
                         false,
+                        false,
+                        false,
                         new DataSize(0, BYTE),
                         context,
                         STATS_START_CHANNEL,
@@ -2659,6 +2688,8 @@ public class LocalExecutionPlanner
                         false,
                         false,
                         false,
+                        false,
+                        false,
                         new DataSize(0, BYTE),
                         context,
                         0,
@@ -2684,7 +2715,8 @@ public class LocalExecutionPlanner
                     statisticsAggregation,
                     descriptor,
                     session,
-                    tableCommitContextCodec);
+                    tableCommitContextCodec,
+                    tableFinishOperatorMemoryTrackingEnabled);
             Map<VariableReferenceExpression, Integer> layout = ImmutableMap.of(node.getOutputVariables().get(0), 0);
 
             return new PhysicalOperation(operatorFactory, layout, context, source);
@@ -3012,6 +3044,8 @@ public class LocalExecutionPlanner
                 AggregationNode node,
                 PhysicalOperation source,
                 boolean spillEnabled,
+                boolean distinctAggregationSpillEnabled,
+                boolean orderByAggregationSpillEnabled,
                 DataSize unspillMemoryLimit,
                 LocalExecutionPlanContext context)
         {
@@ -3027,6 +3061,8 @@ public class LocalExecutionPlanner
                     source,
                     node.hasDefaultOutput(),
                     spillEnabled,
+                    distinctAggregationSpillEnabled,
+                    orderByAggregationSpillEnabled,
                     node.isStreamable(),
                     unspillMemoryLimit,
                     context,
@@ -3049,6 +3085,8 @@ public class LocalExecutionPlanner
                 PhysicalOperation source,
                 boolean hasDefaultOutput,
                 boolean spillEnabled,
+                boolean distinctSpillEnabled,
+                boolean orderBySpillEnabled,
                 boolean isStreamable,
                 DataSize unspillMemoryLimit,
                 LocalExecutionPlanContext context,
@@ -3122,6 +3160,8 @@ public class LocalExecutionPlanner
                         expectedGroups,
                         maxPartialAggregationMemorySize,
                         spillEnabled,
+                        distinctSpillEnabled,
+                        orderBySpillEnabled,
                         unspillMemoryLimit,
                         spillerFactory,
                         joinCompiler,
@@ -3143,6 +3183,9 @@ public class LocalExecutionPlanner
                 metadata.finishDelete(session, ((DeleteHandle) target).getHandle(), fragments);
                 return Optional.empty();
             }
+            else if (target instanceof RefreshMaterializedViewHandle) {
+                return metadata.finishRefreshMaterializedView(session, ((RefreshMaterializedViewHandle) target).getHandle(), fragments, statistics);
+            }
             else {
                 throw new AssertionError("Unhandled target type: " + target.getClass().getName());
             }
@@ -3157,6 +3200,9 @@ public class LocalExecutionPlanner
             }
             else if (target instanceof InsertHandle) {
                 return metadata.commitPageSinkAsync(session, ((InsertHandle) target).getHandle(), fragments);
+            }
+            else if (target instanceof RefreshMaterializedViewHandle) {
+                return metadata.commitPageSinkAsync(session, ((RefreshMaterializedViewHandle) target).getHandle(), fragments);
             }
             else {
                 throw new AssertionError("Unhandled target type: " + target.getClass().getName());

@@ -39,6 +39,7 @@ public class PrestoSparkInternalNodeManager
             union(ImmutableSet.of(CURRENT_NODE), OTHER_NODES),
             ImmutableSet.of(),
             ImmutableSet.of(),
+            ImmutableSet.of(),
             ImmutableSet.of());
 
     @Override

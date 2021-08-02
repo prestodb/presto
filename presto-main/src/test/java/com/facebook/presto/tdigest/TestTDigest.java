@@ -164,6 +164,23 @@ public class TestTDigest
     }
 
     @Test
+    public void testLargeScalePreservesWeights()
+    {
+        TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
+        NormalDistribution normal = new NormalDistribution(1000, 100);
+
+        for (int i = 0; i < NUMBER_OF_ENTRIES; i++) {
+            tDigest.add(normal.sample());
+        }
+
+        tDigest.scale(Integer.MAX_VALUE * 2.0);
+
+        for (Centroid centroid : tDigest.centroids()) {
+            assertTrue(centroid.getWeight() > Integer.MAX_VALUE);
+        }
+    }
+
+    @Test
     public void testNormalDistributionHighVariance()
     {
         TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);

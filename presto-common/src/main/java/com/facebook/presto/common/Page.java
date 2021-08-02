@@ -177,10 +177,10 @@ public final class Page
         return wrapBlocksWithoutCopy(positionCount, newBlocks);
     }
 
-    public void compact()
+    public Page compact()
     {
         if (getRetainedSizeInBytes() <= getSizeInBytes()) {
-            return;
+            return this;
         }
 
         for (int i = 0; i < blocks.length; i++) {
@@ -202,6 +202,7 @@ public final class Page
         }
 
         updateRetainedSize();
+        return this;
     }
 
     private Map<DictionaryId, DictionaryBlockIndexes> getRelatedDictionaryBlocks()
@@ -306,6 +307,22 @@ public final class Page
         }
 
         return wrapBlocksWithoutCopy(positionCount, loadedBlocks);
+    }
+
+    public Page getLoadedPage(int channel)
+    {
+        return wrapBlocksWithoutCopy(positionCount, new Block[]{this.blocks[channel].getLoadedBlock()});
+    }
+
+    public Page getLoadedPage(int... channels)
+    {
+        requireNonNull(channels, "channels is null");
+
+        Block[] blocks = new Block[channels.length];
+        for (int i = 0; i < channels.length; i++) {
+            blocks[i] = this.blocks[channels[i]].getLoadedBlock();
+        }
+        return wrapBlocksWithoutCopy(positionCount, blocks);
     }
 
     @Override

@@ -50,6 +50,12 @@ public class PlanNodeStatsAssertion
         return this;
     }
 
+    public PlanNodeStatsAssertion confident(boolean expected)
+    {
+        assertEquals(actual.isConfident(), expected);
+        return this;
+    }
+
     public PlanNodeStatsAssertion outputRowsCountUnknown()
     {
         assertTrue(Double.isNaN(actual.getOutputRowCount()), "expected unknown outputRowsCount but got " + actual.getOutputRowCount());
@@ -87,6 +93,7 @@ public class PlanNodeStatsAssertion
     public PlanNodeStatsAssertion equalTo(PlanNodeStatsEstimate expected)
     {
         assertEstimateEquals(actual.getOutputRowCount(), expected.getOutputRowCount(), "outputRowCount mismatch");
+        assertEquals(actual.isConfident(), expected.isConfident());
 
         for (VariableReferenceExpression variable : union(expected.getVariablesWithKnownStatistics(), actual.getVariablesWithKnownStatistics())) {
             assertVariableStatsEqual(variable, actual.getVariableStatistics(variable), expected.getVariableStatistics(variable));

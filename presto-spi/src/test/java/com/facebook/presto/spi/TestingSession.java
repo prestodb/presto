@@ -18,10 +18,12 @@ import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
@@ -53,6 +55,12 @@ public final class TestingSession
         public Optional<String> getClientInfo()
         {
             return Optional.of("TestClientInfo");
+        }
+
+        @Override
+        public Set<String> getClientTags()
+        {
+            return ImmutableSet.of();
         }
 
         @Override

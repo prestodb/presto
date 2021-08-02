@@ -15,6 +15,7 @@ package com.facebook.presto.hive.metastore.thrift;
 
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.hive.metastore.Column;
+import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.PartitionNameWithVersion;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -41,6 +42,7 @@ import org.apache.thrift.TException;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.hadoop.hive.metastore.api.PrincipalType.ROLE;
@@ -52,13 +54,15 @@ public class MockHiveMetastoreClient
     public static final String TEST_DATABASE = "testdb";
     public static final String BAD_DATABASE = "baddb";
     public static final String TEST_TABLE = "testtbl";
+    public static final String TEST_TOKEN = "token";
+    public static final MetastoreContext TEST_METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty());
     public static final String TEST_PARTITION1 = "key=testpartition1";
     public static final String TEST_PARTITION2 = "key=testpartition2";
     public static final List<String> TEST_PARTITION_VALUES1 = ImmutableList.of("testpartition1");
     public static final List<String> TEST_PARTITION_VALUES2 = ImmutableList.of("testpartition2");
-    public static final int PARTITION_VERSION = 1000;
-    public static final PartitionNameWithVersion TEST_PARTITION_NAME_WITH_VERSION1 = new PartitionNameWithVersion(TEST_PARTITION1, PARTITION_VERSION);
-    public static final PartitionNameWithVersion TEST_PARTITION_NAME_WITH_VERSION2 = new PartitionNameWithVersion(TEST_PARTITION2, PARTITION_VERSION);
+    public static final long PARTITION_VERSION = 1000;
+    public static final PartitionNameWithVersion TEST_PARTITION_NAME_WITH_VERSION1 = new PartitionNameWithVersion(TEST_PARTITION1, Optional.of(PARTITION_VERSION));
+    public static final PartitionNameWithVersion TEST_PARTITION_NAME_WITH_VERSION2 = new PartitionNameWithVersion(TEST_PARTITION2, Optional.of(PARTITION_VERSION));
     public static final List<String> TEST_ROLES = ImmutableList.of("testrole");
     public static final List<RolePrincipalGrant> TEST_ROLE_GRANTS = ImmutableList.of(
             new RolePrincipalGrant("role1", "user", USER, false, 0, "grantor1", USER),
@@ -88,6 +92,12 @@ public class MockHiveMetastoreClient
             throw new IllegalStateException();
         }
         return ImmutableList.of(TEST_DATABASE);
+    }
+
+    @Override
+    public String getDelegationToken(String owner, String renewer)
+    {
+        return TEST_TOKEN;
     }
 
     @Override
@@ -243,7 +253,7 @@ public class MockHiveMetastoreClient
         if (!dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE) || !ImmutableSet.of(TEST_PARTITION_VALUES1, TEST_PARTITION_VALUES2).contains(partitionValues)) {
             throw new NoSuchObjectException();
         }
-        return new Partition(null, TEST_DATABASE, TEST_TABLE, 0, 0, DEFAULT_STORAGE_DESCRIPTOR, ImmutableMap.of());
+        return new Partition(partitionValues, TEST_DATABASE, TEST_TABLE, 0, 0, DEFAULT_STORAGE_DESCRIPTOR, ImmutableMap.of());
     }
 
     @Override

@@ -14,6 +14,7 @@
 package com.facebook.presto.raptor.integration;
 
 import com.facebook.presto.raptor.RaptorPlugin;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.mysql.MySqlOptions;
 import com.facebook.presto.testing.mysql.TestingMySqlServer;
 import com.facebook.presto.tests.DistributedQueryRunner;
@@ -45,13 +46,14 @@ public class TestRaptorIntegrationSmokeTestMySql
     public TestRaptorIntegrationSmokeTestMySql()
             throws Exception
     {
-        this(new TestingMySqlServer("testuser", "testpass", ImmutableList.of("testdb"), MY_SQL_OPTIONS));
+        this.mysqlServer = new TestingMySqlServer("testuser", "testpass", ImmutableList.of("testdb"), MY_SQL_OPTIONS);
     }
 
-    private TestRaptorIntegrationSmokeTestMySql(TestingMySqlServer mysqlServer)
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createRaptorMySqlQueryRunner(mysqlServer.getJdbcUrl("testdb")));
-        this.mysqlServer = mysqlServer;
+        return createRaptorMySqlQueryRunner(mysqlServer.getJdbcUrl("testdb"));
     }
 
     @AfterClass(alwaysRun = true)

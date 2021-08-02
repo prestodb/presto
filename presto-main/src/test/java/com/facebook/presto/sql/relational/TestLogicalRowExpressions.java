@@ -24,6 +24,8 @@ import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -42,6 +44,7 @@ import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTAN
 import static com.facebook.presto.expressions.LogicalRowExpressions.extractPredicates;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IS_NULL;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.Expressions.call;
@@ -166,6 +169,15 @@ public class TestLogicalRowExpressions
         assertEquals(
                 logicalRowExpressions.convertToConjunctiveNormalForm(and(a, and(b, or(c, and(e, or(f, and(FALSE_CONSTANT, d))))))),
                 and(and(a, b), or(c, and(e, f))));
+    }
+
+    @Test
+    public void testDuplicateIsNullExpressions()
+    {
+        SpecialFormExpression isNullExpression = new SpecialFormExpression(IS_NULL, BOOLEAN, a);
+        List<RowExpression> arguments = Arrays.asList(new SpecialFormExpression[]{isNullExpression, isNullExpression});
+        SpecialFormExpression duplicateIsNullExpression = new SpecialFormExpression(OR, BOOLEAN, arguments);
+        logicalRowExpressions.minimalNormalForm(duplicateIsNullExpression);
     }
 
     @Test

@@ -19,6 +19,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
 import com.facebook.presto.spi.function.FunctionNamespaceManagerFactory;
+import com.facebook.presto.spi.prerequisites.QueryPrerequisitesFactory;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.spi.security.PasswordAuthenticatorFactory;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
@@ -88,6 +89,11 @@ public interface Plugin
     }
 
     default Iterable<TempStorageFactory> getTempStorageFactories()
+    {
+        return emptyList();
+    }
+
+    default Iterable<QueryPrerequisitesFactory> getQueryPrerequisitesFactories()
     {
         return emptyList();
     }

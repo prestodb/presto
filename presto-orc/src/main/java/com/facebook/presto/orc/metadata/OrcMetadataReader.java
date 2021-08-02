@@ -16,6 +16,7 @@ package com.facebook.presto.orc.metadata;
 import com.facebook.presto.orc.DwrfEncryptionProvider;
 import com.facebook.presto.orc.DwrfKeyProvider;
 import com.facebook.presto.orc.OrcDataSource;
+import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.OrcDecompressor;
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
@@ -48,6 +49,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.orc.metadata.CompressionKind.LZ4;
@@ -93,7 +95,9 @@ public class OrcMetadataReader
                 postScript.getMetadataLength(),
                 toCompression(postScript.getCompression()),
                 postScript.getCompressionBlockSize(),
-                toHiveWriterVersion(postScript.getWriterVersion()));
+                toHiveWriterVersion(postScript.getWriterVersion()),
+                OptionalInt.empty(),
+                Optional.empty());
     }
 
     private static HiveWriterVersion toHiveWriterVersion(int writerVersion)
@@ -145,6 +149,7 @@ public class OrcMetadataReader
                 toType(footer.getTypesList()),
                 toColumnStatistics(hiveWriterVersion, footer.getStatisticsList(), false),
                 toUserMetadata(footer.getMetadataList()),
+                Optional.empty(),
                 Optional.empty());
     }
 
@@ -158,7 +163,7 @@ public class OrcMetadataReader
     private static StripeInformation toStripeInformation(OrcProto.StripeInformation stripeInformation)
     {
         return new StripeInformation(
-                toIntExact(stripeInformation.getNumberOfRows()),
+                stripeInformation.getNumberOfRows(),
                 stripeInformation.getOffset(),
                 stripeInformation.getIndexLength(),
                 stripeInformation.getDataLength(),
@@ -167,7 +172,7 @@ public class OrcMetadataReader
     }
 
     @Override
-    public StripeFooter readStripeFooter(List<OrcType> types, InputStream inputStream)
+    public StripeFooter readStripeFooter(OrcDataSourceId orcDataSourceId, List<OrcType> types, InputStream inputStream)
             throws IOException
     {
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
@@ -487,7 +492,7 @@ public class OrcMetadataReader
             precision = Optional.of(type.getPrecision());
             scale = Optional.of(type.getScale());
         }
-        return new OrcType(toTypeKind(type.getKind()), type.getSubtypesList(), type.getFieldNamesList(), length, precision, scale);
+        return new OrcType(toTypeKind(type.getKind()), type.getSubtypesList(), type.getFieldNamesList(), length, precision, scale, toMap(type.getAttributesList()));
     }
 
     private static List<OrcType> toType(List<OrcProto.Type> types)
@@ -539,6 +544,20 @@ public class OrcMetadataReader
             default:
                 throw new IllegalStateException(typeKind + " stream type not implemented yet");
         }
+    }
+
+    // This method assumes type attributes have no duplicate key
+    private static Map<String, String> toMap(List<OrcProto.StringPair> attributes)
+    {
+        ImmutableMap.Builder<String, String> results = new ImmutableMap.Builder<>();
+        if (attributes != null) {
+            for (OrcProto.StringPair attribute : attributes) {
+                if (attribute.hasKey() && attribute.hasValue()) {
+                    results.put(attribute.getKey(), attribute.getValue());
+                }
+            }
+        }
+        return results.build();
     }
 
     private static StreamKind toStreamKind(OrcProto.Stream.Kind streamKind)

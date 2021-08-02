@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
@@ -199,6 +200,12 @@ public class FilteringPageSource
     public long getSystemMemoryUsage()
     {
         return delegate.getSystemMemoryUsage();
+    }
+
+    @Override
+    public RuntimeStats getRuntimeStats()
+    {
+        return delegate.getRuntimeStats();
     }
 
     @Override

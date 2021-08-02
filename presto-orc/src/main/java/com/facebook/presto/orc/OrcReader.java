@@ -20,6 +20,8 @@ import com.facebook.presto.orc.cache.OrcFileTailSource;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.DwrfEncryption;
+import com.facebook.presto.orc.metadata.DwrfStripeCache;
+import com.facebook.presto.orc.metadata.DwrfStripeCacheData;
 import com.facebook.presto.orc.metadata.EncryptionGroup;
 import com.facebook.presto.orc.metadata.ExceptionWrappingMetadataReader;
 import com.facebook.presto.orc.metadata.Footer;
@@ -94,7 +96,32 @@ public class OrcReader
                 orcDataSource,
                 orcEncoding,
                 orcFileTailSource,
-                stripeMetadataSource,
+                StripeMetadataSourceFactory.of(stripeMetadataSource),
+                Optional.empty(),
+                aggregatedMemoryContext,
+                orcReaderOptions,
+                cacheable,
+                dwrfEncryptionProvider,
+                dwrfKeyProvider);
+    }
+
+    public OrcReader(
+            OrcDataSource orcDataSource,
+            OrcEncoding orcEncoding,
+            OrcFileTailSource orcFileTailSource,
+            StripeMetadataSourceFactory stripeMetadataSourceFactory,
+            OrcAggregatedMemoryContext aggregatedMemoryContext,
+            OrcReaderOptions orcReaderOptions,
+            boolean cacheable,
+            DwrfEncryptionProvider dwrfEncryptionProvider,
+            DwrfKeyProvider dwrfKeyProvider)
+            throws IOException
+    {
+        this(
+                orcDataSource,
+                orcEncoding,
+                orcFileTailSource,
+                stripeMetadataSourceFactory,
                 Optional.empty(),
                 aggregatedMemoryContext,
                 orcReaderOptions,
@@ -107,7 +134,7 @@ public class OrcReader
             OrcDataSource orcDataSource,
             OrcEncoding orcEncoding,
             OrcFileTailSource orcFileTailSource,
-            StripeMetadataSource stripeMetadataSource,
+            StripeMetadataSourceFactory stripeMetadataSourceFactory,
             Optional<OrcWriteValidation> writeValidation,
             OrcAggregatedMemoryContext aggregatedMemoryContext,
             OrcReaderOptions orcReaderOptions,
@@ -123,8 +150,6 @@ public class OrcReader
         this.metadataReader = new ExceptionWrappingMetadataReader(orcDataSource.getId(), orcEncoding.createMetadataReader());
 
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
-
-        this.stripeMetadataSource = requireNonNull(stripeMetadataSource, "stripeMetadataSource is null");
 
         OrcFileTail orcFileTail = orcFileTailSource.getOrcFileTail(orcDataSource, metadataReader, writeValidation, cacheable);
         this.bufferSize = orcFileTail.getBufferSize();
@@ -186,6 +211,16 @@ public class OrcReader
         }
 
         this.cacheable = requireNonNull(cacheable, "hiveFileContext is null");
+
+        Optional<DwrfStripeCache> dwrfStripeCache = Optional.empty();
+        if (orcFileTail.getDwrfStripeCacheData().isPresent() && footer.getDwrfStripeCacheOffsets().isPresent()) {
+            DwrfStripeCacheData dwrfStripeCacheData = orcFileTail.getDwrfStripeCacheData().get();
+            DwrfStripeCache cache = dwrfStripeCacheData.buildDwrfStripeCache(footer.getStripes(), footer.getDwrfStripeCacheOffsets().get());
+            dwrfStripeCache = Optional.of(cache);
+        }
+
+        requireNonNull(stripeMetadataSourceFactory, "stripeMetadataSourceFactory is null");
+        this.stripeMetadataSource = requireNonNull(stripeMetadataSourceFactory.create(dwrfStripeCache), "stripeMetadataSource is null");
     }
 
     @VisibleForTesting
@@ -376,7 +411,7 @@ public class OrcReader
                     input,
                     orcEncoding,
                     new StorageOrcFileTailSource(),
-                    new StorageStripeMetadataSource(),
+                    StripeMetadataSourceFactory.of(new StorageStripeMetadataSource()),
                     Optional.of(writeValidation),
                     NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
                     orcReaderOptions,

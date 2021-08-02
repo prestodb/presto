@@ -24,11 +24,11 @@ import org.jdbi.v3.core.statement.StatementContext;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
-import java.util.Optional;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.spi.function.FunctionVersion.withVersion;
 
 public class SqlInvokedFunctionRowMapper
         implements RowMapper<SqlInvokedFunction>
@@ -57,6 +57,6 @@ public class SqlInvokedFunctionRowMapper
                 description,
                 routineCharacteristics,
                 body,
-                Optional.of(version));
+                withVersion(version));
     }
 }

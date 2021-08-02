@@ -25,7 +25,6 @@ import com.facebook.presto.hive.orc.OrcBatchPageSourceFactory;
 import com.facebook.presto.hive.parquet.ParquetFileWriterFactory;
 import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
-import com.facebook.presto.orc.OrcWriterOptions;
 import com.facebook.presto.orc.StorageStripeMetadataSource;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.parquet.cache.MetadataReader;
@@ -350,7 +349,7 @@ public class TestHiveFileFormats
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
                 .withSession(session)
-                .withFileWriterFactory(new OrcFileWriterFactory(HDFS_ENVIRONMENT, new OutputStreamDataSinkFactory(), FUNCTION_AND_TYPE_MANAGER, new NodeVersion("test"), HIVE_STORAGE_TIME_ZONE, STATS, new OrcWriterOptions(), NO_ENCRYPTION))
+                .withFileWriterFactory(new OrcFileWriterFactory(HDFS_ENVIRONMENT, new OutputStreamDataSinkFactory(), FUNCTION_AND_TYPE_MANAGER, new NodeVersion("test"), HIVE_STORAGE_TIME_ZONE, STATS, new OrcFileWriterConfig(), NO_ENCRYPTION))
                 .isReadableByRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT))
                 .isReadableByPageSource(new OrcBatchPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, false, HDFS_ENVIRONMENT, STATS, 100, new StorageOrcFileTailSource(), new StorageStripeMetadataSource()));
     }
@@ -521,7 +520,7 @@ public class TestHiveFileFormats
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
                 .withSession(session)
-                .withFileWriterFactory(new OrcFileWriterFactory(HDFS_ENVIRONMENT, new OutputStreamDataSinkFactory(), FUNCTION_AND_TYPE_MANAGER, new NodeVersion("test"), HIVE_STORAGE_TIME_ZONE, STATS, new OrcWriterOptions(), NO_ENCRYPTION))
+                .withFileWriterFactory(new OrcFileWriterFactory(HDFS_ENVIRONMENT, new OutputStreamDataSinkFactory(), FUNCTION_AND_TYPE_MANAGER, new NodeVersion("test"), HIVE_STORAGE_TIME_ZONE, STATS, new OrcFileWriterConfig(), NO_ENCRYPTION))
                 .isReadableByRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT))
                 .isReadableByPageSource(new DwrfBatchPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HIVE_CLIENT_CONFIG, HDFS_ENVIRONMENT, STATS, new StorageOrcFileTailSource(), new StorageStripeMetadataSource(), NO_ENCRYPTION));
     }
@@ -893,7 +892,7 @@ public class TestHiveFileFormats
     {
         List<HivePartitionKey> partitionKeys = testColumns.stream()
                 .filter(TestColumn::isPartitionKey)
-                .map(input -> new HivePartitionKey(input.getName(), (String) input.getWriteValue()))
+                .map(TestColumn::toHivePartitionKey)
                 .collect(toList());
 
         List<HiveColumnHandle> partitionKeyColumnHandles = getColumnHandles(testColumns.stream().filter(TestColumn::isPartitionKey).collect(toImmutableList()));
@@ -932,7 +931,7 @@ public class TestHiveFileFormats
                 tableDataColumns,
                 ImmutableMap.of(),
                 tableDataColumns.size(),
-                ImmutableMap.of(),
+                TableToPartitionMapping.empty(),
                 Optional.empty(),
                 false,
                 DEFAULT_HIVE_FILE_CONTEXT,
@@ -957,7 +956,7 @@ public class TestHiveFileFormats
     {
         List<HivePartitionKey> partitionKeys = testColumns.stream()
                 .filter(TestColumn::isPartitionKey)
-                .map(input -> new HivePartitionKey(input.getName(), (String) input.getWriteValue()))
+                .map(TestColumn::toHivePartitionKey)
                 .collect(toList());
 
         List<HiveColumnHandle> partitionKeyColumnHandles = getColumnHandles(testColumns.stream().filter(TestColumn::isPartitionKey).collect(toImmutableList()));
@@ -996,7 +995,7 @@ public class TestHiveFileFormats
                 tableDataColumns,
                 ImmutableMap.of(),
                 tableDataColumns.size(),
-                ImmutableMap.of(),
+                TableToPartitionMapping.empty(),
                 Optional.empty(),
                 false,
                 DEFAULT_HIVE_FILE_CONTEXT,

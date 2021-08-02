@@ -17,23 +17,39 @@ import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.memory.ClusterMemoryManager;
+import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
+import com.facebook.presto.resourcemanager.ResourceManagerProxy;
 import com.facebook.presto.spi.NodeState;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import javax.annotation.security.RolesAllowed;
 import javax.inject.Inject;
+import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.GET;
+import javax.ws.rs.HeaderParam;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
+import javax.ws.rs.container.AsyncResponse;
+import javax.ws.rs.container.Suspended;
+import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.UriInfo;
+
+import java.net.URI;
+import java.util.Iterator;
+import java.util.Optional;
 
 import static com.facebook.presto.server.security.RoleType.ADMIN;
 import static com.facebook.presto.server.security.RoleType.USER;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static javax.ws.rs.core.Response.Status.SERVICE_UNAVAILABLE;
 
 @Path("/v1/cluster")
 @RolesAllowed({ADMIN, USER})
@@ -42,21 +58,43 @@ public class ClusterStatsResource
     private final InternalNodeManager nodeManager;
     private final DispatchManager dispatchManager;
     private final boolean isIncludeCoordinator;
+    private final boolean resourceManagerEnabled;
     private final ClusterMemoryManager clusterMemoryManager;
+    private final InternalNodeManager internalNodeManager;
+    private final Optional<ResourceManagerProxy> proxyHelper;
 
     @Inject
-    public ClusterStatsResource(NodeSchedulerConfig nodeSchedulerConfig, InternalNodeManager nodeManager, DispatchManager dispatchManager, ClusterMemoryManager clusterMemoryManager)
+    public ClusterStatsResource(
+            NodeSchedulerConfig nodeSchedulerConfig,
+            ServerConfig serverConfig,
+            InternalNodeManager nodeManager,
+            DispatchManager dispatchManager,
+            ClusterMemoryManager clusterMemoryManager,
+            InternalNodeManager internalNodeManager,
+            Optional<ResourceManagerProxy> proxyHelper)
     {
         this.isIncludeCoordinator = requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null").isIncludeCoordinator();
+        this.resourceManagerEnabled = requireNonNull(serverConfig, "serverConfig is null").isResourceManagerEnabled();
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
         this.clusterMemoryManager = requireNonNull(clusterMemoryManager, "clusterMemoryManager is null");
+        this.internalNodeManager = requireNonNull(internalNodeManager, "internalNodeManager is null");
+        this.proxyHelper = requireNonNull(proxyHelper, "internalNodeManager is null");
     }
 
     @GET
     @Produces(MediaType.APPLICATION_JSON)
-    public ClusterStats getClusterStats()
+    public void getClusterStats(
+            @HeaderParam(X_FORWARDED_PROTO) String xForwardedProto,
+            @Context UriInfo uriInfo,
+            @Context HttpServletRequest servletRequest,
+            @Suspended AsyncResponse asyncResponse)
     {
+        if (resourceManagerEnabled) {
+            proxyClusterStats(servletRequest, asyncResponse, xForwardedProto, uriInfo);
+            return;
+        }
+
         long runningQueries = 0;
         long blockedQueries = 0;
         long queuedQueries = 0;
@@ -96,12 +134,21 @@ public class ClusterStatsResource
             }
         }
 
-        return new ClusterStats(runningQueries, blockedQueries, queuedQueries, activeNodes, runningDrivers, memoryReservation, totalInputRows, totalInputBytes, totalCpuTimeSecs);
+        asyncResponse.resume(Response.ok(new ClusterStats(
+                runningQueries,
+                blockedQueries,
+                queuedQueries,
+                activeNodes,
+                runningDrivers,
+                memoryReservation,
+                totalInputRows,
+                totalInputBytes,
+                totalCpuTimeSecs)).build());
     }
 
     @GET
     @Path("memory")
-    public Response getClusterMemoryPoolInfo()
+    public Response getClusterMemoryPoolInfo(@HeaderParam(X_FORWARDED_PROTO) String xForwardedProto, @Context UriInfo uriInfo)
     {
         return Response.ok()
                 .entity(clusterMemoryManager.getMemoryPoolInfo())
@@ -110,11 +157,35 @@ public class ClusterStatsResource
 
     @GET
     @Path("workerMemory")
-    public Response getWorkerMemoryInfo()
+    public Response getWorkerMemoryInfo(@HeaderParam(X_FORWARDED_PROTO) String xForwardedProto, @Context UriInfo uriInfo)
     {
         return Response.ok()
                 .entity(clusterMemoryManager.getWorkerMemoryInfo())
                 .build();
+    }
+
+    private void proxyClusterStats(HttpServletRequest servletRequest, AsyncResponse asyncResponse, String xForwardedProto, UriInfo uriInfo)
+    {
+        try {
+            checkState(proxyHelper.isPresent());
+            Iterator<InternalNode> resourceManagers = internalNodeManager.getResourceManagers().iterator();
+            if (!resourceManagers.hasNext()) {
+                asyncResponse.resume(Response.status(SERVICE_UNAVAILABLE).build());
+                return;
+            }
+            InternalNode resourceManagerNode = resourceManagers.next();
+            String scheme = isNullOrEmpty(xForwardedProto) ? uriInfo.getRequestUri().getScheme() : xForwardedProto;
+
+            URI uri = uriInfo.getRequestUriBuilder()
+                    .scheme(scheme)
+                    .host(resourceManagerNode.getHostAndPort().toInetAddress().getHostName())
+                    .port(resourceManagerNode.getInternalUri().getPort())
+                    .build();
+            proxyHelper.get().performRequest(servletRequest, asyncResponse, uri);
+        }
+        catch (Exception e) {
+            asyncResponse.resume(e);
+        }
     }
 
     public static class ClusterStats

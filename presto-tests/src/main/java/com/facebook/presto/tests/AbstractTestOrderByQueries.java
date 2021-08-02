@@ -28,11 +28,6 @@ import static com.facebook.presto.tests.QueryTemplate.queryTemplate;
 public abstract class AbstractTestOrderByQueries
         extends AbstractTestQueryFramework
 {
-    public AbstractTestOrderByQueries(QueryRunnerSupplier supplier)
-    {
-        super(supplier);
-    }
-
     @Test
     public void testOrderBy()
     {

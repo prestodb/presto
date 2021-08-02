@@ -9,7 +9,7 @@ queries against this data.
 
 ConnectorSplit
 ----------------
-Instances of your connecor splits.
+Instances of your connector splits.
 
 The ``getNodeSelectionStrategy`` method indicates the node affinity
 of a Split,it has three options:

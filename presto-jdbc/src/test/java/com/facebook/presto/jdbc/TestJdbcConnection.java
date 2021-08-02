@@ -42,6 +42,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
@@ -53,6 +54,7 @@ import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 public class TestJdbcConnection
@@ -217,6 +219,22 @@ public class TestJdbcConnection
     }
 
     @Test
+    public void testHttpProtocols()
+            throws SQLException
+    {
+        String extra = "protocols=http11";
+        try (Connection connection = createConnection(extra)) {
+            assertThat(connection.getCatalog()).isEqualTo("hive");
+        }
+
+        // deduplication
+        extra = "protocols=http11,http11";
+        try (Connection connection = createConnection(extra)) {
+            assertThat(connection.getCatalog()).isEqualTo("hive");
+        }
+    }
+
+    @Test
     public void testExtraCredentials()
             throws SQLException
     {
@@ -238,6 +256,18 @@ public class TestJdbcConnection
             List<QueryInterceptor> queryInterceptorInstances = connection.getQueryInterceptorInstances();
             assertEquals(queryInterceptorInstances.size(), 1);
             assertEquals(queryInterceptorInstances.get(0).getClass().getName(), TestNoopQueryInterceptor.class.getName());
+        }
+    }
+
+    @Test
+    public void testConnectionProperties()
+            throws SQLException
+    {
+        String extra = "extraCredentials=test.token.foo:bar;test.token.abc:xyz";
+        try (PrestoConnection connection = createConnection(extra).unwrap(PrestoConnection.class)) {
+            Properties connectionProperties = connection.getConnectionProperties();
+            assertTrue(connectionProperties.size() > 0);
+            assertNotNull(connectionProperties.getProperty("extraCredentials"));
         }
     }
 

@@ -15,7 +15,6 @@ package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.checkpoint.InputStreamCheckpoint;
 import com.facebook.presto.orc.metadata.CompressionKind;
-import com.facebook.presto.orc.metadata.CompressionParameters;
 import com.facebook.presto.orc.zlib.DeflateCompressor;
 import com.facebook.presto.orc.zstd.ZstdJniCompressor;
 import com.google.common.annotations.VisibleForTesting;
@@ -79,14 +78,14 @@ public class OrcOutputBuffer
      */
     private int bufferPosition;
 
-    public OrcOutputBuffer(CompressionParameters compressionParameters, Optional<DwrfDataEncryptor> dwrfEncryptor)
+    public OrcOutputBuffer(ColumnWriterOptions columnWriterOptions, Optional<DwrfDataEncryptor> dwrfEncryptor)
     {
-        requireNonNull(compressionParameters, "compressionParameters is null");
+        requireNonNull(columnWriterOptions, "columnWriterOptions is null");
         requireNonNull(dwrfEncryptor, "dwrfEncryptor is null");
-        int maxBufferSize = compressionParameters.getMaxBufferSize();
+        int maxBufferSize = columnWriterOptions.getCompressionMaxBufferSize();
         checkArgument(maxBufferSize > PAGE_HEADER_SIZE, "maximum buffer size should be greater than page header size");
 
-        CompressionKind compressionKind = compressionParameters.getKind();
+        CompressionKind compressionKind = columnWriterOptions.getCompressionKind();
         this.maxBufferSize = compressionKind == CompressionKind.NONE ? maxBufferSize : maxBufferSize - PAGE_HEADER_SIZE;
 
         this.buffer = new byte[INITIAL_BUFFER_SIZE];
@@ -101,13 +100,13 @@ public class OrcOutputBuffer
             this.compressor = new SnappyCompressor();
         }
         else if (compressionKind == CompressionKind.ZLIB) {
-            this.compressor = new DeflateCompressor(compressionParameters.getLevel());
+            this.compressor = new DeflateCompressor(columnWriterOptions.getCompressionLevel());
         }
         else if (compressionKind == CompressionKind.LZ4) {
             this.compressor = new Lz4Compressor();
         }
         else if (compressionKind == CompressionKind.ZSTD) {
-            this.compressor = new ZstdJniCompressor(compressionParameters.getLevel());
+            this.compressor = new ZstdJniCompressor(columnWriterOptions.getCompressionLevel());
         }
         else {
             throw new IllegalArgumentException("Unsupported compression " + compressionKind);

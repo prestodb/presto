@@ -74,6 +74,7 @@ import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.execution.QueryState.STARTING;
 import static com.facebook.presto.execution.QueryState.TERMINAL_QUERY_STATES;
+import static com.facebook.presto.execution.QueryState.WAITING_FOR_PREREQUISITES;
 import static com.facebook.presto.execution.QueryState.WAITING_FOR_RESOURCES;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
@@ -173,7 +174,7 @@ public class QueryStateMachine
         this.queryStateTimer = new QueryStateTimer(ticker);
         this.metadata = requireNonNull(metadata, "metadata is null");
 
-        this.queryState = new StateMachine<>("query " + query, executor, QUEUED, TERMINAL_QUERY_STATES);
+        this.queryState = new StateMachine<>("query " + query, executor, WAITING_FOR_PREREQUISITES, TERMINAL_QUERY_STATES);
         this.finalQueryInfo = new StateMachine<>("finalQueryInfo-" + queryId, executor, Optional.empty());
         this.outputManager = new QueryOutputManager(executor);
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
@@ -343,6 +344,7 @@ public class QueryStateMachine
         BasicQueryStats queryStats = new BasicQueryStats(
                 queryStateTimer.getCreateTime(),
                 getEndTime().orElse(null),
+                queryStateTimer.getWaitingForPrerequisitesTime(),
                 queryStateTimer.getQueuedTime(),
                 queryStateTimer.getElapsedTime(),
                 queryStateTimer.getExecutionTime(),
@@ -358,6 +360,7 @@ public class QueryStateMachine
                 stageStats.getRawInputPositions(),
 
                 stageStats.getCumulativeUserMemory(),
+                stageStats.getCumulativeTotalMemory(),
                 stageStats.getUserMemoryReservation(),
                 stageStats.getTotalMemoryReservation(),
                 succinctBytes(getPeakUserMemoryInBytes()),
@@ -633,10 +636,31 @@ public class QueryStateMachine
         return queryState.get().isDone();
     }
 
+    public boolean transitionToQueued()
+    {
+        queryStateTimer.beginQueued();
+        return queryState.setIf(QUEUED, currentState -> currentState.ordinal() < QUEUED.ordinal());
+    }
+
     public boolean transitionToWaitingForResources()
     {
         queryStateTimer.beginWaitingForResources();
         return queryState.setIf(WAITING_FOR_RESOURCES, currentState -> currentState.ordinal() < WAITING_FOR_RESOURCES.ordinal());
+    }
+
+    public void beginSemanticAnalyzing()
+    {
+        queryStateTimer.beginSemanticAnalyzing();
+    }
+
+    public void beginColumnAccessPermissionChecking()
+    {
+        queryStateTimer.beginColumnAccessPermissionChecking();
+    }
+
+    public void endColumnAccessPermissionChecking()
+    {
+        queryStateTimer.endColumnAccessPermissionChecking();
     }
 
     public boolean transitionToDispatching()
@@ -943,8 +967,11 @@ public class QueryStateMachine
                 queryStats.getLastHeartbeat(),
                 queryStats.getEndTime(),
                 queryStats.getElapsedTime(),
+                queryStats.getWaitingForPrerequisitesTime(),
                 queryStats.getQueuedTime(),
                 queryStats.getResourceWaitingTime(),
+                queryStats.getSemanticAnalyzingTime(),
+                queryStats.getColumnAccessPermissionCheckingTime(),
                 queryStats.getDispatchingTime(),
                 queryStats.getExecutionTime(),
                 queryStats.getAnalysisTime(),
@@ -960,6 +987,7 @@ public class QueryStateMachine
                 queryStats.getBlockedDrivers(),
                 queryStats.getCompletedDrivers(),
                 queryStats.getCumulativeUserMemory(),
+                queryStats.getCumulativeTotalMemory(),
                 queryStats.getUserMemoryReservation(),
                 queryStats.getTotalMemoryReservation(),
                 queryStats.getPeakUserMemoryReservation(),
@@ -986,7 +1014,8 @@ public class QueryStateMachine
                 queryStats.getWrittenOutputPhysicalDataSize(),
                 queryStats.getWrittenIntermediatePhysicalDataSize(),
                 queryStats.getStageGcStatistics(),
-                ImmutableList.of()); // Remove the operator summaries as OperatorInfo (especially ExchangeClientStatus) can hold onto a large amount of memory
+                ImmutableList.of(), // Remove the operator summaries as OperatorInfo (especially ExchangeClientStatus) can hold onto a large amount of memory
+                queryStats.getRuntimeStats());
     }
 
     public static class QueryOutputManager

@@ -29,11 +29,6 @@ import static com.facebook.presto.tests.StructuralTestUtil.mapType;
 public abstract class AbstractTestWindowQueries
         extends AbstractTestQueryFramework
 {
-    public AbstractTestWindowQueries(QueryRunnerSupplier supplier)
-    {
-        super(supplier);
-    }
-
     @Test
     public void testRowFieldAccessorInWindowFunction()
     {

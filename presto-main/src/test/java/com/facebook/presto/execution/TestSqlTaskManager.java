@@ -32,6 +32,7 @@ import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.operator.NoOpFragmentResultCacheManager;
+import com.facebook.presto.operator.TaskMemoryReservationSummary;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spiller.LocalSpillManager;
 import com.facebook.presto.spiller.NodeSpillConfig;
@@ -51,6 +52,7 @@ import java.net.URI;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.TaskManagerConfig.TaskPriorityTracking.TASK_FAIR;
 import static com.facebook.presto.execution.TaskTestUtils.PLAN_FRAGMENT;
@@ -288,6 +290,7 @@ public class TestSqlTaskManager
                 createTestSplitMonitor(),
                 new NodeInfo("test"),
                 localMemoryManager,
+                listJsonCodec(TaskMemoryReservationSummary.class),
                 taskManagementExecutor,
                 config,
                 new NodeMemoryConfig(),
@@ -318,6 +321,7 @@ public class TestSqlTaskManager
                 .addTaskContext(
                         new TaskStateMachine(taskId, directExecutor()),
                         testSessionBuilder().build(),
+                        Optional.of(PLAN_FRAGMENT.getRoot()),
                         false,
                         false,
                         false,

@@ -1458,7 +1458,6 @@ public class OrcTester
                 orcEncoding,
                 orcFileTailSource,
                 stripeMetadataSource,
-                Optional.empty(),
                 NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
                 new OrcReaderOptions(
                         new DataSize(1, MEGABYTE),
@@ -1516,7 +1515,7 @@ public class OrcTester
     public static void writeOrcColumnsPresto(File outputFile, Format format, CompressionKind compression, Optional<DwrfWriterEncryption> dwrfWriterEncryption, List<Type> types, List<List<?>> values, WriterStats stats)
             throws Exception
     {
-        OrcWriter writer = createOrcWriter(outputFile, format.orcEncoding, compression, dwrfWriterEncryption, types, new OrcWriterOptions(), stats);
+        OrcWriter writer = createOrcWriter(outputFile, format.orcEncoding, compression, dwrfWriterEncryption, types, OrcWriterOptions.builder().build(), stats);
 
         Block[] blocks = new Block[types.size()];
         for (int i = 0; i < types.size(); i++) {
@@ -1575,7 +1574,7 @@ public class OrcTester
                     Optional.empty(),
                     new TestingHiveOrcAggregatedMemoryContext(),
                     tailBuffer.length)) {
-                StripeFooter stripeFooter = encoding.createMetadataReader().readStripeFooter(footer.getTypes(), inputStream);
+                StripeFooter stripeFooter = encoding.createMetadataReader().readStripeFooter(orcDataSource.getId(), footer.getTypes(), inputStream);
                 stripes.add(stripeFooter);
             }
         }
@@ -1600,6 +1599,7 @@ public class OrcTester
                 dwrfWriterEncryption,
                 new DwrfEncryptionProvider(new UnsupportedEncryptionLibrary(), new TestingEncryptionLibrary()),
                 writerOptions,
+                Optional.empty(),
                 ImmutableMap.of(),
                 HIVE_STORAGE_TIME_ZONE,
                 true,

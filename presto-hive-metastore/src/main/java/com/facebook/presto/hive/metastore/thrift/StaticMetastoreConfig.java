@@ -31,6 +31,7 @@ public class StaticMetastoreConfig
 
     private List<URI> metastoreUris;
     private String metastoreUsername;
+    private boolean metastoreLoadBalancingEnabled;
 
     @NotNull
     public List<URI> getMetastoreUris()
@@ -61,6 +62,19 @@ public class StaticMetastoreConfig
     public StaticMetastoreConfig setMetastoreUsername(String metastoreUsername)
     {
         this.metastoreUsername = metastoreUsername;
+        return this;
+    }
+
+    public boolean isMetastoreLoadBalancingEnabled()
+    {
+        return metastoreLoadBalancingEnabled;
+    }
+
+    @Config("hive.metastore.load-balancing-enabled")
+    @ConfigDescription("Enable load balancing between multiple Metastore instances")
+    public StaticMetastoreConfig setMetastoreLoadBalancingEnabled(boolean enabled)
+    {
+        this.metastoreLoadBalancingEnabled = enabled;
         return this;
     }
 }

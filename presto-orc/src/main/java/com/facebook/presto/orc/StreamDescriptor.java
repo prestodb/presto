@@ -49,6 +49,11 @@ public final class StreamDescriptor
         this.nestedStreams = ImmutableList.copyOf(requireNonNull(nestedStreams, "nestedStreams is null"));
     }
 
+    public StreamDescriptor duplicate(int sequence)
+    {
+        return new StreamDescriptor(streamName, streamId, fieldName, orcType, orcDataSource, nestedStreams, sequence);
+    }
+
     public String getStreamName()
     {
         return streamName;

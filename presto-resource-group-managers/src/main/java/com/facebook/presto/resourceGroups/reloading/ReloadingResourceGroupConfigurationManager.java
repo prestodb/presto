@@ -209,14 +209,14 @@ public class ReloadingResourceGroupConfigurationManager
                 }
             }
             else {
-                log.info("Loaded %s selectors and %s resource groups from database", this.selectors.get().size(), this.resourceGroupSpecs.size());
+                log.info("Loaded %s selectors and %s resource groups from source", this.selectors.get().size(), this.resourceGroupSpecs.size());
             }
 
             lastRefresh.set(System.nanoTime());
         }
         catch (Throwable e) {
             refreshFailures.update(1);
-            log.error(e, "Error loading configuration from db");
+            log.error(e, "Error loading configuration from source");
             if (lastRefresh.get() != 0) {
                 log.debug("Last successful configuration loading was %s ago", succinctNanos(System.nanoTime() - lastRefresh.get()).toString());
             }
@@ -263,7 +263,7 @@ public class ReloadingResourceGroupConfigurationManager
 
     private synchronized void disableGroup(ResourceGroup group)
     {
-        // Disable groups that are removed from the db
+        // Disable groups that are removed from the source
         group.setHardConcurrencyLimit(0);
         group.setMaxQueuedQueries(0);
     }
@@ -282,7 +282,7 @@ public class ReloadingResourceGroupConfigurationManager
     private void checkMaxRefreshInterval()
     {
         if (System.nanoTime() - lastRefresh.get() > maxRefreshInterval.toMillis() * MILLISECONDS.toNanos(1)) {
-            String message = "Resource group configuration cannot be fetched from database.";
+            String message = "Resource group configuration cannot be fetched from source.";
             if (lastRefresh.get() != 0) {
                 message += format(" Current resource group configuration is loaded %s ago", succinctNanos(System.nanoTime() - lastRefresh.get()).toString());
             }

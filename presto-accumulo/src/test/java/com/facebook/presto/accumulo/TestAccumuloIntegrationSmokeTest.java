@@ -14,17 +14,21 @@
 package com.facebook.presto.accumulo;
 
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.google.common.collect.ImmutableMap;
 
+import static com.facebook.presto.accumulo.AccumuloQueryRunner.createAccumuloQueryRunner;
 import static org.testng.Assert.assertEquals;
 
 public class TestAccumuloIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    public TestAccumuloIntegrationSmokeTest()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> AccumuloQueryRunner.createAccumuloQueryRunner(ImmutableMap.of()));
+        return createAccumuloQueryRunner(ImmutableMap.of());
     }
 
     @Override

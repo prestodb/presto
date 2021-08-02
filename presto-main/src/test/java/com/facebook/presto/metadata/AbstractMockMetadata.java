@@ -27,6 +27,7 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TableHandle;
@@ -67,12 +68,6 @@ public abstract class AbstractMockMetadata
 
     @Override
     public Type getType(TypeSignature signature)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public List<SqlFunction> listFunctions(Session session)
     {
         throw new UnsupportedOperationException();
     }
@@ -427,6 +422,24 @@ public abstract class AbstractMockMetadata
 
     @Override
     public void dropMaterializedView(Session session, QualifiedObjectName viewName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public MaterializedViewStatus getMaterializedViewStatus(Session session, QualifiedObjectName materializedViewName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         throw new UnsupportedOperationException();
     }

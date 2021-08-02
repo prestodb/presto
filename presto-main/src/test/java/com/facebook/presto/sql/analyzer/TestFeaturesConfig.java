@@ -18,6 +18,7 @@ import com.facebook.airlift.configuration.testing.ConfigAssertions;
 import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggGroupImplementation;
 import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
 import com.facebook.presto.operator.aggregation.multimapagg.MultimapAggGroupImplementation;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartitioningPrecisionStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.SingleStreamSpillerChoice;
 import com.google.common.collect.ImmutableMap;
@@ -89,6 +90,8 @@ public class TestFeaturesConfig
                 .setRe2JDfaRetries(5)
                 .setSpillEnabled(false)
                 .setJoinSpillingEnabled(false)
+                .setDistinctAggregationSpillEnabled(true)
+                .setOrderByAggregationSpillEnabled(true)
                 .setAggregationOperatorUnspillMemoryLimit(DataSize.valueOf("4MB"))
                 .setSpillerSpillPaths("")
                 .setSpillerThreads(4)
@@ -96,6 +99,7 @@ public class TestFeaturesConfig
                 .setMemoryRevokingThreshold(0.9)
                 .setMemoryRevokingTarget(0.5)
                 .setTaskSpillingStrategy(ORDER_BY_CREATE_TIME)
+                .setQueryLimitSpillEnabled(false)
                 .setSingleStreamSpillerChoice(SingleStreamSpillerChoice.LOCAL_FILE)
                 .setSpillerTempStorage("local")
                 .setMaxRevocableMemoryPerTask(new DataSize(500, MEGABYTE))
@@ -107,6 +111,7 @@ public class TestFeaturesConfig
                 .setEnableDynamicFiltering(false)
                 .setDynamicFilteringMaxPerDriverRowCount(100)
                 .setDynamicFilteringMaxPerDriverSize(new DataSize(10, KILOBYTE))
+                .setDynamicFilteringRangeRowLimitPerDriver(0)
                 .setFragmentResultCachingEnabled(false)
                 .setEnableStatsCalculator(true)
                 .setEnableStatsCollectionForTemporaryTable(false)
@@ -128,6 +133,8 @@ public class TestFeaturesConfig
                 .setFilterAndProjectMinOutputPageRowCount(256)
                 .setUseMarkDistinct(true)
                 .setPreferPartialAggregation(true)
+                .setPartialAggregationStrategy(PartialAggregationStrategy.ALWAYS)
+                .setPartialAggregationByteReductionThreshold(0.5)
                 .setOptimizeTopNRowNumber(true)
                 .setHistogramGroupImplementation(HistogramGroupImplementation.NEW)
                 .setArrayAggGroupImplementation(ArrayAggGroupImplementation.NEW)
@@ -157,10 +164,17 @@ public class TestFeaturesConfig
                 .setAllowWindowOrderByLiterals(true)
                 .setEnforceFixedDistributionForOutputOperator(false)
                 .setEmptyJoinOptimization(false)
+                .setLogFormattedQueryEnabled(false)
                 .setSpoolingOutputBufferEnabled(false)
                 .setSpoolingOutputBufferThreshold(new DataSize(8, MEGABYTE))
                 .setSpoolingOutputBufferTempStorage("local")
-                .setPrestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled(false));
+                .setPrestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled(false)
+                .setPartialResultsEnabled(false)
+                .setPartialResultsCompletionRatioThreshold(0.5)
+                .setOffsetClauseEnabled(false)
+                .setPartialResultsMaxExecutionTimeMultiplier(2.0)
+                .setMaterializedViewDataConsistencyEnabled(true)
+                .setQueryOptimizationWithMaterializedViewEnabled(false));
     }
 
     @Test
@@ -176,6 +190,7 @@ public class TestFeaturesConfig
                 .put("experimental.enable-dynamic-filtering", "true")
                 .put("experimental.dynamic-filtering-max-per-driver-row-count", "256")
                 .put("experimental.dynamic-filtering-max-per-driver-size", "64kB")
+                .put("experimental.dynamic-filtering-range-row-limit-per-driver", "1000")
                 .put("experimental.fragment-result-caching-enabled", "true")
                 .put("experimental.enable-stats-calculator", "false")
                 .put("experimental.enable-stats-collection-for-temporary-table", "true")
@@ -220,6 +235,8 @@ public class TestFeaturesConfig
                 .put("re2j.dfa-retries", "42")
                 .put("experimental.spill-enabled", "true")
                 .put("experimental.join-spill-enabled", "true")
+                .put("experimental.distinct-aggregation-spill-enabled", "false")
+                .put("experimental.order-by-aggregation-spill-enabled", "false")
                 .put("experimental.aggregation-operator-unspill-memory-limit", "100MB")
                 .put("experimental.spiller-spill-path", "/tmp/custom/spill/path1,/tmp/custom/spill/path2")
                 .put("experimental.spiller-threads", "42")
@@ -227,6 +244,7 @@ public class TestFeaturesConfig
                 .put("experimental.memory-revoking-threshold", "0.2")
                 .put("experimental.memory-revoking-target", "0.8")
                 .put("experimental.spiller.task-spilling-strategy", "PER_TASK_MEMORY_THRESHOLD")
+                .put("experimental.query-limit-spill-enabled", "true")
                 .put("experimental.spiller.single-stream-spiller-choice", "TEMP_STORAGE")
                 .put("experimental.spiller.spiller-temp-storage", "crail")
                 .put("experimental.spiller.max-revocable-task-memory", "1GB")
@@ -244,6 +262,8 @@ public class TestFeaturesConfig
                 .put("multimapagg.implementation", "LEGACY")
                 .put("optimizer.use-mark-distinct", "false")
                 .put("optimizer.prefer-partial-aggregation", "false")
+                .put("optimizer.partial-aggregation-strategy", "automatic")
+                .put("optimizer.partial-aggregation-byte-reduction-threshold", "0.8")
                 .put("optimizer.optimize-top-n-row-number", "false")
                 .put("distributed-sort", "false")
                 .put("analyzer.max-grouping-sets", "2047")
@@ -270,10 +290,17 @@ public class TestFeaturesConfig
                 .put("is-allow-window-order-by-literals", "false")
                 .put("enforce-fixed-distribution-for-output-operator", "true")
                 .put("optimizer.optimize-joins-with-empty-sources", "true")
+                .put("log-formatted-query-enabled", "true")
                 .put("spooling-output-buffer-enabled", "true")
                 .put("spooling-output-buffer-threshold", "16MB")
                 .put("spooling-output-buffer-temp-storage", "tempfs")
                 .put("spark.assign-bucket-to-partition-for-partitioned-table-write-enabled", "true")
+                .put("partial-results-enabled", "true")
+                .put("partial-results-completion-ratio-threshold", "0.9")
+                .put("partial-results-max-execution-time-multiplier", "1.5")
+                .put("offset-clause-enabled", "true")
+                .put("materialized-view-data-consistency-enabled", "false")
+                .put("query-optimization-with-materialized-view-enabled", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -286,6 +313,7 @@ public class TestFeaturesConfig
                 .setEnableDynamicFiltering(true)
                 .setDynamicFilteringMaxPerDriverRowCount(256)
                 .setDynamicFilteringMaxPerDriverSize(new DataSize(64, KILOBYTE))
+                .setDynamicFilteringRangeRowLimitPerDriver(1000)
                 .setFragmentResultCachingEnabled(true)
                 .setEnableStatsCalculator(false)
                 .setEnableStatsCollectionForTemporaryTable(true)
@@ -325,6 +353,8 @@ public class TestFeaturesConfig
                 .setRe2JDfaRetries(42)
                 .setSpillEnabled(true)
                 .setJoinSpillingEnabled(true)
+                .setDistinctAggregationSpillEnabled(false)
+                .setOrderByAggregationSpillEnabled(false)
                 .setAggregationOperatorUnspillMemoryLimit(DataSize.valueOf("100MB"))
                 .setSpillerSpillPaths("/tmp/custom/spill/path1,/tmp/custom/spill/path2")
                 .setSpillerThreads(42)
@@ -332,6 +362,7 @@ public class TestFeaturesConfig
                 .setMemoryRevokingThreshold(0.2)
                 .setMemoryRevokingTarget(0.8)
                 .setTaskSpillingStrategy(PER_TASK_MEMORY_THRESHOLD)
+                .setQueryLimitSpillEnabled(true)
                 .setSingleStreamSpillerChoice(SingleStreamSpillerChoice.TEMP_STORAGE)
                 .setSpillerTempStorage("crail")
                 .setMaxRevocableMemoryPerTask(new DataSize(1, GIGABYTE))
@@ -350,6 +381,8 @@ public class TestFeaturesConfig
                 .setFilterAndProjectMinOutputPageRowCount(2048)
                 .setUseMarkDistinct(false)
                 .setPreferPartialAggregation(false)
+                .setPartialAggregationStrategy(PartialAggregationStrategy.AUTOMATIC)
+                .setPartialAggregationByteReductionThreshold(0.8)
                 .setOptimizeTopNRowNumber(false)
                 .setHistogramGroupImplementation(HistogramGroupImplementation.LEGACY)
                 .setArrayAggGroupImplementation(ArrayAggGroupImplementation.LEGACY)
@@ -381,10 +414,17 @@ public class TestFeaturesConfig
                 .setAllowWindowOrderByLiterals(false)
                 .setEnforceFixedDistributionForOutputOperator(true)
                 .setEmptyJoinOptimization(true)
+                .setLogFormattedQueryEnabled(true)
                 .setSpoolingOutputBufferEnabled(true)
                 .setSpoolingOutputBufferThreshold(new DataSize(16, MEGABYTE))
                 .setSpoolingOutputBufferTempStorage("tempfs")
-                .setPrestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled(true);
+                .setPrestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled(true)
+                .setPartialResultsEnabled(true)
+                .setPartialResultsCompletionRatioThreshold(0.9)
+                .setOffsetClauseEnabled(true)
+                .setPartialResultsMaxExecutionTimeMultiplier(1.5)
+                .setMaterializedViewDataConsistencyEnabled(false)
+                .setQueryOptimizationWithMaterializedViewEnabled(true);
         assertFullMapping(properties, expected);
     }
 

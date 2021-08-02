@@ -24,6 +24,7 @@ import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.resourceGroups.QueryType;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Statement;
@@ -41,6 +42,7 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -56,16 +58,19 @@ public class DataDefinitionExecution<T extends Statement>
     private final DataDefinitionTask<T> task;
     private final T statement;
     private final String slug;
+    private final int retryCount;
     private final TransactionManager transactionManager;
     private final Metadata metadata;
     private final AccessControl accessControl;
     private final QueryStateMachine stateMachine;
     private final List<Expression> parameters;
+    private final AtomicReference<Optional<ResourceGroupQueryLimits>> resourceGroupQueryLimits = new AtomicReference<>(Optional.empty());
 
     private DataDefinitionExecution(
             DataDefinitionTask<T> task,
             T statement,
             String slug,
+            int retryCount,
             TransactionManager transactionManager,
             Metadata metadata,
             AccessControl accessControl,
@@ -75,6 +80,7 @@ public class DataDefinitionExecution<T extends Statement>
         this.task = requireNonNull(task, "task is null");
         this.statement = requireNonNull(statement, "statement is null");
         this.slug = requireNonNull(slug, "slug is null");
+        this.retryCount = retryCount;
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
@@ -86,6 +92,12 @@ public class DataDefinitionExecution<T extends Statement>
     public String getSlug()
     {
         return slug;
+    }
+
+    @Override
+    public int getRetryCount()
+    {
+        return retryCount;
     }
 
     @Override
@@ -158,6 +170,20 @@ public class DataDefinitionExecution<T extends Statement>
     public DataSize getOutputDataSize()
     {
         return DataSize.succinctBytes(0);
+    }
+
+    @Override
+    public Optional<ResourceGroupQueryLimits> getResourceGroupQueryLimits()
+    {
+        return resourceGroupQueryLimits.get();
+    }
+
+    @Override
+    public void setResourceGroupQueryLimits(ResourceGroupQueryLimits resourceGroupQueryLimits)
+    {
+        if (!this.resourceGroupQueryLimits.compareAndSet(Optional.empty(), Optional.of(requireNonNull(resourceGroupQueryLimits, "resourceGroupQueryLimits is null")))) {
+            throw new IllegalStateException("Cannot set resourceGroupQueryLimits more than once");
+        }
     }
 
     @Override
@@ -322,24 +348,26 @@ public class DataDefinitionExecution<T extends Statement>
                 PreparedQuery preparedQuery,
                 QueryStateMachine stateMachine,
                 String slug,
+                int retryCount,
                 WarningCollector warningCollector,
                 Optional<QueryType> queryType)
         {
-            return createDataDefinitionExecution(preparedQuery.getStatement(), preparedQuery.getParameters(), stateMachine, slug);
+            return createDataDefinitionExecution(preparedQuery.getStatement(), preparedQuery.getParameters(), stateMachine, slug, retryCount);
         }
 
         private <T extends Statement> DataDefinitionExecution<T> createDataDefinitionExecution(
                 T statement,
                 List<Expression> parameters,
                 QueryStateMachine stateMachine,
-                String slug)
+                String slug,
+                int retryCount)
         {
             @SuppressWarnings("unchecked")
             DataDefinitionTask<T> task = (DataDefinitionTask<T>) tasks.get(statement.getClass());
             checkArgument(task != null, "no task for statement: %s", statement.getClass().getSimpleName());
 
             stateMachine.setUpdateType(task.getName());
-            return new DataDefinitionExecution<>(task, statement, slug, transactionManager, metadata, accessControl, stateMachine, parameters);
+            return new DataDefinitionExecution<>(task, statement, slug, retryCount, transactionManager, metadata, accessControl, stateMachine, parameters);
         }
     }
 }

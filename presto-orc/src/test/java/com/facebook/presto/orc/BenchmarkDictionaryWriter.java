@@ -17,7 +17,6 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.metadata.CompressionKind;
-import com.facebook.presto.orc.metadata.CompressionParameters;
 import com.facebook.presto.orc.metadata.statistics.IntegerStatisticsBuilder;
 import com.facebook.presto.orc.metadata.statistics.StringStatisticsBuilder;
 import com.facebook.presto.orc.writer.ColumnWriter;
@@ -48,13 +47,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Random;
-import java.util.UUID;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
-import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_MAX_COMPRESSION_BUFFER_SIZE;
 import static com.facebook.presto.orc.OrcWriterOptions.DEFAULT_MAX_STRING_STATISTICS_LIMIT;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -75,10 +72,18 @@ public class BenchmarkDictionaryWriter
     private static final int COLUMN_INDEX = 0;
     private static final int STRING_LIMIT_BYTES = toIntExact(DEFAULT_MAX_STRING_STATISTICS_LIMIT.toBytes());
 
-    private final CompressionParameters compressionParameters = new CompressionParameters(
-            CompressionKind.NONE,
-            OptionalInt.empty(),
-            toIntExact(DEFAULT_MAX_COMPRESSION_BUFFER_SIZE.toBytes()));
+    private ColumnWriterOptions getColumnWriterOptions()
+    {
+        return getColumnWriterOptions(true);
+    }
+
+    private ColumnWriterOptions getColumnWriterOptions(boolean sortStringDictionaryKeys)
+    {
+        return ColumnWriterOptions.builder()
+                .setCompressionKind(CompressionKind.NONE)
+                .setStringDictionarySortingEnabled(sortStringDictionaryKeys)
+                .build();
+    }
 
     public static void main(String[] args)
             throws Throwable
@@ -102,11 +107,23 @@ public class BenchmarkDictionaryWriter
         ColumnWriter columnWriter;
         Type type = data.getType();
         if (type.equals(VARCHAR)) {
-            columnWriter = new SliceDirectColumnWriter(COLUMN_INDEX, type, compressionParameters, Optional.empty(), DWRF, this::newStringStatisticsBuilder, DWRF.createMetadataWriter());
+            columnWriter = new SliceDirectColumnWriter(COLUMN_INDEX, type, getColumnWriterOptions(), Optional.empty(), DWRF, this::newStringStatisticsBuilder, DWRF.createMetadataWriter());
         }
         else {
-            columnWriter = new LongColumnWriter(COLUMN_INDEX, type, compressionParameters, Optional.empty(), DWRF, IntegerStatisticsBuilder::new, DWRF.createMetadataWriter());
+            columnWriter = new LongColumnWriter(COLUMN_INDEX, type, getColumnWriterOptions(), Optional.empty(), DWRF, IntegerStatisticsBuilder::new, DWRF.createMetadataWriter());
         }
+        for (Block block : data.getBlocks()) {
+            columnWriter.beginRowGroup();
+            columnWriter.writeBlock(block);
+            columnWriter.finishRowGroup();
+        }
+        columnWriter.close();
+        columnWriter.reset();
+    }
+
+    private void writeDictionary(BenchmarkData data, boolean sortStringDictionaryKeys)
+    {
+        ColumnWriter columnWriter = getDictionaryColumnWriter(data, sortStringDictionaryKeys);
         for (Block block : data.getBlocks()) {
             columnWriter.beginRowGroup();
             columnWriter.writeBlock(block);
@@ -119,34 +136,13 @@ public class BenchmarkDictionaryWriter
     @Benchmark
     public void writeDictionary(BenchmarkData data)
     {
-        ColumnWriter columnWriter;
-        Type type = data.getType();
-        if (type.equals(VARCHAR)) {
-            columnWriter = new SliceDictionaryColumnWriter(COLUMN_INDEX, type, compressionParameters, Optional.empty(), DWRF, DEFAULT_MAX_STRING_STATISTICS_LIMIT, DWRF.createMetadataWriter());
-        }
-        else {
-            columnWriter = new LongDictionaryColumnWriter(COLUMN_INDEX, type, compressionParameters, Optional.empty(), DWRF, DWRF.createMetadataWriter());
-        }
-        for (Block block : data.getBlocks()) {
-            columnWriter.beginRowGroup();
-            columnWriter.writeBlock(block);
-            columnWriter.finishRowGroup();
-        }
-        columnWriter.close();
-        columnWriter.reset();
+        writeDictionary(data, true);
     }
 
     @Benchmark
     public void writeDictionaryAndConvert(BenchmarkData data)
     {
-        DictionaryColumnWriter columnWriter;
-        Type type = data.getType();
-        if (type.equals(VARCHAR)) {
-            columnWriter = new SliceDictionaryColumnWriter(COLUMN_INDEX, type, compressionParameters, Optional.empty(), DWRF, DEFAULT_MAX_STRING_STATISTICS_LIMIT, DWRF.createMetadataWriter());
-        }
-        else {
-            columnWriter = new LongDictionaryColumnWriter(COLUMN_INDEX, type, compressionParameters, Optional.empty(), DWRF, DWRF.createMetadataWriter());
-        }
+        DictionaryColumnWriter columnWriter = getDictionaryColumnWriter(data, true);
         for (Block block : data.getBlocks()) {
             columnWriter.beginRowGroup();
             columnWriter.writeBlock(block);
@@ -159,14 +155,37 @@ public class BenchmarkDictionaryWriter
         columnWriter.reset();
     }
 
+    @Benchmark
+    public void writeDictionaryNoSorting(BenchmarkData data)
+    {
+        writeDictionary(data, false);
+    }
+
+    private DictionaryColumnWriter getDictionaryColumnWriter(BenchmarkData data, boolean sortStringDictionaryKeys)
+    {
+        DictionaryColumnWriter columnWriter;
+        Type type = data.getType();
+        ColumnWriterOptions columnWriterOptions = getColumnWriterOptions(sortStringDictionaryKeys);
+        if (type.equals(VARCHAR)) {
+            columnWriter = new SliceDictionaryColumnWriter(COLUMN_INDEX, type, columnWriterOptions, Optional.empty(), DWRF, DWRF.createMetadataWriter());
+        }
+        else {
+            columnWriter = new LongDictionaryColumnWriter(COLUMN_INDEX, type, columnWriterOptions, Optional.empty(), DWRF, DWRF.createMetadataWriter());
+        }
+        return columnWriter;
+    }
+
     @State(Scope.Thread)
     public static class BenchmarkData
     {
-        private static final int NUM_BLOCKS = 10_000;
-        private static final int ROWS_PER_BLOCK = 1_000;
+        private static final int NUM_BLOCKS = 1_000;
+        private static final int ROWS_PER_BLOCK = 10_000;
         private static final String INTEGER_TYPE = "integer";
         private static final String BIGINT_TYPE = "bigint";
         private static final String VARCHAR_TYPE = "varchar";
+        private static final String POSSIBLE_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 +-_*#";
+        private static final int MAX_STRING_LENGTH = 30;
+        private static final int MIN_STRING_LENGTH = 10;
 
         private final Random random = new Random(0);
         private final List<Block> blocks;
@@ -177,6 +196,7 @@ public class BenchmarkDictionaryWriter
                 VARCHAR_TYPE
         })
         private String typeSignature = INTEGER_TYPE;
+
         @Param({
                 "1",
                 "5",
@@ -232,12 +252,22 @@ public class BenchmarkDictionaryWriter
             return max(uniqueValues, 1);
         }
 
+        private String getNextString(char[] chars, int length)
+        {
+            for (int i = 0; i < length; i++) {
+                chars[i] = POSSIBLE_CHARS.charAt(random.nextInt(POSSIBLE_CHARS.length()));
+            }
+            return String.valueOf(chars);
+        }
+
         private List<String> generateStrings(int numRows)
         {
             int valuesToGenerate = getUniqueValues(numRows);
             List<String> strings = new ArrayList<>(numRows);
+            char[] chars = new char[MAX_STRING_LENGTH];
             for (int i = 0; i < valuesToGenerate; i++) {
-                strings.add(UUID.randomUUID().toString());
+                int length = MIN_STRING_LENGTH + random.nextInt(MAX_STRING_LENGTH - MIN_STRING_LENGTH);
+                strings.add(getNextString(chars, length));
             }
 
             for (int i = valuesToGenerate; i < numRows; i++) {

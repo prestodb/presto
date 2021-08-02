@@ -49,6 +49,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_JOINS_WITH_EMPTY_SOURCES;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DecimalType.createDecimalType;
@@ -141,11 +143,6 @@ public abstract class AbstractTestQueries
 
     private static final String UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG = "line .*: Given correlated subquery is not supported";
 
-    protected AbstractTestQueries(QueryRunnerSupplier supplier)
-    {
-        super(supplier);
-    }
-
     @Test
     public void testParsingError()
     {
@@ -153,7 +150,7 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void selectLargeInterval()
+    public void testSelectLargeInterval()
     {
         MaterializedResult result = computeActual("SELECT INTERVAL '30' DAY");
         assertEquals(result.getRowCount(), 1);
@@ -164,29 +161,78 @@ public abstract class AbstractTestQueries
         assertEquals(result.getMaterializedRows().get(0).getField(0), new SqlIntervalYearMonth(Short.MAX_VALUE, 0));
     }
 
-    @Test
-    public void emptyJoins()
+    @Test(enabled = false)
+    public void testEmptyJoins()
     {
-        // Empty predicate
-        assertQuery("select 1 from (select * from orders where 1 = 0) DT join customer on DT.custkey=customer.custkey",
+        Session sessionWithEmptyJoin = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_JOINS_WITH_EMPTY_SOURCES, "true")
+                .build();
+        Session sessionWithoutEmptyJoin = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_JOINS_WITH_EMPTY_SOURCES, "false")
+                .build();
+        emptyJoinQueries(sessionWithEmptyJoin);
+        emptyJoinQueries(sessionWithoutEmptyJoin);
+    }
+
+    private void emptyJoinQueries(Session session)
+    {
+        // Empty predicate and inner join
+        assertQuery(session, "select 1 from (select * from orders where 1 = 0) DT join customer on DT.custkey=customer.custkey",
+                "select 1 from orders where 1 =0");
+
+        // Empty non-null producing side for outer join.
+        assertQuery(session, "select 1 from (select * from orders where 1 = 0) DT left outer join customer on DT.custkey=customer.custkey",
+                "select 1 from orders where 1 =0");
+
+        // 3 way join with empty non-null producing side for outer join
+        assertQuery(session, "select 1 from (select * from orders where 1 = 0) DT"
+                        + " left outer join customer C1 on DT.custkey=C1.custkey"
+                        + " left outer join customer C2 on C1.custkey=C2.custkey",
                 "select 1 from orders where 1 =0");
 
         // Zero limit
-        assertQuery("select 1 from (select * from orders LIMIT 0) DT join customer on DT.custkey=customer.custkey",
+        assertQuery(session, "select 1 from (select * from orders LIMIT 0) DT join customer on DT.custkey=customer.custkey",
                 "select 1 from orders where 1 =0");
 
         // Negative test.
-        assertQuery("select 1 from (select * from orders) DT join customer on DT.custkey=customer.custkey",
+        assertQuery(session, "select 1 from (select * from orders) DT join customer on DT.custkey=customer.custkey",
                 "select 1 from orders");
 
-        // Empty null producing side for outer join. Optimization TODO.
-        assertQuery("select 1 from (select * from orders) ORD left outer join (select custkey from customer where 1=0) " +
+        // Empty null producing side for outer join.
+        assertQuery(session, "select 1 from (select * from orders) ORD left outer join (select custkey from customer where 1=0) " +
                         "CUST on ORD.custkey=CUST.custkey",
                 "select 1 from orders");
+
+        // Empty null producing side for left outer join with constant field.
+        assertQuery(session, "select One from (select * from orders) ORD left outer join (select 1 as One, custkey from customer where 1=0) " +
+                        "CUST on ORD.custkey=CUST.custkey",
+                "select null as One from orders");
+
+        // Empty null producing side for right outer join with constant field.
+        assertQuery(session, "select One from (select 1 as One, custkey from customer where 1=0) CUST right outer join (select * from orders) ORD " +
+                        " ON ORD.custkey=CUST.custkey",
+                "select null as One from orders");
+
+        // 3 way join with mix of left and right outer joins. DT left outer join C1 right outer join O2.
+        // DT is empty which produces DT right outer join O2 which produce O2 as final result.
+        assertQuery(session, "select 1 from (select * from orders where 1 = 0) DT"
+                        + " left outer join customer C1 on DT.custkey=C1.custkey"
+                        + " right outer join orders O2 on C1.custkey=O2.custkey",
+                "select 1 from orders");
+
+        // Empty side for full outer join.
+        assertQuery(session, "select 1 from (select * from orders) ORD full outer join (select custkey from customer where 1=0) " +
+                        "CUST on ORD.custkey=CUST.custkey",
+                "select 1 from orders");
+
+        // Empty side for full outer join as input to aggregation.
+        assertQuery(session, "select count(*), orderkey from (select * from orders) ORD full outer join (select custkey from customer where 1=0) " +
+                        "CUST on ORD.custkey=CUST.custkey group by orderkey order by orderkey",
+                "select count(*), orderkey from orders group by orderkey order by orderkey");
     }
 
     @Test
-    public void selectNull()
+    public void testSelectNull()
     {
         assertQuery("SELECT NULL");
     }
@@ -958,6 +1004,34 @@ public abstract class AbstractTestQueries
     public void testLimitAll()
     {
         assertQuery("SELECT custkey, totalprice FROM orders LIMIT ALL", "SELECT custkey, totalprice FROM orders");
+    }
+
+    @Test
+    public void testOffset()
+    {
+        Session localSession = Session.builder(getSession())
+                .setSystemProperty(OFFSET_CLAUSE_ENABLED, "true")
+                .build();
+        String values = "(VALUES ('A', 3), ('D', 2), ('C', 1), ('B', 4)) AS t(x, y)";
+
+        MaterializedResult actual = computeActual(localSession, "SELECT x FROM " + values + " OFFSET 2 ROWS");
+        MaterializedResult all = computeExpected("SELECT x FROM " + values, actual.getTypes());
+
+        assertEquals(actual.getMaterializedRows().size(), 2);
+        assertNotEquals(actual.getMaterializedRows().get(0), actual.getMaterializedRows().get(1));
+        assertContains(all, actual);
+    }
+
+    @Test
+    public void testOffsetEmptyResult()
+    {
+        Session localSession = Session.builder(getSession())
+                .setSystemProperty(OFFSET_CLAUSE_ENABLED, "true")
+                .build();
+        assertQueryReturnsEmptyResult(localSession, "SELECT name FROM nation OFFSET 100 ROWS");
+        assertQueryReturnsEmptyResult(localSession, "SELECT name FROM nation ORDER BY regionkey OFFSET 100 ROWS");
+        assertQueryReturnsEmptyResult(localSession, "SELECT name FROM nation OFFSET 100 ROWS LIMIT 20");
+        assertQueryReturnsEmptyResult(localSession, "SELECT name FROM nation ORDER BY regionkey OFFSET 100 ROWS LIMIT 20");
     }
 
     @Test
@@ -4826,6 +4900,17 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testExecuteWithParametersInLambda()
+    {
+        String query = "SELECT filter(array[1, 2, 3], x -> x > ?)";
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query", query)
+                .build();
+
+        assertQuery(session, "EXECUTE my_query USING 2", "SELECT array[3]");
+    }
+
+    @Test
     public void testExecuteWithParametersInGroupBy()
     {
         try {
@@ -5680,9 +5765,23 @@ public abstract class AbstractTestQueries
     {
         assertQueryFails(
                 "select y, map_union_sum(x) from (select 1 y, map(array['x', 'z', 'y'], cast(array[null,30,100] as array<tinyint>)) x " +
-                "union all select 1 y, map(array['x', 'y'], cast(array[1,100] as array<tinyint>))x) group by y", ".*Value 200 exceeds MAX_BYTE.*");
+                        "union all select 1 y, map(array['x', 'y'], cast(array[1,100] as array<tinyint>))x) group by y", ".*Value 200 exceeds MAX_BYTE.*");
         assertQueryFails(
                 "select y, map_union_sum(x) from (select 1 y, map(array['x', 'z', 'y'], cast(array[null,30, 32760] as array<smallint>)) x " +
-                "union all select 1 y, map(array['x', 'y'], cast(array[1,100] as array<smallint>))x) group by y", ".*Value 32860 exceeds MAX_SHORT.*");
+                        "union all select 1 y, map(array['x', 'y'], cast(array[1,100] as array<smallint>))x) group by y", ".*Value 32860 exceeds MAX_SHORT.*");
+    }
+
+    @Test
+    public void testMultipleOrderingOnSameCanonicalVariables()
+    {
+        assertQuerySucceeds("SELECT ARRAY_AGG( x ORDER BY x ASC, x DESC ) FROM ( SELECT 0 as x, 0 AS y)");
+    }
+
+    @Test
+    public void tesMultipleConcat()
+    {
+        assertQuery("select concat('a', '','','', 'b', '', '', 'c', 'd', '', '', '', '')", "select 'abcd'");
+        assertQuery("select concat('', '','','', '', '', '', '', '', '', '')", "select ''");
+        assertQuery("select concat('', '','','', 'x', '', '', '', '', '', '')", "select 'x'");
     }
 }

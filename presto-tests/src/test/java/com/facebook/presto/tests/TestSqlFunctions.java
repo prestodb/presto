@@ -15,6 +15,8 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.type.NamedTypeSignature;
+import com.facebook.presto.common.type.RowFieldName;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.UserDefinedType;
@@ -37,9 +39,13 @@ import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintEnumType.LongEnumMap;
 import static com.facebook.presto.common.type.StandardTypes.BIGINT_ENUM;
+import static com.facebook.presto.common.type.StandardTypes.ROW;
+import static com.facebook.presto.common.type.StandardTypes.TINYINT;
+import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR_ENUM;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.VarcharEnumType.VarcharEnumMap;
+import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -66,13 +72,21 @@ public class TestSqlFunctions
                     "CHINA", "中国",
                     "भारत", "India")))));
 
+    private static final UserDefinedType PERSON = new UserDefinedType(QualifiedObjectName.valueOf("testing.type.person"), new TypeSignature(
+            ROW,
+            TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName("first_name", false)), new TypeSignature(VARCHAR))),
+            TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName("last_name", false)), new TypeSignature(VARCHAR))),
+            TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName("age", false)), new TypeSignature(TINYINT))),
+            TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName("country", false)), new TypeSignature("testing.enum.country")))));
+
     protected TestSqlFunctions()
     {
-        super(TestSqlFunctions::createQueryRunner);
         TestingThriftUdfServer.start(ImmutableMap.of("thrift.server.port", "7779"));
     }
 
-    private static QueryRunner createQueryRunner()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
         try {
             Session session = testSessionBuilder()
@@ -96,6 +110,7 @@ public class TestSqlFunctions
             queryRunner.createTestFunctionNamespace("example", "example");
             queryRunner.getMetadata().getFunctionAndTypeManager().addUserDefinedType(MOOD_ENUM);
             queryRunner.getMetadata().getFunctionAndTypeManager().addUserDefinedType(COUNTRY_ENUM);
+            queryRunner.getMetadata().getFunctionAndTypeManager().addUserDefinedType(PERSON);
 
             return queryRunner;
         }
@@ -141,12 +156,29 @@ public class TestSqlFunctions
     }
 
     @Test
-    public void testCreateFunction()
+    public void testCreateSQLFunction()
     {
         assertQuerySucceeds("CREATE FUNCTION TESTING.TEST.TAN (x int) RETURNS double RETURN sin(x) / cos(x)");
         assertQuerySucceeds("CREATE FUNCTION testing.test.tan (x double) RETURNS double LANGUAGE JAVA RETURN sin(x) / cos(x)");
+    }
 
-        // function with enums
+    @Test
+    public void testCreateExternalFunction()
+    {
+        // external function
+        assertQuerySucceeds("CREATE FUNCTION testing.test.foo(x varchar) RETURNS varchar LANGUAGE JAVA EXTERNAL");
+        assertQuerySucceeds("CREATE FUNCTION testing.test.foo(x varchar(3)) RETURNS varchar LANGUAGE SQL EXTERNAL");
+        assertQuerySucceeds("CREATE FUNCTION testing.test.foo(x int) RETURNS bigint LANGUAGE JAVA EXTERNAL NAME foo_from_another_library");
+        assertQuerySucceeds("CREATE FUNCTION testing.test.foo(x bigint) RETURNS bigint LANGUAGE JAVA EXTERNAL NAME \"foo.from.another.library\"");
+        assertQuerySucceeds("CREATE FUNCTION testing.test.foo(x double) RETURNS double LANGUAGE \"JAVA\" EXTERNAL");
+        assertQueryFails("CREATE FUNCTION testing.test.foo(x smallint) RETURNS bigint LANGUAGE JAVA EXTERNAL NAME 'foo.from.another.library'", ".*mismatched input ''foo.from.another.library''. Expecting: <identifier>");
+        assertQueryFails("CREATE FUNCTION testing.test.foo(x varchar) RETURNS varchar LANGUAGE JAVA EXTERNAL NAME", ".*mismatched input '<EOF>'. Expecting: <identifier>");
+        assertQueryFails("CREATE FUNCTION testing.test.foo(x varchar) RETURNS varchar LANGUAGE UNSUPPORTED EXTERNAL", "Catalog testing does not support functions implemented in language UNSUPPORTED");
+    }
+
+    @Test
+    public void testFunctionsWithEnumTypes()
+    {
         assertQuerySucceeds("CREATE FUNCTION testing.test.is_china(country testing.enum.country) RETURNS boolean RETURN country = testing.enum.country.CHINA");
         assertQuery("SELECT testing.test.is_china(testing.enum.country.CHINA)", "SELECT true");
         assertQuery("SELECT testing.test.is_china(testing.enum.country.\"भारत\")", "SELECT false");
@@ -165,16 +197,19 @@ public class TestSqlFunctions
 
         assertQueryFails("CREATE FUNCTION testing.test.invalid(e testing.enum.not_exist) RETURNS boolean RETURN e IS NOT NULL", ".*Type testing.enum.not_exist not found");
         assertQueryFails("CREATE FUNCTION testing.test.is_uk(country testing.enum.country) RETURNS boolean RETURN country = testing.enum.country.UK", ".*'testing.enum.country.uk' cannot be resolved");
+    }
 
-        // external function
-        assertQuerySucceeds("CREATE FUNCTION testing.test.foo(x varchar) RETURNS varchar LANGUAGE JAVA EXTERNAL");
-        assertQuerySucceeds("CREATE FUNCTION testing.test.foo(x varchar(3)) RETURNS varchar LANGUAGE SQL EXTERNAL");
-        assertQuerySucceeds("CREATE FUNCTION testing.test.foo(x int) RETURNS bigint LANGUAGE JAVA EXTERNAL NAME foo_from_another_library");
-        assertQuerySucceeds("CREATE FUNCTION testing.test.foo(x bigint) RETURNS bigint LANGUAGE JAVA EXTERNAL NAME \"foo.from.another.library\"");
-        assertQuerySucceeds("CREATE FUNCTION testing.test.foo(x double) RETURNS double LANGUAGE \"JAVA\" EXTERNAL");
-        assertQueryFails("CREATE FUNCTION testing.test.foo(x smallint) RETURNS bigint LANGUAGE JAVA EXTERNAL NAME 'foo.from.another.library'", ".*mismatched input ''foo.from.another.library''. Expecting: <identifier>");
-        assertQueryFails("CREATE FUNCTION testing.test.foo(x varchar) RETURNS varchar LANGUAGE JAVA EXTERNAL NAME", ".*mismatched input '<EOF>'. Expecting: <identifier>");
-        assertQueryFails("CREATE FUNCTION testing.test.foo(x varchar) RETURNS varchar LANGUAGE UNSUPPORTED EXTERNAL", "Catalog testing does not support functions implemented in language UNSUPPORTED");
+    @Test
+    public void testFunctionsWithStructTypes()
+    {
+        assertQuerySucceeds("CREATE FUNCTION testing.test.get_last_name(person testing.type.person) RETURNS varchar RETURN person.last_name");
+        assertQuery("SELECT testing.test.get_last_name(CAST(ROW('test', 'user', tinyint'20', testing.enum.country.US) AS testing.type.person))", "SELECT 'user'");
+        assertQuery("SELECT testing.test.get_last_name(ROW('test', 'user', tinyint'20', testing.enum.country.US))", "SELECT 'user'");
+        assertQueryFails("SELECT testing.test.get_last_name(ROW('test', 'user', tinyint'20', testing.enum.country.US, 'extra'))", ".*Unexpected parameters.*");
+        assertQuerySucceeds("CREATE FUNCTION testing.test.get_country(person testing.type.person) RETURNS testing.enum.country RETURN person.country");
+        MaterializedResult rows = computeActual("SELECT testing.test.get_country(ROW('test', 'user', tinyint'20', testing.enum.country.US))");
+        assertEquals(rows.getTypes().get(0).getDisplayName(), "testing.enum.country");
+        assertEquals(rows.getMaterializedRows().get(0).getFields().get(0), "United States");
     }
 
     @Test
@@ -516,7 +551,7 @@ public class TestSqlFunctions
                 "",
                 RoutineCharacteristics.builder().build(),
                 "RETURN x * 2",
-                Optional.empty());
+                notVersioned());
         return testSessionBuilder()
                 .addSessionFunction(bigintSignature, bigintFunction)
                 .build();

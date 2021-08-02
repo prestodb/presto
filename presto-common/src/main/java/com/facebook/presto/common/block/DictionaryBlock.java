@@ -383,6 +383,12 @@ public class DictionaryBlock
     }
 
     @Override
+    public boolean mayHaveNull()
+    {
+        return positionCount > 0 && dictionary.mayHaveNull();
+    }
+
+    @Override
     public Block getPositions(int[] positions, int offset, int length)
     {
         checkArrayRange(positions, offset, length);

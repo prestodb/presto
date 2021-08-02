@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
@@ -70,6 +69,7 @@ import static com.facebook.presto.hive.CacheQuotaRequirement.NO_CACHE_REQUIREMEN
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveCompressionCodec.NONE;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
+import static com.facebook.presto.hive.HiveQueryRunner.METASTORE_CONTEXT;
 import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.PAGE_SORTER;
 import static com.facebook.presto.hive.HiveTestUtils.ROW_EXPRESSION_SERVICE;
@@ -246,7 +246,7 @@ public class TestHivePageSink
                 OptionalInt.empty(),
                 NO_PREFERENCE,
                 getColumnHandles().size(),
-                ImmutableMap.of(),
+                TableToPartitionMapping.empty(),
                 Optional.empty(),
                 false,
                 Optional.empty(),
@@ -289,7 +289,7 @@ public class TestHivePageSink
                 TABLE_NAME,
                 getColumnHandles(),
                 "test",
-                new HivePageSinkMetadata(new SchemaTableName(SCHEMA_NAME, TABLE_NAME), metastore.getTable(SCHEMA_NAME, TABLE_NAME), ImmutableMap.of()),
+                new HivePageSinkMetadata(new SchemaTableName(SCHEMA_NAME, TABLE_NAME), metastore.getTable(METASTORE_CONTEXT, SCHEMA_NAME, TABLE_NAME), ImmutableMap.of()),
                 locationHandle,
                 config.getHiveStorageFormat(),
                 config.getHiveStorageFormat(),
@@ -301,7 +301,6 @@ public class TestHivePageSink
                 "test",
                 ImmutableMap.of(),
                 Optional.empty());
-        JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
         HdfsEnvironment hdfsEnvironment = createTestHdfsEnvironment(config, metastoreClientConfig);
         HivePageSinkProvider provider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(config, metastoreClientConfig),
@@ -313,7 +312,8 @@ public class TestHivePageSink
                 config,
                 metastoreClientConfig,
                 new HiveLocationService(hdfsEnvironment),
-                partitionUpdateCodec,
+                HiveTestUtils.PARTITION_UPDATE_CODEC,
+                HiveTestUtils.PARTITION_UPDATE_SMILE_CODEC,
                 new TestingNodeManager("fake-environment"),
                 new HiveEventClient(),
                 new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig()),

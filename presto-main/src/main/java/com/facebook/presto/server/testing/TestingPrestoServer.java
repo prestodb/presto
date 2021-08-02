@@ -35,6 +35,7 @@ import com.facebook.drift.transport.netty.server.DriftNettyServerTransport;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.dispatcher.DispatchManager;
+import com.facebook.presto.dispatcher.QueryPrerequisitesManagerModule;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
@@ -169,12 +170,12 @@ public class TestingPrestoServer
         private final CountDownLatch shutdownCalled = new CountDownLatch(1);
 
         @GuardedBy("this")
-        private boolean isWorkerShutdown;
+        private boolean isShutdown;
 
         @Override
         public synchronized void onShutdown()
         {
-            isWorkerShutdown = true;
+            isShutdown = true;
             shutdownCalled.countDown();
         }
 
@@ -184,9 +185,9 @@ public class TestingPrestoServer
             shutdownCalled.await(millis, MILLISECONDS);
         }
 
-        public synchronized boolean isWorkerShutdown()
+        public synchronized boolean isShutdown()
         {
-            return isWorkerShutdown;
+            return isShutdown;
         }
     }
 
@@ -270,6 +271,7 @@ public class TestingPrestoServer
                 .add(new ServerSecurityModule())
                 .add(new ServerMainModule(parserOptions))
                 .add(new TestingWarningCollectorModule())
+                .add(new QueryPrerequisitesManagerModule())
                 .add(binder -> {
                     binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);
                     binder.bind(TestingEventListenerManager.class).in(Scopes.SINGLETON);

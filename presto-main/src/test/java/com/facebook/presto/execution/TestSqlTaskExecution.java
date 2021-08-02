@@ -38,6 +38,7 @@ import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.operator.StageExecutionDescriptor;
 import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.operator.TaskMemoryReservationSummary;
 import com.facebook.presto.operator.TaskOutputOperator.TaskOutputOperatorFactory;
 import com.facebook.presto.operator.ValuesOperator.ValuesOperatorFactory;
 import com.facebook.presto.spi.ConnectorId;
@@ -84,11 +85,13 @@ import java.util.function.Supplier;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.airlift.concurrent.Threads.threadsNamed;
+import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockAssertions.createStringSequenceBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.execution.TaskManagerConfig.TaskPriorityTracking.TASK_FAIR;
+import static com.facebook.presto.execution.TaskTestUtils.PLAN_FRAGMENT;
 import static com.facebook.presto.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
 import static com.facebook.presto.execution.TaskTestUtils.createTestSplitMonitor;
 import static com.facebook.presto.execution.buffer.BufferState.OPEN;
@@ -625,8 +628,17 @@ public class TestSqlTaskExecution
                 taskNotificationExecutor,
                 driverYieldExecutor,
                 new DataSize(1, MEGABYTE),
-                new SpillSpaceTracker(new DataSize(1, GIGABYTE)));
-        return queryContext.addTaskContext(taskStateMachine, TEST_SESSION, false, false, false, false, false);
+                new SpillSpaceTracker(new DataSize(1, GIGABYTE)),
+                listJsonCodec(TaskMemoryReservationSummary.class));
+        return queryContext.addTaskContext(
+                taskStateMachine,
+                TEST_SESSION,
+                Optional.of(PLAN_FRAGMENT.getRoot()),
+                false,
+                false,
+                false,
+                false,
+                false);
     }
 
     private PartitionedOutputBuffer newTestingOutputBuffer(ScheduledExecutorService taskNotificationExecutor)

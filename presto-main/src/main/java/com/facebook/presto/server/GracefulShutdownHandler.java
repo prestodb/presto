@@ -15,6 +15,7 @@ package com.facebook.presto.server;
 
 import com.facebook.airlift.bootstrap.LifeCycleManager;
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
 import io.airlift.units.Duration;
@@ -48,8 +49,10 @@ public class GracefulShutdownHandler
     private final ScheduledExecutorService shutdownHandler = newSingleThreadScheduledExecutor(threadsNamed("shutdown-handler-%s"));
     private final ExecutorService lifeCycleStopper = newSingleThreadExecutor(threadsNamed("lifecycle-stopper-%s"));
     private final LifeCycleManager lifeCycleManager;
+    private final QueryManager queryManager;
     private final TaskManager sqlTaskManager;
     private final boolean isCoordinator;
+    private final boolean isResourceManager;
     private final ShutdownAction shutdownAction;
     private final Duration gracePeriod;
 
@@ -61,21 +64,24 @@ public class GracefulShutdownHandler
             TaskManager sqlTaskManager,
             ServerConfig serverConfig,
             ShutdownAction shutdownAction,
-            LifeCycleManager lifeCycleManager)
+            LifeCycleManager lifeCycleManager,
+            QueryManager queryManager)
     {
         this.sqlTaskManager = requireNonNull(sqlTaskManager, "sqlTaskManager is null");
         this.shutdownAction = requireNonNull(shutdownAction, "shutdownAction is null");
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.isCoordinator = requireNonNull(serverConfig, "serverConfig is null").isCoordinator();
+        this.isResourceManager = serverConfig.isResourceManager();
         this.gracePeriod = serverConfig.getGracePeriod();
+        this.queryManager = requireNonNull(queryManager, "queryManager is null");
     }
 
     public synchronized void requestShutdown()
     {
         log.info("Shutdown requested");
 
-        if (isCoordinator) {
-            throw new UnsupportedOperationException("Cannot shutdown coordinator");
+        if (isResourceManager) {
+            throw new UnsupportedOperationException("Cannot shutdown resource manager");
         }
 
         if (isShutdownRequested()) {
@@ -86,33 +92,14 @@ public class GracefulShutdownHandler
 
         //wait for a grace period to start the shutdown sequence
         shutdownHandler.schedule(() -> {
-            List<TaskInfo> activeTasks = getActiveTasks();
-            while (activeTasks.size() > 0) {
-                CountDownLatch countDownLatch = new CountDownLatch(activeTasks.size());
-
-                for (TaskInfo taskInfo : activeTasks) {
-                    sqlTaskManager.addStateChangeListener(taskInfo.getTaskId(), newState -> {
-                        if (newState.isDone()) {
-                            countDownLatch.countDown();
-                        }
-                    });
-                }
-
-                log.info("Waiting for all tasks to finish");
-
-                try {
-                    countDownLatch.await();
-                }
-                catch (InterruptedException e) {
-                    log.warn("Interrupted while waiting for all tasks to finish");
-                    currentThread().interrupt();
-                }
-
-                activeTasks = getActiveTasks();
+            if (isCoordinator) {
+                waitForQueriesToComplete();
             }
-
-            // wait for another grace period for all task states to be observed by the coordinator
-            sleepUninterruptibly(gracePeriod.toMillis(), MILLISECONDS);
+            else {
+                waitForTasksToComplete();
+                // wait for another grace period for all task states to be observed by the coordinator
+                sleepUninterruptibly(gracePeriod.toMillis(), MILLISECONDS);
+            }
 
             Future<?> shutdownFuture = lifeCycleStopper.submit(() -> {
                 lifeCycleManager.stop();
@@ -138,11 +125,71 @@ public class GracefulShutdownHandler
         }, gracePeriod.toMillis(), MILLISECONDS);
     }
 
+    private void waitForTasksToComplete()
+    {
+        List<TaskInfo> activeTasks = getActiveTasks();
+        while (activeTasks.size() > 0) {
+            CountDownLatch countDownLatch = new CountDownLatch(activeTasks.size());
+
+            for (TaskInfo taskInfo : activeTasks) {
+                sqlTaskManager.addStateChangeListener(taskInfo.getTaskId(), newState -> {
+                    if (newState.isDone()) {
+                        countDownLatch.countDown();
+                    }
+                });
+            }
+
+            log.info("Waiting for all tasks to finish");
+
+            try {
+                countDownLatch.await();
+            }
+            catch (InterruptedException e) {
+                log.warn("Interrupted while waiting for all tasks to finish");
+                currentThread().interrupt();
+            }
+
+            activeTasks = getActiveTasks();
+        }
+    }
+
     private List<TaskInfo> getActiveTasks()
     {
         return sqlTaskManager.getAllTaskInfo()
                 .stream()
                 .filter(taskInfo -> !taskInfo.getTaskStatus().getState().isDone())
+                .collect(toImmutableList());
+    }
+
+    private void waitForQueriesToComplete()
+    {
+        List<BasicQueryInfo> activeQueries = getActiveQueryInfo();
+        while (activeQueries.size() > 0) {
+            CountDownLatch countDownLatch = new CountDownLatch(activeQueries.size());
+            for (BasicQueryInfo queryInfo : activeQueries) {
+                queryManager.addStateChangeListener(queryInfo.getQueryId(), newState -> {
+                    if (newState.isDone()) {
+                        countDownLatch.countDown();
+                    }
+                });
+            }
+            log.info("Waiting for all queries to finish");
+            try {
+                countDownLatch.await();
+            }
+            catch (InterruptedException e) {
+                log.warn("Interrupted while waiting for all queries to finish");
+                currentThread().interrupt();
+            }
+            activeQueries = getActiveQueryInfo();
+        }
+    }
+
+    private List<BasicQueryInfo> getActiveQueryInfo()
+    {
+        return queryManager.getQueries()
+                .stream()
+                .filter(queryInfo -> !queryInfo.getState().isDone())
                 .collect(toImmutableList());
     }
 

@@ -22,8 +22,8 @@ import com.facebook.presto.common.block.VariableWidthBlock;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.OrcLocalMemoryContext;
 import com.facebook.presto.orc.StreamDescriptor;
+import com.facebook.presto.orc.Stripe;
 import com.facebook.presto.orc.TupleDomainFilter;
-import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.stream.BooleanInputStream;
 import com.facebook.presto.orc.stream.ByteArrayInputStream;
@@ -37,7 +37,6 @@ import io.airlift.units.DataSize;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
-import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.orc.array.Arrays.ExpansionFactor.SMALL;
@@ -606,7 +605,7 @@ public class SliceDirectSelectiveStreamReader
     }
 
     @Override
-    public void startStripe(InputStreamSources dictionaryStreamSources, Map<Integer, ColumnEncoding> encoding)
+    public void startStripe(Stripe stripe)
     {
         presentStreamSource = missingStreamSource(BooleanInputStream.class);
         lengthStreamSource = missingStreamSource(LongInputStream.class);

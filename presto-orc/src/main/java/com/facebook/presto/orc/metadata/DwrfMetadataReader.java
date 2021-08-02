@@ -19,6 +19,7 @@ import com.facebook.presto.orc.DwrfKeyProvider;
 import com.facebook.presto.orc.EncryptionLibrary;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDataSource;
+import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.OrcDecompressor;
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
@@ -51,6 +52,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.SortedMap;
 
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
@@ -88,13 +90,22 @@ public class DwrfMetadataReader
 
         HiveWriterVersion writerVersion = postScript.hasWriterVersion() && postScript.getWriterVersion() > 0 ? ORC_HIVE_8732 : ORIGINAL;
 
+        OptionalInt stripeCacheLength = OptionalInt.empty();
+        Optional<DwrfStripeCacheMode> stripeCacheMode = Optional.empty();
+        if (postScript.hasCacheSize() && postScript.hasCacheMode()) {
+            stripeCacheLength = OptionalInt.of(postScript.getCacheSize());
+            stripeCacheMode = Optional.of(toStripeCacheMode(postScript.getCacheMode()));
+        }
+
         return new PostScript(
                 ImmutableList.of(),
                 postScript.getFooterLength(),
                 0,
                 toCompression(postScript.getCompression()),
                 postScript.getCompressionBlockSize(),
-                writerVersion);
+                writerVersion,
+                stripeCacheLength,
+                stripeCacheMode);
     }
 
     @Override
@@ -118,6 +129,7 @@ public class DwrfMetadataReader
         List<StripeInformation> fileStripes = toStripeInformation(footer.getStripesList());
         List<OrcType> types = toType(footer.getTypesList());
         Optional<DwrfEncryption> encryption = footer.hasEncryption() ? Optional.of(toEncryption(footer.getEncryption())) : Optional.empty();
+        Optional<List<Integer>> stripeCacheOffsets = Optional.of(footer.getStripeCacheOffsetsList());
 
         if (encryption.isPresent()) {
             Map<Integer, Slice> keys = dwrfKeyProvider.getIntermediateKeys(types);
@@ -132,7 +144,8 @@ public class DwrfMetadataReader
                 types,
                 fileStats,
                 toUserMetadata(footer.getMetadataList()),
-                encryption);
+                encryption,
+                stripeCacheOffsets);
     }
 
     private List<ColumnStatistics> decryptAndCombineFileStatistics(HiveWriterVersion hiveWriterVersion,
@@ -273,7 +286,7 @@ public class DwrfMetadataReader
             keyMetadata = previousKeyMetadata;
         }
         return new StripeInformation(
-                toIntExact(stripeInformation.getNumberOfRows()),
+                stripeInformation.getNumberOfRows(),
                 stripeInformation.getOffset(),
                 stripeInformation.getIndexLength(),
                 stripeInformation.getDataLength(),
@@ -282,21 +295,31 @@ public class DwrfMetadataReader
     }
 
     @Override
-    public StripeFooter readStripeFooter(List<OrcType> types, InputStream inputStream)
+    public StripeFooter readStripeFooter(OrcDataSourceId orcDataSourceId, List<OrcType> types, InputStream inputStream)
             throws IOException
     {
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         DwrfProto.StripeFooter stripeFooter = DwrfProto.StripeFooter.parseFrom(input);
         return new StripeFooter(
-                toStream(stripeFooter.getStreamsList()),
+                toStream(orcDataSourceId, stripeFooter.getStreamsList()),
                 toColumnEncoding(types, stripeFooter.getColumnsList()),
                 stripeFooter.getEncryptedGroupsList().stream()
                         .map(OrcMetadataReader::byteStringToSlice)
                         .collect(toImmutableList()));
     }
 
-    private static Stream toStream(DwrfProto.Stream stream)
+    private static Stream toStream(OrcDataSourceId orcDataSourceId, DwrfProto.Stream stream)
     {
+        // reader doesn't support streams larger than 2GB
+        if (stream.getLength() > Integer.MAX_VALUE) {
+            throw new OrcCorruptionException(
+                    orcDataSourceId,
+                    "Stream size %s of one of the streams for column %s is larger than supported size %s",
+                    stream.getLength(),
+                    stream.getColumn(),
+                    Integer.MAX_VALUE);
+        }
+
         return new Stream(
                 stream.getColumn(),
                 toStreamKind(stream.getKind()),
@@ -306,9 +329,11 @@ public class DwrfMetadataReader
                 stream.hasOffset() ? Optional.of(stream.getOffset()) : Optional.empty());
     }
 
-    private static List<Stream> toStream(List<DwrfProto.Stream> streams)
+    private static List<Stream> toStream(OrcDataSourceId orcDataSourceId, List<DwrfProto.Stream> streams)
     {
-        return ImmutableList.copyOf(Iterables.transform(streams, DwrfMetadataReader::toStream));
+        return streams.stream()
+                .map((stream -> toStream(orcDataSourceId, stream)))
+                .collect(toImmutableList());
     }
 
     private static DwrfSequenceEncoding toSequenceEncoding(OrcType type, DwrfProto.ColumnEncoding columnEncoding)
@@ -633,12 +658,26 @@ public class DwrfMetadataReader
         }
     }
 
-    public static StripeEncryptionGroup toStripeEncryptionGroup(InputStream inputStream, List<OrcType> types)
+    static DwrfStripeCacheMode toStripeCacheMode(DwrfProto.StripeCacheMode mode)
+    {
+        switch (mode) {
+            case INDEX:
+                return DwrfStripeCacheMode.INDEX;
+            case FOOTER:
+                return DwrfStripeCacheMode.FOOTER;
+            case BOTH:
+                return DwrfStripeCacheMode.INDEX_AND_FOOTER;
+            default:
+                return DwrfStripeCacheMode.NONE;
+        }
+    }
+
+    public static StripeEncryptionGroup toStripeEncryptionGroup(OrcDataSourceId orcDataSourceId, InputStream inputStream, List<OrcType> types)
             throws IOException
     {
         CodedInputStream codedInputStream = CodedInputStream.newInstance(inputStream);
         DwrfProto.StripeEncryptionGroup stripeEncryptionGroup = DwrfProto.StripeEncryptionGroup.parseFrom(codedInputStream);
-        List<Stream> encryptedStreams = toStream(stripeEncryptionGroup.getStreamsList());
+        List<Stream> encryptedStreams = toStream(orcDataSourceId, stripeEncryptionGroup.getStreamsList());
         return new StripeEncryptionGroup(
                 encryptedStreams,
                 toColumnEncoding(types, stripeEncryptionGroup.getEncodingList()));

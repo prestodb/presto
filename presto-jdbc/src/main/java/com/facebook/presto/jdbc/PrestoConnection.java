@@ -89,6 +89,7 @@ public class PrestoConnection
     private final boolean compressionDisabled;
     private final Map<String, String> extraCredentials;
     private final Map<String, String> sessionProperties;
+    private final Properties connectionProperties;
     private final Optional<String> applicationNamePrefix;
     private final Map<String, String> clientInfo = new ConcurrentHashMap<>();
     private final Map<String, String> preparedStatements = new ConcurrentHashMap<>();
@@ -112,6 +113,7 @@ public class PrestoConnection
 
         this.extraCredentials = uri.getExtraCredentials();
         this.sessionProperties = new ConcurrentHashMap<>(uri.getSessionProperties());
+        this.connectionProperties = uri.getProperties();
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
 
         timeZoneId.set(TimeZone.getDefault().getID());
@@ -545,6 +547,16 @@ public class PrestoConnection
     {
         checkOpen();
         return schema.get();
+    }
+
+    public Properties getConnectionProperties()
+    {
+        Properties properties = new Properties();
+        for (Map.Entry<Object, Object> entry : connectionProperties.entrySet()) {
+            properties.setProperty((String) entry.getKey(), (String) entry.getValue());
+        }
+
+        return properties;
     }
 
     public String getTimeZoneId()

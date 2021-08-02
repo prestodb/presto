@@ -35,11 +35,13 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.getWarningHandlingLevel;
+import static com.facebook.presto.SystemSessionProperties.isLogFormattedQueryEnabled;
 import static com.facebook.presto.execution.ParameterExtractor.getParameterCount;
 import static com.facebook.presto.execution.warnings.WarningHandlingLevel.AS_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.WARNING_AS_ERROR;
 import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
+import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.analyzer.ConstantExpressionVerifier.verifyExpressionIsConstant;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
 import static java.lang.String.format;
@@ -85,7 +87,19 @@ public class QueryPreparer
             parameters = ((Execute) wrappedStatement).getParameters();
         }
         validateParameters(statement, parameters);
-        return new PreparedQuery(statement, parameters);
+        Optional<String> formattedQuery = Optional.empty();
+        if (isLogFormattedQueryEnabled(session)) {
+            formattedQuery = Optional.of(getFormattedQuery(statement, parameters));
+        }
+        return new PreparedQuery(statement, parameters, formattedQuery);
+    }
+
+    private static String getFormattedQuery(Statement statement, List<Expression> parameters)
+    {
+        String formattedQuery = formatSql(
+                statement,
+                parameters.isEmpty() ? Optional.empty() : Optional.of(parameters));
+        return format("-- Formatted Query:\n%s", formattedQuery);
     }
 
     private static Statement unwrapExecuteStatement(Statement statement, SqlParser sqlParser, Session session, WarningCollector warningCollector)
@@ -113,11 +127,13 @@ public class QueryPreparer
     {
         private final Statement statement;
         private final List<Expression> parameters;
+        private final Optional<String> formattedQuery;
 
-        public PreparedQuery(Statement statement, List<Expression> parameters)
+        public PreparedQuery(Statement statement, List<Expression> parameters, Optional<String> formattedQuery)
         {
             this.statement = requireNonNull(statement, "statement is null");
             this.parameters = ImmutableList.copyOf(requireNonNull(parameters, "parameters is null"));
+            this.formattedQuery = requireNonNull(formattedQuery, "formattedQuery is null");
         }
 
         public Statement getStatement()
@@ -128,6 +144,11 @@ public class QueryPreparer
         public List<Expression> getParameters()
         {
             return parameters;
+        }
+
+        public Optional<String> getFormattedQuery()
+        {
+            return formattedQuery;
         }
     }
 }

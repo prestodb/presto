@@ -26,6 +26,7 @@ import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PipelineContext;
 import com.facebook.presto.operator.PipelineStats;
 import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.operator.TaskMemoryReservationSummary;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
@@ -37,12 +38,15 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Consumer;
 import java.util.regex.Pattern;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
+import static com.facebook.presto.execution.TaskTestUtils.PLAN_FRAGMENT;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static java.lang.String.format;
@@ -108,10 +112,12 @@ public class TestMemoryTracking
                 notificationExecutor,
                 yieldExecutor,
                 queryMaxSpillSize,
-                spillSpaceTracker);
+                spillSpaceTracker,
+                listJsonCodec(TaskMemoryReservationSummary.class));
         taskContext = queryContext.addTaskContext(
                 new TaskStateMachine(new TaskId("query", 0, 0, 0), notificationExecutor),
                 testSessionBuilder().build(),
+                Optional.of(PLAN_FRAGMENT.getRoot()),
                 true,
                 true,
                 true,
@@ -372,6 +378,41 @@ public class TestMemoryTracking
         assertEquals(operatorContext.getOperatorMemoryContext().getUserMemory(), 400_000);
         operatorContext.destroy();
         assertOperatorMemoryAllocations(operatorContext.getOperatorMemoryContext(), 0, 0, 0);
+    }
+
+    @Test
+    public void testCumulativeUserMemoryEstimation()
+    {
+        LocalMemoryContext userMemory = operatorContext.localUserMemoryContext();
+        long userMemoryBytes = 100_000_000;
+        userMemory.setBytes(userMemoryBytes);
+        long startTime = System.nanoTime();
+        double cumulativeUserMemory = taskContext.getTaskStats().getCumulativeUserMemory();
+        long endTime = System.nanoTime();
+
+        double elapsedTimeInMillis = (endTime - startTime) / 1_000_000.0;
+        long averageMemoryForLastPeriod = userMemoryBytes / 2;
+
+        assertTrue(cumulativeUserMemory < elapsedTimeInMillis * averageMemoryForLastPeriod);
+    }
+
+    @Test
+    public void testCumulativeTotalMemoryEstimation()
+    {
+        LocalMemoryContext userMemory = operatorContext.localUserMemoryContext();
+        LocalMemoryContext systemMemory = operatorContext.localSystemMemoryContext();
+        long userMemoryBytes = 100_000_000;
+        long systemMemoryBytes = 40_000_000;
+        userMemory.setBytes(userMemoryBytes);
+        systemMemory.setBytes(systemMemoryBytes);
+        long startTime = System.nanoTime();
+        double cumulativeTotalMemory = taskContext.getTaskStats().getCumulativeTotalMemory();
+        long endTime = System.nanoTime();
+
+        double elapsedTimeInMillis = (endTime - startTime) / 1_000_000.0;
+        long averageMemoryForLastPeriod = (userMemoryBytes + systemMemoryBytes) / 2;
+
+        assertTrue(cumulativeTotalMemory < elapsedTimeInMillis * averageMemoryForLastPeriod);
     }
 
     private void assertStats(

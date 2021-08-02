@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.orc.stream;
 
+import com.facebook.presto.orc.ColumnWriterOptions;
 import com.facebook.presto.orc.DwrfDataEncryptor;
 import com.facebook.presto.orc.OrcOutputBuffer;
 import com.facebook.presto.orc.checkpoint.BooleanStreamCheckpoint;
 import com.facebook.presto.orc.checkpoint.ByteStreamCheckpoint;
-import com.facebook.presto.orc.metadata.CompressionParameters;
 import com.google.common.collect.ImmutableList;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -40,9 +40,9 @@ public class BooleanOutputStream
     private int data;
     private boolean closed;
 
-    public BooleanOutputStream(CompressionParameters compressionParameters, Optional<DwrfDataEncryptor> dwrfEncryptor)
+    public BooleanOutputStream(ColumnWriterOptions columnWriterOptions, Optional<DwrfDataEncryptor> dwrfEncryptor)
     {
-        this(new ByteOutputStream(compressionParameters, dwrfEncryptor));
+        this(new ByteOutputStream(columnWriterOptions, dwrfEncryptor));
     }
 
     public BooleanOutputStream(OrcOutputBuffer buffer)

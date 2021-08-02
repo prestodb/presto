@@ -17,11 +17,11 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.LongArrayBlock;
 import com.facebook.presto.common.type.FixedWidthType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.orc.ColumnWriterOptions;
 import com.facebook.presto.orc.DwrfDataEncryptor;
 import com.facebook.presto.orc.OrcEncoding;
 import com.facebook.presto.orc.array.Arrays;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
-import com.facebook.presto.orc.metadata.CompressionParameters;
 import com.facebook.presto.orc.metadata.MetadataWriter;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.metadata.statistics.IntegerStatisticsBuilder;
@@ -63,15 +63,15 @@ public class LongDictionaryColumnWriter
     public LongDictionaryColumnWriter(
             int column,
             Type type,
-            CompressionParameters compressionParameters,
+            ColumnWriterOptions columnWriterOptions,
             Optional<DwrfDataEncryptor> dwrfEncryptor,
             OrcEncoding orcEncoding,
             MetadataWriter metadataWriter)
     {
-        super(column, type, compressionParameters, dwrfEncryptor, orcEncoding, metadataWriter);
+        super(column, type, columnWriterOptions, dwrfEncryptor, orcEncoding, metadataWriter);
         checkArgument(orcEncoding == DWRF, "Long dictionary encoding is only supported in DWRF");
         checkArgument(type instanceof FixedWidthType, "Not a fixed width type");
-        this.dictionaryDataStream = new LongOutputStreamDwrf(compressionParameters, dwrfEncryptor, true, DICTIONARY_DATA);
+        this.dictionaryDataStream = new LongOutputStreamDwrf(columnWriterOptions, dwrfEncryptor, true, DICTIONARY_DATA);
         this.dictionary = new LongDictionary(10_000);
         this.typeSize = ((FixedWidthType) type).getFixedSize();
         this.statisticsBuilder = new IntegerStatisticsBuilder();
@@ -93,7 +93,7 @@ public class LongDictionaryColumnWriter
     protected ColumnWriter createDirectColumnWriter()
     {
         if (directColumnWriter == null) {
-            directColumnWriter = new LongColumnWriter(column, type, compressionParameters, dwrfEncryptor, orcEncoding, IntegerStatisticsBuilder::new, metadataWriter);
+            directColumnWriter = new LongColumnWriter(column, type, columnWriterOptions, dwrfEncryptor, orcEncoding, IntegerStatisticsBuilder::new, metadataWriter);
         }
         return directColumnWriter;
     }

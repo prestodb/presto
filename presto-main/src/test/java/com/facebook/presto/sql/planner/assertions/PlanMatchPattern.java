@@ -42,6 +42,7 @@ import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
+import com.facebook.presto.sql.planner.plan.OffsetNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
@@ -531,6 +532,11 @@ public final class PlanMatchPattern
     public static PlanMatchPattern values(List<String> aliases)
     {
         return values(aliases, Optional.empty());
+    }
+
+    public static PlanMatchPattern offset(long rowCount, PlanMatchPattern source)
+    {
+        return node(OffsetNode.class, source).with(new OffsetMatcher(rowCount));
     }
 
     public static PlanMatchPattern limit(long limit, PlanMatchPattern source)

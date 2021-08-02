@@ -38,6 +38,7 @@ import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slices;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
@@ -88,6 +89,7 @@ import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestMetastoreHiveStatisticsProvider
@@ -121,9 +123,11 @@ public class TestMetastoreHiveStatisticsProvider
     @Test
     public void testNullablePartitionValue()
     {
-        HivePartition part = partition("p1=name/p2=\\N");
-        NullableValue verify = new NullableValue(BIGINT, null);
-        assertTrue(part.getKeys().containsValue(verify));
+        HivePartition partitionWithNull = partition("p1=__HIVE_DEFAULT_PARTITION__/p2=1");
+        assertTrue(partitionWithNull.getKeys().containsValue(new NullableValue(VARCHAR, null)));
+        HivePartition partitionNameWithSlashN = partition("p1=\\N/p2=2");
+        assertTrue(partitionNameWithSlashN.getKeys().containsValue(new NullableValue(VARCHAR, Slices.utf8Slice("\\N"))));
+        assertFalse(partitionNameWithSlashN.getKeys().containsValue(new NullableValue(VARCHAR, null)));
     }
 
     @Test
@@ -632,7 +636,7 @@ public class TestMetastoreHiveStatisticsProvider
                 .setBasicStatistics(new HiveBasicStatistics(OptionalLong.empty(), OptionalLong.of(1000), OptionalLong.of(5000), OptionalLong.empty()))
                 .setColumnStatistics(ImmutableMap.of(COLUMN, createIntegerColumnStatistics(OptionalLong.of(-100), OptionalLong.of(100), OptionalLong.of(500), OptionalLong.of(300))))
                 .build();
-        MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider((table, hivePartitions) -> ImmutableMap.of(partitionName, statistics));
+        MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider((session, table, hivePartitions) -> ImmutableMap.of(partitionName, statistics));
         TestingConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(new HiveClientConfig(), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
         HiveColumnHandle columnHandle = new HiveColumnHandle(COLUMN, HIVE_LONG, BIGINT.getTypeSignature(), 2, REGULAR, Optional.empty(), Optional.empty());
         TableStatistics expected = TableStatistics.builder()
@@ -683,7 +687,7 @@ public class TestMetastoreHiveStatisticsProvider
                 .setBasicStatistics(new HiveBasicStatistics(OptionalLong.empty(), OptionalLong.of(1000), OptionalLong.of(5000), OptionalLong.empty()))
                 .setColumnStatistics(ImmutableMap.of(COLUMN, createIntegerColumnStatistics(OptionalLong.of(-100), OptionalLong.of(100), OptionalLong.of(500), OptionalLong.of(300))))
                 .build();
-        MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider((table, hivePartitions) -> ImmutableMap.of(UNPARTITIONED_ID, statistics));
+        MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider((session, table, hivePartitions) -> ImmutableMap.of(UNPARTITIONED_ID, statistics));
         TestingConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(new HiveClientConfig(), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
         HiveColumnHandle columnHandle = new HiveColumnHandle(COLUMN, HIVE_LONG, BIGINT.getTypeSignature(), 2, REGULAR, Optional.empty(), Optional.empty());
         TableStatistics expected = TableStatistics.builder()
@@ -711,7 +715,7 @@ public class TestMetastoreHiveStatisticsProvider
     public void testGetTableStatisticsEmpty()
     {
         String partitionName = "p1=string1/p2=1234";
-        MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider((table, hivePartitions) -> ImmutableMap.of(partitionName, PartitionStatistics.empty()));
+        MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider((session, table, hivePartitions) -> ImmutableMap.of(partitionName, PartitionStatistics.empty()));
         TestingConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(new HiveClientConfig(), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
         assertEquals(
                 statisticsProvider.getTableStatistics(
@@ -726,7 +730,7 @@ public class TestMetastoreHiveStatisticsProvider
     @Test
     public void testGetTableStatisticsSampling()
     {
-        MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider((table, hivePartitions) -> {
+        MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider((session, table, hivePartitions) -> {
             assertEquals(table, TABLE);
             assertEquals(hivePartitions.size(), 1);
             return ImmutableMap.of();
@@ -751,7 +755,7 @@ public class TestMetastoreHiveStatisticsProvider
                 .setBasicStatistics(new HiveBasicStatistics(-1, 0, 0, 0))
                 .build();
         String partitionName = "p1=string1/p2=1234";
-        MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider((table, hivePartitions) -> ImmutableMap.of(partitionName, corruptedStatistics));
+        MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider((session, table, hivePartitions) -> ImmutableMap.of(partitionName, corruptedStatistics));
         TestingConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(
                 new HiveClientConfig().setIgnoreCorruptedStatistics(false),
                 new OrcFileWriterConfig(),

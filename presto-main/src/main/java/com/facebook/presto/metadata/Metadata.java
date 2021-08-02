@@ -28,6 +28,7 @@ import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.SystemTable;
@@ -63,8 +64,6 @@ public interface Metadata
     void verifyComparableOrderableContract();
 
     Type getType(TypeSignature signature);
-
-    List<SqlFunction> listFunctions(Session session);
 
     void registerBuiltInFunctions(List<? extends SqlFunction> functions);
 
@@ -373,6 +372,21 @@ public interface Metadata
      * Drops the specified materialized view.
      */
     void dropMaterializedView(Session session, QualifiedObjectName viewName);
+
+    /**
+     * Get Materialized view status
+     */
+    MaterializedViewStatus getMaterializedViewStatus(Session session, QualifiedObjectName materializedViewName);
+
+    /**
+     * Begin refresh materialized view
+     */
+    InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle);
+
+    /**
+     * Finish refresh materialized view
+     */
+    Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics);
 
     /**
      * Try to locate a table index that can lookup results by indexableColumns and provide the requested outputColumns.

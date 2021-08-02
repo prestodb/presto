@@ -15,6 +15,7 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -27,17 +28,14 @@ import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 public class TestDistributedSpilledQueries
         extends AbstractTestQueries
 {
-    public TestDistributedSpilledQueries()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        this(TestDistributedSpilledQueries::createQueryRunner);
+        return localCreateQueryRunner();
     }
 
-    protected TestDistributedSpilledQueries(QueryRunnerSupplier queryRunnerSupplier)
-    {
-        super(queryRunnerSupplier);
-    }
-
-    public static DistributedQueryRunner createQueryRunner()
+    public static QueryRunner localCreateQueryRunner()
             throws Exception
     {
         Session defaultSession = testSessionBuilder()
@@ -77,12 +75,5 @@ public class TestDistributedSpilledQueries
     {
         // TODO: disabled until https://github.com/prestodb/presto/issues/8926 is resolved
         //       due to long running query test created many spill files on disk.
-    }
-
-    @Test(enabled = false)
-    @Override
-    public void testCorrelatedNonAggregationScalarSubqueries()
-    {
-        // TODO: disable until https://github.com/prestodb/presto/issues/15542 is resolved
     }
 }

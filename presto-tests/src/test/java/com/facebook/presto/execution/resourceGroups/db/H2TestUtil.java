@@ -31,8 +31,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
-import java.util.Random;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
 import static com.facebook.presto.execution.QueryState.RUNNING;
@@ -102,7 +103,7 @@ class H2TestUtil
 
     public static String getDbConfigUrl()
     {
-        return "jdbc:h2:mem:test_" + Math.abs(new Random().nextLong());
+        return "jdbc:h2:mem:test_" + System.nanoTime() + "_" + ThreadLocalRandom.current().nextInt();
     }
 
     public static H2ResourceGroupsDao getDao(String url)
@@ -119,16 +120,24 @@ class H2TestUtil
     public static DistributedQueryRunner createQueryRunner(String dbConfigUrl, H2ResourceGroupsDao dao)
             throws Exception
     {
-        return createQueryRunner(dbConfigUrl, dao, TEST_ENVIRONMENT);
+        return createQueryRunner(dbConfigUrl, dao, TEST_ENVIRONMENT, ImmutableMap.of());
     }
 
-    public static DistributedQueryRunner createQueryRunner(String dbConfigUrl, H2ResourceGroupsDao dao, String environment)
+    public static DistributedQueryRunner createQueryRunner(String dbConfigUrl, H2ResourceGroupsDao dao, Map<String, String> coordinatorProperties)
+            throws Exception
+    {
+        return createQueryRunner(dbConfigUrl, dao, TEST_ENVIRONMENT, coordinatorProperties);
+    }
+
+    public static DistributedQueryRunner createQueryRunner(String dbConfigUrl, H2ResourceGroupsDao dao, String environment, Map<String, String> coordinatorProperties)
             throws Exception
     {
         DistributedQueryRunner queryRunner = DistributedQueryRunner
                 .builder(testSessionBuilder().setCatalog("tpch").setSchema("tiny").build())
                 .setNodeCount(2)
                 .setEnvironment(environment)
+                .setResourceManagerEnabled(true)
+                .setCoordinatorProperties(coordinatorProperties)
                 .build();
         try {
             Plugin h2ResourceGroupManagerPlugin = new H2ResourceGroupManagerPlugin();
@@ -158,13 +167,13 @@ class H2TestUtil
             throws InterruptedException
     {
         dao.insertResourceGroupsGlobalProperties("cpu_quota_period", "1h");
-        dao.insertResourceGroup(1, "global", "1MB", 100, 1000, 1000, null, null, null, null, null, null, TEST_ENVIRONMENT);
-        dao.insertResourceGroup(2, "bi-${USER}", "1MB", 3, 2, 2, null, null, null, null, null, 1L, TEST_ENVIRONMENT);
-        dao.insertResourceGroup(3, "user-${USER}", "1MB", 3, 3, 3, null, null, null, null, null, 1L, TEST_ENVIRONMENT);
-        dao.insertResourceGroup(4, "adhoc-${USER}", "1MB", 3, 3, 3, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
-        dao.insertResourceGroup(5, "dashboard-${USER}", "1MB", 1, 1, 1, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
-        dao.insertResourceGroup(6, "no-queueing", "1MB", 0, 1, 1, null, null, null, null, null, null, TEST_ENVIRONMENT_2);
-        dao.insertResourceGroup(7, "explain", "1MB", 0, 1, 1, null, null, null, null, null, null, TEST_ENVIRONMENT);
+        dao.insertResourceGroup(1, "global", "1MB", 100, 1000, 1000, null, null, null, null, null, null, null, null, null, TEST_ENVIRONMENT);
+        dao.insertResourceGroup(2, "bi-${USER}", "1MB", 3, 2, 2, null, null, null, null, null, null, null, null, 1L, TEST_ENVIRONMENT);
+        dao.insertResourceGroup(3, "user-${USER}", "1MB", 3, 3, 3, null, null, null, null, null, null, null, null, 1L, TEST_ENVIRONMENT);
+        dao.insertResourceGroup(4, "adhoc-${USER}", "1MB", 3, 3, 3, null, null, null, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
+        dao.insertResourceGroup(5, "dashboard-${USER}", "1MB", 1, 1, 1, null, null, null, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
+        dao.insertResourceGroup(6, "no-queueing", "1MB", 0, 1, 1, null, null, null, null, null, null, null, null, null, TEST_ENVIRONMENT_2);
+        dao.insertResourceGroup(7, "explain", "1MB", 0, 1, 1, null, null, null, null, null, null, null, null, null, TEST_ENVIRONMENT);
         dao.insertSelector(2, 10_000, "user.*", "test", null, null, null);
         dao.insertSelector(4, 1_000, "user.*", "(?i).*adhoc.*", null, null, null);
         dao.insertSelector(5, 100, "user.*", "(?i).*dashboard.*", null, null, null);

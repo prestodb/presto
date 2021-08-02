@@ -19,27 +19,34 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.PARTIAL_MERGE_PUSHDOWN_STRATEGY;
+import static com.facebook.presto.spark.PrestoSparkQueryRunner.METASTORE_CONTEXT;
 import static com.facebook.presto.spark.PrestoSparkQueryRunner.createHivePrestoSparkQueryRunner;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_SPLIT_ASSIGNMENT_BATCH_SIZE;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.STORAGE_BASED_BROADCAST_JOIN_ENABLED;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrategy.PUSH_THROUGH_LOW_MEMORY_OPERATORS;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.airlift.tpch.TpchTable.NATION;
 import static java.lang.String.format;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPrestoSparkQueryRunner
         extends AbstractTestQueryFramework
 {
-    public TestPrestoSparkQueryRunner()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(PrestoSparkQueryRunner::createHivePrestoSparkQueryRunner);
+        return PrestoSparkQueryRunner.createHivePrestoSparkQueryRunner();
     }
 
     @Test
@@ -93,6 +100,18 @@ public class TestPrestoSparkQueryRunner
                         "   SELECT orderkey, 'ccc' AS dummy FROM orders " +
                         ")",
                 45000);
+    }
+
+    @Test
+    public void testZeroFileCreatorForBucketedTable()
+    {
+        assertUpdate(
+                getSession(),
+                format("CREATE TABLE hive.hive_test.test_hive_orders_bucketed_join_zero_file WITH (bucketed_by=array['orderkey'], bucket_count=8) AS " +
+                        "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
+                        "FROM orders_bucketed " +
+                        "WHERE orderkey = 1"),
+                1);
     }
 
     @Test
@@ -246,7 +265,7 @@ public class TestPrestoSparkQueryRunner
 
     private void dropTable(String schema, String table)
     {
-        ((PrestoSparkQueryRunner) getQueryRunner()).getMetastore().dropTable(schema, table, true);
+        ((PrestoSparkQueryRunner) getQueryRunner()).getMetastore().dropTable(METASTORE_CONTEXT, schema, table, true);
     }
 
     @Test
@@ -783,6 +802,22 @@ public class TestPrestoSparkQueryRunner
                 .setSystemProperty("query_max_execution_time", "2s")
                 .build();
         assertQueryFails(queryMaxExecutionTimeLimitSession, longRunningCrossJoin, "Query exceeded maximum time limit of 2.00s");
+
+        // Test whether waitTime is being considered while computing timeouts.
+        // Expected run time for this query is ~30s. We will set `dummyServiceWaitTime` as 600s.
+        // The timeout logic will set the timeout for the query as 605s (Actual timeout + waitTime)
+        // and the query should succeed. This is a bit hacky way to check whether service waitTime
+        // is added to the deadline time while submitting jobs
+        Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics = ((PrestoSparkQueryRunner) getQueryRunner()).getWaitTimeMetrics();
+        PrestoSparkTestingServiceWaitTimeMetrics testingServiceWaitTimeMetrics = (PrestoSparkTestingServiceWaitTimeMetrics) waitTimeMetrics.stream()
+                .filter(metric -> metric instanceof PrestoSparkTestingServiceWaitTimeMetrics)
+                .findFirst().get();
+        testingServiceWaitTimeMetrics.setWaitTime(new Duration(600, SECONDS));
+        queryMaxRunTimeLimitSession = Session.builder(getSession())
+                .setSystemProperty("query_max_execution_time", "5s")
+                .build();
+        assertQuerySucceeds(queryMaxRunTimeLimitSession, longRunningCrossJoin);
+        testingServiceWaitTimeMetrics.setWaitTime(new Duration(0, SECONDS));
     }
 
     @Test
@@ -805,6 +840,45 @@ public class TestPrestoSparkQueryRunner
                 "SELECT o.custkey, l.orderkey " +
                         "FROM (SELECT * FROM lineitem WHERE linenumber = 4) l " +
                         "CROSS JOIN (SELECT * FROM orders WHERE orderkey = 5) o");
+
+        assertQuery(session,
+                "WITH broadcast_table1 AS ( " +
+                        "    SELECT " +
+                        "        * " +
+                        "    FROM lineitem " +
+                        "    WHERE " +
+                        "        linenumber = 1 " +
+                        ")," +
+                        "broadcast_table2 AS ( " +
+                        "    SELECT " +
+                        "        * " +
+                        "    FROM lineitem " +
+                        "    WHERE " +
+                        "        linenumber = 2 " +
+                        ")," +
+                        "broadcast_table3 AS ( " +
+                        "    SELECT " +
+                        "        * " +
+                        "    FROM lineitem " +
+                        "    WHERE " +
+                        "        linenumber = 3 " +
+                        ")," +
+                        "broadcast_table4 AS ( " +
+                        "    SELECT " +
+                        "        * " +
+                        "    FROM lineitem " +
+                        "    WHERE " +
+                        "        linenumber = 4 " +
+                        ")" +
+                        "SELECT " +
+                        "    * " +
+                        "FROM broadcast_table1 a " +
+                        "JOIN broadcast_table2 b " +
+                        "    ON a.orderkey = b.orderkey " +
+                        "JOIN broadcast_table3 c " +
+                        "    ON a.orderkey = c.orderkey " +
+                        "JOIN broadcast_table4 d " +
+                        "    ON a.orderkey = d.orderkey");
     }
 
     @Test
@@ -818,6 +892,22 @@ public class TestPrestoSparkQueryRunner
         try (QueryRunner queryRunner = createHivePrestoSparkQueryRunner(ImmutableList.of(NATION), ImmutableMap.of("spark.smile-serialization-enabled", "false"))) {
             MaterializedResult actual = queryRunner.execute(query);
             assertEqualsIgnoreOrder(actual, computeExpected(query, actual.getTypes()));
+        }
+    }
+
+    @Test
+    public void testIterativeSplitEnumeration()
+    {
+        for (int batchSize = 1; batchSize <= 8; batchSize *= 2) {
+            Session session = Session.builder(getSession())
+                    .setSystemProperty(SPARK_SPLIT_ASSIGNMENT_BATCH_SIZE, batchSize + "")
+                    .build();
+
+            assertQuery(session, "select partkey, count(*) c from lineitem where partkey % 10 = 1 group by partkey having count(*) = 42");
+
+            assertQuery(session, "SELECT l.orderkey, l.linenumber, p.brand " +
+                    "FROM lineitem l, part p " +
+                    "WHERE l.partkey = p.partkey");
         }
     }
 

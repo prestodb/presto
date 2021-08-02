@@ -18,7 +18,6 @@ import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.FixedWidthType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.PostScript;
@@ -657,12 +656,9 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
         SharedBuffer sharedDecompressionBuffer = new SharedBuffer(currentStripeSystemMemoryContext.newOrcLocalMemoryContext("sharedDecompressionBuffer"));
         Stripe stripe = stripeReader.readStripe(stripeInformation, currentStripeSystemMemoryContext, dwrfEncryptionInfo, sharedDecompressionBuffer);
         if (stripe != null) {
-            // Give readers access to dictionary streams
-            InputStreamSources dictionaryStreamSources = stripe.getDictionaryStreamSources();
-            Map<Integer, ColumnEncoding> columnEncodings = stripe.getColumnEncodings();
             for (StreamReader column : streamReaders) {
                 if (column != null) {
-                    column.startStripe(dictionaryStreamSources, columnEncodings);
+                    column.startStripe(stripe);
                 }
             }
 
@@ -693,7 +689,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
         }
     }
 
-    private void validateWriteStripe(int rowCount)
+    private void validateWriteStripe(long rowCount)
     {
         if (writeChecksumBuilder.isPresent()) {
             writeChecksumBuilder.get().addStripe(rowCount);

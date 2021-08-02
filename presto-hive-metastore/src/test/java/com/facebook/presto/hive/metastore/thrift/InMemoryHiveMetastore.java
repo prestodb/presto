@@ -19,6 +19,7 @@ import com.facebook.presto.hive.SchemaAlreadyExistsException;
 import com.facebook.presto.hive.TableAlreadyExistsException;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
+import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.MetastoreUtil;
 import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.hive.metastore.PartitionWithStatistics;
@@ -99,7 +100,7 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public synchronized void createDatabase(Database database)
+    public synchronized void createDatabase(MetastoreContext metastoreContext, Database database)
     {
         requireNonNull(database, "database is null");
 
@@ -124,19 +125,19 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public synchronized void dropDatabase(String databaseName)
+    public synchronized void dropDatabase(MetastoreContext metastoreContext, String databaseName)
     {
         if (!databases.containsKey(databaseName)) {
             throw new SchemaNotFoundException(databaseName);
         }
-        if (!getAllTables(databaseName).orElse(ImmutableList.of()).isEmpty()) {
+        if (!getAllTables(metastoreContext, databaseName).orElse(ImmutableList.of()).isEmpty()) {
             throw new PrestoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + databaseName);
         }
         databases.remove(databaseName);
     }
 
     @Override
-    public synchronized void alterDatabase(String databaseName, Database newDatabase)
+    public synchronized void alterDatabase(MetastoreContext metastoreContext, String databaseName, Database newDatabase)
     {
         String newDatabaseName = newDatabase.getName();
 
@@ -163,13 +164,13 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public synchronized List<String> getAllDatabases()
+    public synchronized List<String> getAllDatabases(MetastoreContext metastoreContext)
     {
         return ImmutableList.copyOf(databases.keySet());
     }
 
     @Override
-    public synchronized void createTable(Table table)
+    public synchronized void createTable(MetastoreContext metastoreContext, Table table)
     {
         TableType tableType = TableType.valueOf(table.getTableType());
         checkArgument(EnumSet.of(MANAGED_TABLE, EXTERNAL_TABLE, VIRTUAL_VIEW).contains(tableType), "Invalid table type: %s", tableType);
@@ -203,9 +204,9 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public synchronized void dropTable(String databaseName, String tableName, boolean deleteData)
+    public synchronized void dropTable(MetastoreContext metastoreContext, String databaseName, String tableName, boolean deleteData)
     {
-        List<String> locations = listAllDataPaths(this, databaseName, tableName);
+        List<String> locations = listAllDataPaths(metastoreContext, this, databaseName, tableName);
 
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
         Table table = relations.remove(schemaTableName);
@@ -227,10 +228,10 @@ public class InMemoryHiveMetastore
         }
     }
 
-    private static List<String> listAllDataPaths(HiveMetastore metastore, String schemaName, String tableName)
+    private static List<String> listAllDataPaths(MetastoreContext metastoreContext, HiveMetastore metastore, String schemaName, String tableName)
     {
         ImmutableList.Builder<String> locations = ImmutableList.builder();
-        Table table = metastore.getTable(schemaName, tableName).get();
+        Table table = metastore.getTable(metastoreContext, schemaName, tableName).get();
         if (table.getSd().getLocation() != null) {
             // For unpartitioned table, there should be nothing directly under this directory.
             // But including this location in the set makes the directory content assert more
@@ -238,9 +239,9 @@ public class InMemoryHiveMetastore
             locations.add(table.getSd().getLocation());
         }
 
-        Optional<List<String>> partitionNames = metastore.getPartitionNames(schemaName, tableName);
+        Optional<List<String>> partitionNames = metastore.getPartitionNames(metastoreContext, schemaName, tableName);
         if (partitionNames.isPresent()) {
-            metastore.getPartitionsByNames(schemaName, tableName, partitionNames.get()).stream()
+            metastore.getPartitionsByNames(metastoreContext, schemaName, tableName, partitionNames.get()).stream()
                     .map(partition -> partition.getSd().getLocation())
                     .filter(location -> !location.startsWith(table.getSd().getLocation()))
                     .forEach(locations::add);
@@ -250,7 +251,7 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public synchronized void alterTable(String databaseName, String tableName, Table newTable)
+    public synchronized void alterTable(MetastoreContext metastoreContext, String databaseName, String tableName, Table newTable)
     {
         SchemaTableName oldName = new SchemaTableName(databaseName, tableName);
         SchemaTableName newName = new SchemaTableName(newTable.getDbName(), newTable.getTableName());
@@ -276,7 +277,7 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public synchronized Optional<List<String>> getAllTables(String databaseName)
+    public synchronized Optional<List<String>> getAllTables(MetastoreContext metastoreContext, String databaseName)
     {
         ImmutableList.Builder<String> tables = ImmutableList.builder();
         for (SchemaTableName schemaTableName : this.relations.keySet()) {
@@ -288,7 +289,7 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public synchronized Optional<List<String>> getAllViews(String databaseName)
+    public synchronized Optional<List<String>> getAllViews(MetastoreContext metastoreContext, String databaseName)
     {
         ImmutableList.Builder<String> tables = ImmutableList.builder();
         for (SchemaTableName schemaTableName : this.views.keySet()) {
@@ -300,13 +301,13 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public synchronized Optional<Database> getDatabase(String databaseName)
+    public synchronized Optional<Database> getDatabase(MetastoreContext metastoreContext, String databaseName)
     {
         return Optional.ofNullable(databases.get(databaseName));
     }
 
     @Override
-    public synchronized void addPartitions(String databaseName, String tableName, List<PartitionWithStatistics> partitionsWithStatistics)
+    public synchronized void addPartitions(MetastoreContext metastoreContext, String databaseName, String tableName, List<PartitionWithStatistics> partitionsWithStatistics)
     {
         for (PartitionWithStatistics partitionWithStatistics : partitionsWithStatistics) {
             Partition partition = toMetastoreApiPartition(partitionWithStatistics.getPartition());
@@ -320,14 +321,14 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public synchronized void dropPartition(String databaseName, String tableName, List<String> parts, boolean deleteData)
+    public synchronized void dropPartition(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> parts, boolean deleteData)
     {
         partitions.entrySet().removeIf(entry ->
                 entry.getKey().matches(databaseName, tableName) && entry.getValue().getValues().equals(parts));
     }
 
     @Override
-    public synchronized void alterPartition(String databaseName, String tableName, PartitionWithStatistics partitionWithStatistics)
+    public synchronized void alterPartition(MetastoreContext metastoreContext, String databaseName, String tableName, PartitionWithStatistics partitionWithStatistics)
     {
         Partition partition = toMetastoreApiPartition(partitionWithStatistics.getPartition());
         if (partition.getParameters() == null) {
@@ -339,7 +340,7 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public synchronized Optional<List<String>> getPartitionNames(String databaseName, String tableName)
+    public synchronized Optional<List<String>> getPartitionNames(MetastoreContext metastoreContext, String databaseName, String tableName)
     {
         return Optional.of(ImmutableList.copyOf(partitions.entrySet().stream()
                 .filter(entry -> entry.getKey().matches(databaseName, tableName))
@@ -348,7 +349,7 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public synchronized Optional<Partition> getPartition(String databaseName, String tableName, List<String> partitionValues)
+    public synchronized Optional<Partition> getPartition(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionValues)
     {
         PartitionName name = PartitionName.partition(databaseName, tableName, partitionValues);
         Partition partition = partitions.get(name);
@@ -359,7 +360,7 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public synchronized Optional<List<String>> getPartitionNamesByParts(String databaseName, String tableName, List<String> parts)
+    public synchronized Optional<List<String>> getPartitionNamesByParts(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> parts)
     {
         return Optional.of(partitions.entrySet().stream()
                 .filter(entry -> partitionMatches(entry.getValue(), databaseName, tableName, parts))
@@ -368,10 +369,10 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public List<String> getPartitionNamesByFilter(String databaseName, String tableName, Map<Column, Domain> partitionPredicates)
+    public List<String> getPartitionNamesByFilter(MetastoreContext metastoreContext, String databaseName, String tableName, Map<Column, Domain> partitionPredicates)
     {
         List<String> parts = convertPredicateToParts(partitionPredicates);
-        return getPartitionNamesByParts(databaseName, tableName, parts).orElse(ImmutableList.of());
+        return getPartitionNamesByParts(metastoreContext, databaseName, tableName, parts).orElse(ImmutableList.of());
     }
 
     private static boolean partitionMatches(Partition partition, String databaseName, String tableName, List<String> parts)
@@ -394,7 +395,7 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public synchronized List<Partition> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames)
+    public synchronized List<Partition> getPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionNames)
     {
         ImmutableList.Builder<Partition> builder = ImmutableList.builder();
         for (String name : partitionNames) {
@@ -409,20 +410,20 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public synchronized Optional<Table> getTable(String databaseName, String tableName)
+    public synchronized Optional<Table> getTable(MetastoreContext metastoreContext, String databaseName, String tableName)
     {
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
         return Optional.ofNullable(relations.get(schemaTableName));
     }
 
     @Override
-    public Set<ColumnStatisticType> getSupportedColumnStatistics(Type type)
+    public Set<ColumnStatisticType> getSupportedColumnStatistics(MetastoreContext metastoreContext, Type type)
     {
         return MetastoreUtil.getSupportedColumnStatistics(type);
     }
 
     @Override
-    public synchronized PartitionStatistics getTableStatistics(String databaseName, String tableName)
+    public synchronized PartitionStatistics getTableStatistics(MetastoreContext metastoreContext, String databaseName, String tableName)
     {
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
         PartitionStatistics statistics = columnStatistics.get(schemaTableName);
@@ -433,7 +434,7 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public synchronized Map<String, PartitionStatistics> getPartitionStatistics(String databaseName, String tableName, Set<String> partitionNames)
+    public synchronized Map<String, PartitionStatistics> getPartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, Set<String> partitionNames)
     {
         ImmutableMap.Builder<String, PartitionStatistics> result = ImmutableMap.builder();
         for (String partitionName : partitionNames) {
@@ -448,68 +449,68 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public synchronized void updateTableStatistics(String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update)
+    public synchronized void updateTableStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update)
     {
-        columnStatistics.put(new SchemaTableName(databaseName, tableName), update.apply(getTableStatistics(databaseName, tableName)));
+        columnStatistics.put(new SchemaTableName(databaseName, tableName), update.apply(getTableStatistics(metastoreContext, databaseName, tableName)));
     }
 
     @Override
-    public synchronized void updatePartitionStatistics(String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    public synchronized void updatePartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
     {
         PartitionName partitionKey = PartitionName.partition(databaseName, tableName, partitionName);
-        partitionColumnStatistics.put(partitionKey, update.apply(getPartitionStatistics(databaseName, tableName, ImmutableSet.of(partitionName)).get(partitionName)));
+        partitionColumnStatistics.put(partitionKey, update.apply(getPartitionStatistics(metastoreContext, databaseName, tableName, ImmutableSet.of(partitionName)).get(partitionName)));
     }
 
     @Override
-    public void createRole(String role, String grantor)
+    public void createRole(MetastoreContext metastoreContext, String role, String grantor)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public void dropRole(String role)
+    public void dropRole(MetastoreContext metastoreContext, String role)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public Set<String> listRoles()
+    public Set<String> listRoles(MetastoreContext metastoreContext)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public void grantRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, PrestoPrincipal grantor)
+    public void grantRoles(MetastoreContext metastoreContext, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, PrestoPrincipal grantor)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public void revokeRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, PrestoPrincipal grantor)
+    public void revokeRoles(MetastoreContext metastoreContext, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, PrestoPrincipal grantor)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public Set<RoleGrant> listRoleGrants(PrestoPrincipal principal)
+    public Set<RoleGrant> listRoleGrants(MetastoreContext metastoreContext, PrestoPrincipal principal)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, PrestoPrincipal principal)
+    public Set<HivePrivilegeInfo> listTablePrivileges(MetastoreContext metastoreContext, String databaseName, String tableName, PrestoPrincipal principal)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public void grantTablePrivileges(String databaseName, String tableName, PrestoPrincipal grantee, Set<HivePrivilegeInfo> privileges)
+    public void grantTablePrivileges(MetastoreContext metastoreContext, String databaseName, String tableName, PrestoPrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public void revokeTablePrivileges(String databaseName, String tableName, PrestoPrincipal grantee, Set<HivePrivilegeInfo> privileges)
+    public void revokeTablePrivileges(MetastoreContext metastoreContext, String databaseName, String tableName, PrestoPrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
         throw new UnsupportedOperationException();
     }

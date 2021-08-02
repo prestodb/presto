@@ -25,41 +25,45 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 public enum QueryState
 {
     /**
-     * Query has been accepted and is awaiting execution.
+     * Query has been accepted and is waiting for its prerequisites to be complete.
      */
-    QUEUED(false, 1),
+    WAITING_FOR_PREREQUISITES(false, 1),
+    /**
+     * Query is awaiting execution.
+     */
+    QUEUED(false, 2),
     /**
      * Query is waiting for the required resources (beta).
      */
-    WAITING_FOR_RESOURCES(false, 2),
+    WAITING_FOR_RESOURCES(false, 3),
     /**
      * Query is being dispatched to a coordinator.
      */
-    DISPATCHING(false, 3),
+    DISPATCHING(false, 4),
     /**
      * Query is being planned.
      */
-    PLANNING(false, 4),
+    PLANNING(false, 5),
     /**
      * Query execution is being started.
      */
-    STARTING(false, 5),
+    STARTING(false, 6),
     /**
      * Query has at least one running task.
      */
-    RUNNING(false, 6),
+    RUNNING(false, 7),
     /**
      * Query is finishing (e.g. commit for autocommit queries)
      */
-    FINISHING(false, 7),
+    FINISHING(false, 8),
     /**
      * Query has finished executing and all output has been consumed.
      */
-    FINISHED(true, 8),
+    FINISHED(true, 9),
     /**
      * Query execution failed.
      */
-    FAILED(true, 9);
+    FAILED(true, 10);
 
     public static final Set<QueryState> TERMINAL_QUERY_STATES = Stream.of(QueryState.values()).filter(QueryState::isDone).collect(toImmutableSet());
 

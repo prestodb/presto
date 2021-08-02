@@ -83,6 +83,7 @@ import java.util.OptionalLong;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.Chars.isCharType;
@@ -313,21 +314,38 @@ public class MetastoreUtil
      * If the partition has more columns than the table does, the partitionSchemaDifference
      * map is expected to contain information for the missing columns.
      */
-    public static List<Column> reconstructPartitionSchema(List<Column> tableSchema, int partitionColumnCount, Map<Integer, Column> partitionSchemaDifference)
+    public static List<Column> reconstructPartitionSchema(List<Column> tableSchema, int partitionColumnCount, Map<Integer, Column> partitionSchemaDifference, Optional<Map<Integer, Integer>> tableToPartitionColumns)
     {
         ImmutableList.Builder<Column> columns = ImmutableList.builder();
-        for (int i = 0; i < partitionColumnCount; i++) {
-            Column column = partitionSchemaDifference.get(i);
-            if (column == null) {
-                checkArgument(
-                        i < tableSchema.size(),
-                        "column descriptor for column with hiveColumnIndex %s not found: tableSchema: %s, partitionSchemaDifference: %s",
-                        i,
-                        tableSchema,
-                        partitionSchemaDifference);
-                column = tableSchema.get(i);
+
+        if (tableToPartitionColumns.isPresent()) {
+            Map<Integer, Integer> partitionToTableColumns = tableToPartitionColumns.get()
+                    .entrySet()
+                    .stream()
+                    .collect(Collectors.toMap(Map.Entry::getValue, Map.Entry::getKey));
+
+            for (int i = 0; i < partitionColumnCount; i++) {
+                Column column = partitionSchemaDifference.get(i);
+                if (column == null) {
+                    column = tableSchema.get(partitionToTableColumns.get(i));
+                }
+                columns.add(column);
             }
-            columns.add(column);
+        }
+        else {
+            for (int i = 0; i < partitionColumnCount; i++) {
+                Column column = partitionSchemaDifference.get(i);
+                if (column == null) {
+                    checkArgument(
+                            i < tableSchema.size(),
+                            "column descriptor for column with hiveColumnIndex %s not found: tableSchema: %s, partitionSchemaDifference: %s",
+                            i,
+                            tableSchema,
+                            partitionSchemaDifference);
+                    column = tableSchema.get(i);
+                }
+                columns.add(column);
+            }
         }
         return columns.build();
     }
@@ -411,9 +429,9 @@ public class MetastoreUtil
         }
     }
 
-    public static void verifyCanDropColumn(ExtendedHiveMetastore metastore, String databaseName, String tableName, String columnName)
+    public static void verifyCanDropColumn(ExtendedHiveMetastore metastore, MetastoreContext metastoreContext, String databaseName, String tableName, String columnName)
     {
-        Table table = metastore.getTable(databaseName, tableName)
+        Table table = metastore.getTable(metastoreContext, databaseName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
 
         if (table.getPartitionColumns().stream().anyMatch(column -> column.getName().equals(columnName))) {
@@ -446,6 +464,34 @@ public class MetastoreUtil
         }
     }
 
+    public static Map<String, String> toPartitionNamesAndValues(String partitionName)
+    {
+        ImmutableMap.Builder<String, String> resultBuilder = ImmutableMap.builder();
+        int index = 0;
+        int length = partitionName.length();
+
+        while (index < length) {
+            int keyStart = index;
+            while (index < length && partitionName.charAt(index) != '=') {
+                index++;
+            }
+            checkState(index < length, "Invalid partition spec: " + partitionName);
+
+            int keyEnd = index++;
+            int valueStart = index;
+            while (index < length && partitionName.charAt(index) != '/') {
+                index++;
+            }
+            int valueEnd = index++;
+
+            String key = unescapePathName(partitionName.substring(keyStart, keyEnd));
+            String value = unescapePathName(partitionName.substring(valueStart, valueEnd));
+            resultBuilder.put(key, value);
+        }
+
+        return resultBuilder.build();
+    }
+
     public static List<String> toPartitionValues(String partitionName)
     {
         // mimics Warehouse.makeValsFromName
@@ -471,10 +517,18 @@ public class MetastoreUtil
 
     public static List<String> extractPartitionValues(String partitionName)
     {
+        return extractPartitionValues(partitionName, Optional.empty());
+    }
+
+    public static List<String> extractPartitionValues(String partitionName, Optional<List<String>> partitionColumnNames)
+    {
         ImmutableList.Builder<String> values = ImmutableList.builder();
+        ImmutableList.Builder<String> keys = ImmutableList.builder();
 
         boolean inKey = true;
         int valueStart = -1;
+        int keyStart = 0;
+        int keyEnd = -1;
         for (int i = 0; i < partitionName.length(); i++) {
             char current = partitionName.charAt(i);
             if (inKey) {
@@ -482,19 +536,29 @@ public class MetastoreUtil
                 if (current == '=') {
                     inKey = false;
                     valueStart = i + 1;
+                    keyEnd = i;
                 }
             }
             else if (current == '/') {
                 checkArgument(valueStart != -1, "Invalid partition spec: %s", partitionName);
                 values.add(unescapePathName(partitionName.substring(valueStart, i)));
+                keys.add(unescapePathName(partitionName.substring(keyStart, keyEnd)));
                 inKey = true;
                 valueStart = -1;
+                keyStart = i + 1;
             }
         }
         checkArgument(!inKey, "Invalid partition spec: %s", partitionName);
         values.add(unescapePathName(partitionName.substring(valueStart, partitionName.length())));
+        keys.add(unescapePathName(partitionName.substring(keyStart, keyEnd)));
 
-        return values.build();
+        if (!partitionColumnNames.isPresent() || partitionColumnNames.get().size() == 1) {
+            return values.build();
+        }
+        ImmutableList.Builder<String> orderedValues = ImmutableList.builder();
+        partitionColumnNames.get()
+                .forEach(columnName -> orderedValues.add(values.build().get(keys.build().indexOf(columnName))));
+        return orderedValues.build();
     }
 
     public static List<String> createPartitionValues(List<Type> partitionColumnTypes, Page partitionColumns, int position)

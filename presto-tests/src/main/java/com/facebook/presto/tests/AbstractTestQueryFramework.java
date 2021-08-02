@@ -66,36 +66,31 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
-import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
 public abstract class AbstractTestQueryFramework
 {
-    private QueryRunnerSupplier actualQueryRunnerSupplier;
-    private ExpectedQueryRunnerSupplier expectedQueryRunnerSupplier;
     private QueryRunner queryRunner;
     private ExpectedQueryRunner expectedQueryRunner;
     private SqlParser sqlParser;
-
-    protected AbstractTestQueryFramework(QueryRunnerSupplier supplier)
-    {
-        this(supplier, H2QueryRunner::new);
-    }
-
-    protected AbstractTestQueryFramework(QueryRunnerSupplier actualQueryRunnerSupplier, ExpectedQueryRunnerSupplier expectedQueryRunnerSupplier)
-    {
-        this.actualQueryRunnerSupplier = requireNonNull(actualQueryRunnerSupplier, "queryRunnerSupplier is null");
-        this.expectedQueryRunnerSupplier = requireNonNull(expectedQueryRunnerSupplier, "queryRunnerSupplier is null");
-    }
 
     @BeforeClass
     public void init()
             throws Exception
     {
-        queryRunner = actualQueryRunnerSupplier.get();
-        expectedQueryRunner = expectedQueryRunnerSupplier.get();
+        queryRunner = createQueryRunner();
+        expectedQueryRunner = createExpectedQueryRunner();
         sqlParser = new SqlParser();
+    }
+
+    protected abstract QueryRunner createQueryRunner()
+            throws Exception;
+
+    protected ExpectedQueryRunner createExpectedQueryRunner()
+            throws Exception
+    {
+        return new H2QueryRunner();
     }
 
     @AfterClass(alwaysRun = true)
@@ -106,8 +101,6 @@ public abstract class AbstractTestQueryFramework
         queryRunner = null;
         expectedQueryRunner = null;
         sqlParser = null;
-        actualQueryRunnerSupplier = null;
-        expectedQueryRunnerSupplier = null;
     }
 
     protected Session getSession()
@@ -250,6 +243,11 @@ public abstract class AbstractTestQueryFramework
     protected void assertQueryReturnsEmptyResult(@Language("SQL") String sql)
     {
         QueryAssertions.assertQueryReturnsEmptyResult(queryRunner, getSession(), sql);
+    }
+
+    protected void assertQueryReturnsEmptyResult(Session session, @Language("SQL") String sql)
+    {
+        QueryAssertions.assertQueryReturnsEmptyResult(queryRunner, session, sql);
     }
 
     protected void assertAccessAllowed(@Language("SQL") String sql, TestingPrivilege... deniedPrivileges)

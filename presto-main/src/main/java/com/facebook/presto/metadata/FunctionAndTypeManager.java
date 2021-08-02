@@ -245,18 +245,27 @@ public class FunctionAndTypeManager
         builtInTypeAndFunctionNamespaceManager.registerBuiltInFunctions(functions);
     }
 
-    public List<SqlFunction> listFunctions(Session session)
+    /**
+     * likePattern / escape is an opportunistic optimization push down to function namespace managers.
+     * Not all function namespace managers can handle it, thus the returned function list could
+     * include functions that doesn't comply with the pattern specified. Specifically, all session
+     * functions and builtin functions will always be included in the returned set. So proper handling
+     * is still needed in `ShowQueriesRewrite`.
+     */
+    public List<SqlFunction> listFunctions(Session session, Optional<String> likePattern, Optional<String> escape)
     {
-        ImmutableList.Builder<SqlFunction> lb = new ImmutableList.Builder<>();
-        lb.addAll(listBuiltInFunctions());
+        ImmutableList.Builder<SqlFunction> functions = new ImmutableList.Builder<>();
         if (!isListBuiltInFunctionsOnly(session)) {
-            lb.addAll(SessionFunctionUtils.listFunctions(session.getSessionFunctions()));
-            lb.addAll(functionNamespaceManagers.values().stream()
-                    .flatMap(manager -> manager.listFunctions().stream())
+            functions.addAll(SessionFunctionUtils.listFunctions(session.getSessionFunctions()));
+            functions.addAll(functionNamespaceManagers.values().stream()
+                    .flatMap(manager -> manager.listFunctions(likePattern, escape).stream())
                     .collect(toImmutableList()));
         }
+        else {
+            functions.addAll(listBuiltInFunctions());
+        }
 
-        return lb.build().stream()
+        return functions.build().stream()
                 .filter(function -> function.getVisibility() == PUBLIC ||
                         (function.getVisibility() == EXPERIMENTAL && isExperimentalFunctionsEnabled(session)))
                 .collect(toImmutableList());
@@ -264,7 +273,7 @@ public class FunctionAndTypeManager
 
     public Collection<SqlFunction> listBuiltInFunctions()
     {
-        return builtInTypeAndFunctionNamespaceManager.listFunctions();
+        return builtInTypeAndFunctionNamespaceManager.listFunctions(Optional.empty(), Optional.empty());
     }
 
     public Collection<? extends SqlFunction> getFunctions(Session session, QualifiedObjectName functionName)
@@ -441,7 +450,7 @@ public class FunctionAndTypeManager
                 .map(OperatorType::getFunctionName)
                 .collect(toImmutableSet());
 
-        return builtInTypeAndFunctionNamespaceManager.listFunctions().stream()
+        return builtInTypeAndFunctionNamespaceManager.listFunctions(Optional.empty(), Optional.empty()).stream()
                 .filter(function -> operatorNames.contains(function.getSignature().getName()))
                 .collect(toImmutableList());
     }

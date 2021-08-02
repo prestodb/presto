@@ -293,7 +293,8 @@ public class OrcBatchPageSourceFactory
                     physicalColumns,
                     typeManager,
                     systemMemoryUsage,
-                    stats);
+                    stats,
+                    hiveFileContext.getStats());
         }
         catch (Exception e) {
             try {

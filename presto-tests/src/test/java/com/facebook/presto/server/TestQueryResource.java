@@ -42,6 +42,7 @@ import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;
 import static java.lang.Thread.sleep;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
@@ -71,16 +72,16 @@ public class TestQueryResource
         client = null;
     }
 
-    @Test(timeOut = 60_000)
+    @Test(timeOut = 60_000, enabled = false)
     public void testGetQueryInfos()
             throws Exception
     {
         runToCompletion("SELECT 1");
         runToCompletion("SELECT 2");
         runToCompletion("SELECT x FROM y");
-        runToFirstResult("SELECT * from tpch.sf100.orders");
-        runToFirstResult("SELECT * from tpch.sf100.orders");
-        runToFirstResult("SELECT * from tpch.sf100.orders");
+        runToFirstResult("SELECT * from tpch.sf100.orders -- 1");
+        runToFirstResult("SELECT * from tpch.sf100.orders -- 2");
+        runToFirstResult("SELECT * from tpch.sf100.orders -- 3");
         runToQueued("SELECT 3");
 
         // Sleep to allow query to make some progress
@@ -89,6 +90,18 @@ public class TestQueryResource
         List<BasicQueryInfo> infos = getQueryInfos("/v1/query");
         assertEquals(infos.size(), 7);
         assertStateCounts(infos, 2, 1, 3, 1);
+
+        assertThatThrownBy(() -> getQueryInfos("/v1/query?limit=-1"))
+                .hasMessageMatching(".*Bad Request.*");
+
+        infos = getQueryInfos("/v1/query?limit=5");
+        assertEquals(infos.size(), 5);
+        assertEquals(infos.get(0).getQuery(), "SELECT * from tpch.sf100.orders -- 1");
+        assertEquals(infos.get(1).getQuery(), "SELECT * from tpch.sf100.orders -- 2");
+        assertEquals(infos.get(2).getQuery(), "SELECT * from tpch.sf100.orders -- 3");
+        assertEquals(infos.get(3).getQuery(), "SELECT 3");
+        assertEquals(infos.get(4).getQuery(), "SELECT x FROM y");
+        assertStateCounts(infos, 0, 1, 3, 1);
 
         infos = getQueryInfos("/v1/query?state=finished");
         assertEquals(infos.size(), 2);
@@ -101,6 +114,10 @@ public class TestQueryResource
         infos = getQueryInfos("/v1/query?state=running");
         assertEquals(infos.size(), 3);
         assertStateCounts(infos, 0, 0, 3, 0);
+
+        infos = getQueryInfos("/v1/query?state=running&limit=2");
+        assertEquals(infos.size(), 2);
+        assertStateCounts(infos, 0, 0, 2, 0);
 
         infos = getQueryInfos("/v1/query?state=queued");
         assertEquals(infos.size(), 1);

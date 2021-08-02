@@ -165,7 +165,7 @@ public class PinotPushdownUtils
                 if (aggregation.getMask().isPresent()) {
                     // This block handles the case when a distinct aggregation is present in addition to another aggregation function.
                     // E.g. `SELECT count(distinct COL_A), sum(COL_B) FROM myTable` to Pinot as `SELECT distinctCount(COL_A), sum(COL_B) FROM myTable`
-                    if (aggregation.getCall().getDisplayName().equalsIgnoreCase(COUNT_FUNCTION_NAME) && aggregation.getMask().get().getName().equalsIgnoreCase(aggregation.getArguments().get(0) + DISTINCT_MASK)) {
+                    if (aggregation.getCall().getDisplayName().equalsIgnoreCase(COUNT_FUNCTION_NAME) && aggregation.getMask().get().getName().contains(DISTINCT_MASK)) {
                         nodeBuilder.add(new AggregationFunctionColumnNode(outputColumn, new CallExpression(PINOT_DISTINCT_COUNT_FUNCTION_NAME, aggregation.getCall().getFunctionHandle(), aggregation.getCall().getType(), aggregation.getCall().getArguments())));
                         continue;
                     }

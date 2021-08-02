@@ -81,6 +81,7 @@ public class FeaturesConfig
     private boolean spatialJoinsEnabled = true;
     private boolean fastInequalityJoins = true;
     private TaskSpillingStrategy taskSpillingStrategy = ORDER_BY_CREATE_TIME;
+    private boolean queryLimitSpillEnabled;
     private SingleStreamSpillerChoice singleStreamSpillerChoice = SingleStreamSpillerChoice.LOCAL_FILE;
     private String spillerTempStorage = "local";
     private DataSize maxRevocableMemoryPerTask = new DataSize(500, MEGABYTE);
@@ -111,6 +112,7 @@ public class FeaturesConfig
     private boolean pagesIndexEagerCompactionEnabled;
     private boolean distributedSort = true;
     private boolean optimizeJoinsWithEmptySources;
+    private boolean logFormattedQueryEnabled;
 
     private boolean dictionaryAggregation;
 
@@ -122,6 +124,8 @@ public class FeaturesConfig
     private MultimapAggGroupImplementation multimapAggGroupImplementation = MultimapAggGroupImplementation.NEW;
     private boolean spillEnabled;
     private boolean joinSpillingEnabled;
+    private boolean distinctAggregationSpillEnabled = true;
+    private boolean orderByAggregationSpillEnabled = true;
     private DataSize aggregationOperatorUnspillMemoryLimit = new DataSize(4, DataSize.Unit.MEGABYTE);
     private List<Path> spillerSpillPaths = ImmutableList.of();
     private int spillerThreads = 4;
@@ -139,6 +143,8 @@ public class FeaturesConfig
     private boolean parseDecimalLiteralsAsDouble;
     private boolean useMarkDistinct = true;
     private boolean preferPartialAggregation = true;
+    private PartialAggregationStrategy partialAggregationStrategy = PartialAggregationStrategy.ALWAYS;
+    private double partialAggregationByteReductionThreshold = 0.5;
     private boolean optimizeTopNRowNumber = true;
     private boolean pushLimitThroughOuterJoin = true;
 
@@ -146,6 +152,7 @@ public class FeaturesConfig
     private boolean enableDynamicFiltering;
     private int dynamicFilteringMaxPerDriverRowCount = 100;
     private DataSize dynamicFilteringMaxPerDriverSize = new DataSize(10, KILOBYTE);
+    private int dynamicFilteringRangeRowLimitPerDriver;
 
     private boolean fragmentResultCachingEnabled;
 
@@ -187,6 +194,15 @@ public class FeaturesConfig
 
     private boolean enforceFixedDistributionForOutputOperator;
     private boolean prestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled;
+
+    private boolean partialResultsEnabled;
+    private double partialResultsCompletionRatioThreshold = 0.5;
+    private double partialResultsMaxExecutionTimeMultiplier = 2.0;
+
+    private boolean offsetClauseEnabled;
+    private boolean materializedViewDataConsistencyEnabled = true;
+
+    private boolean queryOptimizationWithMaterializedViewEnabled;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -247,13 +263,20 @@ public class FeaturesConfig
     {
         ORDER_BY_CREATE_TIME, // When spilling is triggered, revoke tasks in order of oldest to newest
         ORDER_BY_REVOCABLE_BYTES, // When spilling is triggered, revoke tasks by most allocated revocable memory to least allocated revocable memory
-        PER_TASK_MEMORY_THRESHOLD // Spill any task after it reaches the per task memory threshold defined by experimental.spiller.max-revocable-task-memory
+        PER_TASK_MEMORY_THRESHOLD, // Spill any task after it reaches the per task memory threshold defined by experimental.spiller.max-revocable-task-memory
     }
 
     public enum SingleStreamSpillerChoice
     {
         LOCAL_FILE,
         TEMP_STORAGE
+    }
+
+    public enum PartialAggregationStrategy
+    {
+        ALWAYS, // Always do partial aggregation
+        NEVER, // Never do partial aggregation
+        AUTOMATIC // Let the optimizer decide for each aggregation
     }
 
     public double getCpuCostWeight()
@@ -488,13 +511,13 @@ public class FeaturesConfig
         return this;
     }
 
+    @Min(0)
     public int getConcurrentLifespansPerTask()
     {
         return concurrentLifespansPerTask;
     }
 
     @Config("concurrent-lifespans-per-task")
-    @Min(0)
     @ConfigDescription("Experimental: Default number of lifespans that run in parallel on each task when grouped execution is enabled")
     // When set to zero, a limit is not imposed on the number of lifespans that run in parallel
     public FeaturesConfig setConcurrentLifespansPerTask(int concurrentLifespansPerTask)
@@ -566,6 +589,19 @@ public class FeaturesConfig
     {
         this.taskSpillingStrategy = taskSpillingStrategy;
         return this;
+    }
+
+    @Config("experimental.query-limit-spill-enabled")
+    @ConfigDescription("Spill whenever the total memory used by the query (including revocable and non-revocable memory) exceeds maxTotalMemoryPerNode")
+    public FeaturesConfig setQueryLimitSpillEnabled(boolean queryLimitSpillEnabled)
+    {
+        this.queryLimitSpillEnabled = queryLimitSpillEnabled;
+        return this;
+    }
+
+    public boolean isQueryLimitSpillEnabled()
+    {
+        return queryLimitSpillEnabled;
     }
 
     public SingleStreamSpillerChoice getSingleStreamSpillerChoice()
@@ -732,6 +768,30 @@ public class FeaturesConfig
         return this;
     }
 
+    public PartialAggregationStrategy getPartialAggregationStrategy()
+    {
+        return partialAggregationStrategy;
+    }
+
+    @Config("optimizer.partial-aggregation-strategy")
+    public FeaturesConfig setPartialAggregationStrategy(PartialAggregationStrategy partialAggregationStrategy)
+    {
+        this.partialAggregationStrategy = partialAggregationStrategy;
+        return this;
+    }
+
+    public double getPartialAggregationByteReductionThreshold()
+    {
+        return partialAggregationByteReductionThreshold;
+    }
+
+    @Config("optimizer.partial-aggregation-byte-reduction-threshold")
+    public FeaturesConfig setPartialAggregationByteReductionThreshold(double partialAggregationByteReductionThreshold)
+    {
+        this.partialAggregationByteReductionThreshold = partialAggregationByteReductionThreshold;
+        return this;
+    }
+
     public boolean isOptimizeTopNRowNumber()
     {
         return optimizeTopNRowNumber;
@@ -840,6 +900,32 @@ public class FeaturesConfig
     {
         this.joinSpillingEnabled = joinSpillingEnabled;
         return this;
+    }
+
+    @Config("experimental.distinct-aggregation-spill-enabled")
+    @ConfigDescription("Spill distinct aggregations if spill is enabled")
+    public FeaturesConfig setDistinctAggregationSpillEnabled(boolean distinctAggregationSpillEnabled)
+    {
+        this.distinctAggregationSpillEnabled = distinctAggregationSpillEnabled;
+        return this;
+    }
+
+    public boolean isDistinctAggregationSpillEnabled()
+    {
+        return distinctAggregationSpillEnabled;
+    }
+
+    @Config("experimental.order-by-aggregation-spill-enabled")
+    @ConfigDescription("Spill order-by aggregations if spill is enabled")
+    public FeaturesConfig setOrderByAggregationSpillEnabled(boolean orderByAggregationSpillEnabled)
+    {
+        this.orderByAggregationSpillEnabled = orderByAggregationSpillEnabled;
+        return this;
+    }
+
+    public boolean isOrderByAggregationSpillEnabled()
+    {
+        return orderByAggregationSpillEnabled;
     }
 
     @AssertTrue(message = "If " + JOIN_SPILL_ENABLED + " is set to true, spilling must be enabled " + SPILL_ENABLED)
@@ -1065,6 +1151,19 @@ public class FeaturesConfig
     public FeaturesConfig setDynamicFilteringMaxPerDriverSize(DataSize dynamicFilteringMaxPerDriverSize)
     {
         this.dynamicFilteringMaxPerDriverSize = dynamicFilteringMaxPerDriverSize;
+        return this;
+    }
+
+    public int getDynamicFilteringRangeRowLimitPerDriver()
+    {
+        return dynamicFilteringRangeRowLimitPerDriver;
+    }
+
+    @Config("experimental.dynamic-filtering-range-row-limit-per-driver")
+    @ConfigDescription("Maximum number of build-side rows per driver up to which min and max values will be collected for dynamic filtering")
+    public FeaturesConfig setDynamicFilteringRangeRowLimitPerDriver(int dynamicFilteringRangeRowLimitPerDriver)
+    {
+        this.dynamicFilteringRangeRowLimitPerDriver = dynamicFilteringRangeRowLimitPerDriver;
         return this;
     }
 
@@ -1301,7 +1400,6 @@ public class FeaturesConfig
     }
 
     @Config("max-concurrent-materializations")
-    @Min(1)
     @ConfigDescription("The maximum number of materializing plan sections that can run concurrently")
     public FeaturesConfig setMaxConcurrentMaterializations(int maxConcurrentMaterializations)
     {
@@ -1309,6 +1407,7 @@ public class FeaturesConfig
         return this;
     }
 
+    @Min(1)
     public int getMaxConcurrentMaterializations()
     {
         return maxConcurrentMaterializations;
@@ -1549,6 +1648,19 @@ public class FeaturesConfig
         return this;
     }
 
+    public boolean isLogFormattedQueryEnabled()
+    {
+        return logFormattedQueryEnabled;
+    }
+
+    @Config("log-formatted-query-enabled")
+    @ConfigDescription("Log formatted prepared query instead of raw query when enabled")
+    public FeaturesConfig setLogFormattedQueryEnabled(boolean logFormattedQueryEnabled)
+    {
+        this.logFormattedQueryEnabled = logFormattedQueryEnabled;
+        return this;
+    }
+
     public boolean isSpoolingOutputBufferEnabled()
     {
         return spoolingOutputBufferEnabled;
@@ -1594,6 +1706,84 @@ public class FeaturesConfig
     public FeaturesConfig setPrestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled(boolean prestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled)
     {
         this.prestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled = prestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled;
+        return this;
+    }
+
+    public boolean isPartialResultsEnabled()
+    {
+        return partialResultsEnabled;
+    }
+
+    @Config("partial-results-enabled")
+    @ConfigDescription("Enable returning partial results. Please note that queries might not read all the data when this is enabled.")
+    public FeaturesConfig setPartialResultsEnabled(boolean partialResultsEnabled)
+    {
+        this.partialResultsEnabled = partialResultsEnabled;
+        return this;
+    }
+
+    public double getPartialResultsCompletionRatioThreshold()
+    {
+        return partialResultsCompletionRatioThreshold;
+    }
+
+    @Config("partial-results-completion-ratio-threshold")
+    @ConfigDescription("Minimum query completion ratio threshold for partial results")
+    public FeaturesConfig setPartialResultsCompletionRatioThreshold(double partialResultsCompletionRatioThreshold)
+    {
+        this.partialResultsCompletionRatioThreshold = partialResultsCompletionRatioThreshold;
+        return this;
+    }
+
+    public double getPartialResultsMaxExecutionTimeMultiplier()
+    {
+        return partialResultsMaxExecutionTimeMultiplier;
+    }
+
+    @Config("partial-results-max-execution-time-multiplier")
+    @ConfigDescription("This value is multiplied by the time taken to reach the completion ratio threshold and is set as max task end time")
+    public FeaturesConfig setPartialResultsMaxExecutionTimeMultiplier(double partialResultsMaxExecutionTimeMultiplier)
+    {
+        this.partialResultsMaxExecutionTimeMultiplier = partialResultsMaxExecutionTimeMultiplier;
+        return this;
+    }
+
+    public boolean isOffsetClauseEnabled()
+    {
+        return offsetClauseEnabled;
+    }
+
+    @Config("offset-clause-enabled")
+    @ConfigDescription("Enable support for OFFSET clause")
+    public FeaturesConfig setOffsetClauseEnabled(boolean offsetClauseEnabled)
+    {
+        this.offsetClauseEnabled = offsetClauseEnabled;
+        return this;
+    }
+
+    public boolean isMaterializedViewDataConsistencyEnabled()
+    {
+        return materializedViewDataConsistencyEnabled;
+    }
+
+    @Config("materialized-view-data-consistency-enabled")
+    @ConfigDescription("When enabled and reading from materialized view, partition stitching is applied to achieve data consistency")
+    public FeaturesConfig setMaterializedViewDataConsistencyEnabled(boolean materializedViewDataConsistencyEnabled)
+    {
+        this.materializedViewDataConsistencyEnabled = materializedViewDataConsistencyEnabled;
+        return this;
+    }
+
+    public boolean isQueryOptimizationWithMaterializedViewEnabled()
+    {
+        return queryOptimizationWithMaterializedViewEnabled;
+    }
+
+    @Config("query-optimization-with-materialized-view-enabled")
+    @ConfigDescription("Experimental: Enable query optimization using materialized view. It only supports simple query formats for now.")
+    public FeaturesConfig setQueryOptimizationWithMaterializedViewEnabled(boolean value)
+    {
+        this.queryOptimizationWithMaterializedViewEnabled = value;
         return this;
     }
 }

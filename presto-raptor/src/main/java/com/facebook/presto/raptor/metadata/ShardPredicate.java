@@ -117,21 +117,6 @@ class ShardPredicate
             }
 
             for (Range range : ranges.getOrderedRanges()) {
-                Object minValue = null;
-                Object maxValue = null;
-                if (range.isSingleValue()) {
-                    minValue = range.getSingleValue();
-                    maxValue = range.getSingleValue();
-                }
-                else {
-                    if (!range.getLow().isLowerUnbounded()) {
-                        minValue = range.getLow().getValue();
-                    }
-                    if (!range.getHigh().isUpperUnbounded()) {
-                        maxValue = range.getHigh().getValue();
-                    }
-                }
-
                 String min;
                 String max;
                 if (handle.isBucketNumber()) {
@@ -144,15 +129,15 @@ class ShardPredicate
                 }
 
                 StringJoiner rangePredicate = new StringJoiner(" AND ", "(", ")").setEmptyValue("true");
-                if (minValue != null) {
+                if (!range.isLowUnbounded()) {
                     rangePredicate.add(format("(%s >= ? OR %s IS NULL)", max, max));
                     types.add(jdbcType);
-                    values.add(minValue);
+                    values.add(range.getLowBoundedValue());
                 }
-                if (maxValue != null) {
+                if (!range.isHighUnbounded()) {
                     rangePredicate.add(format("(%s <= ? OR %s IS NULL)", min, min));
                     types.add(jdbcType);
-                    values.add(maxValue);
+                    values.add(range.getHighBoundedValue());
                 }
                 columnPredicate.add(rangePredicate.toString());
             }

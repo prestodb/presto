@@ -31,6 +31,7 @@ import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcLocalMemoryContext;
 import com.facebook.presto.orc.OrcRecordReaderOptions;
 import com.facebook.presto.orc.StreamDescriptor;
+import com.facebook.presto.orc.Stripe;
 import com.facebook.presto.orc.TupleDomainFilter;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.DwrfSequenceEncoding;
@@ -627,7 +628,7 @@ public class MapFlatSelectiveStreamReader
     }
 
     @Override
-    public void startStripe(InputStreamSources dictionaryStreamSources, Map<Integer, ColumnEncoding> encodings)
+    public void startStripe(Stripe stripe)
             throws IOException
     {
         presentStreamSource = missingStreamSource(BooleanInputStream.class);
@@ -636,7 +637,7 @@ public class MapFlatSelectiveStreamReader
         valueStreamDescriptors.clear();
         valueStreamReaders.clear();
 
-        ColumnEncoding encoding = encodings.get(baseValueStreamDescriptor.getStreamId());
+        ColumnEncoding encoding = stripe.getColumnEncodings().get(baseValueStreamDescriptor.getStreamId());
         SortedMap<Integer, DwrfSequenceEncoding> additionalSequenceEncodings = Collections.emptySortedMap();
         // encoding or encoding.getAdditionalSequenceEncodings() may not be present when every map is empty or null
         if (encoding != null && encoding.getAdditionalSequenceEncodings().isPresent()) {
@@ -673,7 +674,7 @@ public class MapFlatSelectiveStreamReader
                     options,
                     legacyMapSubscript,
                     systemMemoryContext.newOrcAggregatedMemoryContext());
-            valueStreamReader.startStripe(dictionaryStreamSources, encodings);
+            valueStreamReader.startStripe(stripe);
             valueStreamReaders.add(valueStreamReader);
         }
 

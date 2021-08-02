@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestAggregations;
 import org.testng.annotations.Test;
 
@@ -23,9 +24,11 @@ import static io.airlift.tpch.TpchTable.getTables;
 public class TestHiveDistributedAggregationsWithExchangeMaterialization
         extends AbstractTestAggregations
 {
-    public TestHiveDistributedAggregationsWithExchangeMaterialization()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(() -> createMaterializingQueryRunner(getTables()));
+        return createMaterializingQueryRunner(getTables());
     }
 
     @Test

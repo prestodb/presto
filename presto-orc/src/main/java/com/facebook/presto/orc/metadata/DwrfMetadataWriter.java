@@ -24,6 +24,7 @@ import com.facebook.presto.orc.proto.DwrfProto.Type.Builder;
 import com.facebook.presto.orc.proto.DwrfProto.UserMetadataItem;
 import com.facebook.presto.orc.protobuf.ByteString;
 import com.facebook.presto.orc.protobuf.MessageLite;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.CountingOutputStream;
@@ -35,6 +36,7 @@ import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -60,17 +62,39 @@ public class DwrfMetadataWriter
     }
 
     @Override
-    public int writePostscript(SliceOutput output, int footerLength, int metadataLength, CompressionKind compression, int compressionBlockSize)
+    public int writePostscript(SliceOutput output,
+            int footerLength,
+            int metadataLength,
+            CompressionKind compression,
+            int compressionBlockSize,
+            Optional<DwrfStripeCacheData> dwrfStripeCacheData)
             throws IOException
     {
-        DwrfProto.PostScript postScriptProtobuf = DwrfProto.PostScript.newBuilder()
+        DwrfProto.PostScript.Builder postScriptBuilder = DwrfProto.PostScript.newBuilder()
                 .setFooterLength(footerLength)
                 .setWriterVersion(DWRF_WRITER_VERSION)
                 .setCompression(toCompression(compression))
-                .setCompressionBlockSize(compressionBlockSize)
-                .build();
+                .setCompressionBlockSize(compressionBlockSize);
 
+        dwrfStripeCacheData.ifPresent(cache -> {
+            postScriptBuilder.setCacheMode(toStripeCacheMode(cache.getDwrfStripeCacheMode()));
+            postScriptBuilder.setCacheSize(cache.getDwrfStripeCacheSize());
+        });
+
+        DwrfProto.PostScript postScriptProtobuf = postScriptBuilder.build();
         return writeProtobufObject(output, postScriptProtobuf);
+    }
+
+    @Override
+    public int writeDwrfStripeCache(SliceOutput output, Optional<DwrfStripeCacheData> dwrfStripeCacheData)
+    {
+        int size = 0;
+        if (dwrfStripeCacheData.isPresent()) {
+            DwrfStripeCacheData cache = dwrfStripeCacheData.get();
+            size = cache.getDwrfStripeCacheSize();
+            output.writeBytes(cache.getDwrfStripeCacheSlice(), 0, size);
+        }
+        return size;
     }
 
     @Override
@@ -106,10 +130,15 @@ public class DwrfMetadataWriter
             footerProtobuf.setEncryption(toEncryption(footer.getEncryption().get()));
         }
 
+        if (footer.getDwrfStripeCacheOffsets().isPresent()) {
+            footerProtobuf.addAllStripeCacheOffsets(footer.getDwrfStripeCacheOffsets().get());
+        }
+
         return writeProtobufObject(output, footerProtobuf.build());
     }
 
-    private static DwrfProto.StripeInformation toStripeInformation(StripeInformation stripe)
+    @VisibleForTesting
+    static DwrfProto.StripeInformation toStripeInformation(StripeInformation stripe)
     {
         return DwrfProto.StripeInformation.newBuilder()
                 .setNumberOfRows(stripe.getNumberOfRows())
@@ -398,6 +427,21 @@ public class DwrfMetadataWriter
         return DwrfProto.FileStatistics.newBuilder()
                 .addAllStatistics(dwrfColumnStatistics)
                 .build();
+    }
+
+    private static DwrfProto.StripeCacheMode toStripeCacheMode(DwrfStripeCacheMode dwrfStripeCacheMode)
+    {
+        switch (dwrfStripeCacheMode) {
+            case NONE:
+                return DwrfProto.StripeCacheMode.NA;
+            case INDEX:
+                return DwrfProto.StripeCacheMode.INDEX;
+            case FOOTER:
+                return DwrfProto.StripeCacheMode.FOOTER;
+            case INDEX_AND_FOOTER:
+                return DwrfProto.StripeCacheMode.BOTH;
+        }
+        throw new IllegalArgumentException("Unsupported mode: " + dwrfStripeCacheMode);
     }
 
     private static int writeProtobufObject(OutputStream output, MessageLite object)

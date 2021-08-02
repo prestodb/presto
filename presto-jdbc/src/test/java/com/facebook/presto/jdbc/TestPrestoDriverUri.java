@@ -24,6 +24,7 @@ import java.util.Properties;
 
 import static com.facebook.presto.jdbc.ConnectionProperties.DISABLE_COMPRESSION;
 import static com.facebook.presto.jdbc.ConnectionProperties.EXTRA_CREDENTIALS;
+import static com.facebook.presto.jdbc.ConnectionProperties.HTTP_PROTOCOLS;
 import static com.facebook.presto.jdbc.ConnectionProperties.HTTP_PROXY;
 import static com.facebook.presto.jdbc.ConnectionProperties.QUERY_INTERCEPTORS;
 import static com.facebook.presto.jdbc.ConnectionProperties.SESSION_PROPERTIES;
@@ -263,6 +264,16 @@ public class TestPrestoDriverUri
         PrestoDriverUri parameters = createDriverUri("presto://localhost:8080?sessionProperties=" + sessionProperties);
         Properties properties = parameters.getProperties();
         assertEquals(properties.getProperty(SESSION_PROPERTIES.getKey()), sessionProperties);
+    }
+
+    @Test
+    public void testUriWithHttpProtocols()
+            throws SQLException
+    {
+        String protocols = "h2,http/1.1";
+        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080?protocols=" + protocols);
+        Properties properties = parameters.getProperties();
+        assertEquals(properties.getProperty(HTTP_PROTOCOLS.getKey()), protocols);
     }
 
     @Test

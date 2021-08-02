@@ -685,6 +685,82 @@ public class TestArrayOperators
 
         assertInvalidFunction("ARRAY_POSITION(ARRAY [ARRAY[null]], ARRAY[1])", NOT_SUPPORTED);
         assertInvalidFunction("ARRAY_POSITION(ARRAY [ARRAY[null]], ARRAY[null])", NOT_SUPPORTED);
+
+        // These should all be valid with respect to the ones above, since 1-index is the default.
+        assertFunction("ARRAY_POSITION(ARRAY [10, 20, 30, 40], 30, 1)", BIGINT, 3L);
+        assertFunction("ARRAY_POSITION(CAST (JSON '[]' as array(bigint)), 30, 1)", BIGINT, 0L);
+        assertFunction("ARRAY_POSITION(ARRAY [cast(NULL as bigint)], 30, 1)", BIGINT, 0L);
+        assertFunction("ARRAY_POSITION(ARRAY [cast(NULL as bigint), NULL, NULL], 30, 1)", BIGINT, 0L);
+        assertFunction("ARRAY_POSITION(ARRAY [NULL, NULL, 30, NULL], 30, 1)", BIGINT, 3L);
+
+        assertFunction("ARRAY_POSITION(ARRAY [1.1E0, 2.1E0, 3.1E0, 4.1E0], 3.1E0, 1)", BIGINT, 3L);
+        assertFunction("ARRAY_POSITION(ARRAY [false, false, true, true], true, 1)", BIGINT, 3L);
+        assertFunction("ARRAY_POSITION(ARRAY ['10', '20', '30', '40'], '30', 1)", BIGINT, 3L);
+
+        assertFunction("ARRAY_POSITION(ARRAY [DATE '2000-01-01', DATE '2000-01-02', DATE '2000-01-03', DATE '2000-01-04'], DATE '2000-01-03', 1)", BIGINT, 3L);
+        assertFunction("ARRAY_POSITION(ARRAY [ARRAY [1, 11], ARRAY [2, 12], ARRAY [3, 13], ARRAY [4, 14]], ARRAY [3, 13], 1)", BIGINT, 3L);
+
+        assertFunction("ARRAY_POSITION(ARRAY [], NULL, 1)", BIGINT, null);
+        assertFunction("ARRAY_POSITION(ARRAY [NULL], NULL, 1)", BIGINT, null);
+        assertFunction("ARRAY_POSITION(ARRAY [1, NULL, 2], NULL, 1)", BIGINT, null);
+        assertFunction("ARRAY_POSITION(ARRAY [1, CAST(NULL AS BIGINT), 2], CAST(NULL AS BIGINT), 1)", BIGINT, null);
+        assertFunction("ARRAY_POSITION(ARRAY [1, NULL, 2], CAST(NULL AS BIGINT), 1)", BIGINT, null);
+        assertFunction("ARRAY_POSITION(ARRAY [1, CAST(NULL AS BIGINT), 2], NULL, 1)", BIGINT, null);
+        assertFunction("ARRAY_POSITION(ARRAY [1.0, 2.0, 3.0, 4.0], 3.0, 1)", BIGINT, 3L);
+        assertFunction("ARRAY_POSITION(ARRAY [1.0, 2.0, 000000000000000000000003.000, 4.0], 3.0, 1)", BIGINT, 3L);
+        assertFunction("ARRAY_POSITION(ARRAY [1.0, 2.0, 3.0, 4.0], 000000000000000000000003.000, 1)", BIGINT, 3L);
+        assertFunction("ARRAY_POSITION(ARRAY [1.0, 2.0, 3.0, 4.0], 3, 1)", BIGINT, 3L);
+        assertFunction("ARRAY_POSITION(ARRAY [1.0, 2.0, 3, 4.0], 4.0, 1)", BIGINT, 4L);
+        assertFunction("ARRAY_POSITION(ARRAY [ARRAY[1]], ARRAY[1], 1)", BIGINT, 1L);
+
+        assertInvalidFunction("ARRAY_POSITION(ARRAY [ARRAY[null]], ARRAY[1], 1)", NOT_SUPPORTED);
+        assertInvalidFunction("ARRAY_POSITION(ARRAY [ARRAY[null]], ARRAY[null], 1)", NOT_SUPPORTED);
+        // End strictly n = 1 checks.
+
+        assertFunction("ARRAY_POSITION(ARRAY[1, 2, 3, 4], 1, -1)", BIGINT, 1L);
+        assertFunction("ARRAY_POSITION(ARRAY[4, 3, 2, 1], 1, -1)", BIGINT, 4L);
+        assertFunction("ARRAY_POSITION(ARRAY[1, 2, 3, 4, 1], 1, 2)", BIGINT, 5L);
+        assertFunction("ARRAY_POSITION(ARRAY[1, 2, 3, 4, 1], 1, -2)", BIGINT, 1L);
+        assertFunction("ARRAY_POSITION(ARRAY[1, 2, 3, 4, 1], 1, 3)", BIGINT, 0L);
+        assertFunction("ARRAY_POSITION(ARRAY[1, 2, 3, 4, 1], 1, -3)", BIGINT, 0L);
+        assertFunction("ARRAY_POSITION(ARRAY[1, 2, 3, 4, 1, 1], 1, 3)", BIGINT, 6L);
+        assertFunction("ARRAY_POSITION(ARRAY[1, 2, 3, 4, 1, 1], 1, -1)", BIGINT, 6L);
+        assertFunction("ARRAY_POSITION(ARRAY[1, 2, 3, 4, 1, 1], 1, -3)", BIGINT, 1L);
+
+        assertFunction("ARRAY_POSITION(ARRAY[true, false], true, -1)", BIGINT, 1L);
+        assertFunction("ARRAY_POSITION(ARRAY[true, false], false, -1)", BIGINT, 2L);
+        assertFunction("ARRAY_POSITION(ARRAY[true, true, true, true], true, 3)", BIGINT, 3L);
+        assertFunction("ARRAY_POSITION(ARRAY[true, true, true, true], true, 4)", BIGINT, 4L);
+        assertFunction("ARRAY_POSITION(ARRAY[true, true, true, true], true, 5)", BIGINT, 0L);
+        assertFunction("ARRAY_POSITION(ARRAY[true, true, true, true], true, -2)", BIGINT, 3L);
+        assertFunction("ARRAY_POSITION(ARRAY[true, true, true, true], true, -4)", BIGINT, 1L);
+        assertFunction("ARRAY_POSITION(ARRAY[true, true, true, true], true, -5)", BIGINT, 0L);
+
+        assertFunction("ARRAY_POSITION(ARRAY[1.0, 2.0, 3.0, 4.0], 1.0, -1)", BIGINT, 1L);
+        assertFunction("ARRAY_POSITION(ARRAY[1.0, 2.0, 3.0, 4.0], 2.0, -1)", BIGINT, 2L);
+        assertFunction("ARRAY_POSITION(ARRAY[1.0, 2.0, 1.0, 1.0, 2.0], 1.0, 2)", BIGINT, 3L);
+        assertFunction("ARRAY_POSITION(ARRAY[1.0, 2.0, 1.0, 1.0, 2.0], 1.0, 3)", BIGINT, 4L);
+        assertFunction("ARRAY_POSITION(ARRAY[1.0, 2.0, 1.0, 1.0, 2.0], 1.0, -2)", BIGINT, 3L);
+        assertFunction("ARRAY_POSITION(ARRAY[1.0, 2.0, 1.0, 1.0, 2.0], 1.0, -3)", BIGINT, 1L);
+        assertFunction("ARRAY_POSITION(ARRAY[1.0, 2.0, 1.0, 1.0, 2.0], 1.0, -6)", BIGINT, 0L);
+        assertFunction("ARRAY_POSITION(ARRAY[1.0, 2.0, 1.0, 1.0, 2.0], 1.0, 6)", BIGINT, 0L);
+
+        assertFunction("ARRAY_POSITION(ARRAY[ARRAY[1], ARRAY[2], ARRAY[3]], ARRAY[1], -1)", BIGINT, 1L);
+        assertFunction("ARRAY_POSITION(ARRAY[ARRAY[1], ARRAY[2], ARRAY[3]], ARRAY[3], -1)", BIGINT, 3L);
+        assertFunction("ARRAY_POSITION(ARRAY[ARRAY[1], ARRAY[2], ARRAY[3], ARRAY[1]], ARRAY[1], -1)", BIGINT, 4L);
+        assertFunction("ARRAY_POSITION(ARRAY[ARRAY[1], ARRAY[2], ARRAY[3], ARRAY[1]], ARRAY[1], -2)", BIGINT, 1L);
+        assertFunction("ARRAY_POSITION(ARRAY[ARRAY[1], ARRAY[2], ARRAY[3], ARRAY[1]], ARRAY[1], -3)", BIGINT, 0L);
+        assertFunction("ARRAY_POSITION(ARRAY[ARRAY[1], ARRAY[2], ARRAY[3], ARRAY[1]], ARRAY[1], 2)", BIGINT, 4L);
+        assertFunction("ARRAY_POSITION(ARRAY[ARRAY[1], ARRAY[2], ARRAY[3], ARRAY[1]], ARRAY[1], 3)", BIGINT, 0L);
+
+        assertFunction("ARRAY_POSITION(CAST(ARRAY[] AS ARRAY(BIGINT)), 1, -1)", BIGINT, 0L);
+        assertFunction("ARRAY_POSITION(ARRAY[1, 2, 3, 4], null, 2)", BIGINT, null);
+        assertFunction("ARRAY_POSITION(ARRAY[1, 2, 3, 4], null, -1)", BIGINT, null);
+        assertFunction("ARRAY_POSITION(ARRAY[1, 2, 3, 4], null, -4)", BIGINT, null);
+
+        assertInvalidFunction("ARRAY_POSITION(ARRAY [ARRAY[null]], ARRAY[1], -1)", NOT_SUPPORTED);
+        assertInvalidFunction("ARRAY_POSITION(ARRAY [ARRAY[null]], ARRAY[null], -1)", NOT_SUPPORTED);
+        assertInvalidFunction("ARRAY_POSITION(ARRAY [1, 2, 3, 4], 4, 0)", INVALID_FUNCTION_ARGUMENT);
     }
 
     @Test
@@ -1085,6 +1161,7 @@ public class TestArrayOperators
         assertFunction("ARRAYS_OVERLAP(ARRAY [2, NULL], ARRAY [1, 2])", BooleanType.BOOLEAN, true);
         assertFunction("ARRAYS_OVERLAP(ARRAY [NULL, 3], ARRAY [2, 1])", BooleanType.BOOLEAN, null);
         assertFunction("ARRAYS_OVERLAP(ARRAY [3, NULL], ARRAY [2, 1])", BooleanType.BOOLEAN, null);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [3, NULL], ARRAY [2, 1, NULL])", BooleanType.BOOLEAN, null);
 
         assertFunction("ARRAYS_OVERLAP(ARRAY [CAST(1 AS BIGINT), 2], ARRAY [NULL, CAST(2 AS BIGINT)])", BooleanType.BOOLEAN, true);
         assertFunction("ARRAYS_OVERLAP(ARRAY [CAST(1 AS BIGINT), 2], ARRAY [CAST(2 AS BIGINT), NULL])", BooleanType.BOOLEAN, true);
@@ -1107,11 +1184,20 @@ public class TestArrayOperators
         assertFunction("ARRAYS_OVERLAP(ARRAY [], ARRAY [])", BooleanType.BOOLEAN, false);
         assertFunction("ARRAYS_OVERLAP(ARRAY [], ARRAY [1, 2])", BooleanType.BOOLEAN, false);
         assertFunction("ARRAYS_OVERLAP(ARRAY [], ARRAY [NULL])", BooleanType.BOOLEAN, false);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [NULL], ARRAY [])", BooleanType.BOOLEAN, false);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [NULL], ARRAY [NULL])", BooleanType.BOOLEAN, null);
 
         assertFunction("ARRAYS_OVERLAP(ARRAY [true], ARRAY [true, false])", BooleanType.BOOLEAN, true);
         assertFunction("ARRAYS_OVERLAP(ARRAY [false], ARRAY [true, true])", BooleanType.BOOLEAN, false);
         assertFunction("ARRAYS_OVERLAP(ARRAY [true, false], ARRAY [NULL])", BooleanType.BOOLEAN, null);
         assertFunction("ARRAYS_OVERLAP(ARRAY [false], ARRAY [true, NULL])", BooleanType.BOOLEAN, null);
+
+        assertFunction("ARRAYS_OVERLAP(ARRAY [2.01], ARRAY [2.01, 9.0, 9.4])", BooleanType.BOOLEAN, true);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [10.1, 9.1], ARRAY [9.09, 9.0])", BooleanType.BOOLEAN, false);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [NULL, 9.1], ARRAY [NULL])", BooleanType.BOOLEAN, null);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [NULL, 9.1], ARRAY [9.1, 10.2, 3.0])", BooleanType.BOOLEAN, true);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [2.4], ARRAY [2.4])", BooleanType.BOOLEAN, true);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [2.4, 9.0, 10.9999999, 9.1, 4.1, 8.1], ARRAY [2.1, 10.999])", BooleanType.BOOLEAN, false);
     }
 
     @Test

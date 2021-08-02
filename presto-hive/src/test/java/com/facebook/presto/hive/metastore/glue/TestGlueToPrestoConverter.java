@@ -32,6 +32,7 @@ import java.util.HashMap;
 import java.util.List;
 
 import static com.amazonaws.util.CollectionUtils.isNullOrEmpty;
+import static com.facebook.presto.hive.metastore.PrestoTableType.EXTERNAL_TABLE;
 import static com.facebook.presto.hive.metastore.glue.TestingMetastoreObjects.getGlueTestColumn;
 import static com.facebook.presto.hive.metastore.glue.TestingMetastoreObjects.getGlueTestDatabase;
 import static com.facebook.presto.hive.metastore.glue.TestingMetastoreObjects.getGlueTestPartition;
@@ -174,6 +175,15 @@ public class TestGlueToPrestoConverter
     {
         testPartition.setParameters(null);
         assertNotNull(new GluePartitionConverter(testDb.getName(), testTbl.getName()).apply(testPartition).getParameters());
+    }
+
+    @Test
+    public void testConvertTableWithoutTableType()
+    {
+        Table table = getGlueTestTable(testDb.getName());
+        table.setTableType(null);
+        com.facebook.presto.hive.metastore.Table prestoTable = GlueToPrestoConverter.convertTable(table, testDb.getName());
+        assertEquals(prestoTable.getTableType(), EXTERNAL_TABLE);
     }
 
     private static void assertColumnList(List<Column> actual, List<com.amazonaws.services.glue.model.Column> expected)

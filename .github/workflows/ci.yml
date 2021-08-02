@@ -165,9 +165,8 @@ jobs:
         run: presto-product-tests/bin/run_on_docker.sh singlenode-mysql -g mysql_connector,mysql
       - name: Product Tests Specific 2.4
         run: presto-product-tests/bin/run_on_docker.sh singlenode-postgresql -g postgresql_connector
-# Fails currently https://github.com/prestodb/presto/issues/15749
-#      - name: Product Tests Specific 2.5
-#        run: presto-product-tests/bin/run_on_docker.sh singlenode-cassandra -g cassandra
+      - name: Product Tests Specific 2.5
+        run: presto-product-tests/bin/run_on_docker.sh singlenode-cassandra -g cassandra
       - name: Product Tests Specific 2.6
         run: presto-product-tests/bin/run_on_docker.sh singlenode-kerberos-hdfs-impersonation-with-wire-encryption -g storage_formats,cli,hdfs_impersonation,authorization
       - name: Product Tests Specific 2.7
@@ -280,6 +279,7 @@ jobs:
           - ":presto-tests -P ci-only-distributed-queries"
           - ":presto-tests -P ci-only-aggregation-queries"
           - ":presto-tests -P ci-only-plan-determinism"
+          - ":presto-tests -P ci-only-resource-manager"
           - ":presto-raptor"
           - ":presto-accumulo"
           - ":presto-cassandra -P test-cassandra-integration-smoke-test"
@@ -297,7 +297,9 @@ jobs:
           - ":presto-elasticsearch"
           - ":presto-orc"
           - ":presto-thrift-connector"
-          - ":presto-spark-base"
+          - ":presto-spark-base -P presto-spark-tests-smoke"
+          - ":presto-spark-base -P presto-spark-tests-all-queries"
+          - ":presto-spark-base -P presto-spark-tests-spill-queries"
     timeout-minutes: 80
     steps:
       - uses: actions/checkout@v2
