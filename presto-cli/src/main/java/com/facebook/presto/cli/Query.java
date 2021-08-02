@@ -308,6 +308,8 @@ public class Query
                 return new AlignedTablePrinter(fieldNames, writer);
             case VERTICAL:
                 return new VerticalRecordPrinter(fieldNames, writer);
+            case JSON:
+                return new JsonPrinter(fieldNames, writer);
             case CSV:
                 return new CsvPrinter(fieldNames, writer, false);
             case CSV_HEADER:
