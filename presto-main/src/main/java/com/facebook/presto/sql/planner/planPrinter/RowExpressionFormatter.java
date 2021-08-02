@@ -85,19 +85,25 @@ public final class RowExpressionFormatter
             }
             else if (standardFunctionResolution.isLikeFunction(node.getFunctionHandle())) {
                 RowExpression value = node.getArguments().get(0);
-                CallExpression patternCallExpression = (CallExpression) node.getArguments().get(1);
+                RowExpression patternRowExpression = node.getArguments().get(1);
 
-                // second LIKE argument is:
-                //  CAST(pattern as LikePattern), if escape is not present
-                //  LIKE_PATTERN(pattern, escape), if escape is present
-                if (standardFunctionResolution.isCastFunction(patternCallExpression.getFunctionHandle())) {
-                    RowExpression pattern = patternCallExpression.getArguments().get(0);
-                    return String.format("%s LIKE %s", formatRowExpression(session, value), formatRowExpression(session, pattern));
+                if (patternRowExpression instanceof CallExpression) {
+                    CallExpression patternCallExpression = (CallExpression) patternRowExpression;
+                    // second LIKE argument is:
+                    //  CAST(pattern as LikePattern), if escape is not present
+                    //  LIKE_PATTERN(pattern, escape), if escape is present
+                    if (standardFunctionResolution.isCastFunction(patternCallExpression.getFunctionHandle())) {
+                        RowExpression pattern = patternCallExpression.getArguments().get(0);
+                        return String.format("%s LIKE %s", formatRowExpression(session, value), formatRowExpression(session, pattern));
+                    }
+                    else {
+                        RowExpression pattern = patternCallExpression.getArguments().get(0);
+                        RowExpression escape = patternCallExpression.getArguments().get(1);
+                        return String.format("%s LIKE %s ESCAPE %s", formatRowExpression(session, value), formatRowExpression(session, pattern), formatRowExpression(session, escape));
+                    }
                 }
                 else {
-                    RowExpression pattern = patternCallExpression.getArguments().get(0);
-                    RowExpression escape = patternCallExpression.getArguments().get(1);
-                    return String.format("%s LIKE %s ESCAPE %s", formatRowExpression(session, value), formatRowExpression(session, pattern), formatRowExpression(session, escape));
+                    return String.format("%s LIKE %s", formatRowExpression(session, value), formatRowExpression(session, patternRowExpression));
                 }
             }
             FunctionMetadata metadata = functionMetadataManager.getFunctionMetadata(node.getFunctionHandle());
