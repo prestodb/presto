@@ -318,7 +318,8 @@ public class TestQueuesDb
         assertEquals(basicQueryInfo.getErrorCode(), QUERY_QUEUE_FULL.toErrorCode());
     }
 
-    @Test(timeOut = 60_000)
+    //Disabling Flaky Test
+    @Test(timeOut = 60_000, enabled = false)
     public void testQueryExecutionTimeLimit()
             throws Exception
     {
