@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
+import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.GroupBy;
 import com.facebook.presto.sql.tree.GroupingElement;
@@ -50,7 +52,20 @@ public class MaterializedViewInformationExtractor
             throw new SemanticException(NOT_SUPPORTED, node, "Having clause is not supported in query optimizer");
         }
         materializedViewInfo.setWhereClause(node.getWhere());
-        return super.visitQuerySpecification(node, context);
+        if (node.getFrom().isPresent()) {
+            process(node.getFrom().get(), context);
+        }
+        process(node.getSelect(), context);
+        if (node.getWhere().isPresent()) {
+            process(node.getWhere().get(), context);
+        }
+        if (node.getGroupBy().isPresent()) {
+            process(node.getGroupBy().get(), context);
+        }
+        if (node.getOrderBy().isPresent()) {
+            process(node.getOrderBy().get(), context);
+        }
+        return null;
     }
 
     protected Void visitSelect(Select node, Void context)
@@ -58,6 +73,13 @@ public class MaterializedViewInformationExtractor
         super.visitSelect(node, context);
         materializedViewInfo.setDistinct(node.isDistinct());
         return null;
+    }
+
+    @Override
+    protected Void visitAliasedRelation(AliasedRelation node, Void context)
+    {
+        materializedViewInfo.setBaseTableAlias(node.getAlias());
+        return process(node.getRelation(), context);
     }
 
     @Override
@@ -69,6 +91,9 @@ public class MaterializedViewInformationExtractor
         if (materializedViewInfo.getBaseTable().isPresent()) {
             throw new SemanticException(NOT_SUPPORTED, node, "Only support single table rewrite in query optimizer");
         }
+        if (!materializedViewInfo.getBaseTableAlias().isPresent()) {
+            materializedViewInfo.setBaseTableAlias(new Identifier(((Table) node).getName().getSuffix()));
+        }
         materializedViewInfo.setBaseTable(Optional.of(node));
         return null;
     }
@@ -76,8 +101,26 @@ public class MaterializedViewInformationExtractor
     @Override
     protected Void visitSingleColumn(SingleColumn node, Void context)
     {
-        Expression baseColumnName = node.getExpression();
-        materializedViewInfo.addBaseToViewColumn(baseColumnName, node.getAlias().orElse(new Identifier(baseColumnName.toString())));
+        Expression baseColumn = node.getExpression();
+        Expression columnAlias = baseColumn;
+        if (node.getAlias().isPresent()) {
+            columnAlias = node.getAlias().get();
+        }
+        if (baseColumn instanceof Identifier) {
+            DereferenceExpression rewrittenDereferenceExpression = new DereferenceExpression(materializedViewInfo.getBaseTableAlias().get(), (Identifier) baseColumn);
+            materializedViewInfo.addBaseToViewColumn(rewrittenDereferenceExpression, columnAlias);
+        }
+        else if(baseColumn instanceof DereferenceExpression) {
+            DereferenceExpression baseDereferenceExpression = (DereferenceExpression) baseColumn;
+            if (!baseDereferenceExpression.getBase().equals(materializedViewInfo.getBaseTableAlias().get())) {
+                throw new IllegalStateException("Illegal alias dereference expression in MV Definition");
+            }
+            DereferenceExpression rewrittenDereferenceExpression = new DereferenceExpression(materializedViewInfo.getBaseTableAlias().get(), baseDereferenceExpression.getField());
+            materializedViewInfo.addBaseToViewColumn(rewrittenDereferenceExpression, columnAlias);
+        }
+        else {
+            materializedViewInfo.addBaseToViewColumn(baseColumn, columnAlias);
+        }
         return null;
     }
 
@@ -101,13 +144,14 @@ public class MaterializedViewInformationExtractor
 
     public static final class MaterializedViewInfo
     {
-        private final Map<Expression, Identifier> baseToViewColumnMap = new HashMap<>();
+        private final Map<Expression, Expression> baseToViewColumnMap = new HashMap<>();
         private Optional<Relation> baseTable = Optional.empty();
+        private Optional<Identifier> baseTableAlias = Optional.empty();
         private Optional<Expression> whereClause = Optional.empty();
         private Optional<Set<GroupingElement>> groupBy = Optional.empty();
         private boolean isDistinct;
 
-        private void addBaseToViewColumn(Expression key, Identifier value)
+        private void addBaseToViewColumn(Expression key, Expression value)
         {
             baseToViewColumnMap.put(key, value);
         }
@@ -122,6 +166,11 @@ public class MaterializedViewInformationExtractor
         {
             checkState(!this.baseTable.isPresent());
             this.baseTable = baseTable;
+        }
+
+        private void setBaseTableAlias(Identifier baseTableAlias)
+        {
+            this.baseTableAlias = Optional.of(baseTableAlias);
         }
 
         private void setWhereClause(Optional<Expression> whereClause)
@@ -140,7 +189,12 @@ public class MaterializedViewInformationExtractor
             return baseTable;
         }
 
-        public Map<Expression, Identifier> getBaseToViewColumnMap()
+        public Optional<Identifier> getBaseTableAlias()
+        {
+            return baseTableAlias;
+        }
+
+        public Map<Expression, Expression> getBaseToViewColumnMap()
         {
             return ImmutableMap.copyOf(baseToViewColumnMap);
         }

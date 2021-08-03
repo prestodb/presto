@@ -257,13 +257,21 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT base1.a, b, c FROM %s base1", BASE_TABLE_1);
         String baseQuerySql = format("SELECT a, c FROM %s", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT base1.a, c FROM %s", VIEW);
 
-        assertOptimizedQuery(originalViewSql, baseQuerySql, baseQuerySql);
+        assertOptimizedQuery(originalViewSql, baseQuerySql, expectedRewrittenSql);
 
-        originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
-        baseQuerySql = format("SELECT base1.a, c FROM %s base1", BASE_TABLE_1);
+        originalViewSql = format("SELECT a as mv_a, %s.b as mv_b FROM %s", BASE_TABLE_1, BASE_TABLE_1);
+        baseQuerySql = format("SELECT base1.a, b FROM %s base1", BASE_TABLE_1);
+        expectedRewrittenSql = format("SELECT mv_a, mv_b FROM %s base1", VIEW);
 
-        assertOptimizedQuery(originalViewSql, baseQuerySql, baseQuerySql);
+        assertOptimizedQuery(originalViewSql, baseQuerySql, expectedRewrittenSql);
+
+        originalViewSql = format("SELECT base1.a as mv_a, base1.b as mv_b FROM %s base1 ORDER BY a, base1.b", BASE_TABLE_1, BASE_TABLE_1);
+        baseQuerySql = format("SELECT base2.a, b FROM %s base2 ORDER BY base2.b, a", BASE_TABLE_1);
+        expectedRewrittenSql = format("SELECT mv_a, mv_b FROM %s base2 ORDER BY mv_b, mv_a", VIEW);
+
+        assertOptimizedQuery(originalViewSql, baseQuerySql, expectedRewrittenSql);
     }
 
     @Test

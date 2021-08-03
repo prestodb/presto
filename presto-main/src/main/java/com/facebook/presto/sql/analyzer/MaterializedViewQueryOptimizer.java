@@ -32,10 +32,12 @@ import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
+import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GroupBy;
@@ -85,6 +87,7 @@ public class MaterializedViewQueryOptimizer
     private final LogicalRowExpressions logicalRowExpressions;
 
     private MaterializedViewInfo materializedViewInfo;
+    private Optional<Identifier> baseTableAlias = Optional.empty();
 
     public MaterializedViewQueryOptimizer(
             Metadata metadata,
@@ -200,10 +203,15 @@ public class MaterializedViewQueryOptimizer
                 throw new IllegalStateException("View filter condition does not contain base query's filter condition");
             }
         }
+        Optional<Relation> optimizedFrom = node.getFrom().map(from -> (Relation) process(from, context));
+
+        if (!baseTableAlias.isPresent()) {
+            baseTableAlias = Optional.of(new Identifier(((Table) materializedViewInfo.getBaseTable().get()).getName().getSuffix()));
+        }
 
         return new QuerySpecification(
                 (Select) process(node.getSelect(), context),
-                node.getFrom().map(from -> (Relation) process(from, context)),
+                optimizedFrom,
                 node.getWhere().map(where -> (Expression) process(where, context)),
                 node.getGroupBy().map(groupBy -> (GroupBy) process(groupBy, context)),
                 node.getHaving().map(having -> (Expression) process(having, context)),
@@ -249,12 +257,22 @@ public class MaterializedViewQueryOptimizer
     }
 
     @Override
+    protected Node visitDereferenceExpression(DereferenceExpression node, Void context)
+    {
+        if (!node.getBase().equals(baseTableAlias.get())) {
+            throw new IllegalStateException("Illegal alias dereference expression in base query");
+        }
+        return process(node.getField(), context);
+    }
+
+    @Override
     protected Node visitIdentifier(Identifier node, Void context)
     {
-        if (!materializedViewInfo.getBaseToViewColumnMap().containsKey(node)) {
+        DereferenceExpression dereferenceExpression = new DereferenceExpression(materializedViewInfo.getBaseTableAlias().get(), node);
+        if (!materializedViewInfo.getBaseToViewColumnMap().containsKey(dereferenceExpression)) {
             throw new IllegalStateException("Materialized view definition does not contain mapping for the column: " + node.getValue());
         }
-        return new Identifier(materializedViewInfo.getBaseToViewColumnMap().get(node).getValue(), node.isDelimited());
+        return materializedViewInfo.getBaseToViewColumnMap().get(dereferenceExpression);
     }
 
     @Override
@@ -279,6 +297,16 @@ public class MaterializedViewQueryOptimizer
                 node.isDistinct(),
                 node.isIgnoreNulls(),
                 rewrittenArguments.build());
+    }
+
+    @Override
+    protected Node visitAliasedRelation(AliasedRelation node, Void context)
+    {
+        baseTableAlias = Optional.of(node.getAlias());
+        return new AliasedRelation(
+                (Relation) process(node.getRelation(), context),
+                node.getAlias(),
+                node.getColumnNames());
     }
 
     @Override
@@ -326,9 +354,9 @@ public class MaterializedViewQueryOptimizer
     {
         ImmutableList.Builder<SortItem> rewrittenOrderBy = ImmutableList.builder();
         for (SortItem sortItem : node.getSortItems()) {
-            if (!materializedViewInfo.getBaseToViewColumnMap().containsKey(sortItem.getSortKey())) {
-                throw new IllegalStateException(format("Sort key %s is not present in materialized view select fields", sortItem.getSortKey()));
-            }
+//            if (!materializedViewInfo.getBaseToViewColumnMap().containsKey(sortItem.getSortKey())) {
+//                throw new IllegalStateException(format("Sort key %s is not present in materialized view select fields", sortItem.getSortKey()));
+//            }
             rewrittenOrderBy.add((SortItem) process(sortItem, context));
         }
         return new OrderBy(rewrittenOrderBy.build());
