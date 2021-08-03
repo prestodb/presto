@@ -22,7 +22,6 @@ import com.facebook.presto.kafka.KafkaTopicFieldGroup;
 import com.facebook.presto.kafka.schema.MapBasedTableDescriptionSupplier;
 import com.facebook.presto.kafka.schema.TableDescriptionSupplier;
 import com.facebook.presto.spi.SchemaTableName;
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -38,8 +37,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.nio.file.Files.readAllBytes;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
@@ -99,7 +96,7 @@ public class FileTableDescriptionSupplier
             for (String definedTable : tableNames) {
                 SchemaTableName tableName;
                 try {
-                    tableName = parseTableName(definedTable);
+                    tableName = SchemaTableName.valueOf(definedTable);
                 }
                 catch (IllegalArgumentException iae) {
                     tableName = new SchemaTableName(defaultSchema, definedTable);
@@ -140,13 +137,5 @@ public class FileTableDescriptionSupplier
             }
         }
         return ImmutableList.of();
-    }
-
-    private static SchemaTableName parseTableName(String schemaTableName)
-    {
-        checkArgument(!isNullOrEmpty(schemaTableName), "schemaTableName is null or is empty");
-        List<String> parts = Splitter.on('.').splitToList(schemaTableName);
-        checkArgument(parts.size() == 2, "Invalid schemaTableName: %s", schemaTableName);
-        return new SchemaTableName(parts.get(0), parts.get(1));
     }
 }
