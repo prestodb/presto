@@ -284,7 +284,7 @@ public abstract class DictionaryColumnWriter
         ColumnStatistics statistics = createColumnStatistics();
         DictionaryRowGroup rowGroup = new DictionaryRowGroup(rowGroupIndexes, rowGroupValueCount, statistics);
         rowGroups.add(rowGroup);
-        columnStatisticsRetainedSizeInBytes += rowGroup.getColumnStatistics().getRetainedSizeInBytes();
+        columnStatisticsRetainedSizeInBytes += rowGroup.getColumnStatistics().getRetainedSizeInBytes() + sizeOf(rowGroup.getDictionaryIndexes());
         rowGroupValueCount = 0;
         return ImmutableMap.of(column, statistics);
     }
