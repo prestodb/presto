@@ -31,6 +31,8 @@ import javax.inject.Inject;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.BiFunction;
 
 import static com.facebook.presto.hive.util.ConfigurationUtils.copy;
@@ -45,6 +47,7 @@ public class HiveCachingHdfsConfiguration
     private final CacheManager cacheManager;
     private final CacheConfig cacheConfig;
     private final CacheFactory cacheFactory;
+    private final Map<String, Configuration> configCache;
 
     @Inject
     public HiveCachingHdfsConfiguration(
@@ -57,11 +60,17 @@ public class HiveCachingHdfsConfiguration
         this.cacheManager = requireNonNull(cacheManager, "CacheManager is null");
         this.cacheConfig = requireNonNull(cacheConfig, "cacheConfig is null");
         this.cacheFactory = requireNonNull(cacheFactory, "CacheFactory is null");
+        this.configCache = new HashMap<>();
     }
 
     @Override
     public Configuration getConfiguration(HdfsContext context, URI uri)
     {
+        String cacheKey = context.getQueryId() + context.getTablePath().get();
+        if (configCache.containsKey(cacheKey)) {
+            return configCache.get(cacheKey);
+        }
+
         @SuppressWarnings("resource")
         Configuration config = new CachingJobConf((factoryConfig, factoryUri) -> {
             try {
@@ -80,9 +89,11 @@ public class HiveCachingHdfsConfiguration
                 throw new PrestoException(GENERIC_INTERNAL_ERROR, "cannot create caching file system", e);
             }
         });
-        Configuration defaultConfig = hiveHdfsConfiguration.getConfiguration(context, uri);
 
+        Configuration defaultConfig = hiveHdfsConfiguration.getConfiguration(context, uri);
         copy(defaultConfig, config);
+        configCache.put(cacheKey, config);
+
         return config;
     }
 

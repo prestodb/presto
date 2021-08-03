@@ -25,6 +25,8 @@ import org.apache.hadoop.fs.Path;
 import javax.inject.Inject;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -38,6 +40,7 @@ public class HdfsEnvironment
     private final HdfsConfiguration hdfsConfiguration;
     private final HdfsAuthentication hdfsAuthentication;
     private final boolean verifyChecksum;
+    private final Map<Configuration, FileSystem> fileSystemCache;
 
     @Inject
     public HdfsEnvironment(
@@ -48,6 +51,7 @@ public class HdfsEnvironment
         this.hdfsConfiguration = requireNonNull(hdfsConfiguration, "hdfsConfiguration is null");
         this.verifyChecksum = requireNonNull(config, "config is null").isVerifyChecksum();
         this.hdfsAuthentication = requireNonNull(hdfsAuthentication, "hdfsAuthentication is null");
+        this.fileSystemCache = new HashMap<>();
         if (config.isRequireHadoopNative()) {
             HadoopNative.requireHadoopNative();
         }
@@ -67,10 +71,15 @@ public class HdfsEnvironment
     public ExtendedFileSystem getFileSystem(String user, Path path, Configuration configuration)
             throws IOException
     {
+        if (fileSystemCache.containsKey(configuration)) {
+            return (ExtendedFileSystem) fileSystemCache.get(configuration);
+        }
+
         return hdfsAuthentication.doAs(user, () -> {
             FileSystem fileSystem = path.getFileSystem(configuration);
             fileSystem.setVerifyChecksum(verifyChecksum);
             checkState(fileSystem instanceof ExtendedFileSystem);
+            fileSystemCache.put(configuration, fileSystem);
             return (ExtendedFileSystem) fileSystem;
         });
     }
