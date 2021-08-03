@@ -119,6 +119,7 @@ import static com.facebook.presto.spi.TableLayoutFilterCoverage.NOT_APPLICABLE;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -1097,6 +1098,21 @@ public class MetadataManager
         ConnectorId connectorId = tableHandle.getConnectorId();
         ConnectorMetadata metadata = getMetadata(session, connectorId);
         return metadata.finishRefreshMaterializedView(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), fragments, computedStatistics);
+    }
+
+    @Override
+    public List<QualifiedObjectName> getReferencedMaterializedViews(Session session, QualifiedObjectName tableName)
+    {
+        requireNonNull(tableName, "tableName is null");
+
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, tableName.getCatalogName());
+        if (catalog.isPresent()) {
+            ConnectorMetadata metadata = catalog.get().getMetadata();
+            ConnectorSession connectorSession = session.toConnectorSession(catalog.get().getConnectorId());
+            List<SchemaTableName> materializedViews = metadata.getReferencedMaterializedViews(connectorSession, toSchemaTableName(tableName));
+            return materializedViews.stream().map(convertFromSchemaTableName(tableName.getCatalogName())).collect(toImmutableList());
+        }
+        return ImmutableList.of();
     }
 
     @Override

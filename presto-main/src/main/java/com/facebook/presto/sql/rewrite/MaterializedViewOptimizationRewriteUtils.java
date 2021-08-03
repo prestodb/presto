@@ -25,10 +25,7 @@ import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Table;
-import com.google.common.collect.ImmutableMap;
 
-import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 public class MaterializedViewOptimizationRewriteUtils
@@ -42,8 +39,7 @@ public class MaterializedViewOptimizationRewriteUtils
             AccessControl accessControl,
             Query node)
     {
-        Map<QualifiedObjectName, List<QualifiedObjectName>> baseTableToMaterializedViews = getBaseTableToMaterializedViews();
-        MaterializedViewCandidateExtractor materializedViewCandidateExtractor = new MaterializedViewCandidateExtractor(session, baseTableToMaterializedViews);
+        MaterializedViewCandidateExtractor materializedViewCandidateExtractor = new MaterializedViewCandidateExtractor(session, metadata);
         materializedViewCandidateExtractor.process(node);
         Set<QualifiedObjectName> materializedViewCandidates = materializedViewCandidateExtractor.getMaterializedViewCandidates();
         if (materializedViewCandidates.isEmpty()) {
@@ -67,11 +63,5 @@ public class MaterializedViewOptimizationRewriteUtils
 
         Query materializedViewDefinition = (Query) sqlParser.createStatement(materializedView.getOriginalSql());
         return (Query) new MaterializedViewQueryOptimizer(metadata, session, sqlParser, accessControl, new RowExpressionDomainTranslator(metadata), materializedViewTable, materializedViewDefinition).rewrite(statement);
-    }
-
-    // TODO: The mapping should be fetched from metastore https://github.com/prestodb/presto/issues/16430
-    private static Map<QualifiedObjectName, List<QualifiedObjectName>> getBaseTableToMaterializedViews()
-    {
-        return ImmutableMap.of();
     }
 }

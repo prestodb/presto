@@ -611,6 +611,14 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Gets the referenced materialized views for a give table
+     */
+    default List<SchemaTableName> getReferencedMaterializedViews(ConnectorSession session, SchemaTableName tableName)
+    {
+        return emptyList();
+    }
+
+    /**
      * @return whether delete without table scan is supported
      */
     default boolean supportsMetadataDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<ConnectorTableLayoutHandle> tableLayoutHandle)

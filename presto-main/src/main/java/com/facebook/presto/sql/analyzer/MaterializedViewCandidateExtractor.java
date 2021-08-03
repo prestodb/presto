@@ -15,13 +15,12 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Table;
 
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
@@ -31,14 +30,13 @@ public class MaterializedViewCandidateExtractor
         extends DefaultTraversalVisitor<Void, Void>
 {
     private final Set<QualifiedObjectName> tableNames = new HashSet<>();
-    private final Map<QualifiedObjectName, List<QualifiedObjectName>> baseTableToMaterializedViews;
-
+    private final Metadata metadata;
     private final Session session;
 
-    public MaterializedViewCandidateExtractor(Session session, Map<QualifiedObjectName, List<QualifiedObjectName>> baseTableToMaterializedViews)
+    public MaterializedViewCandidateExtractor(Session session, Metadata metadata)
     {
         this.session = requireNonNull(session, "session is null");
-        this.baseTableToMaterializedViews = requireNonNull(baseTableToMaterializedViews, "base table to materialized view mapping is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
     @Override
@@ -53,7 +51,7 @@ public class MaterializedViewCandidateExtractor
         Set<QualifiedObjectName> materializedViewCandidates = new HashSet<>();
 
         for (QualifiedObjectName baseTable : tableNames) {
-            List<QualifiedObjectName> materializedViews = baseTableToMaterializedViews.getOrDefault(baseTable, new ArrayList<>());
+            List<QualifiedObjectName> materializedViews = metadata.getReferencedMaterializedViews(session, baseTable);
 
             if (materializedViewCandidates.isEmpty()) {
                 materializedViewCandidates.addAll(materializedViews);
