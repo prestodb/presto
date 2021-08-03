@@ -21,6 +21,12 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.ValueSet;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.cost.StatsProvider;
+import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
+import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.MetastoreContext;
+import com.facebook.presto.hive.metastore.PrincipalPrivileges;
+import com.facebook.presto.hive.metastore.Table;
+import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
@@ -52,11 +58,13 @@ import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -86,6 +94,7 @@ import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.hive.HiveColumnHandle.isPushedDownSubfield;
+import static com.facebook.presto.hive.HiveMetadata.REFERENCED_MATERIALIZED_VIEWS;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveSessionProperties.COLLECT_COLUMN_STATISTICS_ON_WRITE;
 import static com.facebook.presto.hive.HiveSessionProperties.PARQUET_DEREFERENCE_PUSHDOWN_ENABLED;
@@ -1064,7 +1073,7 @@ public class TestHiveLogicalPlanner
             assertEquals(viewTable, baseTable);
         }
         finally {
-            queryRunner.execute("DROP TABLE IF EXISTS test_orders_view");
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS test_orders_view");
             queryRunner.execute("DROP TABLE IF EXISTS orders_partitioned");
         }
     }
@@ -1100,7 +1109,7 @@ public class TestHiveLogicalPlanner
             assertEquals(viewTable, baseTable);
         }
         finally {
-            queryRunner.execute("DROP TABLE IF EXISTS " + view);
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
             queryRunner.execute("DROP TABLE IF EXISTS " + table);
         }
     }
@@ -1131,7 +1140,7 @@ public class TestHiveLogicalPlanner
             assertEquals(viewTable, baseTable);
         }
         finally {
-            queryRunner.execute("DROP TABLE IF EXISTS " + view);
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
             queryRunner.execute("DROP TABLE IF EXISTS " + table);
         }
     }
@@ -1161,7 +1170,7 @@ public class TestHiveLogicalPlanner
             assertEquals(viewTable, baseTable);
         }
         finally {
-            queryRunner.execute("DROP TABLE IF EXISTS " + view);
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
             queryRunner.execute("DROP TABLE IF EXISTS " + base);
         }
     }
@@ -1194,7 +1203,7 @@ public class TestHiveLogicalPlanner
             assertEquals(viewTable, baseTable);
         }
         finally {
-            queryRunner.execute("DROP TABLE IF EXISTS " + view);
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
             queryRunner.execute("DROP TABLE IF EXISTS " + base);
         }
     }
@@ -1227,7 +1236,7 @@ public class TestHiveLogicalPlanner
             assertEquals(viewTable, baseTable);
         }
         finally {
-            queryRunner.execute("DROP TABLE IF EXISTS " + view);
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
             queryRunner.execute("DROP TABLE IF EXISTS " + base);
         }
     }
@@ -1259,7 +1268,7 @@ public class TestHiveLogicalPlanner
             assertEquals(viewTable, baseTable);
         }
         finally {
-            queryRunner.execute("DROP TABLE IF EXISTS " + view);
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
             queryRunner.execute("DROP TABLE IF EXISTS " + base);
         }
     }
@@ -1290,7 +1299,7 @@ public class TestHiveLogicalPlanner
             assertEquals(viewTable, baseTable);
         }
         finally {
-            queryRunner.execute("DROP TABLE IF EXISTS " + view);
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
             queryRunner.execute("DROP TABLE IF EXISTS " + base);
         }
     }
@@ -1323,7 +1332,7 @@ public class TestHiveLogicalPlanner
             assertEquals(viewTable, baseTable);
         }
         finally {
-            queryRunner.execute("DROP TABLE IF EXISTS " + view);
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
             queryRunner.execute("DROP TABLE IF EXISTS " + base);
         }
     }
@@ -1359,7 +1368,7 @@ public class TestHiveLogicalPlanner
             assertEquals(viewTable, baseTable);
         }
         finally {
-            queryRunner.execute("DROP TABLE IF EXISTS " + view);
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
             queryRunner.execute("DROP TABLE IF EXISTS " + table1);
             queryRunner.execute("DROP TABLE IF EXISTS " + table2);
         }
@@ -1395,7 +1404,7 @@ public class TestHiveLogicalPlanner
             assertEquals(viewTable, baseTable);
         }
         finally {
-            queryRunner.execute("DROP TABLE IF EXISTS " + view);
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
             queryRunner.execute("DROP TABLE IF EXISTS " + base);
         }
     }
@@ -1429,14 +1438,12 @@ public class TestHiveLogicalPlanner
             assertEquals(viewTable, baseTable);
         }
         finally {
-            queryRunner.execute("DROP TABLE IF EXISTS " + view);
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
             queryRunner.execute("DROP TABLE IF EXISTS " + base);
         }
     }
 
-    // Currently the base to materialized view mapping is hardcoded for this test case to work
-    // TODO: The mapping should be fetched from metastore https://github.com/prestodb/presto/issues/16438
-    @Test(enabled = false)
+    @Test
     public void testBaseToViewConversionWithDerivedFields()
     {
         Session queryOptimizationWithMaterializedView = Session.builder(getSession())
@@ -1459,6 +1466,8 @@ public class TestHiveLogicalPlanner
                     view,
                     baseTable));
             assertTrue(getQueryRunner().tableExists(getSession(), view));
+            ExtendedHiveMetastore metastore = replicateHiveMetastore((DistributedQueryRunner) queryRunner);
+            appendTableParameter(metastore, baseTable, REFERENCED_MATERIALIZED_VIEWS, format("%s.%s", getSession().getSchema().orElse(""), view));
             assertUpdate(format("REFRESH MATERIALIZED VIEW %s where mvds='2020-01-01'", view), 7);
             String baseQuery = format(
                     "SELECT sum(discount * extendedprice) as _discount_multi_extendedprice_ , MAX(discount*extendedprice) as _max_discount_multi_extendedprice_ , " +
@@ -1469,7 +1478,7 @@ public class TestHiveLogicalPlanner
             assertEquals(optimizedQueryResult, baseQueryResult);
         }
         finally {
-            queryRunner.execute("DROP TABLE IF EXISTS " + view);
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
             queryRunner.execute("DROP TABLE IF EXISTS " + baseTable);
         }
     }
@@ -1507,7 +1516,7 @@ public class TestHiveLogicalPlanner
             assertEquals(optimizedQueryResult, baseQueryResult);
         }
         finally {
-            queryRunner.execute("DROP TABLE IF EXISTS " + view);
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
             queryRunner.execute("DROP TABLE IF EXISTS " + baseTable);
         }
     }
@@ -1543,7 +1552,7 @@ public class TestHiveLogicalPlanner
             // getExplainPlan(viewQuery, LOGICAL);
         }
         finally {
-            queryRunner.execute("DROP TABLE IF EXISTS " + view);
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
             queryRunner.execute("DROP TABLE IF EXISTS " + table1);
             queryRunner.execute("DROP TABLE IF EXISTS " + table2);
         }
@@ -1573,7 +1582,7 @@ public class TestHiveLogicalPlanner
             assertEquals(viewTable, baseTable);
         }
         finally {
-            queryRunner.execute("DROP TABLE IF EXISTS " + view);
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
             queryRunner.execute("DROP TABLE IF EXISTS " + table);
         }
     }
@@ -1612,7 +1621,7 @@ public class TestHiveLogicalPlanner
             assertEquals(viewTable, baseTable);
         }
         finally {
-            queryRunner.execute("DROP TABLE IF EXISTS " + view);
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
             queryRunner.execute("DROP TABLE IF EXISTS " + table1);
             queryRunner.execute("DROP TABLE IF EXISTS " + table2);
         }
@@ -1643,7 +1652,7 @@ public class TestHiveLogicalPlanner
                     ".*Only inner join is supported for materialized view.*");
         }
         finally {
-            queryRunner.execute("DROP TABLE IF EXISTS " + view);
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
             queryRunner.execute("DROP TABLE IF EXISTS " + table1);
             queryRunner.execute("DROP TABLE IF EXISTS " + table2);
         }
@@ -1676,7 +1685,7 @@ public class TestHiveLogicalPlanner
             assertEquals(computeActual(viewQuery), computeActual(baseQuery));
         }
         finally {
-            queryRunner.execute("DROP TABLE IF EXISTS " + view);
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
             queryRunner.execute("DROP TABLE IF EXISTS " + base);
         }
     }
@@ -2289,6 +2298,28 @@ public class TestHiveLogicalPlanner
         Set<String> requestedColumnsSet = ImmutableSet.copyOf(actualRequestedColumns);
         assertEquals(requestedColumnsSet.size(), actualRequestedColumns.size(), "There should be no duplicates in the requested column list");
         assertEquals(requestedColumnsSet, expectedRequestedColumns);
+    }
+
+    private ExtendedHiveMetastore replicateHiveMetastore(DistributedQueryRunner queryRunner)
+    {
+        URI baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toUri();
+        HiveClientConfig hiveClientConfig = new HiveClientConfig();
+        MetastoreClientConfig metastoreClientConfig = new MetastoreClientConfig();
+        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveClientConfig, metastoreClientConfig), ImmutableSet.of());
+        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
+        return new FileHiveMetastore(hdfsEnvironment, baseDir.toString(), "test");
+    }
+
+    private void appendTableParameter(ExtendedHiveMetastore metastore, String tableName, String parameterKey, String parameterValue)
+    {
+        MetastoreContext metastoreContext = new MetastoreContext(getSession().getUser(), getSession().getQueryId().getId(), Optional.empty(), Optional.empty());
+        Optional<Table> table = metastore.getTable(metastoreContext, getSession().getSchema().get(), tableName);
+        if (table.isPresent()) {
+            Table originalTable = table.get();
+            Table alteredTable = Table.builder(originalTable).setParameter(parameterKey, parameterValue).build();
+            metastore.dropTable(metastoreContext, originalTable.getDatabaseName(), originalTable.getTableName(), false);
+            metastore.createTable(metastoreContext, alteredTable, new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of()));
+        }
     }
 
     private static PlanMatchPattern tableScan(String tableName, TupleDomain<String> domainPredicate, RowExpression remainingPredicate, Set<String> predicateColumnNames)

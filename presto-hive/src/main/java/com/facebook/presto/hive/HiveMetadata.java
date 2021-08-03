@@ -354,6 +354,7 @@ public class HiveMetadata
     public static final String PRESTO_VERSION_NAME = "presto_version";
     public static final String TABLE_COMMENT = "comment";
     public static final Set<String> RESERVED_ROLES = ImmutableSet.of("all", "default", "none");
+    public static final String REFERENCED_MATERIALIZED_VIEWS = "referenced_materialized_views";
 
     private static final String ORC_BLOOM_FILTER_COLUMNS_KEY = "orc.bloom.filter.columns";
     private static final String ORC_BLOOM_FILTER_FPP_KEY = "orc.bloom.filter.fpp";
@@ -2440,6 +2441,26 @@ public class HiveMetadata
     public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         return finishInsertInternal(session, insertHandle, fragments, computedStatistics);
+    }
+
+    @Override
+    public List<SchemaTableName> getReferencedMaterializedViews(ConnectorSession session, SchemaTableName tableName)
+    {
+        requireNonNull(tableName, "tableName is null");
+
+        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource());
+        Table table = metastore.getTable(metastoreContext, tableName.getSchemaName(), tableName.getTableName()).orElseThrow(() -> new TableNotFoundException(tableName));
+        if (!table.getTableType().equals(MANAGED_TABLE)) {
+            throw new PrestoException(NOT_SUPPORTED, "Cannot get materialized views for a non-managed table");
+        }
+        if (MetastoreUtil.isPrestoMaterializedView(table)) {
+            throw new PrestoException(NOT_SUPPORTED, "Cannot get materialized views for a materialized view");
+        }
+        ImmutableList.Builder<SchemaTableName> materializedViews = ImmutableList.builder();
+        for (String viewName : Splitter.on(",").trimResults().omitEmptyStrings().splitToList(table.getParameters().getOrDefault(REFERENCED_MATERIALIZED_VIEWS, ""))) {
+            materializedViews.add(SchemaTableName.valueOf(viewName));
+        }
+        return materializedViews.build();
     }
 
     @Override
