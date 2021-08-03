@@ -389,6 +389,11 @@ public interface Metadata
     Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics);
 
     /**
+     * Gets the referenced materialized views for a give table
+     */
+    List<QualifiedObjectName> getReferencedMaterializedViews(Session session, QualifiedObjectName tableName);
+
+    /**
      * Try to locate a table index that can lookup results by indexableColumns and provide the requested outputColumns.
      */
     Optional<ResolvedIndex> resolveIndex(Session session, TableHandle tableHandle, Set<ColumnHandle> indexableColumns, Set<ColumnHandle> outputColumns, TupleDomain<ColumnHandle> tupleDomain);
