@@ -68,13 +68,6 @@ public class CachingDirectoryLister
         this.cachedTableChecker = new CachedTableChecker(requireNonNull(tables, "tables is null"));
     }
 
-    private static SchemaTableName parseTableName(String tableName)
-    {
-        String[] parts = tableName.split("\\.");
-        checkArgument(parts.length == 2, "Invalid schemaTableName: %s", tableName);
-        return new SchemaTableName(parts[0], parts[1]);
-    }
-
     @Override
     public Iterator<HiveFileInfo> list(
             ExtendedFileSystem fileSystem,
@@ -174,7 +167,7 @@ public class CachingDirectoryLister
             }
             else {
                 this.cachedTableNames = cachedTables.stream()
-                        .map(CachingDirectoryLister::parseTableName)
+                        .map(SchemaTableName::valueOf)
                         .collect(toImmutableSet());
             }
         }
