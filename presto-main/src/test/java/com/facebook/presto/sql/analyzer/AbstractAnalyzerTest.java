@@ -17,7 +17,6 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.ArrayType;
-import com.facebook.presto.common.type.RealType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.connector.informationSchema.InformationSchemaConnector;
@@ -63,14 +62,24 @@ import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.CharType.createCharType;
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.DecimalType.createDecimalType;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.common.type.RowType.anonymous;
+import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static com.facebook.presto.spi.ConnectorId.createInformationSchemaConnectorId;
@@ -218,7 +227,7 @@ public class AbstractAnalyzerTest
                 new ConnectorTableMetadata(table8, ImmutableList.of(
                         new ColumnMetadata("a", DOUBLE),
                         new ColumnMetadata("b", new ArrayType(BIGINT)),
-                        new ColumnMetadata("c", RealType.REAL),
+                        new ColumnMetadata("c", REAL),
                         new ColumnMetadata("d", BIGINT))),
                 false));
 
@@ -228,7 +237,7 @@ public class AbstractAnalyzerTest
                 new ConnectorTableMetadata(table9, ImmutableList.of(
                         new ColumnMetadata("a", DOUBLE),
                         new ColumnMetadata("b", new ArrayType(BIGINT)),
-                        new ColumnMetadata("c", RealType.REAL),
+                        new ColumnMetadata("c", REAL),
                         new ColumnMetadata("d", BIGINT))),
                 false));
 
@@ -353,9 +362,27 @@ public class AbstractAnalyzerTest
                 new SchemaTableName("s1", "v5"),
                 ImmutableList.of(new ColumnMetadata("a", BIGINT)));
         inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, viewMetadata5, viewData5, false));
+
+        // type analysis for INSERT
+        SchemaTableName table14 = new SchemaTableName("s1", "t14");
+        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
+                new ConnectorTableMetadata(table14, ImmutableList.of(
+                        new ColumnMetadata("tinyint_column", TINYINT),
+                        new ColumnMetadata("integer_column", INTEGER),
+                        new ColumnMetadata("decimal_column", createDecimalType(5, 3)),
+                        new ColumnMetadata("real_column", REAL),
+                        new ColumnMetadata("char_column", createCharType(3)),
+                        new ColumnMetadata("bounded_varchar_column", createVarcharType(3)),
+                        new ColumnMetadata("unbounded_varchar_column", VARCHAR),
+                        new ColumnMetadata("tinyint_array_column", new ArrayType(TINYINT)),
+                        new ColumnMetadata("bigint_array_column", new ArrayType(BIGINT)),
+                        new ColumnMetadata("nested_bounded_varchar_column", anonymous(Arrays.asList(createVarcharType(3)))),
+                        new ColumnMetadata("row_column", anonymous(Arrays.asList(TINYINT, createUnboundedVarcharType()))),
+                        new ColumnMetadata("date_column", DATE))),
+                false));
     }
 
-    private void inSetupTransaction(Consumer<Session> consumer)
+    protected void inSetupTransaction(Consumer<Session> consumer)
     {
         transaction(transactionManager, accessControl)
                 .singleStatement()

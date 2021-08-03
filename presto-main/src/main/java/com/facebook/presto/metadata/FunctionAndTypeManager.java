@@ -496,6 +496,11 @@ public class FunctionAndTypeManager
         return typeCoercer.coerceTypeBase(sourceType, resultTypeBase);
     }
 
+    public boolean isCompatible(Type actualType, Type expectedType)
+    {
+        return typeCoercer.isCompatible(actualType, expectedType);
+    }
+
     public ScalarFunctionImplementation getScalarFunctionImplementation(FunctionHandle functionHandle)
     {
         if (functionHandle.getCatalogSchemaName().equals(SESSION_NAMESPACE)) {

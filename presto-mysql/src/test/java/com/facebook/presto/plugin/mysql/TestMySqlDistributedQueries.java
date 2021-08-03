@@ -90,6 +90,12 @@ public class TestMySqlDistributedQueries
     }
 
     @Override
+    public void testInsertWithCoercion()
+    {
+        // this connector uses a non-canonical type for varchar columns in tpch
+    }
+
+    @Override
     public void testDescribeOutput()
     {
         // this connector uses a non-canonical type for varchar columns in tpch

@@ -70,5 +70,11 @@ public class TestPostgreSqlDistributedQueries
         // Delete is currently unsupported
     }
 
+    @Override
+    public void testInsertWithCoercion()
+    {
+        // No support for TinyInt type
+    }
+
     // PostgreSQL specific tests should normally go in TestPostgreSqlIntegrationSmokeTest
 }

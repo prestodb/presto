@@ -149,6 +149,12 @@ public class TestAccumuloDistributedQueries
         assertUpdate("DROP TABLE test_insert");
     }
 
+    @Override
+    public void testInsertWithCoercion()
+    {
+        // Override because of non-canonical varchar mapping
+    }
+
     @Test
     public void testInsertDuplicateRows()
     {

@@ -83,6 +83,13 @@ public class TestCassandraDistributed
     }
 
     @Override
+    public void testInsertWithCoercion()
+    {
+        // Cassandra connector currently does not support create table
+        // TODO test inserts
+    }
+
+    @Override
     public void testCreateTable()
     {
         // Cassandra connector currently does not support create table
