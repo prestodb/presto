@@ -3098,11 +3098,12 @@ public class LocalExecutionPlanner
         {
             List<VariableReferenceExpression> aggregationOutputVariables = new ArrayList<>();
             List<AccumulatorFactory> accumulatorFactories = new ArrayList<>();
+            boolean useSpill = spillEnabled && !isStreamable && (!hasDistinct(aggregations) || distinctSpillEnabled) && (!hasOrderBy(aggregations) || orderBySpillEnabled);
             for (Map.Entry<VariableReferenceExpression, Aggregation> entry : aggregations.entrySet()) {
                 VariableReferenceExpression variable = entry.getKey();
                 Aggregation aggregation = entry.getValue();
 
-                accumulatorFactories.add(buildAccumulatorFactory(source, aggregation, !isStreamable && spillEnabled));
+                accumulatorFactories.add(buildAccumulatorFactory(source, aggregation, useSpill));
                 aggregationOutputVariables.add(variable);
             }
 
@@ -3159,14 +3160,22 @@ public class LocalExecutionPlanner
                         groupIdChannel,
                         expectedGroups,
                         maxPartialAggregationMemorySize,
-                        spillEnabled,
-                        distinctSpillEnabled,
-                        orderBySpillEnabled,
+                        useSpill,
                         unspillMemoryLimit,
                         spillerFactory,
                         joinCompiler,
                         useSystemMemory);
             }
+        }
+
+        private boolean hasDistinct(Map<VariableReferenceExpression, Aggregation> aggregations)
+        {
+            return aggregations.values().stream().anyMatch(aggregation -> aggregation.isDistinct());
+        }
+
+        private boolean hasOrderBy(Map<VariableReferenceExpression, Aggregation> aggregations)
+        {
+            return aggregations.values().stream().anyMatch(aggregation -> aggregation.getOrderBy().isPresent());
         }
     }
 
