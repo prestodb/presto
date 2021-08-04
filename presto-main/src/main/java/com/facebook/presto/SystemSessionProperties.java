@@ -123,6 +123,7 @@ public final class SystemSessionProperties
     public static final String DISTINCT_AGGREGATION_SPILL_ENABLED = "distinct_aggregation_spill_enabled";
     public static final String ORDER_BY_AGGREGATION_SPILL_ENABLED = "order_by_aggregation_spill_enabled";
     public static final String AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT = "aggregation_operator_unspill_memory_limit";
+    public static final String QUERY_MAX_REVOCABLE_MEMORY_PER_NODE = "query_max_revocable_memory_per_node";
     public static final String TEMP_STORAGE_SPILLER_BUFFER_SIZE = "temp_storage_spiller_buffer_size";
     public static final String OPTIMIZE_DISTINCT_AGGREGATIONS = "optimize_mixed_distinct_aggregations";
     public static final String LEGACY_ROW_FIELD_ORDINAL_ACCESS = "legacy_row_field_ordinal_access";
@@ -618,6 +619,15 @@ public final class SystemSessionProperties
                         DataSize.class,
                         featuresConfig.getAggregationOperatorUnspillMemoryLimit(),
                         false,
+                        value -> DataSize.valueOf((String) value),
+                        DataSize::toString),
+                new PropertyMetadata<>(
+                        QUERY_MAX_REVOCABLE_MEMORY_PER_NODE,
+                        "Maximum amount of revocable memory a query can use",
+                        VARCHAR,
+                        DataSize.class,
+                        nodeSpillConfig.getMaxRevocableMemoryPerNode(),
+                        true,
                         value -> DataSize.valueOf((String) value),
                         DataSize::toString),
                 new PropertyMetadata<>(
@@ -1399,6 +1409,11 @@ public final class SystemSessionProperties
         DataSize memoryLimitForMerge = session.getSystemProperty(AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT, DataSize.class);
         checkArgument(memoryLimitForMerge.toBytes() >= 0, "%s must be positive", AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT);
         return memoryLimitForMerge;
+    }
+
+    public static DataSize getQueryMaxRevocableMemoryPerNode(Session session)
+    {
+        return session.getSystemProperty(QUERY_MAX_REVOCABLE_MEMORY_PER_NODE, DataSize.class);
     }
 
     public static DataSize getTempStorageSpillerBufferSize(Session session)

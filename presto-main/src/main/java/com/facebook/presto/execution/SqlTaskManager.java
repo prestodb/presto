@@ -78,6 +78,7 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxBroadcastMemory;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxMemoryPerNode;
+import static com.facebook.presto.SystemSessionProperties.getQueryMaxRevocableMemoryPerNode;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxTotalMemoryPerNode;
 import static com.facebook.presto.SystemSessionProperties.isVerboseExceededMemoryLimitErrorsEnabled;
 import static com.facebook.presto.SystemSessionProperties.resourceOvercommit;
@@ -412,7 +413,8 @@ public class SqlTaskManager
                 queryContext.setMemoryLimits(
                         getQueryMaxMemoryPerNode(session),
                         getQueryMaxTotalMemoryPerNode(session),
-                        getQueryMaxBroadcastMemory(session));
+                        getQueryMaxBroadcastMemory(session),
+                        getQueryMaxRevocableMemoryPerNode(session));
             }
         }
 
