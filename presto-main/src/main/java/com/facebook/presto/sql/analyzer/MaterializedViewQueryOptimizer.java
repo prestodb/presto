@@ -44,6 +44,7 @@ import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.OrderBy;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QueryBody;
 import com.facebook.presto.sql.tree.QuerySpecification;
@@ -56,8 +57,10 @@ import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.Table;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.expressions.LogicalRowExpressions.and;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
@@ -83,6 +86,10 @@ public class MaterializedViewQueryOptimizer
     private final Table materializedView;
     private final Query materializedViewQuery;
     private final LogicalRowExpressions logicalRowExpressions;
+    private final Set<QualifiedName> supportedFunctionCalls = ImmutableSet.of(
+            QualifiedName.of("MIN"),
+            QualifiedName.of("MAX"),
+            QualifiedName.of("SUM"));
 
     private MaterializedViewInfo materializedViewInfo;
 
@@ -260,6 +267,9 @@ public class MaterializedViewQueryOptimizer
     @Override
     protected Node visitFunctionCall(FunctionCall node, Void context)
     {
+        if (!supportedFunctionCalls.contains(node.getName())) {
+            throw new SemanticException(NOT_SUPPORTED, node, node.getName() + " function is not supported in query optimizer");
+        }
         ImmutableList.Builder<Expression> rewrittenArguments = ImmutableList.builder();
 
         if (materializedViewInfo.getBaseToViewColumnMap().containsKey(node)) {

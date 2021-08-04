@@ -251,6 +251,30 @@ public class TestMaterializedViewQueryOptimizer
         assertOptimizedQuery(originalViewSql, baseQuerySql, baseQuerySql);
     }
 
+    @Test
+    public void testWithUnsupportedFunction()
+    {
+        String originalViewSql = format("SELECT COUNT(a) FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT COUNT(a) FROM %s", BASE_TABLE_1);
+
+        assertOptimizedQuery(originalViewSql, baseQuerySql, baseQuerySql);
+
+        originalViewSql = format("SELECT a FROM %s", BASE_TABLE_1);
+        baseQuerySql = format("SELECT COUNT(a) FROM %s", BASE_TABLE_1);
+
+        assertOptimizedQuery(originalViewSql, baseQuerySql, baseQuerySql);
+
+        originalViewSql = format("SELECT AVG(a) FROM %s", BASE_TABLE_1);
+        baseQuerySql = format("SELECT AVG(a) FROM %s", BASE_TABLE_1);
+
+        assertOptimizedQuery(originalViewSql, baseQuerySql, baseQuerySql);
+
+        originalViewSql = format("SELECT a FROM %s", BASE_TABLE_1);
+        baseQuerySql = format("SELECT AVG(a) FROM %s", BASE_TABLE_1);
+
+        assertOptimizedQuery(originalViewSql, baseQuerySql, baseQuerySql);
+    }
+
     // TODO: Handle table alias rewrite for view definition and base query https://github.com/prestodb/presto/issues/16404#issue-940248564
     @Test
     public void testWithTableAlias()
