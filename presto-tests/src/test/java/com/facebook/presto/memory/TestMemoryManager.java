@@ -389,15 +389,22 @@ public class TestMemoryManager
     public void testReservedPoolDisabledMultiCoordinator()
             throws Exception
     {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
+        Map<String, String> rmProperties = ImmutableMap.<String, String>builder()
                 .put("experimental.reserved-pool-enabled", "false")
-                .put("query.low-memory-killer.delay", "5s")
-                .put("query.low-memory-killer.policy", "total-reservation")
                 .put("resource-manager.memory-pool-fetch-interval", "10ms")
                 .put("resource-manager.query-heartbeat-interval", "10ms")
                 .build();
 
-        try (DistributedQueryRunner queryRunner = createQueryRunner(properties, 2)) {
+        Map<String, String> coordinatorProperties = ImmutableMap.<String, String>builder()
+                .put("query.low-memory-killer.delay", "5s")
+                .put("query.low-memory-killer.policy", "total-reservation")
+                .build();
+
+        Map<String, String> extraProperties = ImmutableMap.<String, String>builder()
+                .put("experimental.reserved-pool-enabled", "false")
+                .build();
+
+        try (DistributedQueryRunner queryRunner = createQueryRunner(rmProperties, coordinatorProperties, extraProperties, 2)) {
             // Reserve all the memory
             QueryId fakeQueryId = new QueryId("fake");
             for (TestingPrestoServer server : queryRunner.getServers()) {
@@ -444,7 +451,7 @@ public class TestMemoryManager
                 .put("resource-manager.node-status-timeout", "5s")
                 .build();
 
-        try (DistributedQueryRunner queryRunner = createQueryRunner(properties, 2)) {
+        try (DistributedQueryRunner queryRunner = createQueryRunner(properties, ImmutableMap.of(), properties, 2)) {
             // Reserve all the memory
             QueryId fakeQueryId = new QueryId("fake");
             for (TestingPrestoServer server : queryRunner.getServers()) {

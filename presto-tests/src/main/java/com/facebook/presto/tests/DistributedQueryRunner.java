@@ -118,7 +118,7 @@ public class DistributedQueryRunner
     public DistributedQueryRunner(Session defaultSession, int nodeCount, Map<String, String> extraProperties)
             throws Exception
     {
-        this(false, defaultSession, nodeCount, 1, extraProperties, ImmutableMap.of(), DEFAULT_SQL_PARSER_OPTIONS, ENVIRONMENT, Optional.empty(), Optional.empty(), ImmutableList.of());
+        this(false, defaultSession, nodeCount, 1, extraProperties, ImmutableMap.of(), ImmutableMap.of(), DEFAULT_SQL_PARSER_OPTIONS, ENVIRONMENT, Optional.empty(), Optional.empty(), ImmutableList.of());
     }
 
     public static Builder builder(Session defaultSession)
@@ -133,6 +133,7 @@ public class DistributedQueryRunner
             int coordinatorCount,
             Map<String, String> extraProperties,
             Map<String, String> coordinatorProperties,
+            Map<String, String> resourceManagerProperties,
             SqlParserOptions parserOptions,
             String environment,
             Optional<Path> baseDataDir,
@@ -154,6 +155,11 @@ public class DistributedQueryRunner
             ImmutableList.Builder<TestingPrestoServer> servers = ImmutableList.builder();
             ImmutableList.Builder<TestingPrestoServer> coordinators = ImmutableList.builder();
             Map<String, String> extraCoordinatorProperties = new HashMap<>();
+
+            if (resourceManagerEnabled) {
+                resourceManager = Optional.of(closer.register(createTestingPrestoServer(discoveryUrl, true, true, false, resourceManagerProperties, parserOptions, environment, baseDataDir, extraModules)));
+                servers.add(resourceManager.get());
+            }
 
             if (externalWorkerLauncher.isPresent()) {
                 ImmutableList.Builder<Process> externalWorkersBuilder = ImmutableList.builder();
@@ -188,11 +194,6 @@ public class DistributedQueryRunner
                 servers.add(coordinator);
                 coordinators.add(coordinator);
                 extraCoordinatorProperties.remove("http-server.http.port");
-            }
-
-            if (resourceManagerEnabled) {
-                resourceManager = Optional.of(closer.register(createTestingPrestoServer(discoveryUrl, true, true, false, extraCoordinatorProperties, parserOptions, environment, baseDataDir, extraModules)));
-                servers.add(resourceManager.get());
             }
 
             this.servers = servers.build();
@@ -643,6 +644,7 @@ public class DistributedQueryRunner
         private int coordinatorCount = 1;
         private Map<String, String> extraProperties = ImmutableMap.of();
         private Map<String, String> coordinatorProperties = ImmutableMap.of();
+        private Map<String, String> resourceManagerProperties = ImmutableMap.of();
         private SqlParserOptions parserOptions = DEFAULT_SQL_PARSER_OPTIONS;
         private String environment = ENVIRONMENT;
         private Optional<Path> baseDataDir = Optional.empty();
@@ -696,6 +698,12 @@ public class DistributedQueryRunner
             return this;
         }
 
+        public Builder setResourceManagerProperties(Map<String, String> resourceManagerProperties)
+        {
+            this.resourceManagerProperties = resourceManagerProperties;
+            return this;
+        }
+
         /**
          * Sets coordinator properties being equal to a map containing given key and value.
          * Note, that calling this method OVERWRITES previously set property values.
@@ -745,7 +753,7 @@ public class DistributedQueryRunner
         public DistributedQueryRunner build()
                 throws Exception
         {
-            return new DistributedQueryRunner(resourceManagerEnabled, defaultSession, nodeCount, coordinatorCount, extraProperties, coordinatorProperties, parserOptions, environment, baseDataDir, externalWorkerLauncher, extraModules);
+            return new DistributedQueryRunner(resourceManagerEnabled, defaultSession, nodeCount, coordinatorCount, extraProperties, coordinatorProperties, resourceManagerProperties, parserOptions, environment, baseDataDir, externalWorkerLauncher, extraModules);
         }
     }
 }
