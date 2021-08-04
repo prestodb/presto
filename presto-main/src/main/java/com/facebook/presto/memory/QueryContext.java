@@ -92,10 +92,8 @@ public class QueryContext
     private long maxTotalMemory;
     @GuardedBy("this")
     private long peakNodeTotalMemory;
-
-    // TODO: Make max revocable memory be configurable by session property.
     @GuardedBy("this")
-    private final long maxRevocableMemory;
+    private long maxRevocableMemory;
 
     @GuardedBy("this")
     private long broadcastUsed;
@@ -392,12 +390,17 @@ public class QueryContext
         return queryId;
     }
 
-    public synchronized void setMemoryLimits(DataSize queryMaxTaskMemory, DataSize queryMaxTotalTaskMemory, DataSize queryMaxBroadcastMemory)
+    public synchronized void setMemoryLimits(
+            DataSize queryMaxTaskMemory,
+            DataSize queryMaxTotalTaskMemory,
+            DataSize queryMaxBroadcastMemory,
+            DataSize queryMaxRevocableMemory)
     {
         // Don't allow session properties to increase memory beyond configured limits
         maxUserMemory = Math.min(maxUserMemory, queryMaxTaskMemory.toBytes());
         maxTotalMemory = Math.min(maxTotalMemory, queryMaxTotalTaskMemory.toBytes());
         maxBroadcastUsedMemory = Math.min(maxBroadcastUsedMemory, queryMaxBroadcastMemory.toBytes());
+        maxRevocableMemory = Math.min(maxRevocableMemory, queryMaxRevocableMemory.toBytes());
         //  Mark future memory limit updates as unnecessary
         memoryLimitsInitialized = true;
     }
