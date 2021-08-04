@@ -66,8 +66,6 @@ public class HashAggregationOperator
         private final int expectedGroups;
         private final Optional<DataSize> maxPartialMemory;
         private final boolean spillEnabled;
-        private final boolean distinctAggregationSpillEnabled;
-        private final boolean orderByAggregationSpillEnabled;
         private final DataSize memoryLimitForMerge;
         private final DataSize memoryLimitForMergeWithMemory;
         private final SpillerFactory spillerFactory;
@@ -105,8 +103,6 @@ public class HashAggregationOperator
                     expectedGroups,
                     maxPartialMemory,
                     false,
-                    false,
-                    false,
                     new DataSize(0, MEGABYTE),
                     new DataSize(0, MEGABYTE),
                     (types, spillContext, memoryContext) -> {
@@ -130,8 +126,6 @@ public class HashAggregationOperator
                 int expectedGroups,
                 Optional<DataSize> maxPartialMemory,
                 boolean spillEnabled,
-                boolean distinctAggregationSpillEnabled,
-                boolean orderByAggregationSpillEnabled,
                 DataSize unspillMemoryLimit,
                 SpillerFactory spillerFactory,
                 JoinCompiler joinCompiler,
@@ -150,8 +144,6 @@ public class HashAggregationOperator
                     expectedGroups,
                     maxPartialMemory,
                     spillEnabled,
-                    distinctAggregationSpillEnabled,
-                    orderByAggregationSpillEnabled,
                     unspillMemoryLimit,
                     DataSize.succinctBytes((long) (unspillMemoryLimit.toBytes() * MERGE_WITH_MEMORY_RATIO)),
                     spillerFactory,
@@ -174,8 +166,6 @@ public class HashAggregationOperator
                 int expectedGroups,
                 Optional<DataSize> maxPartialMemory,
                 boolean spillEnabled,
-                boolean distinctAggregationSpillEnabled,
-                boolean orderByAggregationSpillEnabled,
                 DataSize memoryLimitForMerge,
                 DataSize memoryLimitForMergeWithMemory,
                 SpillerFactory spillerFactory,
@@ -195,8 +185,6 @@ public class HashAggregationOperator
             this.expectedGroups = expectedGroups;
             this.maxPartialMemory = requireNonNull(maxPartialMemory, "maxPartialMemory is null");
             this.spillEnabled = spillEnabled;
-            this.distinctAggregationSpillEnabled = distinctAggregationSpillEnabled;
-            this.orderByAggregationSpillEnabled = orderByAggregationSpillEnabled;
             this.memoryLimitForMerge = requireNonNull(memoryLimitForMerge, "memoryLimitForMerge is null");
             this.memoryLimitForMergeWithMemory = requireNonNull(memoryLimitForMergeWithMemory, "memoryLimitForMergeWithMemory is null");
             this.spillerFactory = requireNonNull(spillerFactory, "spillerFactory is null");
@@ -223,8 +211,6 @@ public class HashAggregationOperator
                     expectedGroups,
                     maxPartialMemory,
                     spillEnabled,
-                    distinctAggregationSpillEnabled,
-                    orderByAggregationSpillEnabled,
                     memoryLimitForMerge,
                     memoryLimitForMergeWithMemory,
                     spillerFactory,
@@ -256,8 +242,6 @@ public class HashAggregationOperator
                     expectedGroups,
                     maxPartialMemory,
                     spillEnabled,
-                    distinctAggregationSpillEnabled,
-                    orderByAggregationSpillEnabled,
                     memoryLimitForMerge,
                     memoryLimitForMergeWithMemory,
                     spillerFactory,
@@ -278,8 +262,6 @@ public class HashAggregationOperator
     private final int expectedGroups;
     private final Optional<DataSize> maxPartialMemory;
     private final boolean spillEnabled;
-    private final boolean distinctAggregationSpillEnabled;
-    private final boolean orderByAggregationSpillEnabled;
     private final DataSize memoryLimitForMerge;
     private final DataSize memoryLimitForMergeWithMemory;
     private final SpillerFactory spillerFactory;
@@ -311,8 +293,6 @@ public class HashAggregationOperator
             int expectedGroups,
             Optional<DataSize> maxPartialMemory,
             boolean spillEnabled,
-            boolean distinctAggregationSpillEnabled,
-            boolean orderByAggregationSpillEnabled,
             DataSize memoryLimitForMerge,
             DataSize memoryLimitForMergeWithMemory,
             SpillerFactory spillerFactory,
@@ -336,8 +316,6 @@ public class HashAggregationOperator
         this.maxPartialMemory = requireNonNull(maxPartialMemory, "maxPartialMemory is null");
         this.types = toTypes(groupByTypes, step, accumulatorFactories, hashChannel);
         this.spillEnabled = spillEnabled;
-        this.distinctAggregationSpillEnabled = distinctAggregationSpillEnabled;
-        this.orderByAggregationSpillEnabled = orderByAggregationSpillEnabled;
         this.memoryLimitForMerge = requireNonNull(memoryLimitForMerge, "memoryLimitForMerge is null");
         this.memoryLimitForMergeWithMemory = requireNonNull(memoryLimitForMergeWithMemory, "memoryLimitForMergeWithMemory is null");
         this.spillerFactory = requireNonNull(spillerFactory, "spillerFactory is null");
@@ -388,10 +366,7 @@ public class HashAggregationOperator
         inputProcessed = true;
 
         if (aggregationBuilder == null) {
-            if (step.isOutputPartial() ||
-                    !spillEnabled ||
-                    (!distinctAggregationSpillEnabled && hasDistinct()) ||
-                    (!orderByAggregationSpillEnabled && hasOrderBy())) {
+            if (step.isOutputPartial() || !spillEnabled) {
                 aggregationBuilder = new InMemoryHashAggregationBuilder(
                         accumulatorFactories,
                         step,
@@ -433,16 +408,6 @@ public class HashAggregationOperator
             unfinishedWork = null;
         }
         aggregationBuilder.updateMemory();
-    }
-
-    private boolean hasOrderBy()
-    {
-        return accumulatorFactories.stream().anyMatch(AccumulatorFactory::hasOrderBy);
-    }
-
-    private boolean hasDistinct()
-    {
-        return accumulatorFactories.stream().anyMatch(AccumulatorFactory::hasDistinct);
     }
 
     @Override
