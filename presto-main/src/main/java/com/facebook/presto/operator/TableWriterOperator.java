@@ -133,7 +133,7 @@ public class TableWriterOperator
             boolean statisticsCpuTimerEnabled = !(statisticsAggregationOperator instanceof DevNullOperator) && isStatisticsCpuTimerEnabled(session);
             return new TableWriterOperator(
                     context,
-                    createPageSink(),
+                    createPageSink(driverContext),
                     columnChannels,
                     notNullChannelColumnNames,
                     statisticsAggregationOperator,
@@ -143,7 +143,7 @@ public class TableWriterOperator
                     pageSinkCommitStrategy);
         }
 
-        private ConnectorPageSink createPageSink()
+        private ConnectorPageSink createPageSink(DriverContext driverContext)
         {
             ConnectorId connectorId = getConnectorId(target);
             Optional<ConnectorMetadataUpdater> metadataUpdater = metadataUpdaterManager.getMetadataUpdater(connectorId);
@@ -153,7 +153,8 @@ public class TableWriterOperator
             }
 
             PageSinkContext.Builder pageSinkContextBuilder = PageSinkContext.builder()
-                    .setCommitRequired(pageSinkCommitStrategy.isCommitRequired());
+                    .setCommitRequired(pageSinkCommitStrategy.isCommitRequired())
+                    .setDriverDone(() -> driverContext.isDone());
             metadataUpdater.ifPresent(pageSinkContextBuilder::setConnectorMetadataUpdater);
 
             if (target instanceof CreateHandle) {

@@ -127,7 +127,7 @@ public class HivePageSinkProvider
         HiveOutputTableHandle handle = (HiveOutputTableHandle) tableHandle;
         Optional<ConnectorMetadataUpdater> hiveMetadataUpdater = pageSinkContext.getMetadataUpdater();
         checkArgument(hiveMetadataUpdater.isPresent(), "Metadata Updater for HivePageSink is null");
-        return createPageSink(handle, true, session, (HiveMetadataUpdater) hiveMetadataUpdater.get(), pageSinkContext.isCommitRequired(), handle.getAdditionalTableParameters());
+        return createPageSink(handle, true, session, (HiveMetadataUpdater) hiveMetadataUpdater.get(), pageSinkContext.isCommitRequired(), handle.getAdditionalTableParameters(), pageSinkContext);
     }
 
     @Override
@@ -136,10 +136,16 @@ public class HivePageSinkProvider
         HiveInsertTableHandle handle = (HiveInsertTableHandle) tableHandle;
         Optional<ConnectorMetadataUpdater> hiveMetadataUpdater = pageSinkContext.getMetadataUpdater();
         checkArgument(hiveMetadataUpdater.isPresent(), "Metadata Updater for HivePageSink is null");
-        return createPageSink(handle, false, session, (HiveMetadataUpdater) hiveMetadataUpdater.get(), pageSinkContext.isCommitRequired(), ImmutableMap.of());
+        return createPageSink(handle, false, session, (HiveMetadataUpdater) hiveMetadataUpdater.get(), pageSinkContext.isCommitRequired(), ImmutableMap.of(), pageSinkContext);
     }
 
-    private ConnectorPageSink createPageSink(HiveWritableTableHandle handle, boolean isCreateTable, ConnectorSession session, HiveMetadataUpdater hiveMetadataUpdater, boolean commitRequired, Map<String, String> additionalTableParameters)
+    private ConnectorPageSink createPageSink(HiveWritableTableHandle handle,
+                                             boolean isCreateTable,
+                                             ConnectorSession session,
+                                             HiveMetadataUpdater hiveMetadataUpdater,
+                                             boolean commitRequired,
+                                             Map<String, String> additionalTableParameters,
+                                             PageSinkContext pageSinkContext)
     {
         OptionalInt bucketCount = OptionalInt.empty();
         List<SortingColumn> sortedBy;
@@ -199,6 +205,7 @@ public class HivePageSinkProvider
                 partitionUpdateCodec,
                 partitionUpdateSmileCodec,
                 session,
-                hiveMetadataUpdater);
+                hiveMetadataUpdater,
+                pageSinkContext);
     }
 }

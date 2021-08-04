@@ -16,6 +16,7 @@ package com.facebook.presto.spi;
 import com.facebook.presto.spi.connector.ConnectorMetadataUpdater;
 
 import java.util.Optional;
+import java.util.function.Supplier;
 
 public class PageSinkContext
 {
@@ -23,11 +24,15 @@ public class PageSinkContext
 
     private final boolean commitRequired;
     private final Optional<ConnectorMetadataUpdater> metadataUpdater;
+    private Supplier<Boolean> isDriverDone;
 
-    private PageSinkContext(boolean commitRequired, Optional<ConnectorMetadataUpdater> metadataUpdater)
+    private PageSinkContext(boolean commitRequired,
+                            Optional<ConnectorMetadataUpdater> metadataUpdater,
+                            Supplier<Boolean> isDriverDone)
     {
         this.commitRequired = commitRequired;
         this.metadataUpdater = metadataUpdater;
+        this.isDriverDone = isDriverDone;
     }
 
     public static PageSinkContext defaultContext()
@@ -45,6 +50,11 @@ public class PageSinkContext
         return metadataUpdater;
     }
 
+    public boolean isDriverDone()
+    {
+        return isDriverDone.get();
+    }
+
     public static Builder builder()
     {
         return new Builder();
@@ -54,6 +64,7 @@ public class PageSinkContext
     {
         private boolean commitRequired;
         private Optional<ConnectorMetadataUpdater> metadataUpdater = Optional.empty();
+        private Supplier<Boolean> isDriverDone;
 
         public Builder setCommitRequired(boolean commitRequired)
         {
@@ -67,9 +78,15 @@ public class PageSinkContext
             return this;
         }
 
+        public Builder setDriverDone(Supplier<Boolean> isDriverDone)
+        {
+            this.isDriverDone = isDriverDone;
+            return this;
+        }
+
         public PageSinkContext build()
         {
-            return new PageSinkContext(commitRequired, metadataUpdater);
+            return new PageSinkContext(commitRequired, metadataUpdater, isDriverDone);
         }
     }
 }

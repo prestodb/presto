@@ -27,6 +27,7 @@ import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PageIndexer;
 import com.facebook.presto.spi.PageIndexerFactory;
+import com.facebook.presto.spi.PageSinkContext;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -112,6 +113,7 @@ public class HivePageSink
     private long validationCpuNanos;
 
     private boolean waitForFileRenaming;
+    private PageSinkContext pageSinkContext;
 
     public HivePageSink(
             HiveWriterFactory writerFactory,
@@ -127,7 +129,8 @@ public class HivePageSink
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             SmileCodec<PartitionUpdate> partitionUpdateSmileCodec,
             ConnectorSession session,
-            HiveMetadataUpdater hiveMetadataUpdater)
+            HiveMetadataUpdater hiveMetadataUpdater,
+            PageSinkContext pageSinkContext)
     {
         this.writerFactory = requireNonNull(writerFactory, "writerFactory is null");
 
@@ -200,6 +203,7 @@ public class HivePageSink
         this.session = requireNonNull(session, "session is null");
         this.hiveMetadataUpdater = requireNonNull(hiveMetadataUpdater, "hiveMetadataUpdater is null");
         this.fileRenamingEnabled = isFileRenamingEnabled(session);
+        this.pageSinkContext = requireNonNull(pageSinkContext, "pageSinkContext is null");
     }
 
     @Override
@@ -355,6 +359,13 @@ public class HivePageSink
         writePage(page);
     }
 
+    private void isDriverDone()
+    {
+        if (pageSinkContext.isDriverDone()) {
+            throw new RuntimeException("Driver is done.");
+        }
+    }
+
     private void writePage(Page page)
     {
         int[] writerIndexes = getWriterIndexes(page);
@@ -370,6 +381,7 @@ public class HivePageSink
         int[] counts = new int[writers.size()];
 
         for (int position = 0; position < page.getPositionCount(); position++) {
+            isDriverDone();
             int index = writerIndexes[position];
 
             int count = counts[index];
@@ -479,6 +491,7 @@ public class HivePageSink
 
         // create missing writers
         for (int position = 0; position < page.getPositionCount(); position++) {
+            isDriverDone();
             int writerIndex = writerIndexes[position];
             if (writers.get(writerIndex) != null) {
                 continue;

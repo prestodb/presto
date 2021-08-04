@@ -336,7 +336,16 @@ public abstract class AbstractTestHiveClient
     protected static final String TEST_SERVER_VERSION = "test_version";
 
     protected static final Executor EXECUTOR = Executors.newFixedThreadPool(5);
-    protected static final PageSinkContext TEST_HIVE_PAGE_SINK_CONTEXT = PageSinkContext.builder().setCommitRequired(false).setConnectorMetadataUpdater(new HiveMetadataUpdater(EXECUTOR)).build();
+    protected static final PageSinkContext TEST_HIVE_PAGE_SINK_CONTEXT = PageSinkContext.builder()
+            .setCommitRequired(false)
+            .setConnectorMetadataUpdater(new HiveMetadataUpdater(EXECUTOR))
+            .setDriverDone(() -> false)
+            .build();
+    protected static final PageSinkContext TEST_HIVE_PAGE_SINK_CONTEXT_COMMIT_REQUIRED = PageSinkContext.builder()
+            .setCommitRequired(true)
+            .setConnectorMetadataUpdater(new HiveMetadataUpdater(EXECUTOR))
+            .setDriverDone(() -> false)
+            .build();
 
     private static final Type ARRAY_TYPE = arrayType(createUnboundedVarcharType());
     private static final Type MAP_TYPE = mapType(createUnboundedVarcharType(), BIGINT);
@@ -2742,7 +2751,7 @@ public abstract class AbstractTestHiveClient
             SchemaTableName temporaryCreateTableForPageSinkCommit = temporaryTable("create_table_page_sink_commit");
             try {
                 doCreateTable(temporaryCreateTable, storageFormat, TEST_HIVE_PAGE_SINK_CONTEXT);
-                doCreateTable(temporaryCreateTableForPageSinkCommit, storageFormat, PageSinkContext.builder().setCommitRequired(true).setConnectorMetadataUpdater(new HiveMetadataUpdater(EXECUTOR)).build());
+                doCreateTable(temporaryCreateTableForPageSinkCommit, storageFormat, TEST_HIVE_PAGE_SINK_CONTEXT_COMMIT_REQUIRED);
             }
             finally {
                 dropTable(temporaryCreateTable);
@@ -3056,7 +3065,7 @@ public abstract class AbstractTestHiveClient
             SchemaTableName temporaryInsertTableForPageSinkCommit = temporaryTable("insert_table_page_sink_commit");
             try {
                 doInsert(storageFormat, temporaryInsertTable, TEST_HIVE_PAGE_SINK_CONTEXT);
-                doInsert(storageFormat, temporaryInsertTableForPageSinkCommit, PageSinkContext.builder().setCommitRequired(true).setConnectorMetadataUpdater(new HiveMetadataUpdater(EXECUTOR)).build());
+                doInsert(storageFormat, temporaryInsertTableForPageSinkCommit, TEST_HIVE_PAGE_SINK_CONTEXT_COMMIT_REQUIRED);
             }
             finally {
                 dropTable(temporaryInsertTable);
@@ -3074,7 +3083,7 @@ public abstract class AbstractTestHiveClient
             SchemaTableName temporaryInsertIntoNewPartitionTableForPageSinkCommit = temporaryTable("insert_new_partitioned_page_sink_commit");
             try {
                 doInsertIntoNewPartition(storageFormat, temporaryInsertIntoNewPartitionTable, TEST_HIVE_PAGE_SINK_CONTEXT);
-                doInsertIntoNewPartition(storageFormat, temporaryInsertIntoNewPartitionTableForPageSinkCommit, PageSinkContext.builder().setCommitRequired(true).setConnectorMetadataUpdater(new HiveMetadataUpdater(EXECUTOR)).build());
+                doInsertIntoNewPartition(storageFormat, temporaryInsertIntoNewPartitionTableForPageSinkCommit, TEST_HIVE_PAGE_SINK_CONTEXT_COMMIT_REQUIRED);
             }
             finally {
                 dropTable(temporaryInsertIntoNewPartitionTable);
@@ -3092,7 +3101,7 @@ public abstract class AbstractTestHiveClient
             SchemaTableName temporaryInsertIntoExistingPartitionTableForPageSinkCommit = temporaryTable("insert_existing_partitioned_page_sink_commit");
             try {
                 doInsertIntoExistingPartition(storageFormat, temporaryInsertIntoExistingPartitionTable, TEST_HIVE_PAGE_SINK_CONTEXT);
-                doInsertIntoExistingPartition(storageFormat, temporaryInsertIntoExistingPartitionTableForPageSinkCommit, PageSinkContext.builder().setCommitRequired(true).setConnectorMetadataUpdater(new HiveMetadataUpdater(EXECUTOR)).build());
+                doInsertIntoExistingPartition(storageFormat, temporaryInsertIntoExistingPartitionTableForPageSinkCommit, TEST_HIVE_PAGE_SINK_CONTEXT_COMMIT_REQUIRED);
             }
             finally {
                 dropTable(temporaryInsertIntoExistingPartitionTable);
