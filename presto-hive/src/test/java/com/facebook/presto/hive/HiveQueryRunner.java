@@ -235,7 +235,6 @@ public final class HiveQueryRunner
                         .put("colocated-joins-enabled", "true")
                         .put("grouped-execution-enabled", "true")
                         .put("experimental.spill-enabled", "true")
-                        .put("experimental.join-spill-enabled", "true")
                         .put("experimental.spiller-spill-path", Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills").toString())
                         .put("experimental.spiller-max-used-space-threshold", "1.0")
                         .put("experimental.memory-revoking-threshold", "0.0") // revoke always
