@@ -27,7 +27,7 @@ By default, Presto kills queries if the memory requested by the query execution
 exceeds session properties ``query_max_memory`` or
 ``query_max_memory_per_node``. This mechanism ensures fairness in allocation
 of memory to queries and prevents deadlock caused by memory allocation.
-It is efficient when there is a lot of small queries in the cluster, but
+It is efficient when there are a lot of small queries in the cluster, but
 leads to killing large queries that don't stay within the limits.
 
 To overcome this inefficiency, the concept of revocable memory was introduced. A
@@ -43,8 +43,15 @@ use disk as storage for intermediate data. A query that is forced to spill to
 disk may have a longer execution time by orders of magnitude than a query that
 runs completely in memory.
 
+In order to achieve more consistent query performance while still allowing larger
+queries to take advantage of spill-to-disk, ``experimental.query-limit-spill-enabled``
+can be set to ``true``. This property will trigger spilling for a query whenever its
+memory usage exceeds the per-node total memory limit, even if the memory pool is not
+full. See :ref:`tuning-spilling` for more information.
+
 Please note that enabling spill-to-disk does not guarantee execution of all
-memory intensive queries. It is still possible that the query runner will fail
+memory intensive queries. There are some memory-intensive operations that do
+not support spilling yet. It is also still possible that the query runner will fail
 to divide intermediate data into chunks small enough that every chunk fits into
 memory, leading to ``Out of memory`` errors while loading the data from disk.
 
@@ -145,3 +152,19 @@ value. If the number of groups you're aggregating over is large, a significant
 amount of memory may be needed. When spill-to-disk is enabled, if there is not
 enough memory, intermediate cumulated aggregation results are written to disk.
 They are loaded back and merged when memory is available.
+
+Windows
+^^^^^^^
+
+Window functions perform an operation over groups of rows and return one value per-row.
+If the number of rows in your window is large, a significant amount of memory may be needed.
+When spill-to-disk is enabled, if there is not enough memory, then intermediate results
+are written to disk and read back as each window is processed. If a single window is too
+large, the query can still run out of memory.
+
+Order Bys
+^^^^^^^^^
+
+Order by can use a lot of memory when there are many rows that need to be sorted.
+When spill-to-disk is enabled, if there is not enough memory, then sorted rows are written
+to disk and then later merged back together in memory.
