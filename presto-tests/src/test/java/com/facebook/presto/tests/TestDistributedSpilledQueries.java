@@ -43,7 +43,6 @@ public class TestDistributedSpilledQueries
                 .setSchema(TINY_SCHEMA_NAME)
                 .setSystemProperty(SystemSessionProperties.TASK_CONCURRENCY, "2")
                 .setSystemProperty(SystemSessionProperties.SPILL_ENABLED, "true")
-                .setSystemProperty(SystemSessionProperties.JOIN_SPILL_ENABLED, "true")
                 .setSystemProperty(SystemSessionProperties.AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT, "128kB")
                 .setSystemProperty(SystemSessionProperties.USE_MARK_DISTINCT, "false")
                 .build();
