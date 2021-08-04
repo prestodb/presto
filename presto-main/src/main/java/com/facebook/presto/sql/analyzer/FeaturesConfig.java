@@ -123,7 +123,7 @@ public class FeaturesConfig
     private ArrayAggGroupImplementation arrayAggGroupImplementation = ArrayAggGroupImplementation.NEW;
     private MultimapAggGroupImplementation multimapAggGroupImplementation = MultimapAggGroupImplementation.NEW;
     private boolean spillEnabled;
-    private boolean joinSpillingEnabled;
+    private boolean joinSpillingEnabled = true;
     private boolean distinctAggregationSpillEnabled = true;
     private boolean orderByAggregationSpillEnabled = true;
     private DataSize aggregationOperatorUnspillMemoryLimit = new DataSize(4, DataSize.Unit.MEGABYTE);
@@ -927,12 +927,6 @@ public class FeaturesConfig
     public boolean isOrderByAggregationSpillEnabled()
     {
         return orderByAggregationSpillEnabled;
-    }
-
-    @AssertTrue(message = "If " + JOIN_SPILL_ENABLED + " is set to true, spilling must be enabled " + SPILL_ENABLED)
-    public boolean isSpillEnabledIfJoinSpillingIsEnabled()
-    {
-        return !isJoinSpillingEnabled() || isSpillEnabled();
     }
 
     public boolean isIterativeOptimizerEnabled()
