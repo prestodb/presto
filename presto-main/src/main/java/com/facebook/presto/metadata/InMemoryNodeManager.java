@@ -112,8 +112,8 @@ public class InMemoryNodeManager
                 ImmutableSet.<InternalNode>builder().add(localNode).addAll(remoteNodes.values()).build(),
                 ImmutableSet.of(),
                 ImmutableSet.of(),
-                concat(Stream.of(localNode), remoteNodes.values().stream().filter(InternalNode::isCoordinator)).collect(toImmutableSet()),
-                concat(Stream.of(localNode), remoteNodes.values().stream().filter(InternalNode::isResourceManager)).collect(toImmutableSet()));
+                concat(Stream.of(localNode), remoteNodes.values().stream()).collect(toImmutableSet()).stream().filter(InternalNode::isCoordinator).collect(toImmutableSet()),
+                concat(Stream.of(localNode), remoteNodes.values().stream()).collect(toImmutableSet()).stream().filter(InternalNode::isResourceManager).collect(toImmutableSet()));
     }
 
     @Override
