@@ -17,9 +17,9 @@ import com.facebook.presto.Session;
 import com.facebook.presto.testing.QueryRunner;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.SystemSessionProperties.AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT;
 import static com.facebook.presto.SystemSessionProperties.DISTINCT_AGGREGATION_SPILL_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.ORDER_BY_AGGREGATION_SPILL_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_REVOCABLE_MEMORY_PER_NODE;
 
 public class TestSpilledAggregations
         extends AbstractTestAggregations
@@ -43,10 +43,10 @@ public class TestSpilledAggregations
         Session session = Session.builder(getSession())
                 .setSystemProperty(ORDER_BY_AGGREGATION_SPILL_ENABLED, "false")
                 // set this low so that if we ran with spill the query would fail
-                .setSystemProperty(AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT, "1B")
+                .setSystemProperty(QUERY_MAX_REVOCABLE_MEMORY_PER_NODE, "1B")
                 .build();
         assertQuery(session,
-                "SELECT orderpriority, custkey, array_agg(orderstatus ORDER BY orderstatus) FROM orders GROUP BY orderpriority, custkey ORDER BY 1, 2");
+                "SELECT orderpriority, custkey, array_agg(orderstatus ORDER BY orderstatus) FROM orders GROUP BY orderpriority, custkey");
     }
 
     @Test
@@ -73,11 +73,11 @@ public class TestSpilledAggregations
         Session session = Session.builder(getSession())
                 .setSystemProperty(DISTINCT_AGGREGATION_SPILL_ENABLED, "false")
                 // set this low so that if we ran with spill the query would fail
-                .setSystemProperty(AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT, "1B")
+                .setSystemProperty(QUERY_MAX_REVOCABLE_MEMORY_PER_NODE, "1B")
                 .build();
         // the sum() is necessary so that the aggregation isn't optimized into multiple aggregation nodes
         assertQuery(session,
-                "SELECT custkey, sum(custkey), count(DISTINCT orderpriority) FILTER(WHERE orderkey > 5) FROM orders GROUP BY custkey ORDER BY 1");
+                "SELECT custkey, sum(custkey), count(DISTINCT orderpriority) FROM orders GROUP BY custkey");
     }
 
     @Test
