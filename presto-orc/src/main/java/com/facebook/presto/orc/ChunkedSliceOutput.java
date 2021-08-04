@@ -14,6 +14,7 @@
 package com.facebook.presto.orc;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
@@ -107,7 +108,7 @@ public final class ChunkedSliceOutput
     @Override
     public long getRetainedSize()
     {
-        return slice.getRetainedSize() + closedSlicesRetainedSize + INSTANCE_SIZE;
+        return slice.getRetainedSize() + chunkSupplier.getBufferPollSize() + closedSlicesRetainedSize + INSTANCE_SIZE;
     }
 
     @Override
@@ -351,6 +352,7 @@ public final class ChunkedSliceOutput
         private final List<byte[]> usedBuffers = new ArrayList<>();
 
         private int currentSize;
+        private long bufferPollSize;
 
         public ChunkSupplier(int minChunkSize, int maxChunkSize)
         {
@@ -365,6 +367,9 @@ public final class ChunkedSliceOutput
         public void reset()
         {
             bufferPool.addAll(0, usedBuffers);
+            for (byte[] b : bufferPool) {
+                bufferPollSize += SizeOf.sizeOf(b);
+            }
             usedBuffers.clear();
         }
 
@@ -377,10 +382,16 @@ public final class ChunkedSliceOutput
             }
             else {
                 buffer = bufferPool.remove(0);
+                bufferPollSize -= SizeOf.sizeOf(buffer);
                 currentSize = buffer.length;
             }
             usedBuffers.add(buffer);
             return buffer;
+        }
+
+        public long getBufferPollSize()
+        {
+            return bufferPollSize;
         }
     }
 }
