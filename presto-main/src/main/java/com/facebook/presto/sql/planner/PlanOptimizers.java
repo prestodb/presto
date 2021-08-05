@@ -404,7 +404,7 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableSet.of(new RewriteAggregationIfToFilter())),
+                        ImmutableSet.of(new RewriteAggregationIfToFilter(metadata.getFunctionAndTypeManager()))),
                 predicatePushDown,
                 new IterativeOptimizer(
                         ruleStats,

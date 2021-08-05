@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.Assignments;
@@ -47,6 +48,7 @@ import static com.facebook.presto.sql.planner.plan.Patterns.project;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.ImmutableSortedMap.toImmutableSortedMap;
+import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
 /**
@@ -67,6 +69,13 @@ public class RewriteAggregationIfToFilter
 
     private static final Pattern<AggregationNode> PATTERN = aggregation()
             .with(source().matching(project().capturedAs(CHILD)));
+
+    private final FunctionAndTypeManager functionAndTypeManager;
+
+    public RewriteAggregationIfToFilter(FunctionAndTypeManager functionAndTypeManager)
+    {
+        this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
+    }
 
     @Override
     public boolean isEnabled(Session session)
@@ -178,6 +187,10 @@ public class RewriteAggregationIfToFilter
 
     private boolean shouldRewriteAggregation(Aggregation aggregation, ProjectNode sourceProject)
     {
+        if (functionAndTypeManager.getFunctionMetadata(aggregation.getFunctionHandle()).isCalledOnNullInput()) {
+            // This rewrite will filter out the null values. It could change the behavior if the aggregation is also applied on NULLs.
+            return false;
+        }
         if (!(aggregation.getArguments().size() == 1 && aggregation.getArguments().get(0) instanceof VariableReferenceExpression)) {
             // Currently we only handle aggregation with a single VariableReferenceExpression. The detailed expressions are in a project node below this aggregation.
             return false;
@@ -191,7 +204,7 @@ public class RewriteAggregationIfToFilter
             return false;
         }
         SpecialFormExpression expression = (SpecialFormExpression) sourceExpression;
-        // Only rewrite the aggregation if the else branch is not present.
+        // Only rewrite the aggregation if the else branch is not present or the else result is NULL.
         return expression.getForm() == IF && Expressions.isNull(expression.getArguments().get(2));
     }
 }

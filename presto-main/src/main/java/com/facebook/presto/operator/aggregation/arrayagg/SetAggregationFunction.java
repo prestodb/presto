@@ -83,6 +83,12 @@ public class SetAggregationFunction
         return generateAggregation(type, outputType);
     }
 
+    @Override
+    public boolean isCalledOnNullInput()
+    {
+        return true;
+    }
+
     private static InternalAggregationFunction generateAggregation(Type type, ArrayType outputType)
     {
         DynamicClassLoader classLoader = new DynamicClassLoader(SetAggregationFunction.class.getClassLoader());

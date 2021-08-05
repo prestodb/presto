@@ -44,7 +44,7 @@ public class TestRewriteAggregationIfToFilter
     public void testDoesNotFireForNonIf()
     {
         // The aggregation expression is not an if expression.
-        tester().assertThat(new RewriteAggregationIfToFilter())
+        tester().assertThat(new RewriteAggregationIfToFilter(getFunctionManager()))
                 .on(p -> {
                     VariableReferenceExpression a = p.variable("a", BooleanType.BOOLEAN);
                     VariableReferenceExpression ds = p.variable("ds", VARCHAR);
@@ -60,7 +60,7 @@ public class TestRewriteAggregationIfToFilter
     public void testDoesNotFireForIfWithElse()
     {
         // The if expression has an else branch. We cannot rewrite it.
-        tester().assertThat(new RewriteAggregationIfToFilter())
+        tester().assertThat(new RewriteAggregationIfToFilter(getFunctionManager()))
                 .on(p -> {
                     VariableReferenceExpression a = p.variable("a");
                     VariableReferenceExpression ds = p.variable("ds", VARCHAR);
@@ -75,7 +75,7 @@ public class TestRewriteAggregationIfToFilter
     @Test
     public void testFireOneAggregation()
     {
-        tester().assertThat(new RewriteAggregationIfToFilter())
+        tester().assertThat(new RewriteAggregationIfToFilter(getFunctionManager()))
                 .on(p -> {
                     VariableReferenceExpression a = p.variable("a");
                     VariableReferenceExpression ds = p.variable("ds", VARCHAR);
@@ -104,7 +104,7 @@ public class TestRewriteAggregationIfToFilter
     @Test
     public void testFireTwoAggregations()
     {
-        tester().assertThat(new RewriteAggregationIfToFilter())
+        tester().assertThat(new RewriteAggregationIfToFilter(getFunctionManager()))
                 .on(p -> {
                     VariableReferenceExpression a = p.variable("a");
                     VariableReferenceExpression b = p.variable("b");
@@ -145,7 +145,7 @@ public class TestRewriteAggregationIfToFilter
     @Test
     public void testFireTwoAggregationsWithSharedInput()
     {
-        tester().assertThat(new RewriteAggregationIfToFilter())
+        tester().assertThat(new RewriteAggregationIfToFilter(getFunctionManager()))
                 .on(p -> {
                     VariableReferenceExpression a = p.variable("a");
                     VariableReferenceExpression ds = p.variable("ds", VARCHAR);
@@ -181,7 +181,7 @@ public class TestRewriteAggregationIfToFilter
     @Test
     public void testFireForOneOfTwoAggregations()
     {
-        tester().assertThat(new RewriteAggregationIfToFilter())
+        tester().assertThat(new RewriteAggregationIfToFilter(getFunctionManager()))
                 .on(p -> {
                     VariableReferenceExpression a = p.variable("a");
                     VariableReferenceExpression b = p.variable("b");
