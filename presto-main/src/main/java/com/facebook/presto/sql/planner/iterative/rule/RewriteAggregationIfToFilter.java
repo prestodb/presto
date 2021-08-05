@@ -29,6 +29,7 @@ import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.relational.Expressions;
+import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
@@ -71,10 +72,12 @@ public class RewriteAggregationIfToFilter
             .with(source().matching(project().capturedAs(CHILD)));
 
     private final FunctionAndTypeManager functionAndTypeManager;
+    private final RowExpressionDeterminismEvaluator rowExpressionDeterminismEvaluator;
 
     public RewriteAggregationIfToFilter(FunctionAndTypeManager functionAndTypeManager)
     {
         this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
+        rowExpressionDeterminismEvaluator = new RowExpressionDeterminismEvaluator(functionAndTypeManager);
     }
 
     @Override
@@ -200,7 +203,7 @@ public class RewriteAggregationIfToFilter
             return false;
         }
         RowExpression sourceExpression = sourceProject.getAssignments().get((VariableReferenceExpression) aggregation.getArguments().get(0));
-        if (!(sourceExpression instanceof SpecialFormExpression)) {
+        if (!(sourceExpression instanceof SpecialFormExpression) || !rowExpressionDeterminismEvaluator.isDeterministic(sourceExpression)) {
             return false;
         }
         SpecialFormExpression expression = (SpecialFormExpression) sourceExpression;

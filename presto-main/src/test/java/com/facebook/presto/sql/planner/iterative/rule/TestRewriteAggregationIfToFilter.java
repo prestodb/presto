@@ -27,6 +27,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
@@ -68,6 +69,31 @@ public class TestRewriteAggregationIfToFilter
                             .addAggregation(p.variable("expr"), p.rowExpression("count(a)"))
                             .source(p.project(
                                     assignment(a, p.rowExpression("IF(ds > '2021-07-01', 1, 2)")),
+                                    p.values(ds))));
+                }).doesNotFire();
+    }
+
+    @Test
+    public void testDoesNotFireForNonDeterministicFunction()
+    {
+        tester().assertThat(new RewriteAggregationIfToFilter(getFunctionManager()))
+                .on(p -> {
+                    VariableReferenceExpression a = p.variable("a", DOUBLE);
+                    VariableReferenceExpression ds = p.variable("ds", VARCHAR);
+                    return p.aggregation(ap -> ap.globalGrouping().step(AggregationNode.Step.FINAL)
+                            .addAggregation(p.variable("expr"), p.rowExpression("sum(a)"))
+                            .source(p.project(
+                                    assignment(a, p.rowExpression("IF(ds > '2021-07-01', random())")),
+                                    p.values(ds))));
+                }).doesNotFire();
+        tester().assertThat(new RewriteAggregationIfToFilter(getFunctionManager()))
+                .on(p -> {
+                    VariableReferenceExpression a = p.variable("a", BIGINT);
+                    VariableReferenceExpression ds = p.variable("ds", VARCHAR);
+                    return p.aggregation(ap -> ap.globalGrouping().step(AggregationNode.Step.FINAL)
+                            .addAggregation(p.variable("expr"), p.rowExpression("sum(a)"))
+                            .source(p.project(
+                                    assignment(a, p.rowExpression("IF(random() > DOUBLE '0.1', 1)")),
                                     p.values(ds))));
                 }).doesNotFire();
     }
