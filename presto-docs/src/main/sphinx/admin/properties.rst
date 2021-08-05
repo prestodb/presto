@@ -162,13 +162,24 @@ Spilling Properties
 
     This config property can be overridden by the ``join_spill_enabled`` session property.
 
+``experimental.aggregation-spill-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``true``
+
+    When ``spill_enabled`` is ``true``, this determines whether Presto will try spilling memory to disk for aggregations to
+    avoid exceeding memory limits for the query.
+
+    This config property can be overridden by the ``aggregation_spill_enabled`` session property.
+
 ``experimental.distinct-aggregation-spill-enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``boolean``
     * **Default value:** ``true``
 
-    When ``spill_enabled`` is ``true``, this determines whether Presto will try spilling memory to disk for distinct
+    When ``aggregation_spill_enabled`` is ``true``, this determines whether Presto will try spilling memory to disk for distinct
     aggregations to avoid exceeding memory limits for the query.
 
     This config property can be overridden by the ``distinct_aggregation_spill_enabled`` session property.
@@ -179,10 +190,32 @@ Spilling Properties
     * **Type:** ``boolean``
     * **Default value:** ``true``
 
-    When ``spill_enabled`` is ``true``, this determines whether Presto will try spilling memory to disk for order by
+    When ``aggregation_spill_enabled`` is ``true``, this determines whether Presto will try spilling memory to disk for order by
     aggregations to avoid exceeding memory limits for the query.
 
     This config property can be overridden by the ``order_by_aggregation_spill_enabled`` session property.
+
+``experimental.window-spill-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``true``
+
+    When ``spill_enabled`` is ``true``, this determines whether Presto will try spilling memory to disk for window functions to
+    avoid exceeding memory limits for the query.
+
+    This config property can be overridden by the ``window_spill_enabled`` session property.
+
+``experimental.order-by-spill-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``true``
+
+    When ``spill_enabled`` is ``true``, this determines whether Presto will try spilling memory to disk for order by to
+    avoid exceeding memory limits for the query.
+
+    This config property can be overridden by the ``order_by_spill_enabled`` session property.
 
 ``experimental.spiller.task-spilling-strategy``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
