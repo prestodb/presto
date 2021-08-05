@@ -519,6 +519,14 @@ public class TestSqlFunctions
         assertQuerySucceeds("CREATE FUNCTION testing.test.lambda2(x array<int>) RETURNS int RETURN reduce(x, 0, (s, a) -> if (a > 0, s + a, s), s -> s)");
         assertQuerySucceeds("CREATE FUNCTION testing.test.lambda3(x array<int>) RETURNS int RETURN reduce(x, 0, (s, a) -> if (a < 0, s + a, s), s -> s)");
         assertQuery("SELECT testing.test.lambda1(array_union(x, y)), testing.test.lambda2(array_union(x, y)), testing.test.lambda3(array_union(x, y)) FROM (VALUES (array[3, 5, 0, -4, -7], array[-1, 0, 1])) t(x, y)", "SELECT -3, 9, -12");
+
+        // Test lambda referencing input
+        assertQuerySucceeds(
+                testSessionBuilder().setSystemProperty("inline_sql_functions", "true").build(),
+                "select map_normalize(m) from (values (map(array['a','b','c'], array[1,2,3])), (map(array['x','y'], array[3, 6]))) t(m)");
+        assertQuerySucceeds(
+                testSessionBuilder().setSystemProperty("inline_sql_functions", "false").build(),
+                "select map_normalize(m) from (values (map(array['a','b','c'], array[1,2,3])), (map(array['x','y'], array[3, 6]))) t(m)");
     }
 
     @Test
