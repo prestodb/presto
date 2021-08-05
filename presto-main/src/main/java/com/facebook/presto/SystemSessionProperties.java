@@ -120,6 +120,7 @@ public final class SystemSessionProperties
     public static final String QUERY_PRIORITY = "query_priority";
     public static final String SPILL_ENABLED = "spill_enabled";
     public static final String JOIN_SPILL_ENABLED = "join_spill_enabled";
+    public static final String AGGREGATION_SPILL_ENABLED = "aggregation_spill_enabled";
     public static final String DISTINCT_AGGREGATION_SPILL_ENABLED = "distinct_aggregation_spill_enabled";
     public static final String ORDER_BY_AGGREGATION_SPILL_ENABLED = "order_by_aggregation_spill_enabled";
     public static final String AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT = "aggregation_operator_unspill_memory_limit";
@@ -603,13 +604,18 @@ public final class SystemSessionProperties
                         featuresConfig.isJoinSpillingEnabled(),
                         false),
                 booleanProperty(
+                        AGGREGATION_SPILL_ENABLED,
+                        "Enable aggregate spilling if spill_enabled",
+                        featuresConfig.isAggregationSpillEnabled(),
+                        false),
+                booleanProperty(
                         DISTINCT_AGGREGATION_SPILL_ENABLED,
-                        "Enable spill for distinct aggregations if spill_enabled",
+                        "Enable spill for distinct aggregations if spill_enabled and aggregation_spill_enabled",
                         featuresConfig.isDistinctAggregationSpillEnabled(),
                         false),
                 booleanProperty(
                         ORDER_BY_AGGREGATION_SPILL_ENABLED,
-                        "Enable spill for order-by aggregations if spill_enabled",
+                        "Enable spill for order-by aggregations if spill_enabled and aggregation_spill_enabled",
                         featuresConfig.isOrderByAggregationSpillEnabled(),
                         false),
                 new PropertyMetadata<>(
@@ -1392,6 +1398,11 @@ public final class SystemSessionProperties
     public static boolean isJoinSpillingEnabled(Session session)
     {
         return session.getSystemProperty(JOIN_SPILL_ENABLED, Boolean.class) && isSpillEnabled(session);
+    }
+
+    public static boolean isAggregationSpillEnabled(Session session)
+    {
+        return session.getSystemProperty(AGGREGATION_SPILL_ENABLED, Boolean.class) && isSpillEnabled(session);
     }
 
     public static boolean isDistinctAggregationSpillEnabled(Session session)

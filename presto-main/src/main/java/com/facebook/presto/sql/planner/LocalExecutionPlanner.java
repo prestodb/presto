@@ -253,6 +253,7 @@ import static com.facebook.presto.SystemSessionProperties.getIndexLoaderTimeout;
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
 import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
+import static com.facebook.presto.SystemSessionProperties.isAggregationSpillEnabled;
 import static com.facebook.presto.SystemSessionProperties.isDistinctAggregationSpillEnabled;
 import static com.facebook.presto.SystemSessionProperties.isEnableDynamicFiltering;
 import static com.facebook.presto.SystemSessionProperties.isExchangeChecksumEnabled;
@@ -1248,6 +1249,7 @@ public class LocalExecutionPlanner
                     node,
                     source,
                     spillEnabled,
+                    isAggregationSpillEnabled(session),
                     isDistinctAggregationSpillEnabled(session),
                     isOrderByAggregationSpillEnabled(session),
                     unspillMemoryLimit,
@@ -2531,6 +2533,7 @@ public class LocalExecutionPlanner
                         false,
                         false,
                         false,
+                        false,
                         new DataSize(0, BYTE),
                         context,
                         STATS_START_CHANNEL,
@@ -2636,6 +2639,7 @@ public class LocalExecutionPlanner
                         false,
                         false,
                         false,
+                        false,
                         new DataSize(0, BYTE),
                         context,
                         STATS_START_CHANNEL,
@@ -2685,6 +2689,7 @@ public class LocalExecutionPlanner
                         Optional.empty(),
                         Optional.empty(),
                         source,
+                        false,
                         false,
                         false,
                         false,
@@ -3044,6 +3049,7 @@ public class LocalExecutionPlanner
                 AggregationNode node,
                 PhysicalOperation source,
                 boolean spillEnabled,
+                boolean aggregationSpillEnabled,
                 boolean distinctAggregationSpillEnabled,
                 boolean orderByAggregationSpillEnabled,
                 DataSize unspillMemoryLimit,
@@ -3061,6 +3067,7 @@ public class LocalExecutionPlanner
                     source,
                     node.hasDefaultOutput(),
                     spillEnabled,
+                    aggregationSpillEnabled,
                     distinctAggregationSpillEnabled,
                     orderByAggregationSpillEnabled,
                     node.isStreamable(),
@@ -3085,6 +3092,7 @@ public class LocalExecutionPlanner
                 PhysicalOperation source,
                 boolean hasDefaultOutput,
                 boolean spillEnabled,
+                boolean aggregationSpillEnabled,
                 boolean distinctSpillEnabled,
                 boolean orderBySpillEnabled,
                 boolean isStreamable,
@@ -3098,7 +3106,7 @@ public class LocalExecutionPlanner
         {
             List<VariableReferenceExpression> aggregationOutputVariables = new ArrayList<>();
             List<AccumulatorFactory> accumulatorFactories = new ArrayList<>();
-            boolean useSpill = spillEnabled && !isStreamable && (!hasDistinct(aggregations) || distinctSpillEnabled) && (!hasOrderBy(aggregations) || orderBySpillEnabled);
+            boolean useSpill = spillEnabled && aggregationSpillEnabled && !isStreamable && (!hasDistinct(aggregations) || distinctSpillEnabled) && (!hasOrderBy(aggregations) || orderBySpillEnabled);
             for (Map.Entry<VariableReferenceExpression, Aggregation> entry : aggregations.entrySet()) {
                 VariableReferenceExpression variable = entry.getKey();
                 Aggregation aggregation = entry.getValue();

@@ -124,6 +124,7 @@ public class FeaturesConfig
     private MultimapAggGroupImplementation multimapAggGroupImplementation = MultimapAggGroupImplementation.NEW;
     private boolean spillEnabled;
     private boolean joinSpillingEnabled = true;
+    private boolean aggregationSpillEnabled = true;
     private boolean distinctAggregationSpillEnabled = true;
     private boolean orderByAggregationSpillEnabled = true;
     private DataSize aggregationOperatorUnspillMemoryLimit = new DataSize(4, DataSize.Unit.MEGABYTE);
@@ -903,8 +904,21 @@ public class FeaturesConfig
         return this;
     }
 
+    @Config("experimental.aggregation-spill-enabled")
+    @ConfigDescription("Spill aggregations if spill is enabled")
+    public FeaturesConfig setAggregationSpillEnabled(boolean aggregationSpillEnabled)
+    {
+        this.aggregationSpillEnabled = aggregationSpillEnabled;
+        return this;
+    }
+
+    public boolean isAggregationSpillEnabled()
+    {
+        return aggregationSpillEnabled;
+    }
+
     @Config("experimental.distinct-aggregation-spill-enabled")
-    @ConfigDescription("Spill distinct aggregations if spill is enabled")
+    @ConfigDescription("Spill distinct aggregations if aggregation spill is enabled")
     public FeaturesConfig setDistinctAggregationSpillEnabled(boolean distinctAggregationSpillEnabled)
     {
         this.distinctAggregationSpillEnabled = distinctAggregationSpillEnabled;
@@ -917,7 +931,7 @@ public class FeaturesConfig
     }
 
     @Config("experimental.order-by-aggregation-spill-enabled")
-    @ConfigDescription("Spill order-by aggregations if spill is enabled")
+    @ConfigDescription("Spill order-by aggregations if aggregation spill is enabled")
     public FeaturesConfig setOrderByAggregationSpillEnabled(boolean orderByAggregationSpillEnabled)
     {
         this.orderByAggregationSpillEnabled = orderByAggregationSpillEnabled;
