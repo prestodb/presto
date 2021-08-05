@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.jdbc.optimization;
 
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.plugin.jdbc.JdbcClient;
 import com.facebook.presto.plugin.jdbc.optimization.function.OperatorTranslators;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
@@ -31,6 +32,8 @@ import static java.util.Objects.requireNonNull;
 public class JdbcPlanOptimizerProvider
         implements ConnectorPlanOptimizerProvider
 {
+    private final JdbcClient jdbcClient;
+    private final TypeManager typeManager;
     private final FunctionMetadataManager functionManager;
     private final StandardFunctionResolution functionResolution;
     private final DeterminismEvaluator determinismEvaluator;
@@ -40,11 +43,14 @@ public class JdbcPlanOptimizerProvider
     @Inject
     public JdbcPlanOptimizerProvider(
             JdbcClient jdbcClient,
+            TypeManager typeManager,
             FunctionMetadataManager functionManager,
             StandardFunctionResolution functionResolution,
             DeterminismEvaluator determinismEvaluator,
             ExpressionOptimizer expressionOptimizer)
     {
+        this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.functionManager = requireNonNull(functionManager, "functionManager is null");
         this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
         this.determinismEvaluator = requireNonNull(determinismEvaluator, "determinismEvaluator is null");
@@ -55,19 +61,21 @@ public class JdbcPlanOptimizerProvider
     @Override
     public Set<ConnectorPlanOptimizer> getLogicalPlanOptimizers()
     {
-        return ImmutableSet.of();
-    }
-
-    @Override
-    public Set<ConnectorPlanOptimizer> getPhysicalPlanOptimizers()
-    {
         return ImmutableSet.of(new JdbcComputePushdown(
+                jdbcClient,
+                typeManager,
                 functionManager,
                 functionResolution,
                 determinismEvaluator,
                 expressionOptimizer,
                 identifierQuote,
                 getFunctionTranslators()));
+    }
+
+    @Override
+    public Set<ConnectorPlanOptimizer> getPhysicalPlanOptimizers()
+    {
+        return ImmutableSet.of();
     }
 
     private Set<Class<?>> getFunctionTranslators()

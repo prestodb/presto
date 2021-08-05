@@ -14,7 +14,7 @@
 package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.presto.common.predicate.TupleDomain;
-import com.facebook.presto.plugin.jdbc.optimization.JdbcExpression;
+import com.facebook.presto.plugin.jdbc.optimization.JdbcQueryGeneratorContext;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
@@ -39,7 +39,7 @@ public class JdbcSplit
     private final String schemaName;
     private final String tableName;
     private final TupleDomain<ColumnHandle> tupleDomain;
-    private final Optional<JdbcExpression> additionalPredicate;
+    private final Optional<JdbcQueryGeneratorContext> context;
 
     @JsonCreator
     public JdbcSplit(
@@ -48,14 +48,14 @@ public class JdbcSplit
             @JsonProperty("schemaName") @Nullable String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> tupleDomain,
-            @JsonProperty("additionalProperty") Optional<JdbcExpression> additionalPredicate)
+            @JsonProperty("context") Optional<JdbcQueryGeneratorContext> context)
     {
         this.connectorId = requireNonNull(connectorId, "connector id is null");
         this.catalogName = catalogName;
         this.schemaName = schemaName;
         this.tableName = requireNonNull(tableName, "table name is null");
         this.tupleDomain = requireNonNull(tupleDomain, "tupleDomain is null");
-        this.additionalPredicate = requireNonNull(additionalPredicate, "additionalPredicate is null");
+        this.context = requireNonNull(context, "context is null");
     }
 
     @JsonProperty
@@ -91,9 +91,9 @@ public class JdbcSplit
     }
 
     @JsonProperty
-    public Optional<JdbcExpression> getAdditionalPredicate()
+    public Optional<JdbcQueryGeneratorContext> getContext()
     {
-        return additionalPredicate;
+        return context;
     }
 
     @Override

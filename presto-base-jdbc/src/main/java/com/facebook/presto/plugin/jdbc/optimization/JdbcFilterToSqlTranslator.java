@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.jdbc.optimization;
 
+import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.CharType;
@@ -27,6 +28,7 @@ import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.expressions.translator.FunctionTranslator;
 import com.facebook.presto.expressions.translator.RowExpressionTranslator;
@@ -34,11 +36,14 @@ import com.facebook.presto.expressions.translator.RowExpressionTreeTranslator;
 import com.facebook.presto.expressions.translator.TranslatedExpression;
 import com.facebook.presto.plugin.jdbc.JdbcColumnHandle;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
+import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.base.Joiner;
@@ -48,6 +53,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.common.function.OperatorType.IS_DISTINCT_FROM;
 import static com.facebook.presto.expressions.translator.TranslatedExpression.untranslated;
 import static com.facebook.presto.plugin.jdbc.optimization.function.JdbcTranslationUtil.mergeSqlBodies;
 import static com.facebook.presto.plugin.jdbc.optimization.function.JdbcTranslationUtil.mergeVariableBindings;
@@ -58,14 +64,23 @@ import static java.util.Objects.requireNonNull;
 public class JdbcFilterToSqlTranslator
         extends RowExpressionTranslator<JdbcExpression, Map<VariableReferenceExpression, ColumnHandle>>
 {
+    private final TypeManager typeManager;
     private final FunctionMetadataManager functionMetadataManager;
     private final FunctionTranslator<JdbcExpression> functionTranslator;
+    private final StandardFunctionResolution standardFunctionResolution;
     private final String quote;
 
-    public JdbcFilterToSqlTranslator(FunctionMetadataManager functionMetadataManager, FunctionTranslator<JdbcExpression> functionTranslator, String quote)
+    public JdbcFilterToSqlTranslator(
+            TypeManager typeManager,
+            FunctionMetadataManager functionMetadataManager,
+            FunctionTranslator<JdbcExpression> functionTranslator,
+            StandardFunctionResolution standardFunctionResolution,
+            String quote)
     {
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.functionMetadataManager = requireNonNull(functionMetadataManager, "functionMetadataManager is null");
         this.functionTranslator = requireNonNull(functionTranslator, "functionTranslator is null");
+        this.standardFunctionResolution = requireNonNull(standardFunctionResolution, "standardFunctionResolution is null");
         this.quote = requireNonNull(quote, "quote is null");
     }
 
@@ -108,12 +123,98 @@ public class JdbcFilterToSqlTranslator
         FunctionMetadata functionMetadata = functionMetadataManager.getFunctionMetadata(call.getFunctionHandle());
 
         try {
-            return functionTranslator.translate(functionMetadata, call, translatedExpressions);
+            TranslatedExpression<JdbcExpression> translate = functionTranslator.translate(functionMetadata, call, translatedExpressions);
+            if (translate.getTranslated().isPresent()) {
+                return translate;
+            }
+
+            FunctionHandle functionHandle = call.getFunctionHandle();
+
+            if (standardFunctionResolution.isCastFunction(functionHandle)) {
+                return handleCast(call, context, rowExpressionTreeTranslator);
+            }
+
+            if (standardFunctionResolution.isBetweenFunction(functionHandle)) {
+                return handleBetween(call, context, rowExpressionTreeTranslator);
+            }
+
+            Optional<OperatorType> operatorTypeOptional = functionMetadata.getOperatorType();
+            if (operatorTypeOptional.isPresent()) {
+                OperatorType operatorType = operatorTypeOptional.get();
+                if (operatorType.isArithmeticOperator() || operatorType.isComparisonOperator()) {
+                    if (operatorType == IS_DISTINCT_FROM) {
+                        return untranslated(call);
+                    }
+
+                    List<JdbcExpression> translatedArguments = translatedExpressions.stream()
+                            .map(TranslatedExpression::getTranslated)
+                            .map(Optional::get)
+                            .collect(toImmutableList());
+
+                    if (translatedArguments.size() != 2) {
+                        return untranslated(call, translatedExpressions);
+                    }
+
+                    List<String> sqlBodies = mergeSqlBodies(translatedArguments);
+                    List<ConstantExpression> variableBindings = mergeVariableBindings(translatedArguments);
+                    String arithmeticOperator = String.format(" %s ", operatorType.getOperator());
+                    return new TranslatedExpression<>(
+                            Optional.of(new JdbcExpression(format("%s", Joiner.on(arithmeticOperator).join(sqlBodies)), variableBindings)),
+                            call,
+                            translatedExpressions);
+                }
+            }
         }
         catch (Throwable t) {
             // no-op
         }
         return untranslated(call, translatedExpressions);
+    }
+
+    private TranslatedExpression<JdbcExpression> handleCast(CallExpression cast,
+            Map<VariableReferenceExpression, ColumnHandle> context,
+            RowExpressionTreeTranslator<JdbcExpression, Map<VariableReferenceExpression, ColumnHandle>> rowExpressionTreeTranslator)
+    {
+        if (cast.getArguments().size() == 1) {
+            RowExpression input = cast.getArguments().get(0);
+            Type expectedType = cast.getType();
+            if (typeManager.canCoerce(input.getType(), expectedType)) {
+                return rowExpressionTreeTranslator.rewrite(input, context);
+            }
+        }
+
+        return untranslated(cast);
+    }
+
+    private TranslatedExpression<JdbcExpression> handleBetween(CallExpression between,
+            Map<VariableReferenceExpression, ColumnHandle> context,
+            RowExpressionTreeTranslator<JdbcExpression, Map<VariableReferenceExpression, ColumnHandle>> rowExpressionTreeTranslator)
+    {
+        if (between.getArguments().size() == 3) {
+            List<TranslatedExpression<JdbcExpression>> translatedExpressions = between.getArguments().stream()
+                    .map(expression -> rowExpressionTreeTranslator.rewrite(expression, context))
+                    .collect(toImmutableList());
+
+            List<JdbcExpression> jdbcExpressions = translatedExpressions.stream()
+                    .map(TranslatedExpression::getTranslated)
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    .collect(toImmutableList());
+
+            if (jdbcExpressions.size() < translatedExpressions.size()) {
+                return untranslated(between, translatedExpressions);
+            }
+
+            List<String> sqlBodies = mergeSqlBodies(jdbcExpressions);
+            List<ConstantExpression> variableBindings = mergeVariableBindings(jdbcExpressions);
+
+            return new TranslatedExpression<>(
+                    Optional.of(new JdbcExpression(format("(%s BETWEEN %s)", sqlBodies.get(0), Joiner.on(" AND ").join(sqlBodies.subList(1, sqlBodies.size()))), variableBindings)),
+                    between,
+                    translatedExpressions);
+        }
+
+        return untranslated(between);
     }
 
     @Override
@@ -137,6 +238,11 @@ public class JdbcFilterToSqlTranslator
         List<ConstantExpression> variableBindings = mergeVariableBindings(jdbcExpressions);
 
         switch (specialForm.getForm()) {
+            case IS_NULL:
+                return new TranslatedExpression<>(
+                        Optional.of(new JdbcExpression(format("(%s IS NULL)", sqlBodies.get(0)))),
+                        specialForm,
+                        translatedExpressions);
             case AND:
                 return new TranslatedExpression<>(
                         Optional.of(new JdbcExpression(format("(%s)", Joiner.on(" AND ").join(sqlBodies)), variableBindings)),

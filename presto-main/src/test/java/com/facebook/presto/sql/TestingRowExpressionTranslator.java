@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
@@ -63,6 +64,11 @@ public class TestingRowExpressionTranslator
         return translateAndOptimize(expression, getExpressionTypes(expression, typeProvider));
     }
 
+    public RowExpression translateAndOptimize(Expression expression, TypeProvider typeProvider, Session session)
+    {
+        return translateAndOptimize(expression, getExpressionTypes(expression, typeProvider, session), session);
+    }
+
     public RowExpression translate(String sql, Map<String, Type> types)
     {
         return translate(ExpressionUtils.rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(sql)), TypeProvider.viewOf(types));
@@ -80,9 +86,14 @@ public class TestingRowExpressionTranslator
 
     public RowExpression translateAndOptimize(Expression expression, Map<NodeRef<Expression>, Type> types)
     {
-        RowExpression rowExpression = SqlToRowExpressionTranslator.translate(expression, types, ImmutableMap.of(), metadata.getFunctionAndTypeManager(), TEST_SESSION);
+        return translateAndOptimize(expression, types, TEST_SESSION);
+    }
+
+    public RowExpression translateAndOptimize(Expression expression, Map<NodeRef<Expression>, Type> types, Session session)
+    {
+        RowExpression rowExpression = SqlToRowExpressionTranslator.translate(expression, types, ImmutableMap.of(), metadata.getFunctionAndTypeManager(), session);
         RowExpressionOptimizer optimizer = new RowExpressionOptimizer(metadata);
-        return optimizer.optimize(rowExpression, OPTIMIZED, TEST_SESSION.toConnectorSession());
+        return optimizer.optimize(rowExpression, OPTIMIZED, session.toConnectorSession());
     }
 
     Expression simplifyExpression(Expression expression)
@@ -97,9 +108,14 @@ public class TestingRowExpressionTranslator
 
     private Map<NodeRef<Expression>, Type> getExpressionTypes(Expression expression, TypeProvider typeProvider)
     {
+        return getExpressionTypes(expression, typeProvider, TEST_SESSION);
+    }
+
+    private Map<NodeRef<Expression>, Type> getExpressionTypes(Expression expression, TypeProvider typeProvider, Session session)
+    {
         ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
                 metadata.getFunctionAndTypeManager(),
-                TEST_SESSION,
+                session,
                 typeProvider,
                 emptyList(),
                 node -> new IllegalStateException("Unexpected node: %s" + node),

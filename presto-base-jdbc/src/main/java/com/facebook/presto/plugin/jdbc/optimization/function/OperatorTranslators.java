@@ -20,6 +20,7 @@ import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
 
 import static com.facebook.presto.common.function.OperatorType.ADD;
+import static com.facebook.presto.common.function.OperatorType.CAST;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.common.function.OperatorType.SUBTRACT;
@@ -65,5 +66,26 @@ public class OperatorTranslators
     public static JdbcExpression not(@SqlType(StandardTypes.BOOLEAN) JdbcExpression expression)
     {
         return new JdbcExpression(String.format("(NOT(%s))", expression.getExpression()), expression.getBoundConstantValues());
+    }
+
+    @ScalarFunction("like")
+    @SqlType(StandardTypes.BOOLEAN)
+    public static JdbcExpression like(@SqlType(StandardTypes.VARCHAR) JdbcExpression left, @SqlType("LikePattern") JdbcExpression right)
+    {
+        return new JdbcExpression(infixOperation("LIKE", left, right), forwardBindVariables(left, right));
+    }
+
+    @ScalarFunction("like_pattern")
+    @SqlType("LikePattern")
+    public static JdbcExpression likePattern(@SqlType(StandardTypes.VARCHAR) JdbcExpression left, @SqlType(StandardTypes.VARCHAR) JdbcExpression right)
+    {
+        return new JdbcExpression(String.format("%s ESCAPE %s", left.getExpression(), right.getExpression()), forwardBindVariables(left, right));
+    }
+
+    @ScalarOperator(CAST)
+    @SqlType("LikePattern")
+    public static JdbcExpression cast(@SqlType(StandardTypes.VARCHAR) JdbcExpression expression)
+    {
+        return expression;
     }
 }

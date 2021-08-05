@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.mysql;
 
+import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.plugin.jdbc.BaseJdbcClient;
@@ -23,6 +24,7 @@ import com.facebook.presto.plugin.jdbc.JdbcColumnHandle;
 import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
 import com.facebook.presto.plugin.jdbc.JdbcIdentity;
 import com.facebook.presto.plugin.jdbc.JdbcTableHandle;
+import com.facebook.presto.plugin.jdbc.optimization.JdbcSortItem;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
@@ -39,8 +41,11 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.function.BiFunction;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
@@ -57,6 +62,7 @@ import static com.mysql.jdbc.SQLError.SQL_STATE_ER_TABLE_EXISTS_ERROR;
 import static com.mysql.jdbc.SQLError.SQL_STATE_SYNTAX_ERROR;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static java.util.stream.Collectors.joining;
 
 public class MySqlClient
         extends BaseJdbcClient
@@ -91,6 +97,57 @@ public class MySqlClient
                 Optional.ofNullable(config.getUserCredentialName()),
                 Optional.ofNullable(config.getPasswordCredentialName()),
                 connectionProperties);
+    }
+
+    @Override
+    protected Optional<BiFunction<String, Long, String>> limitFunction()
+    {
+        return Optional.of((sql, limit) -> sql + " LIMIT " + limit);
+    }
+
+    @Override
+    public boolean supportsTopN(List<JdbcSortItem> sortOrder)
+    {
+        for (JdbcSortItem sortItem : sortOrder) {
+            Type sortItemType = sortItem.getColumn().getColumnType();
+            if (sortItemType instanceof CharType || sortItemType instanceof VarcharType) {
+                // Remote database can be case insensitive.
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @Override
+    protected Optional<TopNFunction> topNFunction()
+    {
+        return Optional.of((query, sortItems, limit) -> {
+            String orderBy = sortItems.stream()
+                    .flatMap(sortItem -> {
+                        String ordering = sortItem.getSortOrder().isAscending() ? "ASC" : "DESC";
+                        String columnSorting = format("%s %s", quoted(sortItem.getColumn().getColumnName()), ordering);
+
+                        switch (sortItem.getSortOrder()) {
+                            case ASC_NULLS_FIRST:
+                                // In MySQL ASC implies NULLS FIRST
+                            case DESC_NULLS_LAST:
+                                // In MySQL DESC implies NULLS LAST
+                                return Stream.of(columnSorting);
+
+                            case ASC_NULLS_LAST:
+                                return Stream.of(
+                                        format("ISNULL(%s) ASC", quoted(sortItem.getColumn().getColumnName())),
+                                        columnSorting);
+                            case DESC_NULLS_FIRST:
+                                return Stream.of(
+                                        format("ISNULL(%s) DESC", quoted(sortItem.getColumn().getColumnName())),
+                                        columnSorting);
+                        }
+                        throw new UnsupportedOperationException("Unsupported sort order: " + sortItem.getSortOrder());
+                    })
+                    .collect(joining(", "));
+            return format("%s ORDER BY %s LIMIT %s", query, orderBy, limit);
+        });
     }
 
     @Override

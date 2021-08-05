@@ -15,6 +15,7 @@ package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.airlift.bootstrap.LifeCycleManager;
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.plugin.jdbc.optimization.JdbcPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
@@ -63,6 +64,7 @@ public class JdbcConnector
     private final FunctionMetadataManager functionManager;
     private final StandardFunctionResolution functionResolution;
     private final RowExpressionService rowExpressionService;
+    private final TypeManager typeManager;
     private final JdbcClient jdbcClient;
 
     @Inject
@@ -77,6 +79,7 @@ public class JdbcConnector
             FunctionMetadataManager functionManager,
             StandardFunctionResolution functionResolution,
             RowExpressionService rowExpressionService,
+            TypeManager typeManager,
             JdbcClient jdbcClient)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
@@ -89,6 +92,7 @@ public class JdbcConnector
         this.functionManager = requireNonNull(functionManager, "functionManager is null");
         this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
         this.rowExpressionService = requireNonNull(rowExpressionService, "rowExpressionService is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
     }
 
@@ -97,6 +101,7 @@ public class JdbcConnector
     {
         return new JdbcPlanOptimizerProvider(
                 jdbcClient,
+                typeManager,
                 functionManager,
                 functionResolution,
                 rowExpressionService.getDeterminismEvaluator(),

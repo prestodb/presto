@@ -19,6 +19,8 @@ import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.plugin.jdbc.optimization.JdbcQueryGeneratorContext;
+import com.facebook.presto.plugin.jdbc.optimization.JdbcSortItem;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
@@ -53,6 +55,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -137,6 +141,66 @@ public class BaseJdbcClient
     }
 
     @Override
+    public boolean supportsLimit()
+    {
+        return limitFunction().isPresent();
+    }
+
+    protected Optional<BiFunction<String, Long, String>> limitFunction()
+    {
+        return Optional.empty();
+    }
+
+    private Function<String, String> applyLimit(long limit)
+    {
+        return query -> limitFunction()
+                .orElseThrow(() -> new PrestoException(JDBC_ERROR, "limitFunction is not set!"))
+                .apply(query, limit);
+    }
+
+    @Override
+    public boolean supportsTopN(List<JdbcSortItem> sortItems)
+    {
+        if (!topNFunction().isPresent()) {
+            return false;
+        }
+        throw new UnsupportedOperationException("topNFunction() implemented without implementing supportsTopN()");
+    }
+
+    protected Optional<TopNFunction> topNFunction()
+    {
+        return Optional.empty();
+    }
+
+    private Function<String, String> applyTopN(List<JdbcSortItem> sortItems, long limit)
+    {
+        return query -> topNFunction()
+                .orElseThrow(() -> new PrestoException(JDBC_ERROR, "topNFunction is not set!"))
+                .apply(query, sortItems, limit);
+    }
+
+    @FunctionalInterface
+    public interface TopNFunction
+    {
+        String apply(String query, List<JdbcSortItem> sortItems, long limit);
+    }
+
+    @Override
+    public String applyQueryTransformations(String query, JdbcQueryGeneratorContext context)
+    {
+        if (context.getLimit().isPresent()) {
+            if (context.getSortOrder().isPresent()) {
+                return applyTopN(context.getSortOrder().get(), context.getLimit().getAsLong()).apply(query);
+            }
+            else {
+                return applyLimit(context.getLimit().getAsLong()).apply(query);
+            }
+        }
+
+        return query;
+    }
+
+    @Override
     public String getIdentifierQuote()
     {
         return identifierQuote;
@@ -208,7 +272,8 @@ public class BaseJdbcClient
                             schemaTableName,
                             resultSet.getString("TABLE_CAT"),
                             resultSet.getString("TABLE_SCHEM"),
-                            resultSet.getString("TABLE_NAME")));
+                            resultSet.getString("TABLE_NAME"),
+                            Optional.empty()));
                 }
                 if (tableHandles.isEmpty()) {
                     return null;
@@ -233,6 +298,7 @@ public class BaseJdbcClient
                 while (resultSet.next()) {
                     JdbcTypeHandle typeHandle = new JdbcTypeHandle(
                             resultSet.getInt("DATA_TYPE"),
+                            Optional.ofNullable(resultSet.getString("TYPE_NAME")),
                             resultSet.getInt("COLUMN_SIZE"),
                             resultSet.getInt("DECIMAL_DIGITS"));
                     Optional<ReadMapping> columnMapping = toPrestoType(session, typeHandle);
@@ -271,7 +337,7 @@ public class BaseJdbcClient
                 tableHandle.getSchemaName(),
                 tableHandle.getTableName(),
                 layoutHandle.getTupleDomain(),
-                layoutHandle.getAdditionalPredicate());
+                tableHandle.getContext());
         return new FixedSplitSource(ImmutableList.of(jdbcSplit));
     }
 
@@ -303,7 +369,7 @@ public class BaseJdbcClient
                 split.getTableName(),
                 columnHandles,
                 split.getTupleDomain(),
-                split.getAdditionalPredicate());
+                split.getContext());
     }
 
     @Override
@@ -551,7 +617,8 @@ public class BaseJdbcClient
                 new SchemaTableName(handle.getSchemaName(), handle.getTemporaryTableName()),
                 handle.getCatalogName(),
                 handle.getSchemaName(),
-                handle.getTemporaryTableName()));
+                handle.getTemporaryTableName(),
+                Optional.empty()));
     }
 
     @Override

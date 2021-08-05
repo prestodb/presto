@@ -43,7 +43,6 @@ public class JdbcTranslationUtil
     {
         return jdbcExpressions.stream()
                 .map(JdbcExpression::getExpression)
-                .map(sql -> '(' + sql + ')')
                 .collect(toImmutableList());
     }
 

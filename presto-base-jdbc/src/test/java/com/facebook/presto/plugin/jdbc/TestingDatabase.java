@@ -101,7 +101,7 @@ final class TestingDatabase
     {
         JdbcIdentity identity = JdbcIdentity.from(session);
         JdbcTableHandle jdbcTableHandle = jdbcClient.getTableHandle(identity, new SchemaTableName(schemaName, tableName));
-        JdbcTableLayoutHandle jdbcLayoutHandle = new JdbcTableLayoutHandle(jdbcTableHandle, TupleDomain.all(), Optional.empty());
+        JdbcTableLayoutHandle jdbcLayoutHandle = new JdbcTableLayoutHandle(jdbcTableHandle, TupleDomain.all());
         ConnectorSplitSource splits = jdbcClient.getSplits(identity, jdbcLayoutHandle);
         return (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(NOT_PARTITIONED, 1000)).getSplits());
     }

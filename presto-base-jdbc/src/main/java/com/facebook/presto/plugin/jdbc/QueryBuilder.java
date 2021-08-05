@@ -32,6 +32,7 @@ import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.plugin.jdbc.optimization.JdbcExpression;
+import com.facebook.presto.plugin.jdbc.optimization.JdbcQueryGeneratorContext;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.base.Joiner;
@@ -105,7 +106,7 @@ public class QueryBuilder
             String table,
             List<JdbcColumnHandle> columns,
             TupleDomain<ColumnHandle> tupleDomain,
-            Optional<JdbcExpression> additionalPredicate)
+            Optional<JdbcQueryGeneratorContext> context)
             throws SQLException
     {
         StringBuilder sql = new StringBuilder();
@@ -133,21 +134,30 @@ public class QueryBuilder
         List<TypeAndValue> accumulator = new ArrayList<>();
 
         List<String> clauses = toConjuncts(columns, tupleDomain, accumulator);
-        if (additionalPredicate.isPresent()) {
-            clauses = ImmutableList.<String>builder()
-                    .addAll(clauses)
-                    .add(additionalPredicate.get().getExpression())
-                    .build();
-            accumulator.addAll(additionalPredicate.get().getBoundConstantValues().stream()
-                    .map(constantExpression -> new TypeAndValue(constantExpression.getType(), constantExpression.getValue()))
-                    .collect(ImmutableList.toImmutableList()));
+        if (context.isPresent()) {
+            Optional<JdbcExpression> additionalPredicate = context.get().getAdditionalPredicate();
+            if (additionalPredicate.isPresent()) {
+                clauses = ImmutableList.<String>builder()
+                        .addAll(clauses)
+                        .add(additionalPredicate.get().getExpression())
+                        .build();
+                accumulator.addAll(additionalPredicate.get().getBoundConstantValues().stream()
+                        .map(constantExpression -> new TypeAndValue(constantExpression.getType(), constantExpression.getValue()))
+                        .collect(ImmutableList.toImmutableList()));
+            }
         }
         if (!clauses.isEmpty()) {
             sql.append(" WHERE ")
                     .append(Joiner.on(" AND ").join(clauses));
         }
+
+        String sqlStr = sql.toString();
+        if (context.isPresent()) {
+            sqlStr = client.applyQueryTransformations(sqlStr, context.get());
+        }
+
         sql.append(String.format("/* %s : %s */", session.getUser(), session.getQueryId()));
-        PreparedStatement statement = client.getPreparedStatement(connection, sql.toString());
+        PreparedStatement statement = client.getPreparedStatement(connection, sqlStr);
 
         for (int i = 0; i < accumulator.size(); i++) {
             TypeAndValue typeAndValue = accumulator.get(i);

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.presto.plugin.jdbc.optimization.JdbcQueryGeneratorContext;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -22,6 +23,7 @@ import com.google.common.base.Joiner;
 import javax.annotation.Nullable;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -35,6 +37,7 @@ public final class JdbcTableHandle
     private final String catalogName;
     private final String schemaName;
     private final String tableName;
+    private final Optional<JdbcQueryGeneratorContext> context;
 
     @JsonCreator
     public JdbcTableHandle(
@@ -42,13 +45,15 @@ public final class JdbcTableHandle
             @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
             @JsonProperty("catalogName") @Nullable String catalogName,
             @JsonProperty("schemaName") @Nullable String schemaName,
-            @JsonProperty("tableName") String tableName)
+            @JsonProperty("tableName") String tableName,
+            @JsonProperty("context") Optional<JdbcQueryGeneratorContext> context)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         this.catalogName = catalogName;
         this.schemaName = schemaName;
         this.tableName = requireNonNull(tableName, "tableName is null");
+        this.context = requireNonNull(context, "context is null");
     }
 
     @JsonProperty
@@ -81,6 +86,12 @@ public final class JdbcTableHandle
     public String getTableName()
     {
         return tableName;
+    }
+
+    @JsonProperty
+    public Optional<JdbcQueryGeneratorContext> getContext()
+    {
+        return context;
     }
 
     @Override

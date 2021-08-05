@@ -14,6 +14,8 @@
 package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.plugin.jdbc.optimization.JdbcQueryGeneratorContext;
+import com.facebook.presto.plugin.jdbc.optimization.JdbcSortItem;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
@@ -37,6 +39,12 @@ public interface JdbcClient
     {
         return getSchemaNames(identity).contains(schema);
     }
+
+    boolean supportsLimit();
+
+    boolean supportsTopN(List<JdbcSortItem> sortItems);
+
+    String applyQueryTransformations(String query, JdbcQueryGeneratorContext context);
 
     String getIdentifierQuote();
 

@@ -13,12 +13,16 @@
  */
 package com.facebook.presto.plugin.postgresql;
 
+import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.plugin.jdbc.BaseJdbcClient;
 import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
 import com.facebook.presto.plugin.jdbc.DriverConnectionFactory;
+import com.facebook.presto.plugin.jdbc.JdbcColumnHandle;
 import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
 import com.facebook.presto.plugin.jdbc.JdbcIdentity;
+import com.facebook.presto.plugin.jdbc.optimization.JdbcSortItem;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
@@ -32,12 +36,15 @@ import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Optional;
+import java.util.function.BiFunction;
 
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static java.lang.String.format;
+import static java.util.stream.Collectors.joining;
 
 public class PostgreSqlClient
         extends BaseJdbcClient
@@ -48,6 +55,58 @@ public class PostgreSqlClient
     public PostgreSqlClient(JdbcConnectorId connectorId, BaseJdbcConfig config)
     {
         super(connectorId, config, "\"", new DriverConnectionFactory(new Driver(), config));
+    }
+
+    @Override
+    protected Optional<BiFunction<String, Long, String>> limitFunction()
+    {
+        return Optional.of((sql, limit) -> sql + " LIMIT " + limit);
+    }
+
+    @Override
+    public boolean supportsTopN(List<JdbcSortItem> sortOrder)
+    {
+        for (JdbcSortItem sortItem : sortOrder) {
+            Type sortItemType = sortItem.getColumn().getColumnType();
+            if (sortItemType instanceof CharType || sortItemType instanceof VarcharType) {
+                if (!isCollatable(sortItem.getColumn())) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    @Override
+    protected Optional<TopNFunction> topNFunction()
+    {
+        return Optional.of((query, sortItems, limit) -> {
+            String orderBy = sortItems.stream()
+                    .map(sortItem -> {
+                        String ordering = sortItem.getSortOrder().isAscending() ? "ASC" : "DESC";
+                        String nullsHandling = sortItem.getSortOrder().isNullsFirst() ? "NULLS FIRST" : "NULLS LAST";
+                        String collation = "";
+                        if (isCollatable(sortItem.getColumn())) {
+                            collation = "COLLATE \"C\"";
+                        }
+                        return format("%s %s %s %s", quoted(sortItem.getColumn().getColumnName()), collation, ordering, nullsHandling);
+                    })
+                    .collect(joining(", "));
+            return format("%s ORDER BY %s LIMIT %d", query, orderBy, limit);
+        });
+    }
+
+    private boolean isCollatable(JdbcColumnHandle column)
+    {
+        if (column.getColumnType() instanceof CharType || column.getColumnType() instanceof VarcharType) {
+            String jdbcTypeName = column.getJdbcTypeHandle().getJdbcTypeName()
+                    .orElseThrow(() -> new PrestoException(JDBC_ERROR, "Type name is missing: " + column.getJdbcTypeHandle()));
+            // Only char (internally named bpchar)/varchar/text are the built-in collatable types
+            return "bpchar".equals(jdbcTypeName) || "varchar".equals(jdbcTypeName) || "text".equals(jdbcTypeName);
+        }
+
+        // non-textual types don't have the concept of collation
+        return false;
     }
 
     @Override

@@ -11,43 +11,42 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.plugin.jdbc;
+package com.facebook.presto.plugin.jdbc.optimization;
 
-import com.facebook.presto.common.predicate.TupleDomain;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.plugin.jdbc.JdbcColumnHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public class JdbcTableLayoutHandle
-        implements ConnectorTableLayoutHandle
+@Immutable
+public final class JdbcSortItem
 {
-    private final JdbcTableHandle table;
-    private final TupleDomain<ColumnHandle> tupleDomain;
+    private final JdbcColumnHandle column;
+    private final SortOrder sortOrder;
 
     @JsonCreator
-    public JdbcTableLayoutHandle(
-            @JsonProperty("table") JdbcTableHandle table,
-            @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> domain)
+    public JdbcSortItem(JdbcColumnHandle column, SortOrder sortOrder)
     {
-        this.table = requireNonNull(table, "table is null");
-        this.tupleDomain = requireNonNull(domain, "tupleDomain is null");
+        this.column = requireNonNull(column, "column is null");
+        this.sortOrder = requireNonNull(sortOrder, "sortOrder is null");
     }
 
     @JsonProperty
-    public JdbcTableHandle getTable()
+    public JdbcColumnHandle getColumn()
     {
-        return table;
+        return column;
     }
 
     @JsonProperty
-    public TupleDomain<ColumnHandle> getTupleDomain()
+    public SortOrder getSortOrder()
     {
-        return tupleDomain;
+        return sortOrder;
     }
 
     @Override
@@ -59,20 +58,20 @@ public class JdbcTableLayoutHandle
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        JdbcTableLayoutHandle that = (JdbcTableLayoutHandle) o;
-        return Objects.equals(table, that.table) &&
-                Objects.equals(tupleDomain, that.tupleDomain);
+        JdbcSortItem that = (JdbcSortItem) o;
+        return sortOrder == that.sortOrder &&
+                Objects.equals(column, that.column);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(table, tupleDomain);
+        return Objects.hash(column, sortOrder);
     }
 
     @Override
     public String toString()
     {
-        return table.toString();
+        return column + " " + sortOrder;
     }
 }
