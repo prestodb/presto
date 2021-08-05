@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.testing.QueryRunner;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SystemSessionProperties.AGGREGATION_SPILL_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.DISTINCT_AGGREGATION_SPILL_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.ORDER_BY_AGGREGATION_SPILL_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_REVOCABLE_MEMORY_PER_NODE;
@@ -112,5 +113,25 @@ public class TestSpilledAggregations
     public void testMultipleDistinctAggregations()
     {
         assertQuery("SELECT custkey, count(DISTINCT orderpriority), count(DISTINCT orderstatus), count(DISTINCT totalprice), count(DISTINCT clerk) FROM orders GROUP BY custkey");
+    }
+
+    @Test
+    public void testDoesNotSpillWhenAggregationSpillDisabled()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(AGGREGATION_SPILL_ENABLED, "false")
+                // This will not spill even when distinct/orderBy Spill is enabled since aggregationSpill is disabled above
+                .setSystemProperty(ORDER_BY_AGGREGATION_SPILL_ENABLED, "true")
+                .setSystemProperty(DISTINCT_AGGREGATION_SPILL_ENABLED, "true")
+                // set this low so that if we ran with spill the query would fail
+                .setSystemProperty(QUERY_MAX_REVOCABLE_MEMORY_PER_NODE, "1B")
+                .build();
+
+        assertQuery(session,
+                "SELECT orderpriority, custkey, array_agg(orderstatus ORDER BY orderstatus) FROM orders GROUP BY orderpriority, custkey");
+
+        // the sum() is necessary so that the aggregation isn't optimized into multiple aggregation nodes
+        assertQuery(session,
+                "SELECT custkey, sum(custkey), count(DISTINCT orderpriority) FROM orders GROUP BY custkey");
     }
 }
