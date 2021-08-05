@@ -53,6 +53,7 @@ public final class StandardTypes
     public static final String BING_TILE = "BingTile";
     public static final String BIGINT_ENUM = "BigintEnum";
     public static final String VARCHAR_ENUM = "VarcharEnum";
+    public static final String UUID = "uuid";
 
     private StandardTypes() {}
 
