@@ -14,7 +14,12 @@
 
 package com.facebook.presto.tests;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.testing.QueryRunner;
+import org.testng.annotations.Test;
+
+import static com.facebook.presto.SystemSessionProperties.ORDER_BY_SPILL_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_REVOCABLE_MEMORY_PER_NODE;
 
 public class TestSpilledOrderByQueries
         extends AbstractTestOrderByQueries
@@ -24,5 +29,17 @@ public class TestSpilledOrderByQueries
             throws Exception
     {
         return TestDistributedSpilledQueries.localCreateQueryRunner();
+    }
+
+    @Test
+    public void testDoesNotSpillWhenOrderBySpillDisabled()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(ORDER_BY_SPILL_ENABLED, "false")
+                // set this low so that if we ran with spill the query would fail
+                .setSystemProperty(QUERY_MAX_REVOCABLE_MEMORY_PER_NODE, "1B")
+                .build();
+
+        assertQuery(session, "SELECT orderstatus FROM orders ORDER BY orderkey DESC");
     }
 }

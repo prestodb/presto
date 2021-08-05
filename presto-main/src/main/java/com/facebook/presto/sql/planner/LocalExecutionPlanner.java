@@ -253,6 +253,7 @@ import static com.facebook.presto.SystemSessionProperties.getIndexLoaderTimeout;
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
 import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
+import static com.facebook.presto.SystemSessionProperties.isAggregationSpillEnabled;
 import static com.facebook.presto.SystemSessionProperties.isDistinctAggregationSpillEnabled;
 import static com.facebook.presto.SystemSessionProperties.isEnableDynamicFiltering;
 import static com.facebook.presto.SystemSessionProperties.isExchangeChecksumEnabled;
@@ -261,7 +262,9 @@ import static com.facebook.presto.SystemSessionProperties.isJoinSpillingEnabled;
 import static com.facebook.presto.SystemSessionProperties.isOptimizeCommonSubExpressions;
 import static com.facebook.presto.SystemSessionProperties.isOptimizedRepartitioningEnabled;
 import static com.facebook.presto.SystemSessionProperties.isOrderByAggregationSpillEnabled;
+import static com.facebook.presto.SystemSessionProperties.isOrderBySpillEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
+import static com.facebook.presto.SystemSessionProperties.isWindowSpillEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.TypeUtils.writeNativeValue;
@@ -1085,7 +1088,7 @@ public class LocalExecutionPlanner
                     node.getPreSortedOrderPrefix(),
                     10_000,
                     pagesIndexFactory,
-                    isSpillEnabled(session),
+                    isWindowSpillEnabled(session),
                     spillerFactory,
                     orderingCompiler);
 
@@ -1136,7 +1139,7 @@ public class LocalExecutionPlanner
                 outputChannels.add(i);
             }
 
-            boolean spillEnabled = isSpillEnabled(context.getSession());
+            boolean spillEnabled = isOrderBySpillEnabled(context.getSession());
 
             OperatorFactory operator = new OrderByOperatorFactory(
                     context.getNextOperatorId(),
@@ -1247,7 +1250,7 @@ public class LocalExecutionPlanner
             return planGroupByAggregation(
                     node,
                     source,
-                    spillEnabled,
+                    isAggregationSpillEnabled(session),
                     isDistinctAggregationSpillEnabled(session),
                     isOrderByAggregationSpillEnabled(session),
                     unspillMemoryLimit,
@@ -3043,7 +3046,7 @@ public class LocalExecutionPlanner
         private PhysicalOperation planGroupByAggregation(
                 AggregationNode node,
                 PhysicalOperation source,
-                boolean spillEnabled,
+                boolean aggregationSpillEnabled,
                 boolean distinctAggregationSpillEnabled,
                 boolean orderByAggregationSpillEnabled,
                 DataSize unspillMemoryLimit,
@@ -3060,7 +3063,7 @@ public class LocalExecutionPlanner
                     node.getGroupIdVariable(),
                     source,
                     node.hasDefaultOutput(),
-                    spillEnabled,
+                    aggregationSpillEnabled,
                     distinctAggregationSpillEnabled,
                     orderByAggregationSpillEnabled,
                     node.isStreamable(),
@@ -3084,7 +3087,7 @@ public class LocalExecutionPlanner
                 Optional<VariableReferenceExpression> groupIdVariable,
                 PhysicalOperation source,
                 boolean hasDefaultOutput,
-                boolean spillEnabled,
+                boolean aggregationSpillEnabled,
                 boolean distinctSpillEnabled,
                 boolean orderBySpillEnabled,
                 boolean isStreamable,
@@ -3098,7 +3101,7 @@ public class LocalExecutionPlanner
         {
             List<VariableReferenceExpression> aggregationOutputVariables = new ArrayList<>();
             List<AccumulatorFactory> accumulatorFactories = new ArrayList<>();
-            boolean useSpill = spillEnabled && !isStreamable && (!hasDistinct(aggregations) || distinctSpillEnabled) && (!hasOrderBy(aggregations) || orderBySpillEnabled);
+            boolean useSpill = aggregationSpillEnabled && !isStreamable && (!hasDistinct(aggregations) || distinctSpillEnabled) && (!hasOrderBy(aggregations) || orderBySpillEnabled);
             for (Map.Entry<VariableReferenceExpression, Aggregation> entry : aggregations.entrySet()) {
                 VariableReferenceExpression variable = entry.getKey();
                 Aggregation aggregation = entry.getValue();

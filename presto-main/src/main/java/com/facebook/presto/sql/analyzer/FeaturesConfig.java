@@ -124,8 +124,11 @@ public class FeaturesConfig
     private MultimapAggGroupImplementation multimapAggGroupImplementation = MultimapAggGroupImplementation.NEW;
     private boolean spillEnabled;
     private boolean joinSpillingEnabled = true;
+    private boolean aggregationSpillEnabled = true;
     private boolean distinctAggregationSpillEnabled = true;
     private boolean orderByAggregationSpillEnabled = true;
+    private boolean windowSpillEnabled = true;
+    private boolean orderBySpillEnabled = true;
     private DataSize aggregationOperatorUnspillMemoryLimit = new DataSize(4, DataSize.Unit.MEGABYTE);
     private List<Path> spillerSpillPaths = ImmutableList.of();
     private int spillerThreads = 4;
@@ -903,8 +906,21 @@ public class FeaturesConfig
         return this;
     }
 
+    @Config("experimental.aggregation-spill-enabled")
+    @ConfigDescription("Spill aggregations if spill is enabled")
+    public FeaturesConfig setAggregationSpillEnabled(boolean aggregationSpillEnabled)
+    {
+        this.aggregationSpillEnabled = aggregationSpillEnabled;
+        return this;
+    }
+
+    public boolean isAggregationSpillEnabled()
+    {
+        return aggregationSpillEnabled;
+    }
+
     @Config("experimental.distinct-aggregation-spill-enabled")
-    @ConfigDescription("Spill distinct aggregations if spill is enabled")
+    @ConfigDescription("Spill distinct aggregations if aggregation spill is enabled")
     public FeaturesConfig setDistinctAggregationSpillEnabled(boolean distinctAggregationSpillEnabled)
     {
         this.distinctAggregationSpillEnabled = distinctAggregationSpillEnabled;
@@ -917,7 +933,7 @@ public class FeaturesConfig
     }
 
     @Config("experimental.order-by-aggregation-spill-enabled")
-    @ConfigDescription("Spill order-by aggregations if spill is enabled")
+    @ConfigDescription("Spill order-by aggregations if aggregation spill is enabled")
     public FeaturesConfig setOrderByAggregationSpillEnabled(boolean orderByAggregationSpillEnabled)
     {
         this.orderByAggregationSpillEnabled = orderByAggregationSpillEnabled;
@@ -927,6 +943,32 @@ public class FeaturesConfig
     public boolean isOrderByAggregationSpillEnabled()
     {
         return orderByAggregationSpillEnabled;
+    }
+
+    @Config("experimental.window-spill-enabled")
+    @ConfigDescription("Enable Window Operator Spilling if spill is enabled")
+    public FeaturesConfig setWindowSpillEnabled(boolean windowSpillEnabled)
+    {
+        this.windowSpillEnabled = windowSpillEnabled;
+        return this;
+    }
+
+    public boolean isWindowSpillEnabled()
+    {
+        return windowSpillEnabled;
+    }
+
+    @Config("experimental.order-by-spill-enabled")
+    @ConfigDescription("Enable Order-by Operator Spilling if spill is enabled")
+    public FeaturesConfig setOrderBySpillEnabled(boolean orderBySpillEnabled)
+    {
+        this.orderBySpillEnabled = orderBySpillEnabled;
+        return this;
+    }
+
+    public boolean isOrderBySpillEnabled()
+    {
+        return orderBySpillEnabled;
     }
 
     public boolean isIterativeOptimizerEnabled()
