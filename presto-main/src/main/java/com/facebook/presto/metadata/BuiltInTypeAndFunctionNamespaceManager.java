@@ -224,6 +224,7 @@ import com.facebook.presto.type.TimestampOperators;
 import com.facebook.presto.type.TimestampWithTimeZoneOperators;
 import com.facebook.presto.type.TinyintOperators;
 import com.facebook.presto.type.UnknownOperators;
+import com.facebook.presto.type.UuidOperators;
 import com.facebook.presto.type.VarbinaryOperators;
 import com.facebook.presto.type.VarcharEnumOperators;
 import com.facebook.presto.type.VarcharOperators;
@@ -430,6 +431,7 @@ import static com.facebook.presto.type.MapParametricType.MAP;
 import static com.facebook.presto.type.Re2JRegexpType.RE2J_REGEXP;
 import static com.facebook.presto.type.RowParametricType.ROW;
 import static com.facebook.presto.type.TypeUtils.resolveTypes;
+import static com.facebook.presto.type.UuidType.UUID;
 import static com.facebook.presto.type.khyperloglog.KHyperLogLogType.K_HYPER_LOG_LOG;
 import static com.facebook.presto.type.setdigest.SetDigestType.SET_DIGEST;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -558,6 +560,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
         addType(CODE_POINTS);
         addType(IPADDRESS);
         addType(IPPREFIX);
+        addType(UUID);
         addParametricType(VarcharParametricType.VARCHAR);
         addParametricType(CharParametricType.CHAR);
         addParametricType(DecimalParametricType.DECIMAL);
@@ -704,6 +707,8 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalars(IpPrefixFunctions.class)
                 .scalars(IpPrefixOperators.class)
                 .scalar(IpPrefixOperators.IpPrefixDistinctFromOperator.class)
+                .scalars(UuidOperators.class)
+                .scalar(UuidOperators.UuidDistinctFromOperator.class)
                 .scalars(LikeFunctions.class)
                 .scalars(ArrayFunctions.class)
                 .scalars(HmacFunctions.class)
