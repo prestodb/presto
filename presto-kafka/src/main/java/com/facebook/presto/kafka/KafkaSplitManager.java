@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.kafka;
 
-import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.common.HostAddress;
 import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.kafka.server.KafkaClusterMetadataHelper;
 import com.facebook.presto.kafka.server.KafkaClusterMetadataSupplier;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;

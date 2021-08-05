@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.common.ConnectorSession;
-import com.facebook.presto.common.security.ConnectorIdentity;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.security.ConnectorIdentity;
 
 import java.util.Optional;
 import java.util.Set;

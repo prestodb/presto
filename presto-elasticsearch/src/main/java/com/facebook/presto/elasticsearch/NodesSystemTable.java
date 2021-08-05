@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.elasticsearch;
 
-import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.block.BlockBuilder;
@@ -22,6 +21,7 @@ import com.facebook.presto.elasticsearch.client.ElasticsearchClient;
 import com.facebook.presto.elasticsearch.client.ElasticsearchNode;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorPageSource;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.Node;

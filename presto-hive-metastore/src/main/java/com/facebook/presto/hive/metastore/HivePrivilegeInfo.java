@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.hive.metastore;
 
-import com.facebook.presto.common.security.PrestoPrincipal;
-import com.facebook.presto.common.security.Privilege;
-import com.facebook.presto.common.security.PrivilegeInfo;
+import com.facebook.presto.spi.security.PrestoPrincipal;
+import com.facebook.presto.spi.security.Privilege;
+import com.facebook.presto.spi.security.PrivilegeInfo;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;

@@ -14,7 +14,6 @@
 package com.facebook.presto.pinot.query;
 
 import com.facebook.airlift.log.Logger;
-import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.function.FunctionMetadataManager;
 import com.facebook.presto.common.function.StandardFunctionResolution;
@@ -31,6 +30,7 @@ import com.facebook.presto.pinot.PinotPushdownUtils.GroupByColumnNode;
 import com.facebook.presto.pinot.PinotSessionProperties;
 import com.facebook.presto.pinot.PinotTableHandle;
 import com.facebook.presto.pinot.query.PinotQueryGeneratorContext.Selection;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.FilterNode;

@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.query;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.common.security.Identity;
+import com.facebook.presto.spi.security.Identity;
 import org.testng.annotations.Test;
 
 import java.util.Optional;

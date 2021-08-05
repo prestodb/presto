@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.relational;
 
-import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;

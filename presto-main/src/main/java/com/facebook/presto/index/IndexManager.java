@@ -14,11 +14,11 @@
 package com.facebook.presto.index;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.metadata.IndexHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorIndex;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.connector.ConnectorIndexProvider;
 
 import java.util.List;

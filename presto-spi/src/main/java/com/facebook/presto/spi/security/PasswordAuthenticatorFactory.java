@@ -11,9 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.common.security;
+package com.facebook.presto.spi.security;
 
-public enum Privilege
+import java.util.Map;
+
+public interface PasswordAuthenticatorFactory
 {
-    SELECT, DELETE, INSERT, UPDATE
+    String getName();
+
+    PasswordAuthenticator create(Map<String, String> config);
 }

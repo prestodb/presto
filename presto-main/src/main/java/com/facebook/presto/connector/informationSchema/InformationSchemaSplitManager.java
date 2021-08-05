@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.connector.informationSchema;
 
-import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.common.HostAddress;
 import com.facebook.presto.metadata.InternalNodeManager;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;

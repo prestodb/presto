@@ -20,7 +20,7 @@ import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryStatusInfo;
 import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.common.PrestoWarning;
-import com.facebook.presto.common.security.SelectedRole;
+import com.facebook.presto.spi.security.SelectedRole;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;

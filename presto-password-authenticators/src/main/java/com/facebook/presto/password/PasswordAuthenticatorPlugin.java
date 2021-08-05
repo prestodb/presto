@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.password;
 
-import com.facebook.presto.common.security.PasswordAuthenticatorFactory;
 import com.facebook.presto.password.file.FileAuthenticatorFactory;
 import com.facebook.presto.password.ldap.LdapAuthenticatorFactory;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.security.PasswordAuthenticatorFactory;
 import com.google.common.collect.ImmutableList;
 
 public class PasswordAuthenticatorPlugin

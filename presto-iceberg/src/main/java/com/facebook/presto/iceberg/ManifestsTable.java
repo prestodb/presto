@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.iceberg;
 
-import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.SchemaTableName;
@@ -24,6 +23,7 @@ import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.iceberg.util.PageListBuilder;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorPageSource;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.SystemTable;

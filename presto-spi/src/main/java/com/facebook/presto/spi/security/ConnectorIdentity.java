@@ -11,48 +11,40 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.common.security;
+package com.facebook.presto.spi.security;
 
 import java.security.Principal;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 
-public class Identity
+public class ConnectorIdentity
 {
     private final String user;
     private final Optional<Principal> principal;
-    private final Map<String, SelectedRole> roles;
+    private final Optional<SelectedRole> role;
     private final Map<String, String> extraCredentials;
-
-    /**
-     * extraAuthenticators is used when short-lived access token has to be refreshed periodically.
-     * Otherwise, extraCredentials should be used to store pre-fetched long-lived access token.
-     *
-     * extraAuthenticators will not be serialized. It has to be injected on Presto worker directly.
-     */
     private final Map<String, TokenAuthenticator> extraAuthenticators;
 
-    public Identity(String user, Optional<Principal> principal)
+    public ConnectorIdentity(String user, Optional<Principal> principal, Optional<SelectedRole> role)
     {
-        this(user, principal, emptyMap(), emptyMap(), emptyMap());
+        this(user, principal, role, emptyMap(), emptyMap());
     }
 
-    public Identity(
+    public ConnectorIdentity(
             String user,
             Optional<Principal> principal,
-            Map<String, SelectedRole> roles,
+            Optional<SelectedRole> role,
             Map<String, String> extraCredentials,
             Map<String, TokenAuthenticator> extraAuthenticators)
     {
         this.user = requireNonNull(user, "user is null");
         this.principal = requireNonNull(principal, "principal is null");
-        this.roles = unmodifiableMap(requireNonNull(roles, "roles is null"));
+        this.role = requireNonNull(role, "role is null");
         this.extraCredentials = unmodifiableMap(new HashMap<>(requireNonNull(extraCredentials, "extraCredentials is null")));
         this.extraAuthenticators = unmodifiableMap(new HashMap<>(requireNonNull(extraAuthenticators, "extraAuthenticators is null")));
     }
@@ -67,9 +59,9 @@ public class Identity
         return principal;
     }
 
-    public Map<String, SelectedRole> getRoles()
+    public Optional<SelectedRole> getRole()
     {
-        return roles;
+        return role;
     }
 
     public Map<String, String> getExtraCredentials()
@@ -82,53 +74,13 @@ public class Identity
         return extraAuthenticators;
     }
 
-    public ConnectorIdentity toConnectorIdentity()
-    {
-        return new ConnectorIdentity(
-                user,
-                principal,
-                Optional.empty(),
-                extraCredentials,
-                extraAuthenticators);
-    }
-
-    public ConnectorIdentity toConnectorIdentity(String catalog)
-    {
-        requireNonNull(catalog, "catalog is null");
-        return new ConnectorIdentity(
-                user,
-                principal,
-                Optional.ofNullable(roles.get(catalog)),
-                extraCredentials,
-                extraAuthenticators);
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        Identity identity = (Identity) o;
-        return Objects.equals(user, identity.user);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(user);
-    }
-
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder("Identity{");
+        StringBuilder sb = new StringBuilder("ConnectorIdentity{");
         sb.append("user='").append(user).append('\'');
         principal.ifPresent(principal -> sb.append(", principal=").append(principal));
-        sb.append(", roles=").append(roles);
+        role.ifPresent(role -> sb.append(", role=").append(role));
         sb.append(", extraCredentials=").append(extraCredentials.keySet());
         sb.append(", extraAuthenticators=").append(extraAuthenticators.keySet());
         sb.append('}');

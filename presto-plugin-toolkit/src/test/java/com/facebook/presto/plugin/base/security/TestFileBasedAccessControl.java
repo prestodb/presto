@@ -15,11 +15,11 @@ package com.facebook.presto.plugin.base.security;
 
 import com.facebook.presto.common.QueryId;
 import com.facebook.presto.common.SchemaTableName;
-import com.facebook.presto.common.security.AccessControlContext;
-import com.facebook.presto.common.security.AccessDeniedException;
-import com.facebook.presto.common.security.ConnectorIdentity;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.security.AccessControlContext;
+import com.facebook.presto.spi.security.AccessDeniedException;
+import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.google.common.collect.ImmutableSet;
 import org.testng.Assert.ThrowingRunnable;
 import org.testng.annotations.Test;

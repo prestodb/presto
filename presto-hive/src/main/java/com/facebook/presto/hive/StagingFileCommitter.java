@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.common.ConnectorSession;
+import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;

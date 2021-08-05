@@ -15,7 +15,6 @@ package com.facebook.presto.connector.thrift;
 
 import com.facebook.drift.TException;
 import com.facebook.drift.client.DriftClient;
-import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.SchemaTablePrefix;
@@ -25,6 +24,7 @@ import com.facebook.presto.connector.thrift.annotations.ForMetadataRefresh;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorResolvedIndex;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;

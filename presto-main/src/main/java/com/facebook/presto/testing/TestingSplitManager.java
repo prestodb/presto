@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.testing;
 
-import com.facebook.presto.common.ConnectorSession;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;

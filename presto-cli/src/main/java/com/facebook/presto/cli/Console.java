@@ -17,7 +17,7 @@ import com.facebook.airlift.log.Logging;
 import com.facebook.airlift.log.LoggingConfiguration;
 import com.facebook.presto.cli.ClientOptions.OutputFormat;
 import com.facebook.presto.client.ClientSession;
-import com.facebook.presto.common.security.SelectedRole;
+import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.sql.parser.StatementSplitter;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;

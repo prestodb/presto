@@ -16,11 +16,11 @@ package com.facebook.presto.plugin.base.security;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.CatalogSchemaTableName;
 import com.facebook.presto.common.SchemaTableName;
-import com.facebook.presto.common.security.AccessControlContext;
-import com.facebook.presto.common.security.Identity;
-import com.facebook.presto.common.security.PrestoPrincipal;
-import com.facebook.presto.common.security.Privilege;
-import com.facebook.presto.common.security.SystemAccessControl;
+import com.facebook.presto.spi.security.AccessControlContext;
+import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.PrestoPrincipal;
+import com.facebook.presto.spi.security.Privilege;
+import com.facebook.presto.spi.security.SystemAccessControl;
 
 import java.security.Principal;
 import java.util.Optional;

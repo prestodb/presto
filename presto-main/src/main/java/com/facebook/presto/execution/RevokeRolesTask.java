@@ -14,10 +14,10 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.common.security.PrestoPrincipal;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.RevokeRoles;
@@ -30,9 +30,9 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.common.security.PrincipalType.ROLE;
 import static com.facebook.presto.metadata.MetadataUtil.createCatalogName;
 import static com.facebook.presto.metadata.MetadataUtil.createPrincipal;
+import static com.facebook.presto.spi.security.PrincipalType.ROLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ROLE;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateFuture;

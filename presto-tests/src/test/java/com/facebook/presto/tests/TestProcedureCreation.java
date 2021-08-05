@@ -14,7 +14,7 @@
 
 package com.facebook.presto.tests;
 
-import com.facebook.presto.common.ConnectorSession;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;

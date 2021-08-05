@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.pinot;
 
-import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.function.FunctionMetadataManager;
 import com.facebook.presto.common.function.StandardFunctionResolution;
@@ -24,6 +23,7 @@ import com.facebook.presto.pinot.query.PinotQueryGenerator;
 import com.facebook.presto.pinot.query.PinotQueryGeneratorContext;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.VariableAllocator;

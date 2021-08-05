@@ -14,14 +14,14 @@
 package com.facebook.presto.plugin.base.security;
 
 import com.facebook.presto.common.SchemaTableName;
-import com.facebook.presto.common.security.AccessControlContext;
-import com.facebook.presto.common.security.AccessDeniedException;
-import com.facebook.presto.common.security.ConnectorIdentity;
-import com.facebook.presto.common.security.PrestoPrincipal;
-import com.facebook.presto.common.security.Privilege;
 import com.facebook.presto.plugin.base.security.TableAccessControlRule.TablePrivilege;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.security.AccessControlContext;
+import com.facebook.presto.spi.security.AccessDeniedException;
+import com.facebook.presto.spi.security.ConnectorIdentity;
+import com.facebook.presto.spi.security.PrestoPrincipal;
+import com.facebook.presto.spi.security.Privilege;
 import com.google.common.collect.ImmutableSet;
 
 import javax.inject.Inject;
@@ -31,29 +31,29 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.common.security.AccessDeniedException.denyAddColumn;
-import static com.facebook.presto.common.security.AccessDeniedException.denyCreateSchema;
-import static com.facebook.presto.common.security.AccessDeniedException.denyCreateTable;
-import static com.facebook.presto.common.security.AccessDeniedException.denyCreateView;
-import static com.facebook.presto.common.security.AccessDeniedException.denyCreateViewWithSelect;
-import static com.facebook.presto.common.security.AccessDeniedException.denyDeleteTable;
-import static com.facebook.presto.common.security.AccessDeniedException.denyDropColumn;
-import static com.facebook.presto.common.security.AccessDeniedException.denyDropSchema;
-import static com.facebook.presto.common.security.AccessDeniedException.denyDropTable;
-import static com.facebook.presto.common.security.AccessDeniedException.denyDropView;
-import static com.facebook.presto.common.security.AccessDeniedException.denyGrantTablePrivilege;
-import static com.facebook.presto.common.security.AccessDeniedException.denyInsertTable;
-import static com.facebook.presto.common.security.AccessDeniedException.denyRenameColumn;
-import static com.facebook.presto.common.security.AccessDeniedException.denyRenameSchema;
-import static com.facebook.presto.common.security.AccessDeniedException.denyRenameTable;
-import static com.facebook.presto.common.security.AccessDeniedException.denyRevokeTablePrivilege;
-import static com.facebook.presto.common.security.AccessDeniedException.denySelectTable;
 import static com.facebook.presto.plugin.base.JsonUtils.parseJson;
 import static com.facebook.presto.plugin.base.security.TableAccessControlRule.TablePrivilege.DELETE;
 import static com.facebook.presto.plugin.base.security.TableAccessControlRule.TablePrivilege.GRANT_SELECT;
 import static com.facebook.presto.plugin.base.security.TableAccessControlRule.TablePrivilege.INSERT;
 import static com.facebook.presto.plugin.base.security.TableAccessControlRule.TablePrivilege.OWNERSHIP;
 import static com.facebook.presto.plugin.base.security.TableAccessControlRule.TablePrivilege.SELECT;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateView;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateViewWithSelect;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyDeleteTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyDropColumn;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyDropSchema;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyDropView;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyGrantTablePrivilege;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyInsertTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameColumn;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameSchema;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
+import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
 
 public class FileBasedAccessControl
         implements ConnectorAccessControl

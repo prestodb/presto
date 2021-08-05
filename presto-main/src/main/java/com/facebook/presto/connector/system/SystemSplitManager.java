@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.connector.system;
 
-import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.common.HostAddress;
 import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;

@@ -15,7 +15,6 @@ package com.facebook.presto.raptor;
 
 import com.facebook.airlift.bootstrap.LifeCycleManager;
 import com.facebook.presto.PagesIndexPageSorter;
-import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.type.SqlDate;
@@ -33,6 +32,7 @@ import com.facebook.presto.raptor.storage.organization.TemporalFunction;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.NodeManager;

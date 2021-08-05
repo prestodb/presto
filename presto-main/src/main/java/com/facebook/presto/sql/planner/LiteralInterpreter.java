@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.function.FunctionHandle;
 import com.facebook.presto.common.function.SqlFunctionProperties;
@@ -39,6 +38,7 @@ import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.scalar.VarbinaryFunctions;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.sql.InterpretedFunctionInvoker;
 import com.facebook.presto.sql.analyzer.SemanticException;

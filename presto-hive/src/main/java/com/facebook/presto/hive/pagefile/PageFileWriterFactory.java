@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive.pagefile;
 
-import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.io.DataSink;
@@ -28,6 +27,7 @@ import com.facebook.presto.orc.zlib.DeflateCompressor;
 import com.facebook.presto.orc.zlib.InflateDecompressor;
 import com.facebook.presto.orc.zstd.ZstdJniCompressor;
 import com.facebook.presto.orc.zstd.ZstdJniDecompressor;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.page.PageCompressor;
 import com.facebook.presto.spi.page.PageDecompressor;
 import com.facebook.presto.spi.page.PagesSerde;

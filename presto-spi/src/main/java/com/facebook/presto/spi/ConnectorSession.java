@@ -11,12 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.common;
+package com.facebook.presto.spi;
 
 import com.facebook.presto.common.function.SqlFunctionId;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.function.SqlInvokedFunction;
-import com.facebook.presto.common.security.ConnectorIdentity;
+import com.facebook.presto.spi.security.ConnectorIdentity;
 
 import java.util.Locale;
 import java.util.Map;

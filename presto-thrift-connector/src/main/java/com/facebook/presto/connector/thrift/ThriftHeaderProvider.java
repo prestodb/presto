@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.connector.thrift;
 
-import com.facebook.presto.common.ConnectorSession;
+import com.facebook.presto.spi.ConnectorSession;
 
 import java.util.Map;
 

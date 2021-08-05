@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.elasticsearch.decoders;
 
-import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.spi.ConnectorSession;
 import org.elasticsearch.common.document.DocumentField;
 import org.elasticsearch.search.SearchHit;
 

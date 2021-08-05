@@ -14,7 +14,6 @@
 package com.facebook.presto.elasticsearch;
 
 import com.facebook.airlift.log.Logger;
-import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
@@ -42,6 +41,7 @@ import com.facebook.presto.elasticsearch.decoders.TinyintDecoder;
 import com.facebook.presto.elasticsearch.decoders.VarbinaryDecoder;
 import com.facebook.presto.elasticsearch.decoders.VarcharDecoder;
 import com.facebook.presto.spi.ConnectorPageSource;
+import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import org.elasticsearch.action.search.SearchResponse;

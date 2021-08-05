@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.plugin.memory;
 
-import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.common.HostAddress;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PrestoException;
@@ -21,6 +20,7 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PageSinkContext;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;

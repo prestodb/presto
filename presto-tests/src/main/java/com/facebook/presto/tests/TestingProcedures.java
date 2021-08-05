@@ -14,8 +14,8 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
-import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.facebook.presto.testing.ProcedureTester;

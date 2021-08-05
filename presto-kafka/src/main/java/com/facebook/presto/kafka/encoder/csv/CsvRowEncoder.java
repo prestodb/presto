@@ -14,10 +14,10 @@
 package com.facebook.presto.kafka.encoder.csv;
 
 import au.com.bytecode.opencsv.CSVWriter;
-import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.kafka.encoder.AbstractRowEncoder;
 import com.facebook.presto.kafka.encoder.EncoderColumnHandle;
+import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.collect.ImmutableSet;
 
 import java.io.ByteArrayOutputStream;

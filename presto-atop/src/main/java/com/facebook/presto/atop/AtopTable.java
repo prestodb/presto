@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.atop;
 
-import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 

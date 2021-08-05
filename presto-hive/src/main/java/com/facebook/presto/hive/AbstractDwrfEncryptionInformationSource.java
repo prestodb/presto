@@ -14,11 +14,11 @@
 package com.facebook.presto.hive;
 
 import com.facebook.hive.orc.OrcSerde;
-import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.hive.ColumnEncryptionInformation.ColumnWithStructSubfield;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.Table;
+import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;

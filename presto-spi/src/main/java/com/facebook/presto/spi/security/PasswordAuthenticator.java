@@ -11,13 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.common.security;
+package com.facebook.presto.spi.security;
 
-import java.util.Map;
+import java.security.Principal;
 
-public interface PasswordAuthenticatorFactory
+public interface PasswordAuthenticator
 {
-    String getName();
-
-    PasswordAuthenticator create(Map<String, String> config);
+    /**
+     * Authenticate the provided user and password.
+     *
+     * @return the authenticated entity
+     * @throws AccessDeniedException if not allowed
+     */
+    Principal createAuthenticatedPrincipal(String user, String password);
 }

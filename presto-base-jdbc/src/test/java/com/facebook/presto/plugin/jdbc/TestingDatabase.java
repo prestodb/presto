@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
-import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.google.common.collect.ImmutableMap;
 import org.h2.Driver;

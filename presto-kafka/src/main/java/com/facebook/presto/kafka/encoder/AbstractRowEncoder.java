@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.kafka.encoder;
 
-import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.SqlDate;
 import com.facebook.presto.common.type.SqlTime;
@@ -23,6 +22,7 @@ import com.facebook.presto.common.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;

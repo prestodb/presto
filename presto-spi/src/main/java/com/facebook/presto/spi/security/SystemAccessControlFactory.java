@@ -11,9 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.common.security;
+package com.facebook.presto.spi.security;
 
-public enum PrincipalType
+import java.util.Map;
+
+public interface SystemAccessControlFactory
 {
-    USER, ROLE
+    String getName();
+
+    SystemAccessControl create(Map<String, String> config);
 }

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.kafka.encoder;
 
-import com.facebook.presto.common.ConnectorSession;
+import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.collect.ImmutableMap;
 
 import javax.inject.Inject;

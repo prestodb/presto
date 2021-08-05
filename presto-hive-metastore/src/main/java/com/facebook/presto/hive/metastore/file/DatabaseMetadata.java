@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.hive.metastore.file;
 
-import com.facebook.presto.common.security.PrincipalType;
 import com.facebook.presto.hive.metastore.Database;
+import com.facebook.presto.spi.security.PrincipalType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;

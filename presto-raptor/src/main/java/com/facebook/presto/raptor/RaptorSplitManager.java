@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.raptor;
 
-import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.common.HostAddress;
 import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.predicate.TupleDomain;
@@ -24,6 +23,7 @@ import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.ShardNodes;
 import com.facebook.presto.raptor.util.SynchronizedResultIterator;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;

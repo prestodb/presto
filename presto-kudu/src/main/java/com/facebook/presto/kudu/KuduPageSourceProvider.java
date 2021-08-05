@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.kudu;
 
-import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.SplitContext;

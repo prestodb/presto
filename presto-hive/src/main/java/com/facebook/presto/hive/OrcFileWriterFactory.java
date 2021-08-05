@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.io.DataSink;
 import com.facebook.presto.common.type.Type;
@@ -32,6 +31,7 @@ import com.facebook.presto.orc.WriterEncryptionGroup;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.KeyProvider;
 import com.facebook.presto.orc.metadata.OrcType;
+import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;

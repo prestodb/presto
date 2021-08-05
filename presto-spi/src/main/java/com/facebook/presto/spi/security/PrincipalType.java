@@ -11,17 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.common.security;
+package com.facebook.presto.spi.security;
 
-import java.security.Principal;
-
-public interface PasswordAuthenticator
+public enum PrincipalType
 {
-    /**
-     * Authenticate the provided user and password.
-     *
-     * @return the authenticated entity
-     * @throws AccessDeniedException if not allowed
-     */
-    Principal createAuthenticatedPrincipal(String user, String password);
+    USER, ROLE
 }

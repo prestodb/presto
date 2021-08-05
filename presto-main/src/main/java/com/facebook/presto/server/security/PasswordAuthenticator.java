@@ -15,7 +15,7 @@ package com.facebook.presto.server.security;
 
 import com.facebook.airlift.http.server.AuthenticationException;
 import com.facebook.airlift.http.server.Authenticator;
-import com.facebook.presto.common.security.AccessDeniedException;
+import com.facebook.presto.spi.security.AccessDeniedException;
 import com.google.common.base.Splitter;
 
 import javax.inject.Inject;

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive.metastore;
 
-import com.facebook.presto.common.security.ConnectorIdentity;
+import com.facebook.presto.spi.security.ConnectorIdentity;
 
 import java.util.Objects;
 import java.util.Optional;

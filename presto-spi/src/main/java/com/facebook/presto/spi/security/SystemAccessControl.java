@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.common.security;
+package com.facebook.presto.spi.security;
 
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.CatalogSchemaTableName;
@@ -22,27 +22,27 @@ import java.util.Collections;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.common.security.AccessDeniedException.denyAddColumn;
-import static com.facebook.presto.common.security.AccessDeniedException.denyCatalogAccess;
-import static com.facebook.presto.common.security.AccessDeniedException.denyCreateSchema;
-import static com.facebook.presto.common.security.AccessDeniedException.denyCreateTable;
-import static com.facebook.presto.common.security.AccessDeniedException.denyCreateView;
-import static com.facebook.presto.common.security.AccessDeniedException.denyCreateViewWithSelect;
-import static com.facebook.presto.common.security.AccessDeniedException.denyDeleteTable;
-import static com.facebook.presto.common.security.AccessDeniedException.denyDropColumn;
-import static com.facebook.presto.common.security.AccessDeniedException.denyDropSchema;
-import static com.facebook.presto.common.security.AccessDeniedException.denyDropTable;
-import static com.facebook.presto.common.security.AccessDeniedException.denyDropView;
-import static com.facebook.presto.common.security.AccessDeniedException.denyGrantTablePrivilege;
-import static com.facebook.presto.common.security.AccessDeniedException.denyInsertTable;
-import static com.facebook.presto.common.security.AccessDeniedException.denyRenameColumn;
-import static com.facebook.presto.common.security.AccessDeniedException.denyRenameSchema;
-import static com.facebook.presto.common.security.AccessDeniedException.denyRenameTable;
-import static com.facebook.presto.common.security.AccessDeniedException.denyRevokeTablePrivilege;
-import static com.facebook.presto.common.security.AccessDeniedException.denySelectColumns;
-import static com.facebook.presto.common.security.AccessDeniedException.denySetCatalogSessionProperty;
-import static com.facebook.presto.common.security.AccessDeniedException.denyShowSchemas;
-import static com.facebook.presto.common.security.AccessDeniedException.denyShowTablesMetadata;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyCatalogAccess;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateView;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateViewWithSelect;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyDeleteTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyDropColumn;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyDropSchema;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyDropView;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyGrantTablePrivilege;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyInsertTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameColumn;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameSchema;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
+import static com.facebook.presto.spi.security.AccessDeniedException.denySelectColumns;
+import static com.facebook.presto.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyShowSchemas;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyShowTablesMetadata;
 
 public interface SystemAccessControl
 {

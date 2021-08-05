@@ -15,12 +15,12 @@ package com.facebook.presto.hive.metastore;
 
 import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.predicate.Domain;
-import com.facebook.presto.common.security.PrestoPrincipal;
-import com.facebook.presto.common.security.RoleGrant;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.ForCachingHiveMetastore;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.MetastoreClientConfig;
+import com.facebook.presto.spi.security.PrestoPrincipal;
+import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;

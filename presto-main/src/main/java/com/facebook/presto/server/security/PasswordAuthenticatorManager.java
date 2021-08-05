@@ -14,8 +14,8 @@
 package com.facebook.presto.server.security;
 
 import com.facebook.airlift.log.Logger;
-import com.facebook.presto.common.security.PasswordAuthenticator;
-import com.facebook.presto.common.security.PasswordAuthenticatorFactory;
+import com.facebook.presto.spi.security.PasswordAuthenticator;
+import com.facebook.presto.spi.security.PasswordAuthenticatorFactory;
 import com.google.common.collect.ImmutableMap;
 
 import java.io.File;

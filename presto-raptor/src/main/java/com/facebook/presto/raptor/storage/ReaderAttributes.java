@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.raptor.storage;
 
-import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.raptor.RaptorSessionProperties;
+import com.facebook.presto.spi.ConnectorSession;
 import io.airlift.units.DataSize;
 
 import javax.inject.Inject;

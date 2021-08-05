@@ -15,8 +15,8 @@ package com.facebook.presto.password.ldap;
 
 import com.facebook.airlift.http.server.BasicPrincipal;
 import com.facebook.airlift.log.Logger;
-import com.facebook.presto.common.security.AccessDeniedException;
-import com.facebook.presto.common.security.PasswordAuthenticator;
+import com.facebook.presto.spi.security.AccessDeniedException;
+import com.facebook.presto.spi.security.PasswordAuthenticator;
 import com.google.common.base.VerifyException;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
