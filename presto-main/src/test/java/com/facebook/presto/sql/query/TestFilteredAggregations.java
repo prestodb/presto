@@ -125,6 +125,61 @@ public class TestFilteredAggregations
     }
 
     @Test
+    public void testSetAggWithNulls()
+    {
+        assertions.assertQuery(
+                "SELECT y, set_agg(y) FILTER (WHERE x = 1) FROM (SELECT 1 x, 2 y UNION ALL SELECT NULL x, 20 y UNION ALL SELECT 1 x, NULL y) GROUP BY y ORDER BY y",
+                "VALUES (INTEGER '2', ARRAY[INTEGER '2']), (INTEGER '20', CAST(NULL AS ARRAY<INTEGER>)), (CAST(NULL AS INTEGER), ARRAY[CAST(NULL AS INTEGER)])");
+        assertions.assertQuery(
+                "SELECT y, set_agg(IF(x = 1,y)) FROM (SELECT 1 x, 2 y UNION ALL SELECT NULL x, 20 y UNION ALL SELECT 1 x, NULL y) GROUP BY y ORDER BY y",
+                "VALUES (INTEGER '2', ARRAY[INTEGER '2']), (INTEGER '20', ARRAY[CAST(NULL AS INTEGER)]), (CAST(NULL AS INTEGER), ARRAY[CAST(NULL AS INTEGER)])");
+    }
+
+    @Test
+    public void testApproxSet()
+    {
+        assertions.assertQuery(
+                "SELECT y, approx_set(y) FILTER (WHERE x = 1) FROM (SELECT NULL x, 20 y UNION ALL SELECT 1 x, NULL y) GROUP BY y ORDER BY y",
+                "VALUES (INTEGER '20', CAST(NULL AS HyperLogLog)), (CAST(NULL AS INTEGER), CAST(NULL AS HyperLogLog))");
+        assertions.assertQuery(
+                "SELECT y, approx_set(IF(x = 1,y)) FROM (SELECT NULL x, 20 y UNION ALL SELECT 1 x, NULL y) GROUP BY y ORDER BY y",
+                "VALUES (INTEGER '20', CAST(NULL AS HyperLogLog)), (CAST(NULL AS INTEGER), CAST(NULL AS HyperLogLog))");
+    }
+
+    @Test
+    public void testSetUnion()
+    {
+        assertions.assertQuery(
+                "SELECT set_union(x) FILTER (WHERE y > 1) FROM (SELECT ARRAY[1] x, 1 y UNION ALL SELECT NULL x, 1 y)",
+                "VALUES (CAST (NULL AS ARRAY<INTEGER>))");
+        assertions.assertQuery(
+                "SELECT set_union(IF(y > 1, x)) FROM (SELECT ARRAY[1] x, 1 y UNION ALL SELECT NULL x, 1 y)",
+                "VALUES (CAST (ARRAY[] AS ARRAY<INTEGER>))");
+    }
+
+    @Test
+    public void testMapUnion()
+    {
+        assertions.assertQuery(
+                "SELECT map_union(x) FILTER (WHERE y > 1) FROM (SELECT MAP(ARRAY[1], ARRAY[1]) x, 1 y UNION ALL SELECT NULL x, 1 y)",
+                "VALUES (CAST (NULL AS MAP<INTEGER, INTEGER>))");
+        assertions.assertQuery(
+                "SELECT map_union(IF(y > 1, x)) FROM (SELECT MAP(ARRAY[1], ARRAY[1]) x, 1 y UNION ALL SELECT NULL x, 1 y)",
+                "VALUES (CAST (NULL AS MAP<INTEGER, INTEGER>))");
+    }
+
+    @Test
+    public void testMapUnionSum()
+    {
+        assertions.assertQuery(
+                "SELECT map_union_sum(x) FILTER (WHERE y > 1) FROM (SELECT MAP(ARRAY[1], ARRAY[1]) x, 1 y UNION ALL SELECT NULL x, 1 y)",
+                "VALUES (CAST (NULL AS MAP<INTEGER, INTEGER>))");
+        assertions.assertQuery(
+                "SELECT map_union_sum(IF(y > 1, x)) FROM (SELECT MAP(ARRAY[1], ARRAY[1]) x, 1 y UNION ALL SELECT NULL x, 1 y)",
+                "VALUES (CAST (NULL AS MAP<INTEGER, INTEGER>))");
+    }
+
+    @Test
     public void testGroupingSets()
     {
         assertions.assertQuery(
