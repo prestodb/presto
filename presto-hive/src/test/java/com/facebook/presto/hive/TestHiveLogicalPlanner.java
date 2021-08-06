@@ -20,10 +20,14 @@ import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.ValueSet;
 import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
+import com.facebook.presto.hive.metastore.Partition;
+import com.facebook.presto.hive.metastore.PartitionStatistics;
+import com.facebook.presto.hive.metastore.PartitionWithStatistics;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
@@ -62,6 +66,7 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
 import java.net.URI;
@@ -104,6 +109,8 @@ import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENA
 import static com.facebook.presto.hive.HiveSessionProperties.RANGE_FILTERS_ON_SUBSCRIPTS_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.SHUFFLE_PARTITIONED_COLUMNS_FOR_TABLE_WRITE;
 import static com.facebook.presto.hive.TestHiveIntegrationSmokeTest.assertRemoteExchangesCount;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.toPartitionValues;
+import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static com.facebook.presto.parquet.ParquetTypeUtils.pushdownColumnNameForSubfield;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
@@ -521,6 +528,213 @@ public class TestHiveLogicalPlanner
         }
     }
 
+    @Test
+    public void testMetadataAggregationFoldingWithEmptyPartitions()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        Session optimizeMetadataQueries = Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(OPTIMIZE_METADATA_QUERIES, Boolean.toString(true))
+                .build();
+        Session shufflePartitionColumns = Session.builder(this.getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty(HIVE_CATALOG, SHUFFLE_PARTITIONED_COLUMNS_FOR_TABLE_WRITE, Boolean.toString(true))
+                .build();
+
+        queryRunner.execute(
+                shufflePartitionColumns,
+                "CREATE TABLE test_metadata_aggregation_folding_with_empty_partitions WITH (partitioned_by = ARRAY['ds']) AS " +
+                        "SELECT orderkey, CAST(to_iso8601(date_add('DAY', orderkey % 2, date('2020-07-01'))) AS VARCHAR) AS ds FROM orders WHERE orderkey < 1000");
+        ExtendedHiveMetastore metastore = replicateHiveMetastore((DistributedQueryRunner) queryRunner);
+        MetastoreContext metastoreContext = new MetastoreContext(getSession().getUser(), getSession().getQueryId().getId(), Optional.empty(), Optional.empty());
+        Table table = metastore.getTable(metastoreContext, getSession().getSchema().get(), "test_metadata_aggregation_folding_with_empty_partitions").get();
+
+        // Add one partition with no statistics.
+        String partitionNameNoStats = "ds=2020-07-20";
+        Partition partitionNoStats = createDummyPartition(table, partitionNameNoStats);
+        metastore.addPartitions(
+                metastoreContext,
+                table.getDatabaseName(),
+                table.getTableName(),
+                ImmutableList.of(new PartitionWithStatistics(partitionNoStats, partitionNameNoStats, PartitionStatistics.empty())));
+
+        // Add one partition with statistics indicating that it has no rows.
+        String emptyPartitionName = "ds=2020-06-30";
+        Partition emptyPartition = createDummyPartition(table, emptyPartitionName);
+        metastore.addPartitions(
+                metastoreContext,
+                table.getDatabaseName(),
+                table.getTableName(),
+                ImmutableList.of(new PartitionWithStatistics(
+                        emptyPartition,
+                        emptyPartitionName,
+                        PartitionStatistics.builder().setBasicStatistics(new HiveBasicStatistics(1, 0, 0, 0)).build())));
+        try {
+            // Max ds doesn't have stats. Disable rewrite.
+            assertPlan(
+                    optimizeMetadataQueries,
+                    "SELECT * FROM test_metadata_aggregation_folding_with_empty_partitions WHERE ds = (SELECT max(ds) from test_metadata_aggregation_folding_with_empty_partitions)",
+                    anyTree(
+                            anyTree(
+                                    PlanMatchPattern.tableScan("test_metadata_aggregation_folding_with_empty_partitions")),
+                            anyTree(
+                                    PlanMatchPattern.tableScan("test_metadata_aggregation_folding_with_empty_partitions"))));
+            // Max ds matching the filter has stats. Enable rewrite.
+            assertPlan(
+                    optimizeMetadataQueries,
+                    "SELECT * FROM test_metadata_aggregation_folding_with_empty_partitions WHERE ds = (SELECT max(ds) from test_metadata_aggregation_folding_with_empty_partitions WHERE ds <= '2020-07-02')",
+                    anyTree(
+                            join(
+                                    INNER,
+                                    ImmutableList.of(),
+                                    tableScan("test_metadata_aggregation_folding_with_empty_partitions", getSingleValueColumnDomain("ds", "2020-07-02"), TRUE_CONSTANT, ImmutableSet.of("ds")),
+                                    anyTree(any()))));
+            // Min ds partition stats indicates that it is an empty partition. Disable rewrite.
+            assertPlan(
+                    optimizeMetadataQueries,
+                    "SELECT * FROM test_metadata_aggregation_folding_with_empty_partitions WHERE ds = (SELECT min(ds) from test_metadata_aggregation_folding_with_empty_partitions)",
+                    anyTree(
+                            anyTree(
+                                    PlanMatchPattern.tableScan("test_metadata_aggregation_folding_with_empty_partitions")),
+                            anyTree(
+                                    PlanMatchPattern.tableScan("test_metadata_aggregation_folding_with_empty_partitions"))));
+            // Min ds partition matching the filter has non-empty stats. Enable rewrite.
+            assertPlan(
+                    optimizeMetadataQueries,
+                    "SELECT * FROM test_metadata_aggregation_folding_with_empty_partitions WHERE ds = (SELECT min(ds) from test_metadata_aggregation_folding_with_empty_partitions WHERE ds >= '2020-07-01')",
+                    anyTree(
+                            join(
+                                    INNER,
+                                    ImmutableList.of(),
+                                    tableScan("test_metadata_aggregation_folding_with_empty_partitions", getSingleValueColumnDomain("ds", "2020-07-01"), TRUE_CONSTANT, ImmutableSet.of("ds")),
+                                    anyTree(any()))));
+            // Test the non-reducible code path.
+            // Disable rewrite as there are partitions with empty stats.
+            assertPlan(
+                    optimizeMetadataQueries,
+                    "SELECT DISTINCT ds FROM test_metadata_aggregation_folding_with_empty_partitions",
+                    anyTree(tableScanWithConstraint("test_metadata_aggregation_folding_with_empty_partitions", ImmutableMap.of("ds", multipleValues(VARCHAR, utf8Slices("2020-06-30", "2020-07-01", "2020-07-02", "2020-07-20"))))));
+            // Enable rewrite as all matching partitions have stats.
+            assertPlan(
+                    optimizeMetadataQueries,
+                    "SELECT DISTINCT ds FROM test_metadata_aggregation_folding_with_empty_partitions WHERE ds BETWEEN '2020-07-01' AND '2020-07-03'",
+                    anyTree(
+                            values(
+                                    ImmutableList.of("ds"),
+                                    ImmutableList.of(
+                                            ImmutableList.of(new StringLiteral("2020-07-01")),
+                                            ImmutableList.of(new StringLiteral("2020-07-02"))))));
+            // One of two resulting partitions doesn't have stats. Disable rewrite.
+            assertPlan(
+                    optimizeMetadataQueries,
+                    "SELECT MIN(ds), MAX(ds) FROM test_metadata_aggregation_folding_with_empty_partitions WHERE ds BETWEEN '2020-06-30' AND '2020-07-03'",
+                    anyTree(tableScanWithConstraint("test_metadata_aggregation_folding_with_empty_partitions", ImmutableMap.of("ds", multipleValues(VARCHAR, utf8Slices("2020-06-30", "2020-07-01", "2020-07-02"))))));
+            // Both resulting partitions have stats. Enable rewrite.
+            assertPlan(
+                    optimizeMetadataQueries,
+                    "SELECT MIN(ds), MAX(ds) FROM test_metadata_aggregation_folding_with_empty_partitions WHERE ds BETWEEN '2020-07-01' AND '2020-07-03'",
+                    anyTree(
+                            project(
+                                    ImmutableMap.of(
+                                            "min", expression("'2020-07-01'"),
+                                            "max", expression("'2020-07-02'")),
+                                    anyTree(values()))));
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS test_metadata_aggregation_folding_with_empty_partitions");
+        }
+    }
+
+    @Test
+    public void testMetadataAggregationFoldingWithTwoPartitionColumns()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        Session optimizeMetadataQueries = Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(OPTIMIZE_METADATA_QUERIES, Boolean.toString(true))
+                .build();
+        Session shufflePartitionColumns = Session.builder(this.getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty(HIVE_CATALOG, SHUFFLE_PARTITIONED_COLUMNS_FOR_TABLE_WRITE, Boolean.toString(true))
+                .build();
+
+        // Create a table with partitions: ds=2020-07-01/status=A, ds=2020-07-01/status=B, ds=2020-07-02/status=A, ds=2020-07-02/status=B
+        queryRunner.execute(
+                shufflePartitionColumns,
+                "CREATE TABLE test_metadata_aggregation_folding_with_two_partitions_columns WITH (partitioned_by = ARRAY['ds', 'status']) AS " +
+                        "SELECT orderkey, CAST(to_iso8601(date_add('DAY', orderkey % 2, date('2020-07-01'))) AS VARCHAR) AS ds, IF(orderkey % 2 = 1, 'A', 'B') status " +
+                        "FROM orders WHERE orderkey < 1000");
+        ExtendedHiveMetastore metastore = replicateHiveMetastore((DistributedQueryRunner) queryRunner);
+        MetastoreContext metastoreContext = new MetastoreContext(getSession().getUser(), getSession().getQueryId().getId(), Optional.empty(), Optional.empty());
+        Table table = metastore.getTable(metastoreContext, getSession().getSchema().get(), "test_metadata_aggregation_folding_with_two_partitions_columns").get();
+
+        // Add one partition with no statistics.
+        String partitionNameNoStats = "ds=2020-07-03/status=C";
+        Partition partitionNoStats = createDummyPartition(table, partitionNameNoStats);
+        metastore.addPartitions(
+                metastoreContext,
+                table.getDatabaseName(),
+                table.getTableName(),
+                ImmutableList.of(new PartitionWithStatistics(partitionNoStats, partitionNameNoStats, PartitionStatistics.empty())));
+
+        try {
+            // All matching partitions have stats. Enable rewrite.
+            assertPlan(
+                    optimizeMetadataQueries,
+                    "SELECT MIN(ds), MAX(ds) FROM test_metadata_aggregation_folding_with_two_partitions_columns WHERE ds BETWEEN '2020-07-01' AND '2020-07-02'",
+                    anyTree(
+                            project(
+                                    ImmutableMap.of(
+                                            "min", expression("'2020-07-01'"),
+                                            "max", expression("'2020-07-02'")),
+                                    anyTree(values()))));
+            // All matching partitions have stats. Enable rewrite.
+            assertPlan(
+                    optimizeMetadataQueries,
+                    "SELECT MIN(status), MAX(ds) FROM test_metadata_aggregation_folding_with_two_partitions_columns WHERE ds BETWEEN '2020-07-01' AND '2020-07-02'",
+                    anyTree(
+                            project(
+                                    ImmutableMap.of(
+                                            "min", expression("'A'"),
+                                            "max", expression("'2020-07-02'")),
+                                    anyTree(values()))));
+            // All matching partitions have stats. Enable rewrite.
+            assertPlan(
+                    optimizeMetadataQueries,
+                    "SELECT MIN(ds) ds, MIN(status) status FROM test_metadata_aggregation_folding_with_two_partitions_columns",
+                    anyTree(
+                            project(
+                                    ImmutableMap.of(
+                                            "ds", expression("'2020-07-01'"),
+                                            "status", expression("'A'")),
+                                    anyTree(values()))));
+            // Resulting partition doesn't have stats. Disable rewrite.
+            assertPlan(
+                    optimizeMetadataQueries,
+                    "SELECT MAX(status) status FROM test_metadata_aggregation_folding_with_two_partitions_columns",
+                    anyTree(
+                            tableScanWithConstraint(
+                                    "test_metadata_aggregation_folding_with_two_partitions_columns",
+                                    ImmutableMap.of(
+                                            "status", multipleValues(VarcharType.createVarcharType(1), utf8Slices("A", "B", "C")),
+                                            "ds", multipleValues(VARCHAR, utf8Slices("2020-07-01", "2020-07-02", "2020-07-03"))))));
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS test_metadata_aggregation_folding_with_two_partitions_columns");
+        }
+    }
+
+    private static Partition createDummyPartition(Table table, String partitionName)
+    {
+        return Partition.builder()
+                .setDatabaseName(table.getDatabaseName())
+                .setTableName(table.getTableName())
+                .setColumns(table.getDataColumns())
+                .setValues(toPartitionValues(partitionName))
+                .withStorage(storage -> storage
+                        .setStorageFormat(fromHiveStorageFormat(HiveStorageFormat.ORC))
+                        .setLocation(new Path(table.getStorage().getLocation(), partitionName).toString()))
+                .setEligibleToIgnore(true)
+                .setSealedPartition(true)
+                .build();
+    }
+
     private static TupleDomain<String> getSingleValueColumnDomain(String column, String value)
     {
         return withColumnDomains(ImmutableMap.of(column, singleValue(VARCHAR, utf8Slice(value))));
@@ -533,7 +747,8 @@ public class TestHiveLogicalPlanner
 
     private static PlanMatchPattern tableScanWithConstraint(String tableName, Map<String, Domain> expectedConstraint)
     {
-        return PlanMatchPattern.tableScan(tableName).with(new Matcher() {
+        return PlanMatchPattern.tableScan(tableName).with(new Matcher()
+        {
             @Override
             public boolean shapeMatches(PlanNode node)
             {
@@ -561,45 +776,45 @@ public class TestHiveLogicalPlanner
     public void testPushdownFilterOnSubfields()
     {
         assertUpdate("CREATE TABLE test_pushdown_filter_on_subfields(" +
-                         "id bigint, " +
-                         "a array(bigint), " +
-                         "b map(varchar, bigint), " +
-                         "c row(" +
-                             "a bigint, " +
-                             "b row(x bigint), " +
-                             "c array(bigint), " +
-                             "d map(bigint, bigint), " +
-                             "e map(varchar, bigint)))");
+                "id bigint, " +
+                "a array(bigint), " +
+                "b map(varchar, bigint), " +
+                "c row(" +
+                "a bigint, " +
+                "b row(x bigint), " +
+                "c array(bigint), " +
+                "d map(bigint, bigint), " +
+                "e map(varchar, bigint)))");
 
         assertPushdownFilterOnSubfields("SELECT * FROM test_pushdown_filter_on_subfields WHERE a[1] = 1",
-                        ImmutableMap.of(new Subfield("a[1]"), singleValue(BIGINT, 1L)));
+                ImmutableMap.of(new Subfield("a[1]"), singleValue(BIGINT, 1L)));
 
         assertPushdownFilterOnSubfields("SELECT * FROM test_pushdown_filter_on_subfields where a[1 + 1] = 1",
-                        ImmutableMap.of(new Subfield("a[2]"), singleValue(BIGINT, 1L)));
+                ImmutableMap.of(new Subfield("a[2]"), singleValue(BIGINT, 1L)));
 
         assertPushdownFilterOnSubfields("SELECT *  FROM test_pushdown_filter_on_subfields WHERE b['foo'] = 1",
-                        ImmutableMap.of(new Subfield("b[\"foo\"]"), singleValue(BIGINT, 1L)));
+                ImmutableMap.of(new Subfield("b[\"foo\"]"), singleValue(BIGINT, 1L)));
 
         assertPushdownFilterOnSubfields("SELECT * FROM test_pushdown_filter_on_subfields WHERE b[concat('f','o', 'o')] = 1",
-                        ImmutableMap.of(new Subfield("b[\"foo\"]"), singleValue(BIGINT, 1L)));
+                ImmutableMap.of(new Subfield("b[\"foo\"]"), singleValue(BIGINT, 1L)));
 
         assertPushdownFilterOnSubfields("SELECT * FROM test_pushdown_filter_on_subfields WHERE c.a = 1",
-                        ImmutableMap.of(new Subfield("c.a"), singleValue(BIGINT, 1L)));
+                ImmutableMap.of(new Subfield("c.a"), singleValue(BIGINT, 1L)));
 
         assertPushdownFilterOnSubfields("SELECT * FROM test_pushdown_filter_on_subfields WHERE c.b.x = 1",
-                        ImmutableMap.of(new Subfield("c.b.x"), singleValue(BIGINT, 1L)));
+                ImmutableMap.of(new Subfield("c.b.x"), singleValue(BIGINT, 1L)));
 
         assertPushdownFilterOnSubfields("SELECT * FROM test_pushdown_filter_on_subfields WHERE c.c[5] = 1",
-                        ImmutableMap.of(new Subfield("c.c[5]"), singleValue(BIGINT, 1L)));
+                ImmutableMap.of(new Subfield("c.c[5]"), singleValue(BIGINT, 1L)));
 
         assertPushdownFilterOnSubfields("SELECT * FROM test_pushdown_filter_on_subfields WHERE c.d[5] = 1",
-                        ImmutableMap.of(new Subfield("c.d[5]"), singleValue(BIGINT, 1L)));
+                ImmutableMap.of(new Subfield("c.d[5]"), singleValue(BIGINT, 1L)));
 
         assertPushdownFilterOnSubfields("SELECT * FROM test_pushdown_filter_on_subfields WHERE c.e[concat('f', 'o', 'o')] = 1",
-                        ImmutableMap.of(new Subfield("c.e[\"foo\"]"), singleValue(BIGINT, 1L)));
+                ImmutableMap.of(new Subfield("c.e[\"foo\"]"), singleValue(BIGINT, 1L)));
 
         assertPushdownFilterOnSubfields("SELECT * FROM test_pushdown_filter_on_subfields WHERE c.e['foo'] = 1",
-                        ImmutableMap.of(new Subfield("c.e[\"foo\"]"), singleValue(BIGINT, 1L)));
+                ImmutableMap.of(new Subfield("c.e[\"foo\"]"), singleValue(BIGINT, 1L)));
 
         assertPushdownFilterOnSubfields("SELECT * FROM test_pushdown_filter_on_subfields WHERE c.a IS NOT NULL AND c.c IS NOT NULL",
                 ImmutableMap.of(new Subfield("c.a"), notNull(BIGINT), new Subfield("c.c"), notNull(new ArrayType(BIGINT))));
@@ -1455,9 +1670,9 @@ public class TestHiveLogicalPlanner
         try {
             queryRunner.execute(format(
                     "CREATE TABLE %s WITH (partitioned_by = ARRAY['ds', 'shipmode']) AS " +
-                    "SELECT discount, extendedprice, '2020-01-01' as ds, shipmode FROM lineitem WHERE orderkey < 1000 " +
-                    "UNION ALL " +
-                    "SELECT discount, extendedprice, '2020-01-02' as ds, shipmode FROM lineitem WHERE orderkey > 1000",
+                            "SELECT discount, extendedprice, '2020-01-01' as ds, shipmode FROM lineitem WHERE orderkey < 1000 " +
+                            "UNION ALL " +
+                            "SELECT discount, extendedprice, '2020-01-02' as ds, shipmode FROM lineitem WHERE orderkey > 1000",
                     baseTable));
             assertUpdate(format(
                     "CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['mvds', 'shipmode']) AS " +
@@ -1495,9 +1710,9 @@ public class TestHiveLogicalPlanner
         try {
             queryRunner.execute(format(
                     "CREATE TABLE %s WITH (partitioned_by = ARRAY['ds', 'shipmode']) AS " +
-                    "SELECT discount, extendedprice, orderkey, '2020-01-01' as ds, shipmode FROM lineitem WHERE orderkey < 1000 " +
-                    "UNION ALL " +
-                    "SELECT discount, extendedprice, orderkey, '2020-01-02' as ds, shipmode FROM lineitem WHERE orderkey > 1000",
+                            "SELECT discount, extendedprice, orderkey, '2020-01-01' as ds, shipmode FROM lineitem WHERE orderkey < 1000 " +
+                            "UNION ALL " +
+                            "SELECT discount, extendedprice, orderkey, '2020-01-02' as ds, shipmode FROM lineitem WHERE orderkey > 1000",
                     baseTable));
             assertUpdate(format(
                     "CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['mvds', 'shipmode']) AS " +
@@ -2211,7 +2426,7 @@ public class TestHiveLogicalPlanner
         return new ConstantExpression(value, BIGINT);
     }
 
-    private static Map<String, String> identityMap(String...values)
+    private static Map<String, String> identityMap(String... values)
     {
         return Arrays.stream(values).collect(toImmutableMap(Functions.identity(), Functions.identity()));
     }
@@ -2324,7 +2539,8 @@ public class TestHiveLogicalPlanner
 
     private static PlanMatchPattern tableScan(String tableName, TupleDomain<String> domainPredicate, RowExpression remainingPredicate, Set<String> predicateColumnNames)
     {
-        return PlanMatchPattern.tableScan(tableName).with(new Matcher() {
+        return PlanMatchPattern.tableScan(tableName).with(new Matcher()
+        {
             @Override
             public boolean shapeMatches(PlanNode node)
             {
