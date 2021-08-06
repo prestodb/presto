@@ -20,7 +20,6 @@ import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.metadata.Split.SplitIdentifier;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.page.PagesSerde;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.RemovalListener;
@@ -67,7 +66,8 @@ public class FileFragmentResultCacheManager
 
     private final Path baseDirectory;
     private final long maxInFlightBytes;
-    private final PagesSerde pagesSerde;
+    private final long maxSinglePagesBytes;
+    private final PagesSerdeFactory pagesSerdeFactory;
     private final FragmentCacheStats fragmentCacheStats;
     private final ExecutorService flushExecutor;
     private final ExecutorService removalExecutor;
@@ -88,7 +88,9 @@ public class FileFragmentResultCacheManager
 
         this.baseDirectory = Paths.get(cacheConfig.getBaseDirectory());
         this.maxInFlightBytes = cacheConfig.getMaxInFlightSize().toBytes();
-        this.pagesSerde = new PagesSerdeFactory(blockEncodingSerde, cacheConfig.isBlockEncodingCompressionEnabled()).createPagesSerde();
+        this.maxSinglePagesBytes = cacheConfig.getMaxSinglePagesSize().toBytes();
+        // pagesSerde is not thread safe
+        this.pagesSerdeFactory = new PagesSerdeFactory(blockEncodingSerde, cacheConfig.isBlockEncodingCompressionEnabled());
         this.fragmentCacheStats = requireNonNull(fragmentCacheStats, "fragmentCacheStats is null");
         this.flushExecutor = requireNonNull(flushExecutor, "flushExecutor is null");
         this.removalExecutor = requireNonNull(removalExecutor, "removalExecutor is null");
@@ -130,13 +132,13 @@ public class FileFragmentResultCacheManager
     {
         CacheKey key = new CacheKey(serializedPlan, split.getSplitIdentifier());
         long resultSize = getPagesSize(result);
-        if (fragmentCacheStats.getInFlightBytes() + resultSize > maxInFlightBytes || cache.getIfPresent(key) != null) {
+        if (fragmentCacheStats.getInFlightBytes() + resultSize > maxInFlightBytes || cache.getIfPresent(key) != null || resultSize > maxSinglePagesBytes) {
             return immediateFuture(null);
         }
 
         fragmentCacheStats.addInFlightBytes(resultSize);
         Path path = baseDirectory.resolve(randomUUID().toString().replaceAll("-", "_"));
-        return flushExecutor.submit(() -> cachePages(key, path, result));
+        return flushExecutor.submit(() -> cachePages(key, path, result, resultSize));
     }
 
     private static long getPagesSize(List<Page> pages)
@@ -146,13 +148,13 @@ public class FileFragmentResultCacheManager
                 .sum();
     }
 
-    private void cachePages(CacheKey key, Path path, List<Page> pages)
+    private void cachePages(CacheKey key, Path path, List<Page> pages, long resultSize)
     {
         // TODO: To support both memory and disk limit, we should check cache size before putting to cache and use written bytes as weight for cache
         try {
             Files.createFile(path);
             try (SliceOutput output = new OutputStreamSliceOutput(newOutputStream(path, APPEND))) {
-                writePages(pagesSerde, output, pages.iterator());
+                writePages(pagesSerdeFactory.createPagesSerde(), output, pages.iterator());
                 cache.put(key, path);
                 fragmentCacheStats.incrementCacheEntries();
             }
@@ -166,7 +168,7 @@ public class FileFragmentResultCacheManager
             tryDeleteFile(path);
         }
         finally {
-            fragmentCacheStats.addInFlightBytes(-getPagesSize(pages));
+            fragmentCacheStats.addInFlightBytes(-resultSize);
         }
     }
 
@@ -195,11 +197,12 @@ public class FileFragmentResultCacheManager
 
         try {
             InputStream inputStream = newInputStream(path);
-            Iterator<Page> result = readPages(pagesSerde, new InputStreamSliceInput(inputStream));
+            Iterator<Page> result = readPages(pagesSerdeFactory.createPagesSerde(), new InputStreamSliceInput(inputStream));
             fragmentCacheStats.incrementCacheHit();
             return Optional.of(closeWhenExhausted(result, inputStream));
         }
         catch (UncheckedIOException | IOException e) {
+            log.error(e, "read path %s error", path);
             // there might be a chance the file has been deleted. We would return cache miss in this case.
             fragmentCacheStats.incrementCacheMiss();
             return Optional.empty();
