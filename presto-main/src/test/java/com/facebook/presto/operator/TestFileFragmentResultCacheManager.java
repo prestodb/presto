@@ -35,6 +35,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
@@ -56,6 +58,7 @@ public class TestFileFragmentResultCacheManager
 
     private final ExecutorService writeExecutor = newScheduledThreadPool(5, daemonThreadsNamed("test-cache-flusher-%s"));
     private final ExecutorService removalExecutor = newScheduledThreadPool(5, daemonThreadsNamed("test-cache-remover-%s"));
+    private final ExecutorService multithreadingWriteExecutor = newScheduledThreadPool(10, daemonThreadsNamed("test-cache-multithreading-flusher-%s"));
 
     private URI cacheDirectory;
 
@@ -72,6 +75,7 @@ public class TestFileFragmentResultCacheManager
     {
         writeExecutor.shutdown();
         removalExecutor.shutdown();
+        multithreadingWriteExecutor.shutdown();
 
         checkState(cacheDirectory != null);
         File[] files = new File(cacheDirectory).listFiles();
@@ -145,6 +149,35 @@ public class TestFileFragmentResultCacheManager
         }
         assertFalse(pages1.hasNext());
         assertFalse(pages2.hasNext());
+    }
+
+    @Test(timeOut = 30_000)
+    public void testThreadWrite() throws Exception
+    {
+        String writeThreadNameFormat = "test write content,thread %s,%s";
+        FragmentCacheStats stats = new FragmentCacheStats();
+        FileFragmentResultCacheManager threadWriteCacheManager = fileFragmentResultCacheManager(stats);
+        ImmutableList.Builder<Future<Boolean>> futures = ImmutableList.builder();
+        for (int i = 0; i < 10; i++) {
+            Future<Boolean> future = multithreadingWriteExecutor.submit(() -> {
+                try {
+                    String threadInfo = String.format(writeThreadNameFormat, Thread.currentThread().getName(), Thread.currentThread().getId());
+                    List<Page> pages = ImmutableList.of(new Page(createStringsBlock(threadInfo)));
+                    threadWriteCacheManager.put(threadInfo, SPLIT_2, pages).get();
+                    Optional<Iterator<Page>> result = threadWriteCacheManager.get(threadInfo, SPLIT_2);
+                    assertTrue(result.isPresent());
+                    assertPagesEqual(result.get(), pages.iterator());
+                    return true;
+                }
+                catch (Exception e) {
+                    return false;
+                }
+            });
+            futures.add(future);
+        }
+        for (Future<Boolean> future : futures.build()) {
+            assertTrue(future.get(30, TimeUnit.SECONDS));
+        }
     }
 
     private FileFragmentResultCacheManager fileFragmentResultCacheManager(FragmentCacheStats fragmentCacheStats)
