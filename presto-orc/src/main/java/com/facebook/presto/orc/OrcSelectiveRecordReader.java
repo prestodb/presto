@@ -722,7 +722,7 @@ public class OrcSelectiveRecordReader
             }
             else {
                 Block block = getStreamReader(columnIndex).getBlock(positionsToRead, positionCount);
-                updateMaxCombinedBytesPerRow(columnIndex, block);
+                updateMaxCombinedBytesPerRow(hiveColumnIndices[columnIndex], block);
 
                 if (coercers[columnIndex] != null) {
                     block = coercers[columnIndex].apply(block);
