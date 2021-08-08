@@ -43,6 +43,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Range;
 import com.google.common.collect.Streams;
 import com.google.common.primitives.Ints;
+import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
@@ -101,6 +102,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -967,6 +969,7 @@ public class TestSelectiveOrcReader
                 OrcReaderSettings.builder().build().getFilterFunctionInputMapping(),
                 OrcReaderSettings.builder().build().getRequiredSubfields(),
                 ImmutableMap.of(),
+                ImmutableMap.of(),
                 includedColumns,
                 outputColumns,
                 false,
@@ -1028,6 +1031,7 @@ public class TestSelectiveOrcReader
                 OrcReaderSettings.builder().build().getFilterFunctionInputMapping(),
                 OrcReaderSettings.builder().build().getRequiredSubfields(),
                 ImmutableMap.of(),
+                ImmutableMap.of(),
                 includedColumns,
                 outputColumns,
                 false,
@@ -1055,6 +1059,62 @@ public class TestSelectiveOrcReader
                 rowsProcessed += positionCount;
             }
             assertEquals(rowsProcessed, NUM_ROWS);
+        }
+    }
+
+    @Test
+    public void testHiddenConstantColumns()
+            throws Exception
+    {
+        Type type = BIGINT;
+        List<Type> types = ImmutableList.of(type);
+        List<List<?>> values = ImmutableList.of(ImmutableList.of(1L, 2L));
+
+        TempFile tempFile = new TempFile();
+        writeOrcColumnsPresto(tempFile.getFile(), DWRF, ZSTD, Optional.empty(), types, values, new OrcWriterStats());
+
+        // Hidden columns like partition columns use negative indices (-13).
+        int hiddenColumnIndex = -13;
+        Map<Integer, Type> includedColumns = ImmutableMap.of(hiddenColumnIndex, VARCHAR, 0, BIGINT);
+        List<Integer> outputColumns = ImmutableList.of(hiddenColumnIndex, 0);
+
+        Slice constantSlice = Slices.utf8Slice("partition_value");
+        Map<Integer, Object> constantValues = ImmutableMap.of(hiddenColumnIndex, constantSlice);
+
+        OrcAggregatedMemoryContext systemMemoryUsage = new TestingHiveOrcAggregatedMemoryContext();
+        TupleDomainFilter filter = BigintRange.of(1, 1, false);
+        Map<Subfield, TupleDomainFilter> subFieldFilter = toSubfieldFilter(filter);
+
+        OrcReaderSettings readerSettings = OrcTester.OrcReaderSettings.builder().setColumnFilters(ImmutableMap.of(0, subFieldFilter)).build();
+
+        try (OrcSelectiveRecordReader recordReader = createCustomOrcSelectiveRecordReader(
+                tempFile.getFile(),
+                DWRF.getOrcEncoding(),
+                OrcPredicate.TRUE,
+                types,
+                1,
+                readerSettings.getColumnFilters(),
+                readerSettings.getFilterFunctions(),
+                readerSettings.getFilterFunctionInputMapping(),
+                readerSettings.getRequiredSubfields(),
+                constantValues,
+                ImmutableMap.of(),
+                includedColumns,
+                outputColumns,
+                false,
+                systemMemoryUsage)) {
+            Page page = recordReader.getNextPage();
+            assertEquals(page.getPositionCount(), 1);
+
+            Block partitionValueBlock = page.getBlock(0);
+            int length = partitionValueBlock.getSliceLength(0);
+            Slice varcharSlice = partitionValueBlock.getSlice(0, 0, length);
+            assertEquals(varcharSlice, constantSlice);
+
+            Block bigintBlock = page.getBlock(1);
+            assertEquals(bigintBlock.getLong(0), 1);
+
+            assertNull(recordReader.getNextPage());
         }
     }
 
