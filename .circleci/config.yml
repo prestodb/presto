@@ -57,7 +57,7 @@ jobs:
             - ~/deps
       - run:
           name: "Calculate merge-base for CCache"
-          command: git merge-base origin/master HEAD > merge-base
+          command: git merge-base origin/main HEAD > merge-base
       - restore_cache:
           name: "Restore CCache cache"
           keys:
@@ -85,7 +85,7 @@ jobs:
       - checkout
       - run:
           name: "Calculate merge-base for CCache"
-          command: git merge-base origin/master HEAD > merge-base
+          command: git merge-base origin/main HEAD > merge-base
       - restore_cache:
           name: "Restore CCache cache"
           keys:
