@@ -240,7 +240,7 @@ message EncryptionGroup {
   repeated bytes statistics = 3;
 }
 
-// Encryption metadata. Design details: https://fb.quip.com/b21YAiOv8ZQv
+// Encryption metadata.
 message Encryption {
   // Key provider, which determines what's stored in `keyMetadata` blobs, and
   // how it should be used for encryption. At FB, we have one solution, which
