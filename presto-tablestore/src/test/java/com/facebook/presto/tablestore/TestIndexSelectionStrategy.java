@@ -20,7 +20,6 @@ import org.testng.annotations.Test;
 import java.util.Collections;
 import java.util.Optional;
 
-import static com.facebook.presto.tablestore.IndexSelectionStrategy.auto;
 import static com.facebook.presto.tablestore.IndexSelectionStrategy.custom;
 import static com.facebook.presto.tablestore.IndexSelectionStrategy.parse;
 import static com.facebook.presto.tablestore.TablestoreSessionProperties.HINT_INDEX_FIRST;
@@ -35,11 +34,10 @@ public class TestIndexSelectionStrategy
     @Test
     public void testGetTables()
     {
-        IndexSelectionStrategy sifs = IndexSelectionStrategy.none();
-        assertEquals(0, IndexSelectionStrategy.none().getTables().size());
+        assertEquals(0, IndexSelectionStrategy.NONE.getTables().size());
 
         try {
-            auto().getTables();
+            IndexSelectionStrategy.AUTO.getTables();
             fail();
         }
         catch (IllegalStateException e) {
@@ -50,22 +48,22 @@ public class TestIndexSelectionStrategy
     @Test
     public void testBackToString()
     {
-        assertEquals("none", IndexSelectionStrategy.none().backToString());
-        assertSame(IndexSelectionStrategy.none(), custom(Collections.emptySet()));
+        assertEquals("none", IndexSelectionStrategy.NONE.toString());
+        assertSame(IndexSelectionStrategy.NONE, custom(Collections.emptySet()));
 
         IndexSelectionStrategy sifs = custom(ImmutableSet.of(
                 new SchemaTableName("aa", "bb"),
                 new SchemaTableName("aa", "bb"),
                 new SchemaTableName("cc", "bb")));
-        assertEquals("[aa.bb,cc.bb]", sifs.backToString());
+        assertEquals("[aa.bb,cc.bb]", sifs.toString());
 
-        assertEquals("auto", auto().backToString());
+        assertEquals("auto", IndexSelectionStrategy.AUTO.toString());
     }
 
     @Test
     public void testIsContained()
     {
-        assertFalse(IndexSelectionStrategy.none().isContained(new SchemaTableName("aa", "bb")));
+        assertFalse(IndexSelectionStrategy.NONE.isContained(new SchemaTableName("aa", "bb")));
 
         IndexSelectionStrategy sifs = custom(ImmutableSet.of(
                 new SchemaTableName("aa", "bb"),
@@ -75,7 +73,7 @@ public class TestIndexSelectionStrategy
         assertTrue(sifs.isContained(new SchemaTableName("aa", "bb")));
         assertFalse(sifs.isContained(new SchemaTableName("aa", "cc")));
 
-        assertTrue(auto().isContained(new SchemaTableName("aa", "bb")));
+        assertTrue(IndexSelectionStrategy.AUTO.isContained(new SchemaTableName("aa", "bb")));
     }
 
     @Test
@@ -84,16 +82,16 @@ public class TestIndexSelectionStrategy
         String hintKey = HINT_INDEX_FIRST;
         IndexSelectionStrategy x = parse(Optional.empty(), hintKey, "[ aa.bb , cc.bb ,cc.bb   ]");
         assertEquals(2, x.getTables().size());
-        assertEquals("[aa.bb,cc.bb]", x.backToString());
+        assertEquals("[aa.bb,cc.bb]", x.toString());
 
         x = parse(Optional.empty(), hintKey, "  AUTO ");
-        assertSame(auto(), x);
+        assertSame(IndexSelectionStrategy.AUTO, x);
 
         x = parse(Optional.empty(), hintKey, " AUTO ");
-        assertSame(auto(), x);
+        assertSame(IndexSelectionStrategy.AUTO, x);
 
         x = parse(Optional.empty(), hintKey, "    ");
-        assertSame(IndexSelectionStrategy.none(), x);
+        assertSame(IndexSelectionStrategy.NONE, x);
 
         try {
             parse(Optional.empty(), hintKey, " [   ");
@@ -141,7 +139,7 @@ public class TestIndexSelectionStrategy
         }
 
         x = parse(Optional.of("xxx"), hintKey, " [         ]");
-        assertEquals(IndexSelectionStrategy.none(), x);
+        assertEquals(IndexSelectionStrategy.NONE, x);
 
         x = parse(Optional.of("xxx"), hintKey, " [ bb,cc.dd ]");
         assertEquals(2, x.getTables().size());
@@ -149,13 +147,13 @@ public class TestIndexSelectionStrategy
         assertTrue(x.getTables().contains(new SchemaTableName("cc", "dd")));
 
         x = parse(Optional.of("xxx"), hintKey, "none");
-        assertEquals(IndexSelectionStrategy.none(), x);
+        assertEquals(IndexSelectionStrategy.NONE, x);
 
         x = parse(Optional.of("xxx"), hintKey, "threshold: 1 ");
-        assertEquals("threshold:1", x.backToString());
+        assertEquals("threshold:1", x.toString());
         assertTrue(x.isMaxRowsMode());
         try {
-            x.getMaxPercent();
+            x.getMaxPercentage();
             fail();
         }
         catch (Exception e) {
@@ -163,7 +161,7 @@ public class TestIndexSelectionStrategy
         }
 
         x = parse(Optional.of("xxx"), hintKey, "threshold: 1000 ");
-        assertEquals("threshold:1000", x.backToString());
+        assertEquals("threshold:1000", x.toString());
         assertEquals(1000, x.getMaxRows());
 
         try {
@@ -171,20 +169,20 @@ public class TestIndexSelectionStrategy
             fail();
         }
         catch (Exception e) {
-            assertEquals("Invalid 'threshold:${maxRows}' hint value 'threshold:0' of hint key 'tablestore-index-selection-strategy', which[0] should be within the range [1, 1000]", e.getMessage());
+            assertEquals("Invalid 'threshold:${maxRows}' hint value: 'threshold:0', because [0] is not in the range [1, 1000]", e.getMessage());
         }
         try {
             parse(Optional.of("xxx"), hintKey, "threshold:1001");
             fail();
         }
         catch (Exception e) {
-            assertEquals("Invalid 'threshold:${maxRows}' hint value 'threshold:1001' of hint key 'tablestore-index-selection-strategy', which[1001] should be within the range [1, 1000]", e.getMessage());
+            assertEquals("Invalid 'threshold:${maxRows}' hint value: 'threshold:1001', because [1001] is not in the range [1, 1000]", e.getMessage());
         }
 
         x = parse(Optional.of("xxx"), hintKey, "threshold: 1 %");
-        assertEquals("threshold:1%", x.backToString());
+        assertEquals("threshold:1%", x.toString());
         assertFalse(x.isMaxRowsMode());
-        assertEquals(1, x.getMaxPercent());
+        assertEquals(1, x.getMaxPercentage());
         try {
             x.getMaxRows();
             fail();
@@ -194,21 +192,21 @@ public class TestIndexSelectionStrategy
         }
 
         x = parse(Optional.of("xxx"), hintKey, "threshold: 20 % ");
-        assertEquals("threshold:20%", x.backToString());
+        assertEquals("threshold:20%", x.toString());
 
         try {
             parse(Optional.of("xxx"), hintKey, "threshold:0%");
             fail();
         }
         catch (Exception e) {
-            assertEquals("Invalid 'threshold:${maxPercent}%' hint value 'threshold:0%' of hint key 'tablestore-index-selection-strategy', which[0] should be within the range [1, 20]", e.getMessage());
+            assertEquals("Invalid 'threshold:${maxPercent}' hint value: 'threshold:0%', because [0] is not in the range [1, 20]", e.getMessage());
         }
         try {
             parse(Optional.of("xxx"), hintKey, "threshold:21 %");
             fail();
         }
         catch (Exception e) {
-            assertEquals("Invalid 'threshold:${maxPercent}%' hint value 'threshold:21 %' of hint key 'tablestore-index-selection-strategy', which[21] should be within the range [1, 20]", e.getMessage());
+            assertEquals("Invalid 'threshold:${maxPercent}' hint value: 'threshold:21 %', because [21] is not in the range [1, 20]", e.getMessage());
         }
     }
 }

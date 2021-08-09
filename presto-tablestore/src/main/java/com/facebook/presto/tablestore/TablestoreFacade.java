@@ -339,7 +339,7 @@ public class TablestoreFacade
         TupleDomain<ColumnHandle> constraint = ol.getTupleDomain().orElseThrow(NullPointerException::new);
 
         IndexSelectionStrategy iF = extractIndexFirst(session);
-        String backStr = iF.backToString();
+        String backStr = iF.toString();
         if (!iF.isContained(stn) && !isParallelScanMode(session)) {
             log.info("Don't use index first[%s] for table[%s] of query:%s", backStr, stnStr, queryId);
             return emptyMap();
@@ -440,7 +440,7 @@ public class TablestoreFacade
             return true;
         }
 
-        int mp = indexSelectionStrategy.getMaxPercent();
+        int mp = indexSelectionStrategy.getMaxPercentage();
         double proportion = (rows + 0.0) / rows1;
         if (proportion <= mp / 100.0) {
             log.info("The proportion[%s] of matched rows[%s] / total rows[%s] is <= percentage[%s%] with index [%s] and query [%s]",
@@ -520,10 +520,10 @@ public class TablestoreFacade
             int rows = -1;
             Iterator<Row> rowIterator = x.getLeft();
             checkArgument(rowIterator instanceof RowIterator);
-            Field field = ReflectionUtils.findField(RowIterator.class, "result");
-            if (field != null) {
-                ReflectionUtils.makeAccessible(field);
-                GetRangeResponse grr = (GetRangeResponse) ReflectionUtils.getField(field, rowIterator);
+            Optional<Field> field = ReflectionUtils.findField(RowIterator.class, "result");
+            if (field.isPresent()) {
+                ReflectionUtils.makeAccessible(field.get());
+                GetRangeResponse grr = (GetRangeResponse) ReflectionUtils.getField(field.get(), rowIterator);
                 if (grr != null && grr.getRows() != null) {
                     rows = grr.getRows().size();
                 }
@@ -608,10 +608,10 @@ public class TablestoreFacade
         WrappedRowIterator wrappedRowIterator = new WrappedRowIterator(rowIterator, x.getMiddle(), x.getRight());
 
         int firstFetchRows = 0;
-        Field field = ReflectionUtils.findField(SearchRowIterator.class, "result");
-        if (field != null) {
-            ReflectionUtils.makeAccessible(field);
-            SearchResponse searchResponse = (SearchResponse) ReflectionUtils.getField(field, searchRowIterator);
+        Optional<Field> field = ReflectionUtils.findField(SearchRowIterator.class, "result");
+        if (field.isPresent()) {
+            ReflectionUtils.makeAccessible(field.get());
+            SearchResponse searchResponse = (SearchResponse) ReflectionUtils.getField(field.get(), searchRowIterator);
             if (searchResponse != null && searchResponse.getRows() != null) {
                 firstFetchRows = searchResponse.getRows().size();
             }

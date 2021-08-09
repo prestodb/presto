@@ -15,33 +15,33 @@ package com.facebook.presto.tablestore;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
 public abstract class ReflectionUtils
 {
-    public static Field findField(Class<?> clazz, String name)
+    public static Optional<Field> findField(Class<?> clazz, String name)
     {
-        return findField(clazz, name, null);
+        return findField(clazz, name, Optional.empty());
     }
 
-    public static Field findField(Class<?> clazz, String name, Class<?> type)
+    public static Optional<Field> findField(Class<?> clazz, String name, Optional<Class<?>> type)
     {
         requireNonNull(clazz != null, "Class must not be null");
         requireNonNull(name != null, "Name of the field must not be null");
-        requireNonNull(type != null, "Type of the field must not be null");
 
         Class<?> searchType = clazz;
         while (!Object.class.equals(searchType) && searchType != null) {
             Field[] fields = searchType.getDeclaredFields();
             for (Field field : fields) {
-                if ((name == null || name.equals(field.getName())) && (type == null || type.equals(field.getType()))) {
-                    return field;
+                if ((name == null || name.equals(field.getName())) && (!type.isPresent() || type.get().equals(field.getType()))) {
+                    return Optional.of(field);
                 }
             }
             searchType = searchType.getSuperclass();
         }
-        return null;
+        return Optional.empty();
     }
 
     public static Object getField(Field field, Object target)
@@ -49,16 +49,14 @@ public abstract class ReflectionUtils
         try {
             return field.get(target);
         }
-        catch (IllegalAccessException ex) {
-            throw new IllegalStateException("Unexpected reflection exception - " + ex.getClass().getName() + ": "
-                    + ex.getMessage());
+        catch (IllegalAccessException exception) {
+            throw new IllegalStateException("Unexpected reflection exception - " + exception.getClass().getName() + ": " + exception.getMessage());
         }
     }
 
     public static void makeAccessible(Field field)
     {
-        if ((!Modifier.isPublic(field.getModifiers()) || !Modifier.isPublic(field.getDeclaringClass().getModifiers()) || Modifier
-                .isFinal(field.getModifiers())) && !field.isAccessible()) {
+        if ((!Modifier.isPublic(field.getModifiers()) || !Modifier.isPublic(field.getDeclaringClass().getModifiers()) || Modifier.isFinal(field.getModifiers())) && !field.isAccessible()) {
             field.setAccessible(true);
         }
     }

@@ -28,14 +28,14 @@ Configuration Properties
 
 The following configuration properties are available:
 
-================================== ===================================================
+================================== ========================================================================
 Property Name                       Description
-================================== ===================================================
+================================== ========================================================================
 ``tablestore.endpoint``            The endpoint of tablestore.
-``tablestore.access-key-id``       The AccessKeyId used to access Tablestore.
-``tablestore.access-key-secret``   The AccessKeySecret used to access Tablestore.
+``tablestore.access-key-id``       The AccessKey ID is used to verify the identity of the user.
+``tablestore.access-key-secret``   The AccessKey secret is used to encrypt and verify the signature string.
 ``tablestore.instance``            The name of the instance we'd like to connect to.
-================================== ===================================================
+================================== ========================================================================
 
 ``tablestore.endpoint``
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -45,12 +45,12 @@ The endpoint of tablestore, e.g. https://demo.cn-hangzhou.ots.aliyuncs.com.
 ``tablestore.access-key-id``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The AccessKeyId used to access Tablestore.
+The tablestore access key ID is used to verify the identity of the user. An Alibaba Cloud AccessKey pair is a secure identity credential to access tablestore.
 
 ``tablestore.access-key-secret``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The AccessKeySecret used to access Tablestore.
+The AccessKey secret is used to encrypt and verify the signature string. You must keep your AccessKey secret strictly confidential. An Alibaba Cloud AccessKey pair is a secure identity credential to access tablestore.
 
 
 ``tablestore.instance``
