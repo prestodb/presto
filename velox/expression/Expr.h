@@ -149,9 +149,6 @@ class Expr {
     return propagatesNulls_;
   }
 
-  // True if the function called by this is null for a null in any argument.
-  bool functionPropagatesNulls() const;
-
   const std::vector<FieldReference*>& distinctFields() const {
     return distinctFields_;
   }

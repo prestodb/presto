@@ -14,12 +14,10 @@
 
 #include "velox/expression/Expr.h"
 #include "velox/core/Expressions.h"
-#include "velox/expression/CastExpr.h"
 #include "velox/expression/ControlExpr.h"
 #include "velox/expression/ExprCompiler.h"
 #include "velox/expression/VarSetter.h"
 #include "velox/expression/VectorFunction.h"
-#include "velox/expression/VectorFunctionRegistry.h"
 
 namespace facebook::velox::exec {
 
@@ -59,10 +57,6 @@ bool hasConditionals(Expr* expr) {
   return false;
 }
 } // namespace
-
-bool Expr::functionPropagatesNulls() const {
-  return vectorFunction_->isDefaultNullBehavior();
-}
 
 // static
 bool Expr::isSameFields(
@@ -862,7 +856,7 @@ bool Expr::applyFunctionWithPeeling(
           peeled = false;
           break;
         }
-        if (!functionPropagatesNulls() && leaf->rawNulls()) {
+        if (!vectorFunction_->isDefaultNullBehavior() && leaf->rawNulls()) {
           // A dictionary that adds nulls over an Expr that is not null for a
           // null argument cannot be peeled.
           peeled = false;
