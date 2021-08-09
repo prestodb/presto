@@ -20,16 +20,6 @@
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/serialization/DeserializationRegistry.h"
 
-// TODO(T71719513): need to figure out how not to pollute velox with
-// this forward declaration.
-namespace facebook {
-namespace koski {
-namespace core {
-enum class TraitType;
-}
-} // namespace koski
-} // namespace facebook
-
 namespace facebook {
 namespace velox {
 
@@ -136,11 +126,8 @@ class ISerializable {
     return folly::dynamic{(int64_t)val};
   }
 
-  // Custom specialization for classes in core namespace.
-  static folly::dynamic serialize(koski::core::TraitType type);
-
   // Serialization for standard containers.
-  // TODO (bharathb) : separate defintions of composite types from declarations.
+  // TODO separate defintions of composite types from declarations.
   template <typename T>
   static folly::dynamic serialize(const std::vector<T>& vec) {
     folly::dynamic arr = folly::dynamic::array;
@@ -253,13 +240,6 @@ class ISerializable {
         decltype(ISerializable::deserialize<typename T::value_type>(
             std::declval<folly::dynamic>()))>(move(val));
   }
-
-  // deserialization for classes in core.
-  template <
-      class T,
-      typename =
-          std::enable_if_t<std::is_same<T, koski::core::TraitType>::value>>
-  static koski::core::TraitType deserialize(const folly::dynamic& obj);
 
   // deserialization for standard containers.
 
