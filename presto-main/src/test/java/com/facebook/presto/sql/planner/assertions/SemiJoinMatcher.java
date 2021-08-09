@@ -17,7 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.SemiJoinNode;
+import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.sql.tree.SymbolReference;
 
 import java.util.Optional;

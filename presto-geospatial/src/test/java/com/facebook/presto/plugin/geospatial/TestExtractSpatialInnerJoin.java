@@ -33,11 +33,11 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY;
 import static com.facebook.presto.plugin.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY;
+import static com.facebook.presto.spi.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.spatialJoin;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 
 public class TestExtractSpatialInnerJoin
         extends BaseRuleTest

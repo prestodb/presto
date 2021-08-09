@@ -11,42 +11,40 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.plan;
+package com.facebook.presto.spi.plan;
 
-import com.facebook.presto.metadata.FunctionAndTypeManager;
-import com.facebook.presto.spi.plan.PlanNode;
-import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.SortExpressionContext;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.sql.planner.SortExpressionExtractor.extractSortExpression;
-import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
-import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.facebook.presto.spi.plan.JoinNode.DistributionType.PARTITIONED;
+import static com.facebook.presto.spi.plan.JoinNode.DistributionType.REPLICATED;
+import static com.facebook.presto.spi.plan.JoinNode.Type.FULL;
+import static com.facebook.presto.spi.plan.JoinNode.Type.INNER;
+import static com.facebook.presto.spi.plan.JoinNode.Type.LEFT;
+import static com.facebook.presto.spi.plan.JoinNode.Type.RIGHT;
 import static java.lang.String.format;
+import static java.util.Collections.emptyMap;
+import static java.util.Collections.unmodifiableList;
+import static java.util.Collections.unmodifiableMap;
+import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 @Immutable
 public class JoinNode
@@ -91,18 +89,16 @@ public class JoinNode
         this.type = type;
         this.left = left;
         this.right = right;
-        this.criteria = ImmutableList.copyOf(criteria);
-        this.outputVariables = ImmutableList.copyOf(outputVariables);
+        this.criteria = unmodifiableList(criteria);
+        this.outputVariables = unmodifiableList(outputVariables);
         this.filter = filter;
         this.leftHashVariable = leftHashVariable;
         this.rightHashVariable = rightHashVariable;
         this.distributionType = distributionType;
-        this.dynamicFilters = ImmutableMap.copyOf(dynamicFilters);
+        this.dynamicFilters = unmodifiableMap(dynamicFilters);
 
-        Set<VariableReferenceExpression> inputVariables = ImmutableSet.<VariableReferenceExpression>builder()
-                .addAll(left.getOutputVariables())
-                .addAll(right.getOutputVariables())
-                .build();
+        Set<VariableReferenceExpression> inputVariables = immutableSetCopyOf(left.getOutputVariables(), right.getOutputVariables());
+
         checkArgument(new HashSet<>(inputVariables).containsAll(outputVariables), "Left and right join inputs do not contain all output variables");
         checkArgument(!isCrossJoin() || inputVariables.size() == outputVariables.size(), "Cross join does not support output variables pruning or reordering");
 
@@ -146,7 +142,7 @@ public class JoinNode
                 rightHashVariable,
                 leftHashVariable,
                 distributionType,
-                ImmutableMap.of()); // dynamicFilters are invalid after flipping children
+                emptyMap()); // dynamicFilters are invalid after flipping children
     }
 
     private static Type flipType(Type type)
@@ -169,7 +165,7 @@ public class JoinNode
     {
         return joinCriteria.stream()
                 .map(EquiJoinClause::flip)
-                .collect(toImmutableList());
+                .collect(toList());
     }
 
     private static List<VariableReferenceExpression> flipOutputVariables(List<VariableReferenceExpression> outputVariables, PlanNode left, PlanNode right)
@@ -180,10 +176,7 @@ public class JoinNode
         List<VariableReferenceExpression> rightVariables = outputVariables.stream()
                 .filter(variable -> right.getOutputVariables().contains(variable))
                 .collect(Collectors.toList());
-        return ImmutableList.<VariableReferenceExpression>builder()
-                .addAll(rightVariables)
-                .addAll(leftVariables)
-                .build();
+        return immutableListCopyOf(rightVariables, leftVariables);
     }
 
     public enum DistributionType
@@ -266,12 +259,6 @@ public class JoinNode
         return filter;
     }
 
-    public Optional<SortExpressionContext> getSortExpressionContext(FunctionAndTypeManager functionAndTypeManager)
-    {
-        return filter
-                .flatMap(filter -> extractSortExpression(ImmutableSet.copyOf(right.getOutputVariables()), filter, functionAndTypeManager));
-    }
-
     @JsonProperty
     public Optional<VariableReferenceExpression> getLeftHashVariable()
     {
@@ -287,7 +274,7 @@ public class JoinNode
     @Override
     public List<PlanNode> getSources()
     {
-        return ImmutableList.of(left, right);
+        return unmodifiableList(Arrays.asList(left, right));
     }
 
     @Override
@@ -311,7 +298,7 @@ public class JoinNode
     }
 
     @Override
-    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitJoin(this, context);
     }
@@ -331,6 +318,37 @@ public class JoinNode
     public boolean isCrossJoin()
     {
         return criteria.isEmpty() && !filter.isPresent() && type == INNER;
+    }
+
+    private static void checkArgument(boolean test, String errorMessage)
+    {
+        if (!test) {
+            throw new IllegalArgumentException(errorMessage);
+        }
+    }
+
+    private static void checkArgument(boolean condition, String messageFormat, Object... args)
+    {
+        if (!condition) {
+            throw new IllegalArgumentException(format(messageFormat, args));
+        }
+    }
+
+    private static <T> Set<T> immutableSetCopyOf(Collection<T> collection1, Collection<T> collection2)
+    {
+        TreeSet<T> treeSet = new TreeSet<>(requireNonNull(collection1, "collection is null"));
+        treeSet.addAll(requireNonNull(collection2, "collection is null"));
+        return unmodifiableSet(treeSet);
+    }
+
+    @SafeVarargs
+    private static <T> List<T> immutableListCopyOf(Collection<T>... collections)
+    {
+        List<T> lists = new ArrayList<>();
+        for (Collection<T> collection : collections) {
+            lists.addAll(requireNonNull(collection, "collection is null"));
+        }
+        return unmodifiableList(lists);
     }
 
     public static class EquiJoinClause

@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
@@ -24,7 +25,6 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.rule.GatherAndMergeWindows;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import com.facebook.presto.sql.planner.iterative.rule.TranslateExpressions;
-import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.WindowFrame;

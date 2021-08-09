@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
+import static com.facebook.presto.spi.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
@@ -28,7 +29,6 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 
 public class TestPredicatePushdownWithDynamicFilter
         extends TestPredicatePushdown

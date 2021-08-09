@@ -14,8 +14,8 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.LongLiteral;

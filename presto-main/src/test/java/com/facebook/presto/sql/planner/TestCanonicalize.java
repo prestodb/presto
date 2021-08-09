@@ -27,6 +27,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.facebook.presto.spi.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
@@ -35,7 +36,6 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.projec
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.specification;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.window;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 
 public class TestCanonicalize
         extends BasePlanTest

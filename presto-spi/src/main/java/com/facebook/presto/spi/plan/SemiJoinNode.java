@@ -11,22 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.plan;
+package com.facebook.presto.spi.plan;
 
-import com.facebook.presto.spi.plan.PlanNode;
-import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -146,20 +145,19 @@ public class SemiJoinNode
     @Override
     public List<PlanNode> getSources()
     {
-        return ImmutableList.of(source, filteringSource);
+        return unmodifiableList(Arrays.asList(source, filteringSource));
     }
 
     @Override
     public List<VariableReferenceExpression> getOutputVariables()
     {
-        return ImmutableList.<VariableReferenceExpression>builder()
-                .addAll(source.getOutputVariables())
-                .add(semiJoinOutput)
-                .build();
+        List<VariableReferenceExpression> results = new ArrayList<>(source.getOutputVariables());
+        results.add(semiJoinOutput);
+        return results;
     }
 
     @Override
-    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitSemiJoin(this, context);
     }
@@ -194,5 +192,12 @@ public class SemiJoinNode
                 filteringSourceHashVariable,
                 Optional.of(distributionType),
                 dynamicFilters);
+    }
+
+    private static void checkArgument(boolean test, String errorMessage)
+    {
+        if (!test) {
+            throw new IllegalArgumentException(errorMessage);
+        }
     }
 }

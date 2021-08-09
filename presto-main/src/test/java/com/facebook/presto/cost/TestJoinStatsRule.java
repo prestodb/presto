@@ -14,9 +14,9 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.spi.plan.JoinNode;
+import com.facebook.presto.spi.plan.JoinNode.EquiJoinClause;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
@@ -30,10 +30,10 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
 import static com.facebook.presto.cost.PlanNodeStatsAssertion.assertThat;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
+import static com.facebook.presto.spi.plan.JoinNode.Type.FULL;
+import static com.facebook.presto.spi.plan.JoinNode.Type.INNER;
+import static com.facebook.presto.spi.plan.JoinNode.Type.LEFT;
+import static com.facebook.presto.spi.plan.JoinNode.Type.RIGHT;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static java.lang.Double.NaN;
 import static org.testng.Assert.assertEquals;

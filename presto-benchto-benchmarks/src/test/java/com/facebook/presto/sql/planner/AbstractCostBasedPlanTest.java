@@ -16,12 +16,12 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.JoinNode;
+import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
-import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.tpcds.TpcdsTableHandle;
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.google.common.base.Strings;
@@ -36,8 +36,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
+import static com.facebook.presto.spi.plan.JoinNode.DistributionType.REPLICATED;
+import static com.facebook.presto.spi.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.testing.TestngUtils.toDataProvider;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;

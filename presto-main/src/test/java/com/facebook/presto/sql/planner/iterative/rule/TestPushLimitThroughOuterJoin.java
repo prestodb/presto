@@ -13,18 +13,18 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.spi.plan.JoinNode.EquiJoinClause;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.plan.JoinNode.Type.FULL;
+import static com.facebook.presto.spi.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.limit;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 
 public class TestPushLimitThroughOuterJoin
         extends BaseRuleTest

@@ -21,10 +21,10 @@ import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.cost.TaskCountEstimator;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.google.common.collect.Ordering;
 import io.airlift.units.DataSize;
 
@@ -35,10 +35,10 @@ import java.util.Optional;
 import static com.facebook.presto.SystemSessionProperties.getJoinDistributionType;
 import static com.facebook.presto.SystemSessionProperties.getJoinMaxBroadcastTableSize;
 import static com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges.calculateJoinCostWithoutOutput;
+import static com.facebook.presto.spi.plan.JoinNode.DistributionType.PARTITIONED;
+import static com.facebook.presto.spi.plan.JoinNode.DistributionType.REPLICATED;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.AUTOMATIC;
 import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
-import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
-import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
 import static java.util.Objects.requireNonNull;
 

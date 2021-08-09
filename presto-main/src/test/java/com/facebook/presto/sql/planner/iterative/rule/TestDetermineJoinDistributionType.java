@@ -17,14 +17,14 @@ import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.TaskCountEstimator;
 import com.facebook.presto.cost.VariableStatsEstimate;
+import com.facebook.presto.spi.plan.JoinNode;
+import com.facebook.presto.spi.plan.JoinNode.DistributionType;
+import com.facebook.presto.spi.plan.JoinNode.Type;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleAssert;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
-import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.JoinNode.DistributionType;
-import com.facebook.presto.sql.planner.plan.JoinNode.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
@@ -36,18 +36,18 @@ import java.util.Optional;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_MAX_BROADCAST_TABLE_SIZE;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.plan.JoinNode.DistributionType.PARTITIONED;
+import static com.facebook.presto.spi.plan.JoinNode.DistributionType.REPLICATED;
+import static com.facebook.presto.spi.plan.JoinNode.Type.FULL;
+import static com.facebook.presto.spi.plan.JoinNode.Type.INNER;
+import static com.facebook.presto.spi.plan.JoinNode.Type.LEFT;
+import static com.facebook.presto.spi.plan.JoinNode.Type.RIGHT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.enforceSingleRow;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.castToRowExpression;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.constantExpressions;
-import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
-import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 
 @Test(singleThreaded = true)
 public class TestDetermineJoinDistributionType
@@ -73,17 +73,17 @@ public class TestDetermineJoinDistributionType
     @Test
     public void testDetermineDistributionType()
     {
-        testDetermineDistributionType(JoinDistributionType.PARTITIONED, INNER, DistributionType.PARTITIONED);
-        testDetermineDistributionType(JoinDistributionType.BROADCAST, INNER, DistributionType.REPLICATED);
-        testDetermineDistributionType(JoinDistributionType.AUTOMATIC, INNER, DistributionType.PARTITIONED);
+        testDetermineDistributionType(JoinDistributionType.PARTITIONED, INNER, PARTITIONED);
+        testDetermineDistributionType(JoinDistributionType.BROADCAST, INNER, REPLICATED);
+        testDetermineDistributionType(JoinDistributionType.AUTOMATIC, INNER, PARTITIONED);
     }
 
     @Test
     public void testDetermineDistributionTypeForLeftOuter()
     {
-        testDetermineDistributionType(JoinDistributionType.PARTITIONED, LEFT, DistributionType.PARTITIONED);
-        testDetermineDistributionType(JoinDistributionType.BROADCAST, LEFT, DistributionType.REPLICATED);
-        testDetermineDistributionType(JoinDistributionType.AUTOMATIC, LEFT, DistributionType.PARTITIONED);
+        testDetermineDistributionType(JoinDistributionType.PARTITIONED, LEFT, PARTITIONED);
+        testDetermineDistributionType(JoinDistributionType.BROADCAST, LEFT, REPLICATED);
+        testDetermineDistributionType(JoinDistributionType.AUTOMATIC, LEFT, PARTITIONED);
     }
 
     private void testDetermineDistributionType(JoinDistributionType sessionDistributedJoin, Type joinType, DistributionType expectedDistribution)
@@ -142,7 +142,7 @@ public class TestDetermineJoinDistributionType
                         joinType,
                         ImmutableList.of(equiJoinClause("A1", "B1")),
                         Optional.empty(),
-                        Optional.of(DistributionType.PARTITIONED),
+                        Optional.of(PARTITIONED),
                         values(ImmutableMap.of("A1", 0)),
                         values(ImmutableMap.of("B1", 0))));
     }
@@ -169,7 +169,7 @@ public class TestDetermineJoinDistributionType
                         INNER,
                         ImmutableList.of(equiJoinClause("A1", "B1")),
                         Optional.empty(),
-                        Optional.of(DistributionType.REPLICATED),
+                        Optional.of(REPLICATED),
                         values(ImmutableMap.of("A1", 0)),
                         enforceSingleRow(values(ImmutableMap.of("B1", 0)))));
     }
@@ -201,7 +201,7 @@ public class TestDetermineJoinDistributionType
                         joinType,
                         ImmutableList.of(),
                         Optional.of("A1 * B1 > 100"),
-                        Optional.of(DistributionType.REPLICATED),
+                        Optional.of(REPLICATED),
                         values(ImmutableMap.of("A1", 0)),
                         values(ImmutableMap.of("B1", 0))));
     }
@@ -224,7 +224,7 @@ public class TestDetermineJoinDistributionType
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
-                                Optional.of(DistributionType.REPLICATED),
+                                Optional.of(REPLICATED),
                                 ImmutableMap.of()))
                 .doesNotFire();
     }

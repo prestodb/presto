@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.TableScanNode;
@@ -26,7 +27,6 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.testing.TestingTransactionHandle;
@@ -41,8 +41,8 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.optimizations.PredicatePushDown.createDynamicFilterExpression;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 
 public class TestDynamicFiltersChecker
         extends BasePlanTest

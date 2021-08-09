@@ -11,16 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.plan;
+package com.facebook.presto.spi.plan;
 
-import com.facebook.presto.spi.plan.PlanNode;
-import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 
 import java.util.Map;
 
 public abstract class AbstractJoinNode
-        extends InternalPlanNode
+        extends PlanNode
 {
     protected AbstractJoinNode(PlanNodeId planNodeId)
     {

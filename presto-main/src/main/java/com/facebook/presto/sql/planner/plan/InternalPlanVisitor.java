@@ -45,16 +45,6 @@ public abstract class InternalPlanVisitor<R, C>
         return visitPlan(node, context);
     }
 
-    public R visitJoin(JoinNode node, C context)
-    {
-        return visitPlan(node, context);
-    }
-
-    public R visitSemiJoin(SemiJoinNode node, C context)
-    {
-        return visitPlan(node, context);
-    }
-
     public R visitSpatialJoin(SpatialJoinNode node, C context)
     {
         return visitPlan(node, context);

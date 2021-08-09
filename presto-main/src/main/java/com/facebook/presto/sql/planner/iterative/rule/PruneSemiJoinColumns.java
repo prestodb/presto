@@ -15,9 +15,9 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
-import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 
