@@ -231,17 +231,17 @@ public abstract class CachingFileSystem
     }
 
     @Override
+    public RemoteIterator<LocatedFileStatus> listLocatedStatus(Path path)
+            throws IOException
+    {
+        return dataTier.listLocatedStatus(path);
+    }
+
+    @Override
     public FileStatus[] listStatus(Path path)
             throws IOException
     {
         return dataTier.listStatus(path);
-    }
-
-    @Override
-    public RemoteIterator<LocatedFileStatus> listLocatedStatus(Path f)
-            throws IOException
-    {
-        return dataTier.listLocatedStatus(f);
     }
 
     @Override
