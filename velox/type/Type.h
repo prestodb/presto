@@ -38,7 +38,7 @@ using facebook::velox::Timestamp;
 
 namespace facebook::velox {
 
-// Koski type system supports a small set of SQL-compatible composeable types:
+// Velox type system supports a small set of SQL-compatible composeable types:
 // BOOLEAN, TINYINT, SMALLINT, INTEGER, BIGINT, REAL, DOUBLE, VARCHAR,
 // VARBINARY, TIMESTAMP, ARRAY, MAP, ROW
 //
@@ -351,7 +351,7 @@ struct TypeTraits<TypeKind::OPAQUE> {
 template <TypeKind KIND>
 struct TypeFactory;
 
-#define KOSKI_FLUENT_CAST(NAME, KIND)                                     \
+#define VELOX_FLUENT_CAST(NAME, KIND)                                     \
   const typename TypeTraits<TypeKind::KIND>::ImplType& as##NAME() const { \
     return this->as<TypeKind::KIND>();                                    \
   }                                                                       \
@@ -361,8 +361,8 @@ struct TypeFactory;
 
 // Abstract class hierarchy. Instances of these classes carry full
 // information about types, including for example field names.
-// Can be instantiated by factory methods, like "koski::INTEGER()"
-// or "koski::MAP(INTEGER(), BIGINT())".
+// Can be instantiated by factory methods, like INTEGER()
+// or MAP(INTEGER(), BIGINT()).
 // Instances of these classes form a tree, and are immutable.
 // For example, MAP<INTEGER, ARRAY<BIGINT>> will form a tree like:
 //
@@ -424,20 +424,20 @@ class Type : public Tree<const std::shared_ptr<const Type>>,
     return TypeFactory<KIND>::create(std::forward(children)...);
   }
 
-  KOSKI_FLUENT_CAST(Boolean, BOOLEAN)
-  KOSKI_FLUENT_CAST(Tinyint, TINYINT)
-  KOSKI_FLUENT_CAST(Smallint, SMALLINT)
-  KOSKI_FLUENT_CAST(Integer, INTEGER)
-  KOSKI_FLUENT_CAST(Bigint, BIGINT)
-  KOSKI_FLUENT_CAST(Real, REAL)
-  KOSKI_FLUENT_CAST(Double, DOUBLE)
-  KOSKI_FLUENT_CAST(Varchar, VARCHAR)
-  KOSKI_FLUENT_CAST(Varbinary, VARBINARY)
-  KOSKI_FLUENT_CAST(Timestamp, TIMESTAMP)
-  KOSKI_FLUENT_CAST(Array, ARRAY)
-  KOSKI_FLUENT_CAST(Map, MAP)
-  KOSKI_FLUENT_CAST(Row, ROW)
-  KOSKI_FLUENT_CAST(Opaque, OPAQUE)
+  VELOX_FLUENT_CAST(Boolean, BOOLEAN)
+  VELOX_FLUENT_CAST(Tinyint, TINYINT)
+  VELOX_FLUENT_CAST(Smallint, SMALLINT)
+  VELOX_FLUENT_CAST(Integer, INTEGER)
+  VELOX_FLUENT_CAST(Bigint, BIGINT)
+  VELOX_FLUENT_CAST(Real, REAL)
+  VELOX_FLUENT_CAST(Double, DOUBLE)
+  VELOX_FLUENT_CAST(Varchar, VARCHAR)
+  VELOX_FLUENT_CAST(Varbinary, VARBINARY)
+  VELOX_FLUENT_CAST(Timestamp, TIMESTAMP)
+  VELOX_FLUENT_CAST(Array, ARRAY)
+  VELOX_FLUENT_CAST(Map, MAP)
+  VELOX_FLUENT_CAST(Row, ROW)
+  VELOX_FLUENT_CAST(Opaque, OPAQUE)
 
   bool containsUnknown() const;
 
@@ -447,7 +447,7 @@ class Type : public Tree<const std::shared_ptr<const Type>>,
   VELOX_DEFINE_CLASS_NAME(Type)
 };
 
-#undef KOSKI_FLUENT_CAST
+#undef VELOX_FLUENT_CAST
 
 using TypePtr = std::shared_ptr<const Type>;
 

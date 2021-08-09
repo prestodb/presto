@@ -26,7 +26,7 @@ struct UnsafeRowDynamicSerializer : UnsafeRowSerializer {
   /// \tparam DataType
   /// \param row The UnsafeRow to write to.
   /// \param pos The position in the row to write to.
-  /// \param type The koski type.
+  /// \param type The Velox type.
   /// \param data The data to serialize.
   /// \param idx used when DataType is a Vector, defaults to 0 otherwise.
   template <typename DataType>
@@ -46,7 +46,7 @@ struct UnsafeRowDynamicSerializer : UnsafeRowSerializer {
 
   /// Dynamic version of the serialization function.
   /// \tparam DataType
-  /// \param type The koski type.
+  /// \param type The Velox type.
   /// \param data The data to serialize, primitive data is a FlatVector.
   /// \param buffer to write to
   /// \param idx Used to indicate element index when DataType is derived from

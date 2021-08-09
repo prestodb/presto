@@ -119,7 +119,7 @@ struct VariantTypeTraits<TypeKind::OPAQUE> {
 };
 } // namespace detail
 
-#define KOSKI_VARIANT_SCALAR_MEMBERS(KIND)                            \
+#define VELOX_VARIANT_SCALAR_MEMBERS(KIND)                            \
   /* implicit */ variant(                                             \
       const typename detail::VariantTypeTraits<KIND>::native_type& v) \
       : kind_{KIND},                                                  \
@@ -196,16 +196,16 @@ class variant {
     }
   };
 
-  KOSKI_VARIANT_SCALAR_MEMBERS(TypeKind::BOOLEAN)
-  KOSKI_VARIANT_SCALAR_MEMBERS(TypeKind::TINYINT)
-  KOSKI_VARIANT_SCALAR_MEMBERS(TypeKind::SMALLINT)
-  KOSKI_VARIANT_SCALAR_MEMBERS(TypeKind::INTEGER)
-  KOSKI_VARIANT_SCALAR_MEMBERS(TypeKind::BIGINT)
-  KOSKI_VARIANT_SCALAR_MEMBERS(TypeKind::REAL)
-  KOSKI_VARIANT_SCALAR_MEMBERS(TypeKind::DOUBLE)
-  KOSKI_VARIANT_SCALAR_MEMBERS(TypeKind::VARCHAR)
-  KOSKI_VARIANT_SCALAR_MEMBERS(TypeKind::TIMESTAMP)
-  KOSKI_VARIANT_SCALAR_MEMBERS(TypeKind::UNKNOWN)
+  VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::BOOLEAN)
+  VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::TINYINT)
+  VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::SMALLINT)
+  VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::INTEGER)
+  VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::BIGINT)
+  VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::REAL)
+  VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::DOUBLE)
+  VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::VARCHAR)
+  VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::TIMESTAMP)
+  VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::UNKNOWN)
   // On 64-bit platforms `int64_t` is declared as `long int`, not `long long
   // int`, thus adding an extra overload to make literals like 1LL resolve
   // correctly. Note that one has to use template T because otherwise SFINAE
@@ -219,7 +219,7 @@ class variant {
   /* implicit */ variant(const T& v) : variant(static_cast<int64_t>(v)) {}
 
   // VARBINARY conflicts with VARCHAR, so we don't gen these methods
-  // KOSKI_VARIANT_SCALAR_MEMBERS(TypeKind::VARBINARY);
+  // VELOX_VARIANT_SCALAR_MEMBERS(TypeKind::VARBINARY);
 
   static variant row(const std::vector<variant>& inputs) {
     return {
@@ -579,7 +579,7 @@ struct VariantConverter {
   }
 };
 
-#undef KOSKI_VARIANT_SCALAR_MEMBERS
+#undef VELOX_VARIANT_SCALAR_MEMBERS
 
 } // namespace velox
 } // namespace facebook

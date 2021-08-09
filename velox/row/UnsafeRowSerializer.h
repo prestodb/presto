@@ -23,7 +23,7 @@ namespace facebook::velox::row {
 
 struct UnsafeRowSerializer {
   /// Templated function for serializing an element at the given index.
-  /// \tparam SqlType The koski sql type.
+  /// \tparam SqlType The Velox sql type.
   /// \tparam DataType
   /// \param row The UnsafeRow to write to.
   /// \param data The data to serialize.
@@ -70,7 +70,7 @@ struct UnsafeRowSerializer {
 
   /// Templated version of the serialization function, used when the sql type is
   /// known at compile time, e.g. during codegen.
-  /// \tparam SqlType The koski sql type.
+  /// \tparam SqlType The Velox sql type.
   /// \tparam DataType
   /// \param data The data to serialize, primitive data is a FlatVector.
   /// \param buffer to write to
@@ -112,7 +112,7 @@ struct UnsafeRowSerializer {
 
   /// Templated version of the serialization function where complex types are
   /// represented as velox vectors.
-  /// \tparam SqlType The koski sql type.
+  /// \tparam SqlType The Velox sql type.
   /// \tparam DataType
   /// \param data The data to serialize, primitive data is a FlatVector.
   /// \param buffer to write to

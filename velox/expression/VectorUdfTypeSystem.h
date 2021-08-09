@@ -92,7 +92,7 @@ struct resolver<Array<V>> {
         t.begin(), t.end(), v.begin(), [](const folly::Optional<childType>& v) {
           return v.hasValue()
               ? resolver<childType>::toVariant(v)
-              : variant::null(in_type::koskiType()->childAt(0)->kind());
+              : variant::null(in_type::veloxType()->childAt(0)->kind());
         });
 
     return variant::array(std::move(v));

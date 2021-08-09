@@ -128,7 +128,7 @@ class FunctionKey {
 
 // todo(youknowjack): add a dynamic execution mode
 // todo(youknowjack): need a better story for types for UDFs. Mapping
-//                    c++ types <-> koski types is imprecise (e.g. string vs
+//                    c++ types <-> Velox types is imprecise (e.g. string vs
 //                    binary) and difficult to change.
 // TODO: separate metadata and execution parts of this class so that metadata
 // could be accessed without instantiating UDF object.

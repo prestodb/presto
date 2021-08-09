@@ -29,7 +29,7 @@ struct UnsafeRowStaticUtilities {
   }
 
   /**
-   * Converts the Koski simple SqlType to TypeKind. We do not need to use a
+   * Converts the Velox simple SqlType to TypeKind. We do not need to use a
    * templated function to convert complex types (e.g. Array, Map) because
    * they are already templated.
    * @tparam SqlType

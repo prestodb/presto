@@ -91,7 +91,7 @@ template <typename T, typename = int32_t>
 struct has_velox_type : std::false_type {};
 
 template <typename T>
-struct has_velox_type<T, decltype((void)T::koskiType, 0)> : std::true_type {};
+struct has_velox_type<T, decltype((void)T::veloxType, 0)> : std::true_type {};
 } // namespace detail
 
 template <typename T>
@@ -99,15 +99,15 @@ struct UdfToType {
   template <
       typename Tx = T,
       typename std::enable_if_t<detail::has_velox_type<Tx>::value, int32_t> = 0>
-  static std::shared_ptr<const Type> koskiType() {
-    return T::koskiType();
+  static std::shared_ptr<const Type> veloxType() {
+    return T::veloxType();
   }
 
   template <
       typename Tx = T,
       typename std::enable_if_t<!detail::has_velox_type<Tx>::value, int32_t> =
           0>
-  static std::shared_ptr<const Type> koskiType() {
+  static std::shared_ptr<const Type> veloxType() {
     return CppToType<T>::create();
   }
 };
@@ -122,8 +122,8 @@ class ArrayValWriter {
   using const_reference = typename container_t::const_reference;
   using val_type = VAL;
 
-  static std::shared_ptr<const Type> koskiType() {
-    return ARRAY(UdfToType<val_type>::koskiType());
+  static std::shared_ptr<const Type> veloxType() {
+    return ARRAY(UdfToType<val_type>::veloxType());
   }
 
   ArrayValWriter() = default;
@@ -184,8 +184,8 @@ class ArrayValReader : public ArrayValWriter<VAL> {
 template <typename... T>
 struct RowWriter {
  public:
-  static std::shared_ptr<const Type> koskiType() {
-    return ROW({UdfToType<T>::koskiType()...});
+  static std::shared_ptr<const Type> veloxType() {
+    return ROW({UdfToType<T>::veloxType()...});
   }
 
   RowWriter() {}
@@ -213,8 +213,8 @@ struct RowReader : public RowWriter<T...> {};
 
 template <typename KEY, typename VAL>
 struct IMapVal {
-  static std::shared_ptr<const Type> koskiType() {
-    return MAP(UdfToType<KEY>::koskiType(), UdfToType<VAL>::koskiType());
+  static std::shared_ptr<const Type> veloxType() {
+    return MAP(UdfToType<KEY>::veloxType(), UdfToType<VAL>::veloxType());
   }
   using container_t = typename std::unordered_map<KEY, folly::Optional<VAL>>;
   using iterator = typename container_t::iterator;
@@ -352,7 +352,7 @@ struct DynamicResolver<Array<V>, void> {
         t.begin(), t.end(), v.begin(), [](const folly::Optional<childType>& v) {
           return v.hasValue()
               ? DynamicResolver<V>::toVariant(v.value())
-              : variant::null(UdfToType<V>::koskiType()->kind());
+              : variant::null(UdfToType<V>::veloxType()->kind());
         });
 
     return variant::array(std::move(v));
@@ -365,7 +365,7 @@ struct DynamicResolver<Array<V>, void> {
         t.begin(), t.end(), v.begin(), [](const folly::Optional<childType>& v) {
           return v.hasValue()
               ? DynamicResolver<V>::toVariant(v.value())
-              : variant::null(UdfToType<V>::koskiType()->kind());
+              : variant::null(UdfToType<V>::veloxType()->kind());
         });
 
     return variant::array(std::move(v));
