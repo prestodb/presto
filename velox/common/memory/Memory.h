@@ -1,0 +1,994 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#pragma once
+
+#include <atomic>
+#include <chrono>
+#include <limits>
+#include <list>
+#include <memory>
+#include <mutex>
+#include <string>
+
+#include <fmt/format.h>
+#include <gflags/gflags.h>
+#include <glog/logging.h>
+#include <gtest/gtest_prod.h>
+
+#include "folly/CPortability.h"
+#include "folly/Likely.h"
+#include "folly/Random.h"
+#include "folly/experimental/FunctionScheduler.h"
+#include "velox/common/memory/MemoryUsage.h"
+#include "velox/common/memory/MemoryUsageTracker.h"
+
+DECLARE_int32(memory_usage_aggregation_interval_millis);
+
+namespace facebook {
+namespace velox {
+namespace memory {
+constexpr uint16_t kNoAlignment = alignof(max_align_t);
+constexpr uint16_t kDefaultAlignment = 64;
+
+class ScopedMemoryPool;
+
+class AbstractMemoryPool {
+ public:
+  virtual ~AbstractMemoryPool() {}
+  virtual void* allocate(int64_t size) = 0;
+  virtual void* allocateZeroFilled(int64_t numMembers, int64_t sizeEach) = 0;
+  virtual void* reallocate(void* p, int64_t size, int64_t newSize) = 0;
+  virtual void free(void* p, int64_t size) = 0;
+  virtual size_t getPreferredSize(size_t size) = 0;
+};
+
+class MemoryPool : public AbstractMemoryPool {
+ public:
+  virtual ~MemoryPool() {}
+  // Accounting/governing methods, lazily managed and expensive for intermediate
+  // tree nodes, cheap for leaf nodes.
+  virtual int64_t getCurrentBytes() const = 0;
+  virtual int64_t getMaxBytes() const = 0;
+  // Tracks memory usage from leaf nodes to root and updates immediately
+  // with atomic operations.
+  // Unlike pool's getCurrentBytes(), getMaxBytes(), trace's API's returns
+  // the aggregated usage of subtree. See 'ScopedChildUsageTest' for
+  // difference in their behavior.
+  virtual void setMemoryUsageTracker(
+      const std::shared_ptr<MemoryUsageTracker>& tracker) = 0;
+  virtual const std::shared_ptr<MemoryUsageTracker>& getMemoryUsageTracker()
+      const = 0;
+  // Used for external aggregation.
+  virtual void setSubtreeMemoryUsage(int64_t size) = 0;
+  virtual int64_t updateSubtreeMemoryUsage(int64_t size) = 0;
+  // Get the cap for the memory node and its subtree.
+  virtual int64_t getCap() const = 0;
+  virtual uint16_t getAlignment() const = 0;
+
+  ////////////////////// resource governing methods ////////////////////
+  // Called by MemoryManager and MemoryPool upon memory usage updates and
+  // propagates down the subtree recursively.
+  virtual void capMemoryAllocation() = 0;
+  // Called by MemoryManager and propagates down recursively if applicable.
+  virtual void uncapMemoryAllocation() = 0;
+  // We might need to freeze memory allocating operations under severe global
+  // memory pressure.
+  virtual bool isMemoryCapped() const = 0;
+
+  ////////////////////////// tree methods ////////////////////////////
+  // TODO: might be able to move implementation to abstract class
+  // name of the node, preferably unique among siblings, but not enforced.
+  virtual const std::string& getName() const = 0;
+  virtual std::weak_ptr<MemoryPool> getWeakPtr() = 0;
+  virtual MemoryPool& getChildByName(const std::string& name) = 0;
+  virtual uint64_t getChildCount() const = 0;
+  virtual void visitChildren(
+      std::function<void(MemoryPool*)> visitor) const = 0;
+
+  virtual std::shared_ptr<MemoryPool> genChild(
+      std::weak_ptr<MemoryPool> parent,
+      const std::string& name,
+      int64_t cap) = 0;
+  virtual MemoryPool& addChild(
+      const std::string& name,
+      int64_t cap = kMaxMemory) = 0;
+  virtual std::unique_ptr<ScopedMemoryPool> addScopedChild(
+      const std::string& name,
+      int64_t cap = kMaxMemory) = 0;
+  virtual void dropChild(const MemoryPool* child) = 0;
+
+  // Used to explicitly remove self when a user is done with the node, since
+  // nodes are owned by parents and users only get object references. Any
+  // reference to self would be invalid after this call. This will also drop the
+  // entire subtree.
+  virtual void removeSelf() = 0;
+};
+
+namespace detail {
+static inline MemoryPool& getCheckedReference(std::weak_ptr<MemoryPool> ptr) {
+  auto sptr = ptr.lock();
+  VELOX_USER_CHECK(sptr);
+  return *sptr;
+};
+} // namespace detail
+
+class ScopedMemoryPool final : public MemoryPool {
+ public:
+  explicit ScopedMemoryPool(std::weak_ptr<MemoryPool> poolPtr)
+      : poolPtr_{poolPtr}, pool_{detail::getCheckedReference(poolPtr)} {}
+
+  ~ScopedMemoryPool() {
+    if (auto sptr = poolPtr_.lock()) {
+      sptr->removeSelf();
+    }
+  }
+
+  int64_t getCurrentBytes() const override {
+    return pool_.getCurrentBytes();
+  }
+
+  int64_t getMaxBytes() const override {
+    return pool_.getMaxBytes();
+  }
+
+  void setMemoryUsageTracker(
+      const std::shared_ptr<MemoryUsageTracker>& tracker) override {
+    pool_.setMemoryUsageTracker(tracker);
+  }
+
+  const std::shared_ptr<MemoryUsageTracker>& getMemoryUsageTracker()
+      const override {
+    return pool_.getMemoryUsageTracker();
+  }
+
+  void* allocate(int64_t size) override {
+    return pool_.allocate(size);
+  }
+
+  void* reallocate(void* p, int64_t size, int64_t newSize) override {
+    return pool_.reallocate(p, size, newSize);
+  }
+
+  void free(void* p, int64_t size) override {
+    return pool_.free(p, size);
+  }
+
+  // Rounds up to a power of 2 >= size, or to a size halfway between
+  // two consecutive powers of two, i.e 8, 12, 16, 24, 32, .... This
+  // coincides with JEMalloc size classes.
+  size_t getPreferredSize(size_t size) override {
+    return pool_.getPreferredSize(size);
+  }
+
+  int64_t updateSubtreeMemoryUsage(int64_t size) override {
+    return pool_.updateSubtreeMemoryUsage(size);
+  }
+  void* allocateZeroFilled(int64_t numMembers, int64_t sizeEach) override {
+    return pool_.allocateZeroFilled(numMembers, sizeEach);
+  }
+  int64_t getCap() const override {
+    return pool_.getCap();
+  }
+  uint16_t getAlignment() const override {
+    return pool_.getAlignment();
+  }
+  void capMemoryAllocation() override {
+    pool_.capMemoryAllocation();
+  }
+  void uncapMemoryAllocation() override {
+    pool_.uncapMemoryAllocation();
+  }
+  bool isMemoryCapped() const override {
+    return pool_.isMemoryCapped();
+  }
+  const std::string& getName() const override {
+    return pool_.getName();
+  }
+  std::weak_ptr<MemoryPool> getWeakPtr() override {
+    VELOX_NYI();
+  }
+  MemoryPool& getChildByName(const std::string& name) override {
+    return pool_.getChildByName(name);
+  }
+  uint64_t getChildCount() const override {
+    return pool_.getChildCount();
+  }
+  std::shared_ptr<MemoryPool> genChild(
+      std::weak_ptr<MemoryPool> parent,
+      const std::string& name,
+      int64_t cap) override {
+    return pool_.genChild(parent, name, cap);
+  }
+  MemoryPool& addChild(const std::string& name, int64_t cap = kMaxMemory)
+      override {
+    return pool_.addChild(name, cap);
+  }
+  std::unique_ptr<memory::ScopedMemoryPool> addScopedChild(
+      const std::string& name,
+      int64_t cap = kMaxMemory) override {
+    return pool_.addScopedChild(name, cap);
+  }
+  void removeSelf() override {
+    VELOX_NYI();
+  }
+  void visitChildren(
+      std::function<void(velox::memory::MemoryPool*)> visitor) const override {
+    pool_.visitChildren(visitor);
+  }
+  void dropChild(const velox::memory::MemoryPool* child) override {
+    pool_.dropChild(child);
+  }
+  void setSubtreeMemoryUsage(int64_t size) override {
+    pool_.setSubtreeMemoryUsage(size);
+  }
+
+  MemoryPool& getPool() {
+    return pool_;
+  }
+
+ private:
+  std::weak_ptr<MemoryPool> poolPtr_;
+  MemoryPool& pool_;
+};
+
+// A standard allocator interface for the actual allocator of the memory
+// node tree.
+// TODO: implement with jemalloc
+class MemoryAllocator {
+ public:
+  // TODO: move to factory pattern with type trait.
+  static std::shared_ptr<MemoryAllocator> createDefaultAllocator();
+
+  void* alloc(int64_t size);
+  void* allocZeroFilled(int64_t numMembers, int64_t sizeEach);
+  // TODO: might be able to collapse this with templated class
+  void* allocAligned(uint16_t alignment, int64_t size);
+  void* realloc(void* p, int64_t size, int64_t newSize);
+  void*
+  reallocAligned(void* p, uint16_t alignment, int64_t size, int64_t newSize);
+  void free(void* p, int64_t size);
+};
+
+class MemoryPoolBase : public std::enable_shared_from_this<MemoryPoolBase>,
+                       public MemoryPool {
+ public:
+  MemoryPoolBase(const std::string& name, std::weak_ptr<MemoryPool> parent);
+  virtual ~MemoryPoolBase();
+
+  // Gets the unique name corresponding to the node in MemoryManager's
+  // registry.
+  const std::string& getName() const override;
+  std::weak_ptr<MemoryPool> getWeakPtr() override;
+  MemoryPool& getChildByName(const std::string& name) override;
+  uint64_t getChildCount() const override;
+  void visitChildren(std::function<void(MemoryPool*)> visitor) const override;
+
+  MemoryPool& addChild(const std::string& name, int64_t cap = kMaxMemory)
+      override;
+  std::unique_ptr<ScopedMemoryPool> addScopedChild(
+      const std::string& name,
+      int64_t cap = kMaxMemory) override;
+  // Drops child (and implicitly the entire subtree) to reclaim memory.
+  // Derived classes can override this behavior. e.g. append only semantics.
+  void dropChild(const MemoryPool* child) override;
+  // Used to explicitly remove self when a user is done with the node, since
+  // nodes are owned by parents and users only get object references. Any
+  // reference to self would be invalid after this call. This will also drop the
+  // entire subtree.
+  void removeSelf() override;
+
+  size_t getPreferredSize(size_t size) override;
+
+ protected:
+  const std::string name_;
+  std::weak_ptr<MemoryPool> parent_;
+
+  mutable std::mutex childrenMutex_;
+  std::list<std::shared_ptr<MemoryPool>> children_;
+};
+
+template <typename Allocator, uint16_t ALIGNMENT>
+class MemoryManager;
+template <typename Allocator, uint16_t ALIGNMENT>
+class MemoryPoolImpl;
+
+// Signaling for trimming and dropping. Component can either derive this class
+// or use this class as pure signaling. Dropping of component can be implicit.
+// NOTE: MemoryPoolImpl being templated by type means we don't track memory
+// across different allocators and need external workarounds, e.g. static
+// boundaries.
+template <
+    typename Allocator = MemoryAllocator,
+    uint16_t ALIGNMENT = kNoAlignment>
+class MemoryPoolImpl : public MemoryPoolBase {
+ public:
+  // Should perhaps make this method private so that we only create node through
+  // parent.
+  explicit MemoryPoolImpl(
+      MemoryManager<Allocator, ALIGNMENT>& memoryManager,
+      const std::string& name,
+      std::weak_ptr<MemoryPool> parent,
+      int64_t cap = kMaxMemory);
+
+  // Actual memory allocation operations. Can be delegated.
+  // Access global MemoryManager to check usage of current node and enforce
+  // memory cap accordingly. Since MemoryManager walks the MemoryPoolImpl
+  // tree periodically, this is slightly stale and we have to reserve our own
+  // overhead.
+  void* allocate(int64_t size) override;
+  void* allocateZeroFilled(int64_t numMembers, int64_t sizeEach) override;
+
+  // No-op for attempts to shrink buffer.
+  void* reallocate(void* p, int64_t size, int64_t newSize) override;
+  void free(void* p, int64_t size) override;
+
+  //////////////////// Memory Management methods /////////////////////
+  // Library checks for low memory mode on a push model. The respective root,
+  // component level or global, would compute for memory pressure.
+  // This is the signaling mechanism the customer application can use to make
+  // all subcomponents start trimming memory usage.
+  // virtual bool shouldTrim() const {
+  //   return trimming_;
+  // }
+  // // Set by MemoryManager in periodic refresh threads. Stores the trim
+  // target
+  // // state potentially for a more granular/simplified global control.
+  // virtual void startTrimming(int64_t target) {
+  //   trimming_ = true;
+  //   trimTarget_ = target;
+  // }
+  // // Resets the trim flag and trim target.
+  // virtual void stopTrimming() {
+  //   trimming_ = false;
+  //   trimTarget_ = std::numeric_limits<int64_t>::max();
+  // }
+
+  // TODO: Consider putting these in base class also.
+  int64_t getCurrentBytes() const override;
+  int64_t getMaxBytes() const override;
+  void setMemoryUsageTracker(
+      const std::shared_ptr<MemoryUsageTracker>& tracker) override;
+  const std::shared_ptr<MemoryUsageTracker>& getMemoryUsageTracker()
+      const override;
+  void setSubtreeMemoryUsage(int64_t size) override;
+  int64_t updateSubtreeMemoryUsage(int64_t size) override;
+  // Get the cap for the memory node and its subtree.
+  int64_t getCap() const override;
+  uint16_t getAlignment() const override;
+
+  void capMemoryAllocation() override;
+  void uncapMemoryAllocation() override;
+  bool isMemoryCapped() const override;
+
+  std::shared_ptr<MemoryPool> genChild(
+      std::weak_ptr<MemoryPool> parent,
+      const std::string& name,
+      int64_t cap) override;
+
+  // Gets the memory allocation stats of the MemoryPoolImpl attached to the
+  // current MemoryPoolImpl. Not to be confused with total memory usage of the
+  // subtree.
+  const MemoryUsage& getLocalMemoryUsage() const;
+
+  // Get the total memory consumption of the subtree, self + all recursive
+  // children.
+  int64_t getAggregateBytes() const;
+  int64_t getSubtreeMaxBytes() const;
+
+ private:
+  FRIEND_TEST(MemoryPoolTest, Ctor);
+
+  template <uint16_t A>
+  struct ALIGNER {};
+
+  template <uint16_t A, typename = std::enable_if_t<A != kNoAlignment>>
+  int64_t sizeAlign(ALIGNER<A> /* unused */, int64_t size) {
+    auto remainder = size % ALIGNMENT;
+    return (remainder == 0) ? size : (size + ALIGNMENT - remainder);
+  }
+
+  template <uint16_t A>
+  int64_t sizeAlign(ALIGNER<kNoAlignment> /* unused */, int64_t size) {
+    return size;
+  }
+
+  template <uint16_t A, typename = std::enable_if_t<A != kNoAlignment>>
+  void* allocAligned(ALIGNER<A> /* unused */, int64_t size) {
+    return allocator_.allocAligned(A, size);
+  }
+
+  template <uint16_t A>
+  void* allocAligned(ALIGNER<kNoAlignment> /* unused */, int64_t size) {
+    return allocator_.alloc(size);
+  }
+
+  template <uint16_t A, typename = std::enable_if_t<A != kNoAlignment>>
+  void* reallocAligned(
+      ALIGNER<A> /* unused */,
+      void* p,
+      int64_t size,
+      int64_t newSize) {
+    return allocator_.reallocAligned(p, A, size, newSize);
+  }
+
+  template <uint16_t A>
+  void* reallocAligned(
+      ALIGNER<kNoAlignment> /* unused */,
+      void* p,
+      int64_t size,
+      int64_t newSize) {
+    return allocator_.realloc(p, size, newSize);
+  }
+
+  void accessSubtreeMemoryUsage(
+      std::function<void(const MemoryUsage&)> visitor) const;
+  void updateSubtreeMemoryUsage(std::function<void(MemoryUsage&)> visitor);
+
+  // TODO: consider returning bool instead.
+  void reserve(int64_t size);
+  void release(int64_t size);
+
+  MemoryManager<Allocator, ALIGNMENT>& memoryManager_;
+
+  // Memory allocated attributed to the memory node.
+  MemoryUsage localMemoryUsage_;
+  std::shared_ptr<MemoryUsageTracker> memoryUsageTracker_;
+  mutable std::mutex subtreeUsageMutex_;
+  MemoryUsage subtreeMemoryUsage_;
+  int64_t cap_;
+  std::atomic_bool capped_{false};
+
+  Allocator& allocator_;
+};
+
+constexpr folly::StringPiece kRootNodeName{"__root__"};
+
+class IMemoryManager {
+ public:
+  virtual ~IMemoryManager() {}
+  // Returns the total memory usage allowed under this MemoryManager.
+  // MemoryManager maintains this quota as a hard cap, and any allocation
+  // that would cause a quota breach results in exceptions.
+  virtual int64_t getMemoryQuota() const = 0;
+  // Power users that want to explicitly modify the tree should get the root of
+  // the tree. Users opting to use this api needs to explicitly manage the life
+  // cycle of the memory pools by calling removeSelf() after use.
+  // TODO: perhaps the root pool should be a specialized pool that
+  //        * doesn't do allocation
+  //        * cannot be removed
+  virtual MemoryPool& getRoot() const = 0;
+
+  // Adds a child pool to root for use. The actual return type is
+  // std::unique_ptr of a wrapper class that knows to remove itself.
+  virtual std::unique_ptr<ScopedMemoryPool> getScopedPool(
+      int64_t cap = kMaxMemory) = 0;
+
+  virtual void aggregateStats(MemoryPool* subTree) const = 0;
+
+  // Refresh is done lazily, triggered by allocations. But then we can prevent
+  // too frequent refreshes in MemoryManager through lastRefreshTime_. The
+  // lazy criteria can be tightened s.t. all allocations bigger than x has to
+  // force refresh, to make total margin of error bounded. Refresh will have to
+  // be synchronized one way or another, though.
+  virtual void refresh(bool force = false) = 0;
+
+  // Returns the current total memory usage under the MemoryManager.
+  virtual int64_t getTotalBytes() const = 0;
+  // Reserves size for the allocation. Return a true if the total usage remains
+  // under quota after the reservation. Caller is responsible for releasing the
+  // offending reservation.
+  virtual bool reserve(int64_t size) = 0;
+  // Subtracts from current total and regain memory quota.
+  virtual void release(int64_t size) = 0;
+
+  // Disables aggregation on demand, can be resumed with resumeAggregation()
+  virtual void pauseAggregation() = 0;
+  virtual void resumeAggregation() = 0;
+};
+
+// For now, users wanting multiple different allocators would need to
+// instantiate different MemoryManager classes and manage them across
+// static boundaries.
+template <
+    typename Allocator = MemoryAllocator,
+    uint16_t ALIGNMENT = kNoAlignment>
+class MemoryManager final : public IMemoryManager {
+ public:
+  // Tries to get the process singleton manager. If not previously initialized,
+  // the process singleton manager will be initialized with the given quota.
+  FOLLY_EXPORT static MemoryManager<Allocator, ALIGNMENT>&
+  getProcessDefaultManager(
+      int64_t quota = kMaxMemory,
+      bool ensureQuota = false) {
+    static MemoryManager<Allocator, ALIGNMENT> manager{
+        Allocator::createDefaultAllocator(), quota};
+    auto actualQuota = manager.getMemoryQuota();
+    VELOX_USER_CHECK(
+        !ensureQuota || actualQuota == quota,
+        "Process level manager manager created with input_quota: {}, current_quota: {}",
+        quota,
+        actualQuota);
+
+    return manager;
+  }
+
+  explicit MemoryManager(
+      int64_t memoryQuota = kMaxMemory,
+      int32_t refreshInterval = FLAGS_memory_usage_aggregation_interval_millis *
+          1000);
+
+  explicit MemoryManager(
+      std::shared_ptr<Allocator> allocator,
+      int64_t memoryQuota = kMaxMemory,
+      int32_t refreshInterval = FLAGS_memory_usage_aggregation_interval_millis *
+          1000);
+  ~MemoryManager();
+
+  int64_t getMemoryQuota() const final;
+  MemoryPool& getRoot() const final;
+
+  std::unique_ptr<ScopedMemoryPool> getScopedPool(
+      int64_t cap = kMaxMemory) final;
+
+  void aggregateStats(MemoryPool* subTree) const final;
+
+  void refresh(bool force = false) final;
+
+  int64_t getTotalBytes() const final;
+  bool reserve(int64_t size) final;
+  void release(int64_t size) final;
+
+  void pauseAggregation() final;
+  void resumeAggregation() final;
+
+  Allocator& getAllocator();
+
+ private:
+  FRIEND_TEST(MemoryManagerTest, AggregateStats);
+  FRIEND_TEST(MemoryPoolImplTest, CapSubtree);
+  FRIEND_TEST(MemoryPoolImplTest, CapAllocation);
+  FRIEND_TEST(MemoryPoolImplTest, UncapMemory);
+  FRIEND_TEST(MemoryPoolImplTest, MemoryManagerGlobalCap);
+  FRIEND_TEST(MultiThreadingUncappingTest, Flat);
+  FRIEND_TEST(MultiThreadingUncappingTest, SimpleTree);
+
+  std::shared_ptr<Allocator> allocator_;
+  const int64_t memoryQuota_;
+  std::shared_ptr<MemoryPool> root_;
+  const int32_t refreshInterval_;
+  std::atomic<int64_t> lastRefreshTime_;
+  mutable std::mutex mutex_;
+  std::atomic_long totalBytes_{0};
+};
+
+template <typename Allocator, uint16_t ALIGNMENT>
+MemoryPoolImpl<Allocator, ALIGNMENT>::MemoryPoolImpl(
+    MemoryManager<Allocator, ALIGNMENT>& memoryManager,
+    const std::string& name,
+    std::weak_ptr<MemoryPool> parent,
+    int64_t cap)
+    : MemoryPoolBase{name, parent},
+      memoryManager_{memoryManager},
+      localMemoryUsage_{},
+      cap_{cap},
+      allocator_{memoryManager_.getAllocator()} {
+  VELOX_USER_CHECK_GT(cap, 0);
+}
+
+template <typename Allocator, uint16_t ALIGNMENT>
+void* MemoryPoolImpl<Allocator, ALIGNMENT>::allocate(int64_t size) {
+  if (this->isMemoryCapped()) {
+    VELOX_MEM_CAP_EXCEEDED();
+  }
+  auto alignedSize = sizeAlign<ALIGNMENT>(ALIGNER<ALIGNMENT>{}, size);
+  reserve(alignedSize);
+  return allocAligned<ALIGNMENT>(ALIGNER<ALIGNMENT>{}, alignedSize);
+}
+
+template <typename Allocator, uint16_t ALIGNMENT>
+void* MemoryPoolImpl<Allocator, ALIGNMENT>::allocateZeroFilled(
+    int64_t numMembers,
+    int64_t sizeEach) {
+  VELOX_USER_CHECK_EQ(sizeEach, 1);
+  auto alignedSize = sizeAlign<ALIGNMENT>(ALIGNER<ALIGNMENT>{}, numMembers);
+  if (this->isMemoryCapped()) {
+    VELOX_MEM_CAP_EXCEEDED();
+  }
+  reserve(alignedSize * sizeEach);
+  return allocator_.allocZeroFilled(alignedSize, sizeEach);
+}
+
+template <typename Allocator, uint16_t ALIGNMENT>
+void* MemoryPoolImpl<Allocator, ALIGNMENT>::reallocate(
+    void* p,
+    int64_t size,
+    int64_t newSize) {
+  auto alignedSize = sizeAlign<ALIGNMENT>(ALIGNER<ALIGNMENT>{}, size);
+  auto alignedNewSize = sizeAlign<ALIGNMENT>(ALIGNER<ALIGNMENT>{}, newSize);
+  int64_t difference = alignedNewSize - alignedSize;
+  if (UNLIKELY(difference <= 0)) {
+    // Track and pretend the shrink took place for accounting purposes.
+    release(-difference);
+    return p;
+  }
+
+  reserve(difference);
+  void* newP = reallocAligned<ALIGNMENT>(
+      ALIGNER<ALIGNMENT>{}, p, alignedSize, alignedNewSize);
+  if (UNLIKELY(!newP)) {
+    free(p, alignedSize);
+    VELOX_MEM_CAP_EXCEEDED();
+  }
+
+  return newP;
+}
+
+template <typename Allocator, uint16_t ALIGNMENT>
+void MemoryPoolImpl<Allocator, ALIGNMENT>::free(void* p, int64_t size) {
+  auto alignedSize = sizeAlign<ALIGNMENT>(ALIGNER<ALIGNMENT>{}, size);
+  allocator_.free(p, alignedSize);
+  release(alignedSize);
+}
+
+template <typename Allocator, uint16_t ALIGNMENT>
+int64_t MemoryPoolImpl<Allocator, ALIGNMENT>::getCurrentBytes() const {
+  return getAggregateBytes();
+}
+
+template <typename Allocator, uint16_t ALIGNMENT>
+int64_t MemoryPoolImpl<Allocator, ALIGNMENT>::getMaxBytes() const {
+  return std::max(getSubtreeMaxBytes(), localMemoryUsage_.getMaxBytes());
+}
+
+template <typename Allocator, uint16_t ALIGNMENT>
+void MemoryPoolImpl<Allocator, ALIGNMENT>::setMemoryUsageTracker(
+    const std::shared_ptr<MemoryUsageTracker>& tracker) {
+  memoryUsageTracker_ = tracker;
+}
+
+template <typename Allocator, uint16_t ALIGNMENT>
+const std::shared_ptr<MemoryUsageTracker>&
+MemoryPoolImpl<Allocator, ALIGNMENT>::getMemoryUsageTracker() const {
+  return memoryUsageTracker_;
+}
+
+template <typename Allocator, uint16_t ALIGNMENT>
+void MemoryPoolImpl<Allocator, ALIGNMENT>::setSubtreeMemoryUsage(int64_t size) {
+  updateSubtreeMemoryUsage([size](MemoryUsage& subtreeUsage) {
+    subtreeUsage.setCurrentBytes(size);
+  });
+}
+
+template <typename Allocator, uint16_t ALIGNMENT>
+int64_t MemoryPoolImpl<Allocator, ALIGNMENT>::updateSubtreeMemoryUsage(
+    int64_t size) {
+  int64_t aggregateBytes;
+  updateSubtreeMemoryUsage([&aggregateBytes, size](MemoryUsage& subtreeUsage) {
+    aggregateBytes = subtreeUsage.getCurrentBytes() + size;
+    subtreeUsage.setCurrentBytes(aggregateBytes);
+  });
+  return aggregateBytes;
+}
+
+template <typename Allocator, uint16_t ALIGNMENT>
+int64_t MemoryPoolImpl<Allocator, ALIGNMENT>::getCap() const {
+  return cap_;
+}
+
+template <typename Allocator, uint16_t ALIGNMENT>
+uint16_t MemoryPoolImpl<Allocator, ALIGNMENT>::getAlignment() const {
+  return ALIGNMENT;
+}
+
+template <typename Allocator, uint16_t ALIGNMENT>
+void MemoryPoolImpl<Allocator, ALIGNMENT>::capMemoryAllocation() {
+  capped_.store(true);
+  for (const auto& child : children_) {
+    child->capMemoryAllocation();
+  }
+}
+
+template <typename Allocator, uint16_t ALIGNMENT>
+void MemoryPoolImpl<Allocator, ALIGNMENT>::uncapMemoryAllocation() {
+  // This means if we try to post-order traverse the tree like we do
+  // in MemoryManager, only parent has the right to lift the cap.
+  // This suffices because parent will then recursively lift the cap on the
+  // entire tree.
+  if (getAggregateBytes() > getCap()) {
+    return;
+  }
+  if (auto parentPtr = parent_.lock()) {
+    if (parentPtr->isMemoryCapped()) {
+      return;
+    }
+  }
+  capped_.store(false);
+  visitChildren([](MemoryPool* child) { child->uncapMemoryAllocation(); });
+}
+
+template <typename Allocator, uint16_t ALIGNMENT>
+bool MemoryPoolImpl<Allocator, ALIGNMENT>::isMemoryCapped() const {
+  return capped_.load();
+}
+
+template <typename Allocator, uint16_t ALIGNMENT>
+std::shared_ptr<MemoryPool> MemoryPoolImpl<Allocator, ALIGNMENT>::genChild(
+    std::weak_ptr<MemoryPool> parent,
+    const std::string& name,
+    int64_t cap) {
+  return std::make_shared<MemoryPoolImpl<Allocator, ALIGNMENT>>(
+      memoryManager_, name, parent, cap);
+}
+
+template <typename Allocator, uint16_t ALIGNMENT>
+const MemoryUsage& MemoryPoolImpl<Allocator, ALIGNMENT>::getLocalMemoryUsage()
+    const {
+  return localMemoryUsage_;
+}
+
+template <typename Allocator, uint16_t ALIGNMENT>
+int64_t MemoryPoolImpl<Allocator, ALIGNMENT>::getAggregateBytes() const {
+  int64_t aggregateBytes = localMemoryUsage_.getCurrentBytes();
+  accessSubtreeMemoryUsage([&aggregateBytes](const MemoryUsage& subtreeUsage) {
+    aggregateBytes += subtreeUsage.getCurrentBytes();
+  });
+  return aggregateBytes;
+}
+
+template <typename Allocator, uint16_t ALIGNMENT>
+int64_t MemoryPoolImpl<Allocator, ALIGNMENT>::getSubtreeMaxBytes() const {
+  int64_t maxBytes;
+  accessSubtreeMemoryUsage([&maxBytes](const MemoryUsage& subtreeUsage) {
+    maxBytes = subtreeUsage.getMaxBytes();
+  });
+  return maxBytes;
+}
+
+template <typename Allocator, uint16_t ALIGNMENT>
+void MemoryPoolImpl<Allocator, ALIGNMENT>::accessSubtreeMemoryUsage(
+    std::function<void(const MemoryUsage&)> visitor) const {
+  std::lock_guard<std::mutex> memoryBarrier{subtreeUsageMutex_};
+  visitor(subtreeMemoryUsage_);
+}
+
+template <typename Allocator, uint16_t ALIGNMENT>
+void MemoryPoolImpl<Allocator, ALIGNMENT>::updateSubtreeMemoryUsage(
+    std::function<void(MemoryUsage&)> visitor) {
+  std::lock_guard<std::mutex> memoryBarrier{subtreeUsageMutex_};
+  visitor(subtreeMemoryUsage_);
+}
+
+template <typename Allocator, uint16_t ALIGNMENT>
+void MemoryPoolImpl<Allocator, ALIGNMENT>::reserve(int64_t size) {
+  if (memoryUsageTracker_) {
+    memoryUsageTracker_->update(size);
+  }
+  localMemoryUsage_.incrementCurrentBytes(size);
+
+  // Reserve rejects allocations that would go over the cap premptively, but
+  // doesn't trigger capping logic on the entire subtree. The latter only
+  // happens when cap has already been exceeded by a burst of allocations
+  // within the same refresh cycle.
+  memoryManager_.refresh();
+  bool success = memoryManager_.reserve(size);
+  int64_t aggregateBytes = getAggregateBytes();
+  if (UNLIKELY(!success || isMemoryCapped() || aggregateBytes > cap_)) {
+    // NOTE: If we can make the reserve and release a single transaction we
+    // would have more accurate aggregates in intermediate states. However, this
+    // is low-pri because we can only have inflated aggregates, and be on the
+    // more conservative side.
+    release(size);
+    VELOX_MEM_CAP_EXCEEDED();
+  }
+}
+
+template <typename Allocator, uint16_t ALIGNMENT>
+void MemoryPoolImpl<Allocator, ALIGNMENT>::release(int64_t size) {
+  memoryManager_.release(size);
+  localMemoryUsage_.incrementCurrentBytes(-size);
+  if (memoryUsageTracker_) {
+    memoryUsageTracker_->update(-size);
+  }
+
+  memoryManager_.refresh();
+  // Unlike reserve, wait for MemoryManager to uncap nodes.
+}
+
+namespace detail {
+static inline int64_t getTimeInUsec() {
+  return std::chrono::duration_cast<std::chrono::microseconds>(
+             std::chrono::steady_clock::now().time_since_epoch())
+      .count();
+}
+} // namespace detail
+
+template <typename Allocator, uint16_t ALIGNMENT>
+MemoryManager<Allocator, ALIGNMENT>::MemoryManager(
+    int64_t memoryQuota,
+    int32_t refreshInterval)
+    : MemoryManager(
+          Allocator::createDefaultAllocator(),
+          memoryQuota,
+          refreshInterval) {}
+
+template <typename Allocator, uint16_t ALIGNMENT>
+MemoryManager<Allocator, ALIGNMENT>::MemoryManager(
+    std::shared_ptr<Allocator> allocator,
+    int64_t memoryQuota,
+    int32_t refreshInterval)
+    : allocator_{std::move(allocator)},
+      memoryQuota_{memoryQuota},
+      root_{std::make_shared<MemoryPoolImpl<Allocator, ALIGNMENT>>(
+          *this,
+          kRootNodeName.str(),
+          std::weak_ptr<MemoryPool>(),
+          memoryQuota)},
+      refreshInterval_{refreshInterval},
+      lastRefreshTime_{detail::getTimeInUsec()} {
+  VELOX_USER_CHECK_GE(refreshInterval_, 0);
+  VELOX_USER_CHECK_GE(memoryQuota_, 0);
+  pauseAggregation();
+}
+
+template <typename Allocator, uint16_t ALIGNMENT>
+MemoryManager<Allocator, ALIGNMENT>::~MemoryManager() {
+  refresh(true);
+  auto currentBytes = root_->getCurrentBytes();
+  if (currentBytes) {
+    LOG(INFO) << "Leaked total memory of " << currentBytes << " bytes.";
+  }
+}
+
+template <typename Allocator, uint16_t ALIGNMENT>
+int64_t MemoryManager<Allocator, ALIGNMENT>::getMemoryQuota() const {
+  return memoryQuota_;
+}
+
+template <typename Allocator, uint16_t ALIGNMENT>
+MemoryPool& MemoryManager<Allocator, ALIGNMENT>::getRoot() const {
+  return *root_;
+}
+
+template <typename Allocator, uint16_t ALIGNMENT>
+std::unique_ptr<ScopedMemoryPool>
+MemoryManager<Allocator, ALIGNMENT>::getScopedPool(int64_t cap) {
+  auto& pool = root_->addChild(
+      fmt::format(
+          "default_usage_node_{}",
+          folly::to<std::string>(folly::Random::rand64())),
+      cap);
+  return std::make_unique<ScopedMemoryPool>(pool.getWeakPtr());
+}
+
+template <typename Allocator, uint16_t ALIGNMENT>
+void MemoryManager<Allocator, ALIGNMENT>::aggregateStats(
+    MemoryPool* subtree) const {
+  int64_t aggregateBytes{0};
+  subtree->visitChildren([&aggregateBytes, this](MemoryPool* child) {
+    aggregateStats(child);
+    aggregateBytes += child->getCurrentBytes();
+  });
+  subtree->setSubtreeMemoryUsage(aggregateBytes);
+  // Might be able to avoid some synchronization here.
+  if (subtree->getCurrentBytes() > subtree->getCap()) {
+    subtree->capMemoryAllocation();
+  } else {
+    // Always try to uncap, but the node would make its own decision based
+    // on its own cap and the parent's state.
+    subtree->uncapMemoryAllocation();
+  }
+}
+
+template <typename Allocator, uint16_t ALIGNMENT>
+void MemoryManager<Allocator, ALIGNMENT>::refresh(bool force) {
+  int64_t aggregationTime = detail::getTimeInUsec();
+  if (!force &&
+      aggregationTime - lastRefreshTime_.load(std::memory_order_consume) <
+          refreshInterval_) {
+    return;
+  }
+
+  // A more readable way would be for all threads to wait on a condition
+  // variable that signals the completion of the refresh. Another way to
+  // organize the code is to serialize through an SPMC queue. Clearing the queue
+  // right after a refresh, where destruction of the queue element signals the
+  // respective writer to continue. However, likely less performant.
+  {
+    std::lock_guard<std::mutex> guard{mutex_};
+    // In case multiple threads wanted to access this section, we might have
+    // updated lastRefreshTime, and should check again to avoid expensive work.
+
+    // Typically this means only one of the threads attempting to acquire this
+    // mutex will trigger aggregation.
+    if (!force &&
+        detail::getTimeInUsec() -
+                lastRefreshTime_.load(std::memory_order_relaxed) <
+            refreshInterval_) {
+      return;
+    }
+    // Missed local updates due to traversal order will be picked up in the next
+    // refresh. However, due to having 2 separate memory updates in a capped
+    // reserve operation, the aggregate can look inflated and up to 2 refresh
+    // cycles stale, but the actual allocation can only be over by 1 refresh
+    // cycle.
+    aggregateStats(root_.get());
+    // Still storing the time entering the method to be safe. Perhaps we can
+    // miss more updates otherwise.
+    lastRefreshTime_.store(aggregationTime, std::memory_order_release);
+  }
+}
+
+template <typename Allocator, uint16_t ALIGNMENT>
+void MemoryManager<Allocator, ALIGNMENT>::pauseAggregation() {
+  // Make time delta negative so it will be smaller than any refresh interval.
+  lastRefreshTime_.store(
+      std::numeric_limits<int64_t>::max(), std::memory_order_relaxed);
+}
+
+template <typename Allocator, uint16_t ALIGNMENT>
+void MemoryManager<Allocator, ALIGNMENT>::resumeAggregation() {
+  lastRefreshTime_.store(detail::getTimeInUsec(), std::memory_order_relaxed);
+}
+
+template <typename Allocator, uint16_t ALIGNMENT>
+int64_t MemoryManager<Allocator, ALIGNMENT>::getTotalBytes() const {
+  return totalBytes_.load(std::memory_order_relaxed);
+}
+
+template <typename Allocator, uint16_t ALIGNMENT>
+bool MemoryManager<Allocator, ALIGNMENT>::reserve(int64_t size) {
+  return totalBytes_.fetch_add(size, std::memory_order_relaxed) + size <=
+      memoryQuota_;
+}
+
+template <typename Allocator, uint16_t ALIGNMENT>
+void MemoryManager<Allocator, ALIGNMENT>::release(int64_t size) {
+  totalBytes_.fetch_sub(size, std::memory_order_relaxed);
+}
+
+template <typename Allocator, uint16_t ALIGNMENT>
+Allocator& MemoryManager<Allocator, ALIGNMENT>::getAllocator() {
+  return *allocator_;
+}
+
+IMemoryManager& getProcessDefaultMemoryManager();
+
+// adds a new scoped child memory pool to the root
+// the new scoped child pool memory cap is set to the input value provided
+std::unique_ptr<ScopedMemoryPool> getDefaultScopedMemoryPool(
+    int64_t cap = kMaxMemory);
+
+template <typename T>
+class Allocator {
+ public:
+  typedef T value_type;
+  MemoryPool& pool;
+
+  /* implicit */ Allocator(MemoryPool& pool) : pool{pool} {}
+
+  template <typename U>
+  /* implicit */ Allocator(const Allocator<U>& a) : pool{a.pool} {}
+
+  T* allocate(size_t n) {
+    return static_cast<T*>(pool.allocate(n * sizeof(T)));
+  }
+
+  void deallocate(T* p, size_t n) {
+    pool.free(p, n * sizeof(T));
+  }
+};
+} // namespace memory
+} // namespace velox
+} // namespace facebook

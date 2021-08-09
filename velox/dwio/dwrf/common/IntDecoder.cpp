@@ -1,0 +1,2526 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#include "velox/dwio/dwrf/common/IntDecoder.h"
+#include "velox/common/base/SimdUtil.h"
+#include "velox/dwio/dwrf/common/DirectDecoder.h"
+#include "velox/dwio/dwrf/common/RLEv1.h"
+#include "velox/dwio/dwrf/common/RLEv2.h"
+
+namespace facebook::velox::dwrf {
+
+template <bool isSigned>
+void IntDecoder<isSigned>::skipLongs(uint64_t numValues) {
+  if (useVInts) {
+    while (numValues > 0) {
+      if (readByte() >= 0) {
+        --numValues;
+      }
+    }
+  } else {
+    uint64_t numBytesToRead = numValues * numBytes;
+    while (numBytesToRead > 0) {
+      readByte();
+      --numBytesToRead;
+    }
+  }
+}
+
+template void IntDecoder<true>::skipLongs(uint64_t numValues);
+template void IntDecoder<false>::skipLongs(uint64_t numValues);
+
+template <bool isSigned>
+FOLLY_ALWAYS_INLINE void IntDecoder<isSigned>::skipVarints(uint64_t items) {
+  while (items > 0) {
+    items -= skipVarintsInBuffer(items);
+  }
+}
+
+template <bool isSigned>
+FOLLY_ALWAYS_INLINE uint64_t
+IntDecoder<isSigned>::skipVarintsInBuffer(uint64_t items) {
+  static constexpr uint64_t kVarintMask = 0x8080808080808080L;
+  if (bufferStart == bufferEnd) {
+    const void* bufferPointer;
+    int32_t size;
+    if (!inputStream->Next(&bufferPointer, &size)) {
+      VELOX_CHECK(false, "Skipping past end of strean");
+    }
+    bufferStart = static_cast<const char*>(bufferPointer);
+    bufferEnd = bufferStart + size;
+  }
+  uint64_t toSkip = items;
+  while (bufferEnd - bufferStart >= sizeof(uint64_t)) {
+    uint64_t controlBits =
+        (~*reinterpret_cast<const uint64_t*>(bufferStart) & kVarintMask);
+    auto endCount = __builtin_popcountll(controlBits);
+    if (endCount >= toSkip) {
+      // The range to skip ends within 'word'. Clear all but the
+      // last end marker bits and count trailing zeros to see what
+      // byte is the last to skip.
+      for (int32_t i = 1; i < toSkip; ++i) {
+        controlBits &= controlBits - 1;
+      }
+      auto zeros = __builtin_ctzll(controlBits);
+      bufferStart += (zeros + 1) / 8;
+      return items;
+    }
+    toSkip -= endCount;
+    bufferStart += sizeof(uint64_t);
+  }
+
+  while (toSkip && bufferEnd > bufferStart) {
+    if ((*reinterpret_cast<const uint8_t*>(bufferStart) & 0x80) == 0) {
+      --toSkip;
+    }
+    ++bufferStart;
+  }
+  return items - toSkip;
+}
+
+template <bool isSigned>
+void IntDecoder<isSigned>::skipLongsFast(uint64_t numValues) {
+  if (useVInts) {
+    skipVarints(numValues);
+  } else {
+    skipBytes(numValues * numBytes, inputStream.get(), bufferStart, bufferEnd);
+  }
+}
+
+template void IntDecoder<true>::skipLongsFast(uint64_t numValues);
+template void IntDecoder<false>::skipLongsFast(uint64_t numValues);
+
+template <bool isSigned>
+template <typename T>
+void IntDecoder<isSigned>::bulkReadFixed(uint64_t size, T* result) {
+  if (isSigned) {
+    switch (numBytes) {
+      case 2:
+        readContiguous<int16_t>(
+            size, *inputStream, result, bufferStart, bufferEnd);
+        break;
+      case 4:
+        readContiguous<int32_t>(
+            size, *inputStream, result, bufferStart, bufferEnd);
+        break;
+      case 8:
+        readContiguous<int64_t>(
+            size, *inputStream, result, bufferStart, bufferEnd);
+        break;
+      default:
+        VELOX_FAIL("Bad fixed width {}", numBytes);
+    }
+  } else {
+    switch (numBytes) {
+      case 2:
+        readContiguous<uint16_t>(
+            size, *inputStream, result, bufferStart, bufferEnd);
+        break;
+      case 4:
+        readContiguous<uint32_t>(
+            size, *inputStream, result, bufferStart, bufferEnd);
+        break;
+      case 8:
+        readContiguous<uint64_t>(
+            size, *inputStream, result, bufferStart, bufferEnd);
+        break;
+      default:
+        VELOX_FAIL("Bad fixed width {}", numBytes);
+    }
+  }
+}
+
+template <bool isSigned>
+template <typename T>
+void IntDecoder<isSigned>::bulkReadRowsFixed(
+    RowSet rows,
+    int32_t initialRow,
+    T* result) {
+  if (isSigned) {
+    switch (numBytes) {
+      case 2:
+        readRows<int16_t>(
+            rows, initialRow, *inputStream, result, bufferStart, bufferEnd);
+        break;
+      case 4:
+        readRows<int32_t>(
+            rows, initialRow, *inputStream, result, bufferStart, bufferEnd);
+        break;
+      case 8:
+        readRows<int64_t>(
+            rows, initialRow, *inputStream, result, bufferStart, bufferEnd);
+        break;
+      default:
+        VELOX_FAIL("Bad fixed width {}", numBytes);
+    }
+  } else {
+    switch (numBytes) {
+      case 2:
+        readRows<uint16_t>(
+            rows, initialRow, *inputStream, result, bufferStart, bufferEnd);
+        break;
+      case 4:
+        readRows<uint32_t>(
+            rows, initialRow, *inputStream, result, bufferStart, bufferEnd);
+        break;
+      case 8:
+        readRows<uint64_t>(
+            rows, initialRow, *inputStream, result, bufferStart, bufferEnd);
+        break;
+      default:
+        VELOX_FAIL("Bad fixed width {}", numBytes);
+    }
+  }
+}
+
+template <typename T>
+inline void bulkZigzagDecode(int32_t size, T* data) {
+  // Round up to get an even number of 256 bit iterations
+  auto rounded = bits::roundUp(size, 32 / sizeof(T));
+  using U = typename std::make_unsigned<T>::type;
+  for (auto i = 0; i < rounded; ++i) {
+    auto n = static_cast<U>(data[i]);
+    data[i] = ((n >> 1) ^ (~(n & 1) + 1));
+  }
+}
+
+// Stores each byte of 'bytes' as a int64_t at output[0] ... output[3]
+inline void unpack4x1(int32_t bytes, uint64_t*& output) {
+  *reinterpret_cast<__m256i_u*>(output) =
+      _mm256_cvtepi8_epi64(_mm_set1_epi32(bytes));
+  output += 4;
+}
+
+inline void unpack4x1(int32_t bytes, int64_t*& output) {
+  *reinterpret_cast<__m256i_u*>(output) =
+      _mm256_cvtepi8_epi64(_mm_set1_epi32(bytes));
+  output += 4;
+}
+
+// Stores each byte of 'bytes' as a int32_t at output[0] ... output[3]
+inline void unpack4x1(int32_t bytes, int32_t*& output) {
+  *reinterpret_cast<__m256i_u*>(output) =
+      _mm256_cvtepi8_epi32(_mm_set1_epi32(bytes));
+  output += 4;
+}
+
+// Stores each byte of 'bytes' as a int16_t at output[0] ... output[3]
+inline void unpack4x1(int32_t bytes, int16_t*& output) {
+  *reinterpret_cast<__m256i_u*>(output) =
+      _mm256_cvtepi8_epi16(_mm_set1_epi32(bytes));
+  output += 4;
+}
+
+// Stores 4 2 byte varints at output[0] .. output[3].
+inline void unpack4x2(uint64_t vints, uint64_t*& output) {
+  uint64_t decoded =
+      (vints & 0x007f007f007f007f) | ((vints & 0x7f007f007f007f00) >> 1);
+  *reinterpret_cast<__m256i_u*>(output) =
+      _mm256_cvtepi16_epi64(_mm_set1_epi64(reinterpret_cast<__m64>(decoded)));
+  output += 4;
+}
+
+// Returns true if the next extract is part of 'rows'.
+inline bool isEnabled(
+    int32_t& row,
+    int32_t& nextRow,
+    int32_t& nextRowIndex,
+    const int32_t* rows) {
+  if (row++ == nextRow) {
+    nextRow = rows[++nextRowIndex];
+    return true;
+  }
+  return false;
+}
+
+// Applies a carryover from an earlier decoding round to the number at
+// output[0]. Used when after bulk decoding varint components.
+template <typename T>
+inline void
+applyCarryover(int32_t carryoverBits, uint64_t carryover, T* output) {
+  if (carryoverBits) {
+    // Shift as uint64_t because shifting by more than T width is
+    // undefined and makes errors with sanitizers. The situation
+    // occurs when reading dictionary values where not in dictionary
+    // negative values get represented as unsigned 10-byte ints with
+    // high bit set. These overflow T when decoding but come out right
+    // when narrowed to T.
+    *output = (static_cast<uint64_t>(*output) << carryoverBits) | carryover;
+  }
+}
+
+// Compensates for speculative store of 4 elements where one or two last may not
+// have been single bytes.
+template <typename T>
+inline void clipTrailingStores(
+    int32_t startBit,
+    uint64_t controlBits,
+    const char*& pos,
+    T*& output) {
+  if (startBit == 3) {
+    // If bit 6 is set, the last written is not a single byte vint.
+    if ((controlBits & 64)) {
+      --output;
+    } else {
+      ++pos;
+    }
+  } else if (startBit == 4) {
+    // Two extra writes. If bits 6 and 7 are 0, these were valid. If bit 6 is 0,
+    // the first was valid, else neither was valid.
+    if ((controlBits & 192) == 0) {
+      pos += 2;
+    } else if ((controlBits & 64) == 0) {
+      ++pos;
+      --output;
+    } else {
+      output -= 2;
+    }
+  }
+}
+
+template <typename T>
+__attribute__((__target__("bmi2"))) FOLLY_ALWAYS_INLINE void varintSwitch(
+    uint64_t word,
+    uint64_t controlBits,
+    const char*& pos,
+    T*& output,
+    uint64_t& carryover,
+    int32_t& carryoverBits) {
+  switch (controlBits & 0x3f) {
+    case 0ULL: {
+      unpack4x1(word >> 0, output);
+      applyCarryover(carryoverBits, carryover, output - 4);
+      unpack4x1(word >> 32, output);
+      clipTrailingStores(4, controlBits, pos, output);
+      carryover = 0ULL;
+      carryoverBits = 0;
+      break;
+    }
+    case 1ULL: {
+      const uint64_t firstValue = _pext_u64(word, 0x0000000000007f7fULL);
+      *output++ = (firstValue << carryoverBits) | carryover;
+      unpack4x1(word >> 16, output);
+      carryover = 0ULL;
+      carryoverBits = 0;
+      break;
+    }
+    case 2ULL: {
+      const uint64_t firstValue =
+          static_cast<uint64_t>(static_cast<uint8_t>(word));
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = _pext_u64(word, 0x00000000007f7f00ULL);
+      unpack4x1(word >> 24, output);
+      clipTrailingStores(3, controlBits, pos, output);
+      carryover = 0ULL;
+      carryoverBits = 0;
+      break;
+    }
+    case 3ULL: {
+      const uint64_t firstValue = _pext_u64(word, 0x00000000007f7f7fULL);
+      *output++ = (firstValue << carryoverBits) | carryover;
+      unpack4x1(word >> 24, output);
+      clipTrailingStores(3, controlBits, pos, output);
+      carryover = 0ULL;
+      carryoverBits = 0;
+      break;
+    }
+    case 4ULL: {
+      const uint64_t firstValue =
+          static_cast<uint64_t>(static_cast<uint8_t>(word));
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = ((word >> 8) & 0x7f);
+      *output++ = _pext_u64(word, 0x000000007f7f0000ULL);
+      unpack4x1(word >> 32, output);
+      clipTrailingStores(4, controlBits, pos, output);
+      carryover = 0ULL;
+      carryoverBits = 0;
+      break;
+    }
+    case 5ULL: {
+      const uint64_t firstValue = _pext_u64(word, 0x0000000000007f7fULL);
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = _pext_u64(word, 0x000000007f7f0000ULL);
+      unpack4x1(word >> 32, output);
+      clipTrailingStores(4, controlBits, pos, output);
+      carryover = 0ULL;
+      carryoverBits = 0;
+      break;
+    }
+    case 6ULL: {
+      const uint64_t firstValue =
+          static_cast<uint64_t>(static_cast<uint8_t>(word));
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = _pext_u64(word, 0x000000007f7f7f00ULL);
+      unpack4x1(word >> 32, output);
+      clipTrailingStores(4, controlBits, pos, output);
+      carryover = 0ULL;
+      carryoverBits = 0;
+      break;
+    }
+    case 7ULL: {
+      const uint64_t firstValue = _pext_u64(word, 0x000000007f7f7f7fULL);
+      *output++ = (firstValue << carryoverBits) | carryover;
+      unpack4x1(word >> 32, output);
+      clipTrailingStores(4, controlBits, pos, output);
+      carryover = 0ULL;
+      carryoverBits = 0;
+      break;
+    }
+    case 8ULL: {
+      const uint64_t firstValue =
+          static_cast<uint64_t>(static_cast<uint8_t>(word));
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = ((word >> 8) & 0x7f);
+      *output++ = ((word >> 16) & 0x7f);
+      *output++ = _pext_u64(word, 0x0000007f7f000000ULL);
+      *output++ = ((word >> 40) & 0x7f);
+      carryover = 0ULL;
+      carryoverBits = 0;
+      break;
+    }
+    case 9ULL: {
+      const uint64_t firstValue = _pext_u64(word, 0x0000000000007f7fULL);
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = ((word >> 16) & 0x7f);
+      *output++ = _pext_u64(word, 0x0000007f7f000000ULL);
+      *output++ = ((word >> 40) & 0x7f);
+      carryover = 0ULL;
+      carryoverBits = 0;
+      break;
+    }
+    case 10ULL: {
+      const uint64_t firstValue =
+          static_cast<uint64_t>(static_cast<uint8_t>(word));
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = _pext_u64(word, 0x00000000007f7f00ULL);
+      *output++ = _pext_u64(word, 0x0000007f7f000000ULL);
+      *output++ = ((word >> 40) & 0x7f);
+      carryover = 0ULL;
+      carryoverBits = 0;
+      break;
+    }
+    case 11ULL: {
+      const uint64_t firstValue = _pext_u64(word, 0x00000000007f7f7fULL);
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = _pext_u64(word, 0x0000007f7f000000ULL);
+      *output++ = ((word >> 40) & 0x7f);
+      carryover = 0ULL;
+      carryoverBits = 0;
+      break;
+    }
+    case 12ULL: {
+      const uint64_t firstValue =
+          static_cast<uint64_t>(static_cast<uint8_t>(word));
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = ((word >> 8) & 0x7f);
+      *output++ = _pext_u64(word, 0x0000007f7f7f0000ULL);
+      *output++ = ((word >> 40) & 0x7f);
+      carryover = 0ULL;
+      carryoverBits = 0;
+      break;
+    }
+    case 13ULL: {
+      const uint64_t firstValue = _pext_u64(word, 0x0000000000007f7fULL);
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = _pext_u64(word, 0x0000007f7f7f0000ULL);
+      *output++ = ((word >> 40) & 0x7f);
+      carryover = 0ULL;
+      carryoverBits = 0;
+      break;
+    }
+    case 14ULL: {
+      const uint64_t firstValue =
+          static_cast<uint64_t>(static_cast<uint8_t>(word));
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = _pext_u64(word, 0x0000007f7f7f7f00ULL);
+      *output++ = ((word >> 40) & 0x7f);
+      carryover = 0ULL;
+      carryoverBits = 0;
+      break;
+    }
+    case 15ULL: {
+      const uint64_t firstValue = _pext_u64(word, 0x0000007f7f7f7f7fULL);
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = ((word >> 40) & 0x7f);
+      carryover = 0ULL;
+      carryoverBits = 0;
+      break;
+    }
+    case 16ULL: {
+      unpack4x1(word >> 0, output);
+      applyCarryover(carryoverBits, carryover, output - 4);
+      *output++ = _pext_u64(word, 0x00007f7f00000000ULL);
+      carryover = 0ULL;
+      carryoverBits = 0;
+      break;
+    }
+    case 17ULL: {
+      const uint64_t firstValue = _pext_u64(word, 0x0000000000007f7fULL);
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = ((word >> 16) & 0x7f);
+      *output++ = ((word >> 24) & 0x7f);
+      *output++ = _pext_u64(word, 0x00007f7f00000000ULL);
+      carryover = 0ULL;
+      carryoverBits = 0;
+      break;
+    }
+    case 18ULL: {
+      const uint64_t firstValue =
+          static_cast<uint64_t>(static_cast<uint8_t>(word));
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = _pext_u64(word, 0x00000000007f7f00ULL);
+      *output++ = ((word >> 24) & 0x7f);
+      *output++ = _pext_u64(word, 0x00007f7f00000000ULL);
+      carryover = 0ULL;
+      carryoverBits = 0;
+      break;
+    }
+    case 19ULL: {
+      const uint64_t firstValue = _pext_u64(word, 0x00000000007f7f7fULL);
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = ((word >> 24) & 0x7f);
+      *output++ = _pext_u64(word, 0x00007f7f00000000ULL);
+      carryover = 0ULL;
+      carryoverBits = 0;
+      break;
+    }
+    case 20ULL: {
+      const uint64_t firstValue =
+          static_cast<uint64_t>(static_cast<uint8_t>(word));
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = ((word >> 8) & 0x7f);
+      *output++ = _pext_u64(word, 0x000000007f7f0000ULL);
+      *output++ = _pext_u64(word, 0x00007f7f00000000ULL);
+      carryover = 0ULL;
+      carryoverBits = 0;
+      break;
+    }
+    case 21ULL: {
+      const uint64_t firstValue = _pext_u64(word, 0x0000000000007f7fULL);
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = _pext_u64(word, 0x000000007f7f0000ULL);
+      *output++ = _pext_u64(word, 0x00007f7f00000000ULL);
+      carryover = 0ULL;
+      carryoverBits = 0;
+      break;
+    }
+    case 22ULL: {
+      const uint64_t firstValue =
+          static_cast<uint64_t>(static_cast<uint8_t>(word));
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = _pext_u64(word, 0x000000007f7f7f00ULL);
+      *output++ = _pext_u64(word, 0x00007f7f00000000ULL);
+      carryover = 0ULL;
+      carryoverBits = 0;
+      break;
+    }
+    case 23ULL: {
+      const uint64_t firstValue = _pext_u64(word, 0x000000007f7f7f7fULL);
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = _pext_u64(word, 0x00007f7f00000000ULL);
+      carryover = 0ULL;
+      carryoverBits = 0;
+      break;
+    }
+    case 24ULL: {
+      const uint64_t firstValue =
+          static_cast<uint64_t>(static_cast<uint8_t>(word));
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = ((word >> 8) & 0x7f);
+      *output++ = ((word >> 16) & 0x7f);
+      *output++ = _pext_u64(word, 0x00007f7f7f000000ULL);
+      carryover = 0ULL;
+      carryoverBits = 0;
+      break;
+    }
+    case 25ULL: {
+      const uint64_t firstValue = _pext_u64(word, 0x0000000000007f7fULL);
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = ((word >> 16) & 0x7f);
+      *output++ = _pext_u64(word, 0x00007f7f7f000000ULL);
+      carryover = 0ULL;
+      carryoverBits = 0;
+      break;
+    }
+    case 26ULL: {
+      const uint64_t firstValue =
+          static_cast<uint64_t>(static_cast<uint8_t>(word));
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = _pext_u64(word, 0x00000000007f7f00ULL);
+      *output++ = _pext_u64(word, 0x00007f7f7f000000ULL);
+      carryover = 0ULL;
+      carryoverBits = 0;
+      break;
+    }
+    case 27ULL: {
+      const uint64_t firstValue = _pext_u64(word, 0x00000000007f7f7fULL);
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = _pext_u64(word, 0x00007f7f7f000000ULL);
+      carryover = 0ULL;
+      carryoverBits = 0;
+      break;
+    }
+    case 28ULL: {
+      const uint64_t firstValue =
+          static_cast<uint64_t>(static_cast<uint8_t>(word));
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = ((word >> 8) & 0x7f);
+      *output++ = _pext_u64(word, 0x00007f7f7f7f0000ULL);
+      carryover = 0ULL;
+      carryoverBits = 0;
+      break;
+    }
+    case 29ULL: {
+      const uint64_t firstValue = _pext_u64(word, 0x0000000000007f7fULL);
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = _pext_u64(word, 0x00007f7f7f7f0000ULL);
+      carryover = 0ULL;
+      carryoverBits = 0;
+      break;
+    }
+    case 30ULL: {
+      const uint64_t firstValue =
+          static_cast<uint64_t>(static_cast<uint8_t>(word));
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = _pext_u64(word, 0x00007f7f7f7f7f00ULL);
+      carryover = 0ULL;
+      carryoverBits = 0;
+      break;
+    }
+    case 31ULL: {
+      const uint64_t firstValue = _pext_u64(word, 0x00007f7f7f7f7f7fULL);
+      *output++ = (firstValue << carryoverBits) | carryover;
+      carryover = 0ULL;
+      carryoverBits = 0;
+      break;
+    }
+    case 32ULL: {
+      unpack4x1(word >> 0, output);
+      applyCarryover(carryoverBits, carryover, output - 4);
+      *output++ = ((word >> 32) & 0x7f);
+      carryover = ((word >> 40) & 0x7f);
+      carryoverBits = 7;
+      break;
+    }
+    case 33ULL: {
+      const uint64_t firstValue = _pext_u64(word, 0x0000000000007f7fULL);
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = ((word >> 16) & 0x7f);
+      *output++ = ((word >> 24) & 0x7f);
+      *output++ = ((word >> 32) & 0x7f);
+      carryover = ((word >> 40) & 0x7f);
+      carryoverBits = 7;
+      break;
+    }
+    case 34ULL: {
+      const uint64_t firstValue =
+          static_cast<uint64_t>(static_cast<uint8_t>(word));
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = _pext_u64(word, 0x00000000007f7f00ULL);
+      *output++ = ((word >> 24) & 0x7f);
+      *output++ = ((word >> 32) & 0x7f);
+      carryover = ((word >> 40) & 0x7f);
+      carryoverBits = 7;
+      break;
+    }
+    case 35ULL: {
+      const uint64_t firstValue = _pext_u64(word, 0x00000000007f7f7fULL);
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = ((word >> 24) & 0x7f);
+      *output++ = ((word >> 32) & 0x7f);
+      carryover = ((word >> 40) & 0x7f);
+      carryoverBits = 7;
+      break;
+    }
+    case 36ULL: {
+      const uint64_t firstValue =
+          static_cast<uint64_t>(static_cast<uint8_t>(word));
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = ((word >> 8) & 0x7f);
+      *output++ = _pext_u64(word, 0x000000007f7f0000ULL);
+      *output++ = ((word >> 32) & 0x7f);
+      carryover = ((word >> 40) & 0x7f);
+      carryoverBits = 7;
+      break;
+    }
+    case 37ULL: {
+      const uint64_t firstValue = _pext_u64(word, 0x0000000000007f7fULL);
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = _pext_u64(word, 0x000000007f7f0000ULL);
+      *output++ = ((word >> 32) & 0x7f);
+      carryover = ((word >> 40) & 0x7f);
+      carryoverBits = 7;
+      break;
+    }
+    case 38ULL: {
+      const uint64_t firstValue =
+          static_cast<uint64_t>(static_cast<uint8_t>(word));
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = _pext_u64(word, 0x000000007f7f7f00ULL);
+      *output++ = ((word >> 32) & 0x7f);
+      carryover = ((word >> 40) & 0x7f);
+      carryoverBits = 7;
+      break;
+    }
+    case 39ULL: {
+      const uint64_t firstValue = _pext_u64(word, 0x000000007f7f7f7fULL);
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = ((word >> 32) & 0x7f);
+      carryover = ((word >> 40) & 0x7f);
+      carryoverBits = 7;
+      break;
+    }
+    case 40ULL: {
+      const uint64_t firstValue =
+          static_cast<uint64_t>(static_cast<uint8_t>(word));
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = ((word >> 8) & 0x7f);
+      *output++ = ((word >> 16) & 0x7f);
+      *output++ = _pext_u64(word, 0x0000007f7f000000ULL);
+      carryover = ((word >> 40) & 0x7f);
+      carryoverBits = 7;
+      break;
+    }
+    case 41ULL: {
+      const uint64_t firstValue = _pext_u64(word, 0x0000000000007f7fULL);
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = ((word >> 16) & 0x7f);
+      *output++ = _pext_u64(word, 0x0000007f7f000000ULL);
+      carryover = ((word >> 40) & 0x7f);
+      carryoverBits = 7;
+      break;
+    }
+    case 42ULL: {
+      const uint64_t firstValue =
+          static_cast<uint64_t>(static_cast<uint8_t>(word));
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = _pext_u64(word, 0x00000000007f7f00ULL);
+      *output++ = _pext_u64(word, 0x0000007f7f000000ULL);
+      carryover = ((word >> 40) & 0x7f);
+      carryoverBits = 7;
+      break;
+    }
+    case 43ULL: {
+      const uint64_t firstValue = _pext_u64(word, 0x00000000007f7f7fULL);
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = _pext_u64(word, 0x0000007f7f000000ULL);
+      carryover = ((word >> 40) & 0x7f);
+      carryoverBits = 7;
+      break;
+    }
+    case 44ULL: {
+      const uint64_t firstValue =
+          static_cast<uint64_t>(static_cast<uint8_t>(word));
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = ((word >> 8) & 0x7f);
+      *output++ = _pext_u64(word, 0x0000007f7f7f0000ULL);
+      carryover = ((word >> 40) & 0x7f);
+      carryoverBits = 7;
+      break;
+    }
+    case 45ULL: {
+      const uint64_t firstValue = _pext_u64(word, 0x0000000000007f7fULL);
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = _pext_u64(word, 0x0000007f7f7f0000ULL);
+      carryover = ((word >> 40) & 0x7f);
+      carryoverBits = 7;
+      break;
+    }
+    case 46ULL: {
+      const uint64_t firstValue =
+          static_cast<uint64_t>(static_cast<uint8_t>(word));
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = _pext_u64(word, 0x0000007f7f7f7f00ULL);
+      carryover = ((word >> 40) & 0x7f);
+      carryoverBits = 7;
+      break;
+    }
+    case 47ULL: {
+      const uint64_t firstValue = _pext_u64(word, 0x0000007f7f7f7f7fULL);
+      *output++ = (firstValue << carryoverBits) | carryover;
+      carryover = ((word >> 40) & 0x7f);
+      carryoverBits = 7;
+      break;
+    }
+    case 48ULL: {
+      unpack4x1(word >> 0, output);
+      applyCarryover(carryoverBits, carryover, output - 4);
+      carryover = _pext_u64(word, 0x00007f7f00000000ULL);
+      carryoverBits = 14;
+      break;
+    }
+    case 49ULL: {
+      const uint64_t firstValue = _pext_u64(word, 0x0000000000007f7fULL);
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = ((word >> 16) & 0x7f);
+      *output++ = ((word >> 24) & 0x7f);
+      carryover = _pext_u64(word, 0x00007f7f00000000ULL);
+      carryoverBits = 14;
+      break;
+    }
+    case 50ULL: {
+      const uint64_t firstValue =
+          static_cast<uint64_t>(static_cast<uint8_t>(word));
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = _pext_u64(word, 0x00000000007f7f00ULL);
+      *output++ = ((word >> 24) & 0x7f);
+      carryover = _pext_u64(word, 0x00007f7f00000000ULL);
+      carryoverBits = 14;
+      break;
+    }
+    case 51ULL: {
+      const uint64_t firstValue = _pext_u64(word, 0x00000000007f7f7fULL);
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = ((word >> 24) & 0x7f);
+      carryover = _pext_u64(word, 0x00007f7f00000000ULL);
+      carryoverBits = 14;
+      break;
+    }
+    case 52ULL: {
+      const uint64_t firstValue =
+          static_cast<uint64_t>(static_cast<uint8_t>(word));
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = ((word >> 8) & 0x7f);
+      *output++ = _pext_u64(word, 0x000000007f7f0000ULL);
+      carryover = _pext_u64(word, 0x00007f7f00000000ULL);
+      carryoverBits = 14;
+      break;
+    }
+    case 53ULL: {
+      const uint64_t firstValue = _pext_u64(word, 0x0000000000007f7fULL);
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = _pext_u64(word, 0x000000007f7f0000ULL);
+      carryover = _pext_u64(word, 0x00007f7f00000000ULL);
+      carryoverBits = 14;
+      break;
+    }
+    case 54ULL: {
+      const uint64_t firstValue =
+          static_cast<uint64_t>(static_cast<uint8_t>(word));
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = _pext_u64(word, 0x000000007f7f7f00ULL);
+      carryover = _pext_u64(word, 0x00007f7f00000000ULL);
+      carryoverBits = 14;
+      break;
+    }
+    case 55ULL: {
+      const uint64_t firstValue = _pext_u64(word, 0x000000007f7f7f7fULL);
+      *output++ = (firstValue << carryoverBits) | carryover;
+      carryover = _pext_u64(word, 0x00007f7f00000000ULL);
+      carryoverBits = 14;
+      break;
+    }
+    case 56ULL: {
+      const uint64_t firstValue =
+          static_cast<uint64_t>(static_cast<uint8_t>(word));
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = ((word >> 8) & 0x7f);
+      *output++ = ((word >> 16) & 0x7f);
+      carryover = _pext_u64(word, 0x00007f7f7f000000ULL);
+      carryoverBits = 21;
+      break;
+    }
+    case 57ULL: {
+      const uint64_t firstValue = _pext_u64(word, 0x0000000000007f7fULL);
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = ((word >> 16) & 0x7f);
+      carryover = _pext_u64(word, 0x00007f7f7f000000ULL);
+      carryoverBits = 21;
+      break;
+    }
+    case 58ULL: {
+      const uint64_t firstValue =
+          static_cast<uint64_t>(static_cast<uint8_t>(word));
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = _pext_u64(word, 0x00000000007f7f00ULL);
+      carryover = _pext_u64(word, 0x00007f7f7f000000ULL);
+      carryoverBits = 21;
+      break;
+    }
+    case 59ULL: {
+      const uint64_t firstValue = _pext_u64(word, 0x00000000007f7f7fULL);
+      *output++ = (firstValue << carryoverBits) | carryover;
+      carryover = _pext_u64(word, 0x00007f7f7f000000ULL);
+      carryoverBits = 21;
+      break;
+    }
+    case 60ULL: {
+      const uint64_t firstValue =
+          static_cast<uint64_t>(static_cast<uint8_t>(word));
+      *output++ = (firstValue << carryoverBits) | carryover;
+      *output++ = ((word >> 8) & 0x7f);
+      carryover = _pext_u64(word, 0x00007f7f7f7f0000ULL);
+      carryoverBits = 28;
+      break;
+    }
+    case 61ULL: {
+      const uint64_t firstValue = _pext_u64(word, 0x0000000000007f7fULL);
+      *output++ = (firstValue << carryoverBits) | carryover;
+      carryover = _pext_u64(word, 0x00007f7f7f7f0000ULL);
+      carryoverBits = 28;
+      break;
+    }
+    case 62ULL: {
+      const uint64_t firstValue =
+          static_cast<uint64_t>(static_cast<uint8_t>(word));
+      *output++ = (firstValue << carryoverBits) | carryover;
+      carryover = _pext_u64(word, 0x00007f7f7f7f7f00ULL);
+      carryoverBits = 35;
+      break;
+    }
+    case 63ULL: {
+      carryover |= _pext_u64(word, 0x00007f7f7f7f7f7fULL) << carryoverBits;
+      carryoverBits += 42;
+      break;
+    }
+    default: {
+      throw std::logic_error(
+          "It should be impossible for control bits to be > 63.");
+    }
+  }
+}
+
+template <bool isSigned>
+template <typename T>
+__attribute__((__target__("bmi2"))) void IntDecoder<isSigned>::bulkRead(
+    uint64_t size,
+    T* result) {
+  if (!useVInts) {
+    bulkReadFixed(size, result);
+    return;
+  }
+  constexpr uint64_t mask = 0x8080808080808080;
+  constexpr int32_t maskSize = 6;
+  uint64_t carryover = 0;
+  int32_t carryoverBits = 0;
+  auto output = result;
+  const char* pos = bufferStart;
+  auto end = result + size;
+  if (pos) {
+    // Decrement only if non-null to avoid asan error.
+    pos -= maskSize;
+  }
+  while (output < end) {
+    while (end >= output + 8 && bufferEnd - pos >= 8 + maskSize) {
+      pos += maskSize;
+      const auto word = folly::loadUnaligned<uint64_t>(pos);
+      const uint64_t controlBits = _pext_u64(word, mask);
+      varintSwitch(word, controlBits, pos, output, carryover, carryoverBits);
+    }
+    if (pos) {
+      pos += maskSize;
+    }
+    bufferStart = pos;
+    if (output < end) {
+      *output++ = (readVuLong() << carryoverBits) | carryover;
+      carryover = 0;
+      carryoverBits = 0;
+      while (output < end) {
+        *output++ = readVuLong();
+        if (output + 8 <= end && bufferEnd - bufferStart > 8 + maskSize) {
+          // Go back to fast loop after refilling the buffer.
+          pos = bufferStart - maskSize;
+          break;
+        }
+      }
+    }
+  }
+  if (isSigned) {
+    bulkZigzagDecode(size, result);
+  }
+}
+
+template <bool isSigned>
+template <typename T>
+__attribute__((__target__("bmi2"))) void
+IntDecoder<isSigned>::bulkReadRows(RowSet rows, T* result, int32_t initialRow) {
+  if (!useVInts) {
+    bulkReadRowsFixed(rows, initialRow, result);
+    return;
+  }
+  constexpr uint64_t mask = 0x8080808080808080;
+  constexpr int32_t maskSize = 6;
+  uint64_t carryover = 0;
+  int32_t carryoverBits = 0;
+  auto output = result;
+  const char* pos = bufferStart;
+  int32_t nextRowIndex = 0;
+  int32_t nextRow = rows[0];
+  int32_t row = initialRow;
+  int32_t endRow = rows.back() + 1;
+  int32_t endRowIndex = rows.size();
+  if (pos) {
+    // Decrement only if non-null to avoid asan error.
+    pos -= maskSize;
+  }
+  while (nextRowIndex < rows.size()) {
+    while (row + 8 <= endRow && bufferEnd - pos >= 8 + maskSize) {
+      pos += maskSize;
+      const auto word = folly::loadUnaligned<uint64_t>(pos);
+      if (nextRow >= row + 8) {
+        row += __builtin_popcountll(~word & mask);
+        pos += 8 - maskSize;
+        continue;
+      }
+      const uint64_t controlBits = _pext_u64(word, mask);
+      int32_t numEnds = __builtin_popcount(controlBits ^ 0xff);
+      if (row != nextRow) {
+        if (nextRow > row + numEnds) {
+          row += numEnds;
+          pos += 8 - maskSize;
+          continue;
+        }
+      }
+      if (nextRowIndex + numEnds < rows.size() &&
+          rows[nextRowIndex + numEnds] == row + numEnds) {
+        // A word worth of contiguous rows.
+        auto orgOutput = output;
+        // Reading 6 - 8 bytes of contiguous values.
+        varintSwitch(word, controlBits, pos, output, carryover, carryoverBits);
+        int numDone = output - orgOutput;
+        row += numDone;
+        nextRowIndex += numDone;
+        nextRow = rows[nextRowIndex];
+      } else {
+        // switch with conditional store of results.
+
+        switch (controlBits & 63) {
+          case 0ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  static_cast<uint64_t>(static_cast<uint8_t>(word));
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 8) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 16) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 24) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 32) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 40) & 0x7f);
+            }
+            carryover = 0ULL;
+            carryoverBits = 0;
+            break;
+          }
+          case 1ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  _pext_u64(word, 0x0000000000007f7fULL);
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 16) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 24) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 32) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 40) & 0x7f);
+            }
+            carryover = 0ULL;
+            carryoverBits = 0;
+            break;
+          }
+          case 2ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  static_cast<uint64_t>(static_cast<uint8_t>(word));
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x00000000007f7f00ULL);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 24) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 32) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 40) & 0x7f);
+            }
+            carryover = 0ULL;
+            carryoverBits = 0;
+            break;
+          }
+          case 3ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  _pext_u64(word, 0x00000000007f7f7fULL);
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 24) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 32) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 40) & 0x7f);
+            }
+            carryover = 0ULL;
+            carryoverBits = 0;
+            break;
+          }
+          case 4ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  static_cast<uint64_t>(static_cast<uint8_t>(word));
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 8) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x000000007f7f0000ULL);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 32) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 40) & 0x7f);
+            }
+            carryover = 0ULL;
+            carryoverBits = 0;
+            break;
+          }
+          case 5ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  _pext_u64(word, 0x0000000000007f7fULL);
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x000000007f7f0000ULL);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 32) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 40) & 0x7f);
+            }
+            carryover = 0ULL;
+            carryoverBits = 0;
+            break;
+          }
+          case 6ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  static_cast<uint64_t>(static_cast<uint8_t>(word));
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x000000007f7f7f00ULL);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 32) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 40) & 0x7f);
+            }
+            carryover = 0ULL;
+            carryoverBits = 0;
+            break;
+          }
+          case 7ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  _pext_u64(word, 0x000000007f7f7f7fULL);
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 32) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 40) & 0x7f);
+            }
+            carryover = 0ULL;
+            carryoverBits = 0;
+            break;
+          }
+          case 8ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  static_cast<uint64_t>(static_cast<uint8_t>(word));
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 8) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 16) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x0000007f7f000000ULL);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 40) & 0x7f);
+            }
+            carryover = 0ULL;
+            carryoverBits = 0;
+            break;
+          }
+          case 9ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  _pext_u64(word, 0x0000000000007f7fULL);
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 16) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x0000007f7f000000ULL);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 40) & 0x7f);
+            }
+            carryover = 0ULL;
+            carryoverBits = 0;
+            break;
+          }
+          case 10ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  static_cast<uint64_t>(static_cast<uint8_t>(word));
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x00000000007f7f00ULL);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x0000007f7f000000ULL);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 40) & 0x7f);
+            }
+            carryover = 0ULL;
+            carryoverBits = 0;
+            break;
+          }
+          case 11ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  _pext_u64(word, 0x00000000007f7f7fULL);
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x0000007f7f000000ULL);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 40) & 0x7f);
+            }
+            carryover = 0ULL;
+            carryoverBits = 0;
+            break;
+          }
+          case 12ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  static_cast<uint64_t>(static_cast<uint8_t>(word));
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 8) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x0000007f7f7f0000ULL);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 40) & 0x7f);
+            }
+            carryover = 0ULL;
+            carryoverBits = 0;
+            break;
+          }
+          case 13ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  _pext_u64(word, 0x0000000000007f7fULL);
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x0000007f7f7f0000ULL);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 40) & 0x7f);
+            }
+            carryover = 0ULL;
+            carryoverBits = 0;
+            break;
+          }
+          case 14ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  static_cast<uint64_t>(static_cast<uint8_t>(word));
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x0000007f7f7f7f00ULL);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 40) & 0x7f);
+            }
+            carryover = 0ULL;
+            carryoverBits = 0;
+            break;
+          }
+          case 15ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  _pext_u64(word, 0x0000007f7f7f7f7fULL);
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 40) & 0x7f);
+            }
+            carryover = 0ULL;
+            carryoverBits = 0;
+            break;
+          }
+          case 16ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  static_cast<uint64_t>(static_cast<uint8_t>(word));
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 8) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 16) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 24) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x00007f7f00000000ULL);
+            }
+            carryover = 0ULL;
+            carryoverBits = 0;
+            break;
+          }
+          case 17ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  _pext_u64(word, 0x0000000000007f7fULL);
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 16) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 24) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x00007f7f00000000ULL);
+            }
+            carryover = 0ULL;
+            carryoverBits = 0;
+            break;
+          }
+          case 18ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  static_cast<uint64_t>(static_cast<uint8_t>(word));
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x00000000007f7f00ULL);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 24) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x00007f7f00000000ULL);
+            }
+            carryover = 0ULL;
+            carryoverBits = 0;
+            break;
+          }
+          case 19ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  _pext_u64(word, 0x00000000007f7f7fULL);
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 24) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x00007f7f00000000ULL);
+            }
+            carryover = 0ULL;
+            carryoverBits = 0;
+            break;
+          }
+          case 20ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  static_cast<uint64_t>(static_cast<uint8_t>(word));
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 8) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x000000007f7f0000ULL);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x00007f7f00000000ULL);
+            }
+            carryover = 0ULL;
+            carryoverBits = 0;
+            break;
+          }
+          case 21ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  _pext_u64(word, 0x0000000000007f7fULL);
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x000000007f7f0000ULL);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x00007f7f00000000ULL);
+            }
+            carryover = 0ULL;
+            carryoverBits = 0;
+            break;
+          }
+          case 22ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  static_cast<uint64_t>(static_cast<uint8_t>(word));
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x000000007f7f7f00ULL);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x00007f7f00000000ULL);
+            }
+            carryover = 0ULL;
+            carryoverBits = 0;
+            break;
+          }
+          case 23ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  _pext_u64(word, 0x000000007f7f7f7fULL);
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x00007f7f00000000ULL);
+            }
+            carryover = 0ULL;
+            carryoverBits = 0;
+            break;
+          }
+          case 24ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  static_cast<uint64_t>(static_cast<uint8_t>(word));
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 8) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 16) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x00007f7f7f000000ULL);
+            }
+            carryover = 0ULL;
+            carryoverBits = 0;
+            break;
+          }
+          case 25ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  _pext_u64(word, 0x0000000000007f7fULL);
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 16) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x00007f7f7f000000ULL);
+            }
+            carryover = 0ULL;
+            carryoverBits = 0;
+            break;
+          }
+          case 26ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  static_cast<uint64_t>(static_cast<uint8_t>(word));
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x00000000007f7f00ULL);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x00007f7f7f000000ULL);
+            }
+            carryover = 0ULL;
+            carryoverBits = 0;
+            break;
+          }
+          case 27ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  _pext_u64(word, 0x00000000007f7f7fULL);
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x00007f7f7f000000ULL);
+            }
+            carryover = 0ULL;
+            carryoverBits = 0;
+            break;
+          }
+          case 28ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  static_cast<uint64_t>(static_cast<uint8_t>(word));
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 8) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x00007f7f7f7f0000ULL);
+            }
+            carryover = 0ULL;
+            carryoverBits = 0;
+            break;
+          }
+          case 29ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  _pext_u64(word, 0x0000000000007f7fULL);
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x00007f7f7f7f0000ULL);
+            }
+            carryover = 0ULL;
+            carryoverBits = 0;
+            break;
+          }
+          case 30ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  static_cast<uint64_t>(static_cast<uint8_t>(word));
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x00007f7f7f7f7f00ULL);
+            }
+            carryover = 0ULL;
+            carryoverBits = 0;
+            break;
+          }
+          case 31ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  _pext_u64(word, 0x00007f7f7f7f7f7fULL);
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            carryover = 0ULL;
+            carryoverBits = 0;
+            break;
+          }
+          case 32ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  static_cast<uint64_t>(static_cast<uint8_t>(word));
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 8) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 16) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 24) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 32) & 0x7f);
+            }
+            if (row == nextRow) {
+              carryover = ((word >> 40) & 0x7f);
+              carryoverBits = 7;
+            }
+            break;
+          }
+          case 33ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  _pext_u64(word, 0x0000000000007f7fULL);
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 16) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 24) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 32) & 0x7f);
+            }
+            if (row == nextRow) {
+              carryover = ((word >> 40) & 0x7f);
+              carryoverBits = 7;
+            }
+            break;
+          }
+          case 34ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  static_cast<uint64_t>(static_cast<uint8_t>(word));
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x00000000007f7f00ULL);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 24) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 32) & 0x7f);
+            }
+            if (row == nextRow) {
+              carryover = ((word >> 40) & 0x7f);
+              carryoverBits = 7;
+            }
+            break;
+          }
+          case 35ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  _pext_u64(word, 0x00000000007f7f7fULL);
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 24) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 32) & 0x7f);
+            }
+            if (row == nextRow) {
+              carryover = ((word >> 40) & 0x7f);
+              carryoverBits = 7;
+            }
+            break;
+          }
+          case 36ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  static_cast<uint64_t>(static_cast<uint8_t>(word));
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 8) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x000000007f7f0000ULL);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 32) & 0x7f);
+            }
+            if (row == nextRow) {
+              carryover = ((word >> 40) & 0x7f);
+              carryoverBits = 7;
+            }
+            break;
+          }
+          case 37ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  _pext_u64(word, 0x0000000000007f7fULL);
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x000000007f7f0000ULL);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 32) & 0x7f);
+            }
+            if (row == nextRow) {
+              carryover = ((word >> 40) & 0x7f);
+              carryoverBits = 7;
+            }
+            break;
+          }
+          case 38ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  static_cast<uint64_t>(static_cast<uint8_t>(word));
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x000000007f7f7f00ULL);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 32) & 0x7f);
+            }
+            if (row == nextRow) {
+              carryover = ((word >> 40) & 0x7f);
+              carryoverBits = 7;
+            }
+            break;
+          }
+          case 39ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  _pext_u64(word, 0x000000007f7f7f7fULL);
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 32) & 0x7f);
+            }
+            if (row == nextRow) {
+              carryover = ((word >> 40) & 0x7f);
+              carryoverBits = 7;
+            }
+            break;
+          }
+          case 40ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  static_cast<uint64_t>(static_cast<uint8_t>(word));
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 8) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 16) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x0000007f7f000000ULL);
+            }
+            if (row == nextRow) {
+              carryover = ((word >> 40) & 0x7f);
+              carryoverBits = 7;
+            }
+            break;
+          }
+          case 41ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  _pext_u64(word, 0x0000000000007f7fULL);
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 16) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x0000007f7f000000ULL);
+            }
+            if (row == nextRow) {
+              carryover = ((word >> 40) & 0x7f);
+              carryoverBits = 7;
+            }
+            break;
+          }
+          case 42ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  static_cast<uint64_t>(static_cast<uint8_t>(word));
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x00000000007f7f00ULL);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x0000007f7f000000ULL);
+            }
+            if (row == nextRow) {
+              carryover = ((word >> 40) & 0x7f);
+              carryoverBits = 7;
+            }
+            break;
+          }
+          case 43ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  _pext_u64(word, 0x00000000007f7f7fULL);
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x0000007f7f000000ULL);
+            }
+            if (row == nextRow) {
+              carryover = ((word >> 40) & 0x7f);
+              carryoverBits = 7;
+            }
+            break;
+          }
+          case 44ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  static_cast<uint64_t>(static_cast<uint8_t>(word));
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 8) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x0000007f7f7f0000ULL);
+            }
+            if (row == nextRow) {
+              carryover = ((word >> 40) & 0x7f);
+              carryoverBits = 7;
+            }
+            break;
+          }
+          case 45ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  _pext_u64(word, 0x0000000000007f7fULL);
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x0000007f7f7f0000ULL);
+            }
+            if (row == nextRow) {
+              carryover = ((word >> 40) & 0x7f);
+              carryoverBits = 7;
+            }
+            break;
+          }
+          case 46ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  static_cast<uint64_t>(static_cast<uint8_t>(word));
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x0000007f7f7f7f00ULL);
+            }
+            if (row == nextRow) {
+              carryover = ((word >> 40) & 0x7f);
+              carryoverBits = 7;
+            }
+            break;
+          }
+          case 47ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  _pext_u64(word, 0x0000007f7f7f7f7fULL);
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (row == nextRow) {
+              carryover = ((word >> 40) & 0x7f);
+              carryoverBits = 7;
+            }
+            break;
+          }
+          case 48ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  static_cast<uint64_t>(static_cast<uint8_t>(word));
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 8) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 16) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 24) & 0x7f);
+            }
+            if (row == nextRow) {
+              carryover = _pext_u64(word, 0x00007f7f00000000ULL);
+              carryoverBits = 14;
+            }
+            break;
+          }
+          case 49ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  _pext_u64(word, 0x0000000000007f7fULL);
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 16) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 24) & 0x7f);
+            }
+            if (row == nextRow) {
+              carryover = _pext_u64(word, 0x00007f7f00000000ULL);
+              carryoverBits = 14;
+            }
+            break;
+          }
+          case 50ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  static_cast<uint64_t>(static_cast<uint8_t>(word));
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x00000000007f7f00ULL);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 24) & 0x7f);
+            }
+            if (row == nextRow) {
+              carryover = _pext_u64(word, 0x00007f7f00000000ULL);
+              carryoverBits = 14;
+            }
+            break;
+          }
+          case 51ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  _pext_u64(word, 0x00000000007f7f7fULL);
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 24) & 0x7f);
+            }
+            if (row == nextRow) {
+              carryover = _pext_u64(word, 0x00007f7f00000000ULL);
+              carryoverBits = 14;
+            }
+            break;
+          }
+          case 52ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  static_cast<uint64_t>(static_cast<uint8_t>(word));
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 8) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x000000007f7f0000ULL);
+            }
+            if (row == nextRow) {
+              carryover = _pext_u64(word, 0x00007f7f00000000ULL);
+              carryoverBits = 14;
+            }
+            break;
+          }
+          case 53ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  _pext_u64(word, 0x0000000000007f7fULL);
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x000000007f7f0000ULL);
+            }
+            if (row == nextRow) {
+              carryover = _pext_u64(word, 0x00007f7f00000000ULL);
+              carryoverBits = 14;
+            }
+            break;
+          }
+          case 54ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  static_cast<uint64_t>(static_cast<uint8_t>(word));
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x000000007f7f7f00ULL);
+            }
+            if (row == nextRow) {
+              carryover = _pext_u64(word, 0x00007f7f00000000ULL);
+              carryoverBits = 14;
+            }
+            break;
+          }
+          case 55ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  _pext_u64(word, 0x000000007f7f7f7fULL);
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (row == nextRow) {
+              carryover = _pext_u64(word, 0x00007f7f00000000ULL);
+              carryoverBits = 14;
+            }
+            break;
+          }
+          case 56ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  static_cast<uint64_t>(static_cast<uint8_t>(word));
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 8) & 0x7f);
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 16) & 0x7f);
+            }
+            if (row == nextRow) {
+              carryover = _pext_u64(word, 0x00007f7f7f000000ULL);
+              carryoverBits = 21;
+            }
+            break;
+          }
+          case 57ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  _pext_u64(word, 0x0000000000007f7fULL);
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 16) & 0x7f);
+            }
+            if (row == nextRow) {
+              carryover = _pext_u64(word, 0x00007f7f7f000000ULL);
+              carryoverBits = 21;
+            }
+            break;
+          }
+          case 58ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  static_cast<uint64_t>(static_cast<uint8_t>(word));
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = _pext_u64(word, 0x00000000007f7f00ULL);
+            }
+            if (row == nextRow) {
+              carryover = _pext_u64(word, 0x00007f7f7f000000ULL);
+              carryoverBits = 21;
+            }
+            break;
+          }
+          case 59ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  _pext_u64(word, 0x00000000007f7f7fULL);
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (row == nextRow) {
+              carryover = _pext_u64(word, 0x00007f7f7f000000ULL);
+              carryoverBits = 21;
+            }
+            break;
+          }
+          case 60ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  static_cast<uint64_t>(static_cast<uint8_t>(word));
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              *output++ = ((word >> 8) & 0x7f);
+            }
+            if (row == nextRow) {
+              carryover = _pext_u64(word, 0x00007f7f7f7f0000ULL);
+              carryoverBits = 28;
+            }
+            break;
+          }
+          case 61ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  _pext_u64(word, 0x0000000000007f7fULL);
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (row == nextRow) {
+              carryover = _pext_u64(word, 0x00007f7f7f7f0000ULL);
+              carryoverBits = 28;
+            }
+            break;
+          }
+          case 62ULL: {
+            if (isEnabled(row, nextRow, nextRowIndex, rows.data())) {
+              const uint64_t firstValue =
+                  static_cast<uint64_t>(static_cast<uint8_t>(word));
+              *output++ = (firstValue << carryoverBits) | carryover;
+              carryover = 0;
+              carryoverBits = 0;
+            }
+            if (row == nextRow) {
+              carryover = _pext_u64(word, 0x00007f7f7f7f7f00ULL);
+              carryoverBits = 35;
+            }
+            break;
+          }
+          case 63ULL: {
+            if (row == nextRow) {
+              carryover |= _pext_u64(word, 0x00007f7f7f7f7f7fULL)
+                  << carryoverBits;
+              carryoverBits += 42;
+            }
+            break;
+          }
+
+          default:
+            throw std::logic_error(
+                "It should be impossible for control bits to be > 63.");
+        }
+      }
+    }
+    if (pos) {
+      pos += maskSize;
+    }
+    bufferStart = pos;
+    DCHECK(!carryover || row == nextRow);
+    while (nextRowIndex < endRowIndex) {
+      skipVarints(nextRow - row);
+      *output++ = (readVuLong() << carryoverBits) | carryover;
+      carryover = 0;
+      carryoverBits = 0;
+      if (++nextRowIndex >= endRowIndex) {
+        break;
+      }
+      row = nextRow + 1;
+      nextRow = rows[nextRowIndex];
+      if (endRow - row >= 8 && bufferEnd - bufferStart > 8 + maskSize) {
+        // Go back to fast loop after refilling the buffer.
+        pos = bufferStart - maskSize;
+        break;
+      }
+    }
+  }
+  if (isSigned) {
+    bulkZigzagDecode(rows.size(), result);
+  }
+}
+
+template __attribute__((__target__("bmi2"))) void IntDecoder<true>::bulkRead(
+    uint64_t size,
+    uint64_t* result);
+
+template __attribute__((__target__("bmi2"))) void IntDecoder<false>::bulkRead(
+    uint64_t size,
+    uint64_t* result);
+
+template __attribute__((__target__("bmi2"))) void IntDecoder<true>::bulkRead(
+    uint64_t size,
+    int64_t* result);
+
+template __attribute__((__target__("bmi2"))) void IntDecoder<false>::bulkRead(
+    uint64_t size,
+    int64_t* result);
+
+template __attribute__((__target__("bmi2"))) void IntDecoder<true>::bulkRead(
+    uint64_t size,
+    int32_t* result);
+
+template __attribute__((__target__("bmi2"))) void IntDecoder<false>::bulkRead(
+    uint64_t size,
+    int32_t* result);
+
+template __attribute__((__target__("bmi2"))) void IntDecoder<true>::bulkRead(
+    uint64_t size,
+    int16_t* result);
+
+template __attribute__((__target__("bmi2"))) void IntDecoder<false>::bulkRead(
+    uint64_t size,
+    int16_t* result);
+
+template __attribute__((__target__("bmi2"))) void IntDecoder<
+    true>::bulkReadRows(RowSet rows, uint64_t* result, int32_t initialRow);
+
+template __attribute__((__target__("bmi2"))) void IntDecoder<
+    true>::bulkReadRows(RowSet rows, int64_t* result, int32_t initialRow);
+
+template __attribute__((__target__("bmi2"))) void IntDecoder<
+    false>::bulkReadRows(RowSet rows, int64_t* result, int32_t initialRow);
+
+template __attribute__((__target__("bmi2"))) void IntDecoder<
+    false>::bulkReadRows(RowSet rows, uint64_t* result, int32_t initialRow);
+
+template __attribute__((__target__("bmi2"))) void IntDecoder<
+    true>::bulkReadRows(RowSet rows, int32_t* result, int32_t initialRow);
+
+template __attribute__((__target__("bmi2"))) void IntDecoder<
+    false>::bulkReadRows(RowSet rows, int32_t* result, int32_t initialRow);
+
+template __attribute__((__target__("bmi2"))) void IntDecoder<
+    true>::bulkReadRows(RowSet rows, int16_t* result, int32_t initialRow);
+
+template __attribute__((__target__("bmi2"))) void IntDecoder<
+    false>::bulkReadRows(RowSet rows, int16_t* result, int32_t initialRow);
+
+template <bool isSigned>
+std::unique_ptr<IntDecoder<isSigned>> IntDecoder<isSigned>::createRle(
+    std::unique_ptr<SeekableInputStream> input,
+    RleVersion version,
+    memory::MemoryPool& pool,
+    bool useVInts,
+    uint32_t numBytes) {
+  switch (static_cast<int64_t>(version)) {
+    case RleVersion_1:
+      return std::make_unique<RleDecoderV1<isSigned>>(
+          std::move(input), useVInts, numBytes);
+    case RleVersion_2:
+      return std::make_unique<RleDecoderV2<isSigned>>(std::move(input), pool);
+    default:
+      DWIO_ENSURE(false, "not supported");
+      return {};
+  }
+}
+
+template std::unique_ptr<IntDecoder<true>> IntDecoder<true>::createRle(
+    std::unique_ptr<SeekableInputStream> input,
+    RleVersion version,
+    memory::MemoryPool& pool,
+    bool useVInts,
+    uint32_t numBytes);
+template std::unique_ptr<IntDecoder<false>> IntDecoder<false>::createRle(
+    std::unique_ptr<SeekableInputStream> input,
+    RleVersion version,
+    memory::MemoryPool& pool,
+    bool useVInts,
+    uint32_t numBytes);
+
+template <bool isSigned>
+std::unique_ptr<IntDecoder<isSigned>> IntDecoder<isSigned>::createDirect(
+    std::unique_ptr<SeekableInputStream> input,
+    bool useVInts,
+    uint32_t numBytes) {
+  return std::make_unique<DirectDecoder<isSigned>>(
+      std::move(input), useVInts, numBytes);
+}
+
+template std::unique_ptr<IntDecoder<true>> IntDecoder<true>::createDirect(
+    std::unique_ptr<SeekableInputStream> input,
+    bool useVInts,
+    uint32_t numBytes);
+template std::unique_ptr<IntDecoder<false>> IntDecoder<false>::createDirect(
+    std::unique_ptr<SeekableInputStream> input,
+    bool useVInts,
+    uint32_t numBytes);
+
+#ifdef CODEGEN_BULK_VARINTS
+// Codegen for vint bulk decode. This is to document how varintSwitch
+// and similar functions were made and how to regenerate modified
+// versions of these. This is not intended to be compiled in regular
+// builds and exists as documentation only.
+
+std::string codegenVarintMask(int end_byte, int len) {
+  CHECK_GE(end_byte + 1, len);
+  std::string s = "0x0000000000000000ULL";
+  int offset = 5 + end_byte * 2;
+  for (int i = 0; i < len; ++i) {
+    *(s.end() - offset) = '7';
+    *(s.end() - offset + 1) = 'f';
+    offset -= 2;
+  }
+  return s;
+}
+
+std::string codegenExtract(int end_byte, int len) {
+  if (len > 1) {
+    return fmt::format(
+        " _pext_u64(word, {})", codegenVarintMask(end_byte, len));
+  }
+  if (len == 1 && end_byte == 0) {
+    return "static_cast<uint64_t>(static_cast<uint8_t>(word))";
+  }
+  int sourceByte = end_byte - len + 1;
+  std::string s = fmt::format("((word >> {}) & 0x7f)", sourceByte * 8);
+  int targetByte = 1;
+  for (sourceByte = sourceByte + 1; sourceByte <= end_byte; ++sourceByte) {
+    s += fmt::format(
+        " | ((word >> {}) & {})",
+        sourceByte * 8 - targetByte * 7,
+        0x7f << (targetByte * 7));
+    ++targetByte;
+  }
+  return s;
+}
+
+std::string startConditional(bool sparse) {
+  if (sparse) {
+    return "\nif (isEnabled(row, nextRow, nextRowIndex, rows.data())) {";
+  }
+  return "";
+}
+
+std::string startTrailingConditional(bool sparse) {
+  if (sparse) {
+    return "\nif (row == nextRow) {";
+  }
+  return "";
+}
+
+std::string endConditional(bool sparse) {
+  if (sparse) {
+    return "\n}";
+  }
+  return "";
+}
+
+std::string advanceCount(bool sparse, int32_t num_varints) {
+  if (sparse) {
+    fmt::format("\n        row += {};", num_varints);
+  }
+  return "";
+  // return fmt::format("\n        n -= {};", num_varints);
+}
+
+std::string codegenControlWordCase(
+    uint64_t control_bits,
+    int mask_len,
+    bool sparse = false) {
+  CHECK(control_bits < (1 << mask_len));
+  std::string s = fmt::format("      case {}ULL: {{", control_bits);
+  int last_zero = -1;
+  int num_varints = 0;
+  bool postscript_generated = false;
+  bool carryover_used = false;
+  for (int next_bit = 0; next_bit < mask_len; ++next_bit) {
+    // A zero control bit means we detected the end of a varint, so
+    // we can construct a mask of the bottom 7 bits starting at the end
+    // of the next_bit byte and going back (next_bit - last_zero) bytes.
+    if ((control_bits & (1ULL << next_bit)) == 0) {
+      if (!sparse && next_bit <= 4 && last_zero == next_bit - 1 &&
+          ((control_bits >> next_bit) & 0xf) == 0) {
+        // There are up to 4 consecutive single byte vints.
+        s += fmt::format("\nunpack4x1(word >> {}, output);", next_bit * 8);
+        if (!carryover_used) {
+          s += fmt::format(
+              "\napplyCarryover(carryoverBits, carryover, output - 4);");
+          carryover_used = true;
+        }
+        if (next_bit >= 3) {
+          // Can be we wrote extra if byte 6 or 7 was not a single byte vint.
+          s += fmt::format(
+              "\nclipTrailingStores({}, controlBits, pos, output);", next_bit);
+          postscript_generated = true;
+        }
+        num_varints += 4;
+        next_bit = std::min(next_bit + 3, mask_len - 1);
+      } else {
+        if (carryover_used) {
+          s += startConditional(sparse);
+          s += fmt::format(
+              "\n        *output++ =  {};",
+              codegenExtract(next_bit, next_bit - last_zero));
+          s += endConditional(sparse);
+        } else {
+          s += startConditional(sparse);
+          s += fmt::format(
+              "\n        const uint64_t firstValue = "
+              " {};",
+              codegenExtract(next_bit, next_bit - last_zero));
+          s +=
+              "\n        *output++ = (firstValue << carryoverBits) |             carryover;         ";
+          if (sparse) {
+            s += "\ncarryover = 0;\ncarryoverBits = 0;";
+          }
+          s += endConditional(sparse);
+          carryover_used = true;
+        }
+        ++num_varints;
+      }
+      last_zero = next_bit;
+    }
+  }
+  // Ending on a complete varint, not completing any varint, and completing
+  // at least 1 varint but not ending on one are all distinct cases.
+  if (last_zero == -1) {
+    s += startTrailingConditional(sparse);
+    s += fmt::format(
+        "\n        carryover |= "
+        "_pext_u64(word, {}) << carryoverBits;",
+        codegenVarintMask(mask_len - 1, mask_len));
+    s += fmt::format("\n        carryoverBits += {};", 7 * mask_len);
+    s += endConditional(sparse);
+  } else if (last_zero >= mask_len - 1) {
+    s += "\n        carryover = 0ULL;";
+    s += "\n        carryoverBits = 0;";
+    if (!postscript_generated) {
+      s += advanceCount(sparse, num_varints);
+    }
+  } else {
+    s += startTrailingConditional(sparse);
+    s += fmt::format(
+        "\n        carryover = {};",
+        codegenExtract(mask_len - 1, mask_len - 1 - last_zero));
+    s += fmt::format(
+        "\n        carryoverBits = {};", 7 * (mask_len - 1 - last_zero));
+    s += endConditional(sparse);
+    if (!postscript_generated) {
+      s += advanceCount(sparse, num_varints);
+    }
+  }
+  s += "\n        break;";
+  s += "\n      }";
+
+  return s;
+}
+
+std::string codegenSwitch(int maskLen, bool sparse) {
+  std::stringstream out;
+  for (auto i = 0; i < 1 << maskLen; ++i) {
+    out << codegenControlWordCase(i, maskLen, sparse);
+  }
+  return out.str();
+}
+
+void printVarintSwitch(int32_t mask_len, bool sparse) {
+  std::cout << codegenSwitch(mask_len, sparse) << std::endl;
+}
+
+#endif
+
+} // namespace facebook::velox::dwrf

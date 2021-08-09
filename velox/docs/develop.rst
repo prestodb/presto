@@ -1,0 +1,13 @@
+***************
+Developer Guide
+***************
+
+This guide is intended for Velox contributors and developers of Velox-based applications.
+
+.. toctree::
+    :maxdepth: 1
+
+    develop/scalar-functions
+    develop/aggregate-functions
+    develop/dictionary-encoding
+    develop/arena

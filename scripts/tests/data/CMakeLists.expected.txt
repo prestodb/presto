@@ -1,0 +1,48 @@
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+cmake_minimum_required(VERSION 3.10)
+
+# set the project name
+project(PrestoCpp)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED True)
+set(CMAKE_CXX_FLAGS
+    "${CMAKE_CXX_FLAGS} -mavx2 -mfma -mavx -mf16c -masm=intel -mlzcnt")
+
+set(Boost_USE_MULTITHREADED TRUE)
+find_package(Boost 1.72.0 REQUIRED program_options context filesystem regex thread system date_time atomic)
+include_directories(${Boost_INCLUDE_DIRS})
+
+find_package(GTest REQUIRED)
+find_package(gflags COMPONENTS shared)
+find_library(GLOG glog)
+find_library(FOLLY folly)
+include_directories(${GTEST_INCLUDE_DIRS})
+
+find_package(Arrow REQUIRED)
+include_directories(${ARROW_INCLUDE_DIRS})
+
+find_package(double-conversion REQUIRED)
+
+find_library(FMT fmt)
+
+find_package(folly REQUIRED)
+include_directories(${FOLLY_INCLUDE_DIRS})
+
+include_directories(third_party)
+include_directories(src)
+
+include(CTest)              # include after project() but before add_subdirectory()
+
+add_subdirectory(scripts)
+add_subdirectory(src)

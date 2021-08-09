@@ -1,0 +1,318 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#pragma once
+
+#include <vector>
+
+#include <fmt/format.h>
+
+#include "velox/dwio/common/exception/Exception.h"
+#include "velox/type/Type.h"
+
+namespace facebook::dwio::common {
+
+constexpr uint64_t MAX_UINT64 = std::numeric_limits<uint64_t>::max();
+using SeqFilter = std::shared_ptr<const std::unordered_set<size_t>>;
+
+/**
+ * Defines a filter node in a type tree.
+ * The filter node can be used individually such as vector
+ * Or it can be used in a node tree which is good for traverse
+ */
+struct FilterNode {
+  static const FilterNode& getInvalid() {
+    static const FilterNode kInvalid(MAX_UINT64);
+    return kInvalid;
+  }
+
+  FilterNode(
+      const uint64_t n,
+      const uint64_t c,
+      std::string nm,
+      std::string expr,
+      const bool pk)
+      : node{n},
+        column{c},
+        name{std::move(nm)},
+        expression{std::move(expr)},
+        partitionKey{pk} {}
+
+  // right now - we only filter at top-level column
+  /* implicit */ FilterNode(const uint64_t column)
+      : FilterNode(MAX_UINT64, column, "", "", false) {}
+
+  // unique node ID in the physical schema tree
+  // we want to prefer this because we may want to support sub-field filtering
+  // eg. struct: "column_struct.field2", this can be modeled as expression too
+  const uint64_t node;
+
+  // column ordinal index in physical schema
+  const uint64_t column;
+
+  // column name (or field name)
+  const std::string name;
+
+  // align with BBIO to carry extra information.
+  // maybe changed to transformation expression that is executable
+  // right now - it's a customized literals
+  std::string expression;
+
+  // a value indicating current node is partition column
+  // it won't have children and at this time expression captures its value
+  bool partitionKey;
+
+  bool operator==(const FilterNode& other) const {
+    return node == other.node && column == other.column;
+  }
+
+  // match by available information - may not equals
+  bool match(const FilterNode& other) const {
+    // no match if any is invalid
+    if (!valid()) {
+      // even current is invlaid
+      return false;
+    }
+
+    // search with available information
+    // 1. match by node id
+    if (other.node != MAX_UINT64) {
+      return node == other.node;
+    }
+
+    // 2. match by column id
+    if (other.column != MAX_UINT64) {
+      return column == other.column;
+    }
+
+    // 3. match by column name
+    return name == other.name;
+  }
+
+  bool match(const std::string_view& name) const {
+    // no match if any is invalid
+    if (!valid()) {
+      // even current is invlaid
+      return false;
+    }
+
+    return this->name == name;
+  }
+
+  // expect the incoming list has all valid nodes
+  // so that current node can have partial info to match any of list item
+  std::vector<FilterNode>::const_iterator in(
+      const std::vector<FilterNode>& list) const {
+    for (auto itr = list.cbegin(); itr != list.cend(); ++itr) {
+      if (itr->match(*this)) {
+        return itr;
+      }
+    }
+
+    return list.cend();
+  }
+
+  std::size_t hash() const {
+    return std::hash<uint64_t>()(node) ^ std::hash<uint64_t>()(column);
+  }
+
+  bool valid() const {
+    return node != MAX_UINT64;
+  }
+
+  std::string toString() const {
+    return fmt::format(
+        "[node={},column={},name={},expression={},pkey={}]",
+        node,
+        column,
+        name,
+        expression,
+        partitionKey);
+  }
+
+  template <typename T>
+  static std::vector<FilterNode> fromColumns(const std::vector<T>& cols);
+};
+
+// Define two aliases to capture column filter types
+using ColumnFilter = std::vector<FilterNode>;
+
+template <typename T>
+std::vector<FilterNode> FilterNode::fromColumns(const std::vector<T>& cols) {
+  std::vector<FilterNode> nodes;
+  nodes.reserve(cols.size());
+  for (auto& col : cols) {
+    nodes.push_back(col);
+  }
+
+  return nodes;
+}
+
+/**
+ * This class is exact physical schema of data (file)
+ * with filter node information associated with it.
+ *
+ * TODO (cao) Ideally this should merge with TypeWithId, but due to
+ * it's too large footprint of change, we keep this separate and seek merging
+ * in the future.
+ */
+class FilterType;
+using FilterTypePtr = std::shared_ptr<FilterType>;
+class FilterType {
+ private:
+  const FilterNode node_;
+  const std::weak_ptr<FilterType> parent_;
+  std::vector<FilterTypePtr> children_;
+  // a flat to decide if current node is needed
+  bool read_;
+  // a flag to indicate if current node is in content
+  bool inContent_;
+  // this saves the project order of current filter node
+  uint64_t projectOrder_;
+  // request type in the filter tree node
+  std::shared_ptr<const velox::Type> requestType_;
+  // data type in the filter tree node
+  std::shared_ptr<const velox::Type> dataType_;
+  // sequence filter for given node - empty if no filter
+  SeqFilter seqFilter_;
+
+ public:
+  // a single value indicating not found (invalid node)
+  static const FilterTypePtr& getInvalid() {
+    static const FilterTypePtr kInvalid = std::make_shared<FilterType>(
+        FilterNode::getInvalid(), nullptr, true, nullptr, nullptr);
+    return kInvalid;
+  }
+
+  FilterType(
+      const FilterNode& node,
+      const std::shared_ptr<FilterType>& parent,
+      std::vector<FilterTypePtr> children,
+      const bool inContent,
+      velox::TypePtr type,
+      velox::TypePtr contentType)
+      : node_{node},
+        parent_{parent},
+        children_{std::move(children)},
+        read_{node.node == 0},
+        inContent_{inContent},
+        projectOrder_{0},
+        requestType_{std::move(type)},
+        dataType_{std::move(contentType)},
+        seqFilter_{std::make_shared<std::unordered_set<size_t>>()} {}
+
+  FilterType(
+      const FilterNode& node,
+      const std::shared_ptr<FilterType>& parent,
+      const bool inContent,
+      const std::shared_ptr<const velox::Type>& type,
+      const std::shared_ptr<const velox::Type>& contentType)
+      : FilterType(node, parent, {}, inContent, type, contentType) {}
+
+  size_t size() const {
+    return children_.size();
+  }
+
+  const FilterTypePtr& childAt(size_t idx) const {
+    return children_[idx];
+  }
+
+  const FilterNode& getNode() const {
+    return node_;
+  }
+
+ public:
+  inline void setRead() {
+    read_ = true;
+  }
+
+  inline bool shouldRead() const {
+    return read_;
+  }
+
+  inline bool isInContent() const {
+    return inContent_;
+  }
+
+  inline void setInContent(bool inContent) {
+    inContent_ = inContent;
+  }
+
+  inline uint64_t getProjectOrder() const {
+    return projectOrder_;
+  }
+
+  inline void setProjectOrder(uint64_t order) {
+    projectOrder_ = order;
+  }
+
+  inline const std::shared_ptr<const velox::Type>& getRequestType() const {
+    return requestType_;
+  }
+
+  inline const std::shared_ptr<const velox::Type>& getDataType() const {
+    return dataType_;
+  }
+
+  inline void setDataType(const std::shared_ptr<const velox::Type>& dataType) {
+    dataType_ = dataType;
+  }
+
+  inline bool valid() const {
+    return node_.valid();
+  }
+
+  inline const std::weak_ptr<FilterType>& getParent() const {
+    return parent_;
+  }
+
+  inline velox::TypeKind getKind() const {
+    // always use request type when asking fro type kind
+    return requestType_->kind();
+  }
+
+  // return node ID in the type tree
+  inline uint64_t getId() const {
+    // Cannot get ID for invalid node
+    DWIO_ENSURE_EQ(valid(), true);
+    return node_.node;
+  }
+
+  inline bool isRoot() const {
+    return node_.node == 0;
+  }
+
+  inline void addChild(const FilterTypePtr& child) {
+    children_.push_back(child);
+  }
+
+  inline void setSequenceFilter(const SeqFilter& seqFilter) {
+    // sequence filter is shared by whole sub-tree
+    seqFilter_ = seqFilter;
+    for (auto& node : children_) {
+      node->setSequenceFilter(seqFilter);
+    }
+  }
+
+  inline const SeqFilter& getSequenceFilter() {
+    return seqFilter_;
+  }
+
+  inline bool hasSequence(size_t sequence) const {
+    return seqFilter_->empty() ||
+        seqFilter_->find(sequence) != seqFilter_->end();
+  }
+};
+
+} // namespace facebook::dwio::common

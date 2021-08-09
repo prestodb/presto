@@ -1,0 +1,262 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#include <folly/futures/Future.h>
+#include <limits>
+
+#include "folly/Benchmark.h"
+#include "folly/executors/CPUThreadPoolExecutor.h"
+#include "folly/init/Init.h"
+#include "velox/common/memory/Memory.h"
+
+using namespace facebook::velox::memory;
+
+constexpr int64_t kMemoryFootprintIncrement = kDefaultAlignment;
+
+namespace facebook::velox::memory {
+
+class BenchmarkHelper {
+ public:
+  BenchmarkHelper(MemoryManager<MemoryAllocator, kNoAlignment>& manager)
+      : manager_{manager}, leaves_{findLeaves()} {}
+
+  std::vector<MemoryPool*> findLeaves() {
+    std::vector<MemoryPool*> leaves;
+    findLeavesOf(manager_.getRoot(), leaves);
+    return leaves;
+  }
+
+  void findLeavesOf(MemoryPool& subtree, std::vector<MemoryPool*>& leaves) {
+    if (subtree.getChildCount() == 0) {
+      leaves.push_back(&subtree);
+      return;
+    }
+
+    subtree.visitChildren(
+        [this, &leaves](MemoryPool* child) { findLeavesOf(*child, leaves); });
+  }
+
+  // Always in parallel, single pool performance can be tested with
+  // depth-2 stick.
+  void runForEachPool(std::function<void(MemoryPool&)> allocSequence) {
+    folly::CPUThreadPoolExecutor threadPool(leaves_.size());
+    std::vector<folly::SemiFuture<folly::Unit>> futures;
+    for (auto& pool : leaves_) {
+      threadPool.add([&]() { allocSequence(*pool); });
+    }
+
+    threadPool.join();
+  }
+
+  void aggregateStats(size_t iterations) {
+    for (size_t i = 0; i != iterations; ++i) {
+      manager_.aggregateStats(&manager_.getRoot());
+    }
+  }
+
+ private:
+  // TODO: move semantic is better
+  MemoryManager<MemoryAllocator, kNoAlignment>& manager_;
+  std::vector<MemoryPool*> leaves_;
+};
+} // namespace facebook::velox::memory
+
+BENCHMARK(SingleNodeAlloc, iters) {
+  folly::BenchmarkSuspender suspender;
+  MemoryManager<MemoryAllocator, kNoAlignment> manager{};
+  auto& pool = manager.getRoot().addChild("pride_of_higara");
+
+  for (size_t i = 0; i < iters; ++i) {
+    auto dataSize = (i + 1) * kMemoryFootprintIncrement;
+    suspender.dismiss();
+    auto p = pool.allocate(dataSize);
+    suspender.rehire();
+    pool.free(p, dataSize);
+  }
+}
+// Should be the same.
+BENCHMARK(SingleNodeAllocWithCap, iters) {
+  folly::BenchmarkSuspender suspender;
+  MemoryManager<MemoryAllocator, kNoAlignment> manager{};
+  auto& pool = manager.getRoot().addChild(
+      "pride_of_higara", iters * kMemoryFootprintIncrement);
+
+  for (size_t i = 0; i < iters; ++i) {
+    auto dataSize = (i + 1) * kMemoryFootprintIncrement;
+    suspender.dismiss();
+    auto p = pool.allocate(dataSize);
+    suspender.rehire();
+    pool.free(p, dataSize);
+  }
+}
+
+BENCHMARK(SingleNodeFree, iters) {
+  folly::BenchmarkSuspender suspender;
+  MemoryManager<MemoryAllocator, kNoAlignment> manager{};
+  auto& pool = manager.getRoot().addChild("pride_of_higara");
+
+  for (size_t i = 0; i < iters; ++i) {
+    auto dataSize = (i + 1) * kMemoryFootprintIncrement;
+    auto p = pool.allocate(dataSize);
+    suspender.dismiss();
+    pool.free(p, dataSize);
+    suspender.rehire();
+  }
+}
+
+BENCHMARK(SingleNodeRealloc, iters) {
+  folly::BenchmarkSuspender suspender;
+  MemoryManager<MemoryAllocator, kNoAlignment> manager{};
+  auto& pool = manager.getRoot().addChild("pride_of_higara");
+
+  void* p = pool.allocate(kMemoryFootprintIncrement);
+  for (size_t i = 0; i < iters; ++i) {
+    suspender.dismiss();
+    p = pool.reallocate(
+        p,
+        (i + 1) * kMemoryFootprintIncrement,
+        (i + 2) * kMemoryFootprintIncrement);
+    suspender.rehire();
+  }
+  pool.free(p, (iters + 1) * kMemoryFootprintIncrement);
+}
+
+BENCHMARK(SingleNodeAlignedAlloc, iters) {
+  folly::BenchmarkSuspender suspender;
+  MemoryManager<MemoryAllocator, kDefaultAlignment> manager{};
+  auto& pool = manager.getRoot().addChild("pride_of_higara");
+
+  for (size_t i = 0; i < iters; ++i) {
+    auto dataSize = (i + 1) * kMemoryFootprintIncrement;
+    suspender.dismiss();
+    auto p = pool.allocate(dataSize);
+    suspender.rehire();
+    pool.free(p, dataSize);
+  }
+}
+
+BENCHMARK(SingleNodeAlignedAllocWithCap, iters) {
+  folly::BenchmarkSuspender suspender;
+  MemoryManager<MemoryAllocator, kDefaultAlignment> manager{};
+  auto unalignedTotal = iters * kMemoryFootprintIncrement;
+  auto alignedCap = unalignedTotal % kDefaultAlignment == 0
+      ? unalignedTotal
+      : (unalignedTotal / kDefaultAlignment + 1) * kDefaultAlignment;
+  auto& pool = manager.getRoot().addChild("pride_of_higara", alignedCap);
+
+  for (size_t i = 0; i < iters; ++i) {
+    auto dataSize = (i + 1) * kMemoryFootprintIncrement;
+    suspender.dismiss();
+    auto p = pool.allocate(dataSize);
+    suspender.rehire();
+    pool.free(p, dataSize);
+  }
+}
+
+BENCHMARK(SingleNodeAlignedRealloc, iters) {
+  folly::BenchmarkSuspender suspender;
+  MemoryManager<MemoryAllocator, kDefaultAlignment> manager{};
+  auto& pool = manager.getRoot().addChild("pride_of_higara");
+
+  void* p = pool.allocate(kMemoryFootprintIncrement);
+  for (size_t i = 0; i < iters; ++i) {
+    suspender.dismiss();
+    p = pool.reallocate(
+        p,
+        (i + 1) * kMemoryFootprintIncrement,
+        (i + 2) * kMemoryFootprintIncrement);
+    suspender.rehire();
+  }
+  pool.free(p, (iters + 1) * kMemoryFootprintIncrement);
+}
+
+namespace {
+void addNLeaves(
+    MemoryPool& pool,
+    size_t n,
+    int64_t cap = std::numeric_limits<int64_t>::max()) {
+  for (size_t i = 0; i < n; ++i) {
+    pool.addChild(pool.getName() + ".leaf_" + folly::to<std::string>(i), cap);
+  }
+}
+} // namespace
+
+BENCHMARK(StatsAggregationStressTest, iters) {
+  folly::BenchmarkSuspender suspender;
+  MemoryManager<MemoryAllocator, kNoAlignment> manager{};
+  for (size_t i = 0; i < 10; ++i) {
+    auto& child = manager.getRoot().addChild(
+        "query_fragment_" + folly::to<std::string>(i));
+    addNLeaves(child, 20);
+  }
+  BenchmarkHelper helper{manager};
+  suspender.dismiss();
+  helper.aggregateStats(iters);
+}
+
+// No periodic aggregation, should have similar perf
+// with single leaf runs.
+BENCHMARK(DeeperTree, iters) {
+  folly::BenchmarkSuspender suspender;
+  MemoryManager<MemoryAllocator, kNoAlignment> manager{};
+  for (size_t i = 0; i < 10; ++i) {
+    auto& child = manager.getRoot().addChild(
+        "query_fragment_" + folly::to<std::string>(i));
+    addNLeaves(child, 20);
+  }
+  BenchmarkHelper helper{manager};
+  suspender.dismiss();
+  helper.runForEachPool([iters](MemoryPool& pool) {
+    void* p = pool.allocate(kMemoryFootprintIncrement);
+    for (size_t i = 1; i < iters; ++i) {
+      pool.reallocate(
+          p,
+          i * kMemoryFootprintIncrement,
+          (i + 1) * kMemoryFootprintIncrement);
+    }
+    pool.free(p, iters * kMemoryFootprintIncrement);
+  });
+}
+
+// Invokes periodic aggregation.
+BENCHMARK(DeeperTreeWithCap, iters) {
+  folly::BenchmarkSuspender suspender;
+  MemoryManager<MemoryAllocator, kNoAlignment> manager{
+      10 * 20 * iters * kMemoryFootprintIncrement};
+  for (size_t i = 0; i < 10; ++i) {
+    auto& child = manager.getRoot().addChild(
+        "query_fragment_" + folly::to<std::string>(i),
+        20 * iters * kMemoryFootprintIncrement);
+    addNLeaves(child, 20, iters * kMemoryFootprintIncrement);
+  }
+  manager.resumeAggregation();
+  BenchmarkHelper helper{manager};
+  suspender.dismiss();
+  helper.runForEachPool([iters](MemoryPool& pool) {
+    void* p = pool.allocate(kMemoryFootprintIncrement);
+    for (size_t i = 1; i < iters; ++i) {
+      pool.reallocate(
+          p,
+          i * kMemoryFootprintIncrement,
+          (i + 1) * kMemoryFootprintIncrement);
+    }
+    pool.free(p, iters * kMemoryFootprintIncrement);
+  });
+}
+
+int main(int argc, char* argv[]) {
+  folly::init(&argc, &argv);
+  folly::runBenchmarks();
+  return 0;
+}

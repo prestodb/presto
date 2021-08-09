@@ -1,0 +1,266 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+#include "velox/exec/Operator.h"
+#include "velox/exec/Driver.h"
+#include "velox/exec/OperatorUtils.h"
+#include "velox/exec/Task.h"
+
+#include "velox/common/process/ProcessBase.h"
+#include "velox/common/time/CpuWallTimer.h"
+
+namespace facebook {
+namespace velox {
+namespace exec {
+
+memory::MappedMemory* OperatorCtx::mappedMemory() const {
+  if (!mappedMemory_) {
+    auto parent = driverCtx_->task->queryCtx()->mappedMemory();
+    mappedMemory_ = parent->addChild(pool_->getMemoryUsageTracker());
+  }
+  return mappedMemory_.get();
+}
+
+const std::string& OperatorCtx::taskId() const {
+  return driverCtx_->task->taskId();
+}
+
+VectorPtr Operator::getResultVector(ChannelIndex index) {
+  // If there is a singly referenced results vector and it has a
+  // singly referenced flat child with singly referenced buffers, the
+  // child can be reused.
+  if (!output_ || !output_.unique()) {
+    return nullptr;
+  }
+
+  VectorPtr& vector = output_->childAt(index);
+  if (!vector) {
+    return nullptr;
+  }
+
+  if (BaseVector::isReusableFlatVector(vector)) {
+    vector->clear();
+    return std::move(vector);
+  }
+
+  return nullptr;
+}
+
+void Operator::getResultVectors(std::vector<VectorPtr>* result) {
+  if (resultProjections_.empty()) {
+    return;
+  }
+  result->resize(resultProjections_.back().inputChannel + 1);
+  for (auto& projection : resultProjections_) {
+    (*result)[projection.inputChannel] =
+        getResultVector(projection.outputChannel);
+  }
+}
+
+static bool isSequence(
+    const vector_size_t* numbers,
+    vector_size_t start,
+    vector_size_t end) {
+  for (vector_size_t i = start; i < end; ++i) {
+    if (numbers[i] != i) {
+      return false;
+    }
+  }
+  return true;
+}
+
+RowVectorPtr Operator::fillOutput(vector_size_t size, BufferPtr mapping) {
+  bool wrapResults = true;
+  if (size == input_->size() &&
+      (!mapping || isSequence(mapping->as<vector_size_t>(), 0, size))) {
+    if (isIdentityProjection_) {
+      return std::move(input_);
+    }
+    wrapResults = false;
+  }
+
+  if (output_.unique()) {
+    output_->resize(size);
+  } else {
+    std::vector<VectorPtr> localColumns(outputType_->size());
+    output_ = std::make_shared<RowVector>(
+        operatorCtx_->pool(),
+        outputType_,
+        BufferPtr(nullptr),
+        size,
+        std::move(localColumns),
+        0 /*nullCount*/);
+  }
+  auto& columns = output_->children();
+  if (!identityProjections_.empty()) {
+    auto input = input_->children();
+    for (auto& projection : identityProjections_) {
+      columns[projection.outputChannel] = wrapResults
+          ? wrapChild(size, mapping, input[projection.inputChannel])
+          : input[projection.inputChannel];
+    }
+  }
+  for (auto& projection : resultProjections_) {
+    columns[projection.outputChannel] = wrapResults
+        ? wrapChild(size, mapping, std::move(results_[projection.inputChannel]))
+        : std::move(results_[projection.inputChannel]);
+  }
+  return output_;
+}
+
+void Operator::inputProcessed() {
+  input_ = nullptr;
+  if (!output_.unique()) {
+    output_ = nullptr;
+    return;
+  }
+  auto& columns = output_->children();
+  for (auto& projection : identityProjections_) {
+    columns[projection.outputChannel] = nullptr;
+  }
+}
+
+bool Operator::allInputProcessed() {
+  if (!input_) {
+    return true;
+  }
+  if (numProcessedInputRows_ == input_->size()) {
+    inputProcessed();
+    return true;
+  }
+  return false;
+}
+
+void Operator::clearIdentityProjectedOutput() {
+  if (!output_ || !output_.unique()) {
+    return;
+  }
+  for (auto& projection : identityProjections_) {
+    output_->childAt(projection.outputChannel) = nullptr;
+  }
+}
+
+void Operator::recordBlockingTime(uint64_t start) {
+  uint64_t now =
+      std::chrono::duration_cast<std::chrono::microseconds>(
+          std::chrono::high_resolution_clock::now().time_since_epoch())
+          .count();
+  stats_.blockedWallNanos += (now - start) * 1000;
+}
+
+std::string Operator::toString() {
+  std::stringstream out;
+  if (auto task = operatorCtx_->task()) {
+    auto driverCtx = operatorCtx_->driverCtx();
+    out << "<" << task->taskId() << ":" << driverCtx->pipelineId << "."
+        << driverCtx->driverId << " " << this;
+  } else {
+    out << "<Terminated, no task>";
+  }
+  return out.str();
+}
+
+std::vector<ChannelIndex> toChannels(
+    const RowTypePtr& rowType,
+    const std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>&
+        fields) {
+  std::vector<ChannelIndex> channels;
+  channels.reserve(fields.size());
+  for (const auto& field : fields) {
+    auto channel = exprToChannel(field.get(), rowType);
+    channels.push_back(channel);
+  }
+  return channels;
+}
+
+ChannelIndex exprToChannel(const core::ITypedExpr* expr, TypePtr type) {
+  if (auto field = dynamic_cast<const core::FieldAccessTypedExpr*>(expr)) {
+    return type->as<TypeKind::ROW>().getChildIdx(field->name());
+  }
+  if (dynamic_cast<const core::ConstantTypedExpr*>(expr)) {
+    return kConstantChannel;
+  }
+  VELOX_CHECK(false, "Expression must be field access or constant");
+  return 0; // not reached.
+}
+
+std::vector<ChannelIndex> calculateOutputChannels(
+    const RowTypePtr& inputType,
+    const RowTypePtr& outputType) {
+  // Note that outputType may have more columns than inputType as some columns
+  // can be duplicated.
+
+  bool identicalProjection = inputType->size() == outputType->size();
+  const auto& outputNames = outputType->names();
+
+  std::vector<ChannelIndex> outputChannels;
+  outputChannels.resize(outputNames.size());
+  for (auto i = 0; i < outputNames.size(); i++) {
+    outputChannels[i] = inputType->getChildIdx(outputNames[i]);
+    if (outputChannels[i] != i) {
+      identicalProjection = false;
+    }
+  }
+  if (identicalProjection) {
+    outputChannels.clear();
+  }
+  return outputChannels;
+}
+
+void OperatorStats::add(const OperatorStats& other) {
+  numSplits += other.numSplits;
+  rawInputBytes += other.rawInputBytes;
+  rawInputPositions += other.rawInputPositions;
+
+  addInputTiming.add(other.addInputTiming);
+  inputBytes += other.inputBytes;
+  inputPositions += other.inputPositions;
+
+  getOutputTiming.add(other.getOutputTiming);
+  outputBytes += other.outputBytes;
+  outputPositions += other.outputPositions;
+
+  physicalWrittenBytes += other.physicalWrittenBytes;
+
+  blockedWallNanos += other.blockedWallNanos;
+
+  finishTiming.add(other.finishTiming);
+
+  memoryStats.add(other.memoryStats);
+}
+
+void OperatorStats::clear() {
+  numSplits = 0;
+  rawInputBytes = 0;
+  rawInputPositions = 0;
+
+  addInputTiming.clear();
+  inputBytes = 0;
+  inputPositions = 0;
+
+  getOutputTiming.clear();
+  outputBytes = 0;
+  outputPositions = 0;
+
+  physicalWrittenBytes = 0;
+
+  blockedWallNanos = 0;
+
+  finishTiming.clear();
+
+  memoryStats.clear();
+}
+
+} // namespace exec
+} // namespace velox
+} // namespace facebook

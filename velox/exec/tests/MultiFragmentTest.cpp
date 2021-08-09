@@ -1,0 +1,378 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+#include "velox/common/caching/DataCache.h"
+#include "velox/connectors/hive/HiveConnectorSplit.h"
+#include "velox/dwio/common/DataSink.h"
+#include "velox/dwio/dwrf/test/utils/BatchMaker.h"
+#include "velox/dwio/dwrf/writer/Writer.h"
+#include "velox/exec/Exchange.h"
+#include "velox/exec/tests/HiveConnectorTestBase.h"
+#include "velox/exec/tests/OperatorTestBase.h"
+#include "velox/exec/tests/PlanBuilder.h"
+
+using namespace facebook::velox;
+using namespace facebook::velox::exec;
+using namespace facebook::velox::exec::test;
+using namespace facebook::velox::connector::hive;
+
+using facebook::velox::test::BatchMaker;
+
+class MultiFragmentTest : public OperatorTestBase {
+ protected:
+  void SetUp() override {
+    OperatorTestBase::SetUp();
+    rowType_ =
+        ROW({"c0", "c1", "c2", "c3", "c4", "c5"},
+            {BIGINT(), INTEGER(), SMALLINT(), REAL(), DOUBLE(), VARCHAR()});
+    auto dataCache = std::make_unique<SimpleLRUDataCache>(/*size=*/1 << 30);
+    auto hiveConnector =
+        connector::getConnectorFactory(kHiveConnectorName)
+            ->newConnector(kHiveConnectorId, std::move(dataCache));
+    connector::registerConnector(hiveConnector);
+  }
+
+  void TearDown() override {
+    connector::unregisterConnector(kHiveConnectorId);
+    OperatorTestBase::TearDown();
+  }
+
+  static std::string makeTaskId(const std::string& prefix, int num) {
+    return fmt::format("local://{}-{}", prefix, num);
+  }
+
+  std::shared_ptr<Task> makeTask(
+      const std::string& taskId,
+      std::shared_ptr<const core::PlanNode> planNode,
+      int destination) {
+    auto queryCtx = core::QueryCtx::create(
+        std::make_shared<core::MemConfig>(configSettings_),
+        std::unordered_map<std::string, std::shared_ptr<Config>>{},
+        memory::MappedMemory::getInstance(),
+        memory::getProcessDefaultMemoryManager().getRoot().addScopedChild(
+            "query_root"));
+    return std::make_shared<Task>(
+        taskId, planNode, destination, std::move(queryCtx));
+  }
+
+  void writeToFile(const std::string& filePath, RowVectorPtr vector) {
+    writeToFile(filePath, std::vector{vector});
+  }
+
+  void writeToFile(
+      const std::string& filePath,
+      const std::vector<RowVectorPtr>& vectors) {
+    facebook::velox::dwrf::WriterOptions options;
+    options.config = std::make_shared<facebook::velox::dwrf::Config>();
+    options.schema = rowType_;
+    auto sink = std::make_unique<facebook::dwio::common::FileSink>(
+        filePath, facebook::dwio::common::MetricsLog::voidLog());
+    facebook::velox::dwrf::Writer writer{options, std::move(sink), *pool_};
+
+    for (size_t i = 0; i < vectors.size(); ++i) {
+      writer.write(vectors[i]);
+    }
+    writer.close();
+  }
+
+  static std::vector<std::shared_ptr<TempFilePath>> makeFilePaths(int count) {
+    std::vector<std::shared_ptr<TempFilePath>> filePaths;
+
+    filePaths.reserve(count);
+    for (auto i = 0; i < count; ++i) {
+      filePaths.emplace_back(TempFilePath::create());
+    }
+    return filePaths;
+  }
+
+  std::vector<RowVectorPtr> makeVectors(int count, int rowsPerVector) {
+    std::vector<RowVectorPtr> vectors;
+    for (int i = 0; i < count; ++i) {
+      auto vector = std::dynamic_pointer_cast<RowVector>(
+          BatchMaker::createBatch(rowType_, rowsPerVector, *pool_));
+      vectors.push_back(vector);
+    }
+    return vectors;
+  }
+
+  void addHiveSplits(
+      std::shared_ptr<Task> task,
+      const std::vector<std::shared_ptr<TempFilePath>>& filePaths) {
+    for (auto& filePath : filePaths) {
+      auto split = exec::Split(
+          std::make_shared<HiveConnectorSplit>(
+              kHiveConnectorId, "file:" + filePath->path),
+          -1);
+      task->addSplit("0", std::move(split));
+      VLOG(1) << filePath->path << "\n";
+    }
+    task->noMoreSplits("0");
+  }
+
+  void addRemoteSplits(
+      std::shared_ptr<Task> task,
+      const std::vector<std::string>& remoteTaskIds) {
+    for (auto& taskId : remoteTaskIds) {
+      auto split =
+          exec::Split(std::make_shared<RemoteConnectorSplit>(taskId), -1);
+      task->addSplit("0", std::move(split));
+    }
+    task->noMoreSplits("0");
+  }
+
+  void assertQuery(
+      const std::shared_ptr<const core::PlanNode>& plan,
+      const std::vector<std::string>& remoteTaskIds,
+      const std::string& duckDbSql,
+      std::optional<std::vector<uint32_t>> sortingKeys = std::nullopt) {
+    std::vector<std::shared_ptr<connector::ConnectorSplit>> splits;
+    for (auto& taskId : remoteTaskIds) {
+      splits.push_back(std::make_shared<RemoteConnectorSplit>(taskId));
+    }
+    OperatorTestBase::assertQuery(plan, splits, duckDbSql, sortingKeys);
+  }
+
+  void assertQueryOrdered(
+      const std::shared_ptr<const core::PlanNode>& plan,
+      const std::vector<std::string>& remoteTaskIds,
+      const std::string& duckDbSql,
+      const std::vector<uint32_t>& sortingKeys) {
+    assertQuery(plan, remoteTaskIds, duckDbSql, sortingKeys);
+  }
+
+  void setupSources(int filePathCount, int rowsPerVector) {
+    filePaths_ = makeFilePaths(filePathCount);
+    vectors_ = makeVectors(filePaths_.size(), rowsPerVector);
+    for (int i = 0; i < filePaths_.size(); i++) {
+      writeToFile(filePaths_[i]->path, vectors_[i]);
+    }
+    createDuckDbTable(vectors_);
+  }
+
+  std::shared_ptr<const RowType> rowType_;
+  std::unordered_map<std::string, std::string> configSettings_;
+  std::vector<std::shared_ptr<TempFilePath>> filePaths_;
+  std::vector<RowVectorPtr> vectors_;
+};
+
+TEST_F(MultiFragmentTest, aggregationSingleKey) {
+  setupSources(10, 1000);
+  std::vector<std::shared_ptr<Task>> tasks;
+  auto leafTaskId = makeTaskId("leaf", 0);
+  std::shared_ptr<core::PlanNode> partialAggPlan;
+  {
+    partialAggPlan =
+        PlanBuilder()
+            .tableScan(rowType_)
+            .project(std::vector<std::string>{"c0 % 10", "c1"}, {"c0", "c1"})
+            .partialAggregation({0}, {"sum(c1)"})
+            .partitionedOutput({0}, 3)
+            .planNode();
+
+    auto leafTask = makeTask(leafTaskId, partialAggPlan, 0);
+    tasks.push_back(leafTask);
+    Task::start(leafTask, 4);
+    addHiveSplits(leafTask, filePaths_);
+  }
+
+  std::shared_ptr<core::PlanNode> finalAggPlan;
+  std::vector<std::string> finalAggTaskIds;
+  for (int i = 0; i < 3; i++) {
+    finalAggPlan = PlanBuilder()
+                       .exchange(partialAggPlan->outputType())
+                       .finalAggregation({0}, {"sum(a0)"})
+                       .partitionedOutput({}, 1)
+                       .planNode();
+
+    finalAggTaskIds.push_back(makeTaskId("final-agg", i));
+    auto task = makeTask(finalAggTaskIds.back(), finalAggPlan, i);
+    tasks.push_back(task);
+    Task::start(task, 1);
+    addRemoteSplits(task, {leafTaskId});
+  }
+
+  auto op = PlanBuilder().exchange(finalAggPlan->outputType()).planNode();
+
+  assertQuery(
+      op, finalAggTaskIds, "SELECT c0 % 10, sum(c1) FROM tmp GROUP BY 1");
+}
+
+TEST_F(MultiFragmentTest, aggregationMultiKey) {
+  setupSources(10, 1'000);
+  std::vector<std::shared_ptr<Task>> tasks;
+  auto leafTaskId = makeTaskId("leaf", 0);
+  std::shared_ptr<core::PlanNode> partialAggPlan;
+  {
+    partialAggPlan =
+        PlanBuilder()
+            .tableScan(rowType_)
+            .project(
+                std::vector<std::string>{"c0 % 10", "c1 % 2", "c2"},
+                {"c0", "c1", "c2"})
+            .partialAggregation({0, 1}, {"sum(c2)"})
+            .partitionedOutput({0, 1}, 3)
+            .planNode();
+
+    auto leafTask = makeTask(leafTaskId, partialAggPlan, 0);
+    tasks.push_back(leafTask);
+    Task::start(leafTask, 4);
+    addHiveSplits(leafTask, filePaths_);
+  }
+
+  std::shared_ptr<core::PlanNode> finalAggPlan;
+  std::vector<std::string> finalAggTaskIds;
+  for (int i = 0; i < 3; i++) {
+    finalAggPlan = PlanBuilder()
+                       .exchange(partialAggPlan->outputType())
+                       .finalAggregation({0, 1}, {"sum(a0)"})
+                       .partitionedOutput({}, 1)
+                       .planNode();
+
+    finalAggTaskIds.push_back(makeTaskId("final-agg", i));
+    auto task = makeTask(finalAggTaskIds.back(), finalAggPlan, i);
+    tasks.push_back(task);
+    Task::start(task, 1);
+    addRemoteSplits(task, {leafTaskId});
+  }
+
+  auto op = PlanBuilder().exchange(finalAggPlan->outputType()).planNode();
+
+  assertQuery(
+      op,
+      finalAggTaskIds,
+      "SELECT c0 % 10, c1 % 2, sum(c2) FROM tmp GROUP BY 1, 2");
+}
+
+TEST_F(MultiFragmentTest, distributedTableScan) {
+  setupSources(10, 1000);
+  // Run the table scan several times to test the caching.
+  for (int i = 0; i < 3; ++i) {
+    std::vector<std::shared_ptr<Task>> tasks;
+    auto leafTaskId = makeTaskId("leaf", 0);
+    std::shared_ptr<core::PlanNode> leafPlan;
+    {
+      PlanBuilder builder;
+      leafPlan =
+          builder.tableScan(rowType_)
+              .project(std::vector<std::string>{"c0 % 10", "c1 % 2", "c2"})
+              .partitionedOutput({}, 1, {2, 1, 0})
+              .planNode();
+
+      auto leafTask = makeTask(leafTaskId, leafPlan, 0);
+      tasks.push_back(leafTask);
+      Task::start(leafTask, 4);
+      addHiveSplits(leafTask, filePaths_);
+    }
+    auto op = PlanBuilder().exchange(leafPlan->outputType()).planNode();
+
+    assertQuery(op, {leafTaskId}, "SELECT c2, c1 % 2, c0 % 10 FROM tmp");
+  }
+}
+
+TEST_F(MultiFragmentTest, mergeExchange) {
+  setupSources(20, 1000);
+
+  static const core::SortOrder kAscNullsLast(true, false);
+  std::vector<std::shared_ptr<Task>> tasks;
+
+  std::vector<std::shared_ptr<TempFilePath>> filePaths0(
+      filePaths_.begin(), filePaths_.begin() + 10);
+  std::vector<std::shared_ptr<TempFilePath>> filePaths1(
+      filePaths_.begin() + 10, filePaths_.end());
+
+  std::vector<std::vector<std::shared_ptr<TempFilePath>>> filePathsList = {
+      filePaths0, filePaths1};
+
+  std::vector<std::string> partialSortTaskIds;
+  std::shared_ptr<const RowType> outputType;
+
+  for (int i = 0; i < 2; ++i) {
+    auto sortTaskId = makeTaskId("orderby", tasks.size());
+    partialSortTaskIds.push_back(sortTaskId);
+    auto partialSortPlan = PlanBuilder()
+                               .tableScan(rowType_)
+                               .orderBy({0}, {kAscNullsLast}, true)
+                               .localMerge({0}, {kAscNullsLast})
+                               .partitionedOutput({}, 1)
+                               .planNode();
+
+    auto sortTask = makeTask(sortTaskId, partialSortPlan, tasks.size());
+    tasks.push_back(sortTask);
+    Task::start(sortTask, 4);
+    addHiveSplits(sortTask, filePathsList[i]);
+    outputType = partialSortPlan->outputType();
+  }
+
+  auto finalSortTaskId = makeTaskId("orderby", tasks.size());
+  auto finalSortPlan = PlanBuilder()
+                           .mergeExchange(outputType, {0}, {kAscNullsLast})
+                           .partitionedOutput({}, 1)
+                           .planNode();
+
+  auto task = makeTask(finalSortTaskId, finalSortPlan, tasks.size());
+  tasks.push_back(task);
+  Task::start(task, 1);
+  addRemoteSplits(task, partialSortTaskIds);
+
+  auto op = PlanBuilder().exchange(outputType).planNode();
+  assertQueryOrdered(
+      op, {finalSortTaskId}, "SELECT * FROM tmp ORDER BY 1 NULLS LAST", {0});
+}
+
+// Test reordering and dropping columns in PartitionedOutput operator
+TEST_F(MultiFragmentTest, partitionedOutput) {
+  setupSources(10, 1000);
+
+  // Test dropping columns only
+  {
+    auto leafTaskId = makeTaskId("leaf", 0);
+    auto leafPlan = PlanBuilder()
+                        .values(vectors_)
+                        .partitionedOutput({}, 1, {0, 1})
+                        .planNode();
+    auto leafTask = makeTask(leafTaskId, leafPlan, 0);
+    Task::start(leafTask, 4);
+    auto op = PlanBuilder().exchange(leafPlan->outputType()).planNode();
+
+    assertQuery(op, {leafTaskId}, "SELECT c0, c1 FROM tmp");
+  }
+
+  // Test reordering and dropping at the same time
+  {
+    auto leafTaskId = makeTaskId("leaf", 0);
+    auto leafPlan = PlanBuilder()
+                        .values(vectors_)
+                        .partitionedOutput({}, 1, {3, 0, 2})
+                        .planNode();
+    auto leafTask = makeTask(leafTaskId, leafPlan, 0);
+    Task::start(leafTask, 4);
+    auto op = PlanBuilder().exchange(leafPlan->outputType()).planNode();
+
+    assertQuery(op, {leafTaskId}, "SELECT c3, c0, c2 FROM tmp");
+  }
+
+  // Test producing duplicate columns
+  {
+    auto leafTaskId = makeTaskId("leaf", 0);
+    auto leafPlan = PlanBuilder()
+                        .values(vectors_)
+                        .partitionedOutput({}, 1, {0, 1, 2, 3, 4, 3, 2, 1, 0})
+                        .planNode();
+    auto leafTask = makeTask(leafTaskId, leafPlan, 0);
+    Task::start(leafTask, 4);
+    auto op = PlanBuilder().exchange(leafPlan->outputType()).planNode();
+
+    assertQuery(
+        op, {leafTaskId}, "SELECT c0, c1, c2, c3, c4, c3, c2, c1, c0 FROM tmp");
+  }
+}

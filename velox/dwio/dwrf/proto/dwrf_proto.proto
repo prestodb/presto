@@ -1,0 +1,334 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+syntax = "proto2";
+
+package facebook.velox.dwrf.proto;
+
+option cc_enable_arenas = true;
+
+message IntegerStatistics {
+  optional sint64 minimum = 1;
+  optional sint64 maximum = 2;
+  optional sint64 sum = 3;
+}
+
+message DoubleStatistics {
+  optional double minimum = 1;
+  optional double maximum = 2;
+  optional double sum = 3;
+}
+
+message StringStatistics {
+  optional string minimum = 1;
+  optional string maximum = 2;
+  optional sint64 sum = 3; // total length of all strings
+}
+
+message BucketStatistics {
+  repeated uint64 count = 1 [ packed = true ];
+}
+
+message BinaryStatistics {
+  optional sint64 sum = 1; // total binary blob length
+}
+
+message MapEntryStatistics {
+  optional KeyInfo key = 1;
+  optional ColumnStatistics stats = 2;
+}
+
+message MapStatistics {
+  repeated MapEntryStatistics stats = 1;
+}
+
+message ColumnStatistics {
+  optional uint64 numberOfValues = 1;
+  optional IntegerStatistics intStatistics = 2;
+  optional DoubleStatistics doubleStatistics = 3;
+  optional StringStatistics stringStatistics = 4;
+  optional BucketStatistics bucketStatistics = 5;
+  optional bool hasNull = 6;
+  optional BinaryStatistics binaryStatistics = 7;
+  optional uint64 rawSize = 8;
+  optional uint64 size = 9;
+  optional MapStatistics mapStatistics = 10;
+}
+
+message RowIndexEntry {
+  repeated uint64 positions = 1 [ packed = true ];
+  optional ColumnStatistics statistics = 2;
+}
+
+message RowIndex {
+  repeated RowIndexEntry entry = 1;
+}
+
+message BloomFilter {
+  optional uint32 numHashFunctions = 1;
+  repeated fixed64 bitset = 2;
+  optional bytes utf8bitset = 3;
+}
+
+message BloomFilterIndex {
+  repeated BloomFilter bloomFilter = 1;
+}
+
+message Stream {
+  // if you add new index stream kinds, you need to make sure to update
+  // StreamName to ensure it is added to the stripe in the right area
+  enum Kind {
+    PRESENT = 0;
+    DATA = 1;
+    LENGTH = 2;
+    DICTIONARY_DATA = 3;
+    DICTIONARY_COUNT = 4;
+    NANO_DATA = 5;
+    ROW_INDEX = 6;
+    IN_DICTIONARY = 7;
+    STRIDE_DICTIONARY = 8;
+    STRIDE_DICTIONARY_LENGTH = 9;
+    BLOOM_FILTER_UTF8 = 10;
+    // this type of streams recording map key presence
+    IN_MAP = 11;
+  }
+  required Kind kind = 1;
+  optional uint32 node = 2;
+  optional uint64 length = 3;
+  optional bool useVInts = 4 [ default = true ];
+  optional uint32 sequence = 6; // stream sequence ID within a node
+  optional uint32 column = 7; // logical column index in schema
+
+  // `offset` of a stream can be calculated based on length of all streams
+  // in front of it. However, with encryption, client without key cannot
+  // decrypt encrypted stripe footer metadata, hence is not able to collect
+  // all the information needed. For that reason, we introduce `offset` to
+  // record relative offset of the stream to the beginning of the stripe.
+  optional uint64 offset = 8;
+}
+
+message KeyInfo {
+  // this covers all width of integers including byte, short, int and long
+  optional int64 intKey = 1;
+  // this covers binary key or utf8 string
+  optional bytes bytesKey = 2;
+}
+
+message ColumnEncoding {
+  enum Kind {
+    DIRECT = 0;
+    DICTIONARY = 1;
+    DIRECT_V2 = 2;
+    DICTIONARY_V2 = 3;
+    MAP_FLAT = 4; // encoding says a map node is flattened.
+  }
+  required Kind kind = 1;
+  optional uint32 dictionarySize = 2;
+  optional uint32 node = 3; // schema tree node ID
+  optional uint32 sequence = 4; // stream sequence ID
+  optional KeyInfo key = 5; // key information attached to current node-sequence
+}
+
+// Metadata for a set of columns that share the same data encryption key (DEK)
+message StripeEncryptionGroup {
+  repeated Stream streams = 1;
+  repeated ColumnEncoding encoding = 2;
+}
+
+message StripeFooter {
+  repeated Stream streams = 1;
+  repeated ColumnEncoding encoding = 2;
+
+  // Serialized and encrypted (using DEK) `StripeEncryptionGroup`, one for
+  // each encryption group. Number of items should match that of encryption
+  // groups defined at file footer. Client with key to an encryption group
+  // can encrypt the corresponding blob and retrieve streams/encodings for
+  // encrypted columns.
+  repeated bytes encryptionGroups = 3;
+}
+
+message Type {
+  enum Kind {
+    BOOLEAN = 0;
+    BYTE = 1;
+    SHORT = 2;
+    INT = 3;
+    LONG = 4;
+    FLOAT = 5;
+    DOUBLE = 6;
+    STRING = 7;
+    BINARY = 8;
+    TIMESTAMP = 9;
+    LIST = 10;
+    MAP = 11;
+    STRUCT = 12;
+    UNION = 13;
+  }
+  required Kind kind = 1;
+  repeated uint32 subtypes = 2 [ packed = true ];
+  repeated string fieldNames = 3;
+}
+
+message StripeInformation {
+  optional uint64 offset = 1;
+  optional uint64 indexLength = 2;
+  optional uint64 dataLength = 3;
+  optional uint64 footerLength = 4;
+  optional uint64 numberOfRows = 5;
+  optional uint64 rawDataSize = 6;
+  optional sint64 checkSum = 7;
+  optional uint64 groupSize =
+      8; // group size to preload hint - 0 means no grouping
+
+  // DEK metadata used in the stripe. Number of items should match that of
+  // encryption groups defined at file footer. During write time, writer
+  // generates one DEK per encryption group. In the common case, only the first
+  // stripe has keyMetadata set and all other stripes and file footer share
+  // the keys as defined in the first stripe. In the case of file concat,
+  // stripe information will be copied from the original files, along with
+  // their existing keys and thus, first stripes of each of the original files
+  // have their own keys set, and the file footer will have different key.
+  repeated bytes keyMetadata = 9;
+}
+
+message UserMetadataItem {
+  required string name = 1;
+  required bytes value = 2;
+}
+
+enum ChecksumAlgorithm {
+  NULL = 0;
+  CRC32 = 1;
+  MURMUR3 = 2;
+  ADLER32 = 3;
+  XXHASH = 4;
+}
+
+// Statistics for a sub tree of the schema in depth first traveral order
+message FileStatistics {
+  repeated ColumnStatistics statistics = 1;
+}
+
+// Encryption metadata for set of columns/fields that share the same
+// encryption mechanism
+message EncryptionGroup {
+  // Node ids for columns/fields included in the encryption group. Once a
+  // node is marked for encryption, all child nodes are included in the same
+  // encryption group automatically. This also implies between the node and
+  // the root, there cannot be another node present in any encryption group.
+  repeated uint32 nodes = 1;
+
+  // Arbitrary blob representing DEK metadata used in file footer. Content
+  // of the blob is key provider specific. It could be key identifier in KMS,
+  // or encrypted DEK, or others. As an optimization, when key is not present,
+  // reuse the same key from stripe information where DEK is set.
+  optional bytes keyMetadata = 2;
+
+  // Serialized and encrypted `FileStatistics`. Number of `ColumnStatistics`
+  // inside it should match that of nodes defined in this encryption group.
+  repeated bytes statistics = 3;
+}
+
+// Encryption metadata. Design details: https://fb.quip.com/b21YAiOv8ZQv
+message Encryption {
+  // Key provider, which determines what's stored in `keyMetadata` blobs, and
+  // how it should be used for encryption. At FB, we have one solution, which
+  // is crypto service.
+  enum KeyProvider {
+    UNKNOWN = 0;
+    CRYPTO_SERVICE = 1;
+  }
+
+  optional KeyProvider keyProvider = 1;
+
+  // Encryption groups. There is one encryption group per set of columns that
+  // share the same encryption mechanism. At FB, that means one group per crypto
+  // project
+  repeated EncryptionGroup encryptionGroups = 2;
+}
+
+message Footer {
+  optional uint64 headerLength = 1;
+  optional uint64 contentLength = 2;
+  repeated StripeInformation stripes = 3;
+  repeated Type types = 4;
+  repeated UserMetadataItem metadata = 5;
+  optional uint64 numberOfRows = 6;
+  repeated ColumnStatistics statistics = 7;
+  optional uint32 rowIndexStride = 8;
+  optional uint64 rawDataSize = 9;
+  repeated uint32 stripeCacheOffsets = 10 [ packed = true ];
+  optional ChecksumAlgorithm checksumAlgorithm = 11;
+
+  // Encryption metadata
+  optional Encryption encryption = 12;
+}
+
+enum CompressionKind {
+  NONE = 0;
+  ZLIB = 1;
+  SNAPPY = 2;
+  LZO = 3;
+  ZSTD = 4;
+  LZ4 = 5;
+}
+
+enum StripeCacheMode {
+  NA = 0;
+  INDEX = 1;
+  FOOTER = 2;
+  BOTH = 3;
+}
+
+// Serialized length must be less that 255 bytes
+message PostScript {
+  optional uint64 footerLength = 1;
+  optional CompressionKind compression = 2;
+  optional uint64 compressionBlockSize = 3;
+  optional uint32 writerVersion = 4;
+  optional StripeCacheMode cacheMode = 5;
+  optional uint32 cacheSize = 6;
+}
+
+// define single type conversion schema
+enum PrimitiveType {
+  VOID = 0;
+  BOOLEAN = 1;
+  BYTE = 2;
+  SHORT = 3;
+  INT = 4;
+  LONG = 5;
+  FLOAT = 6;
+  DOUBLE = 7;
+  STRING = 8;
+  DATE = 9;
+  TIMESTAMP = 10;
+  BINARY = 11;
+  DECIMAL = 12;
+  VARCHAR = 13;
+  CHAR = 14;
+  INTERVAL_YEAR_MONTH = 15;
+  INTERVAL_DAY_TIME = 16;
+  UNKNOWN = 17;
+}
+
+message TypeStorage {
+  required uint32 nodeId = 1;
+  required PrimitiveType source = 2;
+  required PrimitiveType storage = 3;
+}
+
+message TypeStorageList {
+  repeated TypeStorage types = 1;
+}

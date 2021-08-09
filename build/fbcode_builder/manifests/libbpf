@@ -1,0 +1,26 @@
+[manifest]
+name = libbpf
+
+[download]
+url = https://github.com/libbpf/libbpf/archive/v0.3.tar.gz
+sha256 = c168d84a75b541f753ceb49015d9eb886e3fb5cca87cdd9aabce7e10ad3a1efc
+
+# BPF only builds on linux, so make it a NOP on other platforms
+[build.not(os=linux)]
+builder = nop
+
+[build.os=linux]
+builder = make
+subdir = libbpf-0.3/src
+
+[make.build_args]
+BUILD_STATIC_ONLY=y
+
+# libbpf-0.3 requires uapi headers >= 5.8
+[make.install_args]
+install
+install_uapi_headers
+BUILD_STATIC_ONLY=y
+
+[dependencies]
+libelf
