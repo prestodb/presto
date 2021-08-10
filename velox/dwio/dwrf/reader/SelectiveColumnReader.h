@@ -22,8 +22,6 @@
 #include "velox/dwio/dwrf/reader/ScanSpec.h"
 #include "velox/type/Filter.h"
 
-extern bool enableDense;
-
 namespace facebook::velox::dwrf {
 
 class SelectiveColumnReader : public ColumnReader {
@@ -214,7 +212,7 @@ class SelectiveColumnReader : public ColumnReader {
 
   // true if 'this' has a fast path.
   virtual bool hasBulkPath() const {
-    return true;
+    return false;
   }
 
  protected:

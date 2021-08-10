@@ -205,40 +205,4 @@ template void RleDecoderV1<false>::next(
     int64_t* const data,
     const uint64_t numValues,
     const uint64_t* const nulls);
-
-template <bool isSigned>
-void RleDecoderV1<isSigned>::nextLengths(
-    int32_t* const data,
-    const int32_t numValues) {
-  uint32_t position = 0;
-  while (position < numValues) {
-    // If we are out of values, read more.
-    if (remainingValues == 0) {
-      readHeader();
-    }
-    // How many do we read out of this block?
-    int32_t count = std::min<int32_t>(numValues - position, remainingValues);
-    uint64_t consumed = 0;
-    if (repeating) {
-      for (uint32_t i = 0; i < count; ++i) {
-        data[position + i] = value + i * delta;
-      }
-      consumed = count;
-      value += static_cast<int64_t>(consumed) * delta;
-    } else {
-      IntDecoder<isSigned>::bulkRead(count, data + position);
-      consumed = count;
-    }
-    remainingValues -= consumed;
-    position += count;
-  }
-}
-
-template void RleDecoderV1<false>::nextLengths(
-    int32_t* const data,
-    const int32_t numValues);
-template void RleDecoderV1<true>::nextLengths(
-    int32_t* const data,
-    const int32_t numValues);
-
 } // namespace facebook::velox::dwrf
