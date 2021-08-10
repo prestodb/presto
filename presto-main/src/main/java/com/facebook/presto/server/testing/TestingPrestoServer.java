@@ -55,6 +55,7 @@ import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.server.GracefulShutdownHandler;
 import com.facebook.presto.server.PluginManager;
+import com.facebook.presto.server.ServerInfoResource;
 import com.facebook.presto.server.ServerMainModule;
 import com.facebook.presto.server.ShutdownAction;
 import com.facebook.presto.server.security.ServerSecurityModule;
@@ -163,6 +164,7 @@ public class TestingPrestoServer
     private final RequestBlocker requestBlocker;
     private final boolean resourceManager;
     private final boolean coordinator;
+    private final ServerInfoResource serverInfoResource;
 
     public static class TestShutdownAction
             implements ShutdownAction
@@ -370,6 +372,7 @@ public class TestingPrestoServer
         shutdownAction = injector.getInstance(ShutdownAction.class);
         announcer = injector.getInstance(Announcer.class);
         requestBlocker = injector.getInstance(RequestBlocker.class);
+        serverInfoResource = injector.getInstance(ServerInfoResource.class);
 
         // Announce Thrift server address
         DriftServer driftServer = injector.getInstance(DriftServer.class);
@@ -575,6 +578,11 @@ public class TestingPrestoServer
     public GracefulShutdownHandler getGracefulShutdownHandler()
     {
         return gracefulShutdownHandler;
+    }
+
+    public ServerInfoResource getServerInfoResource()
+    {
+        return serverInfoResource;
     }
 
     public TaskManager getTaskManager()
