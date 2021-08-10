@@ -27,13 +27,6 @@ namespace {
 
 class RegexFunctionsTest : public test::SparkFunctionBaseTest {
  public:
-  static void SetUpTestCase() {
-    exec::registerStatefulVectorFunction(
-        "rlike", re2MatchSignatures(), makeRLike);
-    exec::registerStatefulVectorFunction(
-        "regexp_extract", re2ExtractSignatures(), makeRegexExtract);
-  }
-
   std::optional<bool> rlike(
       std::optional<std::string> str,
       std::string pattern) {

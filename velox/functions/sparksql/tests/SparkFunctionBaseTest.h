@@ -13,6 +13,7 @@
  */
 #pragma once
 
+#include "velox/exec/tests/utils/FunctionUtils.h"
 #include "velox/functions/common/tests/FunctionBaseTest.h"
 #include "velox/functions/sparksql/Register.h"
 
@@ -22,8 +23,10 @@ using facebook::velox::functions::test::FunctionBaseTest;
 
 class SparkFunctionBaseTest : public FunctionBaseTest {
  protected:
-  // Ensure Spark functions are registered.
-  SparkFunctionBaseTest() {
+  // Ensure Spark functions are registered; don't register the "common"
+  // (CoreSQL) functions.
+  static void SetUpTestCase() {
+    exec::test::registerTypeResolver();
     sparksql::registerFunctions("");
   }
 };

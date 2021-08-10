@@ -17,7 +17,7 @@
 #include "velox/functions/common/VectorFunctions.h"
 
 namespace facebook::velox::functions::test {
-FunctionBaseTest::FunctionBaseTest() {
+void FunctionBaseTest::SetUpTestCase() {
   exec::test::registerTypeResolver();
   functions::registerFunctions();
   functions::registerVectorFunctions();

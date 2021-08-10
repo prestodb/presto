@@ -18,6 +18,7 @@
 #include <functional>
 #include <optional>
 
+#include "velox/exec/tests/utils/FunctionUtils.h"
 #include "velox/functions/common/tests/FunctionBaseTest.h"
 
 namespace facebook::velox::functions {
@@ -26,6 +27,7 @@ namespace {
 class Re2FunctionsTest : public test::FunctionBaseTest {
  public:
   static void SetUpTestCase() {
+    exec::test::registerTypeResolver();
     exec::registerStatefulVectorFunction(
         "re2_match", re2MatchSignatures(), makeRe2Match);
     exec::registerStatefulVectorFunction(

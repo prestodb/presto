@@ -22,11 +22,6 @@ namespace facebook::velox::functions::sparksql::test {
 namespace {
 
 class HashTest : public SparkFunctionBaseTest {
- public:
-  static void SetUpTestCase() {
-    exec::registerStatefulVectorFunction("hash", hashSignatures(), makeHash);
-  }
-
  protected:
   template <typename T>
   std::optional<int32_t> hash(std::optional<T> arg) {

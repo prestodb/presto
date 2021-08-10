@@ -24,7 +24,7 @@ namespace facebook::velox::functions::test {
 
 class FunctionBaseTest : public testing::Test {
  protected:
-  FunctionBaseTest();
+  static void SetUpTestCase();
 
   template <typename T>
   using EvalType = typename CppToType<T>::NativeType;
