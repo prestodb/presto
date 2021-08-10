@@ -14,7 +14,7 @@ To build the documentation, e.g. generate HTML files from .rst files:
 
 `cd velox/docs && make html`
 
-Nagivate to
+Navigate to
 `velox/docs/_build/html/index.html` in your browser to view the documentation.
 
 ## Publishing
@@ -27,9 +27,9 @@ To publish updated documentation copy the contents of the _build/html
 directory to the top-level docs folder and push to gh-pages branch.
 
 ```
-# Make sure 'master' is updated to the top of the tree.
+# Make sure 'main' is updated to the top of the tree.
 # Make a new branch.
-git checkout -b update-docs master
+git checkout -b update-docs main
 
 # Generate the documentation.
 cd velox/docs
