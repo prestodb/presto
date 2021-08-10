@@ -111,8 +111,8 @@ RowVectorPtr TopN::getOutput() {
 }
 
 void TopN::finish() {
+  Operator::finish();
   if (topRows_.empty()) {
-    isFinishing_ = true;
     finished_ = true;
     return;
   }
@@ -121,6 +121,5 @@ void TopN::finish() {
     rows_[i - 1] = topRows_.top();
     topRows_.pop();
   }
-  isFinishing_ = true;
 }
 } // namespace facebook::velox::exec

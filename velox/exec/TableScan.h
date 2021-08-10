@@ -37,7 +37,7 @@ class TableScan : public SourceOperator {
   }
 
   void finish() override {
-    isFinishing_ = true;
+    Operator::finish();
     close();
   }
 

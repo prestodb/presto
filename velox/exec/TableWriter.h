@@ -37,7 +37,7 @@ class TableWriter : public Operator {
   void addInput(RowVectorPtr input) override;
 
   void finish() override {
-    isFinishing_ = true;
+    Operator::finish();
     close();
   }
 

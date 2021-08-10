@@ -57,9 +57,10 @@ void OrderBy::addInput(RowVectorPtr input) {
 }
 
 void OrderBy::finish() {
+  Operator::finish();
+
   // No data.
   if (numRows_ == 0) {
-    isFinishing_ = true;
     finished_ = true;
     return;
   }
@@ -87,8 +88,6 @@ void OrderBy::finish() {
         }
         return false; // lhs == rhs.
       });
-
-  isFinishing_ = true;
 }
 
 RowVectorPtr OrderBy::getOutput() {

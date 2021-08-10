@@ -30,7 +30,7 @@ class Values : public SourceOperator {
   }
 
   void finish() override {
-    isFinishing_ = true;
+    Operator::finish();
     close();
   }
 
