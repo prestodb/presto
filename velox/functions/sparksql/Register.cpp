@@ -14,12 +14,12 @@
 #include "velox/functions/sparksql/Register.h"
 
 #include "velox/functions/common/DateTimeFunctions.h"
-#include "velox/functions/common/Hash.h"
 #include "velox/functions/common/JsonExtractScalar.h"
 #include "velox/functions/common/Rand.h"
 #include "velox/functions/common/StringFunctions.h"
 #include "velox/functions/lib/Re2Functions.h"
 #include "velox/functions/lib/RegistrationHelpers.h"
+#include "velox/functions/sparksql/Hash.h"
 #include "velox/functions/sparksql/LeastGreatest.h"
 #include "velox/functions/sparksql/RegexFunctions.h"
 #include "velox/functions/sparksql/RegisterArithmetic.h"
@@ -56,8 +56,6 @@ namespace sparksql {
 void registerFunctions(const std::string& prefix) {
   registerFunction<udf_rand, double>({"rand"});
 
-  registerUnaryScalar<udf_hash, int64_t>({"hash"});
-
   registerFunction<udf_json_extract_scalar, Varchar, Varchar, Varchar>(
       {prefix + "get_json_object"});
 
@@ -82,6 +80,7 @@ void registerFunctions(const std::string& prefix) {
   registerFunction<udf_md5_radix<Varchar, Varchar>, Varchar, Varchar>({"md5"});
   VELOX_REGISTER_VECTOR_FUNCTION(udf_subscript, prefix + "subscript");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_regexp_split, prefix + "split");
+
   exec::registerStatefulVectorFunction(
       "regexp_extract", re2ExtractSignatures(), makeRegexExtract);
   exec::registerStatefulVectorFunction(
@@ -96,6 +95,8 @@ void registerFunctions(const std::string& prefix) {
       prefix + "least", leastSignatures(), makeLeast);
   exec::registerStatefulVectorFunction(
       prefix + "greatest", greatestSignatures(), makeGreatest);
+  exec::registerStatefulVectorFunction(
+      prefix + "hash", hashSignatures(), makeHash);
   // These vector functions are only accessible via the
   // VELOX_REGISTER_VECTOR_FUNCTION macro, which must be invoked in the same
   // namespace as the function definition.

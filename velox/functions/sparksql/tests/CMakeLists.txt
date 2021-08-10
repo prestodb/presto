@@ -12,7 +12,7 @@
 
 add_executable(
   velox_functions_spark_test
-  ArithmeticTest.cpp LeastGreatestTest.cpp RegexFunctionsTest.cpp
+  ArithmeticTest.cpp HashTest.cpp LeastGreatestTest.cpp RegexFunctionsTest.cpp
   SplitFunctionsTest.cpp SubscriptTest.cpp)
 
 add_test(velox_functions_spark_test velox_functions_spark_test)
