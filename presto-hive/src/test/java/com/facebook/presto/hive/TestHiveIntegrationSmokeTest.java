@@ -5394,9 +5394,9 @@ public class TestHiveIntegrationSmokeTest
         assertQueryFails(
                 "CREATE MATERIALIZED VIEW test_customer_view AS SELECT name FROM test_customer_base",
                 format(
-                ".* Materialized view '%s.%s.test_customer_view' already exists",
-                getSession().getCatalog().get(),
-                getSession().getSchema().get()));
+                        ".* Materialized view '%s.%s.test_customer_view' already exists",
+                        getSession().getCatalog().get(),
+                        getSession().getSchema().get()));
         assertQuerySucceeds("CREATE MATERIALIZED VIEW IF NOT EXISTS test_customer_view AS SELECT name FROM test_customer_base");
 
         // Test partition mapping
@@ -5447,15 +5447,15 @@ public class TestHiveIntegrationSmokeTest
     public void testShowCreateOnMaterializedView()
     {
         String createMaterializedViewSql = formatSqlText(format("CREATE MATERIALIZED VIEW %s.%s.test_customer_view_1\n" +
-                "WITH (\n" +
-                "   format = 'ORC'," +
-                "   partitioned_by = ARRAY['nationkey']\n" +
-                retentionDays(15) +
-                ") AS SELECT\n" +
-                "  name\n" +
-                ", nationkey\n" +
-                "FROM\n" +
-                "  test_customer_base_1",
+                        "WITH (\n" +
+                        "   format = 'ORC'," +
+                        "   partitioned_by = ARRAY['nationkey']\n" +
+                        retentionDays(15) +
+                        ") AS SELECT\n" +
+                        "  name\n" +
+                        ", nationkey\n" +
+                        "FROM\n" +
+                        "  test_customer_base_1",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get()));
 
