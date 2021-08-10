@@ -1148,22 +1148,18 @@ public class SemiTransactionalHiveMetastore
                 checkArgument(!targetLocation.isEmpty(), "target location is empty");
                 Optional<Path> currentPath = tableAndMore.getCurrentLocation();
                 Path targetPath = new Path(targetLocation);
-                if (table.getPartitionColumns().isEmpty() && currentPath.isPresent()) {
-                    // CREATE TABLE AS SELECT unpartitioned table
-                    if (targetPath.equals(currentPath.get())) {
-                        // Target path and current path are the same. Therefore, directory move is not needed.
-                    }
-                    else {
-                        renameDirectory(
-                                context,
-                                hdfsEnvironment,
-                                currentPath.get(),
-                                targetPath,
-                                () -> cleanUpTasksForAbort.add(new DirectoryCleanUpTask(context, targetPath, true)));
-                    }
+                if (table.getPartitionColumns().isEmpty() && currentPath.isPresent() && !targetPath.equals(currentPath.get())) {
+                    // CREATE TABLE AS SELECT unpartitioned table with staging directory
+                    renameDirectory(
+                            context,
+                            hdfsEnvironment,
+                            currentPath.get(),
+                            targetPath,
+                            () -> cleanUpTasksForAbort.add(new DirectoryCleanUpTask(context, targetPath, true)));
                 }
                 else {
                     // CREATE TABLE AS SELECT partitioned table, or
+                    // CREATE TABLE AS SELECT unpartitioned table without temporary staging directory
                     // CREATE TABLE partitioned/unpartitioned table (without data)
                     if (pathExists(context, hdfsEnvironment, targetPath)) {
                         if (currentPath.isPresent() && currentPath.get().equals(targetPath)) {
