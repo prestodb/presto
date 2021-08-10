@@ -42,4 +42,17 @@ FOLLY_ALWAYS_INLINE bool call(T& result, const T a, const T n) {
 }
 VELOX_UDF_END();
 
+template <typename T>
+VELOX_UDF_BEGIN(unaryminus)
+FOLLY_ALWAYS_INLINE bool call(T& result, const T a) {
+  if constexpr (std::is_integral_v<T>) {
+    // Avoid undefined integer overflow.
+    result = a == std::numeric_limits<T>::min() ? a : -a;
+  } else {
+    result = -a;
+  }
+  return true;
+}
+VELOX_UDF_END();
+
 } // namespace facebook::velox::functions::sparksql

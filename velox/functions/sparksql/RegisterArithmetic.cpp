@@ -28,7 +28,7 @@ void registerArithmeticFunctions(const std::string& prefix) {
   registerUnaryNumeric<udf_ceil>({prefix + "ceil", prefix + "ceiling"});
   registerUnaryNumeric<udf_floor>({prefix + "floor"});
   registerUnaryNumeric<udf_abs>({prefix + "abs"});
-  registerUnaryFloatingPoint<udf_negate>({prefix + "negate"});
+  registerUnaryNumeric<udf_unaryminus>({prefix + "unaryminus"});
   registerUnaryNumeric<udf_round>({prefix + "round"});
   registerFunction<udf_round<int8_t>, int8_t, int8_t, int32_t>(
       {prefix + "round"});

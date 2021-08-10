@@ -13,6 +13,7 @@
  */
 #include <cstdint>
 #include <limits>
+
 #include "velox/functions/sparksql/tests/SparkFunctionBaseTest.h"
 
 namespace facebook::velox::functions::sparksql::test {
@@ -108,6 +109,36 @@ TEST_F(RemainderTest, int64) {
   EXPECT_EQ(-5, remainder<int64_t>(-15181561541535, -23));
   EXPECT_EQ(INT64_MAX, remainder<int64_t>(INT64_MAX, INT64_MIN));
   EXPECT_EQ(-1, remainder<int64_t>(INT64_MIN, INT64_MAX));
+}
+
+class ArithmeticTest : public SparkFunctionBaseTest {
+ protected:
+  template <typename T>
+  std::optional<T> unaryminus(std::optional<T> arg) {
+    return evaluateOnce<T>("unaryminus(c0)", arg);
+  }
+};
+
+TEST_F(ArithmeticTest, UnaryMinus) {
+  EXPECT_EQ(unaryminus<int8_t>(1), -1);
+  EXPECT_EQ(unaryminus<int16_t>(2), -2);
+  EXPECT_EQ(unaryminus<int32_t>(3), -3);
+  EXPECT_EQ(unaryminus<int64_t>(4), -4);
+  EXPECT_EQ(unaryminus<float>(5), -5);
+  EXPECT_EQ(unaryminus<double>(6), -6);
+}
+
+TEST_F(ArithmeticTest, UnaryMinusOverflow) {
+  constexpr float kNan = std::numeric_limits<float>::quiet_NaN();
+  constexpr float kInf = std::numeric_limits<float>::infinity();
+  EXPECT_EQ(unaryminus<int8_t>(INT8_MIN), INT8_MIN);
+  EXPECT_EQ(unaryminus<int16_t>(INT16_MIN), INT16_MIN);
+  EXPECT_EQ(unaryminus<int32_t>(INT32_MIN), INT32_MIN);
+  EXPECT_EQ(unaryminus<int64_t>(INT64_MIN), INT64_MIN);
+  EXPECT_EQ(unaryminus<float>(-kInf), kInf);
+  EXPECT_TRUE(std::isnan(unaryminus<float>(kNan).value_or(0)));
+  EXPECT_EQ(unaryminus<double>(-kInf), kInf);
+  EXPECT_TRUE(std::isnan(unaryminus<double>(kNan).value_or(0)));
 }
 
 } // namespace
