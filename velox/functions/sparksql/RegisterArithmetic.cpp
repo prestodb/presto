@@ -24,7 +24,7 @@ void registerArithmeticFunctions(const std::string& prefix) {
   registerBinaryFloatingPoint<udf_plus>({prefix + "add"});
   registerBinaryFloatingPoint<udf_minus>({prefix + "minus"});
   registerBinaryFloatingPoint<udf_multiply>({prefix + "multiply"});
-  registerBinaryFloatingPoint<udf_divide>({prefix + "divide"});
+  registerFunction<udf_divide, double, double, double>({prefix + "divide"});
   registerUnaryNumeric<udf_ceil>({prefix + "ceil", prefix + "ceiling"});
   registerUnaryNumeric<udf_floor>({prefix + "floor"});
   registerUnaryNumeric<udf_abs>({prefix + "abs"});

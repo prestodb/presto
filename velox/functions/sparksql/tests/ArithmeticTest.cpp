@@ -117,6 +117,15 @@ class ArithmeticTest : public SparkFunctionBaseTest {
   std::optional<T> unaryminus(std::optional<T> arg) {
     return evaluateOnce<T>("unaryminus(c0)", arg);
   }
+
+  std::optional<double> divide(
+      std::optional<double> numerator,
+      std::optional<double> denominator) {
+    return evaluateOnce<double>("divide(c0, c1)", numerator, denominator);
+  }
+
+  static constexpr float kNan = std::numeric_limits<float>::quiet_NaN();
+  static constexpr float kInf = std::numeric_limits<float>::infinity();
 };
 
 TEST_F(ArithmeticTest, UnaryMinus) {
@@ -129,8 +138,6 @@ TEST_F(ArithmeticTest, UnaryMinus) {
 }
 
 TEST_F(ArithmeticTest, UnaryMinusOverflow) {
-  constexpr float kNan = std::numeric_limits<float>::quiet_NaN();
-  constexpr float kInf = std::numeric_limits<float>::infinity();
   EXPECT_EQ(unaryminus<int8_t>(INT8_MIN), INT8_MIN);
   EXPECT_EQ(unaryminus<int16_t>(INT16_MIN), INT16_MIN);
   EXPECT_EQ(unaryminus<int32_t>(INT32_MIN), INT32_MIN);
@@ -139,6 +146,33 @@ TEST_F(ArithmeticTest, UnaryMinusOverflow) {
   EXPECT_TRUE(std::isnan(unaryminus<float>(kNan).value_or(0)));
   EXPECT_EQ(unaryminus<double>(-kInf), kInf);
   EXPECT_TRUE(std::isnan(unaryminus<double>(kNan).value_or(0)));
+}
+
+TEST_F(ArithmeticTest, Divide) {
+  // Null cases.
+  EXPECT_EQ(divide(std::nullopt, std::nullopt), std::nullopt);
+  EXPECT_EQ(divide(std::nullopt, 1), std::nullopt);
+  EXPECT_EQ(divide(1, std::nullopt), std::nullopt);
+  // Division by zero is always null.
+  EXPECT_EQ(divide(1, 0), std::nullopt);
+  EXPECT_EQ(divide(0, 0), std::nullopt);
+  EXPECT_EQ(divide(kNan, 0), std::nullopt);
+  EXPECT_EQ(divide(kInf, 0), std::nullopt);
+  EXPECT_EQ(divide(-kInf, 0), std::nullopt);
+  // Division by NaN is always NaN.
+  EXPECT_TRUE(std::isnan(divide(1, kNan).value_or(0)));
+  EXPECT_TRUE(std::isnan(divide(0, kNan).value_or(0)));
+  EXPECT_TRUE(std::isnan(divide(kNan, kNan).value_or(0)));
+  EXPECT_TRUE(std::isnan(divide(kInf, kNan).value_or(0)));
+  EXPECT_TRUE(std::isnan(divide(-kInf, kNan).value_or(0)));
+  // Division by infinity is zero except when dividing infinity, when it is
+  // NaN.
+  EXPECT_EQ(divide(std::numeric_limits<double>::max(), kInf), 0);
+  EXPECT_EQ(divide(0, kInf), 0);
+  EXPECT_EQ(divide(0, -kInf), 0); // Actually -0, but it should compare equal.
+  EXPECT_TRUE(std::isnan(divide(kInf, kInf).value_or(0)));
+  EXPECT_TRUE(std::isnan(divide(-kInf, kInf).value_or(0)));
+  EXPECT_TRUE(std::isnan(divide(kInf, -kInf).value_or(0)));
 }
 
 } // namespace

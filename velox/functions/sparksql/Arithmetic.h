@@ -55,4 +55,14 @@ FOLLY_ALWAYS_INLINE bool call(T& result, const T a) {
 }
 VELOX_UDF_END();
 
+VELOX_UDF_BEGIN(divide)
+FOLLY_ALWAYS_INLINE bool
+call(double& result, const double num, const double denom) {
+  if (UNLIKELY(denom == 0)) {
+    return false;
+  }
+  result = num / denom;
+  return true;
+}
+VELOX_UDF_END();
 } // namespace facebook::velox::functions::sparksql
