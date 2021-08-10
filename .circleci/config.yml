@@ -56,12 +56,12 @@ jobs:
           paths:
             - ~/deps
       - run:
-          name: "Calculate merge-base for CCache"
-          command: git merge-base origin/main HEAD > merge-base
+          name: "Calculate merge-base date for CCache"
+          command: git show -s --format=%cd --date="format:%Y%m%d" $(git merge-base origin/main HEAD) | tee merge-base-date
       - restore_cache:
           name: "Restore CCache cache"
           keys:
-            - velox-ccache-{{ arch }}-{{ checksum "merge-base" }}
+            - velox-ccache-{{ arch }}-{{ checksum "merge-base-date" }}
       - run:
           name: "Build on MacOS"
           command: |
@@ -75,7 +75,7 @@ jobs:
           no_output_timeout: 1h
       - save_cache:
           name: "Save CCache cache"
-          key: velox-ccache-{{ arch }}-{{ checksum "merge-base" }}
+          key: velox-ccache-{{ arch }}-{{ checksum "merge-base-date" }}
           paths:
             - .ccache/
 
@@ -84,12 +84,12 @@ jobs:
     steps:
       - checkout
       - run:
-          name: "Calculate merge-base for CCache"
-          command: git merge-base origin/main HEAD > merge-base
+          name: "Calculate merge-base date for CCache"
+          command: git show -s --format=%cd --date="format:%Y%m%d" $(git merge-base origin/main HEAD) | tee merge-base-date
       - restore_cache:
           name: "Restore CCache cache"
           keys:
-            - velox-ccache-{{ arch }}-{{ checksum "merge-base" }}
+            - velox-ccache-{{ arch }}-{{ checksum "merge-base-date" }}
       - run:
           name: Build
           command: |
@@ -102,16 +102,16 @@ jobs:
           no_output_timeout: 1h
       - store_artifacts:
           path: '_build/debug/.ninja_log'
+      - save_cache:
+          name: "Save CCache cache"
+          key: velox-ccache-{{ arch }}-{{ checksum "merge-base-date" }}
+          paths:
+            - .ccache/
       - run:
           name: Run Unit Tests
           command: |
             make unittest NUM_THREADS=8
           no_output_timeout: 1h
-      - save_cache:
-          name: "Save CCache cache"
-          key: velox-ccache-{{ arch }}-{{ checksum "merge-base" }}
-          paths:
-            - .ccache/
 
   format-check:
     executor: check
