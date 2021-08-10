@@ -14,10 +14,12 @@
 
 #include "velox/expression/Expr.h"
 #include "velox/core/Expressions.h"
+#include "velox/expression/CastExpr.h"
 #include "velox/expression/ControlExpr.h"
 #include "velox/expression/ExprCompiler.h"
 #include "velox/expression/VarSetter.h"
 #include "velox/expression/VectorFunction.h"
+#include "velox/expression/VectorFunctionRegistry.h"
 
 namespace facebook::velox::exec {
 
@@ -172,6 +174,8 @@ void Expr::eval(
     return;
   }
 
+  // Check if this expression has been evaluated already. If so, fetch and
+  // return the previously computed result.
   if (checkGetSharedSubexprValues(rows, context, result)) {
     return;
   }
@@ -194,7 +198,7 @@ bool Expr::checkGetSharedSubexprValues(
   // For now, disable the optimization if any encodings have been peeled off.
 
   if (!isMultiplyReferenced_ || !sharedSubexprValues_ ||
-      context->wrapEncoding_ != VectorEncoding::Simple::FLAT) {
+      context->wrapEncoding() != VectorEncoding::Simple::FLAT) {
     return false;
   }
 
@@ -230,7 +234,7 @@ void Expr::checkUpdateSharedSubexprValues(
     EvalCtx* context,
     const VectorPtr& result) {
   if (!isMultiplyReferenced_ || sharedSubexprValues_ ||
-      context->wrapEncoding_ != VectorEncoding::Simple::FLAT) {
+      context->wrapEncoding() != VectorEncoding::Simple::FLAT) {
     return;
   }
 
@@ -268,7 +272,7 @@ SelectivityVector* translateToInnerRows(
   // null-propagating Exprs.
   auto flatNulls = decoded.nullIndices() != indices ? decoded.nulls() : nullptr;
 
-  auto newRows = newRowsHolder.get(baseSize);
+  auto* newRows = newRowsHolder.get(baseSize);
   newRows->clearAll();
   rows.applyToSelected([&](vector_size_t row) {
     if (!flatNulls || !bits::isBitNull(flatNulls, row)) {
@@ -304,30 +308,29 @@ void Expr::setDictionaryWrapping(
     const SelectivityVector& rows,
     BaseVector& firstWrapper,
     EvalCtx* context) {
-  context->wrapEncoding_ = VectorEncoding::Simple::DICTIONARY;
   if (decoded.indicesNotCopied() && decoded.nullsNotCopied()) {
-    context->wrap_ = firstWrapper.wrapInfo();
-    context->wrapNulls_ = firstWrapper.nulls();
+    context->setDictionaryWrap(firstWrapper.wrapInfo(), firstWrapper.nulls());
   } else {
-    context->wrap_ = newBuffer<vector_size_t>(
+    auto wrap = newBuffer<vector_size_t>(
         decoded.indices(), rows.end(), context->execCtx()->pool());
-    if (decoded.hasExtraNulls()) {
-      // Nulls are added by wrapping. Add a null wrap.
-      context->wrapNulls_ = newBuffer<bool>(
-          decoded.nulls(), rows.end(), context->execCtx()->pool());
-    }
+    // If nulls are added by wrapping add a null wrap.
+    auto wrapNulls = decoded.hasExtraNulls()
+        ? newBuffer<bool>(
+              decoded.nulls(), rows.end(), context->execCtx()->pool())
+        : BufferPtr(nullptr);
+    context->setDictionaryWrap(std::move(wrap), std::move(wrapNulls));
   }
 }
 
-std::pair<SelectivityVector*, SelectivityVector*> Expr::peelEncodings(
+Expr::PeelEncodingsResult Expr::peelEncodings(
     EvalCtx* context,
     ContextSaver* saver,
     const SelectivityVector& rows,
     LocalDecodedVector& localDecoded,
     LocalSelectivityVector& newRowsHolder,
     LocalSelectivityVector& finalRowsHolder) {
-  if (context->wrapEncoding_ == VectorEncoding::Simple::CONSTANT) {
-    return std::make_pair(nullptr, nullptr);
+  if (context->wrapEncoding() == VectorEncoding::Simple::CONSTANT) {
+    return Expr::PeelEncodingsResult::empty();
   }
   std::vector<VectorPtr> peeledVectors;
   std::vector<VectorPtr> maybePeeled;
@@ -413,7 +416,7 @@ std::pair<SelectivityVector*, SelectivityVector*> Expr::peelEncodings(
   } while (peeled && nonConstant);
 
   if (numLevels == 0 && nonConstant) {
-    return std::make_pair(nullptr, nullptr);
+    return Expr::PeelEncodingsResult::empty();
   }
 
   // We peel off the wrappers and make a new selection.
@@ -423,27 +426,26 @@ std::pair<SelectivityVector*, SelectivityVector*> Expr::peelEncodings(
     // All the fields are constant across the rows of interest.
     newRows = singleRow(newRowsHolder, rows.begin());
     context->saveAndReset(saver, rows);
-    context->wrapEncoding_ = VectorEncoding::Simple::CONSTANT;
-    context->constantWrapIndex_ = rows.begin();
+    context->setConstantWrap(rows.begin());
   } else {
     auto decoded = localDecoded.get();
     auto firstWrapper = context->getField(firstPeeled).get();
     const auto& rowsToDecode =
-        context->isFinalSelection_ ? rows : *context->finalSelection_;
+        context->isFinalSelection() ? rows : *context->finalSelection();
     decoded->makeIndices(*firstWrapper, rowsToDecode, numLevels);
     auto indices = decoded->indices();
 
     newRows = translateToInnerRows(rows, *decoded, newRowsHolder);
 
-    if (!context->isFinalSelection_) {
+    if (!context->isFinalSelection()) {
       newFinalSelection = translateToInnerRows(
-          *context->finalSelection_, *decoded, finalRowsHolder);
+          *context->finalSelection(), *decoded, finalRowsHolder);
     }
 
     context->saveAndReset(saver, rows);
 
-    if (!context->isFinalSelection_) {
-      context->finalSelection_ = newFinalSelection;
+    if (!context->isFinalSelection()) {
+      *context->mutableFinalSelection() = newFinalSelection;
     }
 
     setDictionaryWrapping(*decoded, rows, *firstWrapper, context);
@@ -463,8 +465,8 @@ std::pair<SelectivityVector*, SelectivityVector*> Expr::peelEncodings(
     }
   }
   // If the expression depends on one dictionary, results are cacheable.
-  context->mayCache_ = numPeeled == 1 && constantFields.empty();
-  return std::make_pair(std::move(newRows), std::move(newFinalSelection));
+  bool mayCache = numPeeled == 1 && constantFields.empty();
+  return {newRows, newFinalSelection, mayCache};
 }
 
 void Expr::evalEncodings(
@@ -485,17 +487,17 @@ void Expr::evalEncodings(
       LocalSelectivityVector finalRowsHolder(context);
       ContextSaver saveContext;
       LocalDecodedVector decodedHolder(context);
-      auto [newRows, newFinalSelection] = peelEncodings(
+      auto peelEncodingsResult = peelEncodings(
           context,
           &saveContext,
           rows,
           decodedHolder,
           newRowsHolder,
           finalRowsHolder);
+      auto* newRows = peelEncodingsResult.newRows;
       if (newRows) {
         VectorPtr peeledResult;
-        if (context->mayCache_) {
-          context->mayCache_ = false;
+        if (peelEncodingsResult.mayCache) {
           evalWithMemo(*newRows, context, &peeledResult);
         } else {
           evalWithNulls(*newRows, context, &peeledResult);
@@ -635,7 +637,7 @@ void Expr::evalWithMemo(
     if (uncached->hasSelections()) {
       evalAll(*uncached, context, result);
       deselectErrors(context, *uncached);
-      context->exprSet_->memoizingExprs_.insert(this);
+      context->exprSet()->addToMemo(this);
       auto newCacheSize = uncached->end();
       if (cachedDictionaryIndices_->size() < newCacheSize) {
         int32_t oldSize = cachedDictionaryIndices_->size();
@@ -820,7 +822,7 @@ bool Expr::applyFunctionWithPeeling(
     const SelectivityVector& applyRows,
     EvalCtx* context,
     VectorPtr* result) {
-  if (context->wrapEncoding_ == VectorEncoding::Simple::CONSTANT) {
+  if (context->wrapEncoding() == VectorEncoding::Simple::CONSTANT) {
     return false;
   }
   int numLevels = 0;
@@ -916,8 +918,7 @@ bool Expr::applyFunctionWithPeeling(
     newRows = singleRow(newRowsHolder, rows.begin());
 
     context->saveAndReset(&saver, rows);
-    context->wrapEncoding_ = VectorEncoding::Simple::CONSTANT;
-    context->constantWrapIndex_ = rows.begin();
+    context->setConstantWrap(rows.begin());
   } else {
     auto decoded = localDecoded.get();
     decoded->makeIndices(*firstWrapper, applyRows, numLevels);

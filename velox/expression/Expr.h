@@ -173,7 +173,17 @@ class Expr {
       EvalCtx* context,
       VectorPtr* result) const;
 
-  std::pair<SelectivityVector*, SelectivityVector*> peelEncodings(
+  struct PeelEncodingsResult {
+    SelectivityVector* newRows;
+    SelectivityVector* newFinalSelection;
+    bool mayCache;
+
+    static PeelEncodingsResult empty() {
+      return {nullptr, nullptr, false};
+    }
+  };
+
+  PeelEncodingsResult peelEncodings(
       EvalCtx* context,
       ContextSaver* saver,
       const SelectivityVector& rows,
@@ -355,8 +365,15 @@ class ExprSet {
     return exprs_[index];
   }
 
+  // Flags a shared subexpression which needs to be reset (e.g. previously
+  // computed results must be deleted) when evaluating new batch of data.
   void addToReset(const std::shared_ptr<Expr>& expr) {
     toReset_.emplace_back(expr);
+  }
+
+  // Flags an expression that remembers the results for a dictionary.
+  void addToMemo(Expr* expr) {
+    memoizingExprs_.insert(expr);
   }
 
  private:
@@ -371,9 +388,6 @@ class ExprSet {
   // Exprs which retain memoized state, e.g. from running over dictionaries.
   std::unordered_set<Expr*> memoizingExprs_;
   core::ExecCtx* const execCtx_;
-
-  friend class Expr;
-  friend class ExprTest;
 };
 
 /// Enabled for string vectors. Computes the ascii status of the vector by

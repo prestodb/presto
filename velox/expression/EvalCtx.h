@@ -50,7 +50,7 @@ class EvalCtx {
     return row_;
   }
 
-  velox::memory::MemoryPool* pool() const {
+  memory::MemoryPool* pool() const {
     return execCtx_->pool();
   }
 
@@ -165,6 +165,21 @@ class EvalCtx {
     return exprSet_;
   }
 
+  VectorEncoding::Simple wrapEncoding() const {
+    return wrapEncoding_;
+  }
+
+  void setConstantWrap(vector_size_t wrapIndex) {
+    wrapEncoding_ = VectorEncoding::Simple::CONSTANT;
+    constantWrapIndex_ = wrapIndex;
+  }
+
+  void setDictionaryWrap(BufferPtr wrap, BufferPtr wrapNulls) {
+    wrapEncoding_ = VectorEncoding::Simple::DICTIONARY;
+    wrap_ = std::move(wrap);
+    wrapNulls_ = std::move(wrapNulls);
+  }
+
   // Copy "rows" of localResult into results if "result" is partially populated
   // and must be preserved. Copy localResult pointer into result otherwise.
   void moveOrCopyResult(
@@ -193,8 +208,6 @@ class EvalCtx {
   VectorEncoding::Simple wrapEncoding_ = VectorEncoding::Simple::FLAT;
   vector_size_t constantWrapIndex_;
 
-  // True if may remember results for positions in selection.
-  bool mayCache_{false};
   bool mayHaveNulls_{false};
   bool throwOnError_{true};
 
@@ -206,8 +219,6 @@ class EvalCtx {
   const SelectivityVector* finalSelection_;
 
   FlatVectorPtr<StringView> errors_;
-
-  friend class Expr;
 };
 
 class LocalSelectivityVector {
