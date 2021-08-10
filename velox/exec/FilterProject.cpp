@@ -186,7 +186,7 @@ void FilterProject::project(const SelectivityVector& rows, EvalCtx* evalCtx) {
 vector_size_t FilterProject::filter(
     EvalCtx* evalCtx,
     const SelectivityVector& allRows) {
-  exprs_->eval(allRows, evalCtx, &results_);
+  exprs_->eval(0, 1, true, allRows, evalCtx, &results_);
   return processFilterResults(results_[0], allRows, filterEvalCtx_, pool());
 }
 } // namespace facebook::velox::exec

@@ -51,14 +51,12 @@ TEST_F(CodegenTest, simpleProjectionWithConstantFields) {
   testExpressions<DoubleType>("a>b", {"2.0"}, inputRowType, 10, 100);
 };
 
-// temporarily disable a problematic test case
-/*
 TEST_F(CodegenTest, simpleProjectionWithFilter) {
   auto inputRowType = ROW({"a", "b"}, std::vector<TypePtr>{DOUBLE(), DOUBLE()});
   testExpressions<DoubleType, DoubleType>(
       "a > b", {" a + b", "a - b"}, inputRowType, 10, 100);
   testExpressions<DoubleType>("NOT a IS NULL", {"a"}, inputRowType, 10, 100);
-};*/
+};
 
 TEST_F(CodegenTest, reorderedInput) {
   std::shared_ptr<const RowType> inputRowType =

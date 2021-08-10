@@ -286,7 +286,7 @@ int32_t HashProbe::evalFilter(int32_t numRows) {
   filterRows_.resize(numRows);
   filterRows_.setAll();
   EvalCtx evalCtx(operatorCtx_->execCtx(), filter_.get(), filterInput_.get());
-  filter_->eval(filterRows_, &evalCtx, &filterResult_);
+  filter_->eval(0, 1, true, filterRows_, &evalCtx, &filterResult_);
   decodedFilterResult_.decode(*filterResult_[0], filterRows_);
   int32_t numPassed = 0;
   auto rawMapping = rowNumberMapping_->asMutable<vector_size_t>();
