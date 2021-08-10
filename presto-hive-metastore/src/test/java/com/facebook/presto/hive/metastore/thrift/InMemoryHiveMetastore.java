@@ -180,7 +180,7 @@ public class InMemoryHiveMetastore
         }
         else {
             File directory = new File(new Path(table.getSd().getLocation()).toUri());
-            checkArgument(directory.exists(), "Table directory does not exist");
+            checkArgument(directory.exists(), "Table directory does not exist: %s", directory);
             if (tableType == MANAGED_TABLE) {
                 checkArgument(isParentDir(directory, baseDirectory), "Table directory must be inside of the metastore base directory");
             }
