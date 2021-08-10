@@ -225,7 +225,7 @@ public class TestSpatialJoins
     }
 
     @Test
-    public void tesDistributedSpatialJoinIntersects()
+    public void testDistributedSpatialJoinIntersects()
     {
         assertUpdate(format("CREATE TABLE intersects_partitioning AS " +
                 "SELECT spatial_partitioning(ST_GeometryFromText(wkt)) as v " +

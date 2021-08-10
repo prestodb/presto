@@ -925,8 +925,8 @@ public class FileHiveMetastore
         List<String> parts = convertPredicateToParts(partitionPredicates);
         // todo this should be more efficient by selectively walking the directory tree
         return getPartitionNames(metastoreContext, databaseName, tableName).map(partitionNames -> partitionNames.stream()
-                .filter(partitionName -> partitionMatches(partitionName, parts))
-                .collect(toImmutableList()))
+                        .filter(partitionName -> partitionMatches(partitionName, parts))
+                        .collect(toImmutableList()))
                 .orElse(ImmutableList.of());
     }
 
