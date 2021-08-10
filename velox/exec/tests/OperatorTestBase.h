@@ -49,6 +49,13 @@ class OperatorTestBase : public testing::Test {
   }
 
   std::shared_ptr<Task> assertQuery(
+      const CursorParameters& params,
+      const std::string& duckDbSql) {
+    return test::assertQuery(
+        params, [&](exec::Task* /*task*/) {}, duckDbSql, duckDbQueryRunner_);
+  }
+
+  std::shared_ptr<Task> assertQuery(
       const std::shared_ptr<const core::PlanNode>& plan,
       const std::string& duckDbSql) {
     return test::assertQuery(plan, duckDbSql, duckDbQueryRunner_);

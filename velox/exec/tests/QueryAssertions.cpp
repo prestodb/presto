@@ -524,7 +524,7 @@ std::shared_ptr<Task> assertQuery(
 }
 
 std::shared_ptr<Task> assertQuery(
-    CursorParameters& params,
+    const CursorParameters& params,
     std::function<void(exec::Task*)> addSplits,
     const std::string& duckDbSql,
     DuckDbQueryRunner& duckDbQueryRunner,

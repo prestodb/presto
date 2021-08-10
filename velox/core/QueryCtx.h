@@ -98,7 +98,8 @@ class QueryCtx : public Context {
   }
 
   uint64_t maxPartialAggregationMemoryUsage() const {
-    return 1L << 24; // 16MB
+    return get<uint64_t>(
+        kMaxPartialAggregationMemory, kMaxPartialAggregationMemoryDefault);
   }
 
   uint64_t maxPartitionedOutputBufferSize() const {
@@ -195,6 +196,9 @@ class QueryCtx : public Context {
   static constexpr const char* kMaxLocalExchangeBufferSize =
       "max_local_exchange_buffer_size";
 
+  static constexpr const char* kMaxPartialAggregationMemory =
+      "max_partial_aggregation_memory";
+
   // Overrides the previous configuration. Note that this function is NOT
   // thread-safe and should probably only be used in tests.
   void setConfigOverridesUnsafe(
@@ -221,6 +225,9 @@ class QueryCtx : public Context {
       "driver.adaptive_filter_reordering_enabled";
 
   static constexpr uint64_t kMaxLocalExchangeBufferSizeDefault = 32UL << 20;
+
+  // 16MB
+  static constexpr uint64_t kMaxPartialAggregationMemoryDefault = 1L << 24;
 
   CancelPoolPtr cancelPool_;
   std::unique_ptr<memory::MemoryPool> pool_;

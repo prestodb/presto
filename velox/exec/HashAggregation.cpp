@@ -408,6 +408,11 @@ RowVectorPtr HashAggregation::getOutput() {
     // Drop reference to input_ to make it singly-referenced at the producer and
     // allow for memory reuse.
     input_ = nullptr;
+
+    if (partialFull_) {
+      groupingSet_->resetPartial();
+      partialFull_ = false;
+    }
     return output;
   }
 

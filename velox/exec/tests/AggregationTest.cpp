@@ -391,5 +391,45 @@ TEST_F(AggregationTest, allKeyTypes) {
       " GROUP BY c0, C1, C2, c3, C4, C5");
 }
 
+TEST_F(AggregationTest, partialAggregationMemoryLimit) {
+  auto vectors = {
+      makeRowVector({makeFlatVector<int32_t>(
+          100, [](auto row) { return row; }, nullEvery(5))}),
+      makeRowVector({makeFlatVector<int32_t>(
+          110, [](auto row) { return row + 29; }, nullEvery(7))}),
+      makeRowVector({makeFlatVector<int32_t>(
+          90, [](auto row) { return row - 71; }, nullEvery(7))}),
+  };
+
+  createDuckDbTable(vectors);
+
+  // Set an artificially low limit on the amount of data to accumulate in
+  // the partial aggregation.
+  CursorParameters params;
+  params.queryCtx = core::QueryCtx::create();
+
+  params.queryCtx->setConfigOverridesUnsafe({
+      {core::QueryCtx::kMaxPartialAggregationMemory, "100"},
+  });
+
+  // Distinct aggregation.
+  params.planNode = PlanBuilder()
+                        .values(vectors)
+                        .partialAggregation({0}, {})
+                        .finalAggregation({0}, {})
+                        .planNode();
+
+  assertQuery(params, "SELECT distinct c0 FROM tmp");
+
+  // Count aggregation.
+  params.planNode = PlanBuilder()
+                        .values(vectors)
+                        .partialAggregation({0}, {"count(1)"})
+                        .finalAggregation({0}, {"sum(a0)"})
+                        .planNode();
+
+  assertQuery(params, "SELECT c0, count(1) FROM tmp GROUP BY 1");
+}
+
 } // namespace
 } // namespace facebook::velox::exec::test
