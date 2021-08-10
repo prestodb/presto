@@ -21,7 +21,7 @@ Navigate to
 
 GitHub pages is configured to display the contents of the top-level docs directory
 found in the gh-pages branch. The documentation is available at
-https://urban-giggle-9bade4a6.pages.github.io.
+https://fantastic-broccoli-4f7558bb.pages.github.io.
 
 To publish updated documentation copy the contents of the _build/html
 directory to the top-level docs folder and push to gh-pages branch.
