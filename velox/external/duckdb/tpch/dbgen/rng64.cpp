@@ -117,7 +117,7 @@ DSS_HUGE AdvanceRand64(DSS_HUGE nSeed, DSS_HUGE nCount) {
 
 	/* Recursively compute X(n) = A * X(n-1) + C */
 	/* */
-	/* explicitly: */
+	/* explicitely: */
 	/* X(n) = A^n * X(0) + { A^(n-1) + A^(n-2) + ... A + 1 } * C */
 	/* */
 	/* we write this as: */

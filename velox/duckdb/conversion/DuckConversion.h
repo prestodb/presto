@@ -109,7 +109,8 @@ struct DuckDateConversion {
     return ::duckdb::Timestamp::GetDate(veloxTimestampToDuckDB(input));
   }
   static Timestamp toVelox(const ::duckdb::date_t& input) {
-    return duckdbTimestampToVelox(::duckdb::Timestamp::FromDatetime(input, 0));
+    return duckdbTimestampToVelox(
+        ::duckdb::Timestamp::FromDatetime(input, ::duckdb::dtime_t(0)));
   }
 };
 

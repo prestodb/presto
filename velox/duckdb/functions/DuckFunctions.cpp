@@ -469,7 +469,7 @@ struct DuckDBFunctionData {
   std::vector<LogicalType> inputTypes;
   // dummy stuff, necessary to call the function but not actually used
   BoundConstantExpression expr;
-  ExpressionExecutorState executor_state;
+  ExpressionExecutorState executor_state{"N/A"};
   ExpressionState state;
 };
 

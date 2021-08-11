@@ -20,6 +20,7 @@
 
 namespace facebook::velox::duckdb {
 
+using ::duckdb::BetweenExpression;
 using ::duckdb::CaseExpression;
 using ::duckdb::CastExpression;
 using ::duckdb::ColumnRefExpression;
@@ -147,6 +148,21 @@ std::shared_ptr<const core::IExpr> parseComparisonExpr(ParsedExpression& expr) {
   return callExpr(
       normalizeFuncName(ExpressionTypeToOperator(expr.GetExpressionType())),
       std::move(params));
+}
+
+// Parse x between lower and upper
+std::shared_ptr<const core::IExpr> parseBetweenExpr(ParsedExpression& expr) {
+  const auto& betweenExpr = dynamic_cast<BetweenExpression&>(expr);
+  return callExpr(
+      "and",
+      {
+          callExpr(
+              "gte",
+              {parseExpr(*betweenExpr.input), parseExpr(*betweenExpr.lower)}),
+          callExpr(
+              "lte",
+              {parseExpr(*betweenExpr.input), parseExpr(*betweenExpr.upper)}),
+      });
 }
 
 // Parse a conjunction (AND or OR).
@@ -288,6 +304,9 @@ std::shared_ptr<const core::IExpr> parseExpr(ParsedExpression& expr) {
 
     case ExpressionClass::COMPARISON:
       return parseComparisonExpr(expr);
+
+    case ExpressionClass::BETWEEN:
+      return parseBetweenExpr(expr);
 
     case ExpressionClass::CONJUNCTION:
       return parseConjunctionExpr(expr);

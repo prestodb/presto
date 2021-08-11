@@ -69,16 +69,14 @@ TEST(DuckConversionTest, duckValueToVariant) {
 }
 
 TEST(DuckConversionTest, duckValueToVariantUnsupported) {
-  auto unsupported = {
-      LogicalType::TIME,
+  std::vector<LogicalType> unsupported = {
       LogicalType::TIME,
       LogicalType::TIMESTAMP,
       LogicalType::INTERVAL,
-
-      LogicalType::STRUCT,
-      LogicalType::LIST,
-      LogicalType::BLOB,
-  };
+      LogicalType::LIST({LogicalType::INTEGER}),
+      LogicalType::STRUCT(
+          {{"a", LogicalType::INTEGER}, {"b", LogicalType::TINYINT}}),
+      LogicalType::BLOB};
 
   for (const auto& i : unsupported) {
     EXPECT_THROW(duckValueToVariant(Value(i)), std::runtime_error);

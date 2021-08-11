@@ -236,19 +236,22 @@ VectorPtr toVeloxVector(
       return convert<DuckNumericConversion<double>>(
           duckVector, veloxType, size, pool);
     case LogicalTypeId::DECIMAL: {
+      uint8_t width;
+      uint8_t scale;
+      type.GetDecimalProperties(width, scale);
       switch (type.InternalType()) {
         case PhysicalType::INT16:
           return convertDecimalToDouble<int16_t>(
-              duckVector, size, veloxType, pool, type.scale());
+              duckVector, size, veloxType, pool, scale);
         case PhysicalType::INT32:
           return convertDecimalToDouble<int32_t>(
-              duckVector, size, veloxType, pool, type.scale());
+              duckVector, size, veloxType, pool, scale);
         case PhysicalType::INT64:
           return convertDecimalToDouble<int64_t>(
-              duckVector, size, veloxType, pool, type.scale());
+              duckVector, size, veloxType, pool, scale);
         case PhysicalType::INT128:
           return convertDecimalToDouble<hugeint_t>(
-              duckVector, size, veloxType, pool, type.scale());
+              duckVector, size, veloxType, pool, scale);
         default:
           throw std::runtime_error(
               "unrecognized internal type for decimal (this shouldn't happen");

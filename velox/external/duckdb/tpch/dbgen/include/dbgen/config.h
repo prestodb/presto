@@ -139,7 +139,7 @@
 #define RNG_C 1uI64
 #define HUGE_FORMAT "%I64d"
 #define HUGE_DATE_FORMAT "%02I64d"
-/* required by move to Visual Studio 2005 */
+/* requried by move to Visual Studio 2005 */
 #define strdup(x) _strdup(x)
 #endif /* WIN32 */
 

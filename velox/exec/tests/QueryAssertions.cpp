@@ -102,7 +102,7 @@ velox::variant rowVariantAt(
     const std::shared_ptr<const Type>& rowType) {
   std::vector<velox::variant> values;
   for (size_t i = 0; i < vector.struct_value.size(); ++i) {
-    auto currChild = vector.struct_value[i].second;
+    auto currChild = vector.struct_value[i];
     auto currType = rowType->childAt(i)->kind();
     if (currChild.is_null) {
       values.push_back(variant(currType));
