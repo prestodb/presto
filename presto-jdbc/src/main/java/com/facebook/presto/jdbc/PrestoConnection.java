@@ -88,6 +88,7 @@ public class PrestoConnection
     private final String user;
     private final boolean compressionDisabled;
     private final Map<String, String> extraCredentials;
+    private final Map<String, String> customHeaders;
     private final Map<String, String> sessionProperties;
     private final Properties connectionProperties;
     private final Optional<String> applicationNamePrefix;
@@ -112,6 +113,7 @@ public class PrestoConnection
         this.compressionDisabled = uri.isCompressionDisabled();
 
         this.extraCredentials = uri.getExtraCredentials();
+        this.customHeaders = uri.getCustomHeaders();
         this.sessionProperties = new ConcurrentHashMap<>(uri.getSessionProperties());
         this.connectionProperties = uri.getProperties();
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
@@ -676,6 +678,12 @@ public class PrestoConnection
         return ImmutableMap.copyOf(sessionProperties);
     }
 
+    @VisibleForTesting
+    public Map<String, String> getCustomHeaders()
+    {
+        return ImmutableMap.copyOf(customHeaders);
+    }
+
     ServerInfo getServerInfo()
             throws SQLException
     {
@@ -754,7 +762,8 @@ public class PrestoConnection
                 transactionId.get(),
                 timeout,
                 compressionDisabled,
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                customHeaders);
 
         return queryExecutor.startQuery(session, sql);
     }
