@@ -103,4 +103,8 @@ Name                              Description
 ``extraCredentials``              Extra credentials for connecting to external services. The
                                   extraCredentials is a list of key-value pairs. Example:
                                   ``foo:bar;abc:xyz`` will create credentials ``abc=xyz`` and ``foo=bar``
+``customHeaders``                 Custom headers to inject through JDBC driver. The
+                                  customHeaders is a list of key-value pairs. Example:
+                                  ``testHeaderKey:testHeaderValue`` will inject the header ``testHeaderKey``
+                                  with value ``testHeaderValue``. Values should be percent encoded.
 ================================= =======================================================================
