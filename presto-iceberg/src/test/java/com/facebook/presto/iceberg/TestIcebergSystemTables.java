@@ -48,12 +48,12 @@ public class TestIcebergSystemTables
                 .build();
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
 
-        Path dataDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data");
+        Path catalogDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data").resolve("catalog");
 
         queryRunner.installPlugin(new IcebergPlugin());
         Map<String, String> icebergProperties = ImmutableMap.<String, String>builder()
                 .put("hive.metastore", "file")
-                .put("hive.metastore.catalog.dir", dataDir.toString() + "/catalog")
+                .put("hive.metastore.catalog.dir", catalogDir.toFile().toURI().toString())
                 .build();
 
         queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", icebergProperties);
