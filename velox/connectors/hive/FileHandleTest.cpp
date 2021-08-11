@@ -14,22 +14,29 @@
 
 #include "velox/connectors/hive/FileHandle.h"
 
+#include <string>
+#include "gtest/gtest.h"
 #include "velox/common/caching/SimpleLRUCache.h"
 #include "velox/common/file/File.h"
 #include "velox/common/memory/Arena.h"
 
-#include "gtest/gtest.h"
-
 using namespace facebook::velox;
 
-TEST(FileHandle, localFile) {
+TEST(FileHandleTest, localFile) {
   // TODO: use the appropriate test directory.
-  const char filename[] = "/tmp/test";
-  remove(filename);
+  // Use unique name for each process/thread execution to prevent cross
+  // process/thread race condition
+  auto pid = getpid();
+  auto tid = pthread_self();
+  const std::string filename =
+      "/tmp/test" + std::to_string(pid) + "_" + std::to_string(tid);
+  remove(filename.data());
+
   {
     LocalWriteFile writeFile(filename);
     writeFile.append("foo");
   }
+
   FileHandleFactory factory(
       std::make_unique<SimpleLRUCache<std::string, FileHandle>>(1000),
       std::make_unique<FileHandleGenerator>());
@@ -37,4 +44,7 @@ TEST(FileHandle, localFile) {
   ASSERT_EQ(fileHandle->file->size(), 3);
   Arena arena;
   ASSERT_EQ(fileHandle->file->pread(0, 3, &arena), "foo");
+
+  // Clean up
+  remove(filename.data());
 }
