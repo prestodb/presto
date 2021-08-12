@@ -27,9 +27,11 @@ namespace {
 // We always keep the first (non-NULL) element seen.
 template <typename T>
 class Arbitrary : public SimpleNumericAggregate<T, T, T> {
+  using BaseAggregate = SimpleNumericAggregate<T, T, T>;
+
  public:
   explicit Arbitrary(core::AggregationNode::Step step, TypePtr resultType)
-      : SimpleNumericAggregate<T, T, T>(step, resultType) {}
+      : BaseAggregate(step, resultType) {}
 
   int32_t accumulatorFixedWidthSize() const override {
     return sizeof(T);
@@ -39,6 +41,13 @@ class Arbitrary : public SimpleNumericAggregate<T, T, T> {
       char** groups,
       folly::Range<const vector_size_t*> indices) override {
     exec::Aggregate::setAllNulls(groups, indices);
+  }
+
+  void extractValues(char** groups, int32_t numGroups, VectorPtr* result)
+      override {
+    BaseAggregate::doExtractValues(groups, numGroups, result, [&](char* group) {
+      return *BaseAggregate::Aggregate::template value<T>(group);
+    });
   }
 
   void updatePartial(

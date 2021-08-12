@@ -41,6 +41,13 @@ class SumAggregate : public SimpleNumericAggregate<T, ResultType, ResultType> {
     }
   }
 
+  void extractValues(char** groups, int32_t numGroups, VectorPtr* result)
+      override {
+    BaseAggregate::doExtractValues(groups, numGroups, result, [&](char* group) {
+      return *BaseAggregate::Aggregate::template value<ResultType>(group);
+    });
+  }
+
   void updatePartial(
       char** groups,
       const SelectivityVector& rows,
@@ -103,9 +110,11 @@ class SumAggregate : public SimpleNumericAggregate<T, ResultType, ResultType> {
 };
 
 class CountAggregate : public SimpleNumericAggregate<bool, int64_t, int64_t> {
+  using BaseAggregate = SimpleNumericAggregate<bool, int64_t, int64_t>;
+
  public:
   explicit CountAggregate(core::AggregationNode::Step step)
-      : SimpleNumericAggregate<bool, int64_t, int64_t>(step, BIGINT()) {}
+      : BaseAggregate(step, BIGINT()) {}
 
   int32_t accumulatorFixedWidthSize() const override {
     return sizeof(int64_t);
@@ -118,6 +127,13 @@ class CountAggregate : public SimpleNumericAggregate<bool, int64_t, int64_t> {
       // result of count is never null
       *value<int64_t>(groups[i]) = (int64_t)0;
     }
+  }
+
+  void extractValues(char** groups, int32_t numGroups, VectorPtr* result)
+      override {
+    BaseAggregate::doExtractValues(groups, numGroups, result, [&](char* group) {
+      return *value<int64_t>(group);
+    });
   }
 
   void updatePartial(

@@ -32,8 +32,18 @@ class SimpleNumericAggregate : public exec::Aggregate {
  public:
   void finalize(char** /* unused */, int32_t /* unused */) override {}
 
-  void extractValues(char** groups, int32_t numGroups, VectorPtr* result)
+  void extractAccumulators(char** groups, int32_t numGroups, VectorPtr* result)
       override {
+    extractValues(groups, numGroups, result);
+  }
+
+ protected:
+  template <typename ExtractOneValue>
+  void doExtractValues(
+      char** groups,
+      int32_t numGroups,
+      VectorPtr* result,
+      ExtractOneValue extractOneValue) {
     VELOX_CHECK_EQ((*result)->encoding(), VectorEncoding::Simple::FLAT);
     auto vector = (*result)->as<FlatVector<TResult>>();
     VELOX_CHECK(
@@ -50,17 +60,11 @@ class SimpleNumericAggregate : public exec::Aggregate {
         vector->setNull(i, true);
       } else {
         clearNull(rawNulls, i);
-        rawValues[i] = *value<TAccumulator>(group);
+        rawValues[i] = extractOneValue(group);
       }
     }
   }
 
-  void extractAccumulators(char** groups, int32_t numGroups, VectorPtr* result)
-      override {
-    extractValues(groups, numGroups, result);
-  }
-
- protected:
   template <bool tableHasNulls, typename UpdateSingleValue>
   void updateGroups(
       char** groups,

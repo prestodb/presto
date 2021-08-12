@@ -61,9 +61,14 @@ class PlanBuilder {
 
   PlanBuilder& partialAggregation(
       const std::vector<ChannelIndex>& groupingKeys,
-      const std::vector<std::string>& aggregates) {
+      const std::vector<std::string>& aggregates,
+      const std::vector<TypePtr>& resultTypes = {}) {
     return aggregation(
-        groupingKeys, aggregates, core::AggregationNode::Step::kPartial, false);
+        groupingKeys,
+        aggregates,
+        core::AggregationNode::Step::kPartial,
+        false,
+        resultTypes);
   }
 
   // @param resultTypes Optional list of result types for the aggregates. Use it
@@ -93,9 +98,14 @@ class PlanBuilder {
 
   PlanBuilder& singleAggregation(
       const std::vector<ChannelIndex>& groupingKeys,
-      const std::vector<std::string>& aggregates) {
+      const std::vector<std::string>& aggregates,
+      const std::vector<TypePtr>& resultTypes = {}) {
     return aggregation(
-        groupingKeys, aggregates, core::AggregationNode::Step::kSingle, false);
+        groupingKeys,
+        aggregates,
+        core::AggregationNode::Step::kSingle,
+        false,
+        resultTypes);
   }
 
   PlanBuilder& aggregation(

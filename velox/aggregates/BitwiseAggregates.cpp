@@ -22,13 +22,14 @@ namespace {
 
 template <typename T>
 class BitwiseAndOrAggregate : public SimpleNumericAggregate<T, T, T> {
+  using BaseAggregate = SimpleNumericAggregate<T, T, T>;
+
  public:
   BitwiseAndOrAggregate(
       core::AggregationNode::Step step,
       TypePtr resultType,
       T initialValue)
-      : SimpleNumericAggregate<T, T, T>(step, resultType),
-        initialValue_(initialValue) {}
+      : BaseAggregate(step, resultType), initialValue_(initialValue) {}
 
   int32_t accumulatorFixedWidthSize() const override {
     return sizeof(T);
@@ -41,6 +42,13 @@ class BitwiseAndOrAggregate : public SimpleNumericAggregate<T, T, T> {
     for (auto i : indices) {
       *exec::Aggregate::value<T>(groups[i]) = initialValue_;
     }
+  }
+
+  void extractValues(char** groups, int32_t numGroups, VectorPtr* result)
+      override {
+    BaseAggregate::doExtractValues(groups, numGroups, result, [&](char* group) {
+      return *BaseAggregate::Aggregate::template value<T>(group);
+    });
   }
 
   void updateFinal(

@@ -20,118 +20,123 @@ using namespace facebook::velox::exec::test;
 
 namespace {
 
-class MinMaxTest : public aggregate::test::AggregationTestBase {};
+std::string min(const std::string& column) {
+  return fmt::format("min({})", column);
+}
+
+std::string max(const std::string& column) {
+  return fmt::format("max({})", column);
+}
+
+class MinMaxTest : public aggregate::test::AggregationTestBase {
+ protected:
+  template <typename TAgg>
+  void testIntegralType(
+      TAgg agg,
+      const TypePtr& inputType,
+      const TypePtr& intermediateType) {
+    auto rowType = ROW({"c0", "c1"}, {BIGINT(), inputType});
+    auto vectors = makeVectors(rowType, 1000, 10);
+    createDuckDbTable(vectors);
+
+    static const std::string c0 = "c0";
+    static const std::string c1 = "c1";
+    static const std::string a0 = "a0";
+
+    // Global partial aggregation.
+    auto op = PlanBuilder()
+                  .values(vectors)
+                  .partialAggregation({}, {agg(c1)}, {intermediateType})
+                  .planNode();
+    assertQuery(op, fmt::format("SELECT {} FROM tmp", agg(c1)));
+
+    // Global final aggregation.
+    op = PlanBuilder()
+             .values(vectors)
+             .partialAggregation({}, {agg(c1)}, {intermediateType})
+             .finalAggregation({}, {agg(a0)}, {inputType})
+             .planNode();
+    assertQuery(op, fmt::format("SELECT {} FROM tmp", agg(c1)));
+
+    // Group by partial aggregation.
+    op = PlanBuilder()
+             .values(vectors)
+             .project({"c0 % 10", "c1"}, {"c0 % 10", "c1"})
+             .partialAggregation({0}, {agg(c1)}, {intermediateType})
+             .planNode();
+    assertQuery(
+        op, fmt::format("SELECT c0 % 10, {} FROM tmp GROUP BY 1", agg(c1)));
+
+    // Group by final aggregation.
+    op = PlanBuilder()
+             .values(vectors)
+             .project({"c0 % 10", "c1"}, {"c0 % 10", "c1"})
+             .partialAggregation({0}, {agg(c1)}, {intermediateType})
+             .finalAggregation({0}, {agg(a0)}, {inputType})
+             .planNode();
+    assertQuery(
+        op, fmt::format("SELECT c0 % 10, {} FROM tmp GROUP BY 1", agg(c1)));
+
+    // encodings: use filter to wrap aggregation inputs in a dictionary.
+    op = PlanBuilder()
+             .values(vectors)
+             .filter("c0 % 2 = 0")
+             .project({"c0 % 11", "c1"}, {"c0_mod_11", "c1"})
+             .partialAggregation({0}, {agg(c1)}, {intermediateType})
+             .planNode();
+
+    assertQuery(
+        op,
+        fmt::format(
+            "SELECT c0 % 11, {} FROM tmp WHERE c0 % 2 = 0 GROUP BY 1",
+            agg(c1)));
+
+    op = PlanBuilder()
+             .values(vectors)
+             .filter("c0 % 2 = 0")
+             .partialAggregation({}, {agg(c1)}, {inputType})
+             .planNode();
+    assertQuery(
+        op, fmt::format("SELECT {} FROM tmp WHERE c0 % 2 = 0", agg(c1)));
+  }
+};
 
 TEST_F(MinMaxTest, maxTinyint) {
-  auto rowType = ROW({"c0", "c1"}, {BIGINT(), TINYINT()});
-  auto vectors = makeVectors(rowType, 1000, 10);
-  createDuckDbTable(vectors);
+  testIntegralType(max, TINYINT(), BIGINT());
+  testIntegralType(max, TINYINT(), TINYINT());
+}
 
-  // Global partial aggregation.
-  auto agg = PlanBuilder()
-                 .values(vectors)
-                 .partialAggregation({}, {"max(c1)"})
-                 .planNode();
-  assertQuery(agg, "SELECT max(c1) FROM tmp");
+TEST_F(MinMaxTest, maxSmallint) {
+  testIntegralType(max, SMALLINT(), BIGINT());
+  testIntegralType(max, SMALLINT(), SMALLINT());
+}
 
-  // Global final aggregation.
-  agg = PlanBuilder()
-            .values(vectors)
-            .partialAggregation({}, {"max(c1)"})
-            .finalAggregation({}, {"max(a0)"})
-            .planNode();
-  assertQuery(agg, "SELECT max(c1) FROM tmp");
+TEST_F(MinMaxTest, maxInteger) {
+  testIntegralType(max, INTEGER(), BIGINT());
+  testIntegralType(max, INTEGER(), INTEGER());
+}
 
-  // Group by partial aggregation.
-  agg = PlanBuilder()
-            .values(vectors)
-            .project({"c0 % 10", "c1"}, {"c0 % 10", "c1"})
-            .partialAggregation({0}, {"max(c1)"})
-            .planNode();
-  assertQuery(agg, "SELECT c0 % 10, max(c1) FROM tmp GROUP BY 1");
-
-  // Group by final aggregation.
-  agg = PlanBuilder()
-            .values(vectors)
-            .project({"c0 % 10", "c1"}, {"c0 % 10", "c1"})
-            .partialAggregation({0}, {"max(c1)"})
-            .finalAggregation({0}, {"max(a0)"})
-            .planNode();
-  assertQuery(agg, "SELECT c0 % 10, max(c1) FROM tmp GROUP BY 1");
-
-  // encodings: use filter to wrap aggregation inputs in a dictionary.
-  agg = PlanBuilder()
-            .values(vectors)
-            .filter("c0 % 2 = 0")
-            .project({"c0 % 11", "c1"}, {"c0_mod_11", "c1"})
-            .partialAggregation({0}, {"max(c1)"})
-            .planNode();
-
-  assertQuery(
-      agg, "SELECT c0 % 11, max(c1) FROM tmp WHERE c0 % 2 = 0 GROUP BY 1");
-
-  agg = PlanBuilder()
-            .values(vectors)
-            .filter("c0 % 2 = 0")
-            .partialAggregation({}, {"max(c1)"})
-            .planNode();
-  assertQuery(agg, "SELECT max(c1) FROM tmp WHERE c0 % 2 = 0");
+TEST_F(MinMaxTest, maxBigint) {
+  testIntegralType(max, BIGINT(), BIGINT());
 }
 
 TEST_F(MinMaxTest, minTinyint) {
-  auto rowType = ROW({"c0", "c1"}, {BIGINT(), TINYINT()});
-  auto vectors = makeVectors(rowType, 1000, 10);
-  createDuckDbTable(vectors);
+  testIntegralType(min, TINYINT(), BIGINT());
+  testIntegralType(min, TINYINT(), TINYINT());
+}
 
-  // Global partial aggregation.
-  auto agg = PlanBuilder()
-                 .values(vectors)
-                 .partialAggregation({}, {"min(c1)"})
-                 .planNode();
-  assertQuery(agg, "SELECT min(c1) FROM tmp");
+TEST_F(MinMaxTest, minSmallint) {
+  testIntegralType(min, SMALLINT(), BIGINT());
+  testIntegralType(min, SMALLINT(), SMALLINT());
+}
 
-  // Global final aggregation.
-  agg = PlanBuilder()
-            .values(vectors)
-            .partialAggregation({}, {"min(c1)"})
-            .finalAggregation({}, {"min(a0)"})
-            .planNode();
-  assertQuery(agg, "SELECT min(c1) FROM tmp");
+TEST_F(MinMaxTest, minInteger) {
+  testIntegralType(min, INTEGER(), BIGINT());
+  testIntegralType(min, INTEGER(), INTEGER());
+}
 
-  // Group by partial aggregation.
-  agg = PlanBuilder()
-            .values(vectors)
-            .project({"c0 % 10", "c1"}, {"c0 % 10", "c1"})
-            .partialAggregation({0}, {"min(c1)"})
-            .planNode();
-  assertQuery(agg, "SELECT c0 % 10, min(c1) FROM tmp GROUP BY 1");
-
-  // Group by final aggregation.
-  agg = PlanBuilder()
-            .values(vectors)
-            .project({"c0 % 10", "c1"}, {"c0 % 10", "c1"})
-            .partialAggregation({0}, {"min(c1)"})
-            .finalAggregation({0}, {"min(a0)"})
-            .planNode();
-  assertQuery(agg, "SELECT c0 % 10, min(c1) FROM tmp GROUP BY 1");
-
-  // encodings: use filter to wrap aggregation inputs in a dictionary.
-  agg = PlanBuilder()
-            .values(vectors)
-            .filter("c0 % 2 = 0")
-            .project({"c0 % 11", "c1"}, {"c0_mod_11", "c1"})
-            .partialAggregation({0}, {"min(c1)"})
-            .planNode();
-
-  assertQuery(
-      agg, "SELECT c0 % 11, min(c1) FROM tmp WHERE c0 % 2 = 0 GROUP BY 1");
-
-  agg = PlanBuilder()
-            .values(vectors)
-            .filter("c0 % 2 = 0")
-            .partialAggregation({}, {"min(c1)"})
-            .planNode();
-  assertQuery(agg, "SELECT min(c1) FROM tmp WHERE c0 % 2 = 0");
+TEST_F(MinMaxTest, minBigint) {
+  testIntegralType(min, BIGINT(), BIGINT());
 }
 
 TEST_F(MinMaxTest, maxVarchar) {
@@ -233,11 +238,22 @@ TEST_F(MinMaxTest, minMaxTimestamp) {
   auto vectors = makeVectors(rowType, 1'000, 10);
   createDuckDbTable(vectors);
 
+  // Intermediate result type is BIGINT.
   auto agg = PlanBuilder()
                  .values(vectors)
-                 .partialAggregation({}, {"min(c0)", "max(c0)"})
-                 .finalAggregation({}, {"min(a0)", "max(a1)"})
+                 .partialAggregation({}, {"min(c0)", "max(c0)"}, {BIGINT()})
+                 .finalAggregation({}, {"min(a0)", "max(a1)"}, {TIMESTAMP()})
                  .planNode();
+  assertQuery(
+      agg,
+      "SELECT date_trunc('millisecond', min(c0)), date_trunc('millisecond', max(c0)) FROM tmp");
+
+  // Intermediate result type is TIMESTAMP.
+  agg = PlanBuilder()
+            .values(vectors)
+            .partialAggregation({}, {"min(c0)", "max(c0)"}, {TIMESTAMP()})
+            .finalAggregation({}, {"min(a0)", "max(a1)"}, {TIMESTAMP()})
+            .planNode();
   assertQuery(agg, "SELECT min(c0), max(c0) FROM tmp");
 }
 
@@ -256,15 +272,15 @@ TEST_F(MinMaxTest, initialValue) {
   // Make sure they are not zero.
   auto agg = PlanBuilder()
                  .values({row})
-                 .partialAggregation({}, {"min(c0)"})
-                 .finalAggregation({}, {"min(a0)"})
+                 .partialAggregation({}, {"min(c0)"}, {BIGINT()})
+                 .finalAggregation({}, {"min(a0)"}, {TINYINT()})
                  .planNode();
   assertQuery(agg, "SELECT 1");
 
   agg = PlanBuilder()
             .values({row})
-            .partialAggregation({}, {"max(c1)"})
-            .finalAggregation({}, {"max(a0)"})
+            .partialAggregation({}, {"max(c1)"}, {BIGINT()})
+            .finalAggregation({}, {"max(a0)"}, {TINYINT()})
             .planNode();
   assertQuery(agg, "SELECT -1");
 }
