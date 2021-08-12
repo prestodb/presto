@@ -78,9 +78,9 @@ All the available formatting commands can be displayed by using
 There is not currently a mechanism to *opt out* files or directories from the
 checks.  When we need one it can be added.
 
-## Development Env.
+## Development Environment
 
-### Setting up on macOs
+### Setting up on macOS
 
 See `scripts/setup-macos.sh`
 
@@ -91,6 +91,6 @@ something like this in your ~/.profile:
 export PATH=$HOME/bin:$HOME/Library/Python/3.7/bin:$PATH
 ```
 
-### Setting up on Linux (CentOs 8 or later)
+### Setting up on Linux (CentOS 8 or later)
 
 See `scripts/setup-linux.sh`
