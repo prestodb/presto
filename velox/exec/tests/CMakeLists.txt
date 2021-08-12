@@ -54,7 +54,8 @@ add_executable(
   HashJoinTest.cpp
   CastExprTest.cpp
   PlanNodeToStringTest.cpp
-  FunctionSignatureBuilderTest.cpp)
+  FunctionSignatureBuilderTest.cpp
+  UnnestTest.cpp)
 
 add_test(
   NAME velox_exec_test

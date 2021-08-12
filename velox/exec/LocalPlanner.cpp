@@ -26,6 +26,7 @@
 #include "velox/exec/TableScan.h"
 #include "velox/exec/TableWriter.h"
 #include "velox/exec/TopN.h"
+#include "velox/exec/Unnest.h"
 #include "velox/exec/Values.h"
 
 namespace facebook::velox::exec {
@@ -290,8 +291,12 @@ std::shared_ptr<Driver> DriverFactory::createDriver(
           localPartitionNode->outputType(),
           localPartitionNode->id(),
           ctx->driverId));
+    } else if (
+        auto unnest =
+            std::dynamic_pointer_cast<const core::UnnestNode>(planNode)) {
+      operators.push_back(std::make_unique<Unnest>(id, ctx.get(), unnest));
     } else {
-      VELOX_FAIL("Unsupported plan node");
+      VELOX_FAIL("Unsupported plan node: {}", planNode->toString());
     }
   }
   if (consumerSupplier) {

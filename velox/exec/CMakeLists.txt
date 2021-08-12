@@ -26,6 +26,7 @@ add_library(
   Operator.cpp
   OperatorUtils.cpp
   FilterProject.cpp
+  Unnest.cpp
   Values.cpp
   VectorHasher.cpp
   PartitionedOutputBufferManager.cpp

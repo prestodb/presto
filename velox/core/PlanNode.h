@@ -959,4 +959,68 @@ class LimitNode : public PlanNode {
   const std::vector<std::shared_ptr<const PlanNode>> sources_;
 };
 
+/// Expands arrays and maps into separate columns. Arrays are expanded into a
+/// single column, and maps are expanded into two columns (key, value). Can be
+/// used to expand multiple columns. In this case will produce as many rows as
+/// the highest cardinality array or map (the other columns are padded with
+/// nulls). Optionally can produce an ordinality column that specifies the row
+/// number starting with 1.
+class UnnestNode : public PlanNode {
+ public:
+  /// @param replicateVariables Inputs that are projected as is
+  /// @param unnestVariables Inputs that are unnested. Must be of type ARRAY or
+  /// MAP.
+  /// @param unnestNames Names to use for unnested outputs: one name for each
+  /// array (element); two names for each map (key and value). The output names
+  /// must appear in the same order as unnestVariables.
+  /// @param ordinalityName Optional name for the ordinality columns. If not
+  /// present, ordinality column is not produced.
+  UnnestNode(
+      const PlanNodeId& id,
+      std::vector<std::shared_ptr<const FieldAccessTypedExpr>>
+          replicateVariables,
+      std::vector<std::shared_ptr<const FieldAccessTypedExpr>> unnestVariables,
+      const std::vector<std::string>& unnestNames,
+      const std::optional<std::string>& ordinalityName,
+      const std::shared_ptr<const PlanNode>& source);
+
+  /// The order of columns in the output is: replicated columns (in the order
+  /// specified), unnested columns (in the order specified, for maps: key comes
+  /// before value), optional ordinality column.
+  const RowTypePtr& outputType() const override {
+    return outputType_;
+  }
+
+  const std::vector<std::shared_ptr<const PlanNode>>& sources() const override {
+    return sources_;
+  }
+
+  const std::vector<std::shared_ptr<const FieldAccessTypedExpr>>&
+  replicateVariables() const {
+    return replicateVariables_;
+  }
+
+  const std::vector<std::shared_ptr<const FieldAccessTypedExpr>>&
+  unnestVariables() const {
+    return unnestVariables_;
+  }
+
+  bool withOrdinality() const {
+    return withOrdinality_;
+  }
+
+  std::string_view name() const override {
+    return "unnest";
+  }
+
+ private:
+  const std::vector<std::shared_ptr<const FieldAccessTypedExpr>>
+      replicateVariables_;
+  const std::vector<std::shared_ptr<const FieldAccessTypedExpr>>
+      unnestVariables_;
+  const bool withOrdinality_;
+  const std::vector<std::shared_ptr<const PlanNode>> sources_;
+  RowTypePtr outputType_;
+};
+
 } // namespace facebook::velox::core

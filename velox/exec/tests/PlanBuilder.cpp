@@ -399,6 +399,48 @@ PlanBuilder& PlanBuilder::hashJoin(
   return *this;
 }
 
+PlanBuilder& PlanBuilder::unnest(
+    const std::vector<std::string>& replicateColumns,
+    const std::vector<std::string>& unnestColumns,
+    const std::optional<std::string>& ordinalColumn) {
+  std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>
+      replicateFields;
+  replicateFields.reserve(replicateColumns.size());
+  for (const auto& name : replicateColumns) {
+    replicateFields.emplace_back(field(name));
+  }
+
+  std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>> unnestFields;
+  unnestFields.reserve(unnestColumns.size());
+  for (const auto& name : unnestColumns) {
+    unnestFields.emplace_back(field(name));
+  }
+
+  std::vector<std::string> unnestNames;
+  for (const auto& name : unnestColumns) {
+    auto input = planNode_->outputType()->findChild(name);
+    if (input->isArray()) {
+      unnestNames.push_back(name + "_e");
+    } else if (input->isMap()) {
+      unnestNames.push_back(name + "_k");
+      unnestNames.push_back(name + "_v");
+    } else {
+      VELOX_NYI(
+          "Unsupported type of unnest variable. Expected ARRAY or MAP, but got {}.",
+          input->toString());
+    }
+  }
+
+  planNode_ = std::make_shared<core::UnnestNode>(
+      nextPlanNodeId(),
+      replicateFields,
+      unnestFields,
+      unnestNames,
+      ordinalColumn,
+      planNode_);
+  return *this;
+}
+
 std::string PlanBuilder::nextPlanNodeId() {
   auto id = fmt::format("{}", planNodeId_);
   planNodeId_++;
@@ -407,6 +449,12 @@ std::string PlanBuilder::nextPlanNodeId() {
 
 std::shared_ptr<const core::FieldAccessTypedExpr> PlanBuilder::field(
     int index) {
+  return field(planNode_->outputType(), index);
+}
+
+std::shared_ptr<const core::FieldAccessTypedExpr> PlanBuilder::field(
+    const std::string& name) {
+  auto index = planNode_->outputType()->getChildIdx(name);
   return field(planNode_->outputType(), index);
 }
 

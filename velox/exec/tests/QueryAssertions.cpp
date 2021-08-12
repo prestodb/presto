@@ -32,39 +32,64 @@ std::string makeCreateTableSql(
     if (i > 0) {
       sql << ", ";
     }
-    sql << rowType.nameOf(i) << " " << rowType.childAt(i)->kindName();
+    sql << rowType.nameOf(i) << " ";
+    auto child = rowType.childAt(i);
+    if (child->isArray()) {
+      sql << child->asArray().elementType()->kindName() << "[]";
+    } else {
+      sql << child->kindName();
+    }
   }
   sql << ")";
   return sql.str();
 }
 
 template <TypeKind kind>
-void appendNonNullValue(
-    const VectorPtr& vector,
-    vector_size_t index,
-    ::duckdb::Appender& appender) {
+::duckdb::Value duckValueAt(const VectorPtr& vector, vector_size_t index) {
   using T = typename KindToFlatVector<kind>::WrapperType;
-  appender.Append<T>(vector->as<SimpleVector<T>>()->valueAt(index));
+  return ::duckdb::Value(vector->as<SimpleVector<T>>()->valueAt(index));
 }
 
 template <>
-void appendNonNullValue<TypeKind::VARCHAR>(
+::duckdb::Value duckValueAt<TypeKind::VARCHAR>(
     const VectorPtr& vector,
-    vector_size_t index,
-    ::duckdb::Appender& appender) {
+    vector_size_t index) {
   // DuckDB requires zero-ending string
   auto copy = vector->as<SimpleVector<StringView>>()->valueAt(index).str();
-  appender.Append<const char*>(copy.data());
+  return ::duckdb::Value(copy);
 }
 
 template <>
-void appendNonNullValue<TypeKind::TIMESTAMP>(
+::duckdb::Value duckValueAt<TypeKind::TIMESTAMP>(
     const VectorPtr& vector,
-    vector_size_t index,
-    ::duckdb::Appender& appender) {
+    vector_size_t index) {
   using T = typename KindToFlatVector<TypeKind::TIMESTAMP>::WrapperType;
-  appender.Append<::duckdb::timestamp_t>(
+  return ::duckdb::Value::TIMESTAMP(
       veloxTimestampToDuckDB(vector->as<SimpleVector<T>>()->valueAt(index)));
+}
+
+template <>
+::duckdb::Value duckValueAt<TypeKind::ARRAY>(
+    const VectorPtr& vector,
+    int32_t row) {
+  auto arrayVector = vector->as<ArrayVector>();
+  auto& elements = arrayVector->elements();
+  auto offset = arrayVector->offsetAt(row);
+  auto size = arrayVector->sizeAt(row);
+
+  std::vector<::duckdb::Value> array;
+  array.reserve(size);
+  for (auto i = 0; i < size; i++) {
+    auto innerRow = offset + i;
+    if (elements->isNullAt(innerRow)) {
+      array.emplace_back(::duckdb::Value(nullptr));
+    } else {
+      array.emplace_back(VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+          duckValueAt, elements->typeKind(), elements, innerRow));
+    }
+  }
+
+  return ::duckdb::Value::LIST(array);
 }
 
 template <TypeKind kind>
@@ -341,7 +366,10 @@ void DuckDbQueryRunner::createTable(
   con.Query("DROP TABLE IF EXISTS " + name);
 
   auto rowType = data[0]->type()->as<TypeKind::ROW>();
-  con.Query(makeCreateTableSql(name, rowType));
+  auto res = con.Query(makeCreateTableSql(name, rowType));
+  if (!res->success) {
+    VELOX_FAIL(res->error);
+  }
 
   for (auto& vector : data) {
     for (int32_t row = 0; row < vector->size(); row++) {
@@ -351,13 +379,12 @@ void DuckDbQueryRunner::createTable(
         auto columnVector = vector->childAt(column);
         if (columnVector->isNullAt(row)) {
           appender.Append(nullptr);
+        } else if (rowType.childAt(column)->isArray()) {
+          appender.Append(duckValueAt<TypeKind::ARRAY>(columnVector, row));
         } else {
-          VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-              appendNonNullValue,
-              rowType.childAt(column)->kind(),
-              columnVector,
-              row,
-              appender);
+          auto value = VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+              duckValueAt, rowType.childAt(column)->kind(), columnVector, row);
+          appender.Append(value);
         }
       }
       appender.EndRow();

@@ -124,6 +124,9 @@ class PlanBuilder {
 
   std::shared_ptr<const core::FieldAccessTypedExpr> field(int index);
 
+  std::shared_ptr<const core::FieldAccessTypedExpr> field(
+      const std::string& name);
+
   PlanBuilder& partitionedOutput(
       const std::vector<ChannelIndex>& keyIndices,
       int numPartitions,
@@ -147,6 +150,11 @@ class PlanBuilder {
       const std::string& filterText,
       const std::vector<ChannelIndex>& output,
       core::JoinType joinType = core::JoinType::kInner);
+
+  PlanBuilder& unnest(
+      const std::vector<std::string>& replicateColumns,
+      const std::vector<std::string>& unnestColumns,
+      const std::optional<std::string>& ordinalColumn = std::nullopt);
 
   const std::shared_ptr<core::PlanNode>& planNode() const {
     return planNode_;

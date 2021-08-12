@@ -124,6 +124,16 @@ class OperatorTestBase : public testing::Test {
     return vectorMaker_.flatVectorNullable(data);
   }
 
+  template <typename T>
+  ArrayVectorPtr makeArrayVector(
+      vector_size_t size,
+      std::function<vector_size_t(vector_size_t /* row */)> sizeAt,
+      std::function<T(vector_size_t /* row */, vector_size_t /* idx */)>
+          valueAt,
+      std::function<bool(vector_size_t /*row */)> isNullAt = nullptr) {
+    return vectorMaker_.arrayVector<T>(size, sizeAt, valueAt, isNullAt);
+  }
+
   template <typename TKey, typename TValue>
   MapVectorPtr makeMapVector(
       vector_size_t size,
