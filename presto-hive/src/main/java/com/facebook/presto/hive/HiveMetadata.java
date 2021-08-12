@@ -2415,23 +2415,19 @@ public class HiveMetadata
     }
 
     @Override
-    public List<SchemaTableName> getReferencedMaterializedViews(ConnectorSession session, SchemaTableName tableName)
+    public Optional<List<SchemaTableName>> getReferencedMaterializedViews(ConnectorSession session, SchemaTableName tableName)
     {
         requireNonNull(tableName, "tableName is null");
-
         MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource());
         Table table = metastore.getTable(metastoreContext, tableName.getSchemaName(), tableName.getTableName()).orElseThrow(() -> new TableNotFoundException(tableName));
-        if (!table.getTableType().equals(MANAGED_TABLE)) {
-            throw new PrestoException(NOT_SUPPORTED, "Cannot get materialized views for a non-managed table");
-        }
-        if (MetastoreUtil.isPrestoMaterializedView(table)) {
-            throw new PrestoException(NOT_SUPPORTED, "Cannot get materialized views for a materialized view");
+        if (!table.getTableType().equals(MANAGED_TABLE) || MetastoreUtil.isPrestoMaterializedView(table)) {
+            return Optional.empty();
         }
         ImmutableList.Builder<SchemaTableName> materializedViews = ImmutableList.builder();
         for (String viewName : Splitter.on(",").trimResults().omitEmptyStrings().splitToList(table.getParameters().getOrDefault(REFERENCED_MATERIALIZED_VIEWS, ""))) {
             materializedViews.add(SchemaTableName.valueOf(viewName));
         }
-        return materializedViews.build();
+        return Optional.of(materializedViews.build());
     }
 
     @Override

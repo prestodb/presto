@@ -613,9 +613,9 @@ public interface ConnectorMetadata
     /**
      * Gets the referenced materialized views for a give table
      */
-    default List<SchemaTableName> getReferencedMaterializedViews(ConnectorSession session, SchemaTableName tableName)
+    default Optional<List<SchemaTableName>> getReferencedMaterializedViews(ConnectorSession session, SchemaTableName tableName)
     {
-        return emptyList();
+        return Optional.empty();
     }
 
     /**

@@ -270,7 +270,7 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public List<SchemaTableName> getReferencedMaterializedViews(ConnectorSession session, SchemaTableName tableName)
+    public Optional<List<SchemaTableName>> getReferencedMaterializedViews(ConnectorSession session, SchemaTableName tableName)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.getReferencedMaterializedViews(session, tableName);
