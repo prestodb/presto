@@ -38,13 +38,15 @@ struct MinMaxTrait<Timestamp> {
 };
 
 template <typename T, typename ResultType>
-class MaxAggregate : public SimpleNumericAggregate<T, ResultType> {
+class MaxAggregate : public SimpleNumericAggregate<T, T, ResultType> {
+  using BaseAggregate = SimpleNumericAggregate<T, T, ResultType>;
+
  public:
   explicit MaxAggregate(core::AggregationNode::Step step, TypePtr resultType)
-      : SimpleNumericAggregate<T, ResultType>(step, resultType) {}
+      : BaseAggregate(step, resultType) {}
 
   int32_t accumulatorFixedWidthSize() const override {
-    return sizeof(ResultType);
+    return sizeof(T);
   }
 
   void initializeNewGroups(
@@ -52,7 +54,7 @@ class MaxAggregate : public SimpleNumericAggregate<T, ResultType> {
       folly::Range<const vector_size_t*> indices) override {
     exec::Aggregate::setAllNulls(groups, indices);
     for (auto i : indices) {
-      *exec::Aggregate::value<ResultType>(groups[i]) = kInitialValue_;
+      *exec::Aggregate::value<T>(groups[i]) = kInitialValue_;
     }
   }
 
@@ -62,15 +64,15 @@ class MaxAggregate : public SimpleNumericAggregate<T, ResultType> {
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
     if (mayPushdown && std::is_same<T, ResultType>::value) {
-      SimpleNumericAggregate<T, ResultType>::template pushdown<
-          MinMaxHook<T, false>>(groups, rows, args[0]);
+      BaseAggregate::template pushdown<MinMaxHook<T, false>>(
+          groups, rows, args[0]);
       return;
     }
-    SimpleNumericAggregate<T, ResultType>::template updateGroups<true>(
+    BaseAggregate::template updateGroups<true>(
         groups,
         rows,
         args[0],
-        [](ResultType& result, T value) {
+        [](T& result, T value) {
           if (result < value) {
             result = value;
           }
@@ -91,14 +93,12 @@ class MaxAggregate : public SimpleNumericAggregate<T, ResultType> {
       const SelectivityVector& allRows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    SimpleNumericAggregate<T, ResultType>::updateOneGroup(
+    BaseAggregate::updateOneGroup(
         group,
         allRows,
         args[0],
-        [](ResultType& result, T value) {
-          result = result > value ? result : value;
-        },
-        [](ResultType& result, T value, int /* unused */) { result = value; },
+        [](T& result, T value) { result = result > value ? result : value; },
+        [](T& result, T value, int /* unused */) { result = value; },
         mayPushdown,
         kInitialValue_);
   }
@@ -112,17 +112,19 @@ class MaxAggregate : public SimpleNumericAggregate<T, ResultType> {
   }
 
  private:
-  static constexpr ResultType kInitialValue_{MinMaxTrait<ResultType>::min()};
+  static constexpr T kInitialValue_{MinMaxTrait<T>::min()};
 };
 
 template <typename T, typename ResultType>
-class MinAggregate : public SimpleNumericAggregate<T, ResultType> {
+class MinAggregate : public SimpleNumericAggregate<T, T, ResultType> {
+  using BaseAggregate = SimpleNumericAggregate<T, T, ResultType>;
+
  public:
   explicit MinAggregate(core::AggregationNode::Step step, TypePtr resultType)
-      : SimpleNumericAggregate<T, ResultType>(step, resultType) {}
+      : BaseAggregate(step, resultType) {}
 
   int32_t accumulatorFixedWidthSize() const override {
-    return sizeof(ResultType);
+    return sizeof(T);
   }
 
   void initializeNewGroups(
@@ -130,7 +132,7 @@ class MinAggregate : public SimpleNumericAggregate<T, ResultType> {
       folly::Range<const vector_size_t*> indices) override {
     exec::Aggregate::setAllNulls(groups, indices);
     for (auto i : indices) {
-      *exec::Aggregate::value<ResultType>(groups[i]) = kInitialValue_;
+      *exec::Aggregate::value<T>(groups[i]) = kInitialValue_;
     }
   }
 
@@ -140,15 +142,15 @@ class MinAggregate : public SimpleNumericAggregate<T, ResultType> {
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
     if (mayPushdown && std::is_same<T, ResultType>::value) {
-      SimpleNumericAggregate<T, ResultType>::template pushdown<
-          MinMaxHook<T, true>>(groups, rows, args[0]);
+      BaseAggregate::template pushdown<MinMaxHook<T, true>>(
+          groups, rows, args[0]);
       return;
     }
-    SimpleNumericAggregate<T, ResultType>::template updateGroups<true>(
+    BaseAggregate::template updateGroups<true>(
         groups,
         rows,
         args[0],
-        [](ResultType& result, T value) {
+        [](T& result, T value) {
           if (result > value) {
             result = value;
           }
@@ -169,14 +171,12 @@ class MinAggregate : public SimpleNumericAggregate<T, ResultType> {
       const SelectivityVector& allRows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    SimpleNumericAggregate<T, ResultType>::updateOneGroup(
+    BaseAggregate::updateOneGroup(
         group,
         allRows,
         args[0],
-        [](ResultType& result, T value) {
-          result = result < value ? result : value;
-        },
-        [](ResultType& result, T value, int /* unused */) { result = value; },
+        [](T& result, T value) { result = result < value ? result : value; },
+        [](T& result, T value, int /* unused */) { result = value; },
         mayPushdown,
         kInitialValue_);
   }
@@ -190,7 +190,7 @@ class MinAggregate : public SimpleNumericAggregate<T, ResultType> {
   }
 
  private:
-  static constexpr ResultType kInitialValue_{MinMaxTrait<ResultType>::max()};
+  static constexpr T kInitialValue_{MinMaxTrait<T>::max()};
 };
 
 class NonNumericMinMaxAggregateBase : public exec::Aggregate {

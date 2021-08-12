@@ -21,13 +21,15 @@ namespace facebook::velox::aggregate {
 
 namespace {
 
-class BoolAndOrAggregate : public SimpleNumericAggregate<bool, bool> {
+class BoolAndOrAggregate : public SimpleNumericAggregate<bool, bool, bool> {
+ protected:
+  using BaseAggregate = SimpleNumericAggregate<bool, bool, bool>;
+
  public:
   explicit BoolAndOrAggregate(
       core::AggregationNode::Step step,
       bool initialValue)
-      : SimpleNumericAggregate<bool, bool>(step, BOOLEAN()),
-        initialValue_(initialValue) {}
+      : BaseAggregate(step, BOOLEAN()), initialValue_(initialValue) {}
 
   int32_t accumulatorFixedWidthSize() const override {
     return sizeof(bool);
@@ -81,7 +83,7 @@ class BoolAndAggregate final : public BoolAndOrAggregate {
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    SimpleNumericAggregate<bool, bool>::updateGroups<true>(
+    BaseAggregate::updateGroups<true>(
         groups,
         rows,
         args[0],
@@ -102,7 +104,7 @@ class BoolAndAggregate final : public BoolAndOrAggregate {
       const SelectivityVector& allRows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    SimpleNumericAggregate<bool, bool>::updateOneGroup(
+    BaseAggregate::updateOneGroup(
         group,
         allRows,
         args[0],
@@ -133,7 +135,7 @@ class BoolOrAggregate final : public BoolAndOrAggregate {
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    SimpleNumericAggregate<bool, bool>::updateGroups<true>(
+    BaseAggregate::updateGroups<true>(
         groups,
         rows,
         args[0],
@@ -154,7 +156,7 @@ class BoolOrAggregate final : public BoolAndOrAggregate {
       const SelectivityVector& allRows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    SimpleNumericAggregate<bool, bool>::updateOneGroup(
+    BaseAggregate::updateOneGroup(
         group,
         allRows,
         args[0],

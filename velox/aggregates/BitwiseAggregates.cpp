@@ -21,13 +21,13 @@ namespace facebook::velox::aggregate {
 namespace {
 
 template <typename T>
-class BitwiseAndOrAggregate : public SimpleNumericAggregate<T, T> {
+class BitwiseAndOrAggregate : public SimpleNumericAggregate<T, T, T> {
  public:
   BitwiseAndOrAggregate(
       core::AggregationNode::Step step,
       TypePtr resultType,
       T initialValue)
-      : SimpleNumericAggregate<T, T>(step, resultType),
+      : SimpleNumericAggregate<T, T, T>(step, resultType),
         initialValue_(initialValue) {}
 
   int32_t accumulatorFixedWidthSize() const override {
@@ -79,7 +79,7 @@ class BitwiseOrAggregate : public BitwiseAndOrAggregate<T> {
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    SimpleNumericAggregate<T, T>::template updateGroups<true>(
+    SimpleNumericAggregate<T, T, T>::template updateGroups<true>(
         groups,
         rows,
         args[0],
@@ -92,7 +92,7 @@ class BitwiseOrAggregate : public BitwiseAndOrAggregate<T> {
       const SelectivityVector& allRows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    SimpleNumericAggregate<T, T>::updateOneGroup(
+    SimpleNumericAggregate<T, T, T>::updateOneGroup(
         group,
         allRows,
         args[0],
@@ -120,7 +120,7 @@ class BitwiseAndAggregate : public BitwiseAndOrAggregate<T> {
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    SimpleNumericAggregate<T, T>::template updateGroups<true>(
+    SimpleNumericAggregate<T, T, T>::template updateGroups<true>(
         groups,
         rows,
         args[0],
@@ -133,7 +133,7 @@ class BitwiseAndAggregate : public BitwiseAndOrAggregate<T> {
       const SelectivityVector& allRows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    SimpleNumericAggregate<T, T>::template updateOneGroup(
+    SimpleNumericAggregate<T, T, T>::template updateOneGroup(
         group,
         allRows,
         args[0],

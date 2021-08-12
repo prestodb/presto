@@ -26,10 +26,10 @@ namespace {
 // Arbitrary aggregate returns any arbitrary non-NULL value.
 // We always keep the first (non-NULL) element seen.
 template <typename T>
-class Arbitrary : public SimpleNumericAggregate<T, T> {
+class Arbitrary : public SimpleNumericAggregate<T, T, T> {
  public:
   explicit Arbitrary(core::AggregationNode::Step step, TypePtr resultType)
-      : SimpleNumericAggregate<T, T>(step, resultType) {}
+      : SimpleNumericAggregate<T, T, T>(step, resultType) {}
 
   int32_t accumulatorFixedWidthSize() const override {
     return sizeof(T);

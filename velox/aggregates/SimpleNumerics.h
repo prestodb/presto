@@ -21,7 +21,7 @@
 
 namespace facebook::velox::aggregate {
 
-template <typename T, typename ResultType>
+template <typename TInput, typename TAccumulator, typename TResult>
 class SimpleNumericAggregate : public exec::Aggregate {
  protected:
   explicit SimpleNumericAggregate(
@@ -35,14 +35,14 @@ class SimpleNumericAggregate : public exec::Aggregate {
   void extractValues(char** groups, int32_t numGroups, VectorPtr* result)
       override {
     VELOX_CHECK_EQ((*result)->encoding(), VectorEncoding::Simple::FLAT);
-    auto vector = (*result)->as<FlatVector<ResultType>>();
+    auto vector = (*result)->as<FlatVector<TResult>>();
     VELOX_CHECK(
         vector,
         "Unexpected type of the result vector: {}",
         (*result)->type()->toString());
-    VELOX_CHECK_EQ(vector->elementSize(), sizeof(ResultType));
+    VELOX_CHECK_EQ(vector->elementSize(), sizeof(TResult));
     vector->resize(numGroups);
-    ResultType* rawValues = vector->mutableRawValues();
+    TResult* rawValues = vector->mutableRawValues();
     uint64_t* rawNulls = getRawNulls(vector);
     for (int32_t i = 0; i < numGroups; ++i) {
       char* group = groups[i];
@@ -50,7 +50,7 @@ class SimpleNumericAggregate : public exec::Aggregate {
         vector->setNull(i, true);
       } else {
         clearNull(rawNulls, i);
-        rawValues[i] = *value<ResultType>(group);
+        rawValues[i] = *value<TAccumulator>(group);
       }
     }
   }
@@ -72,7 +72,7 @@ class SimpleNumericAggregate : public exec::Aggregate {
     auto encoding = decoded.base()->encoding();
     auto indices = decoded.indices();
     if (encoding == VectorEncoding::Simple::LAZY) {
-      SimpleCallableHook<T, ResultType, UpdateSingleValue> hook(
+      SimpleCallableHook<TInput, TAccumulator, UpdateSingleValue> hook(
           exec::Aggregate::offset_,
           exec::Aggregate::nullByte_,
           exec::Aggregate::nullMask_,
@@ -86,7 +86,7 @@ class SimpleNumericAggregate : public exec::Aggregate {
 
     if (decoded.isConstantMapping()) {
       if (!decoded.isNullAt(0)) {
-        auto value = decoded.valueAt<T>(0);
+        auto value = decoded.valueAt<TInput>(0);
         rows.applyToSelected([&](vector_size_t i) {
           updateNonNullValue<tableHasNulls>(
               groups[i], value, updateSingleValue);
@@ -98,10 +98,10 @@ class SimpleNumericAggregate : public exec::Aggregate {
           return;
         }
         updateNonNullValue<tableHasNulls>(
-            groups[i], decoded.valueAt<T>(i), updateSingleValue);
+            groups[i], decoded.valueAt<TInput>(i), updateSingleValue);
       });
-    } else if (decoded.isIdentityMapping() && !std::is_same_v<T, bool>) {
-      auto data = decoded.data<T>();
+    } else if (decoded.isIdentityMapping() && !std::is_same_v<TInput, bool>) {
+      auto data = decoded.data<TInput>();
       rows.applyToSelected([&](vector_size_t i) {
         updateNonNullValue<tableHasNulls>(
             groups[i], data[i], updateSingleValue);
@@ -109,7 +109,7 @@ class SimpleNumericAggregate : public exec::Aggregate {
     } else {
       rows.applyToSelected([&](vector_size_t i) {
         updateNonNullValue<tableHasNulls>(
-            groups[i], decoded.valueAt<T>(i), updateSingleValue);
+            groups[i], decoded.valueAt<TInput>(i), updateSingleValue);
       });
     }
   }
@@ -122,24 +122,24 @@ class SimpleNumericAggregate : public exec::Aggregate {
       UpdateSingle updateSingleValue,
       UpdateDuplicate updateDuplicateValues,
       bool /*mayPushdown*/,
-      ResultType initialValue) {
+      TAccumulator initialValue) {
     DecodedVector decoded(*arg, allRows);
     if (decoded.isConstantMapping()) {
       if (!decoded.isNullAt(0)) {
         updateDuplicateValues(
-            initialValue, decoded.valueAt<T>(0), allRows.end());
+            initialValue, decoded.valueAt<TInput>(0), allRows.end());
         updateNonNullValue<true>(group, initialValue, updateSingleValue);
       }
     } else if (decoded.mayHaveNulls()) {
       for (vector_size_t i = 0; i < allRows.end(); i++) {
         if (!decoded.isNullAt(i)) {
           updateNonNullValue<true>(
-              group, decoded.valueAt<T>(i), updateSingleValue);
+              group, decoded.valueAt<TInput>(i), updateSingleValue);
         }
       }
     } else {
       for (vector_size_t i = 0; i < allRows.end(); i++) {
-        updateSingleValue(initialValue, decoded.valueAt<T>(i));
+        updateSingleValue(initialValue, decoded.valueAt<TInput>(i));
       }
       updateNonNullValue<true>(group, initialValue, updateSingleValue);
     }
@@ -162,11 +162,12 @@ class SimpleNumericAggregate : public exec::Aggregate {
 
  private:
   template <bool tableHasNulls, typename Update>
-  inline void updateNonNullValue(char* group, T value, Update updateValue) {
+  inline void
+  updateNonNullValue(char* group, TInput value, Update updateValue) {
     if constexpr (tableHasNulls) {
       exec::Aggregate::clearNull(group);
     }
-    updateValue(*exec::Aggregate::value<ResultType>(group), value);
+    updateValue(*exec::Aggregate::value<TAccumulator>(group), value);
   }
 };
 

@@ -21,10 +21,12 @@ namespace facebook::velox::aggregate {
 namespace {
 
 template <typename T, typename ResultType>
-class SumAggregate : public SimpleNumericAggregate<T, ResultType> {
+class SumAggregate : public SimpleNumericAggregate<T, ResultType, ResultType> {
+  using BaseAggregate = SimpleNumericAggregate<T, ResultType, ResultType>;
+
  public:
   explicit SumAggregate(core::AggregationNode::Step step, TypePtr resultType)
-      : SimpleNumericAggregate<T, ResultType>(step, resultType) {}
+      : BaseAggregate(step, resultType) {}
 
   int32_t accumulatorFixedWidthSize() const override {
     return sizeof(ResultType);
@@ -47,19 +49,19 @@ class SumAggregate : public SimpleNumericAggregate<T, ResultType> {
     auto& arg = args[0];
 
     if (mayPushdown) {
-      SimpleNumericAggregate<T, ResultType>::template pushdown<
-          SumHook<T, ResultType>>(groups, rows, arg);
+      BaseAggregate::template pushdown<SumHook<T, ResultType>>(
+          groups, rows, arg);
       return;
     }
     if (exec::Aggregate::numNulls_) {
-      SimpleNumericAggregate<T, ResultType>::template updateGroups<true>(
+      BaseAggregate::template updateGroups<true>(
           groups,
           rows,
           arg,
           [](ResultType& result, T value) { result += value; },
           false);
     } else {
-      SimpleNumericAggregate<T, ResultType>::template updateGroups<false>(
+      BaseAggregate::template updateGroups<false>(
           groups,
           rows,
           arg,
@@ -81,7 +83,7 @@ class SumAggregate : public SimpleNumericAggregate<T, ResultType> {
       const SelectivityVector& allRows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    SimpleNumericAggregate<T, ResultType>::updateOneGroup(
+    BaseAggregate::updateOneGroup(
         group,
         allRows,
         args[0],
@@ -100,10 +102,10 @@ class SumAggregate : public SimpleNumericAggregate<T, ResultType> {
   }
 };
 
-class CountAggregate : public SimpleNumericAggregate<bool, int64_t> {
+class CountAggregate : public SimpleNumericAggregate<bool, int64_t, int64_t> {
  public:
   explicit CountAggregate(core::AggregationNode::Step step)
-      : SimpleNumericAggregate<bool, int64_t>(step, BIGINT()) {}
+      : SimpleNumericAggregate<bool, int64_t, int64_t>(step, BIGINT()) {}
 
   int32_t accumulatorFixedWidthSize() const override {
     return sizeof(int64_t);
