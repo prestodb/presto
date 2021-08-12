@@ -44,6 +44,7 @@ class RowVector : public BaseVector {
         children_(std::move(children)) {
     // Some columns may not be projected out
     VELOX_CHECK(children_.size() <= type->size());
+    const auto* rowType = dynamic_cast<const RowType*>(type.get());
 
     // Check child vector types.
     for (auto i = 0; i < children_.size(); i++) {
@@ -51,8 +52,10 @@ class RowVector : public BaseVector {
       if (child) {
         VELOX_CHECK(
             child->type()->kindEquals(type->childAt(i)),
-            "Unexpected child type: {}. Expected: {}",
+            "Got type {} for field `{}` at position {}, but expected {}.",
             child->type()->toString(),
+            rowType->nameOf(i),
+            i,
             type->childAt(i)->toString());
       }
     }
