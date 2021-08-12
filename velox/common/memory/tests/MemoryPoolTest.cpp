@@ -136,7 +136,6 @@ TEST(MemoryPoolTest, RemoveSelf) {
 
 TEST(MemoryPoolTest, CapSubtree) {
   MemoryManager<MemoryAllocator> manager{};
-  manager.pauseAggregation();
   auto& root = manager.getRoot();
 
   // left subtree.
@@ -179,7 +178,6 @@ TEST(MemoryPoolTest, CapSubtree) {
 
 TEST(MemoryPoolTest, UncapMemory) {
   MemoryManager<MemoryAllocator> manager{};
-  manager.pauseAggregation();
   auto& root = manager.getRoot();
 
   auto& node_a = root.addChild("node_a");
@@ -224,20 +222,8 @@ TEST(MemoryPoolTest, UncapMemory) {
   EXPECT_TRUE(node_b.isMemoryCapped());
   EXPECT_TRUE(node_bb.isMemoryCapped());
 
-  // Don't uncap if the local cap is exceeded.
-  void* p = node_aba.allocate(32);
-  node_a.capMemoryAllocation();
-  ASSERT_TRUE(node_a.isMemoryCapped());
-  ASSERT_TRUE(node_ab.isMemoryCapped());
-  ASSERT_TRUE(node_aba.isMemoryCapped());
-
-  manager.aggregateStats(&root);
-  node_a.uncapMemoryAllocation();
-  EXPECT_FALSE(node_a.isMemoryCapped());
-  EXPECT_TRUE(node_ab.isMemoryCapped());
-  EXPECT_TRUE(node_aba.isMemoryCapped());
-
-  node_aba.free(p, 32);
+  // Don't uncap if the local cap is exceeded when intermediate
+  // caps are supported again.
 }
 
 // Mainly tests how it updates the memory usage in MemoryPool.
@@ -331,9 +317,7 @@ TEST(MemoryPoolTest, ReallocTestLower) {
 }
 
 TEST(MemoryPoolTest, CapAllocation) {
-  // An "eager" memory manager. True for single-threaded usage.
-  MemoryManager<MemoryAllocator> manager{8 * GB, 0};
-  manager.resumeAggregation();
+  MemoryManager<MemoryAllocator> manager{8 * GB};
   auto& root = manager.getRoot();
 
   auto& pool = root.addChild("static_quota", 64L * MB);
@@ -361,34 +345,6 @@ TEST(MemoryPoolTest, CapAllocation) {
     EXPECT_FALSE(pool.isMemoryCapped());
 
     pool.free(oneChunk, 32L * MB);
-  }
-  // Preemptively blocking memory allocation due to parent cap.
-  {
-    auto& child = pool.addChild("unbounded");
-    void* oneChunk = child.allocate(32L * MB);
-
-    ASSERT_FALSE(pool.isMemoryCapped());
-    EXPECT_THROW(pool.allocate(64L * MB), velox::VeloxRuntimeError);
-    EXPECT_FALSE(pool.isMemoryCapped());
-
-    child.free(oneChunk, 32L * MB);
-    child.removeSelf();
-  }
-  // Reactively blocking memory allocation due to parent cap. Preemptive capping
-  // would fail within a refresh interval from the latest refresh.
-  {
-    manager.pauseAggregation();
-    auto& child = pool.addChild("unbounded");
-    void* fourChunks = child.allocate(128L * MB);
-
-    manager.resumeAggregation();
-    manager.refresh(true);
-    ASSERT_TRUE(pool.isMemoryCapped());
-    EXPECT_THROW(pool.allocate(2L * MB), velox::VeloxRuntimeError);
-    EXPECT_TRUE(pool.isMemoryCapped());
-
-    child.free(fourChunks, 64L * MB);
-    child.removeSelf();
   }
 }
 

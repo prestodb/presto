@@ -59,12 +59,6 @@ class BenchmarkHelper {
     threadPool.join();
   }
 
-  void aggregateStats(size_t iterations) {
-    for (size_t i = 0; i != iterations; ++i) {
-      manager_.aggregateStats(&manager_.getRoot());
-    }
-  }
-
  private:
   // TODO: move semantic is better
   MemoryManager<MemoryAllocator, kNoAlignment>& manager_;
@@ -192,19 +186,6 @@ void addNLeaves(
 }
 } // namespace
 
-BENCHMARK(StatsAggregationStressTest, iters) {
-  folly::BenchmarkSuspender suspender;
-  MemoryManager<MemoryAllocator, kNoAlignment> manager{};
-  for (size_t i = 0; i < 10; ++i) {
-    auto& child = manager.getRoot().addChild(
-        "query_fragment_" + folly::to<std::string>(i));
-    addNLeaves(child, 20);
-  }
-  BenchmarkHelper helper{manager};
-  suspender.dismiss();
-  helper.aggregateStats(iters);
-}
-
 // No periodic aggregation, should have similar perf
 // with single leaf runs.
 BENCHMARK(DeeperTree, iters) {
@@ -215,32 +196,6 @@ BENCHMARK(DeeperTree, iters) {
         "query_fragment_" + folly::to<std::string>(i));
     addNLeaves(child, 20);
   }
-  BenchmarkHelper helper{manager};
-  suspender.dismiss();
-  helper.runForEachPool([iters](MemoryPool& pool) {
-    void* p = pool.allocate(kMemoryFootprintIncrement);
-    for (size_t i = 1; i < iters; ++i) {
-      pool.reallocate(
-          p,
-          i * kMemoryFootprintIncrement,
-          (i + 1) * kMemoryFootprintIncrement);
-    }
-    pool.free(p, iters * kMemoryFootprintIncrement);
-  });
-}
-
-// Invokes periodic aggregation.
-BENCHMARK(DeeperTreeWithCap, iters) {
-  folly::BenchmarkSuspender suspender;
-  MemoryManager<MemoryAllocator, kNoAlignment> manager{
-      10 * 20 * iters * kMemoryFootprintIncrement};
-  for (size_t i = 0; i < 10; ++i) {
-    auto& child = manager.getRoot().addChild(
-        "query_fragment_" + folly::to<std::string>(i),
-        20 * iters * kMemoryFootprintIncrement);
-    addNLeaves(child, 20, iters * kMemoryFootprintIncrement);
-  }
-  manager.resumeAggregation();
   BenchmarkHelper helper{manager};
   suspender.dismiss();
   helper.runForEachPool([iters](MemoryPool& pool) {

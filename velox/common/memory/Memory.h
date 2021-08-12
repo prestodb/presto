@@ -245,7 +245,6 @@ class ScopedMemoryPool final : public MemoryPool {
 
 // A standard allocator interface for the actual allocator of the memory
 // node tree.
-// TODO: implement with jemalloc
 class MemoryAllocator {
  public:
   // TODO: move to factory pattern with type trait.
@@ -475,15 +474,6 @@ class IMemoryManager {
   virtual std::unique_ptr<ScopedMemoryPool> getScopedPool(
       int64_t cap = kMaxMemory) = 0;
 
-  virtual void aggregateStats(MemoryPool* subTree) const = 0;
-
-  // Refresh is done lazily, triggered by allocations. But then we can prevent
-  // too frequent refreshes in MemoryManager through lastRefreshTime_. The
-  // lazy criteria can be tightened s.t. all allocations bigger than x has to
-  // force refresh, to make total margin of error bounded. Refresh will have to
-  // be synchronized one way or another, though.
-  virtual void refresh(bool force = false) = 0;
-
   // Returns the current total memory usage under the MemoryManager.
   virtual int64_t getTotalBytes() const = 0;
   // Reserves size for the allocation. Return a true if the total usage remains
@@ -492,10 +482,6 @@ class IMemoryManager {
   virtual bool reserve(int64_t size) = 0;
   // Subtracts from current total and regain memory quota.
   virtual void release(int64_t size) = 0;
-
-  // Disables aggregation on demand, can be resumed with resumeAggregation()
-  virtual void pauseAggregation() = 0;
-  virtual void resumeAggregation() = 0;
 };
 
 // For now, users wanting multiple different allocators would need to
@@ -524,16 +510,11 @@ class MemoryManager final : public IMemoryManager {
     return manager;
   }
 
-  explicit MemoryManager(
-      int64_t memoryQuota = kMaxMemory,
-      int32_t refreshInterval = FLAGS_memory_usage_aggregation_interval_millis *
-          1000);
+  explicit MemoryManager(int64_t memoryQuota = kMaxMemory);
 
   explicit MemoryManager(
       std::shared_ptr<Allocator> allocator,
-      int64_t memoryQuota = kMaxMemory,
-      int32_t refreshInterval = FLAGS_memory_usage_aggregation_interval_millis *
-          1000);
+      int64_t memoryQuota = kMaxMemory);
   ~MemoryManager();
 
   int64_t getMemoryQuota() const final;
@@ -542,21 +523,13 @@ class MemoryManager final : public IMemoryManager {
   std::unique_ptr<ScopedMemoryPool> getScopedPool(
       int64_t cap = kMaxMemory) final;
 
-  void aggregateStats(MemoryPool* subTree) const final;
-
-  void refresh(bool force = false) final;
-
   int64_t getTotalBytes() const final;
   bool reserve(int64_t size) final;
   void release(int64_t size) final;
 
-  void pauseAggregation() final;
-  void resumeAggregation() final;
-
   Allocator& getAllocator();
 
  private:
-  FRIEND_TEST(MemoryManagerTest, AggregateStats);
   FRIEND_TEST(MemoryPoolImplTest, CapSubtree);
   FRIEND_TEST(MemoryPoolImplTest, CapAllocation);
   FRIEND_TEST(MemoryPoolImplTest, UncapMemory);
@@ -567,8 +540,6 @@ class MemoryManager final : public IMemoryManager {
   std::shared_ptr<Allocator> allocator_;
   const int64_t memoryQuota_;
   std::shared_ptr<MemoryPool> root_;
-  const int32_t refreshInterval_;
-  std::atomic<int64_t> lastRefreshTime_;
   mutable std::mutex mutex_;
   std::atomic_long totalBytes_{0};
 };
@@ -777,11 +748,6 @@ void MemoryPoolImpl<Allocator, ALIGNMENT>::reserve(int64_t size) {
   }
   localMemoryUsage_.incrementCurrentBytes(size);
 
-  // Reserve rejects allocations that would go over the cap premptively, but
-  // doesn't trigger capping logic on the entire subtree. The latter only
-  // happens when cap has already been exceeded by a burst of allocations
-  // within the same refresh cycle.
-  memoryManager_.refresh();
   bool success = memoryManager_.reserve(size);
   int64_t aggregateBytes = getAggregateBytes();
   if (UNLIKELY(!success || isMemoryCapped() || aggregateBytes > cap_)) {
@@ -801,9 +767,6 @@ void MemoryPoolImpl<Allocator, ALIGNMENT>::release(int64_t size) {
   if (memoryUsageTracker_) {
     memoryUsageTracker_->update(-size);
   }
-
-  memoryManager_.refresh();
-  // Unlike reserve, wait for MemoryManager to uncap nodes.
 }
 
 namespace detail {
@@ -815,37 +778,26 @@ static inline int64_t getTimeInUsec() {
 } // namespace detail
 
 template <typename Allocator, uint16_t ALIGNMENT>
-MemoryManager<Allocator, ALIGNMENT>::MemoryManager(
-    int64_t memoryQuota,
-    int32_t refreshInterval)
-    : MemoryManager(
-          Allocator::createDefaultAllocator(),
-          memoryQuota,
-          refreshInterval) {}
+MemoryManager<Allocator, ALIGNMENT>::MemoryManager(int64_t memoryQuota)
+    : MemoryManager(Allocator::createDefaultAllocator(), memoryQuota) {}
 
 template <typename Allocator, uint16_t ALIGNMENT>
 MemoryManager<Allocator, ALIGNMENT>::MemoryManager(
     std::shared_ptr<Allocator> allocator,
-    int64_t memoryQuota,
-    int32_t refreshInterval)
+    int64_t memoryQuota)
     : allocator_{std::move(allocator)},
       memoryQuota_{memoryQuota},
       root_{std::make_shared<MemoryPoolImpl<Allocator, ALIGNMENT>>(
           *this,
           kRootNodeName.str(),
           std::weak_ptr<MemoryPool>(),
-          memoryQuota)},
-      refreshInterval_{refreshInterval},
-      lastRefreshTime_{detail::getTimeInUsec()} {
-  VELOX_USER_CHECK_GE(refreshInterval_, 0);
+          memoryQuota)} {
   VELOX_USER_CHECK_GE(memoryQuota_, 0);
-  pauseAggregation();
 }
 
 template <typename Allocator, uint16_t ALIGNMENT>
 MemoryManager<Allocator, ALIGNMENT>::~MemoryManager() {
-  refresh(true);
-  auto currentBytes = root_->getCurrentBytes();
+  auto currentBytes = getTotalBytes();
   if (currentBytes) {
     LOG(INFO) << "Leaked total memory of " << currentBytes << " bytes.";
   }
@@ -870,76 +822,6 @@ MemoryManager<Allocator, ALIGNMENT>::getScopedPool(int64_t cap) {
           folly::to<std::string>(folly::Random::rand64())),
       cap);
   return std::make_unique<ScopedMemoryPool>(pool.getWeakPtr());
-}
-
-template <typename Allocator, uint16_t ALIGNMENT>
-void MemoryManager<Allocator, ALIGNMENT>::aggregateStats(
-    MemoryPool* subtree) const {
-  int64_t aggregateBytes{0};
-  subtree->visitChildren([&aggregateBytes, this](MemoryPool* child) {
-    aggregateStats(child);
-    aggregateBytes += child->getCurrentBytes();
-  });
-  subtree->setSubtreeMemoryUsage(aggregateBytes);
-  // Might be able to avoid some synchronization here.
-  if (subtree->getCurrentBytes() > subtree->getCap()) {
-    subtree->capMemoryAllocation();
-  } else {
-    // Always try to uncap, but the node would make its own decision based
-    // on its own cap and the parent's state.
-    subtree->uncapMemoryAllocation();
-  }
-}
-
-template <typename Allocator, uint16_t ALIGNMENT>
-void MemoryManager<Allocator, ALIGNMENT>::refresh(bool force) {
-  int64_t aggregationTime = detail::getTimeInUsec();
-  if (!force &&
-      aggregationTime - lastRefreshTime_.load(std::memory_order_consume) <
-          refreshInterval_) {
-    return;
-  }
-
-  // A more readable way would be for all threads to wait on a condition
-  // variable that signals the completion of the refresh. Another way to
-  // organize the code is to serialize through an SPMC queue. Clearing the queue
-  // right after a refresh, where destruction of the queue element signals the
-  // respective writer to continue. However, likely less performant.
-  {
-    std::lock_guard<std::mutex> guard{mutex_};
-    // In case multiple threads wanted to access this section, we might have
-    // updated lastRefreshTime, and should check again to avoid expensive work.
-
-    // Typically this means only one of the threads attempting to acquire this
-    // mutex will trigger aggregation.
-    if (!force &&
-        detail::getTimeInUsec() -
-                lastRefreshTime_.load(std::memory_order_relaxed) <
-            refreshInterval_) {
-      return;
-    }
-    // Missed local updates due to traversal order will be picked up in the next
-    // refresh. However, due to having 2 separate memory updates in a capped
-    // reserve operation, the aggregate can look inflated and up to 2 refresh
-    // cycles stale, but the actual allocation can only be over by 1 refresh
-    // cycle.
-    aggregateStats(root_.get());
-    // Still storing the time entering the method to be safe. Perhaps we can
-    // miss more updates otherwise.
-    lastRefreshTime_.store(aggregationTime, std::memory_order_release);
-  }
-}
-
-template <typename Allocator, uint16_t ALIGNMENT>
-void MemoryManager<Allocator, ALIGNMENT>::pauseAggregation() {
-  // Make time delta negative so it will be smaller than any refresh interval.
-  lastRefreshTime_.store(
-      std::numeric_limits<int64_t>::max(), std::memory_order_relaxed);
-}
-
-template <typename Allocator, uint16_t ALIGNMENT>
-void MemoryManager<Allocator, ALIGNMENT>::resumeAggregation() {
-  lastRefreshTime_.store(detail::getTimeInUsec(), std::memory_order_relaxed);
 }
 
 template <typename Allocator, uint16_t ALIGNMENT>

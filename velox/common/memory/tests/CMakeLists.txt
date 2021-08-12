@@ -16,7 +16,6 @@ add_executable(
   MemoryManagerTest.cpp
   MemoryPoolTest.cpp
   MemoryUsageTest.cpp
-  MultithreadingTest.cpp
   MemoryUsageTrackerTest.cpp
   ArenaTest.cpp
   MappedMemoryTest.cpp)
