@@ -165,7 +165,7 @@ void readValues<bool>(
 
 Timestamp readTimestamp(ByteStream* source) {
   int64_t millis = source->read<int64_t>();
-  return Timestamp(millis / 1000, (millis % 1000) * 1'000'000);
+  return Timestamp::fromMillis(millis);
 }
 
 template <>
@@ -721,18 +721,12 @@ inline void VectorStream::append(folly::Range<const StringView*> values) {
   }
 }
 
-int64_t timestampToPrestoMillis(Timestamp timestamp) {
-  return timestamp.getSeconds() * 1000 + timestamp.getNanos() / 1000000;
-}
-
 template <>
 void VectorStream::append(folly::Range<const Timestamp*> values) {
   for (auto& value : values) {
-    appendOne(timestampToPrestoMillis(value));
+    appendOne(value.toMillis());
   }
 }
-
-int64_t timestampToPrestoMillis(Timestamp timestamp);
 
 template <>
 void VectorStream::append(folly::Range<const bool*> values) {

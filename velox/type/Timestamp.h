@@ -41,6 +41,14 @@ struct Timestamp {
     return nanos_;
   }
 
+  int64_t toMillis() const {
+    return seconds_ * 1'000 + nanos_ / 1'000'000;
+  }
+
+  static Timestamp fromMillis(int64_t millis) {
+    return Timestamp(millis / 1'000, (millis % 1'000) * 1'000'000);
+  }
+
   // Converts the unix epoch represented by this object (assumes it's GMT)
   // to the given timezone.
   void toTimezone(const date::time_zone& zone);
