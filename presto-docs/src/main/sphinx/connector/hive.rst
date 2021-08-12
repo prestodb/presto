@@ -143,7 +143,7 @@ Property Name                                      Description                  
 
 ``hive.immutable-partitions``                      Can new data be inserted into existing partitions?           ``false``
 
-``hive.create-empty-bucket-files``                 Should empty files be created for buckets that have no data? ``false``
+``hive.create-empty-bucket-files``                 Should empty files be created for buckets that have no data? ``true``
 
 ``hive.max-partitions-per-writers``                Maximum number of partitions per writer.                     100
 
