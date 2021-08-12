@@ -1109,8 +1109,10 @@ public class MetadataManager
         if (catalog.isPresent()) {
             ConnectorMetadata metadata = catalog.get().getMetadata();
             ConnectorSession connectorSession = session.toConnectorSession(catalog.get().getConnectorId());
-            List<SchemaTableName> materializedViews = metadata.getReferencedMaterializedViews(connectorSession, toSchemaTableName(tableName));
-            return materializedViews.stream().map(convertFromSchemaTableName(tableName.getCatalogName())).collect(toImmutableList());
+            Optional<List<SchemaTableName>> materializedViews = metadata.getReferencedMaterializedViews(connectorSession, toSchemaTableName(tableName));
+            if (materializedViews.isPresent()) {
+                return materializedViews.get().stream().map(convertFromSchemaTableName(tableName.getCatalogName())).collect(toImmutableList());
+            }
         }
         return ImmutableList.of();
     }
