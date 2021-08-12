@@ -35,6 +35,8 @@ public class AlluxioCacheConfig
     private int timeoutThreads = 64;
     private int evictionRetries = 10;
     private EvictionPolicy evictionPolicy = EvictionPolicy.LRU;
+    private boolean metricsBreakdownEnabled;
+    private boolean shadowMetricsBreakdownEnabled;
 
     public boolean isMetricsCollectionEnabled()
     {
@@ -189,6 +191,32 @@ public class AlluxioCacheConfig
     public AlluxioCacheConfig setCacheQuotaEnabled(boolean cacheQuotaEnabled)
     {
         this.cacheQuotaEnabled = cacheQuotaEnabled;
+        return this;
+    }
+
+    public boolean isMetricsBreakdownEnabled()
+    {
+        return metricsBreakdownEnabled;
+    }
+
+    @Config("cache.alluxio.metrics-breakdown-enabled")
+    @ConfigDescription("Whether to enable the metrics breakdown for local cache")
+    public AlluxioCacheConfig setMetricsBreakdownEnabled(boolean metricsBreakdownEnabled)
+    {
+        this.metricsBreakdownEnabled = metricsBreakdownEnabled;
+        return this;
+    }
+
+    public boolean isShadowMetricsBreakdownEnabled()
+    {
+        return shadowMetricsBreakdownEnabled;
+    }
+
+    @Config("cache.alluxio.shadow-metrics-breakdown-enabled")
+    @ConfigDescription("Whether to enable the metrics breakdown for shadow cache")
+    public AlluxioCacheConfig setShadowMetricsBreakdownEnabled(boolean shadowMetricsBreakdownEnabled)
+    {
+        this.shadowMetricsBreakdownEnabled = shadowMetricsBreakdownEnabled;
         return this;
     }
 }

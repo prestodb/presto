@@ -44,7 +44,9 @@ public class TestAlluxioCacheConfig
                 .setTimeoutDuration(new Duration(60, SECONDS))
                 .setTimeoutEnabled(true)
                 .setTimeoutThreads(64)
-                .setCacheQuotaEnabled(false));
+                .setCacheQuotaEnabled(false)
+                .setMetricsBreakdownEnabled(false)
+                .setShadowMetricsBreakdownEnabled(false));
     }
 
     @Test
@@ -63,6 +65,8 @@ public class TestAlluxioCacheConfig
                 .put("cache.alluxio.timeout-enabled", "false")
                 .put("cache.alluxio.timeout-threads", "512")
                 .put("cache.alluxio.quota-enabled", "true")
+                .put("cache.alluxio.metrics-breakdown-enabled", "true")
+                .put("cache.alluxio.shadow-metrics-breakdown-enabled", "true")
                 .build();
 
         AlluxioCacheConfig expected = new AlluxioCacheConfig()
@@ -77,7 +81,9 @@ public class TestAlluxioCacheConfig
                 .setTimeoutDuration(new Duration(120, SECONDS))
                 .setTimeoutEnabled(false)
                 .setTimeoutThreads(512)
-                .setCacheQuotaEnabled(true);
+                .setCacheQuotaEnabled(true)
+                .setMetricsBreakdownEnabled(true)
+                .setShadowMetricsBreakdownEnabled(true);
 
         assertFullMapping(properties, expected);
     }

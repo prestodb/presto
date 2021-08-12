@@ -61,6 +61,8 @@ public class AlluxioCachingConfigurationProvider
             else {
                 configuration.set("alluxio.user.client.cache.timeout.duration", "-1");
             }
+            configuration.set("alluxio.user.client.cache.metrics.breakdown.enabled", String.valueOf(alluxioCacheConfig.isMetricsBreakdownEnabled()));
+            configuration.set("alluxio.user.client.cache.shadow.metrics.breakdown.enabled", String.valueOf(alluxioCacheConfig.isShadowMetricsBreakdownEnabled()));
         }
     }
 }
