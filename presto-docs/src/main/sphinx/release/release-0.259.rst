@@ -15,10 +15,6 @@ JDBC Driver Changes
 ___________________
 * Add ``getConnectionProperties`` method to ``PrestoConnection`` to retrieve connection properties after a connection is established. (:pr:`16329`)
 
-JDBC Connector Changes
-______________________
-* Add support for partial pushdown of JDBC filters.
-
 Resource Groups Changes
 _______________________
 * Add support for specifying query limits (cpu time, total memory and execution time) at the resource group level. See :doc:`/admin/resource-groups`.
