@@ -49,8 +49,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.expressions.translator.TranslatedExpression.untranslated;
-import static com.facebook.presto.plugin.jdbc.optimization.function.JdbcTranslationUtil.mergeSqlBodies;
-import static com.facebook.presto.plugin.jdbc.optimization.function.JdbcTranslationUtil.mergeVariableBindings;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -133,8 +131,14 @@ public class JdbcFilterToSqlTranslator
             return untranslated(specialForm, translatedExpressions);
         }
 
-        List<String> sqlBodies = mergeSqlBodies(jdbcExpressions);
-        List<ConstantExpression> variableBindings = mergeVariableBindings(jdbcExpressions);
+        List<String> sqlBodies = jdbcExpressions.stream()
+                .map(JdbcExpression::getExpression)
+                .map(sql -> '(' + sql + ')')
+                .collect(toImmutableList());
+        List<ConstantExpression> variableBindings = jdbcExpressions.stream()
+                .map(JdbcExpression::getBoundConstantValues)
+                .flatMap(List::stream)
+                .collect(toImmutableList());
 
         switch (specialForm.getForm()) {
             case AND:
