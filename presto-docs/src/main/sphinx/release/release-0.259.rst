@@ -2,6 +2,9 @@
 Release 0.259
 =============
 
+.. warning::
+This release includes a regression on jdbc connector.
+
 **Details**
 ===========
 
