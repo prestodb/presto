@@ -38,7 +38,7 @@ import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.exceptions.CommitFailedException;
-import org.apache.iceberg.hive.HiveTypeConverter;
+import org.apache.iceberg.hive.HiveSchemaUtil;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.io.OutputFile;
@@ -394,7 +394,7 @@ public class HiveTableOperations
         return columns.stream()
                 .map(column -> new Column(
                         column.name(),
-                        HiveType.valueOf(HiveTypeConverter.convert(column.type())),
+                        HiveType.toHiveType(HiveSchemaUtil.convert(column.type())),
                         Optional.empty()))
                 .collect(toImmutableList());
     }
