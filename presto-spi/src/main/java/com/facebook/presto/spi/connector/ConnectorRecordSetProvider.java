@@ -16,11 +16,26 @@ package com.facebook.presto.spi.connector;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.RecordSet;
 
 import java.util.List;
 
 public interface ConnectorRecordSetProvider
 {
-    RecordSet getRecordSet(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns);
+    RecordSet getRecordSet(
+            ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session,
+            ConnectorSplit split,
+            List<? extends ColumnHandle> columns);
+
+    default RecordSet getRecordSet(
+            ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session,
+            ConnectorSplit split,
+            ConnectorTableLayoutHandle layout,
+            List<? extends ColumnHandle> columns)
+    {
+        return getRecordSet(transactionHandle, session, split, columns);
+    }
 }
