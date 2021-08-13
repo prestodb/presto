@@ -19,8 +19,6 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.UnscaledDecimal128Arithmetic;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import io.airlift.slice.Slice;
-import io.airlift.slice.SliceInput;
-import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
@@ -28,6 +26,8 @@ import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 public class LongDecimalWithOverflowStateSerializer
         implements AccumulatorStateSerializer<LongDecimalWithOverflowState>
 {
+    private static final int SERIALIZED_SIZE = Long.BYTES + UnscaledDecimal128Arithmetic.UNSCALED_DECIMAL_128_SLICE_LENGTH;
+
     @Override
     public Type getSerializedType()
     {
@@ -37,17 +37,13 @@ public class LongDecimalWithOverflowStateSerializer
     @Override
     public void serialize(LongDecimalWithOverflowState state, BlockBuilder out)
     {
-        if (state.getLongDecimal() == null) {
+        Slice decimal = state.getLongDecimal();
+        if (decimal == null) {
             out.appendNull();
         }
         else {
-            Slice slice = Slices.allocate(Long.BYTES + UnscaledDecimal128Arithmetic.UNSCALED_DECIMAL_128_SLICE_LENGTH);
-            SliceOutput output = slice.getOutput();
-
-            output.writeLong(state.getOverflow());
-            output.writeBytes(state.getLongDecimal());
-
-            VARBINARY.writeSlice(out, slice);
+            long overflow = state.getOverflow();
+            VARBINARY.writeSlice(out, Slices.wrappedLongArray(overflow, decimal.getLong(0), decimal.getLong(Long.BYTES)));
         }
     }
 
@@ -55,10 +51,16 @@ public class LongDecimalWithOverflowStateSerializer
     public void deserialize(Block block, int index, LongDecimalWithOverflowState state)
     {
         if (!block.isNull(index)) {
-            SliceInput slice = VARBINARY.getSlice(block, index).getInput();
+            Slice slice = VARBINARY.getSlice(block, index);
+            if (slice.length() != SERIALIZED_SIZE) {
+                throw new IllegalStateException("Unexpected serialized state size: " + slice.length());
+            }
 
-            state.setOverflow(slice.readLong());
-            state.setLongDecimal(Slices.copyOf(slice.readSlice(slice.available())));
+            long overflow = slice.getLong(0);
+            Slice decimal = Slices.wrappedLongArray(slice.getLong(Long.BYTES), slice.getLong(Long.BYTES * 2));
+
+            state.setOverflow(overflow);
+            state.setLongDecimal(decimal);
         }
     }
 }
