@@ -81,13 +81,13 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT a as mv_a, b, c as mv_c FROM %s", BASE_TABLE_1);
         String baseQuerySql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT mv_a, b, mv_c FROM %s", VIEW);
+        String expectedRewrittenSql = format("SELECT mv_a AS a, b, mv_c AS c FROM %s", VIEW);
 
         assertOptimizedQuery(originalViewSql, baseQuerySql, expectedRewrittenSql);
 
         originalViewSql = format("SELECT a as mv_a, b, c as mv_c, d FROM %s", BASE_TABLE_1);
         baseQuerySql = format("SELECT a as result_a, b as result_b, c, d FROM %s", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT mv_a as result_a, b as result_b, mv_c, d FROM %s", VIEW);
+        expectedRewrittenSql = format("SELECT mv_a AS result_a, b as result_b, mv_c AS c, d FROM %s", VIEW);
 
         assertOptimizedQuery(originalViewSql, baseQuerySql, expectedRewrittenSql);
     }
@@ -106,7 +106,7 @@ public class TestMaterializedViewQueryOptimizer
     {
         String originalViewSql = format("SELECT a as mv_a, b, c as mv_c FROM %s", BASE_TABLE_1);
         String baseQuerySql = format("SELECT SUM(a * b), MAX(a + b), c FROM %s GROUP BY c", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT SUM(mv_a * b), MAX(mv_a + b), mv_c FROM %s GROUP BY mv_c", VIEW);
+        String expectedRewrittenSql = format("SELECT SUM(mv_a * b), MAX(mv_a + b), mv_c as c FROM %s GROUP BY mv_c", VIEW);
 
         assertOptimizedQuery(originalViewSql, baseQuerySql, expectedRewrittenSql);
     }
@@ -122,7 +122,7 @@ public class TestMaterializedViewQueryOptimizer
 
         originalViewSql = format("SELECT SUM(a * b + c) as mv_sum, MAX(a * b + c) as mv_max, d as mv_d, e FROM %s GROUP BY d, e", BASE_TABLE_1);
         baseQuerySql = format("SELECT SUM(a * b + c) as sum_of_abc, MAX(a * b + c) as max_of_abc, d, e FROM %s GROUP BY d, e", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT SUM(mv_sum) as sum_of_abc, MAX(mv_max) as max_of_abc, mv_d, e FROM %s GROUP BY mv_d, e", VIEW);
+        expectedRewrittenSql = format("SELECT SUM(mv_sum) as sum_of_abc, MAX(mv_max) as max_of_abc, mv_d as d, e FROM %s GROUP BY mv_d, e", VIEW);
 
         assertOptimizedQuery(originalViewSql, baseQuerySql, expectedRewrittenSql);
     }
@@ -154,7 +154,7 @@ public class TestMaterializedViewQueryOptimizer
 
         originalViewSql = format("SELECT a as mv_a, b, c, d as mv_d FROM %s", BASE_TABLE_1);
         baseQuerySql = format("SELECT a, b FROM %s WHERE a < 10 AND c > 10 or d = '2000-01-01'", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT mv_a, b FROM %s WHERE mv_a < 10 AND c > 10 or mv_d = '2000-01-01'", VIEW);
+        expectedRewrittenSql = format("SELECT mv_a as a, b FROM %s WHERE mv_a < 10 AND c > 10 or mv_d = '2000-01-01'", VIEW);
 
         assertOptimizedQuery(originalViewSql, baseQuerySql, expectedRewrittenSql);
     }
@@ -170,13 +170,13 @@ public class TestMaterializedViewQueryOptimizer
 
         originalViewSql = format("SELECT a as mv_a, b, c as mv_c FROM %s", BASE_TABLE_1);
         baseQuerySql = format("SELECT a, b, c FROM %s ORDER BY c ASC, b DESC, a", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT mv_a, b, mv_c FROM %s ORDER BY mv_c ASC, b DESC, mv_a", VIEW);
+        expectedRewrittenSql = format("SELECT mv_a as a, b, mv_c as c FROM %s ORDER BY mv_c ASC, b DESC, mv_a", VIEW);
 
         assertOptimizedQuery(originalViewSql, baseQuerySql, expectedRewrittenSql);
 
         originalViewSql = format("SELECT a as mv_a, b, c as mv_c FROM %s", BASE_TABLE_1);
         baseQuerySql = format("SELECT a, b, c FROM %s ORDER BY c ASC, b DESC, a", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT mv_a, b, mv_c FROM %s ORDER BY mv_c ASC, b DESC, mv_a", VIEW);
+        expectedRewrittenSql = format("SELECT mv_a as a, b, mv_c as c FROM %s ORDER BY mv_c ASC, b DESC, mv_a", VIEW);
 
         assertOptimizedQuery(originalViewSql, baseQuerySql, expectedRewrittenSql);
 

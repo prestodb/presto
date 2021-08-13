@@ -237,7 +237,11 @@ public class MaterializedViewQueryOptimizer
     @Override
     protected Node visitSingleColumn(SingleColumn node, Void context)
     {
-        return new SingleColumn((Expression) process(node.getExpression(), context), node.getAlias());
+        SingleColumn processedColumn = new SingleColumn((Expression) process(node.getExpression(), context), node.getAlias());
+        if (!processedColumn.equals(node) && !node.getAlias().isPresent() && node.getExpression() instanceof Identifier) {
+            processedColumn = addAliasToSingleColumn(processedColumn, (Identifier) node.getExpression());
+        }
+        return processedColumn;
     }
 
     @Override
@@ -377,5 +381,10 @@ public class MaterializedViewQueryOptimizer
                 ImmutableMap.of(),
                 metadata.getFunctionAndTypeManager(),
                 session);
+    }
+
+    private SingleColumn addAliasToSingleColumn(SingleColumn node, Identifier alias)
+    {
+        return new SingleColumn(node.getExpression(), Optional.of(alias));
     }
 }
