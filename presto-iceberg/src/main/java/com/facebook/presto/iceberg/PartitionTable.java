@@ -165,8 +165,9 @@ public class PartitionTable
 
             for (FileScanTask fileScanTask : fileScanTasks) {
                 DataFile dataFile = fileScanTask.file();
+                Types.StructType structType = fileScanTask.spec().partitionType();
                 StructLike partitionStruct = dataFile.partition();
-                StructLikeWrapper partitionWrapper = StructLikeWrapper.wrap(partitionStruct);
+                StructLikeWrapper partitionWrapper = StructLikeWrapper.forType(structType).set(partitionStruct);
 
                 if (!partitions.containsKey(partitionWrapper)) {
                     Partition partition = new Partition(
