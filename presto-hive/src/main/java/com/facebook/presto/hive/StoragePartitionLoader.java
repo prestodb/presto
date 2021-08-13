@@ -23,7 +23,10 @@ import com.facebook.presto.hive.util.InternalHiveSplitFactory;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
-import com.google.common.base.Suppliers;
+import com.google.common.base.Function;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
@@ -60,7 +63,6 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.function.IntPredicate;
-import java.util.function.Supplier;
 
 import static com.facebook.presto.hive.HiveBucketing.getVirtualBucketNumber;
 import static com.facebook.presto.hive.HiveColumnHandle.pathColumnHandle;
@@ -110,7 +112,7 @@ public class StoragePartitionLoader
     private final ConnectorSession session;
     private final Deque<Iterator<InternalHiveSplit>> fileIterators;
     private final boolean schedulerUsesHostAddresses;
-    private final Supplier<HoodieROTablePathFilter> hoodiePathFilterSupplier;
+    private final LoadingCache<Configuration, HoodieROTablePathFilter> hoodiePathFilterLoadingCache;
     private final boolean partialAggregationsPushedDown;
 
     public StoragePartitionLoader(
@@ -137,7 +139,9 @@ public class StoragePartitionLoader
         this.hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName(), table.getStorage().getLocation(), false);
         this.fileIterators = requireNonNull(fileIterators, "fileIterators is null");
         this.schedulerUsesHostAddresses = schedulerUsesHostAddresses;
-        this.hoodiePathFilterSupplier = Suppliers.memoize(HoodieROTablePathFilter::new)::get;
+        this.hoodiePathFilterLoadingCache = CacheBuilder.newBuilder()
+                .maximumSize(1000)
+                .build(CacheLoader.from((Function<Configuration, HoodieROTablePathFilter>) HoodieROTablePathFilter::new));
         this.partialAggregationsPushedDown = partialAggregationsPushedDown;
     }
 
@@ -257,7 +261,7 @@ public class StoragePartitionLoader
 
             return addSplitsToSource(splits, splitFactory, hiveSplitSource, stopped);
         }
-        PathFilter pathFilter = isHudiParquetInputFormat(inputFormat) ? hoodiePathFilterSupplier.get() : path1 -> true;
+        PathFilter pathFilter = isHudiParquetInputFormat(inputFormat) ? hoodiePathFilterLoadingCache.getUnchecked(configuration) : path1 -> true;
         // S3 Select pushdown works at the granularity of individual S3 objects,
         // Partial aggregation pushdown works at the granularity of individual files
         // therefore we must not split files when either is enabled.
