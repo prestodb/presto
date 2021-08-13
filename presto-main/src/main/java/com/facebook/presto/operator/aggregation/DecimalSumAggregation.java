@@ -127,52 +127,50 @@ public class DecimalSumAggregation
 
     public static void inputShortDecimal(Type type, LongDecimalWithOverflowState state, Block block, int position)
     {
-        accumulateValueInState(unscaledDecimal(type.getLong(block, position)), state);
+        Slice currentSum = state.getLongDecimal();
+        if (currentSum == null) {
+            currentSum = unscaledDecimal();
+            state.setLongDecimal(currentSum);
+        }
+        state.addOverflow(UnscaledDecimal128Arithmetic.addWithOverflow(currentSum, unscaledDecimal(type.getLong(block, position)), currentSum));
     }
 
     public static void inputLongDecimal(Type type, LongDecimalWithOverflowState state, Block block, int position)
     {
-        accumulateValueInState(type.getSlice(block, position), state);
-    }
-
-    private static void accumulateValueInState(Slice unscaledDecimal, LongDecimalWithOverflowState state)
-    {
-        initializeIfNeeded(state);
-        Slice sum = state.getLongDecimal();
-        long overflow = UnscaledDecimal128Arithmetic.addWithOverflow(sum, unscaledDecimal, sum);
-        state.setOverflow(state.getOverflow() + overflow);
-    }
-
-    private static void initializeIfNeeded(LongDecimalWithOverflowState state)
-    {
-        if (state.getLongDecimal() == null) {
-            state.setLongDecimal(UnscaledDecimal128Arithmetic.unscaledDecimal());
+        Slice currentSum = state.getLongDecimal();
+        if (currentSum == null) {
+            currentSum = unscaledDecimal();
+            state.setLongDecimal(currentSum);
         }
+        state.addOverflow(UnscaledDecimal128Arithmetic.addWithOverflow(currentSum, type.getSlice(block, position), currentSum));
     }
 
     public static void combine(LongDecimalWithOverflowState state, LongDecimalWithOverflowState otherState)
     {
-        state.setOverflow(state.getOverflow() + otherState.getOverflow());
-
-        if (state.getLongDecimal() == null) {
-            state.setLongDecimal(otherState.getLongDecimal());
+        long overflowToAdd = otherState.getOverflow();
+        Slice currentState = state.getLongDecimal();
+        Slice otherDecimal = otherState.getLongDecimal();
+        if (currentState == null) {
+            state.setLongDecimal(otherDecimal);
         }
         else {
-            accumulateValueInState(otherState.getLongDecimal(), state);
+            overflowToAdd += UnscaledDecimal128Arithmetic.addWithOverflow(currentState, otherDecimal, currentState);
         }
+        state.addOverflow(overflowToAdd);
     }
 
     public static void outputLongDecimal(DecimalType type, LongDecimalWithOverflowState state, BlockBuilder out)
     {
-        if (state.getLongDecimal() == null) {
+        Slice decimal = state.getLongDecimal();
+        if (decimal == null) {
             out.appendNull();
         }
         else {
             if (state.getOverflow() != 0) {
                 throwOverflowException();
             }
-            throwIfOverflows(state.getLongDecimal());
-            type.writeSlice(out, state.getLongDecimal());
+            throwIfOverflows(decimal);
+            type.writeSlice(out, decimal);
         }
     }
 }

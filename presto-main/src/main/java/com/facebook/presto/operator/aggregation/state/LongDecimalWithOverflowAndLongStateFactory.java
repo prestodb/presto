@@ -75,9 +75,21 @@ public class LongDecimalWithOverflowAndLongStateFactory
         }
 
         @Override
+        public void addLong(long value)
+        {
+            longs.add(getGroupId(), value);
+        }
+
+        @Override
+        public void incrementLong()
+        {
+            longs.increment(getGroupId());
+        }
+
+        @Override
         public long getEstimatedSize()
         {
-            return INSTANCE_SIZE + unscaledDecimals.sizeOf() + overflows.sizeOf() + numberOfElements * SingleLongDecimalWithOverflowAndLongState.SIZE;
+            return INSTANCE_SIZE + unscaledDecimals.sizeOf() + (numberOfElements * SingleLongDecimalWithOverflowAndLongState.SIZE) + (overflows == null ? 0 : overflows.sizeOf());
         }
     }
 
@@ -99,6 +111,18 @@ public class LongDecimalWithOverflowAndLongStateFactory
         public void setLong(long longValue)
         {
             this.longValue = longValue;
+        }
+
+        @Override
+        public void addLong(long value)
+        {
+            this.longValue += value;
+        }
+
+        @Override
+        public void incrementLong()
+        {
+            longValue++;
         }
 
         @Override
