@@ -44,6 +44,7 @@ import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.transforms.Transform;
 
 import java.util.ArrayList;
@@ -79,7 +80,7 @@ public class IcebergPageSink
     private final int maxOpenWriters = 100;  // TODO: make this configurable
     private final Schema outputSchema;
     private final PartitionSpec partitionSpec;
-    private final String outputPath;
+    private final LocationProvider locationProvider;
     private final IcebergFileWriterFactory fileWriterFactory;
     private final HdfsEnvironment hdfsEnvironment;
     private final HdfsContext hdfsContext;
@@ -98,7 +99,7 @@ public class IcebergPageSink
     public IcebergPageSink(
             Schema outputSchema,
             PartitionSpec partitionSpec,
-            String outputPath,
+            LocationProvider locationProvider,
             IcebergFileWriterFactory fileWriterFactory,
             PageIndexerFactory pageIndexerFactory,
             HdfsEnvironment hdfsEnvironment,
@@ -111,11 +112,11 @@ public class IcebergPageSink
         requireNonNull(inputColumns, "inputColumns is null");
         this.outputSchema = requireNonNull(outputSchema, "outputSchema is null");
         this.partitionSpec = requireNonNull(partitionSpec, "partitionSpec is null");
-        this.outputPath = requireNonNull(outputPath, "outputPath is null");
+        this.locationProvider = requireNonNull(locationProvider, "locationProvider is null");
         this.fileWriterFactory = requireNonNull(fileWriterFactory, "fileWriterFactory is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.hdfsContext = requireNonNull(hdfsContext, "hdfsContext is null");
-        this.jobConf = toJobConf(hdfsEnvironment.getConfiguration(hdfsContext, new Path(outputPath)));
+        this.jobConf = toJobConf(hdfsEnvironment.getConfiguration(hdfsContext, new Path(locationProvider.newDataLocation("data-file"))));
         this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
         this.session = requireNonNull(session, "session is null");
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
@@ -279,9 +280,7 @@ public class IcebergPageSink
             }
 
             Optional<PartitionData> partitionData = getPartitionData(pagePartitioner.getColumns(), page, position);
-            Optional<String> partitionPath = partitionData.map(partitionSpec::partitionToPath);
-
-            WriteContext writer = createWriter(partitionPath, partitionData);
+            WriteContext writer = createWriter(partitionData);
 
             writers.set(writerIndex, writer);
         }
@@ -291,14 +290,11 @@ public class IcebergPageSink
         return writerIndexes;
     }
 
-    private WriteContext createWriter(Optional<String> partitionPath, Optional<PartitionData> partitionData)
+    private WriteContext createWriter(Optional<PartitionData> partitionData)
     {
-        Path outputPath = new Path(this.outputPath);
-        if (partitionPath.isPresent()) {
-            outputPath = new Path(outputPath, partitionPath.get());
-        }
-        outputPath = new Path(outputPath, randomUUID().toString());
-        outputPath = new Path(fileFormat.addExtension(outputPath.toString()));
+        String fileName = fileFormat.addExtension(randomUUID().toString());
+        Path outputPath = partitionData.map(partition -> new Path(locationProvider.newDataLocation(partitionSpec, partition, fileName)))
+                .orElse(new Path(locationProvider.newDataLocation(fileName)));
 
         IcebergFileWriter writer = fileWriterFactory.createFileWriter(
                 outputPath,
