@@ -15,8 +15,6 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.common.block.BlockBuilder;
-import com.facebook.presto.common.function.AccumulatorState;
-import com.facebook.presto.common.function.AccumulatorStateSerializer;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.BoundVariables;
@@ -26,6 +24,8 @@ import com.facebook.presto.operator.aggregation.AggregationMetadata.AccumulatorS
 import com.facebook.presto.operator.aggregation.state.DoubleState;
 import com.facebook.presto.operator.aggregation.state.LongState;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
+import com.facebook.presto.spi.function.AccumulatorState;
+import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;

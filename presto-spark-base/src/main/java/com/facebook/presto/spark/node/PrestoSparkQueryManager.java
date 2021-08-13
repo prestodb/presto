@@ -14,7 +14,6 @@
 package com.facebook.presto.spark.node;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.common.QueryId;
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
@@ -23,6 +22,7 @@ import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.server.BasicQueryInfo;
+import com.facebook.presto.spi.QueryId;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;

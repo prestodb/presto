@@ -20,8 +20,6 @@ import com.facebook.airlift.json.JsonModule;
 import com.facebook.airlift.json.smile.SmileModule;
 import com.facebook.presto.cache.CachingModule;
 import com.facebook.presto.common.block.BlockEncodingSerde;
-import com.facebook.presto.common.function.FunctionMetadataManager;
-import com.facebook.presto.common.function.StandardFunctionResolution;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.authentication.HiveAuthenticationModule;
 import com.facebook.presto.hive.gcs.HiveGcsModule;
@@ -49,6 +47,8 @@ import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorPag
 import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorSplitManager;
 import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeNodePartitioningProvider;
+import com.facebook.presto.spi.function.FunctionMetadataManager;
+import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.relation.RowExpressionService;

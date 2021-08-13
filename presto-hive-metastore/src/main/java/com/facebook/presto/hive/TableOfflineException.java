@@ -14,7 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.common.PrestoException;
-import com.facebook.presto.common.SchemaTableName;
+import com.facebook.presto.spi.SchemaTableName;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TABLE_OFFLINE;
 import static com.google.common.base.Strings.isNullOrEmpty;

@@ -14,8 +14,8 @@
 package com.facebook.presto.spi.security;
 
 import com.facebook.presto.common.CatalogSchemaName;
-import com.facebook.presto.common.CatalogSchemaTableName;
-import com.facebook.presto.common.SchemaTableName;
+import com.facebook.presto.spi.CatalogSchemaTableName;
+import com.facebook.presto.spi.SchemaTableName;
 
 import java.security.Principal;
 import java.util.Collections;

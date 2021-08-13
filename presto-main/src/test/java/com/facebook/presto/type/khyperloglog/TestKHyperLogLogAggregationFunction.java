@@ -14,12 +14,12 @@
 package com.facebook.presto.type.khyperloglog;
 
 import com.facebook.presto.common.block.Block;
-import com.facebook.presto.common.function.AggregationFunction;
 import com.facebook.presto.common.type.SqlVarbinary;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
+import com.facebook.presto.spi.function.AggregationFunction;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;

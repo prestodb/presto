@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.relational;
 
-import com.facebook.presto.common.function.FunctionHandle;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
 import com.google.common.collect.ImmutableList;

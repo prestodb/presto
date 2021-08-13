@@ -15,12 +15,12 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
-import com.facebook.presto.common.function.ScalarFunction;
-import com.facebook.presto.common.function.SqlType;
 import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlType;
 
-import static com.facebook.presto.common.function.SqlFunctionVisibility.HIDDEN;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
+import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
 
 public final class ArrayFunctions
 {

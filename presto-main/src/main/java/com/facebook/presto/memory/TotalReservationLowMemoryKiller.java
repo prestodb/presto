@@ -14,7 +14,7 @@
 
 package com.facebook.presto.memory;
 
-import com.facebook.presto.common.QueryId;
+import com.facebook.presto.spi.QueryId;
 
 import java.util.List;
 import java.util.Optional;

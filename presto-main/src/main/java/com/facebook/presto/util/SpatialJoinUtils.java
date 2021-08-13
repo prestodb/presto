@@ -14,11 +14,11 @@
 package com.facebook.presto.util;
 
 import com.facebook.presto.common.QualifiedObjectName;
-import com.facebook.presto.common.function.FunctionHandle;
-import com.facebook.presto.common.function.FunctionMetadata;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;

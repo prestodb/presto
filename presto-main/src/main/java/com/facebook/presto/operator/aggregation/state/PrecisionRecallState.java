@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
-import com.facebook.presto.common.function.AccumulatorState;
-import com.facebook.presto.common.function.AccumulatorStateMetadata;
 import com.facebook.presto.operator.aggregation.fixedhistogram.FixedDoubleHistogram;
+import com.facebook.presto.spi.function.AccumulatorState;
+import com.facebook.presto.spi.function.AccumulatorStateMetadata;
 
 @AccumulatorStateMetadata(
         stateSerializerClass = PrecisionRecallStateSerializer.class,

@@ -18,11 +18,11 @@ import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.operator.aggregation.state.StatisticalDigestState;
 
 import static com.facebook.presto.common.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.common.function.SqlFunctionVisibility.EXPERIMENTAL;
 import static com.facebook.presto.common.type.StandardTypes.TDIGEST;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.operator.aggregation.StatisticalDigestFactory.createStatisticalTDigest;
 import static com.facebook.presto.operator.aggregation.state.StatisticalDigestStateFactory.createTDigestFactory;
+import static com.facebook.presto.spi.function.SqlFunctionVisibility.EXPERIMENTAL;
 import static com.facebook.presto.tdigest.TDigest.createTDigest;
 import static com.facebook.presto.util.Failures.checkCondition;
 

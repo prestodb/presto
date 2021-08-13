@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.common.function.SqlFunctionId;
-import com.facebook.presto.common.function.SqlInvokedFunction;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.transaction.TransactionId;

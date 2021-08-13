@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spi.prerequisites;
 
-import com.facebook.presto.common.QueryId;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.WarningCollector;
 
 import java.util.concurrent.CompletableFuture;

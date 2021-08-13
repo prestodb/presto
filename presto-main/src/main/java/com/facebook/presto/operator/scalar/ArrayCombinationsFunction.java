@@ -18,13 +18,13 @@ import com.facebook.presto.common.block.ArrayBlock;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.DictionaryBlock;
 import com.facebook.presto.common.block.PageBuilderStatus;
-import com.facebook.presto.common.function.Description;
-import com.facebook.presto.common.function.ScalarFunction;
-import com.facebook.presto.common.function.SqlType;
-import com.facebook.presto.common.function.TypeParameter;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.function.TypeParameter;
 import com.google.common.annotations.VisibleForTesting;
 
 import java.util.Optional;

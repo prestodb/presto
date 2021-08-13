@@ -14,8 +14,6 @@
 package com.facebook.presto.plugin.memory;
 
 import com.facebook.presto.common.PrestoException;
-import com.facebook.presto.common.SchemaTableName;
-import com.facebook.presto.common.SchemaTablePrefix;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -26,6 +24,8 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.SchemaNotFoundException;
+import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.testing.TestingNodeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;

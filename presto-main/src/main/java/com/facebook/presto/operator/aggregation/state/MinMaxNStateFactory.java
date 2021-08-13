@@ -14,8 +14,8 @@
 package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.presto.array.ObjectBigArray;
-import com.facebook.presto.common.function.AccumulatorStateFactory;
 import com.facebook.presto.operator.aggregation.TypedHeap;
+import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import org.openjdk.jol.info.ClassLayout;
 
 public class MinMaxNStateFactory

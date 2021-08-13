@@ -14,8 +14,6 @@
 package com.facebook.presto.cassandra;
 
 import com.datastax.driver.core.utils.Bytes;
-import com.facebook.presto.common.SchemaTableName;
-import com.facebook.presto.common.SchemaTablePrefix;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -29,6 +27,8 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaNotFoundException;
+import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorMetadata;

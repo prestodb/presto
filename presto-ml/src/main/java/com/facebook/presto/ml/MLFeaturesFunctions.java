@@ -16,13 +16,13 @@ package com.facebook.presto.ml;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
-import com.facebook.presto.common.function.ScalarFunction;
-import com.facebook.presto.common.function.SqlType;
-import com.facebook.presto.common.function.TypeParameter;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.function.TypeParameter;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;

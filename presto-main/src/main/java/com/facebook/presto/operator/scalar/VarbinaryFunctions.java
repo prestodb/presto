@@ -14,11 +14,11 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.common.PrestoException;
-import com.facebook.presto.common.function.Description;
-import com.facebook.presto.common.function.LiteralParameters;
-import com.facebook.presto.common.function.ScalarFunction;
-import com.facebook.presto.common.function.SqlType;
 import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.LiteralParameters;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlType;
 import com.google.common.hash.Hashing;
 import com.google.common.io.BaseEncoding;
 import com.google.common.primitives.Ints;

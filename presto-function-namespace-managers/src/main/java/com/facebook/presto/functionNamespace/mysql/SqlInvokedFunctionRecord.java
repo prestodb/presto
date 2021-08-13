@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.functionNamespace.mysql;
 
-import com.facebook.presto.common.function.SqlInvokedFunction;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 
 import static java.util.Objects.requireNonNull;
 

@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner.planPrinter;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.common.function.FunctionHandle;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.TupleDomain;
@@ -34,6 +33,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.DistinctLimitNode;

@@ -14,8 +14,6 @@
 package com.facebook.presto.druid;
 
 import com.facebook.presto.common.PrestoException;
-import com.facebook.presto.common.function.FunctionMetadataManager;
-import com.facebook.presto.common.function.StandardFunctionResolution;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.spi.ColumnHandle;
@@ -24,6 +22,8 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.VariableAllocator;
+import com.facebook.presto.spi.function.FunctionMetadataManager;
+import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;

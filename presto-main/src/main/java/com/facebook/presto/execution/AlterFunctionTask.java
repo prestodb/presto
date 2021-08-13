@@ -14,11 +14,11 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.common.QualifiedObjectName;
-import com.facebook.presto.common.function.AlterRoutineCharacteristics;
-import com.facebook.presto.common.function.RoutineCharacteristics.NullCallClause;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
+import com.facebook.presto.spi.function.RoutineCharacteristics.NullCallClause;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.AlterFunction;

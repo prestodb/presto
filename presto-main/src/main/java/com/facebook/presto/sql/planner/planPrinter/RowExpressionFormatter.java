@@ -14,13 +14,13 @@
 package com.facebook.presto.sql.planner.planPrinter;
 
 import com.facebook.presto.common.block.Block;
-import com.facebook.presto.common.function.FunctionMetadata;
-import com.facebook.presto.common.function.FunctionMetadataManager;
-import com.facebook.presto.common.function.StandardFunctionResolution;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.function.FunctionMetadata;
+import com.facebook.presto.spi.function.FunctionMetadataManager;
+import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.InputReferenceExpression;

@@ -14,11 +14,11 @@
 package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.common.block.IntArrayBlock;
-import com.facebook.presto.common.function.FunctionHandle;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;

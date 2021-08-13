@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.block.Block;
-import com.facebook.presto.common.function.FunctionHandle;
 import com.facebook.presto.common.predicate.DiscreteValues;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.Marker;
@@ -30,6 +29,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.InterpretedFunctionInvoker;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;

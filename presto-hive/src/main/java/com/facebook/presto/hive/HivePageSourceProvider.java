@@ -14,7 +14,6 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.common.PrestoException;
-import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.Subfield.NestedField;
 import com.facebook.presto.common.Subfield.PathElement;
@@ -33,6 +32,7 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordPageSource;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;

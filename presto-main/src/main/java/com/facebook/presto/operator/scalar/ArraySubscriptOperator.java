@@ -27,10 +27,10 @@ import java.lang.invoke.MethodHandle;
 
 import static com.facebook.presto.common.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.common.function.OperatorType.SUBSCRIPT;
-import static com.facebook.presto.common.function.Signature.typeVariable;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.toIntExact;

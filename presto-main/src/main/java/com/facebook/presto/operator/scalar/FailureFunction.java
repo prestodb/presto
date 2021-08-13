@@ -17,13 +17,13 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.StandardErrorCode;
-import com.facebook.presto.common.function.Description;
-import com.facebook.presto.common.function.ScalarFunction;
-import com.facebook.presto.common.function.SqlType;
 import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlType;
 import io.airlift.slice.Slice;
 
-import static com.facebook.presto.common.function.SqlFunctionVisibility.HIDDEN;
+import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
 
 public final class FailureFunction
 {

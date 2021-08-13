@@ -14,13 +14,13 @@
 package com.facebook.presto.sql.planner.sanity;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.common.function.FunctionHandle;
-import com.facebook.presto.common.function.FunctionMetadata;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.PlanNode;

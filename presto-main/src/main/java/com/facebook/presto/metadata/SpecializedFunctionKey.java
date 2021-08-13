@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.common.function.SqlFunction;
+import com.facebook.presto.spi.function.SqlFunction;
 
 import java.util.Objects;
 

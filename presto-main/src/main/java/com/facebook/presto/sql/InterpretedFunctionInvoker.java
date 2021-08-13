@@ -16,12 +16,12 @@ package com.facebook.presto.sql;
 import com.facebook.presto.common.InvalidFunctionArgumentException;
 import com.facebook.presto.common.NotSupportedException;
 import com.facebook.presto.common.PrestoException;
-import com.facebook.presto.common.function.FunctionHandle;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.TimeZoneNotSupportedException;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.google.common.base.Defaults;
 
 import java.lang.invoke.MethodHandle;

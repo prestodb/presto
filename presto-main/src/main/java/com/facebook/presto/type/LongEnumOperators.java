@@ -14,16 +14,16 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.common.PrestoException;
-import com.facebook.presto.common.function.Description;
 import com.facebook.presto.common.function.IsNull;
-import com.facebook.presto.common.function.ScalarFunction;
 import com.facebook.presto.common.function.ScalarOperator;
 import com.facebook.presto.common.function.SqlNullable;
-import com.facebook.presto.common.function.SqlType;
-import com.facebook.presto.common.function.TypeParameter;
 import com.facebook.presto.common.type.AbstractLongType;
 import com.facebook.presto.common.type.BigintEnumType;
 import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.function.TypeParameter;
 import io.airlift.slice.Slice;
 import io.airlift.slice.XxHash64;
 

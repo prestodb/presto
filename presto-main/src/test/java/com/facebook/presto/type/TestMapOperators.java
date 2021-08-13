@@ -14,9 +14,6 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.common.block.BlockBuilder;
-import com.facebook.presto.common.function.LiteralParameters;
-import com.facebook.presto.common.function.ScalarFunction;
-import com.facebook.presto.common.function.SqlType;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
@@ -25,6 +22,9 @@ import com.facebook.presto.common.type.SqlVarbinary;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
+import com.facebook.presto.spi.function.LiteralParameters;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;

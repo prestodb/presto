@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.functionNamespace;
 
-import com.facebook.presto.common.function.FunctionNamespaceTransactionHandle;
+import com.facebook.presto.spi.function.FunctionNamespaceTransactionHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 

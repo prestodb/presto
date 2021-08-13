@@ -14,7 +14,6 @@
 package com.facebook.presto.resourcemanager;
 
 import com.facebook.presto.client.NodeVersion;
-import com.facebook.presto.common.QueryId;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupRuntimeInfo;
 import com.facebook.presto.memory.MemoryInfo;
@@ -25,6 +24,7 @@ import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.BasicQueryStats;
 import com.facebook.presto.server.NodeStatus;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolInfo;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.memory.MemoryPoolInfo;

@@ -14,12 +14,12 @@
 package com.facebook.presto.testing;
 
 import com.facebook.presto.common.PrestoException;
-import com.facebook.presto.common.function.SqlFunctionId;
 import com.facebook.presto.common.function.SqlFunctionProperties;
-import com.facebook.presto.common.function.SqlInvokedFunction;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;

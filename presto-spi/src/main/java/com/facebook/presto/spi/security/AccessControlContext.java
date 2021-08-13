@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spi.security;
 
-import com.facebook.presto.common.QueryId;
+import com.facebook.presto.spi.QueryId;
 
 import java.util.Optional;
 

@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.common.function.Description;
-import com.facebook.presto.common.function.LiteralParameters;
-import com.facebook.presto.common.function.ScalarFunction;
-import com.facebook.presto.common.function.SqlType;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.SqlVarbinary;
 import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.LiteralParameters;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.type.LiteralParameter;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;

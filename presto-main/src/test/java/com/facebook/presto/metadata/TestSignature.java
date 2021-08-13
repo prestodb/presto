@@ -17,18 +17,18 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonCodecFactory;
 import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.common.QualifiedObjectName;
-import com.facebook.presto.common.function.Signature;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.type.TypeDeserializer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.common.function.FunctionKind.SCALAR;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
+import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static org.testng.Assert.assertEquals;
 
 public class TestSignature

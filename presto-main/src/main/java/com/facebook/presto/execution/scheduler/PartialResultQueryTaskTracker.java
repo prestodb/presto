@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.execution.scheduler;
 
-import com.facebook.presto.common.PrestoWarning;
 import com.facebook.presto.execution.PartialResultQueryManager;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.WarningCollector;
 
 import java.util.HashMap;

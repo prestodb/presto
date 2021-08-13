@@ -15,10 +15,10 @@ package com.facebook.presto.operator.scalar.annotations;
 
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.function.OperatorType;
-import com.facebook.presto.common.function.ScalarFunction;
 import com.facebook.presto.common.function.ScalarOperator;
-import com.facebook.presto.common.function.SqlFunctionVisibility;
 import com.facebook.presto.operator.scalar.ScalarHeader;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.reflect.AnnotatedElement;
@@ -26,9 +26,9 @@ import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.common.function.SqlFunctionVisibility.HIDDEN;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.operator.annotations.FunctionsParserHelper.parseDescription;
+import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.LOWER_UNDERSCORE;
 import static com.google.common.base.Preconditions.checkArgument;

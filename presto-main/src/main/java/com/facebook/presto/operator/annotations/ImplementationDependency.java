@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.operator.annotations;
 
-import com.facebook.presto.common.function.Convention;
-import com.facebook.presto.common.function.FunctionDependency;
 import com.facebook.presto.common.function.InvocationConvention;
-import com.facebook.presto.common.function.OperatorDependency;
-import com.facebook.presto.common.function.TypeParameter;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.spi.function.Convention;
+import com.facebook.presto.spi.function.FunctionDependency;
+import com.facebook.presto.spi.function.OperatorDependency;
+import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.type.LiteralParameter;
 
 import java.lang.annotation.Annotation;

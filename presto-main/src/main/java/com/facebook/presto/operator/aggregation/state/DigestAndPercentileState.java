@@ -14,8 +14,8 @@
 package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.airlift.stats.QuantileDigest;
-import com.facebook.presto.common.function.AccumulatorState;
-import com.facebook.presto.common.function.AccumulatorStateMetadata;
+import com.facebook.presto.spi.function.AccumulatorState;
+import com.facebook.presto.spi.function.AccumulatorStateMetadata;
 
 @AccumulatorStateMetadata(stateSerializerClass = DigestAndPercentileStateSerializer.class, stateFactoryClass = DigestAndPercentileStateFactory.class)
 public interface DigestAndPercentileState

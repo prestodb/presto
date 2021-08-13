@@ -14,8 +14,8 @@
 
 package com.facebook.presto.type.khyperloglog;
 
-import com.facebook.presto.common.function.AccumulatorState;
-import com.facebook.presto.common.function.AccumulatorStateMetadata;
+import com.facebook.presto.spi.function.AccumulatorState;
+import com.facebook.presto.spi.function.AccumulatorStateMetadata;
 
 @AccumulatorStateMetadata(stateSerializerClass = KHyperLogLogStateSerializer.class, stateFactoryClass = KHyperLogLogStateFactory.class)
 public interface KHyperLogLogState

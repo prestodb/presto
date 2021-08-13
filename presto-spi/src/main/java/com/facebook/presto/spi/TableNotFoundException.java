@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.spi;
 
-import com.facebook.presto.common.SchemaTableName;
-
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

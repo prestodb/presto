@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.analyzer;
 
-import com.facebook.presto.common.PrestoWarning;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.sql.planner.ParameterRewriter;
 import com.facebook.presto.sql.relational.FunctionResolution;
@@ -74,7 +74,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.common.StandardWarningCode.PERFORMANCE_WARNING;
-import static com.facebook.presto.common.function.FunctionKind.AGGREGATE;
+import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.checkAndGetColumnReferenceField;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;

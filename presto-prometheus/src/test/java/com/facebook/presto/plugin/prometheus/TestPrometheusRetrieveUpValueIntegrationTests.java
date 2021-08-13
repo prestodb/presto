@@ -14,11 +14,11 @@
 package com.facebook.presto.plugin.prometheus;
 
 import com.facebook.presto.common.PrestoException;
-import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.RecordSet;
+import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.AfterClass;

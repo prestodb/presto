@@ -15,8 +15,8 @@
 package com.facebook.presto.type.setdigest;
 
 import com.facebook.presto.common.function.ScalarOperator;
-import com.facebook.presto.common.function.SqlType;
 import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.spi.function.SqlType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 

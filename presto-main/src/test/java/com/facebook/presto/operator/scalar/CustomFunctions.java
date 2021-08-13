@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.common.function.LiteralParameters;
-import com.facebook.presto.common.function.ScalarFunction;
 import com.facebook.presto.common.function.SqlNullable;
-import com.facebook.presto.common.function.SqlType;
 import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.spi.function.LiteralParameters;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlType;
 import io.airlift.slice.Slice;
 
 public final class CustomFunctions

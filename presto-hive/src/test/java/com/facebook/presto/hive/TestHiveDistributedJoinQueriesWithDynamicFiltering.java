@@ -14,8 +14,8 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.common.QueryId;
 import com.facebook.presto.operator.OperatorStats;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.ProjectNode;

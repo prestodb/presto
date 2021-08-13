@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.sql.analyzer;
 
-import com.facebook.presto.common.function.FunctionHandle;
 import com.facebook.presto.common.type.EnumType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
 import com.facebook.presto.sql.tree.DereferenceExpression;
@@ -34,8 +34,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Predicate;
 
-import static com.facebook.presto.common.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.alwaysTrue;

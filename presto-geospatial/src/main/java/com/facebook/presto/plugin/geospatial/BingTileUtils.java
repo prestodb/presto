@@ -19,8 +19,8 @@ import com.esri.core.geometry.OperatorIntersects;
 import com.esri.core.geometry.Point;
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.facebook.presto.common.PrestoException;
-import com.facebook.presto.common.function.SqlType;
 import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.spi.function.SqlType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 

@@ -15,10 +15,10 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.LongArrayBlock;
-import com.facebook.presto.common.function.Signature;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
+import com.facebook.presto.spi.function.Signature;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -29,10 +29,8 @@ import org.testng.annotations.Test;
 import java.util.Collections;
 import java.util.Optional;
 
-import static com.facebook.presto.common.function.FunctionKind.SCALAR;
 import static com.facebook.presto.common.function.OperatorType.ADD;
 import static com.facebook.presto.common.function.OperatorType.IS_DISTINCT_FROM;
-import static com.facebook.presto.common.function.Signature.comparableWithVariadicBound;
 import static com.facebook.presto.common.type.Decimals.MAX_SHORT_PRECISION;
 import static com.facebook.presto.common.type.StandardTypes.BOOLEAN;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
@@ -43,6 +41,8 @@ import static com.facebook.presto.metadata.TestPolymorphicScalarFunction.TestMet
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.BLOCK_AND_POSITION;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
+import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
+import static com.facebook.presto.spi.function.Signature.comparableWithVariadicBound;
 import static java.lang.Math.toIntExact;
 import static java.util.Arrays.asList;
 import static org.testng.Assert.assertEquals;

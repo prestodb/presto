@@ -20,6 +20,11 @@
         </dependency>
 
         <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-spi</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.facebook.presto.hadoop</groupId>
             <artifactId>hadoop-apache2</artifactId>
         </dependency>
@@ -49,10 +54,6 @@
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>
             <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-spi</artifactId>
         </dependency>
     </dependencies>
 </project>

@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.plugin.geospatial;
 
-import com.facebook.presto.common.function.AccumulatorState;
-import com.facebook.presto.common.function.AccumulatorStateMetadata;
 import com.facebook.presto.geospatial.Rectangle;
+import com.facebook.presto.spi.function.AccumulatorState;
+import com.facebook.presto.spi.function.AccumulatorStateMetadata;
 
 import java.util.List;
 

@@ -14,8 +14,8 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.common.PrestoWarning;
 import com.facebook.presto.common.WarningCode;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;

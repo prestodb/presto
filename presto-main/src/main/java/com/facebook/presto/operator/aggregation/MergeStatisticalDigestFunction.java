@@ -16,8 +16,6 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.BlockBuilder;
-import com.facebook.presto.common.function.Signature;
-import com.facebook.presto.common.function.SqlFunctionVisibility;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.metadata.BoundVariables;
@@ -26,13 +24,13 @@ import com.facebook.presto.metadata.SqlAggregationFunction;
 import com.facebook.presto.operator.aggregation.state.StatisticalDigestState;
 import com.facebook.presto.operator.aggregation.state.StatisticalDigestStateFactory;
 import com.facebook.presto.operator.aggregation.state.StatisticalDigestStateSerializer;
+import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 
-import static com.facebook.presto.common.function.FunctionKind.AGGREGATE;
-import static com.facebook.presto.common.function.Signature.comparableTypeParameter;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
@@ -41,6 +39,8 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
+import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
+import static com.facebook.presto.spi.function.Signature.comparableTypeParameter;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public abstract class MergeStatisticalDigestFunction

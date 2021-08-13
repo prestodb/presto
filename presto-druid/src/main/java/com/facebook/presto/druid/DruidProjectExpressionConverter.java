@@ -14,12 +14,12 @@
 package com.facebook.presto.druid;
 
 import com.facebook.presto.common.PrestoException;
-import com.facebook.presto.common.function.FunctionHandle;
-import com.facebook.presto.common.function.StandardFunctionResolution;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.druid.DruidQueryGeneratorContext.Selection;
+import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.InputReferenceExpression;

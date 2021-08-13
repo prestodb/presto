@@ -20,13 +20,13 @@ import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
-import com.facebook.presto.common.function.Description;
-import com.facebook.presto.common.function.ScalarFunction;
 import com.facebook.presto.common.function.ScalarOperator;
-import com.facebook.presto.common.function.SqlType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.geospatial.serde.GeometrySerializationType;
+import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 

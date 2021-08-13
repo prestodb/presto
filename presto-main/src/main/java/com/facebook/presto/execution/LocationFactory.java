@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.common.QueryId;
 import com.facebook.presto.metadata.InternalNode;
+import com.facebook.presto.spi.QueryId;
 
 import java.net.URI;
 

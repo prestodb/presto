@@ -14,12 +14,12 @@
 package com.facebook.presto;
 
 import com.facebook.presto.common.PrestoException;
-import com.facebook.presto.common.function.SqlFunctionId;
 import com.facebook.presto.common.function.SqlFunctionProperties;
-import com.facebook.presto.common.function.SqlInvokedFunction;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.google.common.collect.ImmutableMap;
 

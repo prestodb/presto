@@ -14,8 +14,8 @@
 package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.airlift.stats.cardinality.HyperLogLog;
-import com.facebook.presto.common.function.AccumulatorState;
-import com.facebook.presto.common.function.AccumulatorStateMetadata;
+import com.facebook.presto.spi.function.AccumulatorState;
+import com.facebook.presto.spi.function.AccumulatorStateMetadata;
 
 @AccumulatorStateMetadata(stateSerializerClass = HyperLogLogStateSerializer.class, stateFactoryClass = HyperLogLogStateFactory.class)
 public interface HyperLogLogState

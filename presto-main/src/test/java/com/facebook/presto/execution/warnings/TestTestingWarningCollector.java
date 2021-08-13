@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.execution.warnings;
 
-import com.facebook.presto.common.PrestoWarning;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.testing.TestingWarningCollector;
 import com.facebook.presto.testing.TestingWarningCollectorConfig;
 import com.google.common.collect.ImmutableList;

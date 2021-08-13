@@ -14,13 +14,13 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.common.PrestoException;
-import com.facebook.presto.common.function.FunctionHandle;
-import com.facebook.presto.common.function.StandardFunctionResolution;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.aggregation.MaxDataSizeForStats;
 import com.facebook.presto.operator.aggregation.SumDataSizeForStats;
+import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;

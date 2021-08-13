@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.spi;
 
-import com.facebook.presto.common.SchemaTableName;
-
 import static java.util.Objects.requireNonNull;
 
 public class ColumnNotFoundException

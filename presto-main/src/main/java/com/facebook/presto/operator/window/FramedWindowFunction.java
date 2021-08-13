@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.window;
 
-import com.facebook.presto.common.function.WindowFunction;
+import com.facebook.presto.spi.function.WindowFunction;
 
 import static java.util.Objects.requireNonNull;
 

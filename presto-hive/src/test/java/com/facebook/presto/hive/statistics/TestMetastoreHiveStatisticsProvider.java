@@ -14,7 +14,6 @@
 package com.facebook.presto.hive.statistics;
 
 import com.facebook.presto.common.PrestoException;
-import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Type;
@@ -31,6 +30,7 @@ import com.facebook.presto.hive.metastore.DoubleStatistics;
 import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.IntegerStatistics;
 import com.facebook.presto.hive.metastore.PartitionStatistics;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.DoubleRange;
 import com.facebook.presto.spi.statistics.Estimate;

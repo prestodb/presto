@@ -14,7 +14,6 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.presto.common.PrestoException;
-import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.HdfsContext;
@@ -22,6 +21,7 @@ import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.FileFormat;

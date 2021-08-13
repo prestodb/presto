@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.testing;
 
-import com.facebook.presto.common.PrestoWarning;
 import com.facebook.presto.common.WarningCode;
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.WarningCollector;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;

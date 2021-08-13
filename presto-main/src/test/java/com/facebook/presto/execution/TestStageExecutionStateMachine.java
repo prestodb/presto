@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.common.QueryId;
 import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
+import com.facebook.presto.spi.QueryId;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;

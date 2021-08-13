@@ -15,13 +15,13 @@ package com.facebook.presto.functionNamespace.execution;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockEncodingSerde;
-import com.facebook.presto.common.function.FunctionImplementationType;
-import com.facebook.presto.common.function.RoutineCharacteristics.Language;
-import com.facebook.presto.common.function.ScalarFunctionImplementation;
 import com.facebook.presto.common.function.SqlFunctionResult;
-import com.facebook.presto.common.function.ThriftScalarFunctionImplementation;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.functionNamespace.execution.thrift.ThriftSqlFunctionExecutor;
+import com.facebook.presto.spi.function.FunctionImplementationType;
+import com.facebook.presto.spi.function.RoutineCharacteristics.Language;
+import com.facebook.presto.spi.function.ScalarFunctionImplementation;
+import com.facebook.presto.spi.function.ThriftScalarFunctionImplementation;
 import com.google.inject.Inject;
 
 import javax.annotation.Nullable;

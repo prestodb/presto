@@ -14,10 +14,10 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.common.PrestoException;
-import com.facebook.presto.common.function.ScalarFunction;
-import com.facebook.presto.common.function.SqlType;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.SqlDecimal;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlType;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 

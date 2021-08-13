@@ -14,7 +14,6 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.client.NodeVersion;
-import com.facebook.presto.common.PrestoWarning;
 import com.facebook.presto.execution.MockRemoteTaskFactory;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.PartialResultQueryManager;
@@ -23,6 +22,7 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.warnings.DefaultWarningCollector;
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.metadata.InternalNode;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.WarningCollector;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterClass;

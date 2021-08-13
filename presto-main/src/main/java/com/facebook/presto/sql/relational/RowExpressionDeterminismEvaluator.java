@@ -14,9 +14,9 @@
 package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.common.PrestoException;
-import com.facebook.presto.common.function.FunctionHandle;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;

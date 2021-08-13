@@ -15,14 +15,14 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.function.IsNull;
-import com.facebook.presto.common.function.ScalarFunction;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.function.SqlNullable;
-import com.facebook.presto.common.function.SqlType;
-import com.facebook.presto.common.function.TypeParameter;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionListBuilder;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.function.TypeParameter;
 import org.testng.annotations.Test;
 
 import javax.annotation.Nullable;

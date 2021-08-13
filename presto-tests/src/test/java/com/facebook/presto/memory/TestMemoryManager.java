@@ -14,11 +14,11 @@
 package com.facebook.presto.memory;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.common.QueryId;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.BasicQueryStats;
 import com.facebook.presto.server.testing.TestingPrestoServer;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolInfo;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;

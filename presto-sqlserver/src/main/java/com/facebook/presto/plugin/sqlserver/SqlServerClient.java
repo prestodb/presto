@@ -14,7 +14,6 @@
 package com.facebook.presto.plugin.sqlserver;
 
 import com.facebook.presto.common.PrestoException;
-import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.plugin.jdbc.BaseJdbcClient;
 import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
 import com.facebook.presto.plugin.jdbc.DriverConnectionFactory;
@@ -22,6 +21,7 @@ import com.facebook.presto.plugin.jdbc.JdbcColumnHandle;
 import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
 import com.facebook.presto.plugin.jdbc.JdbcIdentity;
 import com.facebook.presto.plugin.jdbc.JdbcTableHandle;
+import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.base.Joiner;
 import com.microsoft.sqlserver.jdbc.SQLServerDriver;
 

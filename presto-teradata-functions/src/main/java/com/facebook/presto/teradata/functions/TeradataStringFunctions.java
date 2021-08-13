@@ -14,12 +14,12 @@
 package com.facebook.presto.teradata.functions;
 
 import com.facebook.presto.common.PrestoException;
-import com.facebook.presto.common.function.Description;
-import com.facebook.presto.common.function.FunctionDependency;
-import com.facebook.presto.common.function.LiteralParameters;
-import com.facebook.presto.common.function.ScalarFunction;
-import com.facebook.presto.common.function.SqlType;
 import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.FunctionDependency;
+import com.facebook.presto.spi.function.LiteralParameters;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlType;
 import com.google.common.io.BaseEncoding;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.common.function.SqlFunctionVisibility;
+import com.facebook.presto.spi.function.SqlFunctionVisibility;
 
 import java.util.Optional;
 

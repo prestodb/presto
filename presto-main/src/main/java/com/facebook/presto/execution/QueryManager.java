@@ -14,9 +14,9 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.common.QueryId;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.server.BasicQueryInfo;
+import com.facebook.presto.spi.QueryId;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;

@@ -14,12 +14,12 @@
 package com.facebook.presto.plugin.prometheus;
 
 import com.facebook.airlift.http.client.HttpUriBuilder;
-import com.facebook.presto.common.ConnectorSession;
 import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.Marker;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;

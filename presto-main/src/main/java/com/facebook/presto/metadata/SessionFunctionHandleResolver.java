@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.common.function.FunctionHandle;
-import com.facebook.presto.common.function.FunctionHandleResolver;
+import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.FunctionHandleResolver;
 
 public class SessionFunctionHandleResolver
         implements FunctionHandleResolver

@@ -19,8 +19,8 @@ import com.facebook.presto.common.function.BlockPosition;
 import com.facebook.presto.common.function.IsNull;
 import com.facebook.presto.common.function.ScalarOperator;
 import com.facebook.presto.common.function.SqlNullable;
-import com.facebook.presto.common.function.SqlType;
 import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.spi.function.SqlType;
 
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.function.OperatorType.HASH_CODE;

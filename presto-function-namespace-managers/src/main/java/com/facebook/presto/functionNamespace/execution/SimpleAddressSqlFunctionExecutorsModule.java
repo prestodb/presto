@@ -15,18 +15,18 @@ package com.facebook.presto.functionNamespace.execution;
 
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.drift.client.address.SimpleAddressSelectorConfig;
-import com.facebook.presto.common.function.FunctionImplementationType;
-import com.facebook.presto.common.function.RoutineCharacteristics.Language;
 import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerConfig;
 import com.facebook.presto.functionNamespace.execution.thrift.SimpleAddressThriftSqlFunctionExecutionModule;
 import com.facebook.presto.functionNamespace.execution.thrift.ThriftSqlFunctionExecutionConfig;
+import com.facebook.presto.spi.function.FunctionImplementationType;
+import com.facebook.presto.spi.function.RoutineCharacteristics.Language;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
 import com.google.inject.TypeLiteral;
 
 import java.util.Map;
 
-import static com.facebook.presto.common.function.FunctionImplementationType.THRIFT;
+import static com.facebook.presto.spi.function.FunctionImplementationType.THRIFT;
 import static com.google.inject.Scopes.SINGLETON;
 
 public class SimpleAddressSqlFunctionExecutorsModule

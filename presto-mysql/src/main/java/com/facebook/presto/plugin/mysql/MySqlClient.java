@@ -14,7 +14,6 @@
 package com.facebook.presto.plugin.mysql;
 
 import com.facebook.presto.common.PrestoException;
-import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.plugin.jdbc.BaseJdbcClient;
@@ -27,6 +26,7 @@ import com.facebook.presto.plugin.jdbc.JdbcIdentity;
 import com.facebook.presto.plugin.jdbc.JdbcTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableSet;
 import com.mysql.jdbc.Driver;
 import com.mysql.jdbc.Statement;

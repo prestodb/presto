@@ -15,10 +15,10 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.common.block.ArrayBlock;
 import com.facebook.presto.common.block.Block;
-import com.facebook.presto.common.function.Description;
-import com.facebook.presto.common.function.ScalarFunction;
-import com.facebook.presto.common.function.SqlType;
-import com.facebook.presto.common.function.TypeParameter;
+import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.function.TypeParameter;
 
 import java.util.Optional;
 

@@ -14,7 +14,7 @@
 
 package com.facebook.presto.memory;
 
-import com.facebook.presto.common.QueryId;
+import com.facebook.presto.spi.QueryId;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 

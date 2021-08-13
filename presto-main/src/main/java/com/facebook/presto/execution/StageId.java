@@ -16,7 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
-import com.facebook.presto.common.QueryId;
+import com.facebook.presto.spi.QueryId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 

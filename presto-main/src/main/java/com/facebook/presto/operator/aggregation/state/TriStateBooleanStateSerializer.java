@@ -15,8 +15,8 @@ package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
-import com.facebook.presto.common.function.AccumulatorStateSerializer;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.operator.aggregation.state.TriStateBooleanState.FALSE_VALUE;

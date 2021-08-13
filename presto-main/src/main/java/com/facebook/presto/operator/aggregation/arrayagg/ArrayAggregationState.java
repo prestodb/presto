@@ -14,7 +14,7 @@
 package com.facebook.presto.operator.aggregation.arrayagg;
 
 import com.facebook.presto.common.block.Block;
-import com.facebook.presto.common.function.AccumulatorState;
+import com.facebook.presto.spi.function.AccumulatorState;
 
 public interface ArrayAggregationState
         extends AccumulatorState

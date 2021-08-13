@@ -14,8 +14,8 @@
 package com.facebook.presto.execution.warnings;
 
 import com.facebook.presto.common.PrestoException;
-import com.facebook.presto.common.PrestoWarning;
 import com.facebook.presto.common.WarningCode;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.WarningCollector;
 import com.google.common.collect.ImmutableList;
 

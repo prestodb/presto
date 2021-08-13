@@ -15,7 +15,6 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.PrestoException;
-import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveType;
@@ -27,6 +26,7 @@ import com.facebook.presto.hive.metastore.PrestoTableType;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.google.common.collect.ImmutableMultimap;

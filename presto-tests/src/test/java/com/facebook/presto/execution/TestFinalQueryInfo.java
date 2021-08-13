@@ -16,7 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.StatementClient;
-import com.facebook.presto.common.QueryId;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;

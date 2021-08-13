@@ -16,7 +16,7 @@ package com.facebook.presto.spark;
 import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.StatementStats;
-import com.facebook.presto.common.PrestoWarning;
+import com.facebook.presto.spi.PrestoWarning;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;

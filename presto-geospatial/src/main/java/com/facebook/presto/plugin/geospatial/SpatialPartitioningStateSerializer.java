@@ -15,8 +15,8 @@ package com.facebook.presto.plugin.geospatial;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
-import com.facebook.presto.common.function.AccumulatorStateSerializer;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 

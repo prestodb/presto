@@ -15,12 +15,12 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
-import com.facebook.presto.common.function.Description;
-import com.facebook.presto.common.function.ScalarFunction;
-import com.facebook.presto.common.function.SqlType;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.tdigest.Centroid;
 import com.facebook.presto.tdigest.TDigest;
 import com.google.common.annotations.VisibleForTesting;
@@ -28,10 +28,10 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 import static com.facebook.presto.common.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.common.function.SqlFunctionVisibility.EXPERIMENTAL;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.function.SqlFunctionVisibility.EXPERIMENTAL;
 import static com.facebook.presto.tdigest.TDigest.createTDigest;
 import static com.facebook.presto.util.Failures.checkCondition;
 

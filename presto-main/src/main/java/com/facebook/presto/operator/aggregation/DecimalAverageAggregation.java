@@ -16,8 +16,6 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
-import com.facebook.presto.common.function.AccumulatorState;
-import com.facebook.presto.common.function.AccumulatorStateSerializer;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.Type;
@@ -29,6 +27,8 @@ import com.facebook.presto.operator.aggregation.AggregationMetadata.AccumulatorS
 import com.facebook.presto.operator.aggregation.state.LongDecimalWithOverflowAndLongState;
 import com.facebook.presto.operator.aggregation.state.LongDecimalWithOverflowAndLongStateFactory;
 import com.facebook.presto.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer;
+import com.facebook.presto.spi.function.AccumulatorState;
+import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;

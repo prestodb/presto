@@ -15,7 +15,6 @@ package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.common.PrestoException;
-import com.facebook.presto.common.QueryId;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.LocationFactory;
@@ -38,6 +37,7 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.FixedSplitSource;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;

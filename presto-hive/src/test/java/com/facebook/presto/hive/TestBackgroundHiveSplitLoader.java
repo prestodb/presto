@@ -15,7 +15,6 @@ package com.facebook.presto.hive;
 
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.common.PrestoException;
-import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.hive.HiveBucketing.HiveBucketFilter;
 import com.facebook.presto.hive.HiveColumnHandle.ColumnType;
@@ -25,6 +24,7 @@ import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;

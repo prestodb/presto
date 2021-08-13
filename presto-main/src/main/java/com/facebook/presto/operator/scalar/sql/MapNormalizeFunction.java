@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.operator.scalar.sql;
 
-import com.facebook.presto.common.function.Description;
-import com.facebook.presto.common.function.SqlInvokedScalarFunction;
-import com.facebook.presto.common.function.SqlParameter;
-import com.facebook.presto.common.function.SqlType;
+import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.SqlInvokedScalarFunction;
+import com.facebook.presto.spi.function.SqlParameter;
+import com.facebook.presto.spi.function.SqlType;
 
 @SqlInvokedScalarFunction(value = "map_normalize", deterministic = true, calledOnNullInput = false)
 @Description("Returns the map with the same keys but all non-null values are scaled proportionally so that the sum of values becomes 1.")

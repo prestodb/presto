@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.common.function.FunctionMetadata;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.expressions.DefaultRowExpressionTraversalVisitor;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;

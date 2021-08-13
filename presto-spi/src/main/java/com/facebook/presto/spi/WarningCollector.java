@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.spi;
 
-import com.facebook.presto.common.PrestoWarning;
-
 import java.util.Collections;
 import java.util.List;
 

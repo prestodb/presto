@@ -14,7 +14,6 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.common.PrestoException;
-import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.BooleanType;
@@ -41,6 +40,7 @@ import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.s3.PrestoS3FileSystem;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaNotFoundException;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Shorts;

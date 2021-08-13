@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner.planPrinter;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.common.CatalogSchemaTableName;
 import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.Marker;
@@ -30,6 +29,7 @@ import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableMetadata;
+import com.facebook.presto.spi.CatalogSchemaTableName;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.TableHandle;

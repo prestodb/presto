@@ -15,7 +15,6 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.common.PrestoException;
-import com.facebook.presto.common.function.Signature;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.StandardTypes;
@@ -23,6 +22,7 @@ import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.UnscaledDecimal128Arithmetic;
 import com.facebook.presto.metadata.SignatureBuilder;
 import com.facebook.presto.metadata.SqlScalarFunction;
+import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.util.JsonCastException;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -39,7 +39,6 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 
 import static com.facebook.presto.common.StandardErrorCode.INVALID_CAST_ARGUMENT;
-import static com.facebook.presto.common.function.FunctionKind.SCALAR;
 import static com.facebook.presto.common.function.OperatorType.CAST;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -64,6 +63,7 @@ import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.unsca
 import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.unscaledDecimalToUnscaledLong;
 import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.unscaledDecimalToUnscaledLongUnsafe;
 import static com.facebook.presto.operator.scalar.JsonOperators.JSON_FACTORY;
+import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.JsonUtil.createJsonGenerator;
 import static com.facebook.presto.util.JsonUtil.createJsonParser;

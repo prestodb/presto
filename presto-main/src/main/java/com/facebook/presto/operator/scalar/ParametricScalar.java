@@ -14,13 +14,13 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.common.PrestoException;
-import com.facebook.presto.common.function.Signature;
-import com.facebook.presto.common.function.SqlFunctionVisibility;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.operator.ParametricImplementationsGroup;
 import com.facebook.presto.operator.scalar.annotations.ParametricScalarImplementation;
+import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.google.common.annotations.VisibleForTesting;
 
 import java.util.Optional;

@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.hive.security;
 
-import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.hive.HiveConnectorId;
 import com.facebook.presto.hive.HiveTransactionManager;
 import com.facebook.presto.hive.TransactionalMetadata;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.security.AccessControlContext;

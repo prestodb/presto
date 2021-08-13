@@ -14,7 +14,6 @@
 package com.facebook.presto.execution.resourceGroups.db;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.common.QueryId;
 import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroupManager;
@@ -22,6 +21,7 @@ import com.facebook.presto.resourceGroups.db.H2ResourceGroupsDao;
 import com.facebook.presto.resourceGroups.reloading.ReloadingResourceGroupConfigurationManager;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.ResourceGroupInfo;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.DistributedQueryRunner;

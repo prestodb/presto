@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
-import com.facebook.presto.common.PrestoWarning;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.expressions.RowExpressionRewriter;
 import com.facebook.presto.expressions.RowExpressionTreeRewriter;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;

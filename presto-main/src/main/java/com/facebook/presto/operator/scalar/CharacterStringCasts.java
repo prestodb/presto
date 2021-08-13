@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.common.function.LiteralParameters;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.function.ScalarOperator;
-import com.facebook.presto.common.function.SqlType;
+import com.facebook.presto.spi.function.LiteralParameters;
+import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.type.LiteralParameter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;

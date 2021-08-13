@@ -15,12 +15,12 @@ package com.facebook.presto.resourcemanager;
 
 import com.facebook.drift.client.DriftClient;
 import com.facebook.presto.common.HostAddress;
-import com.facebook.presto.common.QueryId;
 import com.facebook.presto.execution.ManagedQueryExecution;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.NodeStatus;
 import com.facebook.presto.server.StatusResource;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.util.PeriodicTaskExecutor;
 import io.airlift.units.Duration;
 

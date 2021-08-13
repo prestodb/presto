@@ -16,12 +16,12 @@ package com.facebook.presto.teradata.functions;
 import com.facebook.airlift.concurrent.ThreadLocalCache;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.PrestoException;
-import com.facebook.presto.common.function.Description;
-import com.facebook.presto.common.function.ScalarFunction;
 import com.facebook.presto.common.function.SqlFunctionProperties;
-import com.facebook.presto.common.function.SqlType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.TimeZoneKey;
+import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlType;
 import io.airlift.slice.Slice;
 
 import java.time.Instant;

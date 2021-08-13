@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spi.plan;
 
-import com.facebook.presto.common.function.FunctionHandle;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;

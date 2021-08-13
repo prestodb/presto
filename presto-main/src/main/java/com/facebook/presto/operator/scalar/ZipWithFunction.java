@@ -17,22 +17,20 @@ import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
-import com.facebook.presto.common.function.FunctionKind;
-import com.facebook.presto.common.function.Signature;
-import com.facebook.presto.common.function.SqlFunctionVisibility;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
+import com.facebook.presto.spi.function.FunctionKind;
+import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.facebook.presto.sql.gen.lambda.BinaryFunctionInterface;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
-import static com.facebook.presto.common.function.Signature.typeVariable;
-import static com.facebook.presto.common.function.SqlFunctionVisibility.PUBLIC;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.common.type.TypeUtils.writeNativeValue;
@@ -40,6 +38,8 @@ import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManage
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.functionTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static com.facebook.presto.spi.function.Signature.typeVariable;
+import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.lang.Math.max;

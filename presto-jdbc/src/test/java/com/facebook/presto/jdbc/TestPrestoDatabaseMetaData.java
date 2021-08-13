@@ -14,9 +14,9 @@
 package com.facebook.presto.jdbc;
 
 import com.facebook.airlift.log.Logging;
-import com.facebook.presto.common.QueryId;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.testing.TestingPrestoServer;
+import com.facebook.presto.spi.QueryId;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;

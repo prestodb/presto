@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.plugin.jdbc.optimization;
 
-import com.facebook.presto.common.function.FunctionMetadataManager;
-import com.facebook.presto.common.function.StandardFunctionResolution;
 import com.facebook.presto.plugin.jdbc.JdbcClient;
 import com.facebook.presto.plugin.jdbc.optimization.function.OperatorTranslators;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
 import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
+import com.facebook.presto.spi.function.FunctionMetadataManager;
+import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.google.common.collect.ImmutableSet;

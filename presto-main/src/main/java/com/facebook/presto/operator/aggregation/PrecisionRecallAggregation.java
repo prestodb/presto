@@ -14,13 +14,13 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.common.PrestoException;
-import com.facebook.presto.common.function.AggregationState;
-import com.facebook.presto.common.function.CombineFunction;
-import com.facebook.presto.common.function.InputFunction;
-import com.facebook.presto.common.function.SqlType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.operator.aggregation.fixedhistogram.FixedDoubleHistogram;
 import com.facebook.presto.operator.aggregation.state.PrecisionRecallState;
+import com.facebook.presto.spi.function.AggregationState;
+import com.facebook.presto.spi.function.CombineFunction;
+import com.facebook.presto.spi.function.InputFunction;
+import com.facebook.presto.spi.function.SqlType;
 import com.google.common.collect.Streams;
 
 import java.util.Collections;

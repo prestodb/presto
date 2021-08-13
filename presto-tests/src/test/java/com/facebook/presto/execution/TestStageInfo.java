@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.common.QueryId;
 import com.facebook.presto.server.testing.TestingPrestoServer;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tests.ResultWithQueryId;

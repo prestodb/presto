@@ -13,16 +13,16 @@
  */
 package com.facebook.presto.operator.scalar.annotations;
 
-import com.facebook.presto.common.function.ScalarFunction;
 import com.facebook.presto.common.function.ScalarOperator;
-import com.facebook.presto.common.function.Signature;
-import com.facebook.presto.common.function.SqlInvokedScalarFunction;
-import com.facebook.presto.common.function.SqlType;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.operator.ParametricImplementationsGroup;
 import com.facebook.presto.operator.annotations.FunctionsParserHelper;
 import com.facebook.presto.operator.scalar.ParametricScalar;
 import com.facebook.presto.operator.scalar.annotations.ParametricScalarImplementation.SpecializedSignature;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.SqlInvokedScalarFunction;
+import com.facebook.presto.spi.function.SqlType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 

@@ -15,10 +15,10 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.Variable;
-import com.facebook.presto.common.function.FunctionHandle;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.gen.BytecodeUtils.OutputBlockVariableAndType;
 

@@ -14,10 +14,7 @@
 package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.common.block.Block;
-import com.facebook.presto.common.function.FunctionHandle;
-import com.facebook.presto.common.function.FunctionMetadata;
 import com.facebook.presto.common.function.OperatorType;
-import com.facebook.presto.common.function.StandardFunctionResolution;
 import com.facebook.presto.common.predicate.DiscreteValues;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.Marker;
@@ -34,6 +31,9 @@ import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.FunctionMetadata;
+import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;

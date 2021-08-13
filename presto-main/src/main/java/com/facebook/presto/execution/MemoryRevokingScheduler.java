@@ -14,7 +14,6 @@
 package com.facebook.presto.execution;
 
 import com.facebook.airlift.log.Logger;
-import com.facebook.presto.common.QueryId;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.memory.MemoryPool;
 import com.facebook.presto.memory.MemoryPoolListener;
@@ -23,6 +22,7 @@ import com.facebook.presto.memory.VoidTraversingQueryContextVisitor;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.PipelineContext;
 import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.TaskSpillingStrategy;

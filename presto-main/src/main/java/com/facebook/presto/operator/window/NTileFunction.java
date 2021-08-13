@@ -14,8 +14,8 @@
 package com.facebook.presto.operator.window;
 
 import com.facebook.presto.common.block.BlockBuilder;
-import com.facebook.presto.common.function.RankingWindowFunction;
-import com.facebook.presto.common.function.WindowFunctionSignature;
+import com.facebook.presto.spi.function.RankingWindowFunction;
+import com.facebook.presto.spi.function.WindowFunctionSignature;
 
 import java.util.List;
 

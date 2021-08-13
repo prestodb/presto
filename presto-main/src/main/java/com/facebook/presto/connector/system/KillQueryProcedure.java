@@ -15,9 +15,9 @@ package com.facebook.presto.connector.system;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.common.PrestoException;
-import com.facebook.presto.common.QueryId;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryState;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.google.common.collect.ImmutableList;

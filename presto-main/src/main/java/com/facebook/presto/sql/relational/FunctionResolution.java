@@ -14,12 +14,12 @@
 package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.common.QualifiedObjectName;
-import com.facebook.presto.common.function.FunctionHandle;
 import com.facebook.presto.common.function.OperatorType;
-import com.facebook.presto.common.function.StandardFunctionResolution;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.google.common.collect.ImmutableList;

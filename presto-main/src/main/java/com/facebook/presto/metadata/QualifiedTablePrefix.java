@@ -14,7 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.common.QualifiedObjectName;
-import com.facebook.presto.common.SchemaTablePrefix;
+import com.facebook.presto.spi.SchemaTablePrefix;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 

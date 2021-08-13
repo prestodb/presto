@@ -14,7 +14,6 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.common.PrestoException;
-import com.facebook.presto.common.QueryId;
 import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
@@ -23,6 +22,7 @@ import com.facebook.presto.execution.TestingSessionContext;
 import com.facebook.presto.resourceGroups.FileResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.testing.TestingPrestoServer;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;

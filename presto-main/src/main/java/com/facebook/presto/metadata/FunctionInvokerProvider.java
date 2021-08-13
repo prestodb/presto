@@ -14,7 +14,6 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.common.PrestoException;
-import com.facebook.presto.common.function.FunctionHandle;
 import com.facebook.presto.common.function.InvocationConvention;
 import com.facebook.presto.common.function.InvocationConvention.InvocationArgumentConvention;
 import com.facebook.presto.common.function.InvocationConvention.InvocationReturnConvention;
@@ -22,6 +21,7 @@ import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ScalarImplementationChoice;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.google.common.annotations.VisibleForTesting;
 
 import java.util.List;

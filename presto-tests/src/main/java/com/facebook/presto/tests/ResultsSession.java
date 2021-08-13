@@ -15,7 +15,7 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.client.QueryData;
 import com.facebook.presto.client.QueryStatusInfo;
-import com.facebook.presto.common.PrestoWarning;
+import com.facebook.presto.spi.PrestoWarning;
 
 import java.util.List;
 import java.util.Map;

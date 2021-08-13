@@ -15,12 +15,12 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.block.Block;
-import com.facebook.presto.common.function.Description;
-import com.facebook.presto.common.function.ScalarFunction;
 import com.facebook.presto.common.function.SqlNullable;
-import com.facebook.presto.common.function.SqlType;
-import com.facebook.presto.common.function.TypeParameter;
-import com.facebook.presto.common.function.TypeParameterSpecialization;
+import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.function.TypeParameter;
+import com.facebook.presto.spi.function.TypeParameterSpecialization;
 import com.facebook.presto.sql.gen.lambda.LambdaFunctionInterface;
 import io.airlift.slice.Slice;
 
@@ -30,7 +30,7 @@ import static com.facebook.presto.common.StandardErrorCode.DIVISION_BY_ZERO;
 import static com.facebook.presto.common.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.common.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.common.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
-import static com.facebook.presto.common.function.SqlFunctionVisibility.HIDDEN;
+import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
 
 @Description("internal try function for desugaring TRY")
 @ScalarFunction(value = "$internal$try", visibility = HIDDEN, deterministic = false)

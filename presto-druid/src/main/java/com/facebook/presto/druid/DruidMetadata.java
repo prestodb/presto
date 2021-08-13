@@ -14,8 +14,6 @@
 package com.facebook.presto.druid;
 
 import com.facebook.airlift.log.Logger;
-import com.facebook.presto.common.SchemaTableName;
-import com.facebook.presto.common.SchemaTablePrefix;
 import com.facebook.presto.druid.DruidClient.RemoteTableObject;
 import com.facebook.presto.druid.ingestion.DruidIngestionTableHandle;
 import com.facebook.presto.druid.metadata.DruidColumnInfo;
@@ -32,6 +30,8 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.statistics.ComputedStatistics;

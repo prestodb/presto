@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.sql.relational;
 
-import com.facebook.presto.common.function.FunctionHandle;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.FunctionType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.google.common.collect.ImmutableList;

@@ -14,9 +14,7 @@
 package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.common.function.SqlFunctionId;
 import com.facebook.presto.common.function.SqlFunctionProperties;
-import com.facebook.presto.common.function.SqlInvokedFunction;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalParseResult;
 import com.facebook.presto.common.type.Decimals;
@@ -27,6 +25,8 @@ import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.UnknownType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;

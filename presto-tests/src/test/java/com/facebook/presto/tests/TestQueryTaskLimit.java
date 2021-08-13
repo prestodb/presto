@@ -14,8 +14,8 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.common.QueryId;
 import com.facebook.presto.server.BasicQueryInfo;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;

@@ -15,7 +15,6 @@ package com.facebook.presto.mongodb;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PrestoException;
-import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.StandardErrorCode;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.BigintType;
@@ -36,6 +35,7 @@ import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.InsertManyOptions;

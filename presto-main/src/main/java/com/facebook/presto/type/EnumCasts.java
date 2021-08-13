@@ -16,12 +16,12 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.function.ScalarOperator;
-import com.facebook.presto.common.function.SqlType;
-import com.facebook.presto.common.function.TypeParameter;
 import com.facebook.presto.common.type.BigintEnumType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharEnumType;
+import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.function.TypeParameter;
 import io.airlift.slice.Slice;
 
 import static com.facebook.presto.common.StandardErrorCode.INVALID_CAST_ARGUMENT;

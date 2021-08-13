@@ -14,12 +14,12 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.common.QueryId;
-import com.facebook.presto.common.function.SqlFunctionId;
-import com.facebook.presto.common.function.SqlInvokedFunction;
 import com.facebook.presto.common.type.TimeZoneNotSupportedException;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.security.AllowAllAccessControl;
+import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.sql.SqlEnvironmentConfig;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.google.common.collect.ImmutableListMultimap;

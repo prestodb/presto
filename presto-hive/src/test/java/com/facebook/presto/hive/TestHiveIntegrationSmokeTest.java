@@ -14,7 +14,6 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.common.CatalogSchemaTableName;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
@@ -24,6 +23,7 @@ import com.facebook.presto.metadata.InsertTableHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.metadata.TableMetadata;
+import com.facebook.presto.spi.CatalogSchemaTableName;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;

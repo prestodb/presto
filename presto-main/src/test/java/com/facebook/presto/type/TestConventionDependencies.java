@@ -17,13 +17,13 @@ import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.function.BlockIndex;
 import com.facebook.presto.common.function.BlockPosition;
-import com.facebook.presto.common.function.Convention;
-import com.facebook.presto.common.function.FunctionDependency;
-import com.facebook.presto.common.function.ScalarFunction;
 import com.facebook.presto.common.function.SqlNullable;
-import com.facebook.presto.common.function.SqlType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
+import com.facebook.presto.spi.function.Convention;
+import com.facebook.presto.spi.function.FunctionDependency;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlType;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 

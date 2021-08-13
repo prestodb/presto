@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.common.QueryId;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
 import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;

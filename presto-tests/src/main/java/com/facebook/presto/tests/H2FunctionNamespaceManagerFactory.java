@@ -15,13 +15,13 @@ package com.facebook.presto.tests;
 
 import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.drift.transport.netty.client.DriftNettyClientModule;
-import com.facebook.presto.common.function.FunctionHandleResolver;
-import com.facebook.presto.common.function.FunctionNamespaceManager;
-import com.facebook.presto.common.function.FunctionNamespaceManagerFactory;
-import com.facebook.presto.common.function.SqlFunctionHandle;
 import com.facebook.presto.functionNamespace.execution.SimpleAddressSqlFunctionExecutorsModule;
 import com.facebook.presto.functionNamespace.mysql.MySqlFunctionNamespaceManager;
 import com.facebook.presto.functionNamespace.mysql.MySqlFunctionNamespaceManagerModule;
+import com.facebook.presto.spi.function.FunctionHandleResolver;
+import com.facebook.presto.spi.function.FunctionNamespaceManager;
+import com.facebook.presto.spi.function.FunctionNamespaceManagerFactory;
+import com.facebook.presto.spi.function.SqlFunctionHandle;
 import com.google.inject.Injector;
 
 import java.util.Map;

@@ -14,10 +14,10 @@
 package com.facebook.presto.spi.relation;
 
 import com.facebook.presto.common.api.Experimental;
-import com.facebook.presto.common.function.SqlFunctionId;
 import com.facebook.presto.common.function.SqlFunctionProperties;
-import com.facebook.presto.common.function.SqlInvokedFunction;
 import com.facebook.presto.common.relation.Predicate;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 
 import java.util.Map;
 import java.util.function.Supplier;

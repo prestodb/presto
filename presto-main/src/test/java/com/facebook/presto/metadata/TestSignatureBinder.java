@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.common.function.Signature;
-import com.facebook.presto.common.function.TypeVariableConstraint;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.FunctionType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.TypeVariableConstraint;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -30,11 +30,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.common.function.FunctionKind.SCALAR;
-import static com.facebook.presto.common.function.Signature.comparableTypeParameter;
-import static com.facebook.presto.common.function.Signature.orderableTypeParameter;
-import static com.facebook.presto.common.function.Signature.typeVariable;
-import static com.facebook.presto.common.function.Signature.withVariadicBound;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
@@ -44,6 +39,11 @@ import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
+import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
+import static com.facebook.presto.spi.function.Signature.comparableTypeParameter;
+import static com.facebook.presto.spi.function.Signature.orderableTypeParameter;
+import static com.facebook.presto.spi.function.Signature.typeVariable;
+import static com.facebook.presto.spi.function.Signature.withVariadicBound;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;

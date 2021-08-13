@@ -14,7 +14,7 @@
 package com.facebook.presto.sql;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.common.PrestoWarning;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.sql.parser.ParsingOptions;
 

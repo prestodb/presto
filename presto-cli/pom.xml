@@ -19,14 +19,12 @@
     <dependencies>
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-common</artifactId>
+            <artifactId>presto-spi</artifactId>
         </dependency>
 
-        <!-- Presto SPI -->
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-spi</artifactId>
-            <scope>provided</scope>
+            <artifactId>presto-common</artifactId>
         </dependency>
 
         <dependency>

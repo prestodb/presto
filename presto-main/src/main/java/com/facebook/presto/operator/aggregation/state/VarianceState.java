@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
-import com.facebook.presto.common.function.AccumulatorState;
+import com.facebook.presto.spi.function.AccumulatorState;
 
 public interface VarianceState
         extends AccumulatorState

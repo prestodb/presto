@@ -15,9 +15,6 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.common.PrestoException;
-import com.facebook.presto.common.function.AccumulatorStateFactory;
-import com.facebook.presto.common.function.AccumulatorStateSerializer;
-import com.facebook.presto.common.function.Signature;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.BoundVariables;
@@ -28,6 +25,9 @@ import com.facebook.presto.operator.aggregation.AggregationMetadata.AccumulatorS
 import com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
+import com.facebook.presto.spi.function.AccumulatorStateFactory;
+import com.facebook.presto.spi.function.AccumulatorStateSerializer;
+import com.facebook.presto.spi.function.Signature;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 

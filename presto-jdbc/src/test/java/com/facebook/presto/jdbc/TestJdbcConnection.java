@@ -14,7 +14,6 @@
 package com.facebook.presto.jdbc;
 
 import com.facebook.airlift.log.Logging;
-import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.hive.HiveHadoop2Plugin;
 import com.facebook.presto.server.testing.TestingPrestoServer;
@@ -22,6 +21,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.base.Joiner;

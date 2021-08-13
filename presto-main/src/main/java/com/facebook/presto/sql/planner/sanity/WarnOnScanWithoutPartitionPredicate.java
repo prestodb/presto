@@ -14,8 +14,8 @@
 package com.facebook.presto.sql.planner.sanity;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.common.PrestoWarning;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TableLayoutFilterCoverage;
 import com.facebook.presto.spi.WarningCollector;

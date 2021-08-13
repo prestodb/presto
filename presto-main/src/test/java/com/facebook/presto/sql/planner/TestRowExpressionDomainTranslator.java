@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.common.function.FunctionHandle;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.Range;
@@ -23,6 +22,7 @@ import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.CastType;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.DomainTranslator.ExtractionResult;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;

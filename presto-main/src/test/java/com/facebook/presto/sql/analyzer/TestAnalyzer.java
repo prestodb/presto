@@ -15,7 +15,6 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
-import com.facebook.presto.common.PrestoWarning;
 import com.facebook.presto.common.StandardWarningCode;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.TaskManagerConfig;
@@ -24,6 +23,7 @@ import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import org.testng.annotations.Test;
