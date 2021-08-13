@@ -87,7 +87,6 @@ import static com.facebook.presto.iceberg.IcebergTableProperties.getFileFormat;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getPartitioning;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getTableLocation;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
-import static com.facebook.presto.iceberg.IcebergUtil.getDataPath;
 import static com.facebook.presto.iceberg.IcebergUtil.getFileFormat;
 import static com.facebook.presto.iceberg.IcebergUtil.getIcebergTable;
 import static com.facebook.presto.iceberg.IcebergUtil.getTableComment;
@@ -110,6 +109,9 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static org.apache.iceberg.TableMetadata.newTableMetadata;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
+import static org.apache.iceberg.TableProperties.OBJECT_STORE_PATH;
+import static org.apache.iceberg.TableProperties.WRITE_METADATA_LOCATION;
+import static org.apache.iceberg.TableProperties.WRITE_NEW_DATA_LOCATION;
 import static org.apache.iceberg.Transactions.createTableTransaction;
 
 public class IcebergMetadata
@@ -390,7 +392,8 @@ public class IcebergMetadata
                 PartitionSpecParser.toJson(metadata.spec()),
                 getColumns(metadata.schema(), typeManager),
                 targetPath,
-                fileFormat);
+                fileFormat,
+                metadata.properties());
     }
 
     @Override
@@ -413,8 +416,9 @@ public class IcebergMetadata
                 SchemaParser.toJson(icebergTable.schema()),
                 PartitionSpecParser.toJson(icebergTable.spec()),
                 getColumns(icebergTable.schema(), typeManager),
-                getDataPath(icebergTable.location()),
-                getFileFormat(icebergTable));
+                icebergTable.location(),
+                getFileFormat(icebergTable),
+                icebergTable.properties());
     }
 
     @Override
@@ -468,6 +472,13 @@ public class IcebergMetadata
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
+        // TODO: support path override in Iceberg table creation
+        org.apache.iceberg.Table table = getIcebergTable(metastore, hdfsEnvironment, session, handle.getSchemaTableName());
+        if (table.properties().containsKey(OBJECT_STORE_PATH) ||
+                table.properties().containsKey(WRITE_NEW_DATA_LOCATION) ||
+                table.properties().containsKey(WRITE_METADATA_LOCATION)) {
+            throw new PrestoException(NOT_SUPPORTED, "Table " + handle.getSchemaTableName() + " contains Iceberg path override properties and cannot be dropped from Presto");
+        }
         MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource());
         metastore.dropTable(metastoreContext, handle.getSchemaName(), handle.getTableName(), true);
     }

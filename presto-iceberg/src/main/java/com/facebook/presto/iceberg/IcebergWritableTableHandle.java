@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import org.apache.iceberg.FileFormat;
 
 import java.util.List;
+import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
@@ -34,6 +35,7 @@ public class IcebergWritableTableHandle
     private final List<IcebergColumnHandle> inputColumns;
     private final String outputPath;
     private final FileFormat fileFormat;
+    private final Map<String, String> storageProperties;
 
     @JsonCreator
     public IcebergWritableTableHandle(
@@ -43,7 +45,8 @@ public class IcebergWritableTableHandle
             @JsonProperty("partitionSpecAsJson") String partitionSpecAsJson,
             @JsonProperty("inputColumns") List<IcebergColumnHandle> inputColumns,
             @JsonProperty("outputPath") String outputPath,
-            @JsonProperty("fileFormat") FileFormat fileFormat)
+            @JsonProperty("fileFormat") FileFormat fileFormat,
+            @JsonProperty("storageProperties") Map<String, String> storageProperties)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -52,6 +55,7 @@ public class IcebergWritableTableHandle
         this.inputColumns = ImmutableList.copyOf(requireNonNull(inputColumns, "inputColumns is null"));
         this.outputPath = requireNonNull(outputPath, "filePrefix is null");
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
+        this.storageProperties = requireNonNull(storageProperties, "storageProperties is null");
     }
 
     @JsonProperty
@@ -94,6 +98,12 @@ public class IcebergWritableTableHandle
     public FileFormat getFileFormat()
     {
         return fileFormat;
+    }
+
+    @JsonProperty
+    public Map<String, String> getStorageProperties()
+    {
+        return storageProperties;
     }
 
     @Override

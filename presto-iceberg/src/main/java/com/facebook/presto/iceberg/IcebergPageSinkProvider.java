@@ -22,15 +22,18 @@ import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSinkContext;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
+import org.apache.iceberg.io.LocationProvider;
 
 import javax.inject.Inject;
 
+import static com.facebook.presto.iceberg.IcebergUtil.getLocationProvider;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergPageSinkProvider
@@ -71,10 +74,12 @@ public class IcebergPageSinkProvider
         HdfsContext hdfsContext = new HdfsContext(session, tableHandle.getSchemaName(), tableHandle.getTableName());
         Schema schema = SchemaParser.fromJson(tableHandle.getSchemaAsJson());
         PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, tableHandle.getPartitionSpecAsJson());
+        LocationProvider locationProvider = getLocationProvider(new SchemaTableName(tableHandle.getSchemaName(), tableHandle.getTableName()),
+                tableHandle.getOutputPath(), tableHandle.getStorageProperties());
         return new IcebergPageSink(
                 schema,
                 partitionSpec,
-                tableHandle.getOutputPath(),
+                locationProvider,
                 fileWriterFactory,
                 pageIndexerFactory,
                 hdfsEnvironment,
