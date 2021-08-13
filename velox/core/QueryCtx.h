@@ -13,6 +13,7 @@
  */
 #pragma once
 
+#include <folly/Executor.h>
 #include "velox/common/memory/MappedMemory.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/core/CancelPool.h"
@@ -34,9 +35,14 @@ class QueryCtx : public Context {
       memory::MappedMemory* mappedMemory,
       std::unique_ptr<memory::MemoryPool> pool =
           memory::getProcessDefaultMemoryManager().getRoot().addScopedChild(
-              "query_root")) {
+              kQueryRootMemoryPool),
+      std::shared_ptr<folly::Executor> executor = nullptr) {
     return std::make_shared<QueryCtx>(
-        config, connectorConfigs, mappedMemory, std::move(pool));
+        config,
+        connectorConfigs,
+        mappedMemory,
+        std::move(pool),
+        std::move(executor));
   }
 
   // TODO: Make constructors private once presto_cpp
@@ -47,7 +53,7 @@ class QueryCtx : public Context {
             {},
             memory::MappedMemory::getInstance(),
             memory::getProcessDefaultMemoryManager().getRoot().addScopedChild(
-                "query_root")) {}
+                kQueryRootMemoryPool)) {}
 
   explicit QueryCtx(const std::shared_ptr<Config>& config)
       : QueryCtx(
@@ -55,7 +61,7 @@ class QueryCtx : public Context {
             {},
             memory::MappedMemory::getInstance(),
             memory::getProcessDefaultMemoryManager().getRoot().addScopedChild(
-                "query_root")) {}
+                kQueryRootMemoryPool)) {}
 
   QueryCtx(
       std::shared_ptr<Config> config,
@@ -63,11 +69,13 @@ class QueryCtx : public Context {
       memory::MappedMemory* mappedMemory,
       std::unique_ptr<memory::MemoryPool> pool =
           memory::getProcessDefaultMemoryManager().getRoot().addScopedChild(
-              "query_root"))
+              kQueryRootMemoryPool),
+      std::shared_ptr<folly::Executor> executor = nullptr)
       : Context{ContextScope::QUERY},
         pool_(std::move(pool)),
         mappedMemory_(mappedMemory),
-        connectorConfigs_(connectorConfigs) {
+        connectorConfigs_(connectorConfigs),
+        executor_{std::move(executor)} {
     setConfigOverrides(config);
   }
 
@@ -77,6 +85,10 @@ class QueryCtx : public Context {
 
   memory::MappedMemory* mappedMemory() const {
     return mappedMemory_;
+  }
+
+  folly::Executor* executor() const {
+    return executor_.get();
   }
 
   Config* getConnectorConfig(const std::string& connectorId) const {
@@ -214,6 +226,7 @@ class QueryCtx : public Context {
     return kEmptyConfig.get();
   }
 
+  static constexpr const char* kQueryRootMemoryPool = "query_root";
   static constexpr const char* kMaxPartitionedOutputBufferSize =
       "driver.max-page-partitioning-buffer-size";
   static constexpr uint64_t kMaxPartitionedOutputBufferSizeDefault = 32UL << 20;
@@ -233,6 +246,7 @@ class QueryCtx : public Context {
   std::unique_ptr<memory::MemoryPool> pool_;
   memory::MappedMemory* mappedMemory_;
   std::unordered_map<std::string, std::shared_ptr<Config>> connectorConfigs_;
+  std::shared_ptr<folly::Executor> executor_;
 };
 
 // Represents the state of one thread of query execution.

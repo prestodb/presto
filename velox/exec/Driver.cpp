@@ -96,13 +96,15 @@ BlockingState::BlockingState(
               .count()) {}
 
 // static
-void BlockingState::setResume(std::shared_ptr<BlockingState> state) {
+void BlockingState::setResume(
+    std::shared_ptr<BlockingState> state,
+    folly::Executor* executor) {
   auto& exec = folly::QueuedImmediateExecutor::instance();
   std::move(state->future_)
       .via(&exec)
-      .thenValue([state](bool /* unused */) {
+      .thenValue([state, executor](bool /* unused */) {
         state->operator_->recordBlockingTime(state->sinceMicros_);
-        Driver::enqueue(state->driver_);
+        Driver::enqueue(state->driver_, executor);
       })
       .thenError(
           folly::tag_t<std::exception>{}, [state](std::exception const& e) {
@@ -193,8 +195,12 @@ void Driver::testingJoinAndReinitializeExecutor(int32_t threads) {
 }
 
 // static
-void Driver::enqueue(std::shared_ptr<Driver> driver) {
-  executor()->add([driver]() { Driver::run(driver); });
+void Driver::enqueue(
+    std::shared_ptr<Driver> driver,
+    folly::Executor* executor) {
+  auto currentExecutor = (executor ? executor : Driver::executor());
+  currentExecutor->add(
+      [driver, currentExecutor]() { Driver::run(driver, currentExecutor); });
 }
 
 Driver::Driver(
@@ -359,7 +365,7 @@ core::StopReason Driver::runInternal(
 }
 
 // static
-void Driver::run(std::shared_ptr<Driver> self) {
+void Driver::run(std::shared_ptr<Driver> self, folly::Executor* executor) {
   std::shared_ptr<BlockingState> blockingState;
   auto reason = self->runInternal(self, &blockingState);
   switch (reason) {
@@ -367,12 +373,12 @@ void Driver::run(std::shared_ptr<Driver> self) {
       // Set the resume action outside of the CancelPool so that, if the
       // future is already realized we do not have a second thread
       // entering the same Driver.
-      BlockingState::setResume(blockingState);
+      BlockingState::setResume(blockingState, executor);
       return;
 
     case core::StopReason::kYield:
       // Go to the end of the queue.
-      enqueue(self);
+      enqueue(self, executor);
       return;
 
     case core::StopReason::kPause:

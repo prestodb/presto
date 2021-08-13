@@ -132,7 +132,7 @@ void Task::start(std::shared_ptr<Task> self, uint32_t maxDrivers) {
         self->drivers_.back()->initializeOperatorStats(
             self->taskStats_.pipelineStats[pipeline].operatorStats);
       }
-      Driver::enqueue(self->drivers_.back());
+      Driver::enqueue(self->drivers_.back(), self->queryCtx_->executor());
     }
   }
   self->noMoreLocalExchangeProducers();
@@ -145,7 +145,7 @@ void Task::resume(std::shared_ptr<Task> self) {
   for (auto& driver : self->drivers_) {
     if (driver) {
       VELOX_CHECK(!driver->isOnThread() && !driver->isTerminated());
-      Driver::enqueue(driver);
+      Driver::enqueue(driver, self->queryCtx_->executor());
     }
   }
 }
