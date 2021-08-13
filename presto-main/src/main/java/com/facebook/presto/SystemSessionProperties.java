@@ -206,6 +206,9 @@ public final class SystemSessionProperties
     public static final String QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED = "query_optimization_with_materialized_view_enabled";
     public static final String AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY = "aggregation_if_to_filter_rewrite_strategy";
 
+    //TODO: Prestissimo related session properties that are temporarily put here. They will be relocated in the future
+    public static final String PRESTISSIMO_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "simplified_expression_evaluation_enabled";
+
     private final List<PropertyMetadata<?>> sessionProperties;
 
     public SystemSessionProperties()
@@ -1108,7 +1111,12 @@ public final class SystemSessionProperties
                         featuresConfig.getAggregationIfToFilterRewriteStrategy(),
                         false,
                         value -> AggregationIfToFilterRewriteStrategy.valueOf(((String) value).toUpperCase()),
-                        AggregationIfToFilterRewriteStrategy::name));
+                        AggregationIfToFilterRewriteStrategy::name),
+                booleanProperty(
+                        PRESTISSIMO_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED,
+                        "Enable simplified path in expression evaluation",
+                        false,
+                        false));
     }
 
     public static boolean isEmptyJoinOptimization(Session session)
