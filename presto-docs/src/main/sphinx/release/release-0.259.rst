@@ -2,26 +2,35 @@
 Release 0.259
 =============
 
+**Highlights**
+==============
+
 **Details**
 ===========
 
 General Changes
 _______________
-* Fix ``ClassCastException`` that sometimes occurred for ``EXPLAIN`` queries when the query contained ``LIKE`` predicates.
-* Add Weibull distribution CDF :func:`weibull_cdf` and inverse CDF :func:`inverse_weibull_cdf` functions.
-* Enable verbose error messages for ``EXCEEDED_LOCAL_MEMORY_LIMIT`` by default.  This can be disabled by setting the configuration property ``memory.verbose-exceeded-memory-limit-errors-enabled`` to ``false``.
-
-JDBC Driver Changes
-___________________
-* Add ``getConnectionProperties`` method to ``PrestoConnection`` to retrieve connection properties after a connection is established. (:pr:`16329`)
+* Fixed a casting error that sometimes occurred for EXPLAIN queries when the query plan contains LIKE predicates.
+* Add Weibull distribution CDF and inverse CDF functions to MathFunctions.java.
+* Enable verbose memory exceeded errors by default.
+* Support CREATE TYPE syntax.
 
 Resource Groups Changes
 _______________________
-* Add support for specifying query limits (cpu time, total memory and execution time) at the resource group level. See :doc:`/admin/resource-groups`.
+* Add support to specify query limits (Cpu time, total memory and execution time) at the resource group level. See :doc:`/admin/resource-groups`.
 
 SPI Changes
 ___________
-* Add ``ResourceGroupQueryLimits`` to the SPI and the corresponding getter and setter functions in ``ResourceGroups``.
+* Add `ResourceGroupQueryLimits` to the SPI and the corresponding getter and setter functions in `ResourceGroups`.
+
+JDBC Changes
+____________
+* Add method ``getConnectionProperties`` to PrestoConnection to allow for connection properties retrieval after a connection establishes. (:pr:`16329`).
+* Support partial pushdown of JDBC filters.
+
+Kafka Changes
+_____________
+* Extract pluggable interface for kafka cluster supplier.
 
 **Credits**
 ===========
