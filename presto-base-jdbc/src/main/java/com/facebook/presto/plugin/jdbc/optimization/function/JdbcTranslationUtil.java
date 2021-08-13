@@ -38,20 +38,4 @@ public class JdbcTranslationUtil
                 .flatMap(List::stream)
                 .collect(toImmutableList());
     }
-
-    public static List<String> mergeSqlBodies(List<JdbcExpression> jdbcExpressions)
-    {
-        return jdbcExpressions.stream()
-                .map(JdbcExpression::getExpression)
-                .map(sql -> '(' + sql + ')')
-                .collect(toImmutableList());
-    }
-
-    public static List<ConstantExpression> mergeVariableBindings(List<JdbcExpression> jdbcExpressions)
-    {
-        return jdbcExpressions.stream()
-                .map(JdbcExpression::getBoundConstantValues)
-                .flatMap(List::stream)
-                .collect(toImmutableList());
-    }
 }
