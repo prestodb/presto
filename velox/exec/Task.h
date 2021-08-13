@@ -69,8 +69,23 @@ class Task {
       std::shared_ptr<const core::PlanNode> planNode,
       int destination,
       std::shared_ptr<core::QueryCtx>&& queryCtx,
-      std::function<BlockingReason(RowVectorPtr, ContinueFuture*)> consumer =
-          nullptr,
+      Consumer consumer = nullptr,
+      std::function<void(std::exception_ptr)> onError = nullptr)
+      : Task{
+            taskId,
+            std::move(planNode),
+            destination,
+            std::move(queryCtx),
+            (consumer ? [c = std::move(consumer)]() { return c; }
+                      : ConsumerSupplier{}),
+            std::move(onError)} {}
+
+  Task(
+      const std::string& taskId,
+      std::shared_ptr<const core::PlanNode> planNode,
+      int destination,
+      std::shared_ptr<core::QueryCtx>&& queryCtx,
+      ConsumerSupplier consumerSupplier,
       std::function<void(std::exception_ptr)> onError = nullptr);
 
   Task(const std::string& id, std::shared_ptr<core::QueryCtx> ctx)
@@ -216,8 +231,8 @@ class Task {
     return queryCtx_;
   }
 
-  std::function<BlockingReason(RowVectorPtr, ContinueFuture*)> consumer() {
-    return consumer_;
+  ConsumerSupplier consumerSupplier() {
+    return consumerSupplier_;
   }
 
   // Synchronizes completion of an Operator across Drivers of 'this'.
@@ -383,7 +398,7 @@ class Task {
   std::exception_ptr exception_ = nullptr;
   mutable std::mutex mutex_;
 
-  std::function<BlockingReason(RowVectorPtr, ContinueFuture*)> consumer_;
+  ConsumerSupplier consumerSupplier_;
   std::function<void(std::exception_ptr)> onError_;
 
   std::vector<std::unique_ptr<DriverFactory>> driverFactories_;

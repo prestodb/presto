@@ -22,7 +22,7 @@ class LocalPlanner {
  public:
   static void plan(
       const std::shared_ptr<const core::PlanNode>& planNode,
-      std::function<BlockingReason(RowVectorPtr, ContinueFuture*)> consumer,
+      ConsumerSupplier consumerSupplier,
       std::vector<std::unique_ptr<DriverFactory>>* driverFactories);
 };
 } // namespace facebook::velox::exec

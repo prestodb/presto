@@ -185,6 +185,10 @@ using OperatorSupplier = std::function<std::unique_ptr<Operator>(
     int32_t operatorId,
     DriverCtx* FOLLY_NONNULL ctx)>;
 
+using Consumer =
+    std::function<BlockingReason(RowVectorPtr, ContinueFuture* FOLLY_NULLABLE)>;
+using ConsumerSupplier = std::function<Consumer()>;
+
 struct DriverFactory {
   std::vector<std::shared_ptr<const core::PlanNode>> planNodes;
   // Function that will generate the final operator of a driver being

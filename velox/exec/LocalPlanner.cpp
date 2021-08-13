@@ -51,11 +51,11 @@ bool mustStartNewPipeline(
   return sourceId != 0;
 }
 
-OperatorSupplier makeConsumerSupplier(
-    std::function<BlockingReason(RowVectorPtr, ContinueFuture*)> consumer) {
-  if (consumer) {
-    return [consumer](int32_t operatorId, DriverCtx* ctx) {
-      return std::make_unique<CallbackSink>(operatorId, ctx, consumer);
+OperatorSupplier makeConsumerSupplier(ConsumerSupplier consumerSupplier) {
+  if (consumerSupplier) {
+    return [consumerSupplier](int32_t operatorId, DriverCtx* ctx) {
+      return std::make_unique<CallbackSink>(
+          operatorId, ctx, consumerSupplier());
     };
   }
   return nullptr;
@@ -176,12 +176,12 @@ uint32_t maxDrivers(
 // static
 void LocalPlanner::plan(
     const std::shared_ptr<const core::PlanNode>& planNode,
-    std::function<BlockingReason(RowVectorPtr, ContinueFuture*)> consumer,
+    ConsumerSupplier consumerSupplier,
     std::vector<std::unique_ptr<DriverFactory>>* driverFactories) {
   detail::plan(
       planNode,
       nullptr,
-      detail::makeConsumerSupplier(consumer),
+      detail::makeConsumerSupplier(consumerSupplier),
       driverFactories);
 
   for (auto& factory : *driverFactories) {
