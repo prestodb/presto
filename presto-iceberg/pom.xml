@@ -12,7 +12,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.iceberg.version>0.9.0</dep.iceberg.version>
+        <dep.iceberg.version>0.11.1</dep.iceberg.version>
     </properties>
 
     <dependencies>
@@ -274,7 +274,7 @@
 
         <dependency>
             <groupId>org.apache.iceberg</groupId>
-            <artifactId>iceberg-hive</artifactId>
+            <artifactId>iceberg-hive-metastore</artifactId>
             <version>${dep.iceberg.version}</version>
         </dependency>
 
