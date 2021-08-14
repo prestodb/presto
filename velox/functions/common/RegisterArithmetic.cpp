@@ -55,6 +55,7 @@ void registerArithmeticFunctions() {
   registerFunction<udf_width_bucket, int64_t, double, double, double, int64_t>(
       {"width_bucket"});
   registerBinaryIntegral<udf_bitwise_and>({});
+  registerUnaryIntegral<udf_bitwise_not>({});
   registerBinaryIntegral<udf_bitwise_or>({});
 }
 

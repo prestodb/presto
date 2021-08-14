@@ -6,6 +6,10 @@ Bitwise Functions
 
     Returns the bitwise AND of ``x`` and ``y`` in 2's complement representation.
 
+.. function:: bitwise_not(x) -> [same as x]
+
+    Returns the bitwise NOT of ``x`` in 2's complement representation.
+
 .. function:: bitwise_or(x, y) -> [same as x]
 
     Returns the bitwise OR of ``x`` and ``y`` in 2's complement representation.

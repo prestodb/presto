@@ -249,6 +249,16 @@ TEST_F(ArithmeticTest, bitwiseAnd) {
   EXPECT_EQ(bitwiseAnd(60, 21), 20);
 }
 
+TEST_F(ArithmeticTest, bitwiseNot) {
+  const auto bitwiseNot = [&](std::optional<int32_t> a) {
+    return evaluateOnce<int32_t>("bitwise_not(c0)", a);
+  };
+
+  EXPECT_EQ(bitwiseNot(-1), 0);
+  EXPECT_EQ(bitwiseNot(0), -1);
+  EXPECT_EQ(bitwiseNot(2), -3);
+}
+
 TEST_F(ArithmeticTest, bitwiseOr) {
   const auto bitwiseOr = [&](std::optional<int32_t> a,
                              std::optional<int32_t> b) {

@@ -208,6 +208,14 @@ FOLLY_ALWAYS_INLINE bool call(T& result, T a, T b) {
 VELOX_UDF_END();
 
 template <typename T>
+VELOX_UDF_BEGIN(bitwise_not)
+FOLLY_ALWAYS_INLINE bool call(T& result, T a) {
+  result = ~a;
+  return true;
+}
+VELOX_UDF_END();
+
+template <typename T>
 VELOX_UDF_BEGIN(bitwise_or)
 FOLLY_ALWAYS_INLINE bool call(T& result, T a, T b) {
   result = a | b;
