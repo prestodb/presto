@@ -189,12 +189,16 @@ struct Converter<
     return cast<int16_t>(v);
   }
 
+  // Convert integer to double or float directly, not using folly, as it
+  // might throw 'loss of precision' error.
   static T cast(const int32_t& v) {
-    return cast<int32_t>(v);
+    return static_cast<T>(v);
   }
 
+  // Convert large integer to double or float directly, not using folly, as it
+  // might throw 'loss of precision' error.
   static T cast(const int64_t& v) {
-    return cast<int64_t>(v);
+    return static_cast<T>(v);
   }
 };
 

@@ -142,6 +142,52 @@ TEST_F(CastExprTest, basics) {
   testCast<bool, std::string>("string", {true, false}, {"true", "false"});
 }
 
+// Test that integers don't throw when converting fringe values to double and
+// float.
+TEST_F(CastExprTest, largeIntToDoubleAndFloat) {
+  int16_t min16 = std::numeric_limits<int16_t>::min();
+  testCast<int16_t, double>("double", {min16}, {static_cast<double>(min16)});
+  testCast<int16_t, float>("float", {min16}, {static_cast<float>(min16)});
+  min16 += 1;
+  testCast<int16_t, double>("double", {min16}, {static_cast<double>(min16)});
+  testCast<int16_t, float>("float", {min16}, {static_cast<float>(min16)});
+
+  int16_t max16 = std::numeric_limits<int16_t>::max();
+  testCast<int16_t, double>("double", {max16}, {static_cast<double>(max16)});
+  testCast<int16_t, float>("float", {max16}, {static_cast<float>(max16)});
+  max16 -= 1;
+  testCast<int16_t, double>("double", {max16}, {static_cast<double>(max16)});
+  testCast<int16_t, float>("float", {max16}, {static_cast<float>(max16)});
+
+  int32_t min32 = std::numeric_limits<int32_t>::min();
+  testCast<int32_t, double>("double", {min32}, {static_cast<double>(min32)});
+  testCast<int32_t, float>("float", {min32}, {static_cast<float>(min32)});
+  min32 += 1;
+  testCast<int32_t, double>("double", {min32}, {static_cast<double>(min32)});
+  testCast<int32_t, float>("float", {min32}, {static_cast<float>(min32)});
+
+  int32_t max32 = std::numeric_limits<int32_t>::max();
+  testCast<int32_t, double>("double", {max32}, {static_cast<double>(max32)});
+  testCast<int32_t, float>("float", {max32}, {static_cast<float>(max32)});
+  max32 -= 1;
+  testCast<int32_t, double>("double", {max32}, {static_cast<double>(max32)});
+  testCast<int32_t, float>("float", {max32}, {static_cast<float>(max32)});
+
+  int64_t min64 = std::numeric_limits<int64_t>::min();
+  testCast<int64_t, double>("double", {min64}, {static_cast<double>(min64)});
+  testCast<int64_t, float>("float", {min64}, {static_cast<float>(min64)});
+  min64 += 1;
+  testCast<int64_t, double>("double", {min64}, {static_cast<double>(min64)});
+  testCast<int64_t, float>("float", {min64}, {static_cast<float>(min64)});
+
+  int64_t max64 = std::numeric_limits<int64_t>::max();
+  testCast<int64_t, double>("double", {max64}, {static_cast<double>(max64)});
+  testCast<int64_t, float>("float", {max64}, {static_cast<float>(max64)});
+  max64 -= 1;
+  testCast<int64_t, double>("double", {max64}, {static_cast<double>(max64)});
+  testCast<int64_t, float>("float", {max64}, {static_cast<float>(max64)});
+}
+
 TEST_F(CastExprTest, timestamp) {
   testCast<std::string, Timestamp>(
       "timestamp",
