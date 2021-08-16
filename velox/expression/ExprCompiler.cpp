@@ -124,12 +124,14 @@ ExprPtr getAlreadyCompiled(const ITypedExpr* expr, ExprDedupMap* visited) {
 ExprPtr compileExpression(
     const TypedExprPtr& expr,
     Scope* scope,
-    memory::MemoryPool* pool);
+    memory::MemoryPool* pool,
+    bool enableConstantFolding);
 
 std::vector<ExprPtr> compileInputs(
     const TypedExprPtr& expr,
     Scope* scope,
-    memory::MemoryPool* pool) {
+    memory::MemoryPool* pool,
+    bool enableConstantFolding) {
   std::vector<ExprPtr> compiledInputs;
   const std::string* flattenIf = isAndOrOr(expr);
   for (auto& input : expr->inputs()) {
@@ -142,10 +144,12 @@ std::vector<ExprPtr> compileInputs(
         std::vector<TypedExprPtr> flat;
         flattenInput(input, *flattenIf, flat);
         for (auto& input : flat) {
-          compiledInputs.push_back(compileExpression(input, scope, pool));
+          compiledInputs.push_back(
+              compileExpression(input, scope, pool, enableConstantFolding));
         }
       } else {
-        compiledInputs.push_back(compileExpression(input, scope, pool));
+        compiledInputs.push_back(
+            compileExpression(input, scope, pool, enableConstantFolding));
       }
     }
   }
@@ -207,11 +211,14 @@ void captureFieldReference(
 std::shared_ptr<Expr> compileLambda(
     const core::LambdaTypedExpr* lambda,
     Scope* scope,
-    memory::MemoryPool* pool) {
+    memory::MemoryPool* pool,
+    bool enableConstantFolding) {
   auto signature = lambda->signature();
   auto parameterNames = signature->names();
   Scope lambdaScope(std::move(parameterNames), scope, scope->exprSet);
-  auto body = compileExpression(lambda->body(), &lambdaScope, pool);
+  auto body = compileExpression(
+      lambda->body(), &lambdaScope, pool, enableConstantFolding);
+
   // The lambda depends on the captures. For a lambda caller to be
   // able to peel off encodings, the captures too must be peelable.
   std::vector<std::shared_ptr<FieldReference>> captureReferences;
@@ -282,7 +289,8 @@ std::vector<VectorPtr> getConstantInputs(const std::vector<ExprPtr>& exprs) {
 ExprPtr compileExpression(
     const TypedExprPtr& expr,
     Scope* scope,
-    memory::MemoryPool* pool) {
+    memory::MemoryPool* pool,
+    bool enableConstantFolding) {
   ExprPtr alreadyCompiled = getAlreadyCompiled(expr.get(), &scope->visited);
   if (alreadyCompiled) {
     if (!alreadyCompiled->isMultiplyReferenced()) {
@@ -294,7 +302,7 @@ ExprPtr compileExpression(
 
   ExprPtr result;
   auto resultType = expr->type();
-  auto compiledInputs = compileInputs(expr, scope, pool);
+  auto compiledInputs = compileInputs(expr, scope, pool, enableConstantFolding);
   auto inputTypes = getTypes(compiledInputs);
 
   if (auto concat = dynamic_cast<const core::ConcatTypedExpr*>(expr.get())) {
@@ -345,14 +353,14 @@ ExprPtr compileExpression(
     }
   } else if (
       auto lambda = dynamic_cast<const core::LambdaTypedExpr*>(expr.get())) {
-    result = compileLambda(lambda, scope, pool);
+    result = compileLambda(lambda, scope, pool, enableConstantFolding);
   } else {
     VELOX_UNSUPPORTED("Unknown typed expression");
   }
 
   result->computeMetadata();
 
-  auto folded = foldIfConstant(result, scope);
+  auto folded = enableConstantFolding ? foldIfConstant(result, scope) : result;
   scope->visited[expr.get()] = folded;
   return folded;
 }
@@ -362,13 +370,15 @@ ExprPtr compileExpression(
 std::vector<std::shared_ptr<Expr>> compileExpressions(
     std::vector<TypedExprPtr>&& sources,
     core::ExecCtx* execCtx,
-    ExprSet* exprSet) {
+    ExprSet* exprSet,
+    bool enableConstantFolding) {
   Scope scope({}, nullptr, exprSet);
   std::vector<std::shared_ptr<Expr>> exprs;
   exprs.reserve(sources.size());
 
   for (auto& source : sources) {
-    exprs.push_back(compileExpression(source, &scope, execCtx->pool()));
+    exprs.push_back(compileExpression(
+        source, &scope, execCtx->pool(), enableConstantFolding));
   }
   return exprs;
 }

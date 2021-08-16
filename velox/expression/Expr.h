@@ -334,7 +334,8 @@ class ExprSet {
  public:
   explicit ExprSet(
       std::vector<std::shared_ptr<const core::ITypedExpr>>&& source,
-      core::ExecCtx* execCtx);
+      core::ExecCtx* execCtx,
+      bool enableConstantFolding = true);
 
   // Initialize and evaluate all expressions available in this ExprSet.
   void eval(

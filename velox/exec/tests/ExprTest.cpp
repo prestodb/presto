@@ -1005,6 +1005,37 @@ TEST_F(ExprTest, constantNull) {
   assertEqualVectors(expected, result.front());
 }
 
+TEST_F(ExprTest, constantFolding) {
+  auto typedExpr = parseExpression("1 + 2");
+
+  auto extractConstant = [](exec::Expr* expr) {
+    auto constExpr = dynamic_cast<exec::ConstantExpr*>(expr);
+    return constExpr->value()->as<ConstantVector<int64_t>>()->valueAt(0);
+  };
+
+  // Check that the constants have been folded.
+  {
+    exec::ExprSet exprSetFolded({typedExpr}, execCtx_.get(), true);
+
+    auto expr = exprSetFolded.exprs().front();
+    auto constExpr = dynamic_cast<exec::ConstantExpr*>(expr.get());
+
+    ASSERT_TRUE(constExpr != nullptr);
+    EXPECT_TRUE(constExpr->inputs().empty());
+    EXPECT_EQ(3, extractConstant(expr.get()));
+  }
+
+  // Check that the constants have NOT been folded.
+  {
+    exec::ExprSet exprSetUnfolded({typedExpr}, execCtx_.get(), false);
+    auto expr = exprSetUnfolded.exprs().front();
+
+    ASSERT_EQ(2, expr->inputs().size());
+    EXPECT_EQ(1, extractConstant(expr->inputs()[0].get()));
+    EXPECT_EQ(2, extractConstant(expr->inputs()[1].get()));
+  }
+}
+
 TEST_F(ExprTest, constantArray) {
   auto a = makeArrayVector<int32_t>(
       10, [](auto /*row*/) { return 5; }, [](auto row) { return row * 3; });

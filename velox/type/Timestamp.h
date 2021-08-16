@@ -94,7 +94,7 @@ struct Timestamp {
     auto bt = gmtime((const time_t*)&seconds_);
     if (!bt) {
       const auto& error_message = folly::to<std::string>(
-          "Can't convert Seconds to time", folly::to<std::string>(seconds_));
+          "Can't convert Seconds to time: ", folly::to<std::string>(seconds_));
       throw std::runtime_error{error_message};
     }
 

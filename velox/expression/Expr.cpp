@@ -1023,9 +1023,11 @@ std::string Expr::toString() const {
 
 ExprSet::ExprSet(
     std::vector<std::shared_ptr<const core::ITypedExpr>>&& sources,
-    core::ExecCtx* execCtx)
+    core::ExecCtx* execCtx,
+    bool enableConstantFolding)
     : execCtx_(execCtx) {
-  exprs_ = compileExpressions(std::move(sources), execCtx, this);
+  exprs_ = compileExpressions(
+      std::move(sources), execCtx, this, enableConstantFolding);
 }
 
 void ExprSet::eval(
