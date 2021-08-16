@@ -149,8 +149,8 @@ public class LocalExchangeSinkOperator
     {
         requireNonNull(page, "page is null");
         page = pagePreprocessor.apply(page);
-        sink.addPage(page);
         operatorContext.recordOutput(page.getSizeInBytes(), page.getPositionCount());
+        sink.addPage(page);
     }
 
     @Override
