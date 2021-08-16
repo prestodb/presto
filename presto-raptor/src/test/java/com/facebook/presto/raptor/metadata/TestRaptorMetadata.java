@@ -64,6 +64,7 @@ import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.RowType.field;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.raptor.RaptorTableProperties.BUCKETED_ON_PROPERTY;
@@ -835,7 +836,7 @@ public class TestRaptorMetadata
         assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
         metadata.createTable(SESSION, getOrdersTable(), false);
         RaptorTableHandle raptorTableHandle = (RaptorTableHandle) metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
-        List<RowType.Field> fields = (ImmutableList.of(new RowType.Field(Optional.of("field_1"), BIGINT)));
+        List<RowType.Field> fields = (ImmutableList.of(field("field_1", BIGINT)));
 
         try {
             metadata.addColumn(

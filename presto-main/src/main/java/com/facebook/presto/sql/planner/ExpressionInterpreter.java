@@ -909,11 +909,11 @@ public class ExpressionInterpreter
         @Override
         protected Object visitFunctionCall(FunctionCall node, Object context)
         {
-            List<Type> argumentTypes = new ArrayList<>();
+            List<SemanticType> argumentTypes = new ArrayList<>();
             List<Object> argumentValues = new ArrayList<>();
             for (Expression expression : node.getArguments()) {
                 Object value = process(expression, context);
-                Type type = type(expression).getType();
+                SemanticType type = type(expression);
                 argumentValues.add(value);
                 argumentTypes.add(type);
             }
@@ -1317,7 +1317,7 @@ public class ExpressionInterpreter
             return value instanceof Expression || (isSupportedLiteralType(type.getType()) && estimatedSizeInBytes(value) <= MAX_SERIALIZABLE_OBJECT_SIZE);
         }
 
-        private List<Expression> toExpressions(List<Object> values, List<Type> types)
+        private List<Expression> toExpressions(List<Object> values, List<? extends Type> types)
         {
             return literalEncoder.toExpressions(values, types);
         }

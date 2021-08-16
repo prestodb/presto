@@ -19,6 +19,7 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.BlockBuilderStatus;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import io.airlift.slice.Slice;
 
 import java.util.ArrayList;
@@ -34,18 +35,29 @@ import static java.util.Objects.requireNonNull;
 public class ArrayType
         extends AbstractType
 {
-    private final Type elementType;
+    private final SemanticType elementType;
     public static final String ARRAY_NULL_ELEMENT_MSG = "ARRAY comparison not supported for arrays with null elements";
 
     public ArrayType(Type elementType)
     {
         super(new TypeSignature(ARRAY, TypeSignatureParameter.of(elementType.getTypeSignature())), Block.class);
+        this.elementType = SemanticType.from(requireNonNull(elementType, "elementType is null"));
+    }
+
+    public ArrayType(SemanticType elementType)
+    {
+        super(new TypeSignature(ARRAY, TypeSignatureParameter.of(elementType.getTypeSignature())), Block.class);
         this.elementType = requireNonNull(elementType, "elementType is null");
+    }
+
+    public SemanticType getElementSemanticType()
+    {
+        return elementType;
     }
 
     public Type getElementType()
     {
-        return elementType;
+        return elementType.getType();
     }
 
     @Override
@@ -211,6 +223,12 @@ public class ArrayType
     public List<Type> getTypeParameters()
     {
         return singletonList(getElementType());
+    }
+
+    @Override
+    public List<SemanticType> getSemanticTypeParameters()
+    {
+        return singletonList(getElementSemanticType());
     }
 
     @Override

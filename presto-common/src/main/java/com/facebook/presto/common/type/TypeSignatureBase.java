@@ -85,10 +85,9 @@ public class TypeSignatureBase
         return typeName.isPresent();
     }
 
-    public QualifiedObjectName getTypeName()
+    public Optional<QualifiedObjectName> getTypeName()
     {
-        checkArgument(typeName.isPresent(), "TypeSignatureBase %s does not have type name", toString());
-        return typeName.get();
+        return typeName;
     }
 
     public String getStandardTypeBase()

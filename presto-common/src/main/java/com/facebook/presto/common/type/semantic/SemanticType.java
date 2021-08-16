@@ -19,12 +19,14 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.BlockBuilderStatus;
 import com.facebook.presto.common.block.UncheckedBlock;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import io.airlift.slice.Slice;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -42,23 +44,33 @@ public abstract class SemanticType
         this.type = requireNonNull(type, "type is null");
     }
 
+    public static SemanticType from(Optional<QualifiedObjectName> name, Type type)
+    {
+        return name.map(typeName -> SemanticType.from(typeName, type)).orElse(SemanticType.from(type));
+    }
+
     public static SemanticType from(QualifiedObjectName name, Type type)
     {
+        if (type instanceof RowType) {
+            return new StructuredType(name, (RowType) type);
+        }
         return new DistinctType(name, type);
     }
 
     public static SemanticType from(Type type)
     {
-        if (type instanceof DistinctType) {
+        if (type instanceof SemanticType) {
             return (SemanticType) type;
-        }
-        else if (type.getTypeSignature().getTypeSignatureBase().hasTypeName()) {
-            return new DistinctType(type.getTypeSignature().getTypeSignatureBase().getTypeName(), type);
         }
         return new BuiltInType(type);
     }
 
     public abstract String getName();
+
+    public SemanticTypeCategory getCategory()
+    {
+        return category;
+    }
 
     public Type getType()
     {
@@ -137,6 +149,12 @@ public abstract class SemanticType
     public List<Type> getTypeParameters()
     {
         return type.getTypeParameters();
+    }
+
+    @Override
+    public List<SemanticType> getSemanticTypeParameters()
+    {
+        return type.getSemanticTypeParameters();
     }
 
     @Override

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.ParameterKind;
@@ -20,10 +21,12 @@ import com.facebook.presto.common.type.ParametricType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeParameter;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.common.block.MethodHandleUtil.compose;
 import static com.facebook.presto.common.block.MethodHandleUtil.nativeValueGetter;
@@ -42,12 +45,12 @@ public final class MapParametricType
     }
 
     @Override
-    public Type createType(List<TypeParameter> parameters)
+    public SemanticType createType(Optional<QualifiedObjectName> name, List<TypeParameter> parameters)
     {
         throw new IllegalStateException("MapType creation requires map operator MethodHandle. Please use `createType(functionAndTypeManager, parameters)` instead");
     }
 
-    public Type createType(FunctionAndTypeManager functionAndTypeManager, List<TypeParameter> parameters)
+    public SemanticType createType(FunctionAndTypeManager functionAndTypeManager, Optional<QualifiedObjectName> name, List<TypeParameter> parameters)
     {
         checkArgument(parameters.size() == 2, "Expected two parameters, got %s", parameters);
         TypeParameter firstParameter = parameters.get(0);
@@ -57,16 +60,17 @@ public final class MapParametricType
                 "Expected key and type to be types, got %s",
                 parameters);
 
-        Type keyType = firstParameter.getType();
-        Type valueType = secondParameter.getType();
-        MethodHandle keyNativeEquals = functionAndTypeManager.getBuiltInScalarFunctionImplementation(functionAndTypeManager.resolveOperator(OperatorType.EQUAL, fromTypes(keyType, keyType))).getMethodHandle();
-        MethodHandle keyBlockEquals = compose(keyNativeEquals, nativeValueGetter(keyType), nativeValueGetter(keyType));
-        MethodHandle keyNativeHashCode = functionAndTypeManager.getBuiltInScalarFunctionImplementation(functionAndTypeManager.resolveOperator(OperatorType.HASH_CODE, fromTypes(keyType))).getMethodHandle();
-        MethodHandle keyBlockHashCode = compose(keyNativeHashCode, nativeValueGetter(keyType));
-        return new MapType(
+        SemanticType keyType = firstParameter.getSemanticType();
+        Type keyPhysicalType = keyType.getType();
+        SemanticType valueType = secondParameter.getSemanticType();
+        MethodHandle keyNativeEquals = functionAndTypeManager.getBuiltInScalarFunctionImplementation(functionAndTypeManager.resolveOperator(OperatorType.EQUAL, fromTypes(keyPhysicalType, keyPhysicalType))).getMethodHandle();
+        MethodHandle keyBlockEquals = compose(keyNativeEquals, nativeValueGetter(keyPhysicalType), nativeValueGetter(keyPhysicalType));
+        MethodHandle keyNativeHashCode = functionAndTypeManager.getBuiltInScalarFunctionImplementation(functionAndTypeManager.resolveOperator(OperatorType.HASH_CODE, fromTypes(keyPhysicalType))).getMethodHandle();
+        MethodHandle keyBlockHashCode = compose(keyNativeHashCode, nativeValueGetter(keyPhysicalType));
+        return SemanticType.from(name, new MapType(
                 keyType,
                 valueType,
                 keyBlockEquals,
-                keyBlockHashCode);
+                keyBlockHashCode));
     }
 }

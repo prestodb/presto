@@ -39,6 +39,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
+import static com.facebook.presto.common.type.semantic.SemanticType.SemanticTypeCategory.BUILTIN_TYPE;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.type.TypeCalculation.calculateLiteralValue;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -531,7 +532,13 @@ public class SignatureBinder
             return functionAndTypeManager.canCoerce(fromType, functionAndTypeManager.getSemanticType(toTypeSignature));
         }
         else {
-            return fromType.getTypeSignature().equals(functionAndTypeManager.getType(toTypeSignature).getTypeSignature());
+            if (fromType.getCategory().equals(BUILTIN_TYPE)) {
+                return fromType.getTypeSignature().equals(toTypeSignature);
+            }
+            if (!toTypeSignature.getTypeSignatureBase().hasTypeName()) {
+                return false;
+            }
+            return fromType.getTypeSignature().getTypeSignatureBase().getTypeName().get().equals(toTypeSignature.getTypeSignatureBase().getTypeName().get());
         }
     }
 
@@ -618,6 +625,13 @@ public class SignatureBinder
                 return SolverReturnStatus.CHANGED;
             }
             SemanticType originalType = bindings.getTypeVariable(typeParameter);
+            if (!originalType.getCategory().equals(BUILTIN_TYPE) || !actualType.getCategory().equals(BUILTIN_TYPE)) {
+                if (originalType.equals(actualType)) {
+                    return SolverReturnStatus.UNCHANGED_SATISFIED;
+                }
+                return SolverReturnStatus.UNSOLVABLE;
+            }
+
             Optional<SemanticType> commonSuperType = functionAndTypeManager.getCommonSuperType(originalType, actualType);
             if (!commonSuperType.isPresent()) {
                 return SolverReturnStatus.UNSOLVABLE;
@@ -626,7 +640,7 @@ public class SignatureBinder
                 // This check must not be skipped even if commonSuperType is equal to originalType
                 return SolverReturnStatus.UNSOLVABLE;
             }
-            if (commonSuperType.get().equals(originalType) || (originalType instanceof SemanticType && commonSuperType.get().equals(((SemanticType) originalType).getType()))) {
+            if (commonSuperType.get().equals(originalType)) {
                 return SolverReturnStatus.UNCHANGED_SATISFIED;
             }
             bindings.setTypeVariable(typeParameter, commonSuperType.get());
@@ -673,6 +687,9 @@ public class SignatureBinder
                 }
             }
             SemanticType originalType = functionAndTypeManager.getSemanticType(new TypeSignature(formalTypeSignature.getBase(), originalTypeTypeParametersBuilder.build()));
+            if (!originalType.getCategory().equals(BUILTIN_TYPE) || !actualType.getCategory().equals(BUILTIN_TYPE)) {
+                return SolverReturnStatus.UNSOLVABLE;
+            }
             Optional<SemanticType> commonSuperType = functionAndTypeManager.getCommonSuperType(originalType, actualType);
             if (!commonSuperType.isPresent()) {
                 return SolverReturnStatus.UNSOLVABLE;

@@ -18,6 +18,7 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.BlockBuilderStatus;
 import com.facebook.presto.common.block.UncheckedBlock;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.fasterxml.jackson.annotation.JsonValue;
 import io.airlift.slice.Slice;
 
@@ -59,6 +60,8 @@ public interface Type
      * For parameterized types returns the list of parameters.
      */
     List<Type> getTypeParameters();
+
+    List<SemanticType> getSemanticTypeParameters();
 
     /**
      * Creates the preferred block builder for this type. This is the builder used to

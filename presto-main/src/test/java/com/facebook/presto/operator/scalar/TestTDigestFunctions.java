@@ -32,10 +32,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE_TYPE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TDigestParametricType.TDIGEST;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -57,7 +59,7 @@ public class TestTDigestFunctions
     private static final double STANDARD_ERROR = 0.01;
     private static final double[] quantiles = {0.0001, 0.0200, 0.0300, 0.04000, 0.0500, 0.1000, 0.2000, 0.3000, 0.4000, 0.5000, 0.6000, 0.7000, 0.8000,
             0.9000, 0.9500, 0.9600, 0.9700, 0.9800, 0.9999};
-    private static final Type TDIGEST_DOUBLE = TDIGEST.createType(ImmutableList.of(TypeParameter.of(DOUBLE)));
+    private static final Type TDIGEST_DOUBLE = TDIGEST.createType(Optional.empty(), ImmutableList.of(TypeParameter.of(DOUBLE_TYPE))).getType();
 
     private static final Joiner ARRAY_JOINER = Joiner.on(",");
     private static final MetadataManager METADATA = MetadataManager.createTestMetadataManager();

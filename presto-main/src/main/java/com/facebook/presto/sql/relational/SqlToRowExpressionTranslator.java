@@ -460,8 +460,8 @@ public final class SqlToRowExpressionTranslator
             RowExpression body = process(node.getBody(), context);
 
             SemanticType type = getType(node);
-            List<Type> typeParameters = type.getTypeParameters();
-            List<Type> argumentTypes = typeParameters.subList(0, typeParameters.size() - 1);
+            List<SemanticType> typeParameters = type.getSemanticTypeParameters();
+            List<SemanticType> argumentTypes = typeParameters.subList(0, typeParameters.size() - 1);
             List<String> argumentNames = node.getArguments().stream()
                     .map(LambdaArgumentDeclaration::getName)
                     .map(Identifier::getValue)

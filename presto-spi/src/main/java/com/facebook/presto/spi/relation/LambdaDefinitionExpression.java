@@ -47,7 +47,7 @@ public final class LambdaDefinitionExpression
 
     @JsonCreator
     public LambdaDefinitionExpression(
-            @JsonProperty("argumentTypes") List<Type> argumentTypes,
+            @JsonProperty("argumentTypes") List<? extends Type> argumentTypes,
             @JsonProperty("arguments") List<String> arguments,
             @JsonProperty("body") RowExpression body)
     {
@@ -55,7 +55,7 @@ public final class LambdaDefinitionExpression
         this.arguments = unmodifiableList(new ArrayList<>(requireNonNull(arguments, "arguments is null")));
         checkArgument(argumentTypes.size() == arguments.size(), "Number of argument types does not match number of arguments");
         this.body = requireNonNull(body, "body is null");
-        this.canonicalizedBody = body.accept(new CanonicalizeExpression(arguments, argumentTypes), null);
+        this.canonicalizedBody = body.accept(new CanonicalizeExpression(arguments, this.argumentTypes), null);
     }
 
     @JsonProperty

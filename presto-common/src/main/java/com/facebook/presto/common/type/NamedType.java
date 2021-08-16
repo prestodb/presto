@@ -13,15 +13,17 @@
  */
 package com.facebook.presto.common.type;
 
+import com.facebook.presto.common.type.semantic.SemanticType;
+
 import java.util.Objects;
 import java.util.Optional;
 
 public class NamedType
 {
     private final Optional<RowFieldName> name;
-    private final Type type;
+    private final SemanticType type;
 
-    public NamedType(Optional<RowFieldName> name, Type type)
+    public NamedType(Optional<RowFieldName> name, SemanticType type)
     {
         this.name = name;
         this.type = type;
@@ -32,7 +34,7 @@ public class NamedType
         return name;
     }
 
-    public Type getType()
+    public SemanticType getSemanticType()
     {
         return type;
     }

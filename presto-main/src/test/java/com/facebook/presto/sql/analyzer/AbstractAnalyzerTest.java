@@ -68,6 +68,7 @@ import java.util.function.Consumer;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.RowType.field;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
@@ -236,13 +237,13 @@ public class AbstractAnalyzerTest
                 new ConnectorTableMetadata(table10, ImmutableList.of(
                         new ColumnMetadata("a", BIGINT),
                         new ColumnMetadata("b", RowType.from(ImmutableList.of(
-                                new RowType.Field(Optional.of("w"), BIGINT),
-                                new RowType.Field(Optional.of("x"),
+                                field("w", BIGINT),
+                                field("x",
                                         RowType.from(ImmutableList.of(
-                                                new RowType.Field(Optional.of("y"), BIGINT),
-                                                new RowType.Field(Optional.of("z"), DOUBLE))))))),
+                                                field("y", BIGINT),
+                                                field("z", DOUBLE))))))),
                         new ColumnMetadata("c", RowType.from(ImmutableList.of(
-                                new RowType.Field(Optional.of("d"), BIGINT)))))),
+                                field("d", BIGINT)))))),
                 false));
 
         // valid view referencing table in same schema

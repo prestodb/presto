@@ -22,7 +22,10 @@ import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BigintType.BIGINT_TYPE;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.QuantileDigestParametricType.QDIGEST;
 import static io.airlift.slice.Slices.wrappedBuffer;
@@ -34,7 +37,7 @@ import static org.testng.Assert.assertEquals;
 public class TestQuantileDigestFunctions
         extends AbstractTestFunctions
 {
-    private static final Type QDIGEST_BIGINT = QDIGEST.createType(ImmutableList.of(TypeParameter.of(BIGINT)));
+    private static final Type QDIGEST_BIGINT = QDIGEST.createType(Optional.empty(), ImmutableList.of(TypeParameter.of(BIGINT_TYPE))).getType();
 
     @Test
     public void testNullQuantileDigestGetValueAtQuantile()

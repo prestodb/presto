@@ -13,7 +13,11 @@
  */
 package com.facebook.presto.common.type;
 
+import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.type.semantic.SemanticType;
+
 import java.util.List;
+import java.util.Optional;
 
 public interface ParametricType
 {
@@ -24,5 +28,5 @@ public interface ParametricType
         return TypeSignatureBase.of(getName());
     }
 
-    Type createType(List<TypeParameter> parameters);
+    SemanticType createType(Optional<QualifiedObjectName> name, List<TypeParameter> parameters);
 }

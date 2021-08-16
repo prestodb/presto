@@ -13,13 +13,15 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.ParametricType;
 import com.facebook.presto.common.type.StandardTypes;
-import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeParameter;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.common.type.semantic.SemanticType;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 
@@ -35,10 +37,11 @@ public class VarcharParametricType
     }
 
     @Override
-    public Type createType(List<TypeParameter> parameters)
+    public SemanticType createType(Optional<QualifiedObjectName> name, List<TypeParameter> parameters)
     {
+        VarcharType varcharType;
         if (parameters.isEmpty()) {
-            return createUnboundedVarcharType();
+            varcharType = createUnboundedVarcharType();
         }
         if (parameters.size() != 1) {
             throw new IllegalArgumentException("Expected exactly one parameter for VARCHAR");
@@ -53,13 +56,15 @@ public class VarcharParametricType
         long length = parameter.getLongLiteral();
 
         if (length == VarcharType.UNBOUNDED_LENGTH) {
-            return VarcharType.createUnboundedVarcharType();
+            varcharType = VarcharType.createUnboundedVarcharType();
         }
-
-        if (length < 0 || length > VarcharType.MAX_LENGTH) {
+        else if (length < 0 || length > VarcharType.MAX_LENGTH) {
             throw new IllegalArgumentException("Invalid VARCHAR length " + length);
         }
+        else {
+            varcharType = VarcharType.createVarcharType((int) length);
+        }
 
-        return VarcharType.createVarcharType((int) length);
+        return SemanticType.from(name, varcharType);
     }
 }

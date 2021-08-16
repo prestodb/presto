@@ -39,6 +39,7 @@ import static com.facebook.presto.common.block.MethodHandleUtil.methodHandle;
 import static com.facebook.presto.common.predicate.TupleDomain.withColumnDomains;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.RowType.field;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.parquet.ParquetPageSourceFactory.getParquetTupleDomain;
@@ -72,7 +73,7 @@ public class TestParquetPredicateUtils
     public void testParquetTupleDomainStructArray()
     {
         HiveColumnHandle columnHandle = new HiveColumnHandle("my_array_struct", HiveType.valueOf("array<struct<a:int>>"), parseTypeSignature(StandardTypes.ARRAY), 0, REGULAR, Optional.empty(), Optional.empty());
-        RowType.Field rowField = new RowType.Field(Optional.of("a"), INTEGER);
+        RowType.Field rowField = field("a", INTEGER);
         RowType rowType = RowType.from(ImmutableList.of(rowField));
         TupleDomain<HiveColumnHandle> domain = withColumnDomains(ImmutableMap.of(columnHandle, Domain.notNull(new ArrayType(rowType))));
 
@@ -111,7 +112,7 @@ public class TestParquetPredicateUtils
     public void testParquetTupleDomainStruct()
     {
         HiveColumnHandle columnHandle = new HiveColumnHandle("my_struct", HiveType.valueOf("struct<a:int,b:int>"), parseTypeSignature(StandardTypes.ROW), 0, REGULAR, Optional.empty(), Optional.empty());
-        RowType.Field rowField = new RowType.Field(Optional.of("my_struct"), INTEGER);
+        RowType.Field rowField = field("my_struct", INTEGER);
         RowType rowType = RowType.from(ImmutableList.of(rowField));
         TupleDomain<HiveColumnHandle> domain = withColumnDomains(ImmutableMap.of(columnHandle, Domain.notNull(rowType)));
 

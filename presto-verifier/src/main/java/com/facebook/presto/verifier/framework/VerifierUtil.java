@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.verifier.framework;
 
-import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.verifier.prestoaction.QueryActionStats;
@@ -98,13 +98,13 @@ public class VerifierUtil
                         .collect(toImmutableMap(i -> callUnchecked(() -> metadata.getColumnName(i)), i -> i - 1)));
     }
 
-    public static List<Type> getColumnTypes(TypeManager typeManager, ResultSetMetaData metadata)
+    public static List<SemanticType> getColumnTypes(TypeManager typeManager, ResultSetMetaData metadata)
     {
         return callUnchecked(() ->
                 IntStream.rangeClosed(1, metadata.getColumnCount())
                         .mapToObj(i -> callUnchecked(() -> metadata.getColumnTypeName(i)))
                         .map(TypeSignature::parseTypeSignature)
-                        .map(typeManager::getType)
+                        .map(typeManager::getSemanticType)
                         .collect(toImmutableList()));
     }
 

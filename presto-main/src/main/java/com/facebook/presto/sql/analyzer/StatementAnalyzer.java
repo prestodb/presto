@@ -420,9 +420,8 @@ class StatementAnalyzer
 
         private void checkTypesMatchForInsert(Insert insert, Scope queryScope, List<ColumnMetadata> expectedColumns)
         {
-            List<Type> queryColumnTypes = queryScope.getRelationType().getVisibleFields().stream()
+            List<SemanticType> queryColumnTypes = queryScope.getRelationType().getVisibleFields().stream()
                     .map(Field::getType)
-                    .map(SemanticType::getType)
                     .collect(toImmutableList());
 
             String errorMessage = "";
@@ -457,11 +456,11 @@ class StatementAnalyzer
                             expectedColumns.get(i).getName());
                 }
                 if (!metadata.getFunctionAndTypeManager().canCoerce(
-                        queryColumnTypes.get(i),
+                        queryColumnTypes.get(i).getType(),
                         expectedColumns.get(i).getType())) {
-                    if (queryColumnTypes.get(i) instanceof RowType && expectedColumns.get(i).getType() instanceof RowType) {
+                    if (queryColumnTypes.get(i).getType() instanceof RowType && expectedColumns.get(i).getType() instanceof RowType) {
                         String fieldName = expectedColumns.get(i).getName();
-                        List<Type> columnRowTypes = queryColumnTypes.get(i).getTypeParameters();
+                        List<SemanticType> columnRowTypes = queryColumnTypes.get(i).getSemanticTypeParameters();
                         List<RowType.Field> expectedRowFields = ((RowType) expectedColumns.get(i).getType()).getFields();
                         checkTypesMatchForNestedStructs(
                                 node,
@@ -488,7 +487,7 @@ class StatementAnalyzer
                 int columnIndex,
                 String fieldName,
                 List<RowType.Field> expectedRowFields,
-                List<Type> columnRowTypes)
+                List<SemanticType> columnRowTypes)
         {
             if (expectedRowFields.size() != columnRowTypes.size()) {
                 throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES,
@@ -502,16 +501,16 @@ class StatementAnalyzer
             for (int rowFieldIndex = 0; rowFieldIndex < expectedRowFields.size(); rowFieldIndex++) {
                 if (!metadata.getFunctionAndTypeManager().canCoerce(
                         columnRowTypes.get(rowFieldIndex),
-                        expectedRowFields.get(rowFieldIndex).getType())) {
+                        expectedRowFields.get(rowFieldIndex).getSemanticType())) {
                     fieldName += "." + expectedRowFields.get(rowFieldIndex).getName().get();
-                    if (columnRowTypes.get(rowFieldIndex) instanceof RowType && expectedRowFields.get(rowFieldIndex).getType() instanceof RowType) {
+                    if (columnRowTypes.get(rowFieldIndex).getType() instanceof RowType && expectedRowFields.get(rowFieldIndex).getType() instanceof RowType) {
                         checkTypesMatchForNestedStructs(
                                 node,
                                 errorMessage,
                                 columnIndex,
                                 fieldName,
                                 ((RowType) expectedRowFields.get(rowFieldIndex).getType()).getFields(),
-                                columnRowTypes.get(rowFieldIndex).getTypeParameters());
+                                columnRowTypes.get(rowFieldIndex).getSemanticTypeParameters());
                     }
                     else {
                         throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES,
@@ -519,7 +518,7 @@ class StatementAnalyzer
                                 errorMessage + "Mismatch at column %d: '%s' is of type %s but expression is of type %s",
                                 columnIndex,
                                 fieldName,
-                                expectedRowFields.get(rowFieldIndex).getType(),
+                                expectedRowFields.get(rowFieldIndex).getSemanticType(),
                                 columnRowTypes.get(rowFieldIndex));
                     }
                 }
@@ -1113,7 +1112,7 @@ class StatementAnalyzer
                     Type elementType = ((ArrayType) expressionPhysicalType).getElementType();
                     if (!SystemSessionProperties.isLegacyUnnest(session) && elementType instanceof RowType) {
                         ((RowType) elementType).getFields().stream()
-                                .map(field -> Field.newUnqualified(field.getName(), SemanticType.from(field.getType())))
+                                .map(field -> Field.newUnqualified(field.getName(), field.getSemanticType()))
                                 .forEach(outputFields::add);
                     }
                     else {
@@ -1849,20 +1848,19 @@ class StatementAnalyzer
         {
             checkState(node.getRows().size() >= 1);
 
-            List<List<Type>> rowTypes = node.getRows().stream()
+            List<List<SemanticType>> rowTypes = node.getRows().stream()
                     .map(row -> analyzeExpression(row, createScope(scope)).getType(row))
-                    .map(SemanticType::getType)
                     .map(type -> {
-                        if (type instanceof RowType) {
-                            return type.getTypeParameters();
+                        if (type.getType() instanceof RowType) {
+                            return type.getSemanticTypeParameters();
                         }
                         return ImmutableList.of(type);
                     })
                     .collect(toImmutableList());
 
             // determine common super type of the rows
-            List<Type> fieldTypes = new ArrayList<>(rowTypes.iterator().next());
-            for (List<Type> rowType : rowTypes) {
+            List<SemanticType> fieldTypes = new ArrayList<>(rowTypes.iterator().next());
+            for (List<SemanticType> rowType : rowTypes) {
                 // check field count consistency for rows
                 if (rowType.size() != fieldTypes.size()) {
                     throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES,
@@ -1873,10 +1871,10 @@ class StatementAnalyzer
                 }
 
                 for (int i = 0; i < rowType.size(); i++) {
-                    Type fieldType = rowType.get(i);
-                    Type superType = fieldTypes.get(i);
+                    SemanticType fieldType = rowType.get(i);
+                    SemanticType superType = fieldTypes.get(i);
 
-                    Optional<Type> commonSuperType = metadata.getFunctionAndTypeManager().getCommonSuperType(fieldType, superType);
+                    Optional<SemanticType> commonSuperType = metadata.getFunctionAndTypeManager().getCommonSuperType(fieldType, superType);
                     if (!commonSuperType.isPresent()) {
                         throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES,
                                 node,
@@ -1893,7 +1891,7 @@ class StatementAnalyzer
                 if (row instanceof Row) {
                     List<Expression> items = ((Row) row).getItems();
                     for (int i = 0; i < items.size(); i++) {
-                        SemanticType expectedType = SemanticType.from(fieldTypes.get(i));
+                        SemanticType expectedType = fieldTypes.get(i);
                         Expression item = items.get(i);
                         SemanticType actualType = analysis.getType(item);
                         if (!actualType.equals(expectedType)) {
@@ -1903,7 +1901,7 @@ class StatementAnalyzer
                 }
                 else {
                     SemanticType actualType = analysis.getType(row);
-                    SemanticType expectedType = SemanticType.from(fieldTypes.get(0));
+                    SemanticType expectedType = fieldTypes.get(0);
                     if (!actualType.equals(expectedType)) {
                         analysis.addCoercion(row, expectedType, metadata.getFunctionAndTypeManager().isTypeOnlyCoercion(actualType, expectedType));
                     }
@@ -1911,7 +1909,7 @@ class StatementAnalyzer
             }
 
             List<Field> fields = fieldTypes.stream()
-                    .map(valueType -> Field.newUnqualified(Optional.empty(), SemanticType.from(valueType)))
+                    .map(valueType -> Field.newUnqualified(Optional.empty(), valueType))
                     .collect(toImmutableList());
 
             return createAndAssignScope(node, scope, fields);

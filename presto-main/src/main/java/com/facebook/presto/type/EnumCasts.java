@@ -32,9 +32,7 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 
 public final class EnumCasts
 {
-    private EnumCasts()
-    {
-    }
+    private EnumCasts() {}
 
     @ScalarOperator(CAST)
     @TypeParameter(value = "T", boundedBy = VARCHAR_ENUM)

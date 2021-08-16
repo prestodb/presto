@@ -14,13 +14,16 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.common.InvalidFunctionArgumentException;
+import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.ParametricType;
 import com.facebook.presto.common.type.StandardTypes;
-import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeParameter;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.spi.PrestoException;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.common.type.CharType.createCharType;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -37,26 +40,29 @@ public class CharParametricType
     }
 
     @Override
-    public Type createType(List<TypeParameter> parameters)
+    public SemanticType createType(Optional<QualifiedObjectName> name, List<TypeParameter> parameters)
     {
+        CharType charType;
         if (parameters.isEmpty()) {
-            return createCharType(1);
+            charType = createCharType(1);
         }
-        if (parameters.size() != 1) {
+        else if (parameters.size() != 1) {
             throw new IllegalArgumentException("Expected at most one parameter for CHAR");
         }
+        else {
+            TypeParameter parameter = parameters.get(0);
 
-        TypeParameter parameter = parameters.get(0);
+            if (!parameter.isLongLiteral()) {
+                throw new IllegalArgumentException("CHAR length must be a number");
+            }
 
-        if (!parameter.isLongLiteral()) {
-            throw new IllegalArgumentException("CHAR length must be a number");
+            try {
+                charType = createCharType(parameter.getLongLiteral());
+            }
+            catch (InvalidFunctionArgumentException e) {
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e.getMessage(), e);
+            }
         }
-
-        try {
-            return createCharType(parameter.getLongLiteral());
-        }
-        catch (InvalidFunctionArgumentException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e.getMessage(), e);
-        }
+        return SemanticType.from(name, charType);
     }
 }

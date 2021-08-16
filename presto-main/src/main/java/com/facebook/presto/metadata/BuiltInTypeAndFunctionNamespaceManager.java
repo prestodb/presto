@@ -460,7 +460,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
     private final LoadingCache<SpecializedFunctionKey, ScalarFunctionImplementation> specializedScalarCache;
     private final LoadingCache<SpecializedFunctionKey, InternalAggregationFunction> specializedAggregationCache;
     private final LoadingCache<SpecializedFunctionKey, WindowFunctionSupplier> specializedWindowCache;
-    private final LoadingCache<TypeSignature, Type> parametricTypeCache;
+    private final LoadingCache<TypeSignature, SemanticType> parametricTypeCache;
     private final MagicLiteralFunction magicLiteralFunction;
 
     private volatile FunctionMap functions = new FunctionMap();
@@ -1064,11 +1064,11 @@ public class BuiltInTypeAndFunctionNamespaceManager
         }
     }
 
-    public Optional<Type> getType(TypeSignature typeSignature)
+    public Optional<SemanticType> getSemanticType(TypeSignature typeSignature)
     {
         Type type = types.get(typeSignature);
         if (type != null) {
-            return Optional.of(type);
+            return Optional.of(SemanticType.from(type));
         }
         try {
             return Optional.ofNullable(parametricTypeCache.getUnchecked(typeSignature));
@@ -1103,7 +1103,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
         return parametricTypes.values();
     }
 
-    private Type instantiateParametricType(TypeSignature signature)
+    private SemanticType instantiateParametricType(TypeSignature signature)
     {
         List<TypeParameter> parameters = new ArrayList<>();
 
@@ -1112,16 +1112,16 @@ public class BuiltInTypeAndFunctionNamespaceManager
             parameters.add(typeParameter);
         }
 
-        ParametricType parametricType = parametricTypes.get(signature.getBase().toLowerCase(Locale.ENGLISH));
+        ParametricType parametricType = parametricTypes.get(signature.getTypeSignatureBase().getStandardTypeBase().toLowerCase(Locale.ENGLISH));
         if (parametricType == null) {
             throw new IllegalArgumentException("Unknown type " + signature);
         }
 
         if (parametricType instanceof MapParametricType) {
-            return ((MapParametricType) parametricType).createType(functionAndTypeManager, parameters);
+            return ((MapParametricType) parametricType).createType(functionAndTypeManager, signature.getTypeSignatureBase().getTypeName(), parameters);
         }
 
-        Type instantiatedType = parametricType.createType(parameters);
+        SemanticType instantiatedType = parametricType.createType(signature.getTypeSignatureBase().getTypeName(), parameters);
 
         // TODO: reimplement this check? Currently "varchar(Integer.MAX_VALUE)" fails with "varchar"
         //checkState(instantiatedType.equalsSignature(signature), "Instantiated parametric type name (%s) does not match expected name (%s)", instantiatedType, signature);

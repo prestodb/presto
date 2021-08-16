@@ -13,12 +13,14 @@
  */
 package com.facebook.presto.ml.type;
 
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.ParameterKind;
 import com.facebook.presto.common.type.ParametricType;
-import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeParameter;
+import com.facebook.presto.common.type.semantic.SemanticType;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -34,13 +36,13 @@ public class ClassifierParametricType
     }
 
     @Override
-    public Type createType(List<TypeParameter> parameters)
+    public SemanticType createType(Optional<QualifiedObjectName> name, List<TypeParameter> parameters)
     {
         checkArgument(parameters.size() == 1, "Expected only one type, got %s", parameters);
         checkArgument(
                 parameters.get(0).getKind() == ParameterKind.TYPE,
                 "Expected type as a parameter, got %s",
                 parameters);
-        return new ClassifierType(parameters.get(0).getType());
+        return SemanticType.from(name, new ClassifierType(parameters.get(0).getSemanticType()));
     }
 }

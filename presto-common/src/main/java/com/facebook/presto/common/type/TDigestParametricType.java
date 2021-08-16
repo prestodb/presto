@@ -29,6 +29,6 @@ public class TDigestParametricType
     @Override
     public Type getType(List<TypeParameter> parameters)
     {
-        return new TDigestType(parameters.get(0).getType());
+        return new TDigestType(parameters.get(0).getSemanticType());
     }
 }

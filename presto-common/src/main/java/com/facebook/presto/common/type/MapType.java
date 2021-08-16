@@ -21,6 +21,7 @@ import com.facebook.presto.common.block.MapBlock;
 import com.facebook.presto.common.block.MapBlockBuilder;
 import com.facebook.presto.common.block.SingleMapBlock;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.semantic.SemanticType;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Collections;
@@ -38,8 +39,8 @@ import static java.util.Objects.requireNonNull;
 public class MapType
         extends AbstractType
 {
-    private final Type keyType;
-    private final Type valueType;
+    private final SemanticType keyType;
+    private final SemanticType valueType;
     private static final String MAP_NULL_ELEMENT_MSG = "MAP comparison not supported for null value elements";
     private static final int EXPECTED_BYTES_PER_ENTRY = 32;
 
@@ -49,6 +50,15 @@ public class MapType
     public MapType(
             Type keyType,
             Type valueType,
+            MethodHandle keyBlockEquals,
+            MethodHandle keyBlockHashCode)
+    {
+        this(SemanticType.from(keyType), SemanticType.from(valueType), keyBlockEquals, keyBlockHashCode);
+    }
+
+    public MapType(
+            SemanticType keyType,
+            SemanticType valueType,
             MethodHandle keyBlockEquals,
             MethodHandle keyBlockHashCode)
     {
@@ -84,14 +94,24 @@ public class MapType
         return createBlockBuilder(blockBuilderStatus, expectedEntries, EXPECTED_BYTES_PER_ENTRY);
     }
 
-    public Type getKeyType()
+    public SemanticType getKeySemanticType()
     {
         return keyType;
     }
 
-    public Type getValueType()
+    public SemanticType getValueSemanticType()
     {
         return valueType;
+    }
+
+    public Type getKeyType()
+    {
+        return keyType.getType();
+    }
+
+    public Type getValueType()
+    {
+        return valueType.getType();
     }
 
     @Override
@@ -239,6 +259,12 @@ public class MapType
     public List<Type> getTypeParameters()
     {
         return asList(getKeyType(), getValueType());
+    }
+
+    @Override
+    public List<SemanticType> getSemanticTypeParameters()
+    {
+        return asList(getKeySemanticType(), getValueSemanticType());
     }
 
     @Override

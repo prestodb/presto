@@ -13,14 +13,16 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.ParameterKind;
 import com.facebook.presto.common.type.ParametricType;
 import com.facebook.presto.common.type.StandardTypes;
-import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeParameter;
+import com.facebook.presto.common.type.semantic.SemanticType;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -40,13 +42,13 @@ public final class ArrayParametricType
     }
 
     @Override
-    public Type createType(List<TypeParameter> parameters)
+    public SemanticType createType(Optional<QualifiedObjectName> name, List<TypeParameter> parameters)
     {
         checkArgument(parameters.size() == 1, "Array type expects exactly one type as a parameter, got %s", parameters);
         checkArgument(
                 parameters.get(0).getKind() == ParameterKind.TYPE,
                 "Array expects type as a parameter, got %s",
                 parameters);
-        return new ArrayType(parameters.get(0).getType());
+        return SemanticType.from(name, new ArrayType(parameters.get(0).getSemanticType()));
     }
 }

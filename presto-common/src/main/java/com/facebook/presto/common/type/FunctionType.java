@@ -76,6 +76,15 @@ public class FunctionType
     public List<Type> getTypeParameters()
     {
         List<Type> parameters = new ArrayList<>(argumentTypes.size() + 1);
+        argumentTypes.forEach(argumentType -> parameters.add(argumentType.getType()));
+        parameters.add(returnType.getType());
+        return unmodifiableList(parameters);
+    }
+
+    @Override
+    public List<SemanticType> getSemanticTypeParameters()
+    {
+        List<SemanticType> parameters = new ArrayList<>(argumentTypes.size() + 1);
         parameters.addAll(argumentTypes);
         parameters.add(returnType);
         return unmodifiableList(parameters);

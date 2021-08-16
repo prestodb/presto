@@ -27,6 +27,7 @@ import com.facebook.presto.common.type.UnknownType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.khyperloglog.KHyperLogLogType;
 import com.facebook.presto.type.setdigest.SetDigestType;
@@ -49,6 +50,10 @@ import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAM
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN_TYPE;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
+import static com.facebook.presto.common.type.semantic.SemanticType.SemanticTypeCategory.BUILTIN_TYPE;
+import static com.facebook.presto.common.type.semantic.SemanticType.SemanticTypeCategory.DISTINCT_TYPE;
+import static com.facebook.presto.common.type.semantic.SemanticType.SemanticTypeCategory.STRUCTURED_TYPE;
+import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.type.CodePointsType.CODE_POINTS;
 import static com.facebook.presto.type.JoniRegexpType.JONI_REGEXP;
 import static com.facebook.presto.type.JsonPathType.JSON_PATH;
@@ -71,6 +76,15 @@ public class TypeCoercer
 
     public Optional<Type> getCommonSuperType(Type firstType, Type secondType)
     {
+        TypeCompatibility compatibility = compatibility(SemanticType.from(firstType), SemanticType.from(secondType));
+        if (!compatibility.isCompatible()) {
+            return Optional.empty();
+        }
+        return Optional.of(compatibility.getCommonSuperType().getType());
+    }
+
+    public Optional<SemanticType> getCommonSuperType(SemanticType firstType, SemanticType secondType)
+    {
         TypeCompatibility compatibility = compatibility(firstType, secondType);
         if (!compatibility.isCompatible()) {
             return Optional.empty();
@@ -78,28 +92,35 @@ public class TypeCoercer
         return Optional.of(compatibility.getCommonSuperType());
     }
 
-    public Optional<SemanticType> getCommonSuperType(SemanticType firstType, SemanticType secondType)
+    public boolean canCoerce(SemanticType fromType, SemanticType toType)
     {
-        if (firstType.equals(UNKNOWN_TYPE)) {
-            return Optional.of(secondType);
+        if (fromType.equals(UNKNOWN_TYPE)) {
+            return true;
         }
-        if (secondType.equals(UNKNOWN_TYPE)) {
-            return Optional.of(firstType);
+
+        if (fromType.equals(toType)) {
+            return true;
         }
-        TypeCompatibility compatibility = compatibility(firstType.getType(), secondType.getType());
-        if (!compatibility.isCompatible()) {
-            return Optional.empty();
+
+        if (!fromType.getCategory().equals(BUILTIN_TYPE) || !toType.getCategory().equals(BUILTIN_TYPE)) {
+            return false;
         }
-        if (firstType.getTypeSignature().getTypeSignatureBase().hasTypeName() && firstType.getName().equals(secondType.getName())) {
-            return Optional.of(SemanticType.from(QualifiedObjectName.valueOf(firstType.getName()), compatibility.getCommonSuperType()));
-        }
-        return Optional.of(SemanticType.from(compatibility.getCommonSuperType()));
+        TypeCompatibility typeCompatibility = compatibility(fromType, toType);
+        return typeCompatibility.isCoercible();
     }
 
     public boolean canCoerce(Type fromType, Type toType)
     {
-        TypeCompatibility typeCompatibility = compatibility(fromType, toType);
+        TypeCompatibility typeCompatibility = compatibility(SemanticType.from(fromType), SemanticType.from(toType));
         return typeCompatibility.isCoercible();
+    }
+
+    public boolean isTypeOnlyCoercion(SemanticType source, SemanticType result)
+    {
+        if (!source.getCategory().equals(BUILTIN_TYPE) || !result.getCategory().equals(BUILTIN_TYPE)) {
+            return source.equals(result);
+        }
+        return isTypeOnlyCoercion(source.getType(), result.getType());
     }
 
     public boolean isTypeOnlyCoercion(Type source, Type result)
@@ -364,48 +385,60 @@ public class TypeCoercer
         return type instanceof MapType || type instanceof ArrayType;
     }
 
-    private TypeCompatibility compatibility(Type fromType, Type toType)
+    private TypeCompatibility compatibility(SemanticType fromSemanticType, SemanticType toSemanticType)
     {
-        if (fromType.equals(toType)) {
-            return TypeCompatibility.compatible(toType, true);
+        if (fromSemanticType.equals(toSemanticType)) {
+            return TypeCompatibility.compatible(toSemanticType, true);
         }
 
-        if (fromType.equals(UnknownType.UNKNOWN)) {
-            return TypeCompatibility.compatible(toType, true);
+        if (fromSemanticType.equals(UNKNOWN_TYPE)) {
+            return TypeCompatibility.compatible(toSemanticType, true);
         }
 
-        if (toType.equals(UnknownType.UNKNOWN)) {
-            return TypeCompatibility.compatible(fromType, false);
+        if (toSemanticType.equals(UNKNOWN_TYPE)) {
+            return TypeCompatibility.compatible(fromSemanticType, false);
         }
+        if (fromSemanticType.getCategory().equals(DISTINCT_TYPE) || fromSemanticType.getCategory().equals(STRUCTURED_TYPE) ||
+                toSemanticType.getCategory().equals(DISTINCT_TYPE) || toSemanticType.getCategory().equals(STRUCTURED_TYPE)) {
+            try {
+                functionAndTypeManager.lookupCast(CAST, fromSemanticType.getTypeSignature(), toSemanticType.getTypeSignature());
+                return TypeCompatibility.compatible(toSemanticType, true);
+            }
+            catch (OperatorNotFoundException e) {
+                return TypeCompatibility.incompatible();
+            }
+        }
+        Type fromType = fromSemanticType.getType();
+        Type toType = toSemanticType.getType();
 
-        String fromTypeBaseName = fromType.getTypeSignature().getBase();
-        String toTypeBaseName = toType.getTypeSignature().getBase();
+        String fromTypeBaseName = fromType.getTypeSignature().getTypeSignatureBase().getStandardTypeBase();
+        String toTypeBaseName = toType.getTypeSignature().getTypeSignatureBase().getStandardTypeBase();
 
         if (featuresConfig.isLegacyDateTimestampToVarcharCoercion()) {
             if ((fromTypeBaseName.equals(StandardTypes.DATE) || fromTypeBaseName.equals(StandardTypes.TIMESTAMP)) && toTypeBaseName.equals(StandardTypes.VARCHAR)) {
-                return TypeCompatibility.compatible(toType, true);
+                return TypeCompatibility.compatible(toSemanticType, true);
             }
 
             if (fromTypeBaseName.equals(StandardTypes.VARCHAR) && (toTypeBaseName.equals(StandardTypes.DATE) || toTypeBaseName.equals(StandardTypes.TIMESTAMP))) {
-                return TypeCompatibility.compatible(fromType, true);
+                return TypeCompatibility.compatible(fromSemanticType, true);
             }
         }
 
         if (fromTypeBaseName.equals(toTypeBaseName)) {
             if (fromTypeBaseName.equals(StandardTypes.DECIMAL)) {
                 Type commonSuperType = getCommonSuperTypeForDecimal((DecimalType) fromType, (DecimalType) toType);
-                return TypeCompatibility.compatible(commonSuperType, commonSuperType.equals(toType));
+                return TypeCompatibility.compatible(SemanticType.from(commonSuperType), commonSuperType.equals(toType));
             }
             if (fromTypeBaseName.equals(StandardTypes.VARCHAR)) {
                 Type commonSuperType = getCommonSuperTypeForVarchar((VarcharType) fromType, (VarcharType) toType);
-                return TypeCompatibility.compatible(commonSuperType, commonSuperType.equals(toType));
+                return TypeCompatibility.compatible(SemanticType.from(commonSuperType), commonSuperType.equals(toType));
             }
             if (fromTypeBaseName.equals(StandardTypes.CHAR) && !featuresConfig.isLegacyCharToVarcharCoercion()) {
                 Type commonSuperType = getCommonSuperTypeForChar((CharType) fromType, (CharType) toType);
-                return TypeCompatibility.compatible(commonSuperType, commonSuperType.equals(toType));
+                return TypeCompatibility.compatible(SemanticType.from(commonSuperType), commonSuperType.equals(toType));
             }
             if (fromTypeBaseName.equals(StandardTypes.ROW)) {
-                return typeCompatibilityForRow((RowType) fromType, (RowType) toType).toSemanticTypeCompatibility(toType);
+                return typeCompatibilityForRow((RowType) fromType, (RowType) toType);
             }
 
             if (isCovariantParametrizedType(fromType)) {
@@ -416,12 +449,12 @@ public class TypeCoercer
 
         Optional<Type> coercedType = coerceTypeBase(fromType, toType.getTypeSignature().getBase());
         if (coercedType.isPresent()) {
-            return compatibility(coercedType.get(), toType);
+            return compatibility(SemanticType.from(coercedType.get()), toSemanticType);
         }
 
         coercedType = coerceTypeBase(toType, fromType.getTypeSignature().getBase());
         if (coercedType.isPresent()) {
-            TypeCompatibility typeCompatibility = compatibility(fromType, coercedType.get());
+            TypeCompatibility typeCompatibility = compatibility(fromSemanticType, SemanticType.from(coercedType.get()));
             if (!typeCompatibility.isCompatible()) {
                 return TypeCompatibility.incompatible();
             }
@@ -465,13 +498,13 @@ public class TypeCoercer
         ImmutableList.Builder<RowType.Field> fields = ImmutableList.builder();
         boolean coercible = true;
         for (int i = 0; i < firstFields.size(); i++) {
-            Type firstFieldType = firstFields.get(i).getType();
-            Type secondFieldType = secondFields.get(i).getType();
+            SemanticType firstFieldType = firstFields.get(i).getSemanticType();
+            SemanticType secondFieldType = secondFields.get(i).getSemanticType();
             TypeCompatibility typeCompatibility = compatibility(firstFieldType, secondFieldType);
             if (!typeCompatibility.isCompatible()) {
                 return TypeCompatibility.incompatible();
             }
-            Type commonParameterType = typeCompatibility.getCommonSuperType();
+            SemanticType commonParameterType = typeCompatibility.getCommonSuperType();
 
             Optional<String> firstParameterName = firstFields.get(i).getName();
             Optional<String> secondParameterName = secondFields.get(i).getName();
@@ -482,15 +515,15 @@ public class TypeCoercer
             fields.add(new RowType.Field(commonName, commonParameterType));
         }
 
-        return TypeCompatibility.compatible(RowType.from(fields.build()), coercible);
+        return TypeCompatibility.compatible(SemanticType.from(RowType.from(fields.build())), coercible);
     }
 
     private TypeCompatibility typeCompatibilityForCovariantParametrizedType(Type fromType, Type toType)
     {
         checkState(fromType.getClass().equals(toType.getClass()));
         ImmutableList.Builder<TypeSignatureParameter> commonParameterTypes = ImmutableList.builder();
-        List<Type> fromTypeParameters = fromType.getTypeParameters();
-        List<Type> toTypeParameters = toType.getTypeParameters();
+        List<SemanticType> fromTypeParameters = fromType.getSemanticTypeParameters();
+        List<SemanticType> toTypeParameters = toType.getSemanticTypeParameters();
 
         if (fromTypeParameters.size() != toTypeParameters.size()) {
             return TypeCompatibility.incompatible();
@@ -506,16 +539,16 @@ public class TypeCoercer
             commonParameterTypes.add(TypeSignatureParameter.of(compatibility.getCommonSuperType().getTypeSignature()));
         }
         String typeBase = fromType.getTypeSignature().getBase();
-        return TypeCompatibility.compatible(functionAndTypeManager.getType(new TypeSignature(typeBase, commonParameterTypes.build())), coercible);
+        return TypeCompatibility.compatible(functionAndTypeManager.getSemanticType(new TypeSignature(typeBase, commonParameterTypes.build())), coercible);
     }
 
     private static class TypeCompatibility
     {
-        private final Optional<Type> commonSuperType;
+        private final Optional<SemanticType> commonSuperType;
         private final boolean coercible;
 
         // Do not call constructor directly. Use factory methods.
-        private TypeCompatibility(Optional<Type> commonSuperType, boolean coercible)
+        private TypeCompatibility(Optional<SemanticType> commonSuperType, boolean coercible)
         {
             // Assert that: coercible => commonSuperType.isPresent
             // The factory API is designed such that this is guaranteed.
@@ -525,7 +558,7 @@ public class TypeCoercer
             this.coercible = coercible;
         }
 
-        private static TypeCompatibility compatible(Type commonSuperType, boolean coercible)
+        private static TypeCompatibility compatible(SemanticType commonSuperType, boolean coercible)
         {
             return new TypeCompatibility(Optional.of(commonSuperType), coercible);
         }
@@ -540,7 +573,7 @@ public class TypeCoercer
             return commonSuperType.isPresent();
         }
 
-        private Type getCommonSuperType()
+        private SemanticType getCommonSuperType()
         {
             checkState(commonSuperType.isPresent(), "Types are not compatible");
             return commonSuperType.get();

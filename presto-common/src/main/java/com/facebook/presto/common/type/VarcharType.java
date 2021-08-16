@@ -37,6 +37,11 @@ public final class VarcharType
         return new VarcharType(length);
     }
 
+    public static SemanticType createVarcharSemanticType(int length)
+    {
+        return SemanticType.from(createVarcharType(length));
+    }
+
     public static TypeSignature getParametrizedVarcharSignature(String param)
     {
         return new TypeSignature(StandardTypes.VARCHAR, TypeSignatureParameter.of(param));

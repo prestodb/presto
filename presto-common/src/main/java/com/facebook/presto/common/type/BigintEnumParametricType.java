@@ -13,7 +13,11 @@
  */
 package com.facebook.presto.common.type;
 
+import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.type.semantic.SemanticType;
+
 import java.util.List;
+import java.util.Optional;
 
 import static java.lang.String.format;
 
@@ -31,14 +35,15 @@ public final class BigintEnumParametricType
     }
 
     @Override
-    public Type createType(List<TypeParameter> parameters)
+    public SemanticType createType(Optional<QualifiedObjectName> name, List<TypeParameter> parameters)
     {
         checkArgument(parameters.size() == 1, "Enum type expects exactly one parameter, got %s", parameters);
         checkArgument(
                 parameters.get(0).getKind() == ParameterKind.LONG_ENUM,
                 "Enum definition expected, got %s",
                 parameters);
-        return new BigintEnumType(parameters.get(0).getLongEnumMap());
+        // TODO enums should always have name, and we should validate that and use name here once SemanticType is plugged in to variables.
+        return SemanticType.from(QualifiedObjectName.valueOf(parameters.get(0).getLongEnumMap().getTypeName()), new BigintEnumType(parameters.get(0).getLongEnumMap()));
     }
 
     private static void checkArgument(boolean argument, String format, Object... args)

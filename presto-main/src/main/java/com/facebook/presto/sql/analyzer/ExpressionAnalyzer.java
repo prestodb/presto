@@ -345,8 +345,8 @@ public class ExpressionAnalyzer
         @Override
         protected SemanticType visitRow(Row node, StackableAstVisitorContext<Context> context)
         {
-            List<Type> types = node.getItems().stream()
-                    .map((child) -> process(child, context).getType())
+            List<SemanticType> types = node.getItems().stream()
+                    .map((child) -> process(child, context))
                     .collect(toImmutableList());
 
             SemanticType type = SemanticType.from(RowType.anonymous(types));
@@ -461,10 +461,10 @@ public class ExpressionAnalyzer
             RowType rowType = (RowType) baseType.getType();
             String fieldName = node.getField().getValue();
 
-            Type rowFieldType = null;
+            SemanticType rowFieldType = null;
             for (RowType.Field rowField : rowType.getFields()) {
                 if (fieldName.equalsIgnoreCase(rowField.getName().orElse(null))) {
-                    rowFieldType = rowField.getType();
+                    rowFieldType = rowField.getSemanticType();
                     break;
                 }
             }
@@ -472,7 +472,7 @@ public class ExpressionAnalyzer
             if (sqlFunctionProperties.isLegacyRowFieldOrdinalAccessEnabled() && rowFieldType == null) {
                 OptionalInt rowIndex = parseAnonymousRowFieldOrdinalAccess(fieldName, rowType.getFields());
                 if (rowIndex.isPresent()) {
-                    rowFieldType = rowType.getFields().get(rowIndex.getAsInt()).getType();
+                    rowFieldType = rowType.getFields().get(rowIndex.getAsInt()).getSemanticType();
                 }
             }
 
@@ -481,7 +481,7 @@ public class ExpressionAnalyzer
             }
 
             // TODO Field of RowType should use SemanticType
-            return setExpressionType(node, SemanticType.from(rowFieldType));
+            return setExpressionType(node, rowFieldType);
         }
 
         @Override
@@ -1241,7 +1241,7 @@ public class ExpressionAnalyzer
             }
 
             SemanticType returnType = process(node.getBody(), new StackableAstVisitorContext<>(Context.inLambda(lambdaScope, fieldToLambdaArgumentDeclaration.build())));
-            FunctionType functionType = new FunctionType(types, SemanticType.from(returnType));
+            FunctionType functionType = new FunctionType(types, returnType);
             return setExpressionType(node, SemanticType.from(functionType));
         }
 
@@ -1337,7 +1337,8 @@ public class ExpressionAnalyzer
         private void coerceType(Expression expression, SemanticType actualType, SemanticType expectedType, String message)
         {
             if (!actualType.equals(expectedType)) {
-                if (!functionAndTypeManager.canCoerce(actualType, expectedType)) {
+                // TODO Special handling enum because they can still be builtin type if coming from PlanVariableAllocator
+                if (!(actualType.getType().equals(expectedType.getType()) && actualType.getType().getTypeSignature().isEnum()) && !functionAndTypeManager.canCoerce(actualType, expectedType)) {
                     throw new SemanticException(TYPE_MISMATCH, expression, message + " must evaluate to a %s (actual: %s)", expectedType, actualType);
                 }
                 addOrReplaceExpressionCoercion(expression, actualType, expectedType);

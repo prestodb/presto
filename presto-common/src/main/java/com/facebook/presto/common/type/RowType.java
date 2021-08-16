@@ -19,15 +19,16 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.BlockBuilderStatus;
 import com.facebook.presto.common.block.RowBlockBuilder;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.semantic.SemanticType;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.StandardTypes.ROW;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 /**
  * As defined in ISO/IEC FCD 9075-2 (SQL 2011), section 4.8
@@ -36,6 +37,7 @@ public class RowType
         extends AbstractType
 {
     private final List<Field> fields;
+    private final List<SemanticType> fieldSemanticTypes;
     private final List<Type> fieldTypes;
 
     private RowType(TypeSignature typeSignature, List<Field> fields)
@@ -43,9 +45,10 @@ public class RowType
         super(typeSignature, Block.class);
 
         this.fields = fields;
-        this.fieldTypes = fields.stream()
-                .map(Field::getType)
-                .collect(Collectors.toList());
+        this.fieldSemanticTypes = fields.stream()
+                .map(Field::getSemanticType)
+                .collect(toList());
+        this.fieldTypes = unmodifiableList(fieldSemanticTypes.stream().map(SemanticType::getType).collect(toList()));
     }
 
     public static RowType from(List<Field> fields)
@@ -53,11 +56,11 @@ public class RowType
         return new RowType(makeSignature(fields), fields);
     }
 
-    public static RowType anonymous(List<Type> types)
+    public static RowType anonymous(List<? extends Type> types)
     {
         List<Field> fields = types.stream()
-                .map(type -> new Field(Optional.empty(), type))
-                .collect(Collectors.toList());
+                .map(type -> type instanceof SemanticType ? new Field(Optional.empty(), (SemanticType) type) : new Field(Optional.empty(), SemanticType.from(type)))
+                .collect(toList());
 
         return new RowType(makeSignature(fields), fields);
     }
@@ -66,7 +69,14 @@ public class RowType
     {
         List<Field> fields = new ArrayList<>();
         for (int i = 0; i < types.size(); i++) {
-            fields.add(new Field(Optional.of("field" + i), types.get(i)));
+            SemanticType semanticType;
+            if (types.get(i) instanceof SemanticType) {
+                semanticType = (SemanticType) types.get(i);
+            }
+            else {
+                semanticType = SemanticType.from(types.get(i));
+            }
+            fields.add(new Field(Optional.of("field" + i), semanticType));
         }
         return new RowType(makeSignature(fields), fields);
     }
@@ -77,14 +87,25 @@ public class RowType
         return new RowType(typeSignature, fields);
     }
 
+    public static Field field(String name, SemanticType semanticType)
+    {
+        return new Field(Optional.of(name), semanticType);
+    }
+
     public static Field field(String name, Type type)
     {
-        return new Field(Optional.of(name), type);
+        if (type instanceof SemanticType) {
+            return field(name, (SemanticType) type);
+        }
+        return new Field(Optional.of(name), SemanticType.from(type));
     }
 
     public static Field field(Type type)
     {
-        return new Field(Optional.empty(), type);
+        if (type instanceof SemanticType) {
+            return new Field(Optional.empty(), (SemanticType) type);
+        }
+        return new Field(Optional.empty(), SemanticType.from(type));
     }
 
     private static TypeSignature makeSignature(List<Field> fields)
@@ -95,8 +116,8 @@ public class RowType
         }
 
         List<TypeSignatureParameter> parameters = fields.stream()
-                .map(field -> TypeSignatureParameter.of(new NamedTypeSignature(field.getName().map(name -> new RowFieldName(name, false)), field.getType().getTypeSignature())))
-                .collect(Collectors.toList());
+                .map(field -> TypeSignatureParameter.of(new NamedTypeSignature(field.getName().map(name -> new RowFieldName(name, false)), field.getSemanticType().getTypeSignature())))
+                .collect(toList());
 
         return new TypeSignature(ROW, parameters);
     }
@@ -104,13 +125,13 @@ public class RowType
     @Override
     public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
     {
-        return new RowBlockBuilder(getTypeParameters(), blockBuilderStatus, expectedEntries);
+        return new RowBlockBuilder(getPhysicalTypeParameters(), blockBuilderStatus, expectedEntries);
     }
 
     @Override
     public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
-        return new RowBlockBuilder(getTypeParameters(), blockBuilderStatus, expectedEntries);
+        return new RowBlockBuilder(getPhysicalTypeParameters(), blockBuilderStatus, expectedEntries);
     }
 
     @Override
@@ -120,7 +141,7 @@ public class RowType
         StringBuilder result = new StringBuilder();
         result.append(ROW).append('(');
         for (Field field : fields) {
-            String typeDisplayName = field.getType().getDisplayName();
+            String typeDisplayName = field.getSemanticType().getDisplayName();
             if (field.getName().isPresent()) {
                 result.append("\"").append(field.getName().get()).append("\"").append(' ').append(typeDisplayName);
             }
@@ -148,7 +169,7 @@ public class RowType
             values.add(fields.get(i).getType().getObjectValue(properties, arrayBlock, i));
         }
 
-        return Collections.unmodifiableList(values);
+        return unmodifiableList(values);
     }
 
     @Override
@@ -186,6 +207,12 @@ public class RowType
         return fieldTypes;
     }
 
+    @Override
+    public List<SemanticType> getSemanticTypeParameters()
+    {
+        return fieldSemanticTypes;
+    }
+
     public List<Field> getFields()
     {
         return fields;
@@ -193,18 +220,23 @@ public class RowType
 
     public static class Field
     {
-        private final Type type;
+        private final SemanticType semanticType;
         private final Optional<String> name;
 
-        public Field(Optional<String> name, Type type)
+        public Field(Optional<String> name, SemanticType semanticType)
         {
-            this.type = requireNonNull(type, "type is null");
+            this.semanticType = requireNonNull(semanticType, "type is null");
             this.name = requireNonNull(name, "name is null");
+        }
+
+        public SemanticType getSemanticType()
+        {
+            return semanticType;
         }
 
         public Type getType()
         {
-            return type;
+            return semanticType.getType();
         }
 
         public Optional<String> getName()
@@ -216,13 +248,13 @@ public class RowType
     @Override
     public boolean isComparable()
     {
-        return fields.stream().allMatch(field -> field.getType().isComparable());
+        return fields.stream().allMatch(field -> field.getSemanticType().isComparable());
     }
 
     @Override
     public boolean isOrderable()
     {
-        return fields.stream().allMatch(field -> field.getType().isOrderable());
+        return fields.stream().allMatch(field -> field.getSemanticType().isOrderable());
     }
 
     @Override
@@ -275,6 +307,11 @@ public class RowType
             result = 31 * result + TypeUtils.hashPosition(elementType, arrayBlock, i);
         }
         return result;
+    }
+
+    private List<Type> getPhysicalTypeParameters()
+    {
+        return fieldTypes;
     }
 
     private static void checkElementNotNull(boolean isNull)

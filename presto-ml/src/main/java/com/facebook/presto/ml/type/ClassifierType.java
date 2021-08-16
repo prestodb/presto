@@ -16,6 +16,7 @@ package com.facebook.presto.ml.type;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -46,5 +47,11 @@ public class ClassifierType
     public List<Type> getTypeParameters()
     {
         return ImmutableList.of(labelType);
+    }
+
+    @Override
+    public List<SemanticType> getSemanticTypeParameters()
+    {
+        return ImmutableList.of(SemanticType.from(labelType));
     }
 }

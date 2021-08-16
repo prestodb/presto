@@ -16,6 +16,7 @@ package com.facebook.presto.common.type;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import io.airlift.slice.Slice;
 
@@ -79,5 +80,11 @@ public abstract class StatisticalDigestType
     public List<Type> getTypeParameters()
     {
         return singletonList(type);
+    }
+
+    @Override
+    public List<SemanticType> getSemanticTypeParameters()
+    {
+        return singletonList(SemanticType.from(type));
     }
 }

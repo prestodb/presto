@@ -195,31 +195,27 @@ public class FunctionAndTypeManager
     @Override
     public Type getType(TypeSignature signature)
     {
-        if (signature.getTypeSignatureBase().hasStandardType()) {
-            Optional<Type> type = builtInTypeAndFunctionNamespaceManager.getType(signature.getStandardTypeSignature());
-            if (type.isPresent()) {
-                return type.get();
-            }
-        }
-
-        Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(signature.getTypeSignatureBase());
-        checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for type '%s'", signature.getBase());
-        Optional<UserDefinedType> userDefinedType = functionNamespaceManager.get().getUserDefinedType(signature.getTypeSignatureBase().getTypeName());
-        if (!userDefinedType.isPresent()) {
-            throw new IllegalArgumentException("Unknown type " + signature);
-        }
-        checkArgument(userDefinedType.get().getPhysicalTypeSignature().getTypeSignatureBase().hasStandardType(), "UserDefinedType must be based on static types.");
-        return getType(new TypeSignature(userDefinedType.get()));
+        return getSemanticType(signature).getType();
     }
 
     @Override
     public SemanticType getSemanticType(TypeSignature signature)
     {
-        Type type = getType(signature);
-        if (signature.getTypeSignatureBase().hasTypeName()) {
-            return SemanticType.from(signature.getTypeSignatureBase().getTypeName(), type);
+        if (!signature.getTypeSignatureBase().hasStandardType()) {
+            Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(signature.getTypeSignatureBase());
+            checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for type '%s'", signature.getBase());
+            Optional<UserDefinedType> userDefinedType = functionNamespaceManager.get().getUserDefinedType(signature.getTypeSignatureBase().getTypeName().get());
+            if (!userDefinedType.isPresent()) {
+                throw new IllegalArgumentException("Unknown type " + signature);
+            }
+            checkArgument(userDefinedType.get().getPhysicalTypeSignature().getTypeSignatureBase().hasStandardType(), "UserDefinedType must be based on static types.");
+            return getSemanticType(new TypeSignature(userDefinedType.get()));
         }
-        return SemanticType.from(type);
+        Optional<SemanticType> type = builtInTypeAndFunctionNamespaceManager.getSemanticType(signature);
+        if (type.isPresent()) {
+            return type.get();
+        }
+        throw new IllegalArgumentException("Unknown type " + signature);
     }
 
     @Override
@@ -241,7 +237,7 @@ public class FunctionAndTypeManager
 
     public boolean canCoerce(SemanticType actualType, SemanticType expectedType)
     {
-        return typeCoercer.canCoerce(actualType.getType(), expectedType.getType());
+        return typeCoercer.canCoerce(actualType, expectedType);
     }
 
     public FunctionInvokerProvider getFunctionInvokerProvider()
@@ -430,7 +426,7 @@ public class FunctionAndTypeManager
 
     public boolean isTypeOnlyCoercion(SemanticType actualType, SemanticType expectedType)
     {
-        return typeCoercer.isTypeOnlyCoercion(actualType.getType(), expectedType.getType());
+        return typeCoercer.isTypeOnlyCoercion(actualType, expectedType);
     }
 
     public Optional<SemanticType> coerceTypeBase(SemanticType sourceType, String resultTypeBase)
@@ -526,7 +522,7 @@ public class FunctionAndTypeManager
     public FunctionHandle lookupCast(CastType castType, TypeSignature fromType, TypeSignature toType)
     {
         // TODO we always use the base type to look up cast for now. Support named type to base type cast properly.
-        Signature signature = new Signature(castType.getCastName(), SCALAR, emptyList(), emptyList(), toType.getStandardTypeSignature(), singletonList(fromType.getStandardTypeSignature()), false);
+        Signature signature = new Signature(castType.getCastName(), SCALAR, emptyList(), emptyList(), toType, singletonList(fromType), false);
 
         try {
             builtInTypeAndFunctionNamespaceManager.getScalarFunctionImplementation(signature);
@@ -599,7 +595,7 @@ public class FunctionAndTypeManager
 
     private Optional<FunctionNamespaceManager<? extends SqlFunction>> getServingFunctionNamespaceManager(TypeSignatureBase typeSignatureBase)
     {
-        return Optional.ofNullable(functionNamespaceManagers.get(typeSignatureBase.getTypeName().getCatalogName()));
+        return Optional.ofNullable(functionNamespaceManagers.get(typeSignatureBase.getTypeName().get().getCatalogName()));
     }
 
     private static class FunctionResolutionCacheKey

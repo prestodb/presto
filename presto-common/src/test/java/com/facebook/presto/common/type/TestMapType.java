@@ -16,9 +16,9 @@ package com.facebook.presto.common.type;
 import com.facebook.presto.common.block.MethodHandleUtil;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.common.type.BigintType.BIGINT;
-import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.facebook.presto.common.type.VarcharType.createVarcharType;
+import static com.facebook.presto.common.type.BigintType.BIGINT_TYPE;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR_TYPE;
+import static com.facebook.presto.common.type.VarcharType.createVarcharSemanticType;
 import static org.testng.Assert.assertEquals;
 
 public class TestMapType
@@ -27,15 +27,15 @@ public class TestMapType
     public void testMapDisplayName()
     {
         MapType mapType = new MapType(
-                BIGINT,
-                createVarcharType(42),
+                BIGINT_TYPE,
+                createVarcharSemanticType(42),
                 MethodHandleUtil.methodHandle(TestMapType.class, "throwUnsupportedOperation"),
                 MethodHandleUtil.methodHandle(TestMapType.class, "throwUnsupportedOperation"));
         assertEquals(mapType.getDisplayName(), "map(bigint, varchar(42))");
 
         mapType = new MapType(
-                BIGINT,
-                VARCHAR,
+                BIGINT_TYPE,
+                VARCHAR_TYPE,
                 MethodHandleUtil.methodHandle(TestMapType.class, "throwUnsupportedOperation"),
                 MethodHandleUtil.methodHandle(TestMapType.class, "throwUnsupportedOperation"));
         assertEquals(mapType.getDisplayName(), "map(bigint, varchar)");

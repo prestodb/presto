@@ -50,6 +50,7 @@ import java.util.concurrent.ExecutorService;
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.RowType.field;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.hive.ColumnEncryptionInformation.fromTableProperty;
 import static com.facebook.presto.hive.EncryptionInformation.fromEncryptionMetadata;
@@ -174,11 +175,11 @@ public class TestHiveMetadataFileFormatEncryptionSettings
                         new ColumnMetadata("t_bigint", BIGINT),
                         new ColumnMetadata("t_struct", RowType.from(
                                 ImmutableList.of(
-                                        new RowType.Field(Optional.of("char"), VARCHAR),
-                                        new RowType.Field(Optional.of("str"), RowType.from(
+                                        field("char", VARCHAR),
+                                        field("str", RowType.from(
                                                 ImmutableList.of(
-                                                        new RowType.Field(Optional.of("a"), VARCHAR),
-                                                        new RowType.Field(Optional.of("b"), BIGINT))))))),
+                                                        field("a", VARCHAR),
+                                                        field("b", BIGINT))))))),
                         new ColumnMetadata("ds", VARCHAR)),
                 properties.build());
     }

@@ -95,7 +95,7 @@ public class DesugarRowSubscriptRewriter
                     // Cast to Row with named fields
                     ImmutableList.Builder<RowType.Field> namedFields = new ImmutableList.Builder<>();
                     for (int i = 0; i < rowType.getFields().size(); i++) {
-                        namedFields.add(new RowType.Field(Optional.of("f" + i), rowType.getTypeParameters().get(i)));
+                        namedFields.add(new RowType.Field(Optional.of("f" + i), rowType.getSemanticTypeParameters().get(i)));
                     }
                     RowType namedRowType = RowType.from(namedFields.build());
                     Cast cast = new Cast(base, namedRowType.getTypeSignature().toString());

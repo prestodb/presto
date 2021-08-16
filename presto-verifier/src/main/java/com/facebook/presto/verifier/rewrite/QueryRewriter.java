@@ -21,6 +21,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.Cast;
@@ -61,16 +62,16 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.common.type.BigintType.BIGINT;
-import static com.facebook.presto.common.type.DateType.DATE;
-import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.BigintType.BIGINT_TYPE;
+import static com.facebook.presto.common.type.DateType.DATE_TYPE;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE_TYPE;
 import static com.facebook.presto.common.type.RowType.Field;
 import static com.facebook.presto.common.type.StandardTypes.MAP;
-import static com.facebook.presto.common.type.TimeType.TIME;
-import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
-import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
-import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.TimeType.TIME_TYPE;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_TYPE;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE_TYPE;
+import static com.facebook.presto.common.type.UnknownType.UNKNOWN_TYPE;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR_TYPE;
 import static com.facebook.presto.sql.tree.LikeClause.PropertiesOption.INCLUDING;
 import static com.facebook.presto.sql.tree.ShowCreate.Type.VIEW;
 import static com.facebook.presto.verifier.framework.CreateViewVerification.SHOW_CREATE_VIEW_CONVERTER;
@@ -287,7 +288,7 @@ public class QueryRewriter
     private Query rewriteNonStorableColumns(Query query, ResultSetMetaData metadata)
     {
         // Skip if all columns are storable
-        List<Type> columnTypes = getColumnTypes(typeManager, metadata);
+        List<SemanticType> columnTypes = getColumnTypes(typeManager, metadata);
         if (columnTypes.stream().noneMatch(type -> getColumnTypeRewrite(type).isPresent())) {
             return query;
         }
@@ -308,7 +309,7 @@ public class QueryRewriter
         checkState(selectItems.size() == columnTypes.size(), "SelectItem count (%s) mismatches column count (%s)", selectItems.size(), columnTypes.size());
         for (int i = 0; i < selectItems.size(); i++) {
             SingleColumn singleColumn = (SingleColumn) selectItems.get(i);
-            Optional<Type> columnTypeRewrite = getColumnTypeRewrite(columnTypes.get(i));
+            Optional<SemanticType> columnTypeRewrite = getColumnTypeRewrite(columnTypes.get(i));
             if (columnTypeRewrite.isPresent()) {
                 newItems.add(new SingleColumn(new Cast(singleColumn.getExpression(), columnTypeRewrite.get().getTypeSignature().toString()), singleColumn.getAlias()));
             }
@@ -333,30 +334,31 @@ public class QueryRewriter
                 query.getLimit());
     }
 
-    private Optional<Type> getColumnTypeRewrite(Type type)
+    private Optional<SemanticType> getColumnTypeRewrite(SemanticType semanticType)
     {
-        if (type.equals(DATE) || type.equals(TIME)) {
-            return Optional.of(TIMESTAMP);
+        if (semanticType.equals(DATE_TYPE) || semanticType.equals(TIME_TYPE)) {
+            return Optional.of(TIMESTAMP_TYPE);
         }
-        if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
-            return Optional.of(VARCHAR);
+        if (semanticType.equals(TIMESTAMP_WITH_TIME_ZONE_TYPE)) {
+            return Optional.of(VARCHAR_TYPE);
         }
-        if (type.equals(UNKNOWN)) {
-            return Optional.of(BIGINT);
+        if (semanticType.equals(UNKNOWN_TYPE)) {
+            return Optional.of(BIGINT_TYPE);
         }
+        Type type = semanticType.getType();
         if (type instanceof DecimalType) {
-            return Optional.of(DOUBLE);
+            return Optional.of(DOUBLE_TYPE);
         }
         if (type instanceof ArrayType) {
-            return getColumnTypeRewrite(((ArrayType) type).getElementType()).map(ArrayType::new);
+            return getColumnTypeRewrite(((ArrayType) type).getElementSemanticType()).map(ArrayType::new).map(SemanticType::from);
         }
         if (type instanceof MapType) {
-            Type keyType = ((MapType) type).getKeyType();
-            Type valueType = ((MapType) type).getValueType();
-            Optional<Type> keyTypeRewrite = getColumnTypeRewrite(keyType);
-            Optional<Type> valueTypeRewrite = getColumnTypeRewrite(valueType);
+            SemanticType keyType = ((MapType) type).getKeySemanticType();
+            SemanticType valueType = ((MapType) type).getValueSemanticType();
+            Optional<SemanticType> keyTypeRewrite = getColumnTypeRewrite(keyType);
+            Optional<SemanticType> valueTypeRewrite = getColumnTypeRewrite(valueType);
             if (keyTypeRewrite.isPresent() || valueTypeRewrite.isPresent()) {
-                return Optional.of(typeManager.getType(new TypeSignature(
+                return Optional.of(typeManager.getSemanticType(new TypeSignature(
                         MAP,
                         TypeSignatureParameter.of(keyTypeRewrite.orElse(keyType).getTypeSignature()),
                         TypeSignatureParameter.of(valueTypeRewrite.orElse(valueType).getTypeSignature()))));
@@ -368,11 +370,11 @@ public class QueryRewriter
             List<Field> fieldsRewrite = new ArrayList<>();
             boolean rewrite = false;
             for (Field field : fields) {
-                Optional<Type> fieldTypeRewrite = getColumnTypeRewrite(field.getType());
+                Optional<SemanticType> fieldTypeRewrite = getColumnTypeRewrite(field.getSemanticType());
                 rewrite = rewrite || fieldTypeRewrite.isPresent();
-                fieldsRewrite.add(new Field(field.getName(), fieldTypeRewrite.orElse(field.getType())));
+                fieldsRewrite.add(new Field(field.getName(), fieldTypeRewrite.orElse(field.getSemanticType())));
             }
-            return rewrite ? Optional.of(RowType.from(fieldsRewrite)) : Optional.empty();
+            return rewrite ? Optional.of(SemanticType.from(RowType.from(fieldsRewrite))) : Optional.empty();
         }
         return Optional.empty();
     }

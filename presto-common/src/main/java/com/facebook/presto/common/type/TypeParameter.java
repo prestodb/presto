@@ -15,6 +15,7 @@ package com.facebook.presto.common.type;
 
 import com.facebook.presto.common.type.BigintEnumType.LongEnumMap;
 import com.facebook.presto.common.type.VarcharEnumType.VarcharEnumMap;
+import com.facebook.presto.common.type.semantic.SemanticType;
 
 import java.util.Objects;
 
@@ -31,7 +32,7 @@ public class TypeParameter
         this.value = value;
     }
 
-    public static TypeParameter of(Type type)
+    public static TypeParameter of(SemanticType type)
     {
         return new TypeParameter(ParameterKind.TYPE, type);
     }
@@ -65,13 +66,13 @@ public class TypeParameter
     {
         switch (parameter.getKind()) {
             case TYPE: {
-                Type type = typeManager.getType(parameter.getTypeSignature());
+                SemanticType type = typeManager.getSemanticType(parameter.getTypeSignature());
                 return of(type);
             }
             case LONG:
                 return of(parameter.getLongLiteral());
             case NAMED_TYPE: {
-                Type type = typeManager.getType(parameter.getNamedTypeSignature().getTypeSignature());
+                SemanticType type = typeManager.getSemanticType(parameter.getNamedTypeSignature().getTypeSignature());
                 return of(new NamedType(
                         parameter.getNamedTypeSignature().getFieldName(),
                         type));
@@ -105,9 +106,9 @@ public class TypeParameter
         return kind == ParameterKind.LONG;
     }
 
-    public Type getType()
+    public SemanticType getSemanticType()
     {
-        return getValue(ParameterKind.TYPE, Type.class);
+        return getValue(ParameterKind.TYPE, SemanticType.class);
     }
 
     public Long getLongLiteral()

@@ -120,14 +120,20 @@ import static com.facebook.presto.block.BlockAssertions.createSlicesBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.block.BlockAssertions.createTimestampsWithTimezoneBlock;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BigintType.BIGINT_TYPE;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN_TYPE;
 import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE_TYPE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.IntegerType.INTEGER_TYPE;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY_TYPE;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR_TYPE;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -1088,14 +1094,14 @@ public final class FunctionAssertions
 
     private static RowType createTestRowType(int numberOfFields)
     {
-        Iterator<Type> types = Iterables.<Type>cycle(
-                BIGINT,
-                INTEGER,
-                VARCHAR,
-                DOUBLE,
-                BOOLEAN,
-                VARBINARY,
-                RowType.from(ImmutableList.of(RowType.field("nested_nested_column", VARCHAR)))).iterator();
+        Iterator<SemanticType> types = Iterables.<SemanticType>cycle(
+                BIGINT_TYPE,
+                INTEGER_TYPE,
+                VARCHAR_TYPE,
+                DOUBLE_TYPE,
+                BOOLEAN_TYPE,
+                VARBINARY_TYPE,
+                SemanticType.from(RowType.from(ImmutableList.of(RowType.field("nested_nested_column", VARCHAR))))).iterator();
 
         List<RowType.Field> fields = new ArrayList<>();
         for (int fieldIdx = 0; fieldIdx < numberOfFields; fieldIdx++) {

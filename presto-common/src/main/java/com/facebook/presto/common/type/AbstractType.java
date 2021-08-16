@@ -16,6 +16,7 @@ package com.facebook.presto.common.type;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.UncheckedBlock;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import io.airlift.slice.Slice;
 
 import java.util.ArrayList;
@@ -54,6 +55,12 @@ public abstract class AbstractType
 
     @Override
     public List<Type> getTypeParameters()
+    {
+        return Collections.unmodifiableList(new ArrayList<>());
+    }
+
+    @Override
+    public List<SemanticType> getSemanticTypeParameters()
     {
         return Collections.unmodifiableList(new ArrayList<>());
     }

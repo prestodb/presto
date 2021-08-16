@@ -52,6 +52,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.RowType.field;
 import static com.facebook.presto.iceberg.IcebergUtil.getIdentityPartitions;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -139,9 +140,9 @@ public class PartitionTable
     {
         return columns.stream().map(column -> new ColumnMetadata(column.name(),
                 RowType.from(ImmutableList.of(
-                        new RowType.Field(Optional.of("min"), toPrestoType(column.type(), typeManager)),
-                        new RowType.Field(Optional.of("max"), toPrestoType(column.type(), typeManager)),
-                        new RowType.Field(Optional.of("null_count"), BIGINT)))))
+                        field("min", toPrestoType(column.type(), typeManager)),
+                        field("max", toPrestoType(column.type(), typeManager)),
+                        field("null_count", BIGINT)))))
                 .collect(toImmutableList());
     }
 

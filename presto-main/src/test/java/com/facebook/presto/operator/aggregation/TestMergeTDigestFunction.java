@@ -15,7 +15,6 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
-import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.SqlVarbinary;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeParameter;
@@ -23,8 +22,10 @@ import com.facebook.presto.tdigest.TDigest;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.function.BiFunction;
 
+import static com.facebook.presto.common.type.DoubleType.DOUBLE_TYPE;
 import static com.facebook.presto.common.type.TDigestParametricType.TDIGEST;
 import static com.facebook.presto.tdigest.TDigest.createTDigest;
 import static io.airlift.slice.Slices.wrappedBuffer;
@@ -71,7 +72,7 @@ public class TestMergeTDigestFunction
     @Override
     public Block[] getSequenceBlocks(int start, int length)
     {
-        Type type = TDIGEST.createType(ImmutableList.of(TypeParameter.of(DoubleType.DOUBLE)));
+        Type type = TDIGEST.createType(Optional.empty(), ImmutableList.of(TypeParameter.of(DOUBLE_TYPE)));
         BlockBuilder blockBuilder = type.createBlockBuilder(null, length);
         for (int i = start; i < start + length; i++) {
             TDigest tdigest = createTDigest(100);

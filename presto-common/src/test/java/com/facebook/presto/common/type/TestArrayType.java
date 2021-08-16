@@ -15,7 +15,7 @@ package com.facebook.presto.common.type;
 
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN_TYPE;
 import static org.testng.Assert.assertEquals;
 
 public class TestArrayType
@@ -23,7 +23,7 @@ public class TestArrayType
     @Test
     public void testDisplayName()
     {
-        ArrayType type = new ArrayType(BOOLEAN);
+        ArrayType type = new ArrayType(BOOLEAN_TYPE);
         assertEquals(type.getDisplayName(), "array(boolean)");
     }
 }

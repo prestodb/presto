@@ -28,6 +28,6 @@ public class QuantileDigestParametricType
     @Override
     public Type getType(List<TypeParameter> parameters)
     {
-        return new QuantileDigestType(parameters.get(0).getType());
+        return new QuantileDigestType(parameters.get(0).getSemanticType());
     }
 }

@@ -19,8 +19,10 @@ import java.util.List;
 
 import static com.facebook.presto.common.block.MethodHandleUtil.methodHandle;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN_TYPE;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
-import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE_TYPE;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR_TYPE;
 import static java.util.Arrays.asList;
 import static org.testng.Assert.assertEquals;
 
@@ -32,10 +34,10 @@ public class TestRowType
         List<RowType.Field> fields = asList(
                 RowType.field("bool_col", BOOLEAN),
                 RowType.field("double_col", DOUBLE),
-                RowType.field("array_col", new ArrayType(VARCHAR)),
+                RowType.field("array_col", new ArrayType(VARCHAR_TYPE)),
                 RowType.field("map_col", new MapType(
-                        BOOLEAN,
-                        DOUBLE,
+                        BOOLEAN_TYPE,
+                        DOUBLE_TYPE,
                         methodHandle(TestRowType.class, "throwUnsupportedOperation"),
                         methodHandle(TestRowType.class, "throwUnsupportedOperation"))));
 
@@ -51,10 +53,10 @@ public class TestRowType
         List<Type> types = asList(
                 BOOLEAN,
                 DOUBLE,
-                new ArrayType(VARCHAR),
+                new ArrayType(VARCHAR_TYPE),
                 new MapType(
-                        BOOLEAN,
-                        DOUBLE,
+                        BOOLEAN_TYPE,
+                        DOUBLE_TYPE,
                         methodHandle(TestRowType.class, "throwUnsupportedOperation"),
                         methodHandle(TestRowType.class, "throwUnsupportedOperation")));
         RowType row = RowType.anonymous(types);
@@ -69,10 +71,10 @@ public class TestRowType
         List<RowType.Field> fields = asList(
                 RowType.field(BOOLEAN),
                 RowType.field("double_col", DOUBLE),
-                RowType.field(new ArrayType(VARCHAR)),
+                RowType.field(new ArrayType(VARCHAR_TYPE)),
                 RowType.field("map_col", new MapType(
-                        BOOLEAN,
-                        DOUBLE,
+                        BOOLEAN_TYPE,
+                        DOUBLE_TYPE,
                         methodHandle(TestRowType.class, "throwUnsupportedOperation"),
                         methodHandle(TestRowType.class, "throwUnsupportedOperation"))));
 

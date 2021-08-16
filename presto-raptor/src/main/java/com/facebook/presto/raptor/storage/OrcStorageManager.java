@@ -30,6 +30,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.orc.DwrfKeyProvider;
@@ -678,7 +679,7 @@ public class OrcStorageManager
         }
         if (raptorType instanceof RowType) {
             List<RowType.Field> fields = ((RowType) raptorType).getFields().stream()
-                    .map(field -> new RowType.Field(field.getName(), toOrcFileType(field.getType(), typeManager)))
+                    .map(field -> new RowType.Field(field.getName(), SemanticType.from(toOrcFileType(field.getType(), typeManager))))
                     .collect(toImmutableList());
             return RowType.from(fields);
         }

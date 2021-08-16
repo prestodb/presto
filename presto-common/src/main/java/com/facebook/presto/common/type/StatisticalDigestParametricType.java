@@ -13,7 +13,11 @@
  */
 package com.facebook.presto.common.type;
 
+import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.type.semantic.SemanticType;
+
 import java.util.List;
+import java.util.Optional;
 
 import static java.lang.String.format;
 
@@ -21,7 +25,7 @@ public abstract class StatisticalDigestParametricType
         implements ParametricType
 {
     @Override
-    public Type createType(List<TypeParameter> parameters)
+    public SemanticType createType(Optional<QualifiedObjectName> name, List<TypeParameter> parameters)
     {
         checkArgument(parameters.size() == 1, "%s type expects exactly one type as a parameter, got %s", this.getName(), parameters);
         checkArgument(
@@ -31,7 +35,7 @@ public abstract class StatisticalDigestParametricType
                 parameters);
         // Validation check on the acceptable type (bigint, real, double) intentionally omitted
         // because this is validated in each function and to allow for consistent error messaging
-        return getType(parameters);
+        return SemanticType.from(name, getType(parameters));
     }
 
     protected abstract Type getType(List<TypeParameter> parameters);

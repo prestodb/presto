@@ -13,7 +13,11 @@
  */
 package com.facebook.presto.common.type;
 
+import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.type.semantic.SemanticType;
+
 import java.util.List;
+import java.util.Optional;
 
 import static java.lang.String.format;
 
@@ -31,14 +35,15 @@ public final class VarcharEnumParametricType
     }
 
     @Override
-    public Type createType(List<TypeParameter> parameters)
+    public SemanticType createType(Optional<QualifiedObjectName> name, List<TypeParameter> parameters)
     {
         checkArgument(parameters.size() == 1, "Enum type expects exactly one parameter, got %s", parameters);
         checkArgument(
                 parameters.get(0).getKind() == ParameterKind.VARCHAR_ENUM,
                 "Enum definition expected, got %s",
                 parameters);
-        return new VarcharEnumType(parameters.get(0).getVarcharEnumMap());
+        // TODO enums should always have name, and we should validate that and use name here once SemanticType is plugged in to variables.
+        return SemanticType.from(QualifiedObjectName.valueOf(parameters.get(0).getVarcharEnumMap().getTypeName()), new VarcharEnumType(parameters.get(0).getVarcharEnumMap()));
     }
 
     private static void checkArgument(boolean argument, String format, Object... args)
