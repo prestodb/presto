@@ -30,7 +30,6 @@ target_link_libraries(
 
 add_executable(
   velox_exec_test
-  ExprTest.cpp
   DriverTest.cpp
   FilterProjectTest.cpp
   TableScanTest.cpp
@@ -52,7 +51,6 @@ add_executable(
   OrderByTest.cpp
   MergeTest.cpp
   HashJoinTest.cpp
-  CastExprTest.cpp
   PlanNodeToStringTest.cpp
   FunctionSignatureBuilderTest.cpp
   UnnestTest.cpp)
