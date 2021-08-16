@@ -14,12 +14,10 @@
 
 #include "velox/expression/Expr.h"
 #include "velox/core/Expressions.h"
-#include "velox/expression/CastExpr.h"
 #include "velox/expression/ControlExpr.h"
 #include "velox/expression/ExprCompiler.h"
 #include "velox/expression/VarSetter.h"
 #include "velox/expression/VectorFunction.h"
-#include "velox/expression/VectorFunctionRegistry.h"
 
 namespace facebook::velox::exec {
 
@@ -211,12 +209,10 @@ bool Expr::checkGetSharedSubexprValues(
     // losing values outside of missingRows.
     bool updateFinalSelection = context->isFinalSelection() &&
         (missingRows->countSelected() < rows.countSelected());
-    bool newIsFinalSelection =
-        updateFinalSelection ? false : context->isFinalSelection();
     VarSetter finalSelectionOr(
         context->mutableFinalSelection(), &rows, updateFinalSelection);
     VarSetter isFinalSelectionOr(
-        context->mutableIsFinalSelection(), newIsFinalSelection);
+        context->mutableIsFinalSelection(), false, updateFinalSelection);
 
     evalEncodings(*missingRows, context, &sharedSubexprValues_);
   }
@@ -635,18 +631,39 @@ void Expr::evalWithMemo(
       uncached->deselect(*cachedDictionaryIndices_);
     }
     if (uncached->hasSelections()) {
+      // Fix finalSelection at "rows" if uncached rows is a strict subset to
+      // avoid losing values not in uncached rows.
+      bool updateFinalSelection = context->isFinalSelection() &&
+          (uncached->countSelected() < rows.countSelected());
+      VarSetter finalSelectionMemo(
+          context->mutableFinalSelection(), &rows, updateFinalSelection);
+      VarSetter isFinalSelectionMemo(
+          context->mutableIsFinalSelection(), false, updateFinalSelection);
+
       evalAll(*uncached, context, result);
       deselectErrors(context, *uncached);
       context->exprSet()->addToMemo(this);
       auto newCacheSize = uncached->end();
+
+      // dictionaryCache_ is valid only for cachedDictionaryIndices_. Hence, a
+      // safe call to BaseVector::ensureWritable must include all the rows not
+      // covered by cachedDictionaryIndices_. If BaseVector::ensureWritable is
+      // called only for a subset of rows not covered by
+      // cachedDictionaryIndices_, it will attempt to copy rows that are not
+      // valid leading to a crash.
+      LocalSelectivityVector allUncached(context, dictionaryCache_->size());
+      allUncached.get()->setAll();
+      allUncached.get()->deselect(*cachedDictionaryIndices_);
+      BaseVector::ensureWritable(
+          *allUncached.get(), type(), context->pool(), &dictionaryCache_);
+
       if (cachedDictionaryIndices_->size() < newCacheSize) {
         int32_t oldSize = cachedDictionaryIndices_->size();
         cachedDictionaryIndices_->resize(newCacheSize);
         cachedDictionaryIndices_->setValidRange(oldSize, newCacheSize, false);
       }
+
       cachedDictionaryIndices_->select(*uncached);
-      BaseVector::ensureWritable(
-          *uncached, type(), context->pool(), &dictionaryCache_);
       dictionaryCache_->copy(result->get(), *uncached, nullptr);
     }
     return;
