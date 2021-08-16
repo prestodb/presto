@@ -195,13 +195,18 @@ public class FunctionAndTypeManager
     @Override
     public Type getType(TypeSignature signature)
     {
-        if (signature.getTypeSignatureBase().hasStandardType()) {
+        return getSemanticType(signature).getType();
+    }
+
+    @Override
+    public SemanticType getSemanticType(TypeSignature signature)
+    {
+        if (!signature.getTypeSignatureBase().hasTypeName()) {
             Optional<Type> type = builtInTypeAndFunctionNamespaceManager.getType(signature.getStandardTypeSignature());
             if (type.isPresent()) {
-                return type.get();
+                return SemanticType.from(type.get());
             }
         }
-
         Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(signature.getTypeSignatureBase());
         checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for type '%s'", signature.getBase());
         Optional<UserDefinedType> userDefinedType = functionNamespaceManager.get().getUserDefinedType(signature.getTypeSignatureBase().getTypeName());
@@ -209,17 +214,7 @@ public class FunctionAndTypeManager
             throw new IllegalArgumentException("Unknown type " + signature);
         }
         checkArgument(userDefinedType.get().getPhysicalTypeSignature().getTypeSignatureBase().hasStandardType(), "UserDefinedType must be based on static types.");
-        return getType(new TypeSignature(userDefinedType.get()));
-    }
-
-    @Override
-    public SemanticType getSemanticType(TypeSignature signature)
-    {
-        Type type = getType(signature);
-        if (signature.getTypeSignatureBase().hasTypeName()) {
-            return SemanticType.from(signature.getTypeSignatureBase().getTypeName(), type);
-        }
-        return SemanticType.from(type);
+        return getSemanticType(new TypeSignature(userDefinedType.get()));
     }
 
     @Override
