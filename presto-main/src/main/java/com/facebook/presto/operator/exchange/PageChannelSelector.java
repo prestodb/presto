@@ -24,6 +24,9 @@ import static java.util.Objects.requireNonNull;
 public class PageChannelSelector
         implements Function<Page, Page>
 {
+    // No channels need to be remapped, only ensure that all page blocks are loaded
+    private static final Function<Page, Page> GET_LOADED_PAGE = Page::getLoadedPage;
+
     private final int[] channels;
 
     public PageChannelSelector(int... channels)
@@ -35,6 +38,12 @@ public class PageChannelSelector
     @Override
     public Page apply(Page page)
     {
-        return requireNonNull(page, "page is null").extractChannels(channels);
+        // Ensure the channels that are emitted are fully loaded and in the correct order
+        return requireNonNull(page, "page is null").getLoadedPage(channels);
+    }
+
+    public static Function<Page, Page> identitySelection()
+    {
+        return GET_LOADED_PAGE;
     }
 }
