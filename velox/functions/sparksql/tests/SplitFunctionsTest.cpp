@@ -37,8 +37,18 @@ void SplitTest::testSplitCharacter(
   // Creating vectors for input strings
   auto nullAt = [&input](vector_size_t row) { return !input[row].has_value(); };
 
-  auto inputString = makeFlatVector<StringView>(input.size(), valueAt, nullAt);
-  auto rowVector = makeRowVector({inputString});
+  auto result = [&] {
+    auto inputString =
+        makeFlatVector<StringView>(input.size(), valueAt, nullAt);
+    auto rowVector = makeRowVector({inputString});
+
+    // Evaluating the function for each input and seed
+    std::string patternString =
+        pattern.has_value() ? std::string(", '") + pattern.value() + "'" : "";
+    std::string expressionString =
+        std::string("split(c0") + patternString + ")";
+    return evaluate<ArrayVector>(expressionString, rowVector);
+  }();
 
   // Creating vectors for output string vectors
   auto sizeAtOutput = [&output](vector_size_t row) {
@@ -53,20 +63,11 @@ void SplitTest::testSplitCharacter(
   auto expectedResult = makeArrayVector<StringView>(
       output.size(), sizeAtOutput, valueAtOutput, nullAtOutput);
 
-  // Evaluating the function for each input and seed
-  std::string patternString =
-      pattern.has_value() ? std::string(", '") + pattern.value() + "'" : "";
-  std::string expressionString = std::string("split(c0") + patternString + ")";
-  auto result = evaluate<ArrayVector>(expressionString, rowVector);
-
   // Checking the results
   assertEqualVectors(expectedResult, result);
 }
 
-TEST_F(SplitTest, splitCharacter) {
-  // Tests taken from Spark examples and also tried on Presto
-
-  // Testing corner cases and re-allocation
+TEST_F(SplitTest, TestReallocationAndCornerCases) {
   testSplitCharacter(
       {"boo:and:foo", "abcfd", "abcfd:", "", ":ab::cfd::::"},
       ':',
@@ -75,8 +76,9 @@ TEST_F(SplitTest, splitCharacter) {
        {{"abcfd", ""}},
        {{""}},
        {{"", "ab", "", "cfd", "", "", "", ""}}});
+}
 
-  // Test with nulls
+TEST_F(SplitTest, Nulls) {
   testSplitCharacter(
       {std::nullopt, "abcfd", "abcfd:", std::nullopt, ":ab::cfd::::"},
       ':',
@@ -85,10 +87,18 @@ TEST_F(SplitTest, splitCharacter) {
        {{"abcfd", ""}},
        {{std::nullopt}},
        {{"", "ab", "", "cfd", "", "", "", ""}}});
+}
 
-  // Default arguments
+TEST_F(SplitTest, DefaultArguments) {
   testSplitCharacter(
       {"boo:and:foo", "abcfd"}, ':', {{{"boo", "and", "foo"}}, {{"abcfd"}}});
+}
+
+TEST_F(SplitTest, LongStrings) {
+  testSplitCharacter(
+      {"abcdefghijklkmnopqrstuvwxyz"},
+      ',',
+      {{{"abcdefghijklkmnopqrstuvwxyz"}}});
 }
 
 } // namespace

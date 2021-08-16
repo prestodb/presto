@@ -12,117 +12,23 @@
  * limitations under the License.
  */
 
-#include <deque>
+#include <utility>
+
 #include "velox/expression/VectorFunction.h"
-#include "velox/vector/FlatVector.h"
+#include "velox/functions/lib/ArrayBuilder.h"
 
 namespace facebook::velox::functions::sparksql {
 namespace {
-
-/// Wrapper class providing some utility functions to work with ArrayVector
-/// elements and meta data
-/// \tparam T the expected vector element type
-template <typename T>
-class ArrayElementsWrapper {
- public:
-  /// Initialize the meta data and raw data
-  /// \param rows SelectivityVector of the parent array vector
-  /// \param context the context used for memory allocation
-  /// \param input the input if needed to share buffers
-  ArrayElementsWrapper(
-      const SelectivityVector& rows,
-      exec::EvalCtx* context,
-      const VectorPtr& input)
-      : elements_capacity_{3 * rows.end() /* Initial estimate size */} {
-    // Create the result offsets and sizes
-    offsets_ =
-        AlignedBuffer::allocate<vector_size_t>(rows.size(), context->pool());
-    rawOffsets_ = offsets_->asMutable<vector_size_t>();
-
-    sizes_ =
-        AlignedBuffer::allocate<vector_size_t>(rows.size(), context->pool());
-    rawSizes_ = sizes_->asMutable<vector_size_t>();
-
-    // Allocate vector of elements
-
-    auto nestedVector = BaseVector::create(
-        CppToType<T>::create(), elements_capacity_, context->pool());
-
-    elementsVector_ = std::dynamic_pointer_cast<FlatVector<T>>(nestedVector);
-    if constexpr (std::is_same_v<T, StringView>) {
-      // Output elements vector produced will reference parts of the input
-      // So increment ref count of the string buffer of the input vector
-      if (input->asFlatVector<T>()) {
-        elementsVector_->setStringBuffers(
-            input->asFlatVector<T>()->stringBuffers());
-      }
-    }
-
-    rawValues_ = elementsVector_->mutableRawValues();
-  }
-
-  /// Update a given value in the rawData array and resizes the vector if needed
-  /// \param value the input value to be inserted
-  /// \param index the index to the raw data
-  void updateRawData(const T& value, vector_size_t index) {
-    static const vector_size_t kResizeDoublingThreshold = 10000;
-    if (index >= elements_capacity_) {
-      // Double until reaching the threshold
-      // Then slow down and grow only 20% each time
-      if (elements_capacity_ < kResizeDoublingThreshold) {
-        elements_capacity_ = 2 * index;
-      } else {
-        elements_capacity_ = index + index / 5;
-      }
-      elementsVector_->resize(elements_capacity_);
-      rawValues_ = elementsVector_->mutableRawValues();
-    }
-    rawValues_[index] = value;
-  }
-
-  const BufferPtr& offsets() const {
-    return offsets_;
-  }
-
-  const BufferPtr& sizes() const {
-    return sizes_;
-  }
-
-  vector_size_t* rawOffsets() const {
-    return rawOffsets_;
-  }
-
-  vector_size_t* rawSizes() const {
-    return rawSizes_;
-  }
-
-  VectorPtr elementsVector() const {
-    return elementsVector_;
-  }
-
-  T* rawValues() const {
-    return rawValues_;
-  }
-
- private:
-  vector_size_t elements_capacity_;
-  BufferPtr offsets_;
-  BufferPtr sizes_;
-  vector_size_t* rawOffsets_;
-  vector_size_t* rawSizes_;
-  FlatVectorPtr<T> elementsVector_;
-  T* rawValues_;
-};
 
 /// This class only implements the basic split version in which the pattern is a
 /// single character
 class SplitCharacter final : public exec::VectorFunction {
  public:
   explicit SplitCharacter(const char pattern) : pattern_{pattern} {
-    static const std::string_view kRegexChars = ".$|()[{^?*+\\";
+    static constexpr std::string_view kRegexChars = ".$|()[{^?*+\\";
     VELOX_CHECK(
         kRegexChars.find(pattern) == std::string::npos,
-        "This version of split support single-length non-regex patterns");
+        "This version of split supports single-length non-regex patterns");
   }
 
   void apply(
@@ -131,57 +37,31 @@ class SplitCharacter final : public exec::VectorFunction {
       exec::Expr* /* unused */,
       exec::EvalCtx* context,
       VectorPtr* result) const override {
-    auto& stringVector = args[0];
+    exec::LocalDecodedVector input(context, *args[0], rows);
 
-    // Decode the input
-    exec::LocalDecodedVector input(context, *stringVector, rows);
+    ArrayBuilder<Varchar> builder(
+        /*numArrays=*/rows.size(),
+        /*estimatedNumElements=*/rows.countSelected() * 3,
+        context->pool());
 
-    ArrayElementsWrapper<StringView> elementsWrapper(
-        rows, context, stringVector);
-
-    // Keep track of the result offset
-    vector_size_t lastOffset = 0;
     rows.applyToSelected([&](vector_size_t row) {
-      // Updating offsets
-      elementsWrapper.rawOffsets()[row] = lastOffset;
-
-      // Searching the current string and updating the result nested string
-      // vector
-      vector_size_t matches = 0;
-      auto current = input.get()->valueAt<StringView>(row);
-      vector_size_t lastIndex = 0;
-      for (auto index = 0; index < current.size(); index++) {
-        if (current.data()[index] == pattern_) {
-          elementsWrapper.updateRawData(
-              StringView(current.data() + lastIndex, index - lastIndex),
-              lastOffset + matches);
-          lastIndex = index + 1;
-          matches++;
-        }
-      }
-      // Add the last string
-      elementsWrapper.updateRawData(
-          StringView(current.data() + lastIndex, current.size() - lastIndex),
-          lastOffset + matches);
-      matches++;
-
-      // Updating sizes
-      lastOffset += matches;
-      elementsWrapper.rawSizes()[row] = matches;
+      ArrayBuilder<Varchar>::Ref array = builder.startArray(row);
+      const StringView& current = input->valueAt<StringView>(row);
+      const char* pos = current.begin();
+      const char* end = pos + current.size();
+      const char* delim;
+      do {
+        delim = std::find(pos, end, pattern_);
+        array.emplace_back(pos, delim - pos);
+        pos = delim + 1; // Skip past delim.
+      } while (delim != end);
     });
-
-    // Assemble the result vector
-    auto arrayResult = std::make_shared<ArrayVector>(
-        context->pool(),
-        ARRAY(VARCHAR()),
-        BufferPtr(nullptr),
-        rows.size(),
-        elementsWrapper.offsets(),
-        elementsWrapper.sizes(),
-        elementsWrapper.elementsVector(),
-        0);
-
-    context->moveOrCopyResult(arrayResult, rows, result);
+    // Reference the input StringBuffers since we did not deep copy above.
+    builder.setStringBuffers(
+        args[0]->asFlatVector<StringView>()->stringBuffers());
+    std::shared_ptr<ArrayVector> arrayVector =
+        std::move(builder).finish(context->pool());
+    context->moveOrCopyResult(arrayVector, rows, result);
   }
 
  private:

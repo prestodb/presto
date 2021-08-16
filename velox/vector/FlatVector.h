@@ -273,8 +273,8 @@ class FlatVector : public SimpleVector<T> {
     return stringBuffers_;
   }
 
-  void setStringBuffers(const std::vector<BufferPtr>& buffers) {
-    stringBuffers_ = buffers;
+  void setStringBuffers(std::vector<BufferPtr> buffers) {
+    stringBuffers_ = std::move(buffers);
   }
 
   void acquireSharedStringBuffers(const BaseVector* source);
