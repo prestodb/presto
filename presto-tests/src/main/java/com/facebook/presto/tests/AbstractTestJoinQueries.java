@@ -2388,6 +2388,40 @@ public abstract class AbstractTestJoinQueries
                 "SELECT * FROM (VALUES 2, 3, null) a(x) " +
                         "FULL OUTER JOIN (VALUES 3, 4, null) b(x) ON a.x = b.x WHERE a.x IS NULL",
                 "SELECT * FROM VALUES (NULL, 4), (NULL, NULL), (NULL, NULL)");
+
+        assertQuery(
+                session,
+                "SELECT * FROM (VALUES '1', '', '2', '3') a(x) INNER JOIN (VALUES 1, 2, 3) b(y) " +
+                        "ON CAST(x AS int) = y WHERE x <> ''",
+                "SELECT * FROM VALUES (1,1), (2,2), (3,3)");
+
+        // Verifying whether the join works properly when join operation is performed
+        // on the array element
+        assertQuerySucceeds(
+                session,
+                "SELECT * FROM customer C INNER JOIN " +
+                        "(SELECT SPLIT(comment, '.') AS k FROM part) P " +
+                        "ON C.name = P.k[2] WHERE CARDINALITY(P.k) >= 2");
+
+        assertQuerySucceeds(
+                session,
+                "SELECT * FROM (SELECT SPLIT(comment, '.') AS k FROM customer) C " +
+                        "INNER JOIN (SELECT SPLIT(comment, '.') AS k FROM part) P " +
+                        "ON C.k[2] = P.k[2] WHERE CARDINALITY(P.k) >= 2 " +
+                        "AND CARDINALITY(C.k) >= 2");
+
+        assertQuerySucceeds(
+                session,
+                "SELECT * FROM ( VALUES " +
+                        "ARRAY[ CAST(ROW(1) AS ROW(x INTEGER)), CAST(ROW(2) AS ROW(x INTEGER)) ], " +
+                        "ARRAY[ CAST(ROW(4) AS ROW(x INTEGER)), CAST(ROW(5) AS ROW(x INTEGER)), " +
+                        "CAST(ROW(6) AS ROW(x INTEGER)) ], ARRAY[], NULL ) l(f) " +
+                        "INNER JOIN ( VALUES " +
+                        "ARRAY[ CAST(ROW(1) AS ROW(x INTEGER)), CAST(ROW(5) AS ROW(x INTEGER)), " +
+                        "CAST(ROW(3) AS ROW(x INTEGER)) ], " +
+                        "ARRAY[CAST(ROW(7) AS ROW(x INTEGER))], ARRAY[], NULL ) r(f) " +
+                        "ON l.f[2].x = r.f[2].x " +
+                        "AND CARDINALITY(l.f) >= 2 AND CARDINALITY(r.f) >= 2");
     }
 
     @Test

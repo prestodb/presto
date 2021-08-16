@@ -416,24 +416,32 @@ class RelationPlanner
         if (SystemSessionProperties.isOptimizeNullsInJoin(session)) {
             switch (joinType) {
                 case INNER:
-                    addNullFilterIfSupported(conditions, left);
-                    addNullFilterIfSupported(conditions, right);
+                    if (isQualifyingDereference(left) && isQualifyingDereference(right)) {
+                        conditions.add(new IsNotNullPredicate(left));
+                        conditions.add(new IsNotNullPredicate(right));
+                    }
                     break;
                 case LEFT:
-                    addNullFilterIfSupported(conditions, right);
+                    if (isQualifyingDereference(right)) {
+                        conditions.add(new IsNotNullPredicate(right));
+                    }
                     break;
                 case RIGHT:
-                    addNullFilterIfSupported(conditions, left);
+                    if (isQualifyingDereference(left)) {
+                        conditions.add(new IsNotNullPredicate(left));
+                    }
                     break;
             }
         }
     }
 
-    private void addNullFilterIfSupported(List<Expression> conditions, Expression incoming)
+    private boolean isQualifyingDereference(Expression e)
     {
-        if (!(incoming instanceof InPredicate)) {
-            // (A.x IN (1,2,3)) IS NOT NULL is not supported as a join condition as of today.
-            conditions.add(new IsNotNullPredicate(incoming));
+        if (e instanceof DereferenceExpression) {
+            return isQualifyingDereference(((DereferenceExpression) e).getBase());
+        }
+        else {
+            return e instanceof Identifier;
         }
     }
 
