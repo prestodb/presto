@@ -201,7 +201,7 @@ TEST_F(TableWriteTest, constantVectors) {
           .project({"rows"})
           .planNode();
 
-  assertQuery(op, {}, fmt::format("SELECT {}", size));
+  assertQuery(op, fmt::format("SELECT {}", size));
 
   assertQuery(
       PlanBuilder().tableScan(rowType).planNode(),

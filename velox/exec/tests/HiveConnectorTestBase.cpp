@@ -16,6 +16,7 @@
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/dwio/dwrf/test/utils/BatchMaker.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
+#include "velox/exec/tests/QueryAssertions.h"
 
 namespace facebook::velox::exec::test {
 
@@ -79,6 +80,27 @@ std::shared_ptr<exec::Task> HiveConnectorTestBase::assertQuery(
     const std::string& duckDbSql) {
   return OperatorTestBase::assertQuery(
       plan, makeHiveSplits(filePaths), duckDbSql);
+}
+
+std::shared_ptr<exec::Task> HiveConnectorTestBase::assertQuery(
+    const std::shared_ptr<const core::PlanNode>& plan,
+    const std::unordered_map<int, std::shared_ptr<TempFilePath>>& filePaths,
+    const std::string& duckDbSql) {
+  bool noMoreSplits = false;
+  return test::assertQuery(
+      plan,
+      [&](auto* task) {
+        if (!noMoreSplits) {
+          for (const auto& entry : filePaths) {
+            auto planNodeId = fmt::format("{}", entry.first);
+            addSplit(task, planNodeId, makeHiveSplit(entry.second->path));
+            task->noMoreSplits(planNodeId);
+          }
+          noMoreSplits = true;
+        }
+      },
+      duckDbSql,
+      duckDbQueryRunner_);
 }
 
 std::vector<std::shared_ptr<TempFilePath>> HiveConnectorTestBase::makeFilePaths(

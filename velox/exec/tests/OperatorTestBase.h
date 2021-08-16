@@ -33,6 +33,12 @@ class OperatorTestBase : public testing::Test {
     duckDbQueryRunner_.createTable("tmp", data);
   }
 
+  void createDuckDbTable(
+      const std::string& tableName,
+      const std::vector<RowVectorPtr>& data) {
+    duckDbQueryRunner_.createTable(tableName, data);
+  }
+
   std::shared_ptr<Task> assertQueryOrdered(
       const std::shared_ptr<const core::PlanNode>& plan,
       const std::string& duckDbSql,

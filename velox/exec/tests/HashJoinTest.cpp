@@ -14,7 +14,7 @@
 
 #include "velox/dwio/dwrf/test/utils/BatchMaker.h"
 #include "velox/exec/tests/Cursor.h"
-#include "velox/exec/tests/OperatorTestBase.h"
+#include "velox/exec/tests/HiveConnectorTestBase.h"
 #include "velox/exec/tests/PlanBuilder.h"
 
 using namespace facebook::velox;
@@ -23,11 +23,12 @@ using namespace facebook::velox::exec::test;
 
 using facebook::velox::test::BatchMaker;
 
-class HashJoinTest : public OperatorTestBase {
+static const std::string kWriter = "HashJoinTest.Writer";
+
+class HashJoinTest : public HiveConnectorTestBase {
  protected:
-  void assertQuery(CursorParameters params, const std::string& duckDbSql) {
-    ::assertQuery(
-        params, [](Task*) {}, duckDbSql, duckDbQueryRunner_);
+  void SetUp() override {
+    HiveConnectorTestBase::SetUp();
   }
 
   void testJoin(
@@ -58,9 +59,10 @@ class HashJoinTest : public OperatorTestBase {
             .planNode();
     params.numThreads = numThreads;
 
-    duckDbQueryRunner_.createTable("t", {leftBatch});
-    duckDbQueryRunner_.createTable("u", {rightBatch});
-    assertQuery(params, referenceQuery);
+    createDuckDbTable("t", {leftBatch});
+    createDuckDbTable("u", {rightBatch});
+    ::assertQuery(
+        params, [](auto*) {}, referenceQuery, duckDbQueryRunner_);
   }
 
   static RowTypePtr makeRowType(
@@ -209,4 +211,39 @@ TEST_F(HashJoinTest, memory) {
   auto [taskCursor, rows] = readCursor(params, [](Task*) {});
   EXPECT_GT(2500, tracker->getNumAllocs());
   EXPECT_GT(7'500'000, tracker->getCumulativeBytes());
+}
+
+TEST_F(HashJoinTest, lazyVectors) {
+  auto leftVectors = makeRowVector({
+      makeFlatVector<int32_t>(1'000, [](auto row) { return row % 23; }),
+      makeFlatVector<int64_t>(1'000, [](auto row) { return row; }),
+  });
+
+  auto rightVectors = makeRowVector(
+      {makeFlatVector<int32_t>(1'000, [](auto row) { return row % 31; })});
+
+  auto leftFile = TempFilePath::create();
+  writeToFile(leftFile->path, kWriter, leftVectors);
+  createDuckDbTable("t", {leftVectors});
+
+  auto rightFile = TempFilePath::create();
+  writeToFile(rightFile->path, kWriter, rightVectors);
+  createDuckDbTable("u", {rightVectors});
+
+  auto op =
+      PlanBuilder(10)
+          .tableScan(ROW({"c0", "c1"}, {INTEGER(), BIGINT()}))
+          .hashJoin(
+              {0},
+              {0},
+              PlanBuilder(0).tableScan(ROW({"c0"}, {INTEGER()})).planNode(),
+              "",
+              {1})
+          .project({"c1 + 1"})
+          .planNode();
+
+  assertQuery(
+      op,
+      {{0, rightFile}, {10, leftFile}},
+      "SELECT t.c1 + 1 FROM t, u WHERE t.c0 = u.c0");
 }

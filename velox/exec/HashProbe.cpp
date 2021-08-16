@@ -256,9 +256,16 @@ RowVectorPtr HashProbe::getOutput() {
         tableResultProjections_,
         operatorCtx_->pool(),
         output_);
+
     for (auto projection : identityProjections_) {
-      output_->childAt(projection.outputChannel) = wrapChild(
-          numOut, rowNumberMapping_, input_->childAt(projection.inputChannel));
+      // Load input vector if it is being split into multiple batches. It is not
+      // safe to wrap unloaded LazyVector into two different dictionaries.
+      auto inputChild = numOut == outputRows_.size()
+          ? input_->loadedChildAt(projection.inputChannel)
+          : input_->childAt(projection.inputChannel);
+
+      output_->childAt(projection.outputChannel) =
+          wrapChild(numOut, rowNumberMapping_, inputChild);
     }
     return output_;
   }
