@@ -58,6 +58,11 @@ class SerializedPage {
 // for input.
 class ExchangeQueue {
  public:
+  ~ExchangeQueue() {
+    std::lock_guard<std::mutex> l(mutex_);
+    clearAllPromisesUnlocked();
+  }
+
   std::mutex& mutex() {
     return mutex_;
   }
@@ -89,10 +94,7 @@ class ExchangeQueue {
     }
     error_ = error;
     atEnd_ = true;
-    for (auto& promise : promises_) {
-      promise.setValue(true);
-    }
-    promises_.clear();
+    clearAllPromisesUnlocked();
   }
 
   std::unique_ptr<SerializedPage> dequeue(bool* atEnd, ContinueFuture* future) {
@@ -131,11 +133,15 @@ class ExchangeQueue {
   void checkComplete() {
     if (noMoreSources_ && numCompleted_ == numSources_) {
       atEnd_ = true;
-      for (auto& promise : promises_) {
-        promise.setValue(true);
-      }
-      promises_.clear();
+      clearAllPromisesUnlocked();
     }
+  }
+
+  void clearAllPromisesUnlocked() {
+    for (auto& promise : promises_) {
+      promise.setValue(true);
+    }
+    promises_.clear();
   }
 
   int numCompleted_ = 0;
