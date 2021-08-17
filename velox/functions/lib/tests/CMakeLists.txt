@@ -10,9 +10,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 add_executable(velox_functions_lib_test Re2FunctionsTest.cpp
-               ArrayBuilderTest.cpp)
+                                        ArrayBuilderTest.cpp)
 
-add_test(velox_functions_lib_test velox_re2_functions_test)
+add_test(velox_functions_lib_test velox_functions_lib_test)
 
 target_link_libraries(velox_functions_lib_test velox_functions_test_lib
                       ${GTEST_BOTH_LIBRARIES} ${gflags_LIBRARIES})
