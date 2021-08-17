@@ -13,3 +13,7 @@ Bitwise Functions
 .. function:: bitwise_or(x, y) -> [same as x]
 
     Returns the bitwise OR of ``x`` and ``y`` in 2's complement representation.
+
+.. function:: bitwise_xor(x, y) -> [same as x]``
+
+    Returns the bitwise XOR of ``x`` and ``y`` in 2's complement representation.

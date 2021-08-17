@@ -270,3 +270,15 @@ TEST_F(ArithmeticTest, bitwiseOr) {
   EXPECT_EQ(bitwiseOr(-4, 12), -4);
   EXPECT_EQ(bitwiseOr(60, 21), 61);
 }
+
+TEST_F(ArithmeticTest, bitwiseXor) {
+  const auto bitwiseXor = [&](std::optional<int32_t> a,
+                              std::optional<int32_t> b) {
+    return evaluateOnce<int32_t>("bitwise_xor(c0, c1)", a, b);
+  };
+
+  EXPECT_EQ(bitwiseXor(0, -1), -1);
+  EXPECT_EQ(bitwiseXor(3, 8), 11);
+  EXPECT_EQ(bitwiseXor(-4, 12), -16);
+  EXPECT_EQ(bitwiseXor(60, 21), 41);
+}

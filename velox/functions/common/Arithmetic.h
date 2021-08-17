@@ -223,6 +223,14 @@ FOLLY_ALWAYS_INLINE bool call(T& result, T a, T b) {
 }
 VELOX_UDF_END();
 
+template <typename T>
+VELOX_UDF_BEGIN(bitwise_xor)
+FOLLY_ALWAYS_INLINE bool call(T& result, T a, T b) {
+  result = a ^ b;
+  return true;
+}
+VELOX_UDF_END();
+
 } // namespace functions
 } // namespace velox
 } // namespace facebook
