@@ -10,8 +10,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_executable(velox_codegen_vector_function_test
-               veloxCodegenVectorFunctionTest.cpp, TempStringTest.cpp)
+add_executable(velox_codegen_vector_function_test CodegenVectorFunctionTest.cpp
+                                                  TempStringTest.cpp)
 add_test(velox_codegen_vector_function_test velox_codegen_vector_function_test)
 
 target_link_libraries(
@@ -37,7 +37,7 @@ target_link_libraries(
   velox_dwio_type_fbhive
   velox_dwrf_test_utils
   velox_presto_serializer
-  velox_transform
+  velox_transform_utils
   ${ANTLR4_RUNTIME}
   ${Boost_ATOMIC_LIBRARIES}
   ${Boost_CONTEXT_LIBRARIES}

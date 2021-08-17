@@ -13,11 +13,12 @@
 add_executable(
   velox_codegen_benchmark_single_output
   SingleOutputDefaultNullsBenchmark.cpp
-  SingleOutputNotDefaultNullsBenchmark.cpp BooleanBenchmark.cpp)
+  SingleOutputNotDefaultNullsBenchmark.cpp BooleanBenchmarks.cpp)
 
 target_link_libraries(
   velox_codegen_benchmark_single_output
   velox_exec_test_lib
+  velox_codegen_utils_resource_path
   velox_codegen_code_generator
   ${FOLLY_BENCHMARK}
   ${FOLLY_WITH_DEPENDENCIES}
@@ -26,7 +27,6 @@ target_link_libraries(
   ${GFLAGS_LIBRARIES}
   ${FMT}
   velox_core
-  koski_parser
   velox_exec_test_util
   velox_functions_lib
   velox_functions_common
@@ -46,8 +46,7 @@ add_compile_definitions(velox_codegen_test
 add_compile_definitions(
   velox_codegen_test
   CODEGEN="$<TARGET_LINKER_FILE:velox_codegen_code_generator>")
-add_compile_definitions(velox_codegen_test
-                        KOSKI_PARSER="$<TARGET_LINKER_FILE:koski_parser>")
+
 add_compile_definitions(
   velox_codegen_test
   VELOX_FUNCTIONS_LIB="$<TARGET_LINKER_FILE:velox_functions_lib>")
@@ -89,7 +88,7 @@ target_link_libraries(
   ${GLOG}
   ${FMT}
   velox_core
-  koski_parser
+  velox_codegen_utils_resource_path
   velox_exec_test_util
   velox_functions_lib
   velox_functions_common

@@ -466,7 +466,11 @@ TEST_F(ArithmeticFunctionsTest, DISABLED_testRound) {
       "round(C0)", {{32}, {13}, {-13}, {1}, {-1}});
 }
 
-TEST_F(ArithmeticFunctionsTest, testHash) {
+// FIXME: This test errors on macs:
+// velox/velox/functions/common/HashImpl.h:22:31: error: implicit instantiation
+// of undefined template 'folly::hasher<std::__1::basic_string_view<char, \
+// std::__1::char_traits<char> >, void>'
+TEST_F(ArithmeticFunctionsTest, DISABLED_testHash) {
   StringView input("hi welcome");
   evaluateAndCompare<
       RowTypeTrait<TypeKind::VARCHAR>,

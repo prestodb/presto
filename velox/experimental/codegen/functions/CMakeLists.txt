@@ -10,17 +10,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_executable(velox_experimental_codegen_test CodegenTest.cpp)
-add_dependencies(velox_experimental_codegen_test velox_codegen_expression_test)
-target_link_libraries(
-  velox_experimental_codegen_test
-  ${GTEST_BOTH_LIBRARIES}
-  velox_core
-  velox_exec
-  velox_experimental_codegen
-  velox_exec_test_lib
-  velox_exec_test_util
-  velox_functions_common
-  velox_codegen_utils_resource_path)
-
-add_test(velox_experimental_codegen_test velox_experimental_codegen_test)
+add_library(velox_codegen_functions INTERFACE)
+target_link_libraries(velox_codegen_functions INTERFACE ${FMT})
