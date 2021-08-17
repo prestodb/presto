@@ -28,6 +28,7 @@ Functions and Operators
     functions/hyperloglog
     functions/khyperloglog
     functions/qdigest
+    functions/uuid
     functions/color
     functions/session
     functions/teradata

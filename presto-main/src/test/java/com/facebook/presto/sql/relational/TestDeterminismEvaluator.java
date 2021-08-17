@@ -20,6 +20,8 @@ import com.facebook.presto.spi.relation.InputReferenceExpression;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
+
 import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -27,6 +29,7 @@ import static com.facebook.presto.metadata.MetadataManager.createTestMetadataMan
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.field;
+import static com.facebook.presto.type.UuidType.UUID;
 import static java.util.Collections.singletonList;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -45,6 +48,13 @@ public class TestDeterminismEvaluator
                 BIGINT,
                 singletonList(constant(10L, BIGINT)));
         assertFalse(determinismEvaluator.isDeterministic(random));
+
+        CallExpression uuid = new CallExpression(
+                "uuid",
+                functionAndTypeManager.lookupFunction("uuid", Collections.emptyList()),
+                UUID,
+                Collections.emptyList());
+        assertFalse(determinismEvaluator.isDeterministic(uuid));
 
         InputReferenceExpression col0 = field(0, BIGINT);
         FunctionHandle lessThan = functionAndTypeManager.resolveOperator(LESS_THAN, fromTypes(BIGINT, BIGINT));
