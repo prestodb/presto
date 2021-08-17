@@ -10,8 +10,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_executable(velox_codegen_vector_function_test CodegenVectorFunctionTest.cpp
-                                                  TempStringTest.cpp)
+add_executable(
+  velox_codegen_vector_function_test CodegenVectorFunctionTest.cpp
+                                     TempStringTest.cpp VectorReaderTest.cpp)
 add_test(velox_codegen_vector_function_test velox_codegen_vector_function_test)
 
 target_link_libraries(

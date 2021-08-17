@@ -33,7 +33,7 @@ namespace codegen {
 //   // true means set to null, false means not null
 //   static constexpr bool intializedWithNullSet_
 //
-//   // when true, the reader will never reveive a null value to write
+//   // when true, the reader will never receive a null value to write
 //   static constexpr bool mayWriteNull_
 //
 //
@@ -78,17 +78,13 @@ struct VectorReader {
 
     if constexpr (Config::isWriter_) {
       mutableRawNulls_ = flatVector->mutableRawNulls();
+      mutableRawValues_ = flatVector->mutableRawValues();
     } else {
       if constexpr (Config::mayReadNull_) {
         // TODO when read only vector does not have nulls we dont need to
         // allocate nulls
         mutableRawNulls_ = flatVector->mutableRawNulls();
       }
-    }
-
-    if constexpr (Config::isWriter_) {
-      mutableRawValues_ = flatVector->mutableRawValues();
-    } else {
       mutableRawValues_ = const_cast<NativeType*>(flatVector->rawValues());
     }
   }
@@ -183,17 +179,13 @@ struct VectorReader<
 
     if constexpr (Config::isWriter_) {
       mutableRawNulls_ = flatVector->mutableRawNulls();
+      mutableRawValues_ = flatVector->template mutableRawValues<uint64_t>();
     } else {
       // TODO when read only vector does not have nulls we dont need to allocate
       // nulls
       if constexpr (Config::mayReadNull_) {
         mutableRawNulls_ = flatVector->mutableRawNulls();
       }
-    }
-
-    if constexpr (Config::isWriter_) {
-      mutableRawValues_ = flatVector->template mutableRawValues<uint64_t>();
-    } else {
       mutableRawValues_ =
           const_cast<uint64_t*>(flatVector->template rawValues<uint64_t>());
     }
@@ -311,17 +303,13 @@ struct VectorReader<
 
     if constexpr (Config::isWriter_) {
       mutableRawNulls_ = flatVector->mutableRawNulls();
+      mutableRawValues_ = flatVector->template mutableRawValues<StringView>();
     } else {
       // TODO when read only vector does not have nulls we dont need to allocate
       // nulls
       if constexpr (Config::mayReadNull_) {
         mutableRawNulls_ = flatVector->mutableRawNulls();
       }
-    }
-
-    if constexpr (Config::isWriter_) {
-      mutableRawValues_ = flatVector->template mutableRawValues<StringView>();
-    } else {
       mutableRawValues_ =
           const_cast<StringView*>(flatVector->template rawValues<StringView>());
     }
