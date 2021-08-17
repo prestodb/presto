@@ -731,6 +731,16 @@ Procedures
     file system paths to use lowercase (e.g. ``col_x=SomeValue``). Partitions on the file system
     not conforming to this convention are ignored, unless the argument is set to ``false``.
 
+Extra Hidden Columns
+----------
+
+The Hive connector exposes extra hidden metadata columns in Hive tables. You can query these
+columns as a part of SQL query like any other columns of the table.
+
+* ``$path`` : Filepath for the given row data
+* ``$file_size`` : Filesize for the given row
+* ``$file_modified_time`` : Last file modified time for the given row
+
 Examples
 --------
 
