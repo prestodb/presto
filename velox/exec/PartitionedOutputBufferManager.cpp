@@ -20,8 +20,8 @@ void DestinationBuffer::getData(
     int64_t sequence,
     DataAvailableCallback notify,
     std::vector<std::shared_ptr<VectorStreamGroup>>& result) {
-  VELOX_CHECK(
-      sequence >= sequence_, "Get received for an already acknowledged item");
+  VELOX_CHECK_GE(
+      sequence, sequence_, "Get received for an already acknowledged item");
 
   if (sequence - sequence_ > data_.size()) {
     VLOG(0) << this << " Out of order get: " << sequence << " over "
@@ -92,8 +92,8 @@ void DestinationBuffer::acknowledge(
             << sequence_;
     return;
   }
-  VELOX_CHECK(
-      numDeleted <= data_.size(), "Ack received for a not yet produced item");
+  VELOX_CHECK_LE(
+      numDeleted, data_.size(), "Ack received for a not yet produced item");
   uint64_t freedBytes = 0;
   for (auto i = 0; i < numDeleted; ++i) {
     if (!data_[i]) {
@@ -143,7 +143,7 @@ BlockingReason PartitionedOutputBuffer::enqueue(
   bool blocked = false;
   {
     std::lock_guard<std::mutex> l(mutex_);
-    VELOX_CHECK(destination < buffers_.size());
+    VELOX_CHECK_LT(destination, buffers_.size());
     if (task_->state() != kRunning) {
       throw std::runtime_error(
           "Task is terminated, cannot add data to output.");
@@ -170,8 +170,9 @@ void PartitionedOutputBuffer::noMoreData() {
   {
     std::lock_guard<std::mutex> l(mutex_);
     ++numFinished_;
-    VELOX_CHECK(
-        numFinished_ <= numDrivers_,
+    VELOX_CHECK_LE(
+        numFinished_,
+        numDrivers_,
         "Each driver should call noMoreData exactly once");
     atEnd_ = numFinished_ == numDrivers_;
     if (atEnd_) {
@@ -225,7 +226,7 @@ void PartitionedOutputBuffer::acknowledge(int destination, int64_t sequence) {
   std::vector<VeloxPromise<bool>> promises;
   {
     std::lock_guard<std::mutex> l(mutex_);
-    VELOX_CHECK(destination < buffers_.size());
+    VELOX_CHECK_LT(destination, buffers_.size());
     auto* buffer = buffers_[destination].get();
     if (!buffer) {
       VLOG(1) << "Ack received after final ack for destination " << destination
@@ -242,8 +243,9 @@ void PartitionedOutputBuffer::acknowledge(int destination, int64_t sequence) {
 void PartitionedOutputBuffer::updateAfterAcknowledgeLocked(
     int64_t totalFreed,
     std::vector<VeloxPromise<bool>>& promises) {
-  VELOX_CHECK(
-      totalFreed <= totalSize_,
+  VELOX_CHECK_LE(
+      totalFreed,
+      totalSize_,
       "Output buffer size goes negative: released {} over {}",
       totalFreed,
       totalSize_);
@@ -294,7 +296,7 @@ void PartitionedOutputBuffer::getData(
   uint64_t totalFreed = 0;
   {
     std::lock_guard<std::mutex> l(mutex_);
-    VELOX_CHECK(destination < buffers_.size());
+    VELOX_CHECK_LT(destination, buffers_.size());
     auto destinationBuffer = buffers_[destination].get();
     VELOX_CHECK(
         destinationBuffer,
@@ -431,8 +433,7 @@ void PartitionedOutputBufferManager::initializeTask(
     buffers_[task->taskId()] = std::make_shared<PartitionedOutputBuffer>(
         task, numDestinations, numDrivers);
   } else {
-    VELOX_CHECK(
-        false,
+    VELOX_FAIL(
         "Registering an output buffer for pre-existing taskId {}",
         task->taskId());
   }
