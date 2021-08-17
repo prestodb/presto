@@ -319,19 +319,20 @@ ExprPtr compileExpression(
             call->name(), resultType, std::move(compiledInputs))) {
       result = specialForm;
     } else if (
+        auto adapterFunc =
+            AdaptedVectorFunctions().Create({call->name(), inputTypes})) {
+      result = std::make_shared<Expr>(
+          resultType,
+          std::move(compiledInputs),
+          adapterFunc->getVectorInterpreter(),
+          call->name());
+    } else if (
         auto func = getVectorFunction(
             call->name(), inputTypes, getConstantInputs(compiledInputs))) {
       result = std::make_shared<Expr>(
           resultType, std::move(compiledInputs), func, call->name());
     } else {
-      core::FunctionKey key{call->name(), inputTypes};
-      auto fast = AdaptedVectorFunctions().Create(key);
-      VELOX_CHECK_NOT_NULL(fast.get(), "Function not registered: {}", key);
-      result = std::make_shared<Expr>(
-          resultType,
-          std::move(compiledInputs),
-          fast->getVectorInterpreter(),
-          call->name());
+      VELOX_FAIL("Function not registered: {}", call->name());
     }
   } else if (
       auto access =

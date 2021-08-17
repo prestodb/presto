@@ -2205,3 +2205,60 @@ TEST_F(ExprTest, memo) {
       makeFlatVector<int64_t>(100, [](auto row) { return (row * 5) % 3; });
   assertEqualVectors(expectedResult, result);
 }
+
+// Test function name overloading across scalar function and vector function
+class TestingOverloadVectorFunction : public exec::VectorFunction {
+ public:
+  bool isDefaultNullBehavior() const override {
+    return false;
+  }
+
+  void apply(
+      const SelectivityVector& rows,
+      std::vector<VectorPtr>& args,
+      exec::Expr* caller,
+      exec::EvalCtx* context,
+      VectorPtr* result) const override {
+    // This function always returns 2 regardless of input.
+    *result =
+        BaseVector::createConstant((int64_t)2, rows.size(), context->pool());
+  }
+
+  static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
+    // bigint, bigint -> bigint
+    return {exec::FunctionSignatureBuilder()
+                .returnType("bigint")
+                .argumentType("bigint")
+                .argumentType("bigint")
+                .build()};
+  }
+};
+
+VELOX_UDF_BEGIN(testing_overload_scalar)
+FOLLY_ALWAYS_INLINE bool call(int64_t& result, int64_t argument) {
+  result = 1;
+  return true;
+}
+VELOX_UDF_END();
+
+TEST_F(ExprTest, functionNameOverload) {
+  // Scalar function takes one argument and always returns 1.
+  // Vector function takes two arguments and always returns 2.
+  registerFunction<udf_testing_overload_scalar, int64_t, int64_t>(
+      {"testing_overload"});
+  exec::registerVectorFunction(
+      "testing_overload",
+      TestingOverloadVectorFunction::signatures(),
+      std::make_unique<TestingOverloadVectorFunction>());
+  auto input = makeRowVector({makeConstantVector(1, 1)});
+
+  // Test scalar function
+  assertEqualVectors(
+      makeConstantVector((int64_t)1, BaseVector::kMaxElements),
+      evaluate("testing_overload(1)", input));
+
+  // Test vector function
+  assertEqualVectors(
+      makeConstantVector((int64_t)2, BaseVector::kMaxElements),
+      evaluate("testing_overload(1, 2)", input));
+}
