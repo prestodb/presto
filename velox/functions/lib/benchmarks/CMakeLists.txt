@@ -19,5 +19,7 @@ target_link_libraries(
   velox_expression
   velox_exec_test_lib
   velox_exec_test_util
+  velox_vector_test_lib
+  velox_vector_fuzzer
   ${FOLLY_WITH_DEPENDENCIES}
   ${FOLLY_BENCHMARK})

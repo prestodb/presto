@@ -17,77 +17,64 @@
 #include <folly/Benchmark.h>
 #include <folly/Conv.h>
 #include <folly/init/Init.h>
-#include <random>
 #include <string>
 
+#include "velox/expression/tests/VectorFuzzer.h"
 #include "velox/functions/lib/Re2Functions.h"
 #include "velox/functions/lib/benchmarks/FunctionBenchmarkBase.h"
 
 namespace facebook::velox::functions::test {
 namespace {
 
-using facebook::velox::test::VectorMaker;
-
-class BenchmarkHelper : public FunctionBenchmarkBase {
- public:
-  explicit BenchmarkHelper(std::size_t rows) : numRows_(rows) {}
-
-  FlatVectorPtr<StringView> randomShortStrings() {
-    std::uniform_int_distribution<int32_t> dist;
-    std::vector<std::string> c0(numRows_);
-    for (std::string& str : c0) {
-      folly::toAppend(dist(rng_), &str);
-    }
-    return vectorMaker_.flatVector(c0);
-  }
-
-  VectorMaker& maker() {
-    return vectorMaker_;
-  }
-
- private:
-  const std::size_t numRows_;
-  std::minstd_rand rng_;
-};
-
-int regexMatch(int n, int blocksize, const char* functionName) {
+int regexMatch(int n, int blockSize, const char* functionName) {
   folly::BenchmarkSuspender kSuspender;
-  BenchmarkHelper helper(blocksize);
-  const auto data = helper.maker().rowVector({helper.randomShortStrings()});
-  exec::ExprSet expr = helper.compileExpression(
+  FunctionBenchmarkBase benchmarkBase;
+
+  VectorFuzzer::Options opts;
+  opts.vectorSize = blockSize;
+  auto vector = VectorFuzzer(opts, benchmarkBase.pool()).fuzzFlat(VARCHAR());
+  const auto data = benchmarkBase.maker().rowVector({vector});
+
+  exec::ExprSet expr = benchmarkBase.compileExpression(
       folly::to<std::string>(functionName, "(c0, '[^9]{3,5}')"), data->type());
   kSuspender.dismiss();
   for (int i = 0; i != n; ++i) {
-    helper.evaluate(expr, data);
+    benchmarkBase.evaluate(expr, data);
   }
-  return n * blocksize;
+  return n * blockSize;
 }
 
 BENCHMARK_NAMED_PARAM_MULTI(regexMatch, bs1k, 1 << 10, "re2_match");
 BENCHMARK_NAMED_PARAM_MULTI(regexMatch, bs10k, 10 << 10, "re2_match");
 BENCHMARK_NAMED_PARAM_MULTI(regexMatch, bs100k, 100 << 10, "re2_match");
 
-int regexSearch(int n, int blocksize, const char* functionName) {
-  return regexMatch(n, blocksize, functionName);
+int regexSearch(int n, int blockSize, const char* functionName) {
+  return regexMatch(n, blockSize, functionName);
 }
 
 BENCHMARK_NAMED_PARAM_MULTI(regexSearch, bs1k, 1 << 10, "re2_search");
 BENCHMARK_NAMED_PARAM_MULTI(regexSearch, bs10k, 10 << 10, "re2_search");
 BENCHMARK_NAMED_PARAM_MULTI(regexSearch, bs100k, 100 << 10, "re2_search");
 
-int regexExtract(int n, int blocksize) {
+int regexExtract(int n, int blockSize) {
   folly::BenchmarkSuspender kSuspender;
-  BenchmarkHelper helper(blocksize);
-  const auto data = helper.maker().rowVector(
-      {helper.randomShortStrings(),
-       helper.maker().constantVector<int32_t>({0})});
-  exec::ExprSet expr =
-      helper.compileExpression("re2_extract(c0, '99[^9]', c1)", data->type());
+  FunctionBenchmarkBase benchmarkBase;
+
+  VectorFuzzer::Options opts;
+  opts.vectorSize = blockSize;
+  auto vector = VectorFuzzer(opts, benchmarkBase.pool()).fuzzFlat(VARCHAR());
+  const auto data = benchmarkBase.maker().rowVector({
+      vector,
+      benchmarkBase.maker().constantVector<int32_t>({0}),
+  });
+
+  exec::ExprSet expr = benchmarkBase.compileExpression(
+      "re2_extract(c0, '99[^9]', c1)", data->type());
   kSuspender.dismiss();
   for (int i = 0; i != n; ++i) {
-    helper.evaluate(expr, data);
+    benchmarkBase.evaluate(expr, data);
   }
-  return n * blocksize;
+  return n * blockSize;
 }
 
 BENCHMARK_NAMED_PARAM_MULTI(regexExtract, bs100, 100);

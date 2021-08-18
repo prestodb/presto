@@ -15,7 +15,7 @@
  */
 #include <folly/Benchmark.h>
 #include <folly/init/Init.h>
-#include "velox/buffer/StringViewBufferHolder.h"
+#include "velox/expression/tests/VectorFuzzer.h"
 #include "velox/functions/common/VectorFunctions.h"
 #include "velox/functions/lib/benchmarks/FunctionBenchmarkBase.h"
 
@@ -25,44 +25,8 @@ using namespace facebook::velox::functions;
 
 namespace {
 
-/// Generate an ascii random string of size length
-std::string generateRandomString(size_t length, bool makeUtf8) {
-  const std::string chars = makeUtf8
-      ? u8"0123456789\u0041\u0042\u0043\u0044\u0045\u0046\u0047\u0048"
-        "\u0049\u0050\u0051\u0052\u0053\u0054\u0056\u0057"
-      : "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-
-  std::string randomString;
-  randomString.reserve(length);
-  randomString.resize(length);
-  for (std::size_t i = 0; i < length; ++i) {
-    randomString[i] = chars[folly::Random::rand32() % chars.size()];
-  }
-  return randomString;
-}
-
 class StringAsciiUTFFunctionBenchmark
     : public functions::test::FunctionBenchmarkBase {
-  /// Creates a base vector of size size and populates it with strFunc
-  VectorPtr createAndPopulateVector(
-      const vector_size_t size,
-      const size_t stringSize,
-      const bool makeUtf) {
-    auto stringViewBufferHolder = StringViewBufferHolder(execCtx_.pool());
-    auto vector = std::dynamic_pointer_cast<FlatVector<StringView>>(
-        FlatVector<StringView>::create(
-            CppToType<StringView>::create(), size, execCtx_.pool()));
-
-    for (int i = 0; i < size; i++) {
-      vector->set(
-          i,
-          stringViewBufferHolder.getOwnedValue(
-              generateRandomString(stringSize, makeUtf)));
-    }
-    vector->setStringBuffers(stringViewBufferHolder.moveBuffers());
-    return vector;
-  }
-
  public:
   StringAsciiUTFFunctionBenchmark() : FunctionBenchmarkBase() {
     functions::registerVectorFunctions();
@@ -71,7 +35,11 @@ class StringAsciiUTFFunctionBenchmark
   void runStringFunction(const std::string& fnName, bool utf) {
     folly::BenchmarkSuspender suspender;
 
-    auto vector = createAndPopulateVector(10'000, 50, utf);
+    VectorFuzzer::Options opts;
+    opts.vectorSize = 10'000;
+    VectorFuzzer fuzzer(opts, execCtx_.pool());
+    auto vector = fuzzer.fuzzFlat(VARCHAR());
+
     auto rowVector = vectorMaker_.rowVector({vector});
     auto exprSet =
         compileExpression(fmt::format("{}(c0)", fnName), rowVector->type());

@@ -42,3 +42,7 @@ target_link_libraries(
   ${gflags_LIBRARIES}
   ${GLOG}
   ${FMT})
+
+add_library(velox_vector_fuzzer VectorFuzzer.cpp)
+
+target_link_libraries(velox_vector_fuzzer velox_type velox_vector)

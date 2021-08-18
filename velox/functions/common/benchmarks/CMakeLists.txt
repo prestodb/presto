@@ -17,6 +17,7 @@ set(BENCHMARK_DEPENDENCIES
     velox_functions_common
     velox_functions_lib
     velox_exec_test_util
+    velox_vector_fuzzer
     ${GTEST_BOTH_LIBRARIES}
     ${gflags_LIBRARIES}
     ${FOLLY_WITH_DEPENDENCIES}

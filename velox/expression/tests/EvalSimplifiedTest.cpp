@@ -52,6 +52,7 @@ class EvalSimplifiedTest : public FunctionBaseTest {
   // Generate random (but deterministic) input row vectors.
   RowVectorPtr genRowVector(
       const RowTypePtr& types,
+      const VectorFuzzer::Options& fuzzerOpts,
       folly::Random::DefaultGenerator& rng) {
     if (types == nullptr) {
       return nullptr;
@@ -62,7 +63,8 @@ class EvalSimplifiedTest : public FunctionBaseTest {
 
     for (const auto& type : types->children()) {
       size_t seed = folly::Random::rand32(rng);
-      vectors.emplace_back(VectorFuzzer(seed).fuzz(type, execCtx_.pool()));
+      vectors.emplace_back(
+          VectorFuzzer(fuzzerOpts, execCtx_.pool(), seed).fuzz(type));
       LOG(INFO) << "\t" << vectors.back()->toString();
     }
     return makeRowVector(vectors);
@@ -80,12 +82,18 @@ class EvalSimplifiedTest : public FunctionBaseTest {
     exec::ExprSetSimplified exprSetSimplified({expr}, &execCtx_);
     SelectivityVector rows(batchSize_);
 
+    VectorFuzzer::Options fuzzerOpts;
+    fuzzerOpts.vectorSize = 100;
+    fuzzerOpts.stringVariableLength = true;
+    fuzzerOpts.stringLength = 100;
+    fuzzerOpts.nullChance = 10;
+
     for (size_t i = 0; i < iterations_; ++i) {
       LOG(INFO) << "============== Starting iteration with seed: " << seed_;
       folly::Random::DefaultGenerator rng(seed_);
 
       // Generate the input vectors.
-      auto rowVector = genRowVector(types, rng);
+      auto rowVector = genRowVector(types, fuzzerOpts, rng);
 
       exec::EvalCtx evalCtxCommon(&execCtx_, &exprSetCommon, rowVector.get());
       exec::EvalCtx evalCtxSimplified(

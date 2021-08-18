@@ -46,6 +46,14 @@ class FunctionBenchmarkBase {
     return results[0];
   }
 
+  facebook::velox::test::VectorMaker& maker() {
+    return vectorMaker_;
+  }
+
+  memory::MemoryPool* pool() {
+    return execCtx_.pool();
+  }
+
  protected:
   std::shared_ptr<core::QueryCtx> queryCtx_{core::QueryCtx::create()};
   core::ExecCtx execCtx_{memory::getDefaultScopedMemoryPool(), queryCtx_.get()};
