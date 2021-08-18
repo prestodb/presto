@@ -74,6 +74,11 @@ class ConstantExpr : public SpecialForm {
       EvalCtx* context,
       VectorPtr* result) override;
 
+  void evalSpecialFormSimplified(
+      const SelectivityVector& rows,
+      EvalCtx* context,
+      VectorPtr* result) override;
+
   const VectorPtr& value() const {
     return sharedSubexprValues_;
   }
@@ -105,6 +110,11 @@ class FieldReference : public SpecialForm {
   }
 
   void evalSpecialForm(
+      const SelectivityVector& rows,
+      EvalCtx* context,
+      VectorPtr* result) override;
+
+  void evalSpecialFormSimplified(
       const SelectivityVector& rows,
       EvalCtx* context,
       VectorPtr* result) override;

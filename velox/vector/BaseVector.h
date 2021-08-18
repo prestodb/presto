@@ -433,6 +433,23 @@ class BaseVector {
 
   virtual void ensureWritable(const SelectivityVector& rows);
 
+  // Flattens the input vector.
+  //
+  // TODO: This method reuses ensureWritable(), which ensures that both:
+  //  (a) the vector is flattened, and
+  //  (b) it's singly-referenced
+  //
+  // We don't necessarily need (b) if we only want to flatten vectors.
+  static void flattenVector(
+      std::shared_ptr<BaseVector>* vector,
+      size_t vectorSize) {
+    BaseVector::ensureWritable(
+        SelectivityVector::empty(vectorSize),
+        (*vector)->type(),
+        (*vector)->pool(),
+        vector);
+  }
+
   template <typename T>
   static inline vector_size_t byteSize(vector_size_t count) {
     return sizeof(T) * count;

@@ -381,13 +381,23 @@ class FunctionBaseTest : public testing::Test {
                                : ReturnType(result->valueAt(0));
   }
 
-  // TODO Enable ASSERT_EQ for vectors
-  void assertEqualVectors(const VectorPtr& expected, const VectorPtr& actual) {
-    ASSERT_EQ(expected->size(), actual->size());
-    for (auto i = 0; i < expected->size(); i++) {
+  // TODO: Enable ASSERT_EQ for vectors
+  void assertEqualVectors(
+      const VectorPtr& expected,
+      const VectorPtr& actual,
+      std::optional<size_t> vectorSize = std::nullopt,
+      const std::string& additionalContext = "") {
+    // TODO: Remove vectorSize when ConstantVectors carry their proper size (as
+    // opposed to kMaxElements).
+    if (vectorSize == std::nullopt) {
+      vectorSize = expected->size();
+      ASSERT_EQ(expected->size(), actual->size());
+    }
+
+    for (auto i = 0; i < *vectorSize; i++) {
       ASSERT_TRUE(expected->equalValueAt(actual.get(), i, i))
           << "at " << i << ": " << expected->toString(i) << " vs. "
-          << actual->toString(i);
+          << actual->toString(i) << additionalContext;
     }
   }
 

@@ -13,7 +13,8 @@
 # for generated headers
 include_directories(${CMAKE_BINARY_DIR})
 
-add_executable(velox_expression_test ExprTest.cpp CastExprTest.cpp)
+add_executable(velox_expression_test ExprTest.cpp CastExprTest.cpp
+                                     EvalSimplifiedTest.cpp VectorFuzzer.cpp)
 
 add_test(
   NAME velox_expression_test

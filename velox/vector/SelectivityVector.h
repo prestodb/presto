@@ -46,7 +46,13 @@ class SelectivityVector {
     }
   }
 
+  // Returns a statically allocated reference to an empty selectivity vector
+  // (size zero).
   static const SelectivityVector& empty();
+
+  // Returns a new allocated selectivity vector of size `size`, where all bits
+  // are set to false.
+  static SelectivityVector empty(vector_size_t size);
 
   void resize(int32_t size) {
     // Note default insert true's

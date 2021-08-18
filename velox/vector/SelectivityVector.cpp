@@ -20,4 +20,9 @@ const SelectivityVector& SelectivityVector::empty() {
   static SelectivityVector kEmpty{SelectivityVector(0, false)};
   return kEmpty;
 }
+
+SelectivityVector SelectivityVector::empty(vector_size_t size) {
+  return SelectivityVector{size, false};
+}
+
 } // namespace facebook::velox

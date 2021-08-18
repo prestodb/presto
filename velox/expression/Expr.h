@@ -85,6 +85,12 @@ class Expr {
 
   void eval(const SelectivityVector& rows, EvalCtx* context, VectorPtr* result);
 
+  // Simplified path for expression evaluation (flattens all vectors).
+  void evalSimplified(
+      const SelectivityVector& rows,
+      EvalCtx* context,
+      VectorPtr* result);
+
   // Evaluates 'this', including inputs. This is defined only for
   // exprs that have custom error handling or evaluate their arguments
   // conditionally.
@@ -93,6 +99,15 @@ class Expr {
       EvalCtx* /*context*/,
       VectorPtr* /*result*/) {
     VELOX_NYI();
+  }
+
+  // Allow special form expressions to overwrite and implement a simplified
+  // path; fallback to the regular implementation by default.
+  virtual void evalSpecialFormSimplified(
+      const SelectivityVector& rows,
+      EvalCtx* context,
+      VectorPtr* result) {
+    evalSpecialForm(rows, context, result);
   }
 
   virtual void computeMetadata();
@@ -312,16 +327,20 @@ class Expr {
   std::unique_ptr<SelectivityVector> sharedSubexprRows_;
 
   VectorPtr baseDictionary_;
+
   // Values computed for the base dictionary, 1:1 to the positions in
   // 'baseDictionary_'.
   VectorPtr dictionaryCache_;
+
   // The indices that are valid in 'dictionaryCache_'.
   std::unique_ptr<SelectivityVector> cachedDictionaryIndices_;
+
   // Count of executions where this is wrapped in a dictionary so that
   // results could be cached.
-  int32_t numCachableInput_ = 0;
+  int32_t numCachableInput_{0};
+
   // Count of times the cacheable vector is seen for a non-first time.
-  int32_t numCacheableRepeats_ = 0;
+  int32_t numCacheableRepeats_{0};
 };
 
 using ExprPtr = std::shared_ptr<Expr>;
@@ -341,7 +360,9 @@ class ExprSet {
   void eval(
       const SelectivityVector& rows,
       EvalCtx* ctx,
-      std::vector<VectorPtr>* result);
+      std::vector<VectorPtr>* result) {
+    eval(0, exprs_.size(), true, rows, ctx, result);
+  }
 
   // Evaluate from expression `begin` to `end`.
   void eval(
@@ -377,7 +398,7 @@ class ExprSet {
     memoizingExprs_.insert(expr);
   }
 
- private:
+ protected:
   void clearSharedSubexprs();
 
   std::vector<std::shared_ptr<Expr>> exprs_;
@@ -389,6 +410,30 @@ class ExprSet {
   // Exprs which retain memoized state, e.g. from running over dictionaries.
   std::unordered_set<Expr*> memoizingExprs_;
   core::ExecCtx* const execCtx_;
+};
+
+class ExprSetSimplified : public ExprSet {
+ public:
+  ExprSetSimplified(
+      std::vector<std::shared_ptr<const core::ITypedExpr>>&& source,
+      core::ExecCtx* execCtx)
+      : ExprSet(std::move(source), execCtx, /*enableConstantFolding*/ false) {}
+
+  // Initialize and evaluate all expressions available in this ExprSet.
+  void eval(
+      const SelectivityVector& rows,
+      EvalCtx* ctx,
+      std::vector<VectorPtr>* result) {
+    eval(0, exprs_.size(), true, rows, ctx, result);
+  }
+
+  void eval(
+      int32_t begin,
+      int32_t end,
+      bool initialize,
+      const SelectivityVector& rows,
+      EvalCtx* ctx,
+      std::vector<VectorPtr>* result);
 };
 
 /// Enabled for string vectors. Computes the ascii status of the vector by

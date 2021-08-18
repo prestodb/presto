@@ -133,7 +133,58 @@ bool isFlat(const BaseVector& vector) {
       encoding == VectorEncoding::Simple::DICTIONARY ||
       encoding == VectorEncoding::Simple::CONSTANT);
 }
+
 } // namespace
+
+void Expr::evalSimplified(
+    const SelectivityVector& rows,
+    EvalCtx* context,
+    VectorPtr* result) {
+  if (!rows.hasSelections()) {
+    return;
+  }
+
+  // Handle special form expressions.
+  if (isSpecialForm()) {
+    evalSpecialFormSimplified(rows, context, result);
+    return;
+  }
+
+  SelectivityVector remainingRows = rows;
+  inputValues_.resize(inputs_.size());
+  const bool defaultNulls = vectorFunction_->isDefaultNullBehavior();
+
+  for (int32_t i = 0; i < inputs_.size(); ++i) {
+    auto& inputValue = inputValues_[i];
+    inputs_[i]->evalSimplified(remainingRows, context, &inputValue);
+    BaseVector::flattenVector(&inputValue, rows.end());
+    VELOX_CHECK_EQ(VectorEncoding::Simple::FLAT, inputValue->encoding());
+
+    // If the resulting vector has nulls, merge them into our current remaining
+    // rows bitmap.
+    if (defaultNulls && inputValue->mayHaveNulls()) {
+      remainingRows.deselectNulls(
+          inputValue->flatRawNulls(rows),
+          remainingRows.begin(),
+          remainingRows.end());
+    }
+
+    // All rows are null, return a null constant.
+    if (!remainingRows.hasSelections()) {
+      inputValues_.clear();
+      *result =
+          BaseVector::createNullConstant(type(), rows.size(), context->pool());
+      return;
+    }
+  }
+
+  // Apply the actual function.
+  vectorFunction_->apply(remainingRows, inputValues_, this, context, result);
+
+  // Make sure the returned vector has its null bitmap properly set.
+  (*result)->addNulls(remainingRows.asRange().bits(), rows);
+  inputValues_.clear();
+}
 
 void Expr::eval(
     const SelectivityVector& rows,
@@ -1048,13 +1099,6 @@ ExprSet::ExprSet(
 }
 
 void ExprSet::eval(
-    const SelectivityVector& rows,
-    EvalCtx* ctx,
-    std::vector<VectorPtr>* result) {
-  eval(0, exprs_.size(), true, rows, ctx, result);
-}
-
-void ExprSet::eval(
     int32_t begin,
     int32_t end,
     bool initialize,
@@ -1080,6 +1124,22 @@ void ExprSet::clear() {
   clearSharedSubexprs();
   for (auto* memo : memoizingExprs_) {
     memo->clearMemo();
+  }
+}
+
+void ExprSetSimplified::eval(
+    int32_t begin,
+    int32_t end,
+    bool initialize,
+    const SelectivityVector& rows,
+    EvalCtx* context,
+    std::vector<VectorPtr>* result) {
+  result->resize(exprs_.size());
+  if (initialize) {
+    clearSharedSubexprs();
+  }
+  for (int32_t i = begin; i < end; ++i) {
+    exprs_[i]->evalSimplified(rows, context, &(*result)[i]);
   }
 }
 
