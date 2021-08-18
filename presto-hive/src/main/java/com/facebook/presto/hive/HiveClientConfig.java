@@ -191,6 +191,8 @@ public class HiveClientConfig
 
     private boolean optimizedPartitionUpdateSerializationEnabled;
 
+    private Duration partitionLeaseDuration = new Duration(0, TimeUnit.SECONDS);
+
     public int getMaxInitialSplits()
     {
         return maxInitialSplits;
@@ -1611,16 +1613,29 @@ public class HiveClientConfig
         return undoMetastoreOperationsEnabled;
     }
 
-    public boolean isOptimizedPartitionUpdateSerializationEnabled()
-    {
-        return optimizedPartitionUpdateSerializationEnabled;
-    }
-
     @Config("hive.experimental-optimized-partition-update-serialization-enabled")
     @ConfigDescription("Serialize PartitionUpdate objects using binary SMILE encoding and compress with the ZSTD compression")
     public HiveClientConfig setOptimizedPartitionUpdateSerializationEnabled(boolean optimizedPartitionUpdateSerializationEnabled)
     {
         this.optimizedPartitionUpdateSerializationEnabled = optimizedPartitionUpdateSerializationEnabled;
         return this;
+    }
+
+    public boolean isOptimizedPartitionUpdateSerializationEnabled()
+    {
+        return optimizedPartitionUpdateSerializationEnabled;
+    }
+
+    @Config("hive.partition-lease-duration")
+    @ConfigDescription("Partition lease duration")
+    public HiveClientConfig setPartitionLeaseDuration(Duration partitionLeaseDuration)
+    {
+        this.partitionLeaseDuration = partitionLeaseDuration;
+        return this;
+    }
+
+    public Duration getPartitionLeaseDuration()
+    {
+        return partitionLeaseDuration;
     }
 }

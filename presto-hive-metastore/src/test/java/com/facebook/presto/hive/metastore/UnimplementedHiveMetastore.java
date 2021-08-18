@@ -19,6 +19,7 @@ import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
+import io.airlift.units.Duration;
 
 import java.util.List;
 import java.util.Map;
@@ -255,6 +256,12 @@ public class UnimplementedHiveMetastore
 
     @Override
     public Set<RoleGrant> listRoleGrants(MetastoreContext metastoreContext, PrestoPrincipal principal)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void setPartitionLeases(MetastoreContext metastoreContext, String databaseName, String tableName, Map<String, String> partitionNameToLocation, Duration leaseDuration)
     {
         throw new UnsupportedOperationException();
     }
