@@ -20,6 +20,7 @@ import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 
 import javax.inject.Inject;
 
@@ -119,6 +120,7 @@ public final class HiveSessionProperties
     public static final String MANIFEST_VERIFICATION_ENABLED = "manifest_verification_enabled";
     public static final String NEW_PARTITION_USER_SUPPLIED_PARAMETER = "new_partition_user_supplied_parameter";
     public static final String OPTIMIZED_PARTITION_UPDATE_SERIALIZATION_ENABLED = "optimized_partition_update_serialization_enabled";
+    public static final String PARTITION_LEASE_DURATION = "partition_lease_duration";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -563,7 +565,16 @@ public final class HiveSessionProperties
                         OPTIMIZED_PARTITION_UPDATE_SERIALIZATION_ENABLED,
                         "Serialize PartitionUpdate objects using binary SMILE encoding and compress with the ZSTD compression",
                         hiveClientConfig.isOptimizedPartitionUpdateSerializationEnabled(),
-                        true));
+                        true),
+                new PropertyMetadata<>(
+                        PARTITION_LEASE_DURATION,
+                        "Partition lease duration in seconds, 0 means disabled",
+                        VARCHAR,
+                        Duration.class,
+                        hiveClientConfig.getPartitionLeaseDuration(),
+                        false,
+                        value -> Duration.valueOf((String) value),
+                        Duration::toString));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -987,5 +998,10 @@ public final class HiveSessionProperties
     public static boolean isOptimizedPartitionUpdateSerializationEnabled(ConnectorSession session)
     {
         return session.getProperty(OPTIMIZED_PARTITION_UPDATE_SERIALIZATION_ENABLED, Boolean.class);
+    }
+
+    public static Duration getLeaseDuration(ConnectorSession session)
+    {
+        return session.getProperty(PARTITION_LEASE_DURATION, Duration.class);
     }
 }

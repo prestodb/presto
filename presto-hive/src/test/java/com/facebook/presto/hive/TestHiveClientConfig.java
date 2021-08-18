@@ -152,7 +152,8 @@ public class TestHiveClientConfig
                 .setPreferManifestsToListFiles(false)
                 .setManifestVerificationEnabled(false)
                 .setUndoMetastoreOperationsEnabled(true)
-                .setOptimizedPartitionUpdateSerializationEnabled(false));
+                .setOptimizedPartitionUpdateSerializationEnabled(false)
+                .setPartitionLeaseDuration(new Duration(0, TimeUnit.SECONDS)));
     }
 
     @Test
@@ -266,6 +267,7 @@ public class TestHiveClientConfig
                 .put("hive.manifest-verification-enabled", "true")
                 .put("hive.undo-metastore-operations-enabled", "false")
                 .put("hive.experimental-optimized-partition-update-serialization-enabled", "true")
+                .put("hive.partition-lease-duration", "4h")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -375,7 +377,8 @@ public class TestHiveClientConfig
                 .setPreferManifestsToListFiles(true)
                 .setManifestVerificationEnabled(true)
                 .setUndoMetastoreOperationsEnabled(false)
-                .setOptimizedPartitionUpdateSerializationEnabled(true);
+                .setOptimizedPartitionUpdateSerializationEnabled(true)
+                .setPartitionLeaseDuration(new Duration(4, TimeUnit.HOURS));
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
