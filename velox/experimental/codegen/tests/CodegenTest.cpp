@@ -51,7 +51,7 @@ TEST_F(CodegenTest, simpleProjectionWithConstantFields) {
   testExpressions<DoubleType>("a>b", {"2.0"}, inputRowType, 10, 100);
 };
 
-TEST_F(CodegenTest, simpleProjectionWithFilter) {
+TEST_F(CodegenTest, DISABLED_simpleProjectionWithFilter) {
   auto inputRowType = ROW({"a", "b"}, std::vector<TypePtr>{DOUBLE(), DOUBLE()});
   testExpressions<DoubleType, DoubleType>(
       "a > b", {" a + b", "a - b"}, inputRowType, 10, 100);
