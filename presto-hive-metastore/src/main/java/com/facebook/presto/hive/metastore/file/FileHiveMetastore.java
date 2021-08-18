@@ -49,6 +49,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
+import io.airlift.units.Duration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -994,6 +995,12 @@ public class FileHiveMetastore
         currentPrivileges.removeAll(privileges);
 
         setTablePrivileges(metastoreContext, grantee, databaseName, tableName, currentPrivileges);
+    }
+
+    @Override
+    public synchronized void setPartitionLeases(MetastoreContext metastoreContext, String databaseName, String tableName, Map<String, String> partitionNameToLocation, Duration leaseDuration)
+    {
+        throw new UnsupportedOperationException("setPartitionLeases is not supported in FileHiveMetastore");
     }
 
     private synchronized void setTablePrivileges(
