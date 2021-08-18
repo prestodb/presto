@@ -145,7 +145,7 @@ void verifyStats(
       stripeInfo.offset(),
       rowReader,
       0};
-  streams.loadReadPlan(true);
+  streams.loadReadPlan();
 
   // FlatMap does not write the Stride statistics (RowIndex)
   // for Key and Value Streams. Key and Value RowIndex (Stride stats)

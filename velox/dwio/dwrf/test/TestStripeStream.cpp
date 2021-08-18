@@ -58,6 +58,47 @@ class TestProvider : public StrideIndexProvider {
   }
 };
 
+namespace {
+void enqueueReads(
+    const StripeReaderBase& reader,
+    const ColumnSelector& selector,
+    uint64_t stripeStart,
+    uint32_t stripeIndex) {
+  auto& input = reader.getStripeInput();
+  auto& metadataCache = reader.getReader().getMetadataCache();
+  uint64_t offset = stripeStart;
+  uint64_t length = 0;
+  uint32_t regions = 0;
+  auto& footer = reader.getStripeFooter();
+  for (const auto& stream : footer.streams()) {
+    length = stream.length();
+    // If index cache is available, there is no need to read it
+    auto inMetaCache = metadataCache &&
+        metadataCache->has(proto::StripeCacheMode::INDEX, stripeIndex) &&
+        static_cast<StreamKind>(stream.kind()) ==
+            StreamKind::StreamKind_ROW_INDEX;
+    if (length > 0 &&
+        selector.shouldReadStream(stream.node(), stream.sequence()) &&
+        !inMetaCache) {
+      input.enqueue({offset, length});
+      regions++;
+    }
+    offset += length;
+  }
+}
+
+StripeStreamsImpl createAndLoadStripeStreams(
+    const StripeReaderBase& stripeReader,
+    const ColumnSelector& selector) {
+  TestProvider indexProvider;
+  StripeStreamsImpl streams{
+      stripeReader, selector, RowReaderOptions{}, 0, indexProvider, 0};
+  enqueueReads(stripeReader, selector, 0, 0);
+  streams.loadReadPlan();
+  return streams;
+}
+} // namespace
+
 TEST(StripeStream, planReads) {
   auto scopedPool = getDefaultScopedMemoryPool();
   auto& pool = scopedPool->getPool();
@@ -92,10 +133,7 @@ TEST(StripeStream, planReads) {
   }
   std::vector<Region> expected{{100, 500}, {5000600, 1000000}};
   StripeReaderBase stripeReader{readerBase, stripeFooter};
-  TestProvider indexProvider;
-  StripeStreamsImpl streams{
-      stripeReader, cs, RowReaderOptions{}, 0, indexProvider, 0};
-  streams.loadReadPlan(true);
+  auto streams = createAndLoadStripeStreams(stripeReader, cs);
   auto const& actual = isPtr->getReads();
   EXPECT_EQ(actual.size(), expected.size());
   for (uint64_t i = 0; i < actual.size(); ++i) {
@@ -152,10 +190,7 @@ TEST(StripeStream, filterSequences) {
   // filter by sequence 1
   std::vector<Region> expected{{600, 5000000}, {8000600, 1000000}};
   StripeReaderBase stripeReader{readerBase, stripeFooter};
-  TestProvider indexProvider;
-  StripeStreamsImpl streams{
-      stripeReader, cs, RowReaderOptions{}, 0, indexProvider, 0};
-  streams.loadReadPlan(true);
+  auto streams = createAndLoadStripeStreams(stripeReader, cs);
   auto const& actual = isPtr->getReads();
   EXPECT_EQ(actual.size(), expected.size());
   for (uint64_t i = 0; i < actual.size(); ++i) {
@@ -197,7 +232,7 @@ TEST(StripeStream, zeroLength) {
   ColumnSelector cs{std::dynamic_pointer_cast<const RowType>(type)};
   StripeStreamsImpl streams{
       stripeReader, cs, RowReaderOptions{}, 0, indexProvider, 0};
-  streams.loadReadPlan(true);
+  streams.loadReadPlan();
   auto const& actual = isPtr->getReads();
   EXPECT_EQ(actual.size(), 0);
 
@@ -266,11 +301,8 @@ TEST(StripeStream, planReadsIndex) {
     stream->set_length(std::get<2>(s));
   }
   StripeReaderBase stripeReader{readerBase, stripeFooter};
-  TestProvider indexProvider;
   ColumnSelector cs{std::dynamic_pointer_cast<const RowType>(type)};
-  StripeStreamsImpl streams{
-      stripeReader, cs, RowReaderOptions{}, 0, indexProvider, 0};
-  streams.loadReadPlan(true);
+  auto streams = createAndLoadStripeStreams(stripeReader, cs);
   auto const& actual = isPtr->getReads();
   EXPECT_EQ(actual.size(), 1);
   EXPECT_EQ(actual[0].offset, length * 2);

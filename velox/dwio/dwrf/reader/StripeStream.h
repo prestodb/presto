@@ -252,7 +252,7 @@ class StripeStreamsImpl : public StripeStreamsBase {
   }
 
   // load data into buffer according to read plan
-  void loadReadPlan(bool reload = false);
+  void loadReadPlan();
 
   std::unique_ptr<SeekableInputStream> getCompressedStream(
       const StreamIdentifier& si) const;

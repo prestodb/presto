@@ -328,44 +328,14 @@ std::unique_ptr<SeekableInputStream> StripeStreamsImpl::getIndexStreamFromCache(
   return indexStream;
 }
 
-void StripeStreamsImpl::loadReadPlan(bool reload) {
+void StripeStreamsImpl::loadReadPlan() {
   DWIO_ENSURE_EQ(readPlanLoaded_, false, "only load read plan once!");
   SCOPE_EXIT {
     readPlanLoaded_ = true;
   };
 
   auto& input = reader_.getStripeInput();
-  if (!reload) {
-    input.load(LogType::STREAM_BUNDLE);
-    return;
-  }
-
-  // this mode probably only used by test and can be deleted in the future
-  auto& reader = reader_.getReader();
-  auto& metadataCache = reader.getMetadataCache();
-  uint64_t offset = stripeStart_;
-  uint64_t length = 0;
-  uint32_t regions = 0;
-  auto& footer = reader_.getStripeFooter();
-  for (const auto& stream : footer.streams()) {
-    length = stream.length();
-    // If index cache is available, there is no need to read it
-    auto inMetaCache = metadataCache &&
-        metadataCache->has(proto::StripeCacheMode::INDEX, stripeIndex_) &&
-        static_cast<StreamKind>(stream.kind()) ==
-            StreamKind::StreamKind_ROW_INDEX;
-    if (length > 0 &&
-        selector_.shouldReadStream(stream.node(), stream.sequence()) &&
-        !inMetaCache) {
-      input.enqueue({offset, length});
-      regions++;
-    }
-    offset += length;
-  }
-
-  if (regions > 0) {
-    input.load(LogType::STREAM_BUNDLE);
-  }
+  input.load(LogType::STREAM_BUNDLE);
 }
 
 } // namespace facebook::velox::dwrf
