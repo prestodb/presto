@@ -144,6 +144,9 @@ class PlanBuilder {
       int numPartitions,
       const std::vector<ChannelIndex>& outputLayout = {});
 
+  PlanBuilder& partitionedOutputBroadcast(
+      const std::vector<ChannelIndex>& outputLayout = {});
+
   PlanBuilder& localPartition(
       const std::vector<ChannelIndex>& keyIndices,
       const std::vector<std::shared_ptr<const core::PlanNode>>& sources,

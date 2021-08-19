@@ -378,3 +378,41 @@ TEST_F(MultiFragmentTest, partitionedOutput) {
         op, {leafTaskId}, "SELECT c0, c1, c2, c3, c4, c3, c2, c1, c0 FROM tmp");
   }
 }
+
+TEST_F(MultiFragmentTest, broadcast) {
+  auto data = makeRowVector(
+      {makeFlatVector<int32_t>(1'000, [](auto row) { return row; })});
+
+  // Make leaf task: Values -> Repartitioning (broadcast)
+  std::vector<std::shared_ptr<Task>> tasks;
+  auto leafTaskId = makeTaskId("leaf", 0);
+  auto leafPlan =
+      PlanBuilder().values({data}).partitionedOutputBroadcast().planNode();
+  auto leafTask = makeTask(leafTaskId, leafPlan, 0);
+  tasks.emplace_back(leafTask);
+  Task::start(leafTask, 1);
+
+  // Make next stage tasks.
+  std::shared_ptr<core::PlanNode> finalAggPlan;
+  std::vector<std::string> finalAggTaskIds;
+  for (int i = 0; i < 3; i++) {
+    finalAggPlan = PlanBuilder()
+                       .exchange(leafPlan->outputType())
+                       .finalAggregation({}, {"count(1)"})
+                       .partitionedOutput({}, 1)
+                       .planNode();
+
+    finalAggTaskIds.push_back(makeTaskId("final-agg", i));
+    auto task = makeTask(finalAggTaskIds.back(), finalAggPlan, i);
+    tasks.emplace_back(task);
+    Task::start(task, 1);
+    leafTask->updateBroadcastOutputBuffers(i + 1, false);
+    addRemoteSplits(task, {leafTaskId});
+  }
+  leafTask->updateBroadcastOutputBuffers(finalAggTaskIds.size(), true);
+
+  // Collect results from multiple tasks.
+  auto op = PlanBuilder().exchange(finalAggPlan->outputType()).planNode();
+
+  assertQuery(op, finalAggTaskIds, "SELECT UNNEST(array[1000, 1000, 1000])");
+}

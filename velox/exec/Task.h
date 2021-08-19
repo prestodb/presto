@@ -157,6 +157,8 @@ class Task {
 
   void multipleSplitsFinished(int32_t numSplits);
 
+  void updateBroadcastOutputBuffers(int numBuffers, bool noMoreBuffers);
+
   void createLocalMergeSources(
       unsigned numSources,
       const std::shared_ptr<const RowType>& rowType,

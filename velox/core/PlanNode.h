@@ -670,18 +670,25 @@ class PartitionedOutputNode : public PlanNode {
       const std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>&
           keys,
       int numPartitions,
+      bool broadcast,
       const RowTypePtr outputType,
       std::shared_ptr<const PlanNode> source)
       : PlanNode(id),
         sources_{{std::move(source)}},
         keys_(keys),
         numPartitions_(numPartitions),
+        broadcast_(broadcast),
         outputType_(outputType) {
     VELOX_CHECK(numPartitions > 0, "numPartitions must be greater than zero");
     if (numPartitions == 1) {
       VELOX_CHECK(
           keys_.empty(),
           "Non-empty partitioning keys require more than one partition");
+    }
+    if (broadcast) {
+      VELOX_CHECK(
+          keys_.empty(),
+          "Broadcast partitioning doesn't allow for partitioning keys");
     }
   }
 
@@ -705,6 +712,10 @@ class PartitionedOutputNode : public PlanNode {
     return numPartitions_;
   }
 
+  bool isBroadcast() const {
+    return broadcast_;
+  }
+
   std::string_view name() const override {
     return "repartitioning";
   }
@@ -713,6 +724,7 @@ class PartitionedOutputNode : public PlanNode {
   const std::vector<std::shared_ptr<const PlanNode>> sources_;
   const std::vector<std::shared_ptr<const FieldAccessTypedExpr>> keys_;
   const int numPartitions_;
+  const bool broadcast_;
   const RowTypePtr outputType_;
 };
 
