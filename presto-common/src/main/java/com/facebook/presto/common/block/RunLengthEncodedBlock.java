@@ -19,6 +19,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.util.Objects;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.common.block.BlockUtil.checkArrayRange;
@@ -410,5 +411,25 @@ public class RunLengthEncodedBlock
             ids[positionCount] = 1;
             return new DictionaryBlock(dictionary, ids);
         }
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        RunLengthEncodedBlock other = (RunLengthEncodedBlock) obj;
+        return Objects.equals(this.value, other.value) &&
+                Objects.equals(this.positionCount, other.positionCount);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(value, positionCount);
     }
 }

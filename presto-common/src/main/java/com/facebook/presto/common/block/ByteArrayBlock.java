@@ -18,6 +18,8 @@ import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
+import java.util.Arrays;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 
@@ -263,5 +265,34 @@ public class ByteArrayBlock
         byte[] newValues = ensureCapacity(values, arrayOffset + positionCount + 1);
 
         return new ByteArrayBlock(arrayOffset, positionCount + 1, newValueIsNull, newValues);
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        ByteArrayBlock other = (ByteArrayBlock) obj;
+        return Objects.equals(this.arrayOffset, other.arrayOffset) &&
+                Objects.equals(this.positionCount, other.positionCount) &&
+                Arrays.equals(this.valueIsNull, other.valueIsNull) &&
+                Arrays.equals(this.values, other.values) &&
+                Objects.equals(this.sizeInBytes, other.sizeInBytes) &&
+                Objects.equals(this.retainedSizeInBytes, other.retainedSizeInBytes);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(arrayOffset,
+                positionCount,
+                Arrays.hashCode(valueIsNull),
+                Arrays.hashCode(values),
+                sizeInBytes,
+                retainedSizeInBytes);
     }
 }

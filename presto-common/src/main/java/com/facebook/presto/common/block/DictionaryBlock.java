@@ -21,6 +21,7 @@ import org.openjdk.jol.info.ClassLayout;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.common.block.BlockUtil.checkArrayRange;
@@ -607,5 +608,40 @@ public class DictionaryBlock
         }
 
         return new DictionaryBlock(idsOffset, positionCount + 1, newDictionary, newIds, isCompact(), getDictionarySourceId());
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        DictionaryBlock other = (DictionaryBlock) obj;
+        return Objects.equals(this.positionCount, other.positionCount) &&
+                Objects.equals(this.dictionary, other.dictionary) &&
+                Objects.equals(this.idsOffset, other.idsOffset) &&
+                Arrays.equals(this.ids, other.ids) &&
+                Objects.equals(this.retainedSizeInBytes, other.retainedSizeInBytes) &&
+                Objects.equals(this.sizeInBytes, other.sizeInBytes) &&
+                Objects.equals(this.logicalSizeInBytes, other.logicalSizeInBytes) &&
+                Objects.equals(this.uniqueIds, other.uniqueIds) &&
+                Objects.equals(this.dictionarySourceId, other.dictionarySourceId);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(positionCount,
+                dictionary,
+                idsOffset,
+                Arrays.hashCode(ids),
+                retainedSizeInBytes,
+                sizeInBytes,
+                logicalSizeInBytes,
+                uniqueIds,
+                dictionarySourceId);
     }
 }

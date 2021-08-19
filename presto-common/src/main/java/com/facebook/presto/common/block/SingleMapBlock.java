@@ -22,6 +22,7 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Objects;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.common.block.AbstractMapBlock.HASH_MULTIPLIER;
@@ -450,5 +451,30 @@ public class SingleMapBlock
         if (equalsResult == null) {
             throw new NotSupportedException("map key cannot be null or contain nulls");
         }
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        SingleMapBlock other = (SingleMapBlock) obj;
+        return Objects.equals(this.positionInMap, other.positionInMap) &&
+                Objects.equals(this.offset, other.offset) &&
+                Objects.equals(this.positionCount, other.positionCount) &&
+                Objects.equals(this.mapBlock, other.mapBlock);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(positionInMap,
+                offset,
+                positionCount,
+                mapBlock);
     }
 }
