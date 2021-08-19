@@ -233,6 +233,18 @@ public class ThriftHiveMetastoreClient
     }
 
     @Override
+    public List<Partition> listPartitionsByFilter(String databaseName, String tableName, String filter, short maxParts) throws TException
+    {
+        return client.get_partitions_by_filter(databaseName, tableName, filter, maxParts);
+    }
+
+    @Override
+    public List<Partition> listPartitions(String databaseName, String tableName, short maxParts) throws TException
+    {
+        return client.get_partitions(databaseName, tableName, maxParts);
+    }
+
+    @Override
     public boolean dropPartition(String databaseName, String tableName, List<String> partitionValues, boolean deleteData)
             throws TException
     {

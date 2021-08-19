@@ -320,6 +320,18 @@ public class MockHiveMetastoreClient
     }
 
     @Override
+    public List<Partition> listPartitionsByFilter(String dbName, String tblName, String filter, short maxParts) throws TException
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public List<Partition> listPartitions(String databaseName, String tableName, short maxParts) throws TException
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public boolean dropPartition(String databaseName, String tableName, List<String> partitionValues, boolean deleteData)
     {
         throw new UnsupportedOperationException();

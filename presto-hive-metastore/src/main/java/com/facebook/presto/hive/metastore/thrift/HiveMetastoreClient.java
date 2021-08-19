@@ -102,6 +102,11 @@ public interface HiveMetastoreClient
     int addPartitions(List<Partition> newPartitions)
             throws TException;
 
+    List<Partition> listPartitionsByFilter(String databaseName, String tableName,
+                                           String filter, short maxParts) throws TException;
+
+    List<Partition> listPartitions(String databaseName, String tableName, short maxParts) throws TException;
+
     boolean dropPartition(String databaseName, String tableName, List<String> partitionValues, boolean deleteData)
             throws TException;
 

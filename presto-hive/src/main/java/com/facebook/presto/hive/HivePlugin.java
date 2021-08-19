@@ -13,12 +13,15 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.function.scalar.MaxDatePartitionFunction;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -55,5 +58,13 @@ public class HivePlugin
             classLoader = HivePlugin.class.getClassLoader();
         }
         return classLoader;
+    }
+
+    @Override
+    public Set<Class<?>> getFunctions()
+    {
+        return ImmutableSet.<Class<?>>builder()
+                .add(MaxDatePartitionFunction.class)
+                .build();
     }
 }
