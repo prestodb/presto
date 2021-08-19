@@ -472,12 +472,18 @@ void BaseVector::ensureWritable(
         break; /** NOOP **/
     }
   }
+
   // The copy-on-write size is the max of the writable row set and the
-  // vector. If the vector is constant, then use the size of 'rows' or 1
-  // because a constant has kMaxElements as size().
+  // vector.
+  //
+  // If the vector is constant, this logic is tricky: we first try to use the
+  // vector size (in case the size is not set to kMaxElements), otherwise we
+  // fallback to the 'rows' size. We don't use rows.size() inadvertently because
+  // in many cases this function is used with SelectivityVector::empty().
   auto targetSize = (*result)->isConstantEncoding()
-      ? rows.size()
+      ? (((*result)->size() != kMaxElements) ? (*result)->size() : rows.size())
       : (std::max<vector_size_t>(rows.size(), (*result)->size()));
+
   auto copy =
       BaseVector::create(isUnknownType ? type : resultType, targetSize, pool);
   SelectivityVector copyRows(
