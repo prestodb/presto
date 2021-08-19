@@ -65,8 +65,8 @@ void ensureRegexIsCompatible(
 std::shared_ptr<exec::VectorFunction> makeRLike(
     const std::string& name,
     const std::vector<exec::VectorFunctionArg>& inputArgs) {
-  // Return any errors from re2Match() first.
-  auto result = makeRe2Match(name, inputArgs);
+  // Return any errors from re2Search() first.
+  auto result = makeRe2Search(name, inputArgs);
   ensureRegexIsCompatible("RLIKE", inputArgs[1].constantValue);
   return result;
 }

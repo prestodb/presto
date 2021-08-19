@@ -87,8 +87,9 @@ TEST_F(RegexFunctionsTest, AllowSimpleConstantRegex) {
   // rlike returns std::optional<bool>; EXPECT_TRUE would check for non-null,
   // not check the result.
   EXPECT_EQ(rlike("a", "a*"), true);
-  EXPECT_EQ(rlike("b", "a*"), false);
-  EXPECT_EQ(rlike("a", "[ab]*"), true);
+  EXPECT_EQ(rlike("b", "a*"), true);
+  EXPECT_EQ(rlike("b", "a+"), false);
+  EXPECT_EQ(rlike("a", "^[ab]*$"), true);
   EXPECT_EQ(rlike(std::nullopt, "a*"), std::nullopt);
 }
 
