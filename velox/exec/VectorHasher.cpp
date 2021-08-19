@@ -319,6 +319,7 @@ void VectorHasher::lookupValueIdsTyped(
       }
       result[row] = multiplier_ == 1 ? hash : result[row] + multiplier_ * hash;
     });
+    rows.updateBounds();
   } else {
     cachedHashes.resize(decoded.base()->size());
     std::fill(cachedHashes.begin(), cachedHashes.end(), 0);
@@ -342,6 +343,7 @@ void VectorHasher::lookupValueIdsTyped(
       }
       result[row] = multiplier_ == 1 ? id : result[row] + multiplier_ * id;
     });
+    rows.updateBounds();
   }
 }
 
