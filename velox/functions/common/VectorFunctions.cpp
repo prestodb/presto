@@ -30,6 +30,8 @@ void registerVectorFunctions() {
 
   VELOX_REGISTER_VECTOR_FUNCTION(udf_array_constructor, "array_constructor");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_array_intersect, "array_intersect");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_array_max, "array_max");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_array_min, "array_min");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_cardinality, "cardinality");
 
   VELOX_REGISTER_VECTOR_FUNCTION(udf_filter, "filter");

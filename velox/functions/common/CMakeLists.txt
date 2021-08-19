@@ -36,6 +36,7 @@ add_library(
   ArrayConstructor.cpp
   ArrayContains.cpp
   ArrayIntersect.cpp
+  ArrayMinMax.cpp
   FilterFunctions.cpp
   Transform.cpp
   ElementAt.cpp

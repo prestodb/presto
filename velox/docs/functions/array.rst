@@ -10,6 +10,24 @@ Array Functions
         SELECT array_intersect(ARRAY [1, 2, 2], ARRAY[1, 1, 2]); -- [1, 2]
         SELECT array_intersect(ARRAY [1, NULL, NULL], ARRAY[1, 1, NULL]); -- [1, NULL]
 
+.. function:: array_max(array(E)) -> E
+
+    Returns the maximum value of input array.
+
+        SELECT array_max(ARRAY [1, 2, 3]); -- 3
+        SELECT array_max(ARRAY [-1, -2, -2]); -- -1
+        SELECT array_max(ARRAY [-1, -2, NULL]); -- NULL
+        SELECT array_max(ARRAY []); -- NULL
+
+.. function:: array_min(array(E)) -> E
+
+    Returns the minimum value of input array.
+
+        SELECT array_min(ARRAY [1, 2, 3]); -- 1
+        SELECT array_min(ARRAY [-1, -2, -2]); -- -2
+        SELECT array_min(ARRAY [-1, -2, NULL]); -- NULL
+        SELECT array_min(ARRAY []); -- NULL
+
 .. function:: cardinality(x) -> bigint
 
     Returns the cardinality (size) of the array ``x``.

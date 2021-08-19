@@ -20,11 +20,13 @@ target_link_libraries(
 
 add_executable(
   velox_functions_test
+  ArithmeticTest.cpp
   ArrayConstructorTest.cpp
   ArrayContainsTest.cpp
-  ArithmeticTest.cpp
   ArrayFilterTest.cpp
   ArrayIntersectTest.cpp
+  ArrayMaxTest.cpp
+  ArrayMinTest.cpp
   CoalesceTest.cpp
   ComparisonsTest.cpp
   IsNullTest.cpp
