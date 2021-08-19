@@ -147,6 +147,10 @@ class DwrfReaderShared {
     return readerBase_->getWriterVersion();
   }
 
+  const std::string& getWriterName() const {
+    return readerBase_->getWriterName();
+  }
+
   std::vector<std::string> getMetadataKeys() const;
 
   std::string getMetadataValue(const std::string& key) const;
