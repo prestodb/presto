@@ -249,3 +249,51 @@ TEST_F(HashJoinTest, lazyVectors) {
       {{0, rightFile}, {10, leftFile}},
       "SELECT t.c1 + 1 FROM t, u WHERE t.c0 = u.c0");
 }
+
+/// Test hash join where build-side keys come from a small range and allow for
+/// array-based lookup instead of a hash table.
+TEST_F(HashJoinTest, arrayBasedLookup) {
+  auto oddIndices = makeIndices(500, [](auto i) { return 2 * i + 1; });
+
+  auto leftVectors = {
+      // Join key vector is flat.
+      makeRowVector({
+          makeFlatVector<int32_t>(1'000, [](auto row) { return row; }),
+          makeFlatVector<int64_t>(1'000, [](auto row) { return row; }),
+      }),
+      // Join key vector is constant. There is a match in the build side.
+      makeRowVector({
+          BaseVector::createConstant(4, 2'000, pool_.get()),
+          makeFlatVector<int64_t>(2'000, [](auto row) { return row; }),
+      }),
+      // Join key vector is constant. There is no match.
+      makeRowVector({
+          BaseVector::createConstant(5, 2'000, pool_.get()),
+          makeFlatVector<int64_t>(2'000, [](auto row) { return row; }),
+      }),
+      // Join key vector is a dictionary.
+      makeRowVector({
+          wrapInDictionary(
+              oddIndices,
+              500,
+              makeFlatVector<int32_t>(1'000, [](auto row) { return row * 4; })),
+          makeFlatVector<int64_t>(1'000, [](auto row) { return row; }),
+      })};
+
+  // 100 key values in [0, 198] range.
+  auto rightVectors = {makeRowVector(
+      {makeFlatVector<int32_t>(100, [](auto row) { return row * 2; })})};
+
+  createDuckDbTable("t", {leftVectors});
+  createDuckDbTable("u", {rightVectors});
+
+  auto op =
+      PlanBuilder(10)
+          .values(leftVectors)
+          .hashJoin(
+              {0}, {0}, PlanBuilder(0).values(rightVectors).planNode(), "", {1})
+          .project({"c1 + 1"})
+          .planNode();
+
+  assertQuery(op, "SELECT t.c1 + 1 FROM t, u WHERE t.c0 = u.c0");
+}

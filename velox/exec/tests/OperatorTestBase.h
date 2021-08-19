@@ -154,6 +154,24 @@ class OperatorTestBase : public testing::Test {
         size, sizeAt, keyAt, valueAt, isNullAt, valueIsNullAt);
   }
 
+  static VectorPtr
+  wrapInDictionary(BufferPtr indices, vector_size_t size, VectorPtr vector) {
+    return BaseVector::wrapInDictionary(
+        BufferPtr(nullptr), std::move(indices), size, std::move(vector));
+  }
+
+  BufferPtr makeIndices(
+      vector_size_t size,
+      const std::function<vector_size_t(vector_size_t)>& indexAt) const {
+    BufferPtr indices =
+        AlignedBuffer::allocate<vector_size_t>(size, pool_.get());
+    auto rawIndices = indices->asMutable<vector_size_t>();
+    for (int i = 0; i < size; i++) {
+      rawIndices[i] = indexAt(i);
+    }
+    return indices;
+  }
+
   // Helper function for comparing vector results
   template <typename T1, typename T2>
   bool
