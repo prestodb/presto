@@ -71,11 +71,9 @@ DataAvailable DestinationBuffer::getAndClearNotify() {
   return result;
 }
 
-void DestinationBuffer::acknowledge(
+std::vector<std::shared_ptr<VectorStreamGroup>> DestinationBuffer::acknowledge(
     int64_t sequence,
-    bool fromGetData,
-    std::vector<std::shared_ptr<VectorStreamGroup>>& freed,
-    uint64_t* totalFreed) {
+    bool fromGetData) {
   int64_t numDeleted = sequence - sequence_;
   if (numDeleted == 0 && fromGetData) {
     // If called from getData, it is expected that there will be
@@ -84,48 +82,45 @@ void DestinationBuffer::acknowledge(
     // because the messages may arrive out of order. Note that getData
     // implicitly acknowledges all messages with a lower sequence
     // number than the one in getData.
-    return;
+    return {};
   }
   if (numDeleted <= 0) {
     // Acknowledges come out of order, e.g. ack of 10 and 9 have
     // swapped places in flight.
-    *totalFreed = 0;
     VLOG(0) << this << " Out of order ack: " << sequence << " over "
             << sequence_;
-    return;
+    return {};
   }
+
   VELOX_CHECK_LE(
       numDeleted, data_.size(), "Ack received for a not yet produced item");
-  uint64_t freedBytes = 0;
+  std::vector<std::shared_ptr<VectorStreamGroup>> freed;
   for (auto i = 0; i < numDeleted; ++i) {
     if (!data_[i]) {
       VELOX_CHECK_EQ(i, data_.size() - 1, "null marker found in the middle");
       break;
     }
-    freedBytes += data_[i]->size();
     freed.push_back(std::move(data_[i]));
   }
   data_.erase(data_.begin(), data_.begin() + numDeleted);
   sequence_ += numDeleted;
-  *totalFreed = freedBytes;
+  return freed;
 }
 
-void DestinationBuffer::deleteResults(
-    std::vector<std::shared_ptr<VectorStreamGroup>>& freed,
-    uint64_t* totalFreed) {
-  uint64_t freedBytes = 0;
+std::vector<std::shared_ptr<VectorStreamGroup>>
+DestinationBuffer::deleteResults() {
+  std::vector<std::shared_ptr<VectorStreamGroup>> freed;
   for (auto i = 0; i < data_.size(); ++i) {
     if (!data_[i]) {
       VELOX_CHECK_EQ(i, data_.size() - 1, "null marker found in the middle");
       break;
     }
-    freedBytes += data_[i]->size();
     freed.push_back(std::move(data_[i]));
   }
-  *totalFreed = freedBytes;
   data_.clear();
   // Notify any consumers that are still waiting.
   getAndClearNotify().notify();
+  return freed;
 }
 
 std::string DestinationBuffer::toString() {
@@ -138,7 +133,7 @@ std::string DestinationBuffer::toString() {
 
 BlockingReason PartitionedOutputBuffer::enqueue(
     int destination,
-    std::unique_ptr<VectorStreamGroup>&& data,
+    std::unique_ptr<VectorStreamGroup> data,
     ContinueFuture* future) {
   VELOX_CHECK(data);
   DataAvailable dataAvailable;
@@ -235,16 +230,23 @@ void PartitionedOutputBuffer::acknowledge(int destination, int64_t sequence) {
               << " and sequence " << sequence;
       return;
     }
-    uint64_t totalFreed = 0;
-    buffer->acknowledge(sequence, false, freed, &totalFreed);
-    updateAfterAcknowledgeLocked(totalFreed, promises);
+    freed = buffer->acknowledge(sequence, false);
+    updateAfterAcknowledgeLocked(freed, promises);
   }
   releaseAfterAcknowledge(freed, promises);
 }
 
 void PartitionedOutputBuffer::updateAfterAcknowledgeLocked(
-    int64_t totalFreed,
+    const std::vector<std::shared_ptr<VectorStreamGroup>>& freed,
     std::vector<VeloxPromise<bool>>& promises) {
+  uint64_t totalFreed = 0;
+  for (const auto& free : freed) {
+    totalFreed += free->size();
+  }
+  if (totalFreed == 0) {
+    return;
+  }
+
   VELOX_CHECK_LE(
       totalFreed,
       totalSize_,
@@ -269,12 +271,11 @@ bool PartitionedOutputBuffer::deleteResults(int destination) {
       VLOG(1) << "Extra delete  received  for destination " << destination;
       return false;
     }
-    uint64_t totalFreed = 0;
-    buffer->deleteResults(freed, &totalFreed);
+    freed = buffer->deleteResults();
     buffers_[destination] = nullptr;
     ++numFinalAcknowledges_;
     isFinished = isFinishedLocked();
-    updateAfterAcknowledgeLocked(totalFreed, promises);
+    updateAfterAcknowledgeLocked(freed, promises);
   }
   if (!promises.empty()) {
     VLOG(1) << "Delete of results unblocks producers. Can happen in early end "
@@ -295,7 +296,6 @@ void PartitionedOutputBuffer::getData(
   std::vector<std::shared_ptr<VectorStreamGroup>> data;
   std::vector<std::shared_ptr<VectorStreamGroup>> freed;
   std::vector<VeloxPromise<bool>> promises;
-  uint64_t totalFreed = 0;
   {
     std::lock_guard<std::mutex> l(mutex_);
     VELOX_CHECK_LT(destination, buffers_.size());
@@ -305,8 +305,8 @@ void PartitionedOutputBuffer::getData(
         "getData received after its buffer is deleted. Destination: {}, sequence: {}",
         destination,
         sequence);
-    destinationBuffer->acknowledge(sequence, true, freed, &totalFreed);
-    updateAfterAcknowledgeLocked(totalFreed, promises);
+    freed = destinationBuffer->acknowledge(sequence, true);
+    updateAfterAcknowledgeLocked(freed, promises);
     destinationBuffer->getData(maxBytes, sequence, notify, data);
   }
   releaseAfterAcknowledge(freed, promises);
@@ -367,7 +367,7 @@ PartitionedOutputBufferManager::getBuffer(const std::string& taskId) {
 BlockingReason PartitionedOutputBufferManager::enqueue(
     const std::string& taskId,
     int destination,
-    std::unique_ptr<VectorStreamGroup>&& data,
+    std::unique_ptr<VectorStreamGroup> data,
     ContinueFuture* future) {
   return getBuffer(taskId)->enqueue(destination, std::move(data), future);
 }

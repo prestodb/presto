@@ -69,17 +69,13 @@ class DestinationBuffer {
   // warning for the case where no data is removed, otherwise we
   // expect that data does get freed. We cannot assert that data gets
   // deleted because acknowledge messages can arrive out of order.
-  void acknowledge(
+  std::vector<std::shared_ptr<VectorStreamGroup>> acknowledge(
       int64_t sequence,
-      bool fromGetData,
-      std::vector<std::shared_ptr<VectorStreamGroup>>& freed,
-      uint64_t* totalFreed);
+      bool fromGetData);
 
   // Returns all data to be freed in 'freed' and their size in
   // 'totalFreed'. 'this' can be destroyed after this.
-  void deleteResults(
-      std::vector<std::shared_ptr<VectorStreamGroup>>& freed,
-      uint64_t* totalFreed);
+  std::vector<std::shared_ptr<VectorStreamGroup>> deleteResults();
 
   // Returns and clears the notify callback, if any, along with arguments for
   // the callback.
@@ -115,7 +111,7 @@ class PartitionedOutputBuffer {
 
   BlockingReason enqueue(
       int destination,
-      std::unique_ptr<VectorStreamGroup>&& data,
+      std::unique_ptr<VectorStreamGroup> data,
       ContinueFuture* future);
 
   void noMoreData();
@@ -148,7 +144,7 @@ class PartitionedOutputBuffer {
   // Updates buffered size and returns possibly continuable producer promises in
   // 'promises'.
   void updateAfterAcknowledgeLocked(
-      int64_t totalFreed,
+      const std::vector<std::shared_ptr<VectorStreamGroup>>& freed,
       std::vector<VeloxPromise<bool>>& promises);
 
   std::shared_ptr<Task> task_;
@@ -184,7 +180,7 @@ class PartitionedOutputBufferManager {
   BlockingReason enqueue(
       const std::string& taskId,
       int destination,
-      std::unique_ptr<VectorStreamGroup>&& data,
+      std::unique_ptr<VectorStreamGroup> data,
       ContinueFuture* future);
 
   void noMoreData(const std::string& taskId);
