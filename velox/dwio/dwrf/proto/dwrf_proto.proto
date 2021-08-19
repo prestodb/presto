@@ -208,7 +208,7 @@ message UserMetadataItem {
 }
 
 enum ChecksumAlgorithm {
-  NULL = 0;
+  NULL_ = 0;
   CRC32 = 1;
   MURMUR3 = 2;
   ADLER32 = 3;
