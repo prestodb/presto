@@ -1,4 +1,4 @@
-![Velox Logo](https://github.com/facebookincubator/velox/static/logo.svg)
+![Velox Logo](https://github.com/facebookincubator/velox/blob/main/static/logo.svg)
 
 ## Build Notes
 
