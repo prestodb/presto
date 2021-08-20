@@ -546,10 +546,15 @@ void Expr::evalEncodings(
       auto* newRows = peelEncodingsResult.newRows;
       if (newRows) {
         VectorPtr peeledResult;
-        if (peelEncodingsResult.mayCache) {
-          evalWithMemo(*newRows, context, &peeledResult);
-        } else {
-          evalWithNulls(*newRows, context, &peeledResult);
+        // peelEncodings() can potentially produce an empty selectivity vector
+        // if all selected values we are waiting for are nulls. So, here we
+        // check for such a case.
+        if (newRows->hasSelections()) {
+          if (peelEncodingsResult.mayCache) {
+            evalWithMemo(*newRows, context, &peeledResult);
+          } else {
+            evalWithNulls(*newRows, context, &peeledResult);
+          }
         }
         context->setWrapped(this, peeledResult, rows, result);
         return;

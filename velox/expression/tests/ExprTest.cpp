@@ -2207,3 +2207,39 @@ TEST_F(ExprTest, memo) {
       makeFlatVector<int64_t>(100, [](auto row) { return (row * 5) % 3; });
   assertEqualVectors(expectedResult, result);
 }
+
+// This test triggers the situation when peelEncodings() produces an empty
+// selectivity vector, which if passed to evalWithMemo() causes the latter to
+// produce null Expr::dictionaryCache_, which leads to a crash in evaluation of
+// subsequent rows. We have fixed that issue with condition and this test is for
+// that.
+TEST_F(ExprTest, memoNulls) {
+  // Generate 5 rows with null string and 5 with a string.
+  auto base = makeFlatVector<StringView>(
+      10, [](vector_size_t /*row*/) { return StringView("abcdefg"); });
+
+  // Two batches by 5 rows each.
+  auto first5Indices = makeIndices(5, [](auto row) { return row; });
+  auto last5Indices = makeIndices(5, [](auto row) { return row + 5; });
+  // Nulls for the 1st batch.
+  BufferPtr nulls =
+      AlignedBuffer::allocate<bool>(5, execCtx_->pool(), bits::kNull);
+
+  auto rowType = ROW({"c0"}, {base->type()});
+  auto exprSet = compileExpression("STRPOS(c0, 'abc') >= 0", rowType);
+
+  auto result = evaluate(
+      exprSet.get(),
+      makeRowVector(
+          {BaseVector::wrapInDictionary(nulls, first5Indices, 5, base)}));
+  // Expecting 5 nulls.
+  auto expectedResult =
+      BaseVector::createNullConstant(BOOLEAN(), 5, execCtx_->pool());
+  assertEqualVectors(expectedResult, result);
+
+  result = evaluate(
+      exprSet.get(), makeRowVector({wrapInDictionary(last5Indices, 5, base)}));
+  // Expecting 5 trues.
+  expectedResult = BaseVector::createConstant(true, 5, execCtx_->pool());
+  assertEqualVectors(expectedResult, result);
+}
