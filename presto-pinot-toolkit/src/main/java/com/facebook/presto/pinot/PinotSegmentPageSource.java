@@ -27,6 +27,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.apache.pinot.common.utils.DataSchema;
 import org.apache.pinot.common.utils.DataTable;
+import org.apache.pinot.spi.data.FieldSpec;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -39,6 +40,7 @@ import java.util.stream.IntStream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.JsonType.JSON;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_DATA_FETCH_EXCEPTION;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_EXCEPTION;
@@ -284,7 +286,12 @@ public class PinotSegmentPageSource
             writeBooleanBlock(blockBuilder, columnType, columnIndex);
         }
         else if (javaType.equals(long.class)) {
-            writeLongBlock(blockBuilder, columnType, columnIndex);
+            if (pinotColumnType.toDataType().equals(FieldSpec.DataType.TIMESTAMP)) {
+                writeTimestampBlock(blockBuilder, columnType, columnIndex);
+            }
+            else {
+                writeLongBlock(blockBuilder, columnType, columnIndex);
+            }
         }
         else if (javaType.equals(double.class)) {
             writeDoubleBlock(blockBuilder, columnType, columnIndex);
@@ -393,6 +400,14 @@ public class PinotSegmentPageSource
         }
     }
 
+    private void writeTimestampBlock(BlockBuilder blockBuilder, Type columnType, int columnIndex)
+    {
+        for (int i = 0; i < currentDataTable.getDataTable().getNumberOfRows(); i++) {
+            columnType.writeLong(blockBuilder, getLong(i, columnIndex));
+            completedBytes += Long.BYTES;
+        }
+    }
+
     private void writeDoubleBlock(BlockBuilder blockBuilder, Type columnType, int columnIndex)
     {
         for (int i = 0; i < currentDataTable.getDataTable().getNumberOfRows(); i++) {
@@ -412,7 +427,7 @@ public class PinotSegmentPageSource
 
     private boolean getBoolean(int rowIndex, int columnIndex)
     {
-        return Boolean.getBoolean(currentDataTable.getDataTable().getString(rowIndex, columnIndex));
+        return Boolean.getBoolean(currentDataTable.getDataTable().getObject(rowIndex, columnIndex).toString());
     }
 
     private long getLong(int rowIndex, int columnIndex)
@@ -445,7 +460,9 @@ public class PinotSegmentPageSource
 
     private Slice getSlice(int rowIndex, int columnIndex)
     {
-        checkColumnType(columnIndex, VARCHAR);
+        checkColumnType(columnIndex, new Type[] {
+                VARCHAR, JSON
+        });
         DataSchema.ColumnDataType columnType = currentDataTable.getDataTable().getDataSchema().getColumnDataType(columnIndex);
         switch (columnType) {
             case INT_ARRAY:
@@ -498,11 +515,17 @@ public class PinotSegmentPageSource
         return pinotConfig.getEstimatedSizeInBytesForNonNumericColumn();
     }
 
-    private void checkColumnType(int columnIndex, Type expected)
+    private void checkColumnType(int columnIndex, Type[] expectedTypes)
     {
         checkArgument(columnIndex < split.getExpectedColumnHandles().size(), "Invalid field index");
         Type actual = split.getExpectedColumnHandles().get(columnIndex).getDataType();
-        checkArgument(actual.equals(expected), "Expected column %s to be type %s but is %s", columnIndex, expected, actual);
+        boolean matches = false;
+        for (Type expectedType : expectedTypes) {
+            if (actual.equals(expectedType)) {
+                matches = true;
+            }
+        }
+        checkArgument(matches, "Expected column %s to be type %s but is %s", columnIndex, expectedTypes, actual);
     }
 
     protected static Type getTypeForBlock(PinotColumnHandle pinotColumnHandle)

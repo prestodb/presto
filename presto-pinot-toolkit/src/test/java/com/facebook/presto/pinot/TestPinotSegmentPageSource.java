@@ -87,6 +87,8 @@ public class TestPinotSegmentPageSource
     protected FieldSpec getFieldSpec(String columnName, DataSchema.ColumnDataType columnDataType)
     {
         switch (columnDataType) {
+            case BOOLEAN:
+                return new DimensionFieldSpec(columnName, FieldSpec.DataType.BOOLEAN, true);
             case INT:
                 return new DimensionFieldSpec(columnName, FieldSpec.DataType.INT, true);
             case LONG:
@@ -99,6 +101,10 @@ public class TestPinotSegmentPageSource
                 return new DimensionFieldSpec(columnName, FieldSpec.DataType.STRING, true);
             case BYTES:
                 return new DimensionFieldSpec(columnName, FieldSpec.DataType.BYTES, true);
+            case TIMESTAMP:
+                return new DimensionFieldSpec(columnName, FieldSpec.DataType.TIMESTAMP, true);
+            case JSON:
+                return new DimensionFieldSpec(columnName, FieldSpec.DataType.JSON, true);
             case INT_ARRAY:
                 return new DimensionFieldSpec(columnName, FieldSpec.DataType.INT, false);
             case LONG_ARRAY:
@@ -165,6 +171,12 @@ public class TestPinotSegmentPageSource
         public void addException(ProcessingException e)
         {
             throw new UnsupportedOperationException("Unsupported", e);
+        }
+
+        @Override
+        public Map<Integer, String> getExceptions()
+        {
+            return null;
         }
 
         @Override
@@ -305,10 +317,16 @@ public class TestPinotSegmentPageSource
         for (int rowId = 0; rowId < NUM_ROWS; rowId++) {
             for (int colId = 0; colId < numColumns; colId++) {
                 switch (columnDataTypes[colId]) {
+                    case BOOLEAN:
+                        dataTable.set(rowId, colId, RANDOM.nextBoolean());
+                        break;
                     case INT:
                         dataTable.set(rowId, colId, RANDOM.nextInt());
                         break;
                     case LONG:
+                        dataTable.set(rowId, colId, RANDOM.nextLong());
+                        break;
+                    case TIMESTAMP:
                         dataTable.set(rowId, colId, RANDOM.nextLong());
                         break;
                     case FLOAT:
@@ -363,6 +381,11 @@ public class TestPinotSegmentPageSource
                         }
                         dataTable.set(rowId, colId, stringArray);
                         break;
+                    case JSON:
+                        dataTable.set(rowId, colId, "{ " + generateRandomStringWithLength(RANDOM.nextInt(5)) + " : " + generateRandomStringWithLength(RANDOM.nextInt(10)) + " }");
+                        break;
+                    default:
+                        throw new RuntimeException("Unsupported type - " + columnDataTypes[colId]);
                 }
             }
         }
