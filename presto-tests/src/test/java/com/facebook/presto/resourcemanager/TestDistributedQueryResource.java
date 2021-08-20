@@ -15,6 +15,7 @@ package com.facebook.presto.resourcemanager;
 
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.jetty.JettyHttpClient;
+import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.resourceGroups.FileResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.testing.TestingPrestoServer;
@@ -36,6 +37,7 @@ import static com.facebook.presto.utils.QueryExecutionClientUtil.runToQueued;
 import static com.facebook.presto.utils.ResourceUtils.getResourceFilePath;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Thread.sleep;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
@@ -155,5 +157,24 @@ public class TestDistributedQueryResource
         assertEquals(finished, expectedFinished);
         assertEquals(running, expectedRunning);
         assertEquals(queued, expectedQueued);
+    }
+
+    @Test
+    public void testGetAllQueryInfoForLimits() throws InterruptedException
+    {
+        runToFirstResult(client, coordinator1, "SELECT * from tpch.sf100.orders");
+        runToFirstResult(client, coordinator1, "SELECT * from tpch.sf100.orders");
+        runToFirstResult(client, coordinator1, "SELECT * from tpch.sf101.orders");
+        runToQueued(client, coordinator1, "SELECT * from tpch.sf102.orders");
+
+        List<BasicQueryInfo> queries;
+        do {
+            MILLISECONDS.sleep(100);
+            queries = resourceManager.getClusterStateProvider().getClusterQueries();
+        } while (queries.size() != 4);
+
+        List<BasicQueryInfo> infos = getQueryInfos(client, coordinator1, "/v1/query?limit=2");
+        assertEquals(infos.size(), 2);
+        assertEquals(infos.get(0).getState(), QueryState.RUNNING);
     }
 }
