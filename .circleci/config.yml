@@ -121,7 +121,15 @@ jobs:
       - checkout
       - run:
           name: Check formatting
-          command: 'make format-check'
+          command: |
+            if ! make format-check; then
+              make format-fix
+              echo -e "\n==== Apply using:"
+              echo "patch -p1 \<<EOF"
+              git --no-pager diff
+              echo "EOF"
+              false
+            fi
 
   header-check:
     executor: check
@@ -129,4 +137,12 @@ jobs:
       - checkout
       - run:
           name: Check license headers
-          command: 'make header-check'
+          command: |
+            if ! make header-check; then
+              make header-fix
+              echo -e "\n==== Apply using:"
+              echo "patch -p1 \<<EOF"
+              git --no-pager diff
+              echo "EOF"
+              false
+            fi
