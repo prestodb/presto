@@ -1,4 +1,6 @@
 /*
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -106,14 +108,6 @@ variant randVariantImpl(
   }
 }
 
-variant randVariant(
-    const TypePtr& arg,
-    folly::Random::DefaultGenerator& rng,
-    const VectorFuzzer::Options& opts) {
-  return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-      randVariantImpl, arg->kind(), rng, opts);
-}
-
 template <TypeKind kind>
 void fuzzFlatImpl(
     const VectorPtr& vector,
@@ -147,7 +141,7 @@ VectorPtr VectorFuzzer::fuzz(const TypePtr& type) {
       vector = BaseVector::createNullConstant(type, opts_.vectorSize, pool_);
     } else {
       vector = BaseVector::createConstant(
-          randVariant(type, rng_, opts_), opts_.vectorSize, pool_);
+          randVariant(type), opts_.vectorSize, pool_);
     }
   } else {
     vector = fuzzFlat(type);
@@ -189,6 +183,11 @@ VectorPtr VectorFuzzer::fuzzDictionary(const VectorPtr& vector) {
   // TODO: We can fuzz nulls here as well.
   return BaseVector::wrapInDictionary(
       BufferPtr(nullptr), indices, vectorSize, vector);
+}
+
+variant VectorFuzzer::randVariant(const TypePtr& arg) {
+  return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+      randVariantImpl, arg->kind(), rng_, opts_);
 }
 
 } // namespace facebook::velox

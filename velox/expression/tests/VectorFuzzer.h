@@ -1,4 +1,6 @@
 /*
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -60,6 +62,12 @@ class VectorFuzzer {
   // Wraps `vector` using a randomized indices vector, returning a
   // DictionaryVector.
   VectorPtr fuzzDictionary(const VectorPtr& vector);
+
+  variant randVariant(const TypePtr& arg);
+
+  void reSeed(size_t seed) {
+    rng_.seed(seed);
+  }
 
  private:
   // Returns true 1/n of times.
