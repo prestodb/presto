@@ -39,6 +39,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.regex.Pattern;
 
 import static com.facebook.presto.connector.thrift.ThriftErrorCode.THRIFT_SERVICE_CONNECTION_ERROR;
+import static com.facebook.presto.connector.thrift.ThriftErrorCode.THRIFT_SERVICE_GENERIC_REMOTE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
@@ -52,6 +53,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_QUERY;
 import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_TASK;
 import static com.facebook.presto.spi.StandardErrorCode.ADMINISTRATIVELY_PREEMPTED;
 import static com.facebook.presto.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
@@ -61,6 +63,7 @@ import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_TIMEOUT;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_HOST_GONE;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_STARTING_UP;
 import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
@@ -114,6 +117,7 @@ public class PrestoExceptionClassifier
                 // From StandardErrorCode
                 .addRetryableError(NO_NODES_AVAILABLE)
                 .addRetryableError(REMOTE_TASK_ERROR)
+                .addRetryableError(REMOTE_TASK_MISMATCH)
                 .addRetryableError(SERVER_SHUTTING_DOWN)
                 .addRetryableError(SERVER_STARTING_UP)
                 .addRetryableError(TOO_MANY_REQUESTS_FAILED)
@@ -121,6 +125,7 @@ public class PrestoExceptionClassifier
                 .addRetryableError(PAGE_TRANSPORT_TIMEOUT)
                 .addRetryableError(REMOTE_HOST_GONE)
                 .addRetryableError(ABANDONED_TASK)
+                .addRetryableError(ABANDONED_QUERY)
                 // From HiveErrorCode
                 .addRetryableError(HIVE_CURSOR_ERROR)
                 .addRetryableError(HIVE_FILE_NOT_FOUND)
@@ -135,6 +140,7 @@ public class PrestoExceptionClassifier
                 .addRetryableError(JDBC_ERROR)
                 // From ThriftErrorCode
                 .addRetryableError(THRIFT_SERVICE_CONNECTION_ERROR)
+                .addRetryableError(THRIFT_SERVICE_GENERIC_REMOTE_ERROR)
                 // Conditional Retryable Errors
                 .addRetryableError(EXCEEDED_TIME_LIMIT, Optional.of(DESCRIBE), Optional.empty())
                 // Resubmitted Errors
