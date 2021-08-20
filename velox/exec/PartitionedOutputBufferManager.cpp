@@ -423,11 +423,12 @@ PartitionedOutputBufferManager::getInstance(const std::string& host) {
 
 std::shared_ptr<PartitionedOutputBuffer>
 PartitionedOutputBufferManager::getBuffer(const std::string& taskId) {
-  std::lock_guard<std::mutex> l(mutex_);
-  auto it = buffers_.find(taskId);
-  VELOX_CHECK(
-      it != buffers_.end(), "Output buffers for task not found: {}", taskId);
-  return it->second;
+  return buffers_.withLock([&](auto& buffers) {
+    auto it = buffers.find(taskId);
+    VELOX_CHECK(
+        it != buffers.end(), "Output buffers for task not found: {}", taskId);
+    return it->second;
+  });
 }
 
 BlockingReason PartitionedOutputBufferManager::enqueue(
@@ -450,35 +451,34 @@ void PartitionedOutputBufferManager::acknowledge(
     const std::string& taskId,
     int destination,
     int64_t sequence) {
-  std::shared_ptr<PartitionedOutputBuffer> buffer;
-  {
-    std::lock_guard<std::mutex> l(mutex_);
-    auto it = buffers_.find(taskId);
-    if (it == buffers_.end()) {
-      VLOG(1) << "Receiving ack for non-existent task " << taskId
-              << " destination " << destination << " sequence " << sequence;
-      return;
-    }
-    buffer = it->second;
+  auto buffer = buffers_.withLock(
+      [&](auto& buffers) -> std::shared_ptr<PartitionedOutputBuffer> {
+        auto it = buffers.find(taskId);
+        if (it == buffers.end()) {
+          VLOG(1) << "Receiving ack for non-existent task " << taskId
+                  << " destination " << destination << " sequence " << sequence;
+          return nullptr;
+        }
+        return it->second;
+      });
+  if (buffer) {
+    buffer->acknowledge(destination, sequence);
   }
-  buffer->acknowledge(destination, sequence);
 }
 
 void PartitionedOutputBufferManager::deleteResults(
     const std::string& taskId,
     int destination) {
-  std::shared_ptr<PartitionedOutputBuffer> buffer;
-  {
-    std::lock_guard<std::mutex> l(mutex_);
-    auto it = buffers_.find(taskId);
-    if (it == buffers_.end()) {
-      return;
-    }
-    buffer = it->second;
-  }
-  if (buffer->deleteResults(destination)) {
-    std::lock_guard<std::mutex> l(mutex_);
-    buffers_.erase(taskId);
+  auto buffer = buffers_.withLock(
+      [&](auto& buffers) -> std::shared_ptr<PartitionedOutputBuffer> {
+        auto it = buffers.find(taskId);
+        if (it == buffers.end()) {
+          return nullptr;
+        }
+        return it->second;
+      });
+  if (buffer && buffer->deleteResults(destination)) {
+    buffers_.withLock([&](auto& buffers) { buffers.erase(taskId); });
   }
 }
 
@@ -498,15 +498,16 @@ void PartitionedOutputBufferManager::initializeTask(
     int numDrivers) {
   const auto& taskId = task->taskId();
 
-  std::lock_guard<std::mutex> l(mutex_);
-  auto it = buffers_.find(taskId);
-  if (it == buffers_.end()) {
-    buffers_[taskId] = std::make_shared<PartitionedOutputBuffer>(
-        std::move(task), broadcast, numDestinations, numDrivers);
-  } else {
-    VELOX_FAIL(
-        "Registering an output buffer for pre-existing taskId {}", taskId);
-  }
+  buffers_.withLock([&](auto& buffers) {
+    auto it = buffers.find(taskId);
+    if (it == buffers.end()) {
+      buffers[taskId] = std::make_shared<PartitionedOutputBuffer>(
+          std::move(task), broadcast, numDestinations, numDrivers);
+    } else {
+      VELOX_FAIL(
+          "Registering an output buffer for pre-existing taskId {}", taskId);
+    }
+  });
 }
 
 void PartitionedOutputBufferManager::updateBroadcastOutputBuffers(
@@ -517,28 +518,32 @@ void PartitionedOutputBufferManager::updateBroadcastOutputBuffers(
 }
 
 void PartitionedOutputBufferManager::removeTask(const std::string& taskId) {
-  std::shared_ptr<PartitionedOutputBuffer> buffer;
-  {
-    std::lock_guard<std::mutex> l(mutex_);
-    auto iter = buffers_.find(taskId);
-    if (iter == buffers_.end()) {
-      // Already removed.
-      return;
-    }
-    buffer = iter->second;
-    buffers_.erase(taskId);
+  auto buffer = buffers_.withLock(
+      [&](auto& buffers) -> std::shared_ptr<PartitionedOutputBuffer> {
+        auto it = buffers.find(taskId);
+        if (it == buffers.end()) {
+          // Already removed.
+          return nullptr;
+        }
+        auto taskBuffer = it->second;
+        buffers.erase(taskId);
+        return taskBuffer;
+      });
+  if (buffer) {
+    buffer->terminate();
   }
-  buffer->terminate();
 }
 
 std::string PartitionedOutputBufferManager::toString() {
-  std::stringstream out;
-  out << "[BufferManager:" << std::endl;
-  for (auto& pair : buffers_) {
-    out << pair.first << ": " << pair.second->toString() << std::endl;
-  }
-  out << "]";
-  return out.str();
+  return buffers_.withLock([](const auto& buffers) {
+    std::stringstream out;
+    out << "[BufferManager:" << std::endl;
+    for (const auto& pair : buffers) {
+      out << pair.first << ": " << pair.second->toString() << std::endl;
+    }
+    out << "]";
+    return out.str();
+  });
 }
 
 } // namespace facebook::velox::exec

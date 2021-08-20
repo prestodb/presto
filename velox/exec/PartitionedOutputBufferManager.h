@@ -249,8 +249,9 @@ class PartitionedOutputBufferManager {
   // Retrieves the set of buffers for a query.
   std::shared_ptr<PartitionedOutputBuffer> getBuffer(const std::string& taskId);
 
-  std::mutex mutex_;
-  std::unordered_map<std::string, std::shared_ptr<PartitionedOutputBuffer>>
+  folly::Synchronized<
+      std::unordered_map<std::string, std::shared_ptr<PartitionedOutputBuffer>>,
+      std::mutex>
       buffers_;
 };
 } // namespace facebook::velox::exec
