@@ -132,17 +132,6 @@ void Operator::inputProcessed() {
   }
 }
 
-bool Operator::allInputProcessed() {
-  if (!input_) {
-    return true;
-  }
-  if (numProcessedInputRows_ == input_->size()) {
-    inputProcessed();
-    return true;
-  }
-  return false;
-}
-
 void Operator::clearIdentityProjectedOutput() {
   if (!output_ || !output_.unique()) {
     return;

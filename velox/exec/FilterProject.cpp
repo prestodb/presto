@@ -40,8 +40,8 @@ bool checkAddIdentityProjection(
 FilterProject::FilterProject(
     int32_t operatorId,
     DriverCtx* driverCtx,
-    std::shared_ptr<const core::FilterNode> filter,
-    std::shared_ptr<const core::ProjectNode> project)
+    const std::shared_ptr<const core::FilterNode>& filter,
+    const std::shared_ptr<const core::ProjectNode>& project)
     : Operator(
           driverCtx,
           project ? project->outputType() : filter->outputType(),
@@ -97,6 +97,17 @@ void FilterProject::addInput(RowVectorPtr input) {
   }
 }
 
+bool FilterProject::allInputProcessed() {
+  if (!input_) {
+    return true;
+  }
+  if (numProcessedInputRows_ == input_->size()) {
+    inputProcessed();
+    return true;
+  }
+  return false;
+}
+
 RowVectorPtr FilterProject::getOutput() {
   if (allInputProcessed()) {
     clearIdentityProjectedOutput();
@@ -109,7 +120,7 @@ RowVectorPtr FilterProject::getOutput() {
   rows->setAll();
   EvalCtx evalCtx(operatorCtx_->execCtx(), exprs_.get(), input_.get());
   if (!hasFilter_) {
-    setProcessedRows(size);
+    numProcessedInputRows_ = size;
     VELOX_CHECK(!isIdentityProjection_);
     project(*rows, &evalCtx);
 
@@ -129,7 +140,7 @@ RowVectorPtr FilterProject::getOutput() {
 
   // evaluate filter
   auto numOut = filter(&evalCtx, *rows);
-  setProcessedRows(size);
+  numProcessedInputRows_ = size;
   if (numOut == 0) { // no rows passed the filer
     inputProcessed();
     return nullptr;
