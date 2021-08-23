@@ -23,21 +23,20 @@
 using namespace facebook::velox;
 using namespace facebook::velox::row;
 
+namespace facebook::velox::row {
+namespace {
 class UnsafeRowDeserializerTest : public ::testing::Test {};
 
 class UnsafeRowStaticDeserializerTest : public ::testing::Test {};
 
 class UnsafeRowVectorDeserializerTest : public ::testing::Test {
+ public:
+  UnsafeRowVectorDeserializerTest()
+      : pool_(memory::getDefaultScopedMemoryPool()),
+        bufferPtr(AlignedBuffer::allocate<char>(1024, pool_.get(), true)),
+        buffer(bufferPtr->asMutable<char>()) {}
+
  protected:
-  void SetUp() override {
-    testing::Test::SetUp();
-    pool_ = memory::getDefaultScopedMemoryPool();
-    bufferPtr = AlignedBuffer::allocate<char>(1024, pool_.get(), true);
-    buffer = bufferPtr->asMutable<char>();
-  }
-
-  void TearDown() override {}
-
   /**
    * Checks the Vector metadata (i.e. size, offsets, sizes, nulls) in an
    * ArrayVector or MapVector.
@@ -779,3 +778,5 @@ TEST_F(UnsafeRowVectorDeserializerTest, NestedMap) {
       innerMapSizes,
       innerMapNulls));
 }
+} // namespace
+} // namespace facebook::velox::row
