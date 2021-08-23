@@ -86,7 +86,7 @@ import static com.facebook.presto.common.type.VarcharType.createUnboundedVarchar
 import static com.facebook.presto.hive.parquet.ParquetTester.HIVE_STORAGE_TIME_ZONE;
 import static com.facebook.presto.hive.parquet.ParquetTester.insertNullEvery;
 import static com.facebook.presto.hive.parquet.ParquetTester.testSingleRead;
-import static com.facebook.presto.hive.parquet.ParquetTester.writeParquetColumnPresto;
+import static com.facebook.presto.hive.parquet.ParquetTester.writeParquetFileFromPresto;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.facebook.presto.tests.StructuralTestUtil.mapType;
@@ -1595,7 +1595,7 @@ public abstract class AbstractTestParquetReader
 
             List<String> columnNames = singletonList("column1");
             List<Type> columnTypes = singletonList(INTEGER);
-            writeParquetColumnPresto(tempFile.getFile(),
+            writeParquetFileFromPresto(tempFile.getFile(),
                     columnTypes,
                     columnNames,
                     readValues,
