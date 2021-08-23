@@ -19,6 +19,24 @@
 #include "velox/functions/lib/RegistrationHelpers.h"
 
 namespace facebook::velox::functions {
+namespace {
+template <template <class> class T>
+void registerBitwiseBinaryIntegral(const std::vector<std::string>& aliases) {
+  registerFunction<T<int8_t>, int64_t, int8_t, int8_t>(aliases);
+  registerFunction<T<int16_t>, int64_t, int16_t, int16_t>(aliases);
+  registerFunction<T<int32_t>, int64_t, int32_t, int32_t>(aliases);
+  registerFunction<T<int64_t>, int64_t, int64_t, int64_t>(aliases);
+}
+
+template <template <class> class T>
+void registerBitwiseUnaryIntegral(const std::vector<std::string>& aliases) {
+  registerFunction<T<int8_t>, int64_t, int8_t>(aliases);
+  registerFunction<T<int16_t>, int64_t, int16_t>(aliases);
+  registerFunction<T<int32_t>, int64_t, int32_t>(aliases);
+  registerFunction<T<int64_t>, int64_t, int64_t>(aliases);
+}
+
+} // namespace
 
 void registerArithmeticFunctions() {
   registerBinaryFloatingPoint<udf_plus>({});
@@ -56,10 +74,10 @@ void registerArithmeticFunctions() {
   registerFunction<udf_cbrt, double, double>({"cbrt"});
   registerFunction<udf_width_bucket, int64_t, double, double, double, int64_t>(
       {"width_bucket"});
-  registerBinaryIntegral<udf_bitwise_and>({});
-  registerUnaryIntegral<udf_bitwise_not>({});
-  registerBinaryIntegral<udf_bitwise_or>({});
-  registerBinaryIntegral<udf_bitwise_xor>({});
+  registerBitwiseBinaryIntegral<udf_bitwise_and>({});
+  registerBitwiseUnaryIntegral<udf_bitwise_not>({});
+  registerBitwiseBinaryIntegral<udf_bitwise_or>({});
+  registerBitwiseBinaryIntegral<udf_bitwise_xor>({});
 }
 
 } // namespace facebook::velox::functions

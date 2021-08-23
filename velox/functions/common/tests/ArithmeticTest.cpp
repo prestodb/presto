@@ -242,7 +242,7 @@ TEST_F(ArithmeticTest, widthBucket) {
 TEST_F(ArithmeticTest, bitwiseAnd) {
   const auto bitwiseAnd = [&](std::optional<int32_t> a,
                               std::optional<int32_t> b) {
-    return evaluateOnce<int32_t>("bitwise_and(c0, c1)", a, b);
+    return evaluateOnce<int64_t>("bitwise_and(c0, c1)", a, b);
   };
 
   EXPECT_EQ(bitwiseAnd(0, -1), 0);
@@ -253,7 +253,7 @@ TEST_F(ArithmeticTest, bitwiseAnd) {
 
 TEST_F(ArithmeticTest, bitwiseNot) {
   const auto bitwiseNot = [&](std::optional<int32_t> a) {
-    return evaluateOnce<int32_t>("bitwise_not(c0)", a);
+    return evaluateOnce<int64_t>("bitwise_not(c0)", a);
   };
 
   EXPECT_EQ(bitwiseNot(-1), 0);
@@ -264,7 +264,7 @@ TEST_F(ArithmeticTest, bitwiseNot) {
 TEST_F(ArithmeticTest, bitwiseOr) {
   const auto bitwiseOr = [&](std::optional<int32_t> a,
                              std::optional<int32_t> b) {
-    return evaluateOnce<int32_t>("bitwise_or(c0, c1)", a, b);
+    return evaluateOnce<int64_t>("bitwise_or(c0, c1)", a, b);
   };
 
   EXPECT_EQ(bitwiseOr(0, -1), -1);
@@ -276,7 +276,7 @@ TEST_F(ArithmeticTest, bitwiseOr) {
 TEST_F(ArithmeticTest, bitwiseXor) {
   const auto bitwiseXor = [&](std::optional<int32_t> a,
                               std::optional<int32_t> b) {
-    return evaluateOnce<int32_t>("bitwise_xor(c0, c1)", a, b);
+    return evaluateOnce<int64_t>("bitwise_xor(c0, c1)", a, b);
   };
 
   EXPECT_EQ(bitwiseXor(0, -1), -1);
