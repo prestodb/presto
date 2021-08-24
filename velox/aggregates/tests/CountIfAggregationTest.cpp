@@ -28,14 +28,21 @@ class CountIfAggregationTest : public AggregationTestBase {
 };
 
 TEST_F(CountIfAggregationTest, oneAggregateSingleGroup) {
-  auto vectors = makeVectors(rowType_, 10, 100);
+  // Make two batches of rows: one with nulls; another without.
+  auto vectors = {
+      makeRowVector(
+          {makeFlatVector<bool>(1'000, [](auto row) { return row % 5 == 0; })}),
+      makeRowVector({makeFlatVector<bool>(
+          1'100, [](auto row) { return row % 3 == 0; }, nullEvery(7))}),
+  };
+
   createDuckDbTable(vectors);
   auto agg = PlanBuilder()
                  .values(vectors)
-                 .partialAggregation({}, {"count_if(c1)"})
+                 .partialAggregation({}, {"count_if(c0)"})
                  .finalAggregation({}, {"count(a0)"})
                  .planNode();
-  assertQuery(agg, "SELECT SUM(CASE WHEN c1 THEN 1 ELSE 0 END) FROM tmp");
+  assertQuery(agg, "SELECT sum(if(c0, 1, 0)) FROM tmp");
 }
 
 TEST_F(CountIfAggregationTest, oneAggregateMultipleGroups) {

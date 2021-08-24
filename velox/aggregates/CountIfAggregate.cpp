@@ -128,11 +128,6 @@ class CountIfAggregate : public exec::Aggregate {
       return;
     }
 
-    if (!decoded.mayHaveNulls()) {
-      addToGroup(group, allRows.size());
-      return;
-    }
-
     int64_t numTrue = countTrue(allRows, decoded);
     addToGroup(group, numTrue);
   }
