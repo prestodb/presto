@@ -32,7 +32,7 @@ import java.util.concurrent.TimeUnit;
 public class PrometheusConnectorConfig
 {
     private URI prometheusURI = URI.create("http://localhost:9090");
-    private Duration queryChunkSizeDuration = new Duration(1, TimeUnit.DAYS);
+    private Duration queryChunkSizeDuration = new Duration(10, TimeUnit.MINUTES);
     private Duration maxQueryRangeDuration = new Duration(1, TimeUnit.HOURS);
     private Duration cacheDuration = new Duration(30, TimeUnit.SECONDS);
     private File bearerTokenFile;
