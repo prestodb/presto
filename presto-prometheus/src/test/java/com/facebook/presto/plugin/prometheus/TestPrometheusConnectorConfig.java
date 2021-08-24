@@ -36,7 +36,7 @@ public class TestPrometheusConnectorConfig
     {
         assertRecordedDefaults(recordDefaults(PrometheusConnectorConfig.class)
                 .setPrometheusURI(new URI("http://localhost:9090"))
-                .setQueryChunkSizeDuration(Duration.valueOf("1d"))
+                .setQueryChunkSizeDuration(Duration.valueOf("10m"))
                 .setMaxQueryRangeDuration(Duration.valueOf("1h"))
                 .setCacheDuration(Duration.valueOf("30s"))
                 .setBearerTokenFile(null));
