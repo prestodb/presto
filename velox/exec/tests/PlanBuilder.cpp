@@ -326,10 +326,24 @@ PlanBuilder& PlanBuilder::partitionedOutput(
     const std::vector<ChannelIndex>& keyIndices,
     int numPartitions,
     const std::vector<ChannelIndex>& outputLayout) {
+  return partitionedOutput(keyIndices, numPartitions, false, outputLayout);
+}
+
+PlanBuilder& PlanBuilder::partitionedOutput(
+    const std::vector<ChannelIndex>& keyIndices,
+    int numPartitions,
+    bool replicateNullsAndAny,
+    const std::vector<ChannelIndex>& outputLayout) {
   auto outputType = toRowType(planNode_->outputType(), outputLayout);
   auto keys = fields(keyIndices);
   planNode_ = std::make_shared<core::PartitionedOutputNode>(
-      nextPlanNodeId(), keys, numPartitions, false, outputType, planNode_);
+      nextPlanNodeId(),
+      keys,
+      numPartitions,
+      false,
+      replicateNullsAndAny,
+      outputType,
+      planNode_);
   return *this;
 }
 
@@ -341,6 +355,7 @@ PlanBuilder& PlanBuilder::partitionedOutputBroadcast(
       std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>{},
       1,
       true,
+      false,
       outputType,
       planNode_);
   return *this;

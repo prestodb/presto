@@ -82,13 +82,9 @@ BlockingReason Destination::flush(
       taskId_, destination_, std::move(current_), future);
 }
 
-void PartitionedOutput::addInput(RowVectorPtr input) {
-  // TODO Report outputBytes as bytes after serialization
-  stats_.outputBytes += input->retainedSize();
-  stats_.outputPositions += input->size();
-
+void PartitionedOutput::initializeInput(RowVectorPtr input) {
   if (outputChannels_.empty()) {
-    input_ = input;
+    input_ = std::move(input);
   } else {
     std::vector<VectorPtr> outputColumns;
     outputColumns.reserve(outputChannels_.size());
@@ -104,6 +100,9 @@ void PartitionedOutput::addInput(RowVectorPtr input) {
         outputColumns,
         input->getNullCount());
   }
+}
+
+void PartitionedOutput::initializeDestinations() {
   if (destinations_.empty()) {
     auto memory = operatorCtx_->mappedMemory();
     auto taskId = operatorCtx_->taskId();
@@ -115,6 +114,9 @@ void PartitionedOutput::addInput(RowVectorPtr input) {
           VectorHasher::create(input_->childAt(channel)->type(), channel));
     }
   }
+}
+
+void PartitionedOutput::initializeSizeBuffers() {
   auto numInput = input_->size();
   if (numInput > topLevelRanges_.size()) {
     vector_size_t numOld = topLevelRanges_.size();
@@ -130,14 +132,22 @@ void PartitionedOutput::addInput(RowVectorPtr input) {
       sizePointers_[i] = &rowSize_[i];
     }
   }
+}
+
+void PartitionedOutput::calculateHashes() {
   if (!keyChannels_.empty()) {
-    allRows_.resize(numInput);
-    allRows_.setAll();
-    for (ChannelIndex i = 0; i < keyChannels_.size(); ++i) {
+    auto numInput = input_->size();
+    rows_.resize(numInput);
+    rows_.setAll();
+    for (auto i = 0; i < keyChannels_.size(); ++i) {
       hashers_[i]->hash(
-          *input_->childAt(keyChannels_[i]), allRows_, i > 0, &hashes_);
+          *input_->childAt(keyChannels_[i]), rows_, i > 0, &hashes_);
     }
   }
+}
+
+void PartitionedOutput::estimateRowSizes() {
+  auto numInput = input_->size();
   std::fill(rowSize_.begin(), rowSize_.end(), 0);
   for (int i = 0; i < input_->childrenSize(); ++i) {
     VectorStreamGroup::estimateSerializedSize(
@@ -145,16 +155,70 @@ void PartitionedOutput::addInput(RowVectorPtr input) {
         folly::Range(topLevelRanges_.data(), numInput),
         sizePointers_.data());
   }
+}
+
+void PartitionedOutput::addInput(RowVectorPtr input) {
+  // TODO Report outputBytes as bytes after serialization
+  stats_.outputBytes += input->retainedSize();
+  stats_.outputPositions += input->size();
+
+  initializeInput(std::move(input));
+
+  initializeDestinations();
+
+  initializeSizeBuffers();
+
+  calculateHashes();
+
+  estimateRowSizes();
+
   for (auto& destination : destinations_) {
     destination->beginBatch();
   }
+
+  auto numInput = input_->size();
   if (numDestinations_ == 1) {
     destinations_[0]->addRows(IndexRange{0, numInput});
   } else {
-    for (vector_size_t i = 0; i < numInput; ++i) {
-      destinations_[hashes_[i] % numDestinations_]->addRow(i);
+    if (replicateNullsAndAny_) {
+      collectNullRows(rows_);
+
+      vector_size_t start = 0;
+      if (!replicatedAny_) {
+        for (auto& destination : destinations_) {
+          destination->addRow(0);
+        }
+        replicatedAny_ = true;
+        // Make sure not to replicate first row twice.
+        start = 1;
+      }
+      for (auto i = start; i < numInput; ++i) {
+        if (rows_.isValid(i)) {
+          for (auto& destination : destinations_) {
+            destination->addRow(i);
+          }
+        } else {
+          destinations_[hashes_[i] % numDestinations_]->addRow(i);
+        }
+      }
+    } else {
+      for (vector_size_t i = 0; i < numInput; ++i) {
+        destinations_[hashes_[i] % numDestinations_]->addRow(i);
+      }
     }
   }
+}
+
+void PartitionedOutput::collectNullRows(SelectivityVector& nullRows) {
+  nullRows.clearAll();
+  for (const auto& hasher : hashers_) {
+    auto rawNulls = hasher->decodedVector().nulls();
+    if (rawNulls) {
+      bits::orWithNegatedBits(
+          nullRows.asMutableRange().bits(), rawNulls, 0, nullRows.size());
+    }
+  }
+  nullRows.updateBounds();
 }
 
 RowVectorPtr PartitionedOutput::getOutput() {
