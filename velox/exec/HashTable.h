@@ -59,7 +59,7 @@ class BaseHashTable {
   static constexpr uint64_t kArrayHashMaxSize = 2L << 20;
   enum class HashMode { kHash, kArray, kNormalizedKey };
 
-  // Keeps track of results returned from a joi table. One batch of
+  // Keeps track of results returned from a join table. One batch of
   // keys can produce multiple batches of results. This is initialized
   // from HashLookup, which is expected to stay constant while 'this'
   // is being used.

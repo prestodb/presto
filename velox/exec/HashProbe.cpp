@@ -70,9 +70,12 @@ HashProbe::HashProbe(
           operatorId,
           joinNode->id(),
           "HashProbe"),
+      joinType_{joinNode->joinType()},
       filterResult_(1),
       outputRows_(kOutputBatchSize) {
-  VELOX_CHECK(joinNode->joinType() == core::JoinType::kInner);
+  VELOX_CHECK(
+      joinNode->isInnerJoin() || joinNode->isSemiJoin() ||
+      joinNode->isAntiJoin());
   auto probeType = joinNode->sources()[0]->outputType();
   auto numKeys = joinNode->leftKeys().size();
   keyChannels_.reserve(numKeys);
@@ -151,20 +154,49 @@ BlockingReason HashProbe::isBlocked(ContinueFuture* future) {
   if (table_) {
     return BlockingReason::kNotBlocked;
   }
-  table_ = operatorCtx_->task()
-               ->findOrCreateJoinBridge(planNodeId())
-               ->tableOrFuture(future);
-  return table_ ? BlockingReason::kNotBlocked
-                : BlockingReason::kWaitForJoinBuild;
+
+  auto hashBuildResult = operatorCtx_->task()
+                             ->findOrCreateJoinBridge(planNodeId())
+                             ->tableOrFuture(future);
+  if (!hashBuildResult.has_value()) {
+    return BlockingReason::kWaitForJoinBuild;
+  }
+
+  if (hashBuildResult->antiJoinHashNullKeys) {
+    // Anti join with null keys on the build side always returns nothing.
+    VELOX_CHECK(joinType_ == core::JoinType::kAnti);
+    isFinishing_ = true;
+  } else {
+    table_ = hashBuildResult->table;
+    if (table_->numDistinct() == 0) {
+      // Build side is empty. Inner and semi joins return nothing in this case,
+      // hence, we can terminate the pipeline early.
+      if (joinType_ == core::JoinType::kInner ||
+          joinType_ == core::JoinType::kSemi) {
+        isFinishing_ = true;
+      }
+    }
+  }
+
+  return BlockingReason::kNotBlocked;
 }
 
 void HashProbe::addInput(RowVectorPtr input) {
   input_ = std::move(input);
 
-  activeRows_.resize(input_->size());
-  activeRows_.setAll();
+  if (table_->numDistinct() == 0) {
+    // Build side is empty. This state is valid only for anti join which returns
+    // all probe rows.
+    VELOX_CHECK(joinType_ == core::JoinType::kAnti);
+    return;
+  }
+
+  nonNullRows_.resize(input_->size());
+  nonNullRows_.setAll();
+  deselectRowsWithNulls(*input_, keyChannels_, nonNullRows_);
+
+  activeRows_ = nonNullRows_;
   lookup_->hashes.resize(input_->size());
-  deselectRowsWithNulls(*input_, keyChannels_, activeRows_);
   auto mode = table_->hashMode();
   auto& buildHashers = table_->hashers();
   for (auto i = 0; i < keyChannels_.size(); ++i) {
@@ -189,12 +221,14 @@ void HashProbe::addInput(RowVectorPtr input) {
         [&](vector_size_t row) { lookup_->rows.push_back(row); });
   }
   if (lookup_->rows.empty()) {
-    input_ = nullptr;
+    if (joinType_ != core::JoinType::kAnti) {
+      input_ = nullptr;
+    }
     return;
   }
   lookup_->hits.resize(lookup_->rows.back() + 1);
   table_->joinProbe(*lookup_);
-  results.reset(*lookup_);
+  results_.reset(*lookup_);
 }
 
 namespace {
@@ -219,6 +253,17 @@ void extractColumns(
         rows.data(), rows.size(), projection.inputChannel, child);
   }
 }
+
+folly::Range<vector_size_t*> initializeRowNumberMapping(
+    BufferPtr& mapping,
+    vector_size_t size,
+    memory::MemoryPool* pool) {
+  if (!mapping || !mapping->unique() ||
+      mapping->size() < sizeof(vector_size_t) * size) {
+    mapping = AlignedBuffer::allocate<vector_size_t>(size, pool);
+  }
+  return folly::Range(mapping->asMutable<vector_size_t>(), size);
+}
 } // namespace
 
 RowVectorPtr HashProbe::getOutput() {
@@ -226,15 +271,47 @@ RowVectorPtr HashProbe::getOutput() {
   if (!input_) {
     return nullptr;
   }
-  if (!rowNumberMapping_ || !rowNumberMapping_->unique()) {
-    rowNumberMapping_ = AlignedBuffer::allocate<vector_size_t>(
-        kOutputBatchSize, operatorCtx_->pool());
+
+  const bool isSemiOrAntiJoin =
+      joinType_ == core::JoinType::kSemi || joinType_ == core::JoinType::kAnti;
+
+  // Semi and anti joins are always cardinality reducing, e.g. for a given row
+  // of input they produce zero or 1 row of output. Therefore, we can process
+  // each batch of input in one go.
+  auto mapping = initializeRowNumberMapping(
+      rowNumberMapping_,
+      isSemiOrAntiJoin ? input_->size() : kOutputBatchSize,
+      pool());
+
+  if (isSemiOrAntiJoin) {
+    outputRows_.resize(input_->size());
   }
-  auto mapping = folly::Range(
-      rowNumberMapping_->asMutable<vector_size_t>(), kOutputBatchSize);
+
   for (;;) {
-    int numOut = table_->listJoinResults(
-        results, mapping, folly::Range(outputRows_.data(), outputRows_.size()));
+    int numOut = 0;
+    if (joinType_ == core::JoinType::kAnti) {
+      if (table_->numDistinct() == 0) {
+        // When build side is empty, anti join returns all probe side rows,
+        // including ones with null join keys.
+        std::iota(mapping.begin(), mapping.end(), 0);
+        numOut = input_->size();
+      } else {
+        // When build side is not empty, anti join returns probe rows with no
+        // nulls in the join key and no match in the build side.
+        for (auto i = 0; i < input_->size(); i++) {
+          if (nonNullRows_.isValid(i) &&
+              (!activeRows_.isValid(i) || !lookup_->hits[i])) {
+            mapping[numOut] = i;
+            ++numOut;
+          }
+        }
+      }
+    } else {
+      numOut = table_->listJoinResults(
+          results_,
+          mapping,
+          folly::Range(outputRows_.data(), outputRows_.size()));
+    }
     if (!numOut) {
       input_ = nullptr;
       return nullptr;
@@ -243,6 +320,10 @@ RowVectorPtr HashProbe::getOutput() {
     numOut = evalFilter(numOut);
     if (!numOut) {
       // the filter was false on all rows.
+      if (isSemiOrAntiJoin) {
+        input_ = nullptr;
+        return nullptr;
+      }
       continue;
     }
     VectorPtr outputAsBase = std::move(output_);
@@ -268,6 +349,9 @@ RowVectorPtr HashProbe::getOutput() {
 
       output_->childAt(projection.outputChannel) =
           wrapChild(numOut, rowNumberMapping_, inputChild);
+    }
+    if (isSemiOrAntiJoin) {
+      input_ = nullptr;
     }
     return output_;
   }

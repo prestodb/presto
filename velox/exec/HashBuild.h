@@ -22,24 +22,38 @@
 
 namespace facebook::velox::exec {
 
-// Hands over a hash table from a multithreaded build pipeline to a
-// multithreaded probe pipeline. This is owned by shared_ptr by all the build
+// Hands over a hash table from a multi-threaded build pipeline to a
+// multi-threaded probe pipeline. This is owned by shared_ptr by all the build
 // and probe Operator instances concerned. Corresponds to the Presto concept of
 // the same name.
 class JoinBridge {
  public:
   void setHashTable(std::unique_ptr<BaseHashTable> table);
 
+  void setAntiJoinHasNullKeys();
+
   // Sets this to a cancelled state and unblocks any waiting
   // activity. This may happen asynchronously before or after the hash
   // table has been set.
   void cancel();
 
-  std::shared_ptr<BaseHashTable> tableOrFuture(ContinueFuture* future);
+  // Represents the result of a HashBuild operator: a hash table. In case of an
+  // anti join, a build side entry with a null in a join key makes the join
+  // return nothing. In this case, HashBuild operator finishes early without
+  // processing all the input and without finishing building the hash table.
+  struct HashBuildResult {
+    std::shared_ptr<BaseHashTable> table;
+    bool antiJoinHashNullKeys;
+  };
+
+  std::optional<HashBuildResult> tableOrFuture(ContinueFuture* future);
 
  private:
+  void notifyConsumersLocked();
+
   std::mutex mutex_;
   std::shared_ptr<BaseHashTable> table_;
+  bool antiJoinHashNullKeys_{false};
   std::vector<VeloxPromise<bool>> promises_;
   bool cancelled_{false};
 };
@@ -77,6 +91,8 @@ class HashBuild final : public Operator {
   void close() override {}
 
  private:
+  const core::JoinType joinType_;
+
   // Container for the rows being accumulated.
   std::unique_ptr<HashTable<true>> table_;
 
@@ -94,7 +110,7 @@ class HashBuild final : public Operator {
 
   // Future for synchronizing with other Drivers of the same pipeline. All build
   // Drivers must be completed before making the hash table.
-  ContinueFuture future_;
+  ContinueFuture future_{false};
   bool hasFuture_ = false;
 
   // True if we are considering use of normalized keys or array hash tables. Set
@@ -106,6 +122,10 @@ class HashBuild final : public Operator {
 
   // Set of active rows during addInput().
   SelectivityVector activeRows_;
+
+  // True if this is a build side of an anti join and has at least one entry
+  // with null join keys.
+  bool antiJoinHasNullKeys_{false};
 };
 
 } // namespace facebook::velox::exec

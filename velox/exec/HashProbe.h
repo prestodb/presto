@@ -56,6 +56,8 @@ class HashProbe : public Operator {
   // 'rowNumberMapping_'. Returns the number of passing rows.
   vector_size_t evalFilter(vector_size_t numRows);
 
+  const core::JoinType joinType_;
+
   std::unique_ptr<HashLookup> lookup_;
 
   // Channel of probe keys in 'input_'.
@@ -106,9 +108,13 @@ class HashProbe : public Operator {
 
   // Keeps track of returned results between successive batches of
   // output for a batch of input.
-  BaseHashTable::JoinResultIterator results;
+  BaseHashTable::JoinResultIterator results_;
 
-  // Active rows in the current batch of input.
+  // Input rows with no nulls in the join keys.
+  SelectivityVector nonNullRows_;
+
+  // Input rows with a hash match. This is a subset of rows with no nulls in the
+  // join keys and a superset of rows that have a match on the build side.
   SelectivityVector activeRows_;
 };
 

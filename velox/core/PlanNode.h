@@ -792,6 +792,30 @@ class HashJoinNode : public PlanNode {
     return joinType_;
   }
 
+  bool isInnerJoin() const {
+    return joinType_ == JoinType::kInner;
+  }
+
+  bool isLeftJoin() const {
+    return joinType_ == JoinType::kLeft;
+  }
+
+  bool isRightJoin() const {
+    return joinType_ == JoinType::kRight;
+  }
+
+  bool isFullJoin() const {
+    return joinType_ == JoinType::kFull;
+  }
+
+  bool isSemiJoin() const {
+    return joinType_ == JoinType::kSemi;
+  }
+
+  bool isAntiJoin() const {
+    return joinType_ == JoinType::kAnti;
+  }
+
   const std::vector<std::shared_ptr<const FieldAccessTypedExpr>>& leftKeys()
       const {
     return leftKeys_;

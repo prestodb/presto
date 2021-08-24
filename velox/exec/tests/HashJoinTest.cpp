@@ -297,3 +297,138 @@ TEST_F(HashJoinTest, arrayBasedLookup) {
 
   assertQuery(op, "SELECT t.c1 + 1 FROM t, u WHERE t.c0 = u.c0");
 }
+
+TEST_F(HashJoinTest, innerJoinWithEmptyBuild) {
+  auto leftVectors = makeRowVector({
+      makeFlatVector<int32_t>(
+          1'234, [](auto row) { return row % 11; }, nullEvery(13)),
+      makeFlatVector<int32_t>(1'234, [](auto row) { return row; }),
+  });
+
+  auto rightVectors = makeRowVector({makeFlatVector<int32_t>(
+      123, [](auto row) { return row % 5; }, nullEvery(7))});
+
+  auto op =
+      PlanBuilder(10)
+          .values({leftVectors})
+          .hashJoin(
+              {0},
+              {0},
+              PlanBuilder(0).values({rightVectors}).filter("c0 < 0").planNode(),
+              "",
+              {1},
+              core::JoinType::kInner)
+          .planNode();
+
+  assertQuery(op, "SELECT 1 LIMIT 0");
+}
+
+TEST_F(HashJoinTest, semiJoin) {
+  auto leftVectors = makeRowVector({
+      makeFlatVector<int32_t>(
+          1'234, [](auto row) { return row % 11; }, nullEvery(13)),
+      makeFlatVector<int32_t>(1'234, [](auto row) { return row; }),
+  });
+
+  auto rightVectors = makeRowVector({
+      makeFlatVector<int32_t>(
+          123, [](auto row) { return row % 5; }, nullEvery(7)),
+  });
+
+  createDuckDbTable("t", {leftVectors});
+  createDuckDbTable("u", {rightVectors});
+
+  auto op = PlanBuilder(10)
+                .values({leftVectors})
+                .hashJoin(
+                    {0},
+                    {0},
+                    PlanBuilder(0).values({rightVectors}).planNode(),
+                    "",
+                    {1},
+                    core::JoinType::kSemi)
+                .planNode();
+
+  assertQuery(op, "SELECT t.c1 FROM t WHERE t.c0 IN (SELECT c0 FROM u)");
+
+  // Empty build side.
+  op =
+      PlanBuilder(10)
+          .values({leftVectors})
+          .hashJoin(
+              {0},
+              {0},
+              PlanBuilder(0).values({rightVectors}).filter("c0 < 0").planNode(),
+              "",
+              {1},
+              core::JoinType::kSemi)
+          .planNode();
+
+  assertQuery(
+      op, "SELECT t.c1 FROM t WHERE t.c0 IN (SELECT c0 FROM u WHERE c0 < 0)");
+}
+
+TEST_F(HashJoinTest, antiJoin) {
+  auto leftVectors = makeRowVector({
+      makeFlatVector<int32_t>(
+          1'000, [](auto row) { return row % 11; }, nullEvery(13)),
+      makeFlatVector<int32_t>(1'000, [](auto row) { return row; }),
+  });
+
+  auto rightVectors = makeRowVector({
+      makeFlatVector<int32_t>(
+          1'234, [](auto row) { return row % 5; }, nullEvery(7)),
+  });
+
+  createDuckDbTable("t", {leftVectors});
+  createDuckDbTable("u", {rightVectors});
+
+  auto op = PlanBuilder(10)
+                .values({leftVectors})
+                .hashJoin(
+                    {0},
+                    {0},
+                    PlanBuilder(0)
+                        .values({rightVectors})
+                        .filter("c0 IS NOT NULL")
+                        .planNode(),
+                    "",
+                    {1},
+                    core::JoinType::kAnti)
+                .planNode();
+
+  assertQuery(
+      op,
+      "SELECT t.c1 FROM t WHERE t.c0 NOT IN (SELECT c0 FROM u WHERE c0 IS NOT NULL)");
+
+  // Empty build side.
+  op =
+      PlanBuilder(10)
+          .values({leftVectors})
+          .hashJoin(
+              {0},
+              {0},
+              PlanBuilder(0).values({rightVectors}).filter("c0 < 0").planNode(),
+              "",
+              {1},
+              core::JoinType::kAnti)
+          .planNode();
+
+  assertQuery(
+      op,
+      "SELECT t.c1 FROM t WHERE t.c0 NOT IN (SELECT c0 FROM u WHERE c0 < 0)");
+
+  // Build side with nulls. Anti join always returns nothing.
+  op = PlanBuilder(10)
+           .values({leftVectors})
+           .hashJoin(
+               {0},
+               {0},
+               PlanBuilder(0).values({rightVectors}).planNode(),
+               "",
+               {1},
+               core::JoinType::kAnti)
+           .planNode();
+
+  assertQuery(op, "SELECT t.c1 FROM t WHERE t.c0 NOT IN (SELECT c0 FROM u)");
+}

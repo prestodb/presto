@@ -27,6 +27,20 @@ void JoinBridge::setHashTable(std::unique_ptr<BaseHashTable> table) {
   VELOX_CHECK(!table_, "setHashTable may be called only once");
   // Ownership becomes shared.
   table_.reset(table.release());
+  notifyConsumersLocked();
+}
+
+void JoinBridge::setAntiJoinHasNullKeys() {
+  std::lock_guard<std::mutex> l(mutex_);
+  VELOX_CHECK(
+      !table_,
+      "Only one of setAntiJoinHasNullKeys or setHashTable may be called");
+
+  antiJoinHashNullKeys_ = true;
+  notifyConsumersLocked();
+}
+
+void JoinBridge::notifyConsumersLocked() {
   for (auto& promise : promises_) {
     promise.setValue(true);
   }
@@ -36,23 +50,20 @@ void JoinBridge::setHashTable(std::unique_ptr<BaseHashTable> table) {
 void JoinBridge::cancel() {
   std::lock_guard<std::mutex> l(mutex_);
   cancelled_ = true;
-  for (auto& promise : promises_) {
-    promise.setValue(true);
-  }
-  promises_.clear();
+  notifyConsumersLocked();
 }
 
-std::shared_ptr<BaseHashTable> JoinBridge::tableOrFuture(
+std::optional<JoinBridge::HashBuildResult> JoinBridge::tableOrFuture(
     ContinueFuture* future) {
   std::lock_guard<std::mutex> l(mutex_);
   VELOX_CHECK(
       !cancelled_, "Getting hash table after the build side is aborted");
-  if (table_) {
-    return table_;
+  if (table_ || antiJoinHashNullKeys_) {
+    return HashBuildResult{table_, antiJoinHashNullKeys_};
   }
   promises_.emplace_back("JoinBridge::tableOrFuture");
   *future = promises_.back().getSemiFuture();
-  return nullptr;
+  return std::nullopt;
 }
 
 HashBuild::HashBuild(
@@ -60,8 +71,8 @@ HashBuild::HashBuild(
     DriverCtx* driverCtx,
     std::shared_ptr<const core::HashJoinNode> joinNode)
     : Operator(driverCtx, nullptr, operatorId, joinNode->id(), "HashBuild"),
-      mappedMemory_(operatorCtx_->mappedMemory()),
-      future_(false) {
+      joinType_{joinNode->joinType()},
+      mappedMemory_(operatorCtx_->mappedMemory()) {
   auto type = joinNode->sources()[1]->outputType();
 
   auto numKeys = joinNode->rightKeys().size();
@@ -92,8 +103,13 @@ HashBuild::HashBuild(
     }
   }
 
+  // Semi and anti join only needs to know whether there is a match. Hence, no
+  // need to store entries with duplicate keys.
+  const bool allowDuplicates =
+      !joinNode->isSemiJoin() && !joinNode->isAntiJoin();
+
   table_ = HashTable<true>::createForJoin(
-      std::move(keyHashers), dependentTypes, true, mappedMemory_);
+      std::move(keyHashers), dependentTypes, allowDuplicates, mappedMemory_);
   analyzeKeys_ = table_->hashMode() != BaseHashTable::HashMode::kHash;
 }
 
@@ -101,6 +117,16 @@ void HashBuild::addInput(RowVectorPtr input) {
   activeRows_.resize(input->size());
   activeRows_.setAll();
   deselectRowsWithNulls(*input, keyChannels_, activeRows_);
+
+  if (joinType_ == core::JoinType::kAnti) {
+    // Anti join returns no rows if build side has nulls in join keys. Hence, we
+    // can stop processing on first null.
+    if (activeRows_.countSelected() < input->size()) {
+      antiJoinHasNullKeys_ = true;
+      finish();
+      return;
+    }
+  }
 
   if (analyzeKeys_ && hashes_.size() < activeRows_.size()) {
     hashes_.resize(activeRows_.size());
@@ -165,11 +191,17 @@ void HashBuild::finish() {
   std::vector<std::unique_ptr<HashTable<true>>> otherTables;
   otherTables.reserve(peers.size());
 
-  for (auto& peer : peers) {
-    auto op = peer->findOperator(planNodeId());
-    HashBuild* build = dynamic_cast<HashBuild*>(op);
-    VELOX_CHECK(build);
-    otherTables.push_back(std::move(build->table_));
+  if (!antiJoinHasNullKeys_) {
+    for (auto& peer : peers) {
+      auto op = peer->findOperator(planNodeId());
+      HashBuild* build = dynamic_cast<HashBuild*>(op);
+      VELOX_CHECK(build);
+      if (build->antiJoinHasNullKeys_) {
+        antiJoinHasNullKeys_ = true;
+        break;
+      }
+      otherTables.push_back(std::move(build->table_));
+    }
   }
 
   // Realize the promises so that the other Drivers (which were not
@@ -179,10 +211,16 @@ void HashBuild::finish() {
     promise.setValue(true);
   }
 
-  table_->prepareJoinTable(std::move(otherTables));
-  operatorCtx_->task()
-      ->findOrCreateJoinBridge(planNodeId())
-      ->setHashTable(std::move(table_));
+  if (antiJoinHasNullKeys_) {
+    operatorCtx_->task()
+        ->findOrCreateJoinBridge(planNodeId())
+        ->setAntiJoinHasNullKeys();
+  } else {
+    table_->prepareJoinTable(std::move(otherTables));
+    operatorCtx_->task()
+        ->findOrCreateJoinBridge(planNodeId())
+        ->setHashTable(std::move(table_));
+  }
 }
 
 BlockingReason HashBuild::isBlocked(ContinueFuture* future) {
