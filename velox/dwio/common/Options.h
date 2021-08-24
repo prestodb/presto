@@ -45,8 +45,8 @@ enum class FileFormat {
   JSON = 6,
 };
 
-FileFormat ToFileFormat(std::string s);
-std::string ToString(FileFormat fmt);
+FileFormat toFileFormat(std::string s);
+std::string toString(FileFormat fmt);
 
 /**
  * Formatting options for serialization.

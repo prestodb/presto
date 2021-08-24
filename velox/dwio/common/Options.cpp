@@ -20,7 +20,7 @@ namespace facebook {
 namespace dwio {
 namespace common {
 
-FileFormat ToFileFormat(std::string s) {
+FileFormat toFileFormat(std::string s) {
   if (s == "orc") {
     return FileFormat::ORC;
   } else if (s == "rc") {
@@ -37,7 +37,7 @@ FileFormat ToFileFormat(std::string s) {
   return FileFormat::UNKNOWN;
 }
 
-std::string ToString(FileFormat fmt) {
+std::string toString(FileFormat fmt) {
   switch (fmt) {
     case FileFormat::ORC:
       return "orc";

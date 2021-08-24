@@ -24,6 +24,7 @@ add_library(
   InputStream.cpp
   IoStatistics.cpp
   MemoryInputStream.cpp
+  Options.cpp
   TypeWithId.cpp)
 
 target_link_libraries(
