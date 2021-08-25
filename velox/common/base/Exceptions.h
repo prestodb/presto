@@ -248,6 +248,7 @@ DECLARE_CHECK_FAIL_TEMPLATES(::facebook::velox::VeloxRuntimeError);
 #define VELOX_CHECK_LE(e1, e2, ...) _VELOX_CHECK_OP(e1, e2, <=, ##__VA_ARGS__)
 #define VELOX_CHECK_EQ(e1, e2, ...) _VELOX_CHECK_OP(e1, e2, ==, ##__VA_ARGS__)
 #define VELOX_CHECK_NE(e1, e2, ...) _VELOX_CHECK_OP(e1, e2, !=, ##__VA_ARGS__)
+#define VELOX_CHECK_NULL(e, ...) VELOX_CHECK(e == nullptr, ##__VA_ARGS__)
 #define VELOX_CHECK_NOT_NULL(e, ...) VELOX_CHECK(e != nullptr, ##__VA_ARGS__)
 
 #define VELOX_UNSUPPORTED(...)                                   \
@@ -290,6 +291,7 @@ DECLARE_CHECK_FAIL_TEMPLATES(::facebook::velox::VeloxRuntimeError);
 #define VELOX_DCHECK_LE(e1, e2, ...) VELOX_CHECK_LE(e1, e2, ##__VA_ARGS__)
 #define VELOX_DCHECK_EQ(e1, e2, ...) VELOX_CHECK_EQ(e1, e2, ##__VA_ARGS__)
 #define VELOX_DCHECK_NE(e1, e2, ...) VELOX_CHECK_NE(e1, e2, ##__VA_ARGS__)
+#define VELOX_DCHECK_NULL(e, ...) VELOX_CHECK_NULL(e, ##__VA_ARGS__)
 #define VELOX_DCHECK_NOT_NULL(e, ...) VELOX_CHECK_NOT_NULL(e, ##__VA_ARGS__)
 #else
 #define VELOX_DCHECK(expr, ...) VELOX_CHECK(true)
