@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.metadata;
 
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.orc.DwrfEncryptionProvider;
 import com.facebook.presto.orc.DwrfKeyProvider;
 import com.facebook.presto.orc.OrcCorruptionException;
@@ -49,7 +50,7 @@ public class TestDwrfMetadataReader
 {
     private final long footerLength = 10;
     private final long compressionBlockSize = 8192;
-    private final DwrfMetadataReader dwrfMetadataReader = new DwrfMetadataReader();
+    private final DwrfMetadataReader dwrfMetadataReader = new DwrfMetadataReader(new RuntimeStats());
     private final DwrfProto.PostScript baseProtoPostScript = DwrfProto.PostScript.newBuilder()
             .setWriterVersion(HiveWriterVersion.ORC_HIVE_8732.getOrcWriterVersion())
             .setFooterLength(footerLength)
