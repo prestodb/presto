@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.orc.StripeReader.StripeId;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.orc.metadata.DwrfStripeCache;
@@ -252,7 +253,8 @@ public class TestOrcReaderDwrfStripeCaching
                 OrcReaderTestingUtils.createDefaultTestConfig(),
                 false,
                 NO_ENCRYPTION,
-                DwrfKeyProvider.EMPTY);
+                DwrfKeyProvider.EMPTY,
+                new RuntimeStats());
         return stripeMetadataSourceFactory.getDwrfStripeCache();
     }
 

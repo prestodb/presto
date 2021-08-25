@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
@@ -493,7 +494,8 @@ public class TestDecryption
                         false),
                 false,
                 new DwrfEncryptionProvider(new UnsupportedEncryptionLibrary(), new TestingPlainKeyEncryptionLibrary()),
-                DwrfKeyProvider.of(ImmutableMap.of(0, Slices.utf8Slice("key"))));
+                DwrfKeyProvider.of(ImmutableMap.of(0, Slices.utf8Slice("key"))),
+                new RuntimeStats());
 
         int offset = 10;
         try (OrcSelectiveRecordReader recordReader = getSelectiveRecordReader(orcDataSource, orcReader, offset)) {
