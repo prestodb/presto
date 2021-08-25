@@ -30,6 +30,9 @@ import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.Node;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.hashing.ConsistentHashSelector;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.facebook.presto.testing.TestingSession;
@@ -63,13 +66,16 @@ import java.util.concurrent.ThreadLocalRandom;
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.SystemSessionProperties.MAX_UNACKNOWLEDGED_SPLITS_PER_TASK;
 import static com.facebook.presto.execution.scheduler.NetworkLocation.ROOT_LOCATION;
+import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
+import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.SOFT_AFFINITY;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -89,6 +95,7 @@ public class TestNodeScheduler
     private ExecutorService remoteTaskExecutor;
     private ScheduledExecutorService remoteTaskScheduledExecutor;
     private Session session;
+    private ConsistentHashSelector<InternalNode> hashSelector;
 
     @BeforeMethod
     public void setUp()
@@ -104,6 +111,7 @@ public class TestNodeScheduler
         nodeBuilder.add(new InternalNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN, false));
         List<InternalNode> nodes = nodeBuilder.build();
         nodeManager.addNode(CONNECTOR_ID, nodes);
+        hashSelector = new ConsistentHashSelector<>(nodes, 10, InternalNode::getNodeIdentifier);
         nodeSchedulerConfig = new NodeSchedulerConfig()
                 .setMaxSplitsPerNode(20)
                 .setIncludeCoordinator(false)
@@ -382,6 +390,112 @@ public class TestNodeScheduler
         splits.add(new Split(CONNECTOR_ID, transactionHandle, new TestAffinitySplitRemote(3)));
         splitPlacementResult = nodeSelector.computeAssignments(splits, getRemoteTableScanTask(splitPlacementResult));
         assertEquals(splitPlacementResult.getAssignments().keySet().size(), 3);
+    }
+
+    @Test
+    public void testSoftAffinityAssignmentWithConsistentHashing()
+    {
+        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
+        TestingTransactionHandle transactionHandle = TestingTransactionHandle.create();
+        NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig()
+                .setMaxSplitsPerNode(20)
+                .setIncludeCoordinator(false)
+                .setMaxPendingSplitsPerTask(10)
+                .setConsistentHashSoftAffinitySchedulingEnabled(true);
+
+        NodeScheduler nodeScheduler = new NodeScheduler(new LegacyNetworkTopology(), nodeManager, new NodeSelectionStats(), nodeSchedulerConfig, nodeTaskMap);
+        NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, CONNECTOR_ID, 3);
+
+        Set<Split> splits = new HashSet<>();
+        Set<InternalNode> nodes = new HashSet<>();
+
+        splits.add(new Split(CONNECTOR_ID, transactionHandle, new TestAffinitySplitRemoteWithConsistentHashing("p1")));
+        SplitPlacementResult splitPlacementResult = nodeSelector.computeAssignments(splits, ImmutableList.of());
+        Set<InternalNode> internalNodes = splitPlacementResult.getAssignments().keySet();
+        nodes.add(hashSelector.getN("p1", 1).get(0));
+        assertEquals(internalNodes.size(), 1);
+        assertEquals(hashSelector.getN("p1", 1).get(0), internalNodes.iterator().next());
+
+        splits.add(new Split(CONNECTOR_ID, transactionHandle, new TestAffinitySplitRemoteWithConsistentHashing("p2")));
+        splitPlacementResult = nodeSelector.computeAssignments(splits, getRemoteTableScanTask(splitPlacementResult));
+        Set<InternalNode> internalNodesSecondCall = splitPlacementResult.getAssignments().keySet();
+        nodes.add(hashSelector.getN("p2", 1).get(0));
+        assertEquals(internalNodesSecondCall.size(), nodes.size());
+
+        while(true) {
+            String path = "p" + new Random().nextInt();
+            if (!nodes.contains(hashSelector.getN(path, 1).get(0))) {
+                splits.add(new Split(CONNECTOR_ID, transactionHandle, new TestAffinitySplitRemoteWithConsistentHashing(path)));
+                splitPlacementResult = nodeSelector.computeAssignments(splits, getRemoteTableScanTask(splitPlacementResult));
+                Set<InternalNode> internalNodesThirdCall = splitPlacementResult.getAssignments().keySet();
+                nodes.add(hashSelector.getN(path, 1).get(0));
+                assertEquals(internalNodesThirdCall.size(), 3);
+                break;
+            }
+        }
+    }
+
+    @Test
+    public void testStressAffinityAssignment()
+    {
+        nodeManager = new InMemoryNodeManager();
+
+        ImmutableList.Builder<InternalNode> nodeBuilder = ImmutableList.builder();
+        for (int i = 0; i < 400; i++) {
+            nodeBuilder.add(new InternalNode("other" + i, URI.create("http://127.0.0.1:" + i), NodeVersion.UNKNOWN, false));
+        }
+        List<InternalNode> nodes = nodeBuilder.build();
+        nodeManager.addNode(CONNECTOR_ID, nodes);
+
+        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
+        TestingTransactionHandle transactionHandle = TestingTransactionHandle.create();
+        NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig()
+                .setMaxSplitsPerNode(200)
+                .setIncludeCoordinator(false)
+                .setMaxPendingSplitsPerTask(100);
+
+        NodeScheduler nodeScheduler = new NodeScheduler(new LegacyNetworkTopology(), nodeManager, new NodeSelectionStats(), nodeSchedulerConfig, nodeTaskMap);
+        NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, CONNECTOR_ID, 100);
+        Set<Split> splits = new HashSet<>();
+        for (int i = 0; i < 100000; i++) {
+            splits.add(new Split(CONNECTOR_ID, transactionHandle, new TestAffinitySplitRemote(i + 1)));
+        }
+        long current = System.currentTimeMillis();
+        nodeSelector.computeAssignments(splits, ImmutableList.of());
+        long latency = System.currentTimeMillis() - current;
+        assertTrue(latency < 1000);
+    }
+
+    @Test
+    public void testStressAffinityAssignmentWithConsistentHashing()
+    {
+        nodeManager = new InMemoryNodeManager();
+
+        ImmutableList.Builder<InternalNode> nodeBuilder = ImmutableList.builder();
+        for (int i = 0; i < 400; i++) {
+            nodeBuilder.add(new InternalNode("other" + i, URI.create("http://127.0.0.1:" + i), NodeVersion.UNKNOWN, false));
+        }
+        List<InternalNode> nodes = nodeBuilder.build();
+        nodeManager.addNode(CONNECTOR_ID, nodes);
+
+        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
+        TestingTransactionHandle transactionHandle = TestingTransactionHandle.create();
+        NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig()
+                .setMaxSplitsPerNode(200)
+                .setIncludeCoordinator(false)
+                .setMaxPendingSplitsPerTask(100)
+                .setConsistentHashSoftAffinitySchedulingEnabled(true);
+
+        NodeScheduler nodeScheduler = new NodeScheduler(new LegacyNetworkTopology(), nodeManager, new NodeSelectionStats(), nodeSchedulerConfig, nodeTaskMap);
+        NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, CONNECTOR_ID, 100);
+        Set<Split> splits = new HashSet<>();
+        for (int i = 0; i < 100000; i++) {
+            splits.add(new Split(CONNECTOR_ID, transactionHandle, new TestAffinitySplitRemoteWithConsistentHashing("p" + i)));
+        }
+        long current = System.currentTimeMillis();
+        nodeSelector.computeAssignments(splits, ImmutableList.of());
+        long latency = System.currentTimeMillis() - current;
+        assertTrue(latency < 1000);
     }
 
     @Test
@@ -862,6 +976,49 @@ public class TestNodeScheduler
         public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
         {
             return ImmutableList.of(sortedCandidates.get(scheduleIdentifierId % sortedCandidates.size()));
+        }
+    }
+
+    private static class TestAffinitySplitRemoteWithConsistentHashing
+            extends TestSplitRemote
+    {
+        private String key;
+
+        public TestAffinitySplitRemoteWithConsistentHashing(String key)
+        {
+            super();
+            this.key = key;
+        }
+
+        @Override
+        public NodeSelectionStrategy getNodeSelectionStrategy()
+        {
+            return NodeSelectionStrategy.SOFT_AFFINITY;
+        }
+
+        @Override
+        public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
+        {
+            return ImmutableList.of(sortedCandidates.get(key.hashCode() % sortedCandidates.size()));
+        }
+
+        @Override
+        public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates, ConsistentHashSelector<Node> hashSelector)
+        {
+            if (sortedCandidates == null || hashSelector == null) {
+                throw new PrestoException(NO_NODES_AVAILABLE, "sortedCandidates is null or empty for HiveSplit");
+            }
+
+            if (getNodeSelectionStrategy() == SOFT_AFFINITY) {
+                return hashSelector.getN(key, 1).stream().map(node -> node.getHostAndPort()).collect(toList());
+            }
+            return sortedCandidates;
+        }
+
+        @Override
+        public Object getInfo()
+        {
+            return key;
         }
     }
 

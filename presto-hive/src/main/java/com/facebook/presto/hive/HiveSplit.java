@@ -17,7 +17,9 @@ import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.hashing.ConsistentHashSelector;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -38,6 +40,7 @@ import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.SOFT_AFFINI
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 public class HiveSplit
         implements ConnectorSplit
@@ -219,6 +222,19 @@ public class HiveSplit
             return ImmutableList.of(
                     sortedCandidates.get(position),
                     sortedCandidates.get((position + 1) % size));
+        }
+        return addresses;
+    }
+
+    @Override
+    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates, ConsistentHashSelector<Node> hashSelector)
+    {
+        if (sortedCandidates == null || hashSelector == null) {
+            throw new PrestoException(NO_NODES_AVAILABLE, "sortedCandidates is null or empty for HiveSplit");
+        }
+
+        if (getNodeSelectionStrategy() == SOFT_AFFINITY) {
+            return hashSelector.getN(path, 2).stream().map(node -> node.getHostAndPort()).collect(toList());
         }
         return addresses;
     }

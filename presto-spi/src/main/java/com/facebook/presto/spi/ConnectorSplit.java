@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.spi.hashing.ConsistentHashSelector;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 
 import java.util.List;
@@ -47,5 +48,10 @@ public interface ConnectorSplit
     default OptionalLong getSplitSizeInBytes()
     {
         return OptionalLong.empty();
+    }
+
+    default List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates, ConsistentHashSelector<Node> hashSelector)
+    {
+        throw new UnsupportedOperationException();
     }
 }

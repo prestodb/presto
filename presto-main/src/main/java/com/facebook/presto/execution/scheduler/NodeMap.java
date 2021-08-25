@@ -15,6 +15,9 @@ package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.Node;
+import com.facebook.presto.spi.hashing.ConsistentHashSelector;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.SetMultimap;
 
 import java.net.InetAddress;
@@ -31,6 +34,7 @@ public class NodeMap
     private final List<InternalNode> allNodes;
     private final SetMultimap<InetAddress, InternalNode> allNodesByHost;
     private final SetMultimap<HostAddress, InternalNode> allNodesByHostAndPort;
+    private final ConsistentHashSelector<Node> activeNodesInHashRing;
 
     public NodeMap(
             Map<String, InternalNode> activeNodesByNodeId,
@@ -39,7 +43,8 @@ public class NodeMap
             List<InternalNode> activeNodes,
             List<InternalNode> allNodes,
             SetMultimap<InetAddress, InternalNode> allNodesByHost,
-            SetMultimap<HostAddress, InternalNode> allNodesByHostAndPort)
+            SetMultimap<HostAddress, InternalNode> allNodesByHostAndPort,
+            int consistentHashReplicas)
     {
         this.activeNodesByNodeId = activeNodesByNodeId;
         this.activeWorkersByNetworkPath = activeWorkersByNetworkPath;
@@ -48,6 +53,7 @@ public class NodeMap
         this.allNodes = allNodes;
         this.allNodesByHost = allNodesByHost;
         this.allNodesByHostAndPort = allNodesByHostAndPort;
+        this.activeNodesInHashRing = new ConsistentHashSelector<Node>(ImmutableList.<Node>builder().addAll(activeNodes).build(), consistentHashReplicas, Node::getNodeIdentifier);
     }
 
     public Map<String, InternalNode> getActiveNodesByNodeId()
@@ -68,6 +74,11 @@ public class NodeMap
     public List<InternalNode> getActiveNodes()
     {
         return activeNodes;
+    }
+
+    public ConsistentHashSelector<Node> getActiveNodesInHashRing()
+    {
+        return activeNodesInHashRing;
     }
 
     public List<InternalNode> getAllNodes()

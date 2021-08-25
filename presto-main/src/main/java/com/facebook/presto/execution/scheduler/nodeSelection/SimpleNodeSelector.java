@@ -72,6 +72,7 @@ public class SimpleNodeSelector
     private final int maxPendingSplitsPerTask;
     private final int maxUnacknowledgedSplitsPerTask;
     private final int maxTasksPerStage;
+    private final boolean consistentHashSoftAffinitySchedulingEnabled;
 
     public SimpleNodeSelector(
             InternalNodeManager nodeManager,
@@ -83,7 +84,8 @@ public class SimpleNodeSelector
             int maxSplitsPerNode,
             int maxPendingSplitsPerTask,
             int maxUnacknowledgedSplitsPerTask,
-            int maxTasksPerStage)
+            int maxTasksPerStage,
+            boolean consistentHashSoftAffinitySchedulingEnabled)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.nodeSelectionStats = requireNonNull(nodeSelectionStats, "nodeSelectionStats is null");
@@ -96,6 +98,7 @@ public class SimpleNodeSelector
         this.maxUnacknowledgedSplitsPerTask = maxUnacknowledgedSplitsPerTask;
         checkArgument(maxUnacknowledgedSplitsPerTask > 0, "maxUnacknowledgedSplitsPerTask must be > 0, found: %s", maxUnacknowledgedSplitsPerTask);
         this.maxTasksPerStage = maxTasksPerStage;
+        this.consistentHashSoftAffinitySchedulingEnabled = consistentHashSoftAffinitySchedulingEnabled;
     }
 
     @Override
@@ -157,7 +160,12 @@ public class SimpleNodeSelector
                     preferredNodeCount = OptionalInt.of(candidateNodes.size());
                     break;
                 case SOFT_AFFINITY:
-                    candidateNodes = selectExactNodes(nodeMap, split.getPreferredNodes(allCandidates), includeCoordinator);
+                    if (consistentHashSoftAffinitySchedulingEnabled) {
+                        candidateNodes = selectExactNodes(nodeMap, split.getPreferredNodes(activeCandidates, nodeMap.getActiveNodesInHashRing()), includeCoordinator);
+                    }
+                    else {
+                        candidateNodes = selectExactNodes(nodeMap, split.getPreferredNodes(allCandidates), includeCoordinator);
+                    }
                     preferredNodeCount = OptionalInt.of(candidateNodes.size());
                     candidateNodes = ImmutableList.<InternalNode>builder()
                             .addAll(candidateNodes)
