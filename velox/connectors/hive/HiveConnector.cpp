@@ -270,6 +270,8 @@ void HiveDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
   // Check filters and see if the whole split can be skipped
   if (!testFilters(scanSpec_.get(), reader_.get(), split_->filePath)) {
     emptySplit_ = true;
+    ++skippedSplits_;
+    skippedSplitBytes_ += split_->length;
     return;
   }
 
@@ -400,6 +402,8 @@ RowVectorPtr HiveDataSource::next(uint64_t size) {
         outputColumns,
         folly::none);
   }
+
+  skippedStrides_ += rowReader_->skippedStrides();
 
   split_.reset();
   reader_.reset();

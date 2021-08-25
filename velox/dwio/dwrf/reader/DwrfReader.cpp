@@ -60,6 +60,7 @@ void DwrfRowReader::checkSkipStrides(
       currentRowInStripe =
           std::min(currentRowInStripe + strideSize, rowsInCurrentStripe);
       currentStride++;
+      skippedStrides_++;
     }
   }
   if (foundStridesToSkip && currentRowInStripe < rowsInCurrentStripe) {

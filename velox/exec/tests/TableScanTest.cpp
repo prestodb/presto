@@ -93,8 +93,16 @@ class TableScanTest : public HiveConnectorTestBase {
     return PlanBuilder().tableScan(outputType).planNode();
   }
 
-  static OperatorStats getTableScanStats(std::shared_ptr<Task> task) {
+  static OperatorStats getTableScanStats(const std::shared_ptr<Task>& task) {
     return task->taskStats().pipelineStats[0].operatorStats[0];
+  }
+
+  static int64_t getSkippedStridesStat(const std::shared_ptr<Task>& task) {
+    return getTableScanStats(task).runtimeStats["skippedStrides"].sum;
+  }
+
+  static int64_t getSkippedSplitsStat(const std::shared_ptr<Task>& task) {
+    return getTableScanStats(task).runtimeStats["skippedSplits"].sum;
   }
 
   std::shared_ptr<connector::hive::HiveTableHandle> makeTableHandle(
@@ -839,10 +847,12 @@ TEST_F(TableScanTest, statsBasedSkippingBool) {
   };
   auto task = assertQuery("SELECT c0 FROM tmp WHERE c1 = true");
   EXPECT_EQ(20'000, getTableScanStats(task).rawInputPositions);
+  EXPECT_EQ(2, getSkippedStridesStat(task));
 
   subfieldFilters = singleSubfieldFilter("c1", boolEqual(false));
   task = assertQuery("SELECT c0 FROM tmp WHERE c1 = false");
   EXPECT_EQ(size - 20'000, getTableScanStats(task).rawInputPositions);
+  EXPECT_EQ(2, getSkippedStridesStat(task));
 }
 
 TEST_F(TableScanTest, statsBasedSkippingDouble) {
@@ -872,12 +882,14 @@ TEST_F(TableScanTest, statsBasedSkippingDouble) {
 
   auto task = assertQuery("SELECT c0 FROM tmp WHERE c0 <= -1.05");
   EXPECT_EQ(0, getTableScanStats(task).rawInputPositions);
+  EXPECT_EQ(1, getSkippedSplitsStat(task));
 
   // c0 >= 11,111.06 - first stride should be skipped based on stats
   subfieldFilters =
       singleSubfieldFilter("c0", greaterThanOrEqualDouble(11'111.06));
   task = assertQuery("SELECT c0 FROM tmp WHERE c0 >= 11111.06");
   EXPECT_EQ(size - 10'000, getTableScanStats(task).rawInputPositions);
+  EXPECT_EQ(1, getSkippedStridesStat(task));
 
   // c0 between 10'100.06 and 10'500.08 - all strides but second should be
   // skipped based on stats
@@ -886,12 +898,14 @@ TEST_F(TableScanTest, statsBasedSkippingDouble) {
   task =
       assertQuery("SELECT c0 FROM tmp WHERE c0 between 10100.06 AND 10500.08");
   EXPECT_EQ(10'000, getTableScanStats(task).rawInputPositions);
+  EXPECT_EQ(3, getSkippedStridesStat(task));
 
   // c0 <= 1,234.005 - all strides but first should be skipped
   subfieldFilters =
       singleSubfieldFilter("c0", lessThanOrEqualDouble(1'234.005));
   task = assertQuery("SELECT c0 FROM tmp WHERE c0 <= 1234.005");
   EXPECT_EQ(10'000, getTableScanStats(task).rawInputPositions);
+  EXPECT_EQ(3, getSkippedStridesStat(task));
 }
 
 TEST_F(TableScanTest, statsBasedSkippingFloat) {
@@ -921,12 +935,14 @@ TEST_F(TableScanTest, statsBasedSkippingFloat) {
 
   auto task = assertQuery("SELECT c0 FROM tmp WHERE c0 <= -1.05");
   EXPECT_EQ(0, getTableScanStats(task).rawInputPositions);
+  EXPECT_EQ(1, getSkippedSplitsStat(task));
 
   // c0 >= 11,111.06 - first stride should be skipped based on stats
   subfieldFilters =
       singleSubfieldFilter("c0", greaterThanOrEqualFloat(11'111.06));
   task = assertQuery("SELECT c0 FROM tmp WHERE c0 >= 11111.06");
   EXPECT_EQ(size - 10'000, getTableScanStats(task).rawInputPositions);
+  EXPECT_EQ(1, getSkippedStridesStat(task));
 
   // c0 between 10'100.06 and 10'500.08 - all strides but second should be
   // skipped based on stats
@@ -935,11 +951,13 @@ TEST_F(TableScanTest, statsBasedSkippingFloat) {
   task =
       assertQuery("SELECT c0 FROM tmp WHERE c0 between 10100.06 AND 10500.08");
   EXPECT_EQ(10'000, getTableScanStats(task).rawInputPositions);
+  EXPECT_EQ(3, getSkippedStridesStat(task));
 
   // c0 <= 1,234.005 - all strides but first should be skipped
   subfieldFilters = singleSubfieldFilter("c0", lessThanOrEqualFloat(1'234.005));
   task = assertQuery("SELECT c0 FROM tmp WHERE c0 <= 1234.005");
   EXPECT_EQ(10'000, getTableScanStats(task).rawInputPositions);
+  EXPECT_EQ(3, getSkippedStridesStat(task));
 }
 
 // Test skipping whole file based on statistics
@@ -999,56 +1017,66 @@ TEST_F(TableScanTest, statsBasedSkipping) {
   subfieldFilters = singleSubfieldFilter("c2", equal("tomato"));
   task = assertQuery("SELECT c1 FROM tmp WHERE c2 = 'tomato'");
   EXPECT_EQ(0, getTableScanStats(task).rawInputPositions);
+  EXPECT_EQ(1, getSkippedSplitsStat(task));
 
   // c2 in ("x", "y") -> whole file should be skipped based on stats
   subfieldFilters =
       singleSubfieldFilter("c2", orFilter(equal("x"), equal("y")));
   task = assertQuery("SELECT c1 FROM tmp WHERE c2 IN ('x', 'y')");
   EXPECT_EQ(0, getTableScanStats(task).rawInputPositions);
+  EXPECT_EQ(1, getSkippedSplitsStat(task));
 
   // c0 >= 11,111 - first stride should be skipped based on stats
   subfieldFilters = singleSubfieldFilter("c0", greaterThanOrEqual(11'111));
   task = assertQuery("SELECT c1 FROM tmp WHERE c0 >= 11111");
   EXPECT_EQ(size - 10'000, getTableScanStats(task).rawInputPositions);
+  EXPECT_EQ(1, getSkippedStridesStat(task));
 
   // c2 = "banana" - odd stripes should be skipped based on stats
   subfieldFilters = singleSubfieldFilter("c2", equal("banana"));
   task = assertQuery("SELECT c1 FROM tmp WHERE c2 = 'banana'");
   EXPECT_EQ(20'000, getTableScanStats(task).rawInputPositions);
+  EXPECT_EQ(2, getSkippedStridesStat(task));
 
   // c2 in ("banana", "y") -> same as previous
   subfieldFilters =
       singleSubfieldFilter("c2", orFilter(equal("banana"), equal("y")));
   task = assertQuery("SELECT c1 FROM tmp WHERE c2 IN ('banana', 'y')");
   EXPECT_EQ(20'000, getTableScanStats(task).rawInputPositions);
+  EXPECT_EQ(2, getSkippedStridesStat(task));
 
   // c2 = "squash" - even stripes should be skipped based on stats
   subfieldFilters = singleSubfieldFilter("c2", equal("squash"));
   task = assertQuery("SELECT c1 FROM tmp WHERE c2 = 'squash'");
   EXPECT_EQ(size - 20'000, getTableScanStats(task).rawInputPositions);
+  EXPECT_EQ(2, getSkippedStridesStat(task));
 
   // c2 in ("banana", "squash") -> no skipping
   subfieldFilters =
       singleSubfieldFilter("c2", orFilter(equal("banana"), equal("squash")));
   task = assertQuery("SELECT c1 FROM tmp WHERE c2 IN ('banana', 'squash')");
   EXPECT_EQ(31'234, getTableScanStats(task).rawInputPositions);
+  EXPECT_EQ(0, getSkippedStridesStat(task));
 
   // c0 <= 100 AND c0 >= 20'100 - skip second stride
   subfieldFilters = singleSubfieldFilter(
       "c0", bigintOr(lessThanOrEqual(100), greaterThanOrEqual(20'100)));
   task = assertQuery("SELECT c1 FROM tmp WHERE c0 <= 100 OR c0 >= 20100");
   EXPECT_EQ(size - 10'000, getTableScanStats(task).rawInputPositions);
+  EXPECT_EQ(1, getSkippedStridesStat(task));
 
   // c0 between 10'100 and 10'500 - all strides but second should be skipped
   // based on stats
   subfieldFilters = singleSubfieldFilter("c0", between(10'100, 10'500));
   task = assertQuery("SELECT c1 FROM tmp WHERE c0 between 10100 AND 10500");
   EXPECT_EQ(10'000, getTableScanStats(task).rawInputPositions);
+  EXPECT_EQ(3, getSkippedStridesStat(task));
 
   // c0 <= 1,234 - all strides but first should be skipped
   subfieldFilters = singleSubfieldFilter("c0", lessThanOrEqual(1'234));
   task = assertQuery("SELECT c1 FROM tmp WHERE c0 <= 1234");
   EXPECT_EQ(10'000, getTableScanStats(task).rawInputPositions);
+  EXPECT_EQ(3, getSkippedStridesStat(task));
 
   // c0 >= 10234 AND c1 <= 20345 - first and last strides should be skipped
   subfieldFilters = SubfieldFiltersBuilder()
@@ -1057,6 +1085,7 @@ TEST_F(TableScanTest, statsBasedSkipping) {
                         .build();
   task = assertQuery("SELECT c1 FROM tmp WHERE c0 >= 10234 AND c1 <= 20345");
   EXPECT_EQ(20'000, getTableScanStats(task).rawInputPositions);
+  EXPECT_EQ(2, getSkippedStridesStat(task));
 }
 
 // Test skipping files and row groups containing constant values based on
@@ -1095,12 +1124,14 @@ TEST_F(TableScanTest, statsBasedSkippingConstants) {
 
   auto task = assertQuery("SELECT c1 FROM tmp WHERE c0 in (0, 10, 100, 1000)");
   EXPECT_EQ(0, getTableScanStats(task).rawInputPositions);
+  EXPECT_EQ(1, getSkippedSplitsStat(task));
 
   // skip all but first rowgroup
   filters = singleSubfieldFilter("c1", in({0, 10, 100, 1000}));
   task = assertQuery("SELECT c1 FROM tmp WHERE c1 in (0, 10, 100, 1000)");
 
   EXPECT_EQ(10'000, getTableScanStats(task).rawInputPositions);
+  EXPECT_EQ(3, getSkippedStridesStat(task));
 
   // skip whole file
   filters = singleSubfieldFilter(
@@ -1108,6 +1139,7 @@ TEST_F(TableScanTest, statsBasedSkippingConstants) {
   task = assertQuery("SELECT c1 FROM tmp WHERE c2 in ('apple', 'cherry')");
 
   EXPECT_EQ(0, getTableScanStats(task).rawInputPositions);
+  EXPECT_EQ(1, getSkippedSplitsStat(task));
 
   // skip all but second rowgroup
   filters = singleSubfieldFilter(
@@ -1115,6 +1147,7 @@ TEST_F(TableScanTest, statsBasedSkippingConstants) {
   task = assertQuery("SELECT c1 FROM tmp WHERE c3 in ('banana', 'grapefruit')");
 
   EXPECT_EQ(10'000, getTableScanStats(task).rawInputPositions);
+  EXPECT_EQ(3, getSkippedStridesStat(task));
 }
 
 // Test stats-based skipping for the IS NULL filter.

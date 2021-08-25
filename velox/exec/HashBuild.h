@@ -91,6 +91,8 @@ class HashBuild final : public Operator {
   void close() override {}
 
  private:
+  void addRuntimeStats();
+
   const core::JoinType joinType_;
 
   // Container for the rows being accumulated.

@@ -228,6 +228,10 @@ void OperatorStats::add(const OperatorStats& other) {
   finishTiming.add(other.finishTiming);
 
   memoryStats.add(other.memoryStats);
+
+  for (const auto& stat : other.runtimeStats) {
+    runtimeStats[stat.first].merge(stat.second);
+  }
 }
 
 void OperatorStats::clear() {
@@ -250,6 +254,8 @@ void OperatorStats::clear() {
   finishTiming.clear();
 
   memoryStats.clear();
+
+  runtimeStats.clear();
 }
 
 } // namespace exec

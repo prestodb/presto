@@ -138,6 +138,13 @@ class HiveDataSource : public DataSource {
     return ioStats_->rawBytesRead();
   }
 
+  std::unordered_map<std::string, int64_t> runtimeStats() override {
+    return {
+        {"skippedSplits", skippedSplits_},
+        {"skippedSplitBytes", skippedSplitBytes_},
+        {"skippedStrides", skippedStrides_}};
+  }
+
  private:
   // Evaluates remainingFilter_ on the specified vector. Returns number of rows
   // passed. Populates filterEvalCtx_.selectedIndices and selectedBits if only
@@ -165,6 +172,16 @@ class HiveDataSource : public DataSource {
   std::unique_ptr<exec::ExprSet> remainingFilterExprSet_;
   std::shared_ptr<const RowType> readerOutputType_;
   bool emptySplit_;
+
+  // Number of splits skipped based on statistics.
+  int64_t skippedSplits_{0};
+
+  // Total bytes in splits skipped based on statistics.
+  int64_t skippedSplitBytes_{0};
+
+  // Number of strides (row groups) skipped based on statistics.
+  int64_t skippedStrides_{0};
+
   VectorPtr output_;
   FileHandleCachedPtr fileHandle_;
   DataCache* dataCache_;

@@ -91,6 +91,8 @@ class DataSource {
   // Returns the number of input rows processed so far.
   virtual uint64_t getCompletedRows() = 0;
 
+  virtual std::unordered_map<std::string, int64_t> runtimeStats() = 0;
+
   // TODO Allow DataSource to indicate that it is blocked (say waiting for IO)
   // to avoid holding up the thread.
 };

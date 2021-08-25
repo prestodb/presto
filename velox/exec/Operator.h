@@ -75,6 +75,27 @@ struct MemoryStats {
   }
 };
 
+struct RuntimeMetric {
+  int64_t sum{0};
+  int64_t count{0};
+  int64_t min{std::numeric_limits<int64_t>::max()};
+  int64_t max{std::numeric_limits<int64_t>::min()};
+
+  void addValue(int64_t value) {
+    sum += value;
+    count++;
+    min = std::min(min, value);
+    max = std::max(max, value);
+  }
+
+  void merge(const RuntimeMetric& other) {
+    sum += other.sum;
+    count += other.count;
+    min = std::min(min, other.min);
+    max = std::max(max, other.max);
+  }
+};
+
 struct OperatorStats {
   // Initial ordinal position in the operator's pipeline.
   int32_t operatorId = 0;
@@ -110,6 +131,8 @@ struct OperatorStats {
 
   MemoryStats memoryStats;
 
+  std::unordered_map<std::string, RuntimeMetric> runtimeStats;
+
   OperatorStats(
       int32_t _operatorId,
       int32_t _pipelineId,
@@ -119,6 +142,10 @@ struct OperatorStats {
         pipelineId(_pipelineId),
         planNodeId(_planNodeId),
         operatorType(_operatorType) {}
+
+  void addRuntimeStat(const std::string& name, int64_t value) {
+    runtimeStats[name].addValue(value);
+  }
 
   void add(const OperatorStats& other);
   void clear();

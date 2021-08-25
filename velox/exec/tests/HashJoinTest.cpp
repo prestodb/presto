@@ -295,7 +295,11 @@ TEST_F(HashJoinTest, arrayBasedLookup) {
           .project({"c1 + 1"})
           .planNode();
 
-  assertQuery(op, "SELECT t.c1 + 1 FROM t, u WHERE t.c0 = u.c0");
+  auto task = assertQuery(op, "SELECT t.c1 + 1 FROM t, u WHERE t.c0 = u.c0");
+  auto joinStats =
+      task->taskStats().pipelineStats.back().operatorStats.back().runtimeStats;
+  EXPECT_EQ(101, joinStats["distinctKey0"].sum);
+  EXPECT_EQ(200, joinStats["rangeKey0"].sum);
 }
 
 TEST_F(HashJoinTest, innerJoinWithEmptyBuild) {

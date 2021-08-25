@@ -57,11 +57,18 @@ class DwrfRowReader : public DwrfRowReaderShared {
   // Returns number of rows read. Guaranteed to be less then or equal to size.
   uint64_t next(uint64_t size, VectorPtr& result);
 
+  int64_t skippedStrides() const {
+    return skippedStrides_;
+  }
+
  private:
   void checkSkipStrides(const StatsContext& context, uint64_t strideSize);
 
   std::unique_ptr<ColumnReader> columnReader_;
   std::vector<uint32_t> stridesToSkip_;
+
+  // Number of skipped strides.
+  int64_t skippedStrides_{0};
 };
 
 class DwrfReader : public DwrfReaderShared {
