@@ -26,6 +26,7 @@
 #include "velox/functions/sparksql/RegexFunctions.h"
 #include "velox/functions/sparksql/RegisterArithmetic.h"
 #include "velox/functions/sparksql/RegisterCompare.h"
+#include "velox/functions/sparksql/String.h"
 
 namespace facebook::velox::functions {
 
@@ -41,7 +42,6 @@ static void workAroundRegistrationMacro(const std::string& prefix) {
   VELOX_REGISTER_VECTOR_FUNCTION(udf_in, prefix + "in");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_array_constructor, prefix + "array");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_filter, prefix + "filter");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_length, prefix + "length");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_map_entries, prefix + "map_entries");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_substr, prefix + "substring");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_lower, prefix + "lower");
@@ -73,6 +73,8 @@ void registerFunctions(const std::string& prefix) {
       {prefix + "xxhash64"});
   registerFunction<udf_xxhash64<Varbinary, Varbinary>, Varbinary, Varbinary>(
       {prefix + "xxhash64"});
+  exec::registerStatefulVectorFunction(
+      "length", lengthSignatures(), makeLength);
   registerFunction<udf_md5<Varbinary, Varbinary>, Varbinary, Varbinary>(
       {prefix + "md5"});
   registerFunction<udf_md5_radix<Varchar, Varchar>, Varchar, Varchar, int32_t>(

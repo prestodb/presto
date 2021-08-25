@@ -20,6 +20,7 @@ add_library(
   RegisterArithmetic.cpp
   RegisterCompare.cpp
   SplitFunctions.cpp
+  String.cpp
   Subscript.cpp)
 
 target_link_libraries(velox_functions_spark velox_functions_lib
