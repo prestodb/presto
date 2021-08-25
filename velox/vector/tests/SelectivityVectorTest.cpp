@@ -365,21 +365,43 @@ TEST(SelectivityVectorTest, iterator) {
   EXPECT_EQ(count, bits::countBits(&contiguous[0], 0, 240));
 }
 
-TEST(SelectivityVectorTest, resizeTest) {
+TEST(SelectivityVectorTest, resize) {
+  auto checkFn = [&](int from, int to, SelectivityVector& vector, bool check) {
+    for (int i = from; i < to; i++) {
+      ASSERT_EQ(check, vector.isValid(i));
+    }
+  };
+
   SelectivityVector vector(64, false);
   vector.resize(128, /* value */ true);
-
   // Ensure last 64 bits are set to 1
-  for (int i = 64; i < vector.size(); i++) {
-    ASSERT_TRUE(vector.isValid(i));
-  }
+  checkFn(64, 128, vector, true);
 
-  SelectivityVector rows(64, false);
+  SelectivityVector rows(64, true);
   rows.resize(128, /* value */ false);
+  // Ensure last 64 bits set to false
+  checkFn(64, 128, rows, false);
+  ASSERT_FALSE(rows.isAllSelected());
 
-  for (int i = 64; i < rows.size(); i++) {
-    ASSERT_TRUE(!rows.isValid(i));
-  }
+  // Now test more unusual ranges
+  SelectivityVector unusual(37, true);
+  checkFn(0, 37, unusual, true);
+  unusual.resize(63, /* value */ false);
+  checkFn(0, 37, unusual, true);
+  checkFn(37, 63, unusual, false);
+
+  // Test for much larger word lengths
+  SelectivityVector larger(53, true);
+  checkFn(0, 53, larger, true);
+  larger.resize(656, true);
+  checkFn(53, 64, larger, true);
+  checkFn(640, 656, larger, true);
+
+  // Check for word length reduction
+  larger.resize(53);
+  checkFn(0, 53, larger, true);
+  // Check if all selected is true
+  ASSERT_TRUE(larger.isAllSelected());
 }
 
 } // namespace test
