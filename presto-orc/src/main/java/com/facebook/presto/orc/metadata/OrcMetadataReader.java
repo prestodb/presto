@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.metadata;
 
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.orc.DwrfEncryptionProvider;
 import com.facebook.presto.orc.DwrfKeyProvider;
 import com.facebook.presto.orc.OrcDataSource;
@@ -39,12 +40,14 @@ import com.facebook.presto.orc.protobuf.CodedInputStream;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.sun.management.ThreadMXBean;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.management.ManagementFactory;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
@@ -75,19 +78,30 @@ import static io.airlift.slice.SliceUtf8.tryGetCodePointAt;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static java.lang.Character.MIN_SUPPLEMENTARY_CODE_POINT;
 import static java.lang.Math.toIntExact;
+import static java.util.Objects.requireNonNull;
 
 public class OrcMetadataReader
         implements MetadataReader
 {
     private static final int REPLACEMENT_CHARACTER_CODE_POINT = 0xFFFD;
     private static final int PROTOBUF_MESSAGE_MAX_LIMIT = toIntExact(new DataSize(1, GIGABYTE).toBytes());
+    private static final ThreadMXBean THREAD_MX_BEAN = (ThreadMXBean) ManagementFactory.getThreadMXBean();
+
+    private final RuntimeStats runtimeStats;
+
+    public OrcMetadataReader(RuntimeStats runtimeStats)
+    {
+        this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
+    }
 
     @Override
     public PostScript readPostScript(byte[] data, int offset, int length)
             throws IOException
     {
+        long cpuStart = THREAD_MX_BEAN.getCurrentThreadCpuTime();
         CodedInputStream input = CodedInputStream.newInstance(data, offset, length);
         OrcProto.PostScript postScript = OrcProto.PostScript.parseFrom(input);
+        runtimeStats.addMetricValue("OrcReadPostScriptTimeNanos", THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
 
         return new PostScript(
                 postScript.getVersionList(),
@@ -112,9 +126,11 @@ public class OrcMetadataReader
     public Metadata readMetadata(HiveWriterVersion hiveWriterVersion, InputStream inputStream)
             throws IOException
     {
+        long cpuStart = THREAD_MX_BEAN.getCurrentThreadCpuTime();
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         input.setSizeLimit(PROTOBUF_MESSAGE_MAX_LIMIT);
         OrcProto.Metadata metadata = OrcProto.Metadata.parseFrom(input);
+        runtimeStats.addMetricValue("OrcReadMetadataTimeNanos", THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
         return new Metadata(toStripeStatistics(hiveWriterVersion, metadata.getStripeStatsList()));
     }
 
@@ -139,9 +155,11 @@ public class OrcMetadataReader
             Optional<OrcDecompressor> decompressor)
             throws IOException
     {
+        long cpuStart = THREAD_MX_BEAN.getCurrentThreadCpuTime();
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         input.setSizeLimit(PROTOBUF_MESSAGE_MAX_LIMIT);
         OrcProto.Footer footer = OrcProto.Footer.parseFrom(input);
+        runtimeStats.addMetricValue("OrcReadFooterTimeNanos", THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
         return new Footer(
                 footer.getNumberOfRows(),
                 footer.getRowIndexStride(),
@@ -175,8 +193,10 @@ public class OrcMetadataReader
     public StripeFooter readStripeFooter(OrcDataSourceId orcDataSourceId, List<OrcType> types, InputStream inputStream)
             throws IOException
     {
+        long cpuStart = THREAD_MX_BEAN.getCurrentThreadCpuTime();
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         OrcProto.StripeFooter stripeFooter = OrcProto.StripeFooter.parseFrom(input);
+        runtimeStats.addMetricValue("OrcReadStripeFooterTimeNanos", THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
         return new StripeFooter(toStream(stripeFooter.getStreamsList()), toColumnEncoding(stripeFooter.getColumnsList()), ImmutableList.of());
     }
 
@@ -208,8 +228,10 @@ public class OrcMetadataReader
     public List<RowGroupIndex> readRowIndexes(HiveWriterVersion hiveWriterVersion, InputStream inputStream)
             throws IOException
     {
+        long cpuStart = THREAD_MX_BEAN.getCurrentThreadCpuTime();
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         OrcProto.RowIndex rowIndex = OrcProto.RowIndex.parseFrom(input);
+        runtimeStats.addMetricValue("OrcReadRowIndexesTimeNanos", THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
         return rowIndex.getEntryList().stream()
                 .map(rowIndexEntry -> toRowGroupIndex(hiveWriterVersion, rowIndexEntry))
                 .collect(toImmutableList());
