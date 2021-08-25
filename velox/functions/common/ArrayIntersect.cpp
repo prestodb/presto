@@ -265,13 +265,13 @@ void validateType(const std::vector<exec::VectorFunctionArg>& inputArgs) {
   }
 }
 
-template <typename T>
+template <TypeKind kind>
 std::shared_ptr<exec::VectorFunction> createTyped(
     const std::vector<exec::VectorFunctionArg>& inputArgs) {
   VELOX_CHECK_EQ(inputArgs.size(), 2);
   BaseVector* left = inputArgs[0].constantValue.get();
   BaseVector* right = inputArgs[1].constantValue.get();
-
+  using T = typename TypeTraits<kind>::NativeType;
   // No constant values.
   if ((left == nullptr) && (right == nullptr)) {
     return std::make_shared<ArrayIntersectFunction<T>>();
@@ -306,23 +306,8 @@ std::shared_ptr<exec::VectorFunction> create(
   validateType(inputArgs);
   auto elementType = inputArgs.front().type->childAt(0);
 
-  switch (elementType->kind()) {
-    case TypeKind::BIGINT:
-      return createTyped<int64_t>(inputArgs);
-    case TypeKind::INTEGER:
-      return createTyped<int32_t>(inputArgs);
-    case TypeKind::SMALLINT:
-      return createTyped<int16_t>(inputArgs);
-    case TypeKind::TINYINT:
-      return createTyped<int8_t>(inputArgs);
-    case TypeKind::VARCHAR:
-      return createTyped<StringView>(inputArgs);
-    default:
-      VELOX_UNSUPPORTED(
-          "{}: Unsupported array type {}",
-          name,
-          mapTypeKindToName(elementType->kind()));
-  }
+  return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+      createTyped, elementType->kind(), inputArgs);
 }
 
 std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
