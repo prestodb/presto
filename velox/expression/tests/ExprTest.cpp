@@ -717,40 +717,6 @@ class ExprTest : public testing::Test {
   std::unique_ptr<test::VectorMaker> vectorMaker_;
 };
 
-// Documents the objects that participate in expression evaluation.
-TEST_F(ExprTest, apiSample) {
-  auto rowType = ROW({"c0"}, {BIGINT()});
-  auto exprs = {parseExpression("1 + C0 * 2 + C0 * 2", rowType)};
-
-  // Container for expressions that get evaluated together. Common
-  // subexpression elimination and other cross-expression
-  // optimizations take place within this set of expressions.
-  exec::ExprSet exprSet(exprs, execCtx_.get());
-
-  // We make 1000 rows of one long each for input.
-  auto column =
-      makeFlatVector<int64_t>(1'000, [](vector_size_t row) { return row; });
-
-  auto row = makeRowVector({column});
-
-  // Context for this invocation of ExprSet::eval. Holds the RowVector
-  // with the inputs and state that is scoped to the evaluation.
-  exec::EvalCtx evalCtx(execCtx_.get(), &exprSet, row.get());
-
-  // Specifies what rows the evaluation concerns.
-  SelectivityVector rows(1'000);
-
-  std::vector<VectorPtr> result(1);
-
-  // Evaluates the first Expr in ExprSet on 'rows'. Puts the result in
-  // 'result' at the index of the corresponding Expr.
-  exprSet.eval(rows, &evalCtx, &result);
-  const int64_t* values = result[0]->as<FlatVector<int64_t>>()->rawValues();
-  for (int32_t i = 0; i < 1'000; ++i) {
-    ASSERT_EQ(values[i], 1 + i * 2 + i * 2);
-  }
-}
-
 #define IS_BIGINT1 testData_.bigint1.reference[row].hasValue()
 #define IS_BIGINT2 testData_.bigint2.reference[row].hasValue()
 #define BIGINT1 testData_.bigint1.reference[row].value()

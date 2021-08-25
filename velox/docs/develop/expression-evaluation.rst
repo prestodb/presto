@@ -6,6 +6,8 @@ Velox features vectorized expression evaluation. It is used in FilterProject
 operator to evaluate filter and project expressions and in HiveConnector to
 evaluate the “remaining” filter expression. It can also be used standalone.
 
+Check **velox/example/ExpressionEval.cpp** for an example usage of the API.
+
 Expression Trees
 ----------------
 
