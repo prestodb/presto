@@ -425,6 +425,29 @@ void VectorHasher::copyStringToLocal(const UniqueValue* unique) {
       reinterpret_cast<int64_t>(str->data() + start));
 }
 
+std::unique_ptr<common::Filter> VectorHasher::getFilter(
+    bool nullAllowed) const {
+  switch (typeKind_) {
+    case TypeKind::TINYINT:
+    case TypeKind::SMALLINT:
+    case TypeKind::INTEGER:
+    case TypeKind::BIGINT: {
+      if (!distinctOverflow_) {
+        std::vector<int64_t> values;
+        values.reserve(uniqueValues_.size());
+        for (const auto& value : uniqueValues_) {
+          values.emplace_back(value.data());
+        }
+
+        return common::createBigintValues(values, nullAllowed);
+      }
+    }
+    default:
+      // TODO Add support for strings.
+      return nullptr;
+  }
+}
+
 void VectorHasher::cardinality(uint64_t& asRange, uint64_t& asDistincts) {
   if (typeKind_ == TypeKind::BOOLEAN) {
     hasRange_ = true;

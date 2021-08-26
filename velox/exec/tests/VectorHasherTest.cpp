@@ -373,6 +373,17 @@ TEST_F(VectorHasherTest, integerIds) {
   EXPECT_FALSE(hasher->computeValueIds(*vector, rows, &hashes));
   hasher->cardinality(numRange, numDistinct);
   EXPECT_EQ(numRange, VectorHasher::kRangeTooLarge);
+
+  auto filter = hasher->getFilter(false);
+  ASSERT_TRUE(filter != nullptr);
+  auto bigintValues =
+      dynamic_cast<common::BigintValuesUsingHashTable*>(filter.get());
+  ASSERT_TRUE(bigintValues != nullptr);
+  ASSERT_FALSE(bigintValues->testNull());
+  ASSERT_TRUE(bigintValues->testInt64(kMin + 100));
+  ASSERT_FALSE(bigintValues->testInt64(kMin + 101));
+  ASSERT_FALSE(bigintValues->testInt64(0));
+
   hasher = exec::VectorHasher::create(BIGINT(), 1);
   hasher->enableValueIds(1, 100000);
   // We add values that are over 100K distinct and withmax - min > int64_t max.
@@ -463,6 +474,17 @@ TEST_F(VectorHasherTest, merge) {
   EXPECT_EQ(numRange, 1 + 1000 + kSize);
   // Half the values are in common, plus 1 for null.
   EXPECT_EQ(numDistinct, 1 + kSize + (kSize / 2));
+
+  auto filter = hasher.getFilter(false);
+  ASSERT_TRUE(filter != nullptr);
+  auto bigintValues =
+      dynamic_cast<common::BigintValuesUsingBitmask*>(filter.get());
+  ASSERT_TRUE(bigintValues != nullptr);
+  ASSERT_FALSE(bigintValues->testNull());
+  ASSERT_TRUE(bigintValues->testInt64(56));
+  ASSERT_TRUE(bigintValues->testInt64(1066));
+  ASSERT_FALSE(bigintValues->testInt64(304));
+  ASSERT_FALSE(bigintValues->testInt64(123));
 
   std::unordered_set<uint64_t> ids;
   hasher.enableValueIds(1, 0);

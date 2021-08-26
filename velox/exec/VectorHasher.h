@@ -17,6 +17,7 @@
 
 #include <folly/container/F14Set.h>
 
+#include <velox/type/Filter.h>
 #include "velox/exec/Operator.h"
 #include "velox/vector/FlatVector.h"
 #include "velox/vector/VectorTypeUtils.h"
@@ -203,6 +204,10 @@ class VectorHasher {
   bool mayUseValueIds() const {
     return hasRange_ || !distinctOverflow_;
   }
+
+  // Returns an instance of the filter corresponding to a set of unique values.
+  // Returns null if distinctOverflow_ is true.
+  std::unique_ptr<common::Filter> getFilter(bool nullAllowed) const;
 
   template <typename T>
   bool computeValueIdForRows(
