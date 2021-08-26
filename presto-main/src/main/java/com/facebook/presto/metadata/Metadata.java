@@ -26,6 +26,7 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorSmallFragmentCoalescingPlan;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.MaterializedViewStatus;
@@ -297,7 +298,7 @@ public interface Metadata
     /**
      * Finish insert query
      */
-    Optional<ConnectorOutputMetadata> finishInsert(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics);
+    Optional<ConnectorOutputMetadata> finishInsert(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments, Collection<Slice> deprecatedFragments, Collection<ComputedStatistics> computedStatistics);
 
     /**
      * Get the row ID column handle used with UpdatablePageSource.
@@ -521,4 +522,6 @@ public interface Metadata
     {
         return NOT_APPLICABLE;
     }
+
+    ConnectorSmallFragmentCoalescingPlan createSmallFragmentCoalescingPlan(Session session, InsertTableHandle insertTableHandle, Collection<Slice> fragments);
 }

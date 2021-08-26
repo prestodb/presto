@@ -90,7 +90,8 @@ public class HiveAddRequestedColumnsToLayout
                     Optional.of(tableScan.getOutputVariables().stream()
                             .map(output -> (HiveColumnHandle) tableScan.getAssignments().get(output))
                             .collect(toImmutableSet())),
-                    hiveLayout.isPartialAggregationsPushedDown());
+                    hiveLayout.isPartialAggregationsPushedDown(),
+                    Optional.empty());
 
             return new TableScanNode(
                     tableScan.getSourceLocation(),

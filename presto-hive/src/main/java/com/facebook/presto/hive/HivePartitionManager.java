@@ -420,6 +420,6 @@ public class HivePartitionManager
             builder.put(column, parsedValue);
         }
         Map<ColumnHandle, NullableValue> values = builder.build();
-        return new HivePartition(tableName, partitionName, values);
+        return new HivePartition(tableName, partitionName, values, Optional.empty());
     }
 }

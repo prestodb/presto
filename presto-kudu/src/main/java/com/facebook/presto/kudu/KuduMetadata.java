@@ -54,6 +54,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -295,8 +296,10 @@ public class KuduMetadata
     public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session,
             ConnectorInsertTableHandle insertHandle,
             Collection<Slice> fragments,
+            Collection<Slice> deprecatedFragments,
             Collection<ComputedStatistics> computedStatistics)
     {
+        checkArgument(deprecatedFragments.isEmpty(), "deprecated fragments are unsupported");
         return Optional.empty();
     }
 

@@ -52,6 +52,7 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spiller.GenericSpillerFactory;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceManager;
+import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler;
@@ -189,7 +190,8 @@ public final class TaskTestUtils
                 new ObjectMapper(),
                 (session) -> {
                     throw new UnsupportedOperationException();
-                });
+                },
+                new SplitManager(metadata, new QueryManagerConfig(), new NodeSchedulerConfig()));
     }
 
     public static TaskInfo updateTask(SqlTask sqlTask, List<TaskSource> taskSources, OutputBuffers outputBuffers)

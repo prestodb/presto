@@ -224,6 +224,8 @@ public class FeaturesConfig
 
     private double hyperloglogStandardErrorWarningThreshold = 0.004;
 
+    private int smallFragmentCoalescingScanParallelism = 32;
+
     public enum PartitioningPrecisionStrategy
     {
         // Let Presto decide when to repartition
@@ -2054,6 +2056,19 @@ public class FeaturesConfig
     public FeaturesConfig setRoundRobinShuffleBeforePartialDistinctLimit(boolean roundRobinShuffleBeforePartialDistinctLimit)
     {
         this.roundRobinShuffleBeforePartialDistinctLimit = roundRobinShuffleBeforePartialDistinctLimit;
+        return this;
+    }
+
+    public int getSmallFragmentCoalescingScanParallelism()
+    {
+        return smallFragmentCoalescingScanParallelism;
+    }
+
+    @Config("small-fragment-coalescing-scan-parallelism")
+    @ConfigDescription("Per query number of threads reading small fragments when coalescing. Default is 32.")
+    public FeaturesConfig setSmallFragmentCoalescingScanParallelism(int smallFragmentCoalescingScanParallelism)
+    {
+        this.smallFragmentCoalescingScanParallelism = smallFragmentCoalescingScanParallelism;
         return this;
     }
 }

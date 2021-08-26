@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.concurrent.BoundedExecutor;
+import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.predicate.Domain;
@@ -48,6 +49,7 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -76,6 +78,7 @@ import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.common.type.Decimals.encodeScaledValue;
@@ -127,6 +130,7 @@ import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Cate
 public class HiveSplitManager
         implements ConnectorSplitManager
 {
+    private static final Logger log = Logger.get(HiveSplitManager.class);
     public static final String OBJECT_NOT_READABLE = "object_not_readable";
 
     private final HiveTransactionManager hiveTransactionManager;
@@ -226,8 +230,8 @@ public class HiveSplitManager
             throw new PrestoException(HIVE_TRANSACTION_NOT_FOUND, format("Transaction not found: %s", transaction));
         }
         SemiTransactionalHiveMetastore metastore = metadata.getMetastore();
-        Table table = metastore.getTable(new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider()), tableName.getSchemaName(), tableName.getTableName())
-                .orElseThrow(() -> new TableNotFoundException(tableName));
+        Table table = layout.getMetastoreTable().orElseGet(() -> metastore.getTable(new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider()), tableName.getSchemaName(), tableName.getTableName())
+                .orElseThrow(() -> new TableNotFoundException(tableName)));
 
         if (!isOfflineDataDebugModeEnabled(session)) {
             // verify table is not marked as non-readable
@@ -402,9 +406,21 @@ public class HiveSplitManager
             resolvedHiveStorageFormat = hiveStorageFormat;
         }
 
+        Function<List<HivePartition>, Map<String, PartitionSplitInfo>> partitionSplitInfoTransform;
+        if (hivePartitions.stream().allMatch(HivePartition::hasMetastorePartition)) {
+            partitionSplitInfoTransform = (partitionBatch) -> getPartitionSplitInfoFromPartitionBatch(partitionBatch);
+        }
+        else if (hivePartitions.stream().noneMatch(HivePartition::hasMetastorePartition)) {
+            partitionSplitInfoTransform = (partitionBatch) -> getPartitionSplitInfoFromMetastore(session, metastore, tableName, partitionBatch, predicateColumns, domains);
+        }
+        else {
+            // Possible to support, but doesn't have a real use case yet
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Mix of HivePartitions with and without included metadata is unsupported");
+        }
+
         Iterable<List<HivePartition>> partitionNameBatches = partitionExponentially(hivePartitions, minPartitionBatchSize, maxPartitionBatchSize);
         Iterable<List<HivePartitionMetadata>> partitionBatches = transform(partitionNameBatches, partitionBatch -> {
-            Map<String, PartitionSplitInfo> partitionSplitInfo = getPartitionSplitInfo(session, metastore, tableName, partitionBatch, predicateColumns, domains);
+            Map<String, PartitionSplitInfo> partitionSplitInfo = partitionSplitInfoTransform.apply(partitionBatch);
             if (partitionBatch.size() != partitionSplitInfo.size()) {
                 throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Expected %s partitions but found %s", partitionBatch.size(), partitionSplitInfo.size()));
             }
@@ -633,7 +649,7 @@ public class HiveSplitManager
                 || inputFormat.equals(HoodieParquetRealtimeInputFormat.class.getName())));
     }
 
-    private Map<String, PartitionSplitInfo> getPartitionSplitInfo(
+    private Map<String, PartitionSplitInfo> getPartitionSplitInfoFromMetastore(
             ConnectorSession session,
             SemiTransactionalHiveMetastore metastore,
             SchemaTableName tableName,
@@ -694,6 +710,21 @@ public class HiveSplitManager
         }
         metastore.setPartitionLeases(metastoreContext, tableName.getSchemaName(), tableName.getTableName(), partitionNameToLocation, getLeaseDuration(session));
 
+        return partitionSplitInfoBuilder.build();
+    }
+
+    /*
+     * Get the partition split info from the metadata we already have rather than from metastore
+     * Useful for reading from uncommitted partitions
+     */
+    private Map<String, PartitionSplitInfo> getPartitionSplitInfoFromPartitionBatch(List<HivePartition> partitionBatch)
+    {
+        Preconditions.checkArgument(partitionBatch.stream().allMatch(HivePartition::hasMetastorePartition));
+        ImmutableMap.Builder<String, PartitionSplitInfo> partitionSplitInfoBuilder = ImmutableMap.builder();
+        for (HivePartition hivePartition : partitionBatch) {
+            Partition partition = hivePartition.getMetastorePartition().get();
+            partitionSplitInfoBuilder.put(hivePartition.getPartitionId(), new PartitionSplitInfo(partition, false, ImmutableSet.of()));
+        }
         return partitionSplitInfoBuilder.build();
     }
 

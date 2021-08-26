@@ -36,6 +36,7 @@ import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorResolvedIndex;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorSmallFragmentCoalescingPlan;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
@@ -888,11 +889,11 @@ public class MetadataManager
     }
 
     @Override
-    public Optional<ConnectorOutputMetadata> finishInsert(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    public Optional<ConnectorOutputMetadata> finishInsert(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments, Collection<Slice> deprecatedFragments, Collection<ComputedStatistics> computedStatistics)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();
         ConnectorMetadata metadata = getMetadata(session, connectorId);
-        return metadata.finishInsert(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), fragments, computedStatistics);
+        return metadata.finishInsert(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), fragments, deprecatedFragments, computedStatistics);
     }
 
     @Override
@@ -1298,6 +1299,17 @@ public class MetadataManager
         ConnectorSession connectorSession = session.toConnectorSession(connectorId);
 
         return toListenableFuture(metadata.commitPageSinkAsync(connectorSession, tableHandle.getConnectorHandle(), fragments));
+    }
+
+    @Override
+    public ConnectorSmallFragmentCoalescingPlan createSmallFragmentCoalescingPlan(Session session, InsertTableHandle insertTableHandle, Collection<Slice> fragments)
+    {
+        ConnectorId connectorId = insertTableHandle.getConnectorId();
+        CatalogMetadata catalogMetadata = getCatalogMetadata(session, connectorId);
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        ConnectorSession connectorSession = session.toConnectorSession(connectorId);
+
+        return metadata.createSmallFragmentCoalescingPlan(connectorSession, insertTableHandle.getConnectorHandle(), fragments);
     }
 
     @Override

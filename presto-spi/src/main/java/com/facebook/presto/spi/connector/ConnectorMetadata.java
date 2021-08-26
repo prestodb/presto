@@ -24,6 +24,7 @@ import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorResolvedIndex;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorSmallFragmentCoalescingPlan;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
@@ -499,7 +500,7 @@ public interface ConnectorMetadata
     /**
      * Finish insert query
      */
-    default Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    default Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<Slice> deprecatedFragments, Collection<ComputedStatistics> computedStatistics)
     {
         throw new PrestoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata beginInsert() is implemented without finishInsert()");
     }
@@ -786,5 +787,10 @@ public interface ConnectorMetadata
     default TableLayoutFilterCoverage getTableLayoutFilterCoverage(ConnectorTableLayoutHandle tableHandle, Set<String> relevantPartitionColumns)
     {
         return NOT_APPLICABLE;
+    }
+
+    default ConnectorSmallFragmentCoalescingPlan createSmallFragmentCoalescingPlan(ConnectorSession connectorSession, ConnectorInsertTableHandle connectorHandle, Collection<Slice> fragments)
+    {
+        return ConnectorSmallFragmentCoalescingPlan.noOpPlan(fragments);
     }
 }

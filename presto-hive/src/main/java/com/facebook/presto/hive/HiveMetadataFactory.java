@@ -60,7 +60,7 @@ public class HiveMetadataFactory
     private final TableParameterCodec tableParameterCodec;
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
     private final SmileCodec<PartitionUpdate> partitionUpdateSmileCodec;
-    private final ListeningExecutorService fileRenameExecutor;
+    private final ListeningExecutorService fileUpdateExecutor;
     private final TypeTranslator typeTranslator;
     private final StagingFileCommitter stagingFileCommitter;
     private final ZeroRowFileCreator zeroRowFileCreator;
@@ -70,6 +70,7 @@ public class HiveMetadataFactory
     private final HivePartitionStats hivePartitionStats;
     private final HiveFileRenamer hiveFileRenamer;
     private final ColumnConverterProvider columnConverterProvider;
+    private final SmallFragmentCoalescingPlanner smallFragmentCoalescingPlanner;
 
     @Inject
     @SuppressWarnings("deprecation")
@@ -79,7 +80,7 @@ public class HiveMetadataFactory
             ExtendedHiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             HivePartitionManager partitionManager,
-            @ForFileRename ListeningExecutorService fileRenameExecutor,
+            @ForFileUpdate ListeningExecutorService fileUpdateExecutor,
             TypeManager typeManager,
             LocationService locationService,
             StandardFunctionResolution functionResolution,
@@ -96,7 +97,8 @@ public class HiveMetadataFactory
             HiveEncryptionInformationProvider encryptionInformationProvider,
             HivePartitionStats hivePartitionStats,
             HiveFileRenamer hiveFileRenamer,
-            ColumnConverterProvider columnConverterProvider)
+            ColumnConverterProvider columnConverterProvider,
+            SmallFragmentCoalescingPlanner smallFragmentCoalescingPlanner)
     {
         this(
                 metastore,
@@ -121,7 +123,7 @@ public class HiveMetadataFactory
                 tableParameterCodec,
                 partitionUpdateCodec,
                 partitionUpdateSmileCodec,
-                fileRenameExecutor,
+                fileUpdateExecutor,
                 typeTranslator,
                 stagingFileCommitter,
                 zeroRowFileCreator,
@@ -130,7 +132,8 @@ public class HiveMetadataFactory
                 encryptionInformationProvider,
                 hivePartitionStats,
                 hiveFileRenamer,
-                columnConverterProvider);
+                columnConverterProvider,
+                smallFragmentCoalescingPlanner);
     }
 
     public HiveMetadataFactory(
@@ -156,7 +159,7 @@ public class HiveMetadataFactory
             TableParameterCodec tableParameterCodec,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             SmileCodec<PartitionUpdate> partitionUpdateSmileCodec,
-            ListeningExecutorService fileRenameExecutor,
+            ListeningExecutorService fileUpdateExecutor,
             TypeTranslator typeTranslator,
             StagingFileCommitter stagingFileCommitter,
             ZeroRowFileCreator zeroRowFileCreator,
@@ -165,7 +168,8 @@ public class HiveMetadataFactory
             HiveEncryptionInformationProvider encryptionInformationProvider,
             HivePartitionStats hivePartitionStats,
             HiveFileRenamer hiveFileRenamer,
-            ColumnConverterProvider columnConverterProvider)
+            ColumnConverterProvider columnConverterProvider,
+            SmallFragmentCoalescingPlanner smallFragmentCoalescingPlanner)
     {
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
         this.skipDeletionForAlter = skipDeletionForAlter;
@@ -189,7 +193,7 @@ public class HiveMetadataFactory
         this.tableParameterCodec = requireNonNull(tableParameterCodec, "tableParameterCodec is null");
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
         this.partitionUpdateSmileCodec = requireNonNull(partitionUpdateSmileCodec, "partitionUpdateSmileCodec is null");
-        this.fileRenameExecutor = requireNonNull(fileRenameExecutor, "fileRenameExecutor is null");
+        this.fileUpdateExecutor = requireNonNull(fileUpdateExecutor, "fileUpdateExecutor is null");
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
         this.stagingFileCommitter = requireNonNull(stagingFileCommitter, "stagingFileCommitter is null");
         this.zeroRowFileCreator = requireNonNull(zeroRowFileCreator, "zeroRowFileCreator is null");
@@ -199,6 +203,7 @@ public class HiveMetadataFactory
         this.hivePartitionStats = requireNonNull(hivePartitionStats, "hivePartitionStats is null");
         this.hiveFileRenamer = requireNonNull(hiveFileRenamer, "hiveFileRenamer is null");
         this.columnConverterProvider = requireNonNull(columnConverterProvider, "columnConverterProvider is null");
+        this.smallFragmentCoalescingPlanner = requireNonNull(smallFragmentCoalescingPlanner, "smallFileCoalescer is null");
 
         if (!allowCorruptWritesForTesting && !timeZone.equals(DateTimeZone.getDefault())) {
             log.warn("Hive writes are disabled. " +
@@ -214,7 +219,7 @@ public class HiveMetadataFactory
         SemiTransactionalHiveMetastore metastore = new SemiTransactionalHiveMetastore(
                 hdfsEnvironment,
                 CachingHiveMetastore.memoizeMetastore(this.metastore, metastoreImpersonationEnabled, perTransactionCacheMaximumSize, metastorePartitionCacheMaxColumnCount), // per-transaction cache
-                fileRenameExecutor,
+                fileUpdateExecutor,
                 skipDeletionForAlter,
                 skipTargetCleanupOnRollback,
                 undoMetastoreOperationsEnabled,
@@ -245,6 +250,7 @@ public class HiveMetadataFactory
                 partitionObjectBuilder,
                 encryptionInformationProvider,
                 hivePartitionStats,
-                hiveFileRenamer);
+                hiveFileRenamer,
+                smallFragmentCoalescingPlanner);
     }
 }

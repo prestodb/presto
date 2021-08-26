@@ -216,7 +216,14 @@ public abstract class AbstractTestHiveFileSystem
                 new HiveEncryptionInformationProvider(ImmutableList.of()),
                 new HivePartitionStats(),
                 new HiveFileRenamer(),
-                columnConverterProvider);
+                columnConverterProvider,
+                new HiveSmallFragmentCoalescingPlanner(
+                        HiveTestUtils.PARTITION_UPDATE_CODEC,
+                        HiveTestUtils.PARTITION_UPDATE_SMILE_CODEC,
+                        config,
+                        FUNCTION_AND_TYPE_MANAGER,
+                        new HivePartitionObjectBuilder(),
+                        new NodeVersion("test_version")));
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(
                 transactionManager,

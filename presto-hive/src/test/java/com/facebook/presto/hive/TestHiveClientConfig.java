@@ -40,6 +40,7 @@ import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.TestHiveUtil.nonDefaultTimeZone;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class TestHiveClientConfig
 {
@@ -48,19 +49,19 @@ public class TestHiveClientConfig
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(HiveClientConfig.class)
                 .setTimeZone(TimeZone.getDefault().getID())
-                .setMaxSplitSize(new DataSize(64, Unit.MEGABYTE))
+                .setMaxSplitSize(new DataSize(64, MEGABYTE))
                 .setMaxPartitionsPerScan(100_000)
                 .setMaxOutstandingSplits(1_000)
-                .setMaxOutstandingSplitsSize(new DataSize(256, Unit.MEGABYTE))
+                .setMaxOutstandingSplitsSize(new DataSize(256, MEGABYTE))
                 .setMaxSplitIteratorThreads(1_000)
                 .setAllowCorruptWritesForTesting(false)
                 .setMinPartitionBatchSize(10)
                 .setMaxPartitionBatchSize(100)
                 .setMaxInitialSplits(200)
-                .setMaxInitialSplitSize(new DataSize(32, Unit.MEGABYTE))
+                .setMaxInitialSplitSize(new DataSize(32, MEGABYTE))
                 .setSplitLoaderConcurrency(4)
                 .setDomainCompactionThreshold(100)
-                .setWriterSortBufferSize(new DataSize(64, Unit.MEGABYTE))
+                .setWriterSortBufferSize(new DataSize(64, MEGABYTE))
                 .setNodeSelectionStrategy(NodeSelectionStrategy.valueOf("NO_PREFERENCE"))
                 .setMaxConcurrentFileRenames(20)
                 .setMaxConcurrentZeroRowFileCreations(20)
@@ -85,18 +86,18 @@ public class TestHiveClientConfig
                 .setMaxPartitionsPerWriter(100)
                 .setMaxOpenSortFiles(50)
                 .setWriteValidationThreads(16)
-                .setTextMaxLineLength(new DataSize(100, Unit.MEGABYTE))
+                .setTextMaxLineLength(new DataSize(100, MEGABYTE))
                 .setUseParquetColumnNames(false)
-                .setParquetMaxReadBlockSize(new DataSize(16, Unit.MEGABYTE))
+                .setParquetMaxReadBlockSize(new DataSize(16, MEGABYTE))
                 .setUseOrcColumnNames(false)
                 .setAssumeCanonicalPartitionKeys(false)
                 .setOrcBloomFiltersEnabled(false)
                 .setOrcDefaultBloomFilterFpp(0.05)
-                .setOrcMaxMergeDistance(new DataSize(1, Unit.MEGABYTE))
-                .setOrcMaxBufferSize(new DataSize(8, Unit.MEGABYTE))
-                .setOrcStreamBufferSize(new DataSize(8, Unit.MEGABYTE))
-                .setOrcTinyStripeThreshold(new DataSize(8, Unit.MEGABYTE))
-                .setOrcMaxReadBlockSize(new DataSize(16, Unit.MEGABYTE))
+                .setOrcMaxMergeDistance(new DataSize(1, MEGABYTE))
+                .setOrcMaxBufferSize(new DataSize(8, MEGABYTE))
+                .setOrcStreamBufferSize(new DataSize(8, MEGABYTE))
+                .setOrcTinyStripeThreshold(new DataSize(8, MEGABYTE))
+                .setOrcMaxReadBlockSize(new DataSize(16, MEGABYTE))
                 .setOrcLazyReadSmallRanges(true)
                 .setRcfileOptimizedWriterEnabled(true)
                 .setRcfileWriterValidate(false)
@@ -142,7 +143,7 @@ public class TestHiveClientConfig
                 .setFileStatusCacheExpireAfterWrite(new Duration(0, TimeUnit.SECONDS))
                 .setFileStatusCacheMaxSize(0)
                 .setFileStatusCacheTables("")
-                .setPageFileStripeMaxSize(new DataSize(24, Unit.MEGABYTE))
+                .setPageFileStripeMaxSize(new DataSize(24, MEGABYTE))
                 .setParquetBatchReaderVerificationEnabled(false)
                 .setParquetBatchReadOptimizationEnabled(false)
                 .setBucketFunctionTypeForExchange(HIVE_COMPATIBLE)
@@ -166,7 +167,8 @@ public class TestHiveClientConfig
                 .setUserDefinedTypeEncodingEnabled(false)
                 .setUseRecordPageSourceForCustomSplit(true)
                 .setFileSplittable(true)
-                .setHudiMetadataEnabled(false));
+                .setHudiMetadataEnabled(false)
+                .setSmallFileCoalescingThreshold(new DataSize(0, MEGABYTE)));
     }
 
     @Test
@@ -293,23 +295,24 @@ public class TestHiveClientConfig
                 .put("hive.use-record-page-source-for-custom-split", "false")
                 .put("hive.file-splittable", "false")
                 .put("hive.hudi-metadata-enabled", "true")
+                .put("hive.small-file-coalescing-threshold", "2MB")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
                 .setTimeZone(TimeZone.getTimeZone(ZoneId.of(nonDefaultTimeZone().getID())).getID())
-                .setMaxSplitSize(new DataSize(256, Unit.MEGABYTE))
+                .setMaxSplitSize(new DataSize(256, MEGABYTE))
                 .setMaxPartitionsPerScan(123)
                 .setMaxOutstandingSplits(10)
-                .setMaxOutstandingSplitsSize(new DataSize(32, Unit.MEGABYTE))
+                .setMaxOutstandingSplitsSize(new DataSize(32, MEGABYTE))
                 .setMaxSplitIteratorThreads(10)
                 .setAllowCorruptWritesForTesting(true)
                 .setMinPartitionBatchSize(1)
                 .setMaxPartitionBatchSize(1000)
                 .setMaxInitialSplits(10)
-                .setMaxInitialSplitSize(new DataSize(16, Unit.MEGABYTE))
+                .setMaxInitialSplitSize(new DataSize(16, MEGABYTE))
                 .setSplitLoaderConcurrency(1)
                 .setDomainCompactionThreshold(42)
-                .setWriterSortBufferSize(new DataSize(13, Unit.MEGABYTE))
+                .setWriterSortBufferSize(new DataSize(13, MEGABYTE))
                 .setNodeSelectionStrategy(HARD_AFFINITY)
                 .setMaxConcurrentFileRenames(100)
                 .setMaxConcurrentZeroRowFileCreations(100)
@@ -332,7 +335,7 @@ public class TestHiveClientConfig
                 .setWriteValidationThreads(11)
                 .setDomainSocketPath("/foo")
                 .setS3FileSystemType(S3FileSystemType.EMRFS)
-                .setTextMaxLineLength(new DataSize(13, Unit.MEGABYTE))
+                .setTextMaxLineLength(new DataSize(13, MEGABYTE))
                 .setUseParquetColumnNames(true)
                 .setParquetMaxReadBlockSize(new DataSize(66, Unit.KILOBYTE))
                 .setUseOrcColumnNames(true)
@@ -414,7 +417,8 @@ public class TestHiveClientConfig
                 .setUserDefinedTypeEncodingEnabled(true)
                 .setUseRecordPageSourceForCustomSplit(false)
                 .setFileSplittable(false)
-                .setHudiMetadataEnabled(true);
+                .setHudiMetadataEnabled(true)
+                .setSmallFileCoalescingThreshold(new DataSize(2, MEGABYTE));
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

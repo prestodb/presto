@@ -84,4 +84,9 @@ public final class InsertTableHandle
     {
         return connectorId + ":" + connectorHandle;
     }
+
+    public InsertTableHandle with(ConnectorInsertTableHandle handle)
+    {
+        return new InsertTableHandle(connectorId, transactionHandle, handle);
+    }
 }

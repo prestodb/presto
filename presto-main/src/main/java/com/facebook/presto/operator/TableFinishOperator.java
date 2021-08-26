@@ -27,6 +27,8 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.statistics.ComputedStatistics;
+import com.facebook.presto.sql.planner.SmallFragmentCoalescer;
+import com.facebook.presto.sql.planner.SmallFragmentCoalescer.SmallFragmentCoalescingResult;
 import com.facebook.presto.sql.planner.plan.StatisticAggregationsDescriptor;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -45,6 +47,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.SystemSessionProperties.isStatisticsCpuTimerEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -58,12 +61,12 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.propagateIfPossible;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.whenAllSucceed;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.Duration.succinctNanos;
 import static java.lang.Thread.currentThread;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 public class TableFinishOperator
         implements Operator
@@ -82,6 +85,7 @@ public class TableFinishOperator
         private final Session session;
         private final JsonCodec<TableCommitContext> tableCommitContextCodec;
         private final boolean memoryTrackingEnabled;
+        private final SmallFragmentCoalescer smallFragmentCoalescer;
 
         private boolean closed;
 
@@ -94,7 +98,8 @@ public class TableFinishOperator
                 StatisticAggregationsDescriptor<Integer> descriptor,
                 Session session,
                 JsonCodec<TableCommitContext> tableCommitContextCodec,
-                boolean memoryTrackingEnabled)
+                boolean memoryTrackingEnabled,
+                SmallFragmentCoalescer smallFragmentCoalescer)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -105,6 +110,7 @@ public class TableFinishOperator
             this.session = requireNonNull(session, "session is null");
             this.tableCommitContextCodec = requireNonNull(tableCommitContextCodec, "tableCommitContextCodec is null");
             this.memoryTrackingEnabled = memoryTrackingEnabled;
+            this.smallFragmentCoalescer = requireNonNull(smallFragmentCoalescer, "smallFragmentCoalescer is null");
         }
 
         @Override
@@ -122,7 +128,8 @@ public class TableFinishOperator
                     descriptor,
                     statisticsCpuTimerEnabled,
                     memoryTrackingEnabled,
-                    tableCommitContextCodec);
+                    tableCommitContextCodec,
+                    smallFragmentCoalescer);
         }
 
         @Override
@@ -143,7 +150,8 @@ public class TableFinishOperator
                     descriptor,
                     session,
                     tableCommitContextCodec,
-                    memoryTrackingEnabled);
+                    memoryTrackingEnabled,
+                    smallFragmentCoalescer);
         }
     }
 
@@ -173,6 +181,8 @@ public class TableFinishOperator
 
     private final Supplier<TableFinishInfo> tableFinishInfoSupplier;
 
+    private final SmallFragmentCoalescer smallFragmentCoalescer;
+
     public TableFinishOperator(
             OperatorContext operatorContext,
             TableFinisher tableFinisher,
@@ -181,7 +191,8 @@ public class TableFinishOperator
             StatisticAggregationsDescriptor<Integer> descriptor,
             boolean statisticsCpuTimerEnabled,
             boolean memoryTrackingEnabled,
-            JsonCodec<TableCommitContext> tableCommitContextCodec)
+            JsonCodec<TableCommitContext> tableCommitContextCodec,
+            SmallFragmentCoalescer smallFragmentCoalescer)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.tableFinisher = requireNonNull(tableFinisher, "tableCommitter is null");
@@ -194,6 +205,7 @@ public class TableFinishOperator
         this.systemMemoryContext = operatorContext.localSystemMemoryContext();
         this.tableFinishInfoSupplier = createTableFinishInfoSupplier(outputMetadata, statisticsTiming);
         operatorContext.setInfoSupplier(tableFinishInfoSupplier);
+        this.smallFragmentCoalescer = requireNonNull(smallFragmentCoalescer, "smallFragmentCoalescer is null");
     }
 
     @Override
@@ -284,9 +296,10 @@ public class TableFinishOperator
             return null;
         }
         state = State.FINISHED;
-
         lifespanAndStageStateTracker.commit();
-        outputMetadata.set(tableFinisher.finishTable(lifespanAndStageStateTracker.getFinalFragments(), computedStatisticsBuilder.build()));
+        SmallFragmentCoalescingResult coalescingResult = lifespanAndStageStateTracker.coalesce(smallFragmentCoalescer);
+        operatorContext.recordAdditionalCpu(coalescingResult.cpuNanosecondsConsumed);
+        outputMetadata.set(tableFinisher.finishTable(coalescingResult.fragments, coalescingResult.deprecatedFragments, computedStatisticsBuilder.build()));
 
         // output page will only be constructed once,
         // so a new PageBuilder is constructed (instead of using PageBuilder.reset)
@@ -341,7 +354,7 @@ public class TableFinishOperator
 
     public interface TableFinisher
     {
-        Optional<ConnectorOutputMetadata> finishTable(Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics);
+        Optional<ConnectorOutputMetadata> finishTable(Collection<Slice> fragments, Collection<Slice> deprecatedFragments, Collection<ComputedStatistics> computedStatistics);
     }
 
     public interface PageSinkCommitter
@@ -392,6 +405,16 @@ public class TableFinishOperator
                 propagateIfPossible(e.getCause(), PrestoException.class);
                 throw new RuntimeException(e.getCause());
             }
+        }
+
+        public SmallFragmentCoalescingResult coalesce(SmallFragmentCoalescer coalescer)
+        {
+            checkState(uncommittedRecoverableLifespanAndStageStates.isEmpty(), "All recoverable LifespanAndStage should be committed when coalescing");
+            List<Slice> finalFragments = getLifespanStageAndStates()
+                    .map(LifespanAndStageState::getFragments)
+                    .flatMap(Collection::stream)
+                    .collect(toList());
+            return coalescer.coalesceSmallFragments(finalFragments);
         }
 
         public void update(Page page, TableCommitContext tableCommitContext)
@@ -467,24 +490,17 @@ public class TableFinishOperator
         public long getFinalRowCount()
         {
             checkState(uncommittedRecoverableLifespanAndStageStates.isEmpty(), "All recoverable LifespanAndStage should be committed when fetching final row count");
-            return Streams.concat(
-                    noCommitUnrecoverableLifespanAndStageStates.values().stream(),
-                    taskCommitUnrecoverableLifespanAndStageStates.values().stream(),
-                    committedRecoverableLifespanAndStages.values().stream())
+            return getLifespanStageAndStates()
                     .mapToLong(LifespanAndStageState::getRowCount)
                     .sum();
         }
 
-        public List<Slice> getFinalFragments()
+        private Stream<LifespanAndStageState> getLifespanStageAndStates()
         {
-            checkState(uncommittedRecoverableLifespanAndStageStates.isEmpty(), "All recoverable LifespanAndStage should be committed when fetching final fragments");
             return Streams.concat(
                     noCommitUnrecoverableLifespanAndStageStates.values().stream(),
                     taskCommitUnrecoverableLifespanAndStageStates.values().stream(),
-                    committedRecoverableLifespanAndStages.values().stream())
-                    .map(LifespanAndStageState::getFragments)
-                    .flatMap(List::stream)
-                    .collect(toImmutableList());
+                    committedRecoverableLifespanAndStages.values().stream());
         }
 
         private static class LifespanAndStage
@@ -545,7 +561,7 @@ public class TableFinishOperator
 
         private static class LifespanAndStageState
         {
-            private final ImmutableList.Builder<Slice> fragmentBuilder = ImmutableList.builder();
+            private ImmutableList.Builder<Slice> fragmentBuilder = ImmutableList.builder();
             private final TaskId taskId;
             private final AtomicLong operatorRetainedMemoryBytes;
 

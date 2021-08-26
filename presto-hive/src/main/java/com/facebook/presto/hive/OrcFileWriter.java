@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.NotSupportedException;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
@@ -56,6 +57,7 @@ import static java.util.Objects.requireNonNull;
 public class OrcFileWriter
         implements HiveFileWriter
 {
+    private static final Logger log = Logger.get(OrcFileWriterFactory.class);
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcFileWriter.class).instanceSize();
     private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
 
@@ -203,6 +205,7 @@ public class OrcFileWriter
     @Override
     public Optional<Page> commit()
     {
+//        log.info("Committing writer");
         try {
             orcWriter.close();
         }
@@ -235,6 +238,7 @@ public class OrcFileWriter
     @Override
     public void rollback()
     {
+//        log.info("Rolling back writer");
         try {
             try {
                 orcWriter.close();

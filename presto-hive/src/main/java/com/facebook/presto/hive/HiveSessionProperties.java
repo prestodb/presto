@@ -139,6 +139,7 @@ public final class HiveSessionProperties
     public static final String MAX_INITIAL_SPLITS = "max_initial_splits";
     public static final String FILE_SPLITTABLE = "file_splittable";
     private static final String HUDI_METADATA_ENABLED = "hudi_metadata_enabled";
+    public static final String SMALL_FILE_COALESCING_THRESHOLD = "small_file_coalescing_threshold";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -670,6 +671,11 @@ public final class HiveSessionProperties
                         HUDI_METADATA_ENABLED,
                         "For Hudi tables prefer to fetch the list of file names, sizes and other metadata from the internal metadata table rather than storage",
                         hiveClientConfig.isHudiMetadataEnabled(),
+                        false),
+                dataSizeSessionProperty(
+                        SMALL_FILE_COALESCING_THRESHOLD,
+                        "Coalesce together files smaller than this. 0 bytes disables coalescing.",
+                        hiveClientConfig.getSmallFileCoalescingThreshold(),
                         false));
     }
 
@@ -1169,5 +1175,10 @@ public final class HiveSessionProperties
     public static boolean isHudiMetadataEnabled(ConnectorSession session)
     {
         return session.getProperty(HUDI_METADATA_ENABLED, Boolean.class);
+    }
+
+    public static DataSize getSmallFileCoalescingThreshold(ConnectorSession session)
+    {
+        return session.getProperty(SMALL_FILE_COALESCING_THRESHOLD, DataSize.class);
     }
 }

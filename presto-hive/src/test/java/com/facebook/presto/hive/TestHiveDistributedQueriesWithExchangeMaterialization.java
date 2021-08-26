@@ -17,8 +17,10 @@ import com.facebook.presto.Session;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.Session.SessionBuilder;
 import static com.facebook.presto.SystemSessionProperties.ENABLE_STATS_COLLECTION_FOR_TEMPORARY_TABLE;
 import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
 import static com.facebook.presto.hive.BucketFunctionType.PRESTO_NATIVE;
@@ -26,6 +28,7 @@ import static com.facebook.presto.hive.HiveQueryRunner.createMaterializingQueryR
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.HiveStorageFormat.PAGEFILE;
 import static com.facebook.presto.hive.TestHiveIntegrationSmokeTest.assertRemoteMaterializedExchangesCount;
+import static com.facebook.presto.hive.TestHiveRecoverableExecution.setRecoverableSessionProperties;
 import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.tpch.TpchTable.getTables;
@@ -401,6 +404,78 @@ public class TestHiveDistributedQueriesWithExchangeMaterialization
     {
         testBucketedTemporaryTableWithMissingFiles(true);
         testBucketedTemporaryTableWithMissingFiles(false);
+    }
+
+    @Test
+    public void testSmallFileCoalescingUnpartitioned()
+    {
+        testSmallFileCoalescing("testSmallFileCoalescingUnpartitioned", false, false, "1PB", 1);
+        testSmallFileCoalescing("testSmallFileCoalescingUnpartitioned", false, false, "0B", 8);
+    }
+
+    @Test
+    public void testSmallFileCoalescingPartitioned()
+    {
+        testSmallFileCoalescing("testSmallFileCoalescingPartitioned", true, false, "1PB", 7);
+        testSmallFileCoalescing("testSmallFileCoalescingPartitioned", true, false, "0B", 56);
+    }
+
+    @Test
+    public void testSmallFileCoalescingRecoverablePartitioned()
+    {
+        testSmallFileCoalescing("testSmallFileCoalescingRecoverablePartitioned", true, true, "1PB", 7);
+        testSmallFileCoalescing("testSmallFileCoalescingRecoverablePartitioned", true, true, "0B", 308);
+    }
+
+    @Test
+    public void testSmallFileCoalescingRecoverableUnpartitioned()
+    {
+        testSmallFileCoalescing("testSmallFileCoalescingRecoverableUnpartitioned", false, true, "1PB", 1);
+        testSmallFileCoalescing("testSmallFileCoalescingRecoverableUnpartitioned", false, true, "0B", 44);
+    }
+
+    private void testSmallFileCoalescing(String tableName, boolean partitioned, boolean recoverable, String coalescingThreshold, int expectedFiles)
+    {
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        SessionBuilder sessionBuilder = Session.builder(getSession());
+        sessionBuilder = sessionBuilder
+                .setCatalogSessionProperty("hive", "small_file_coalescing_threshold", coalescingThreshold);
+        if (recoverable) {
+            sessionBuilder = setRecoverableSessionProperties(sessionBuilder, 4, true);
+        }
+        Session session = sessionBuilder.build();
+
+        String withClause = partitioned ? "WITH (partitioned_by = ARRAY['shipmode'], format = 'ORC')" : "WITH ( format = 'ORC' )";
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE " + tableName + "\n" +
+                "(\n" +
+                "  orderkey BIGINT,\n" +
+                "  partkey BIGINT,\n" +
+                "  suppkey BIGINT,\n" +
+                "  linenumber BIGINT,\n" +
+                "  shipmode VARCHAR\n" +
+                ")\n " +
+                withClause;
+        assertUpdate(session, createTable);
+        assertUpdate(session, "INSERT INTO " + tableName + "\n" +
+                        "WITH t1 AS (\n" +
+                        "    SELECT\n" +
+                        "        orderkey,\n" +
+                        "        partkey,\n" +
+                        "        suppkey,\n" +
+                        "        ARBITRARY(linenumber) AS linenumber,\n" +
+                        "        shipmode\n" +
+                        "    FROM lineitem\n" +
+                        "    GROUP BY 1, 2, 3, 5\n" +
+                        ")\n" +
+                        "SELECT\n" +
+                        "    *\n" +
+                        "FROM t1\n",
+                60175);
+        assertQuery("SELECT COUNT(*) FROM " + tableName, "SELECT 60175");
+        // Should be a single file
+        assertQuery("SELECT COUNT(DISTINCT \"$path\") FROM " + tableName, "SELECT " + expectedFiles);
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
     }
 
     private void testBucketedTemporaryTableWithMissingFiles(boolean isFileRenameEnabled)

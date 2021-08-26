@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.hive.PartitionUpdate.FileWriteInfo;
+import com.facebook.presto.hive.PartitionUpdate.FileWriteStatistics;
 import com.facebook.presto.hive.PartitionUpdate.UpdateMode;
 import com.google.common.collect.ImmutableList;
 
@@ -23,6 +24,7 @@ import java.util.function.Consumer;
 
 import static com.facebook.presto.hive.HiveManifestUtils.getFileSize;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class HiveWriter
@@ -120,12 +122,18 @@ public class HiveWriter
 
     public PartitionUpdate getPartitionUpdate()
     {
+        if (fileStatistics.isPresent()) {
+            long writtenBytes = fileWriter.getWrittenBytes();
+            long fileSize = getFileSize(fileStatistics.get(), 0);
+            checkState(writtenBytes == fileSize, "Why is " + writtenBytes + " not equal to " + fileSize);
+        }
         return new PartitionUpdate(
                 partitionName.orElse(""),
                 updateMode,
                 writePath,
                 targetPath,
-                ImmutableList.of(new FileWriteInfo(fileWriteInfo.getWriteFileName(), fileWriteInfo.getTargetFileName(), fileStatistics.map(statisticsPage -> getFileSize(statisticsPage, 0)))),
+                // What is the difference between statistics page getFileSize() and fileWriter.getWrittenBytes()?
+                ImmutableList.of(new FileWriteInfo(fileWriteInfo.getWriteFileName(), fileWriteInfo.getTargetFileName(), fileStatistics.map(statisticsPage -> new FileWriteStatistics(rowCount, inputSizeInBytes, getFileSize(statisticsPage, 0))))),
                 rowCount,
                 inputSizeInBytes,
                 fileWriter.getWrittenBytes(),

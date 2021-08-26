@@ -37,15 +37,15 @@ public class HiveStagingFileCommitter
         implements StagingFileCommitter
 {
     private final HdfsEnvironment hdfsEnvironment;
-    private final ListeningExecutorService fileRenameExecutor;
+    private final ListeningExecutorService fileUpdateExecutor;
 
     @Inject
     public HiveStagingFileCommitter(
             HdfsEnvironment hdfsEnvironment,
-            @ForFileRename ListeningExecutorService fileRenameExecutor)
+            @ForFileUpdate ListeningExecutorService fileUpdateExecutor)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
-        this.fileRenameExecutor = requireNonNull(fileRenameExecutor, "fileRenameExecutor is null");
+        this.fileUpdateExecutor = requireNonNull(fileUpdateExecutor, "fileUpdateExecutor is null");
     }
 
     @Override
@@ -67,7 +67,7 @@ public class HiveStagingFileCommitter
                 checkState(!fileWriteInfo.getWriteFileName().equals(fileWriteInfo.getTargetFileName()));
                 Path source = new Path(path, fileWriteInfo.getWriteFileName());
                 Path target = new Path(path, fileWriteInfo.getTargetFileName());
-                commitFutures.add(fileRenameExecutor.submit(() -> {
+                commitFutures.add(fileUpdateExecutor.submit(() -> {
                     renameFile(fileSystem, source, target);
                     return null;
                 }));

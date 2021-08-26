@@ -140,7 +140,14 @@ public class TestHiveMetadataFileFormatEncryptionSettings
                 new HiveEncryptionInformationProvider(ImmutableList.of(new TestDwrfEncryptionInformationSource())),
                 new HivePartitionStats(),
                 new HiveFileRenamer(),
-                HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
+                HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER,
+                new HiveSmallFragmentCoalescingPlanner(
+                        HiveTestUtils.PARTITION_UPDATE_CODEC,
+                        HiveTestUtils.PARTITION_UPDATE_SMILE_CODEC,
+                        HIVE_CLIENT_CONFIG,
+                        FUNCTION_AND_TYPE_MANAGER,
+                        new HivePartitionObjectBuilder(),
+                        new NodeVersion(TEST_SERVER_VERSION)));
 
         metastore.createDatabase(METASTORE_CONTEXT, Database.builder()
                 .setDatabaseName(TEST_DB_NAME)
@@ -461,6 +468,7 @@ public class TestHiveMetadataFileFormatEncryptionSettings
                     SESSION,
                     insertTableHandle,
                     partitionUpdates.stream().map(update -> Slices.utf8Slice(PARTITION_CODEC.toJson(update))).collect(toImmutableList()),
+                    ImmutableList.of(),
                     ImmutableList.of());
             createHiveMetadata.commit();
 
@@ -478,6 +486,7 @@ public class TestHiveMetadataFileFormatEncryptionSettings
                     SESSION,
                     insertTableHandle,
                     partitionUpdates.stream().map(update -> Slices.utf8Slice(PARTITION_CODEC.toJson(update))).collect(toImmutableList()),
+                    ImmutableList.of(),
                     ImmutableList.of());
             overrideHiveMetadata.commit();
 
@@ -576,6 +585,7 @@ public class TestHiveMetadataFileFormatEncryptionSettings
                     SESSION,
                     insertTableHandle,
                     partitionUpdates.stream().map(update -> Slices.utf8Slice(PARTITION_CODEC.toJson(update))).collect(toImmutableList()),
+                    ImmutableList.of(),
                     ImmutableList.of());
             createHiveMetadata.commit();
 
@@ -588,6 +598,7 @@ public class TestHiveMetadataFileFormatEncryptionSettings
                     SESSION,
                     insertTableHandle,
                     partitionUpdates.stream().map(update -> Slices.utf8Slice(PARTITION_CODEC.toJson(update))).collect(toImmutableList()),
+                    ImmutableList.of(),
                     ImmutableList.of());
         }
         finally {

@@ -27,6 +27,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.LocationService.WriteInfo;
 import com.facebook.presto.hive.PartitionUpdate.FileWriteInfo;
+import com.facebook.presto.hive.PartitionUpdate.FileWriteStatistics;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.HiveColumnStatistics;
@@ -53,6 +54,7 @@ import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorSmallFragmentCoalescingPlan;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
@@ -133,6 +135,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -419,6 +422,7 @@ public class HiveMetadata
     private final HiveEncryptionInformationProvider encryptionInformationProvider;
     private final HivePartitionStats hivePartitionStats;
     private final HiveFileRenamer hiveFileRenamer;
+    private final SmallFragmentCoalescingPlanner smallFragmentCoalescingPlanner;
 
     public HiveMetadata(
             SemiTransactionalHiveMetastore metastore,
@@ -445,7 +449,8 @@ public class HiveMetadata
             PartitionObjectBuilder partitionObjectBuilder,
             HiveEncryptionInformationProvider encryptionInformationProvider,
             HivePartitionStats hivePartitionStats,
-            HiveFileRenamer hiveFileRenamer)
+            HiveFileRenamer hiveFileRenamer,
+            SmallFragmentCoalescingPlanner smallFragmentCoalescingPlanner)
     {
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
 
@@ -473,6 +478,7 @@ public class HiveMetadata
         this.encryptionInformationProvider = requireNonNull(encryptionInformationProvider, "encryptionInformationProvider is null");
         this.hivePartitionStats = requireNonNull(hivePartitionStats, "hivePartitionStats is null");
         this.hiveFileRenamer = requireNonNull(hiveFileRenamer, "hiveFileRenamer is null");
+        this.smallFragmentCoalescingPlanner = requireNonNull(smallFragmentCoalescingPlanner, "smallFileCoalescer is null");
     }
 
     public SemiTransactionalHiveMetastore getMetastore()
@@ -1784,7 +1790,7 @@ public class HiveMetadata
                     locationHandle.getWritePath(),
                     locationHandle.getTargetPath(),
                     fileNamesForMissingBuckets.stream()
-                            .map(fileName -> new FileWriteInfo(fileName, fileName, Optional.of(0L)))
+                            .map(fileName -> new FileWriteInfo(fileName, fileName, Optional.of(new FileWriteStatistics(0, 0, 0))))
                             .collect(toImmutableList()),
                     0,
                     0,
@@ -1808,7 +1814,7 @@ public class HiveMetadata
                     partitionUpdate.getWritePath(),
                     partitionUpdate.getTargetPath(),
                     fileNamesForMissingBuckets.stream()
-                            .map(fileName -> new FileWriteInfo(fileName, fileName, Optional.of(0L)))
+                            .map(fileName -> new FileWriteInfo(fileName, fileName, Optional.of(new FileWriteStatistics(0, 0, 0))))
                             .collect(toImmutableList()),
                     0,
                     0,
@@ -1947,19 +1953,21 @@ public class HiveMetadata
     }
 
     @Override
-    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<Slice> deprecatedFragments, Collection<ComputedStatistics> computedStatistics)
     {
-        return finishInsertInternal(session, insertHandle, fragments, computedStatistics);
+        return finishInsertInternal(session, insertHandle, fragments, deprecatedFragments, computedStatistics);
     }
 
-    private Optional<ConnectorOutputMetadata> finishInsertInternal(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    private Optional<ConnectorOutputMetadata> finishInsertInternal(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<Slice> deprecatedFragments, Collection<ComputedStatistics> computedStatistics)
     {
         HiveInsertTableHandle handle = (HiveInsertTableHandle) insertHandle;
 
         List<PartitionUpdate> partitionUpdates = getPartitionUpdates(session, fragments);
+        List<PartitionUpdate> deprecatedPartitionUpdates = getPartitionUpdates(session, deprecatedFragments);
 
         HiveStorageFormat tableStorageFormat = handle.getTableStorageFormat();
         partitionUpdates = PartitionUpdate.mergePartitionUpdates(partitionUpdates);
+        deprecatedPartitionUpdates = PartitionUpdate.mergePartitionUpdates(deprecatedPartitionUpdates);
 
         MetastoreContext metastoreContext = getMetastoreContext(session);
 
@@ -2006,8 +2014,13 @@ public class HiveMetadata
                 .collect(toImmutableMap(HiveColumnHandle::getName, column -> column.getHiveType().getType(typeManager)));
         Map<List<String>, ComputedStatistics> partitionComputedStatistics = createComputedStatisticsToPartitionMap(computedStatistics, partitionedBy, columnTypes);
 
-        Set<String> existingPartitions = getExistingPartitionNames(session.getIdentity(), metastoreContext, handle.getSchemaName(), handle.getTableName(), partitionUpdates);
+        for (PartitionUpdate deprecatedPartitionUpdate : deprecatedPartitionUpdates) {
+            List<String> deprecatedFileNames = deprecatedPartitionUpdate.getFileWriteInfos().stream().map(FileWriteInfo::getTargetFileName).collect(toImmutableList());
+            HdfsContext hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName(), table.getStorage().getLocation(), false);
+            metastore.deleteDeprecatedFiles(hdfsContext, deprecatedPartitionUpdate.getWritePath(), deprecatedFileNames);
+        }
 
+        Set<String> existingPartitions = getExistingPartitionNames(session.getIdentity(), metastoreContext, handle.getSchemaName(), handle.getTableName(), partitionUpdates);
         for (PartitionUpdate partitionUpdate : partitionUpdates) {
             if (partitionUpdate.getName().isEmpty()) {
                 if (handle.getEncryptionInformation().isPresent()) {
@@ -2517,7 +2530,7 @@ public class HiveMetadata
     @Override
     public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
-        return finishInsertInternal(session, insertHandle, fragments, computedStatistics);
+        return finishInsertInternal(session, insertHandle, fragments, Collections.emptyList(), computedStatistics);
     }
 
     @Override
@@ -2706,7 +2719,8 @@ public class HiveMetadata
                                 false,
                                 createTableLayoutString(session, handle.getSchemaTableName(), hivePartitionResult.getBucketHandle(), hivePartitionResult.getBucketFilter(), TRUE_CONSTANT, domainPredicate),
                                 desiredColumns.map(columns -> columns.stream().map(column -> (HiveColumnHandle) column).collect(toImmutableSet())),
-                                false)),
+                                false,
+                                Optional.empty())),
                 hivePartitionResult.getUnenforcedConstraint()));
     }
 
@@ -2978,7 +2992,8 @@ public class HiveMetadata
                 hiveLayoutHandle.isPushdownFilterEnabled(),
                 hiveLayoutHandle.getLayoutString(),
                 hiveLayoutHandle.getRequestedColumns(),
-                hiveLayoutHandle.isPartialAggregationsPushedDown());
+                hiveLayoutHandle.isPartialAggregationsPushedDown(),
+                Optional.empty());
     }
 
     @Override
@@ -3795,6 +3810,22 @@ public class HiveMetadata
         }
 
         return Sets.intersection(tableHandle.getPredicateColumns().keySet(), relevantColumns).isEmpty() ? NOT_COVERED : COVERED;
+    }
+
+    @Override
+    public ConnectorSmallFragmentCoalescingPlan createSmallFragmentCoalescingPlan(ConnectorSession session, ConnectorInsertTableHandle connectorInsertTableHandle, Collection<Slice> fragments)
+    {
+        if (!(connectorInsertTableHandle instanceof HiveWritableTableHandle)) {
+            return ConnectorSmallFragmentCoalescingPlan.noOpPlan(fragments);
+        }
+        HiveInsertTableHandle hiveInsertTableHandle = (HiveInsertTableHandle) connectorInsertTableHandle;
+
+        List<PartitionUpdate> mergedPartitionUpdates = PartitionUpdate.mergePartitionUpdates(getPartitionUpdates(session, fragments));
+        return smallFragmentCoalescingPlanner.createSmallFragmentCoalescingPlan(
+                session,
+                hiveInsertTableHandle,
+                mergedPartitionUpdates,
+                fragments);
     }
 
     public static Optional<SchemaTableName> getSourceTableNameFromSystemTable(SchemaTableName tableName)

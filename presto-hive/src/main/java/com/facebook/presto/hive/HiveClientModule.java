@@ -152,6 +152,7 @@ public class HiveClientModule
         binder.bind(HiveMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(new TypeLiteral<Supplier<TransactionalMetadata>>() {}).to(HiveMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(StagingFileCommitter.class).to(HiveStagingFileCommitter.class).in(Scopes.SINGLETON);
+        binder.bind(SmallFragmentCoalescingPlanner.class).to(HiveSmallFragmentCoalescingPlanner.class).in(Scopes.SINGLETON);
         binder.bind(ZeroRowFileCreator.class).to(HiveZeroRowFileCreator.class).in(Scopes.SINGLETON);
         binder.bind(PartitionObjectBuilder.class).to(HivePartitionObjectBuilder.class).in(Scopes.SINGLETON);
         binder.bind(HiveTransactionManager.class).in(Scopes.SINGLETON);
@@ -245,15 +246,15 @@ public class HiveClientModule
         return newCachedThreadPool(daemonThreadsNamed("hive-metadata-updater-" + hiveClientId + "-%s"));
     }
 
-    @ForFileRename
+    @ForFileUpdate
     @Singleton
     @Provides
-    public ListeningExecutorService createFileRanemeExecutor(HiveConnectorId hiveClientId, HiveClientConfig hiveClientConfig)
+    public ListeningExecutorService createFileUpdateExecutor(HiveConnectorId hiveClientId, HiveClientConfig hiveClientConfig)
     {
         return listeningDecorator(
                 new ExecutorServiceAdapter(
                         new BoundedExecutor(
-                                newCachedThreadPool(daemonThreadsNamed("hive-rename-" + hiveClientId + "-%s")),
+                                newCachedThreadPool(daemonThreadsNamed("hive-update-" + hiveClientId + "-%s")),
                                 hiveClientConfig.getMaxConcurrentFileRenames())));
     }
 

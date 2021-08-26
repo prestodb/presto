@@ -40,6 +40,7 @@ import static com.facebook.presto.hive.HiveManifestUtils.decompressFileNames;
 import static com.facebook.presto.hive.HiveManifestUtils.decompressFileSizes;
 import static com.facebook.presto.hive.HiveManifestUtils.getFileSize;
 import static com.facebook.presto.hive.PartitionUpdate.FileWriteInfo;
+import static com.facebook.presto.hive.PartitionUpdate.FileWriteStatistics;
 import static com.facebook.presto.hive.PartitionUpdate.UpdateMode.NEW;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -77,7 +78,7 @@ public class TestHiveManifestUtils
     @Test
     public void testCreatePartitionManifest()
     {
-        PartitionUpdate partitionUpdate = new PartitionUpdate("testPartition", NEW, "/testDir", "/testDir", ImmutableList.of(new FileWriteInfo("testFileName", "testFileName", Optional.of(FILE_SIZE))), 100, 1024, 1024, false);
+        PartitionUpdate partitionUpdate = new PartitionUpdate("testPartition", NEW, "/testDir", "/testDir", ImmutableList.of(new FileWriteInfo("testFileName", "testFileName", Optional.of(new FileWriteStatistics(100, 1024, FILE_SIZE)))), 100, 1024, 1024, false);
         Optional<Page> manifestPage = createPartitionManifest(partitionUpdate);
         assertTrue(manifestPage.isPresent());
         assertEquals(manifestPage.get().getChannelCount(), 2);

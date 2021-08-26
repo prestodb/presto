@@ -74,6 +74,7 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.math.BigInteger;
+import java.nio.file.NoSuchFileException;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.ArrayList;
@@ -486,6 +487,19 @@ public class MetastoreUtil
         }
     }
 
+    public static boolean deleteFile(FileSystem fileSystem, Path path)
+    {
+        try {
+            return fileSystem.delete(path, false);
+        }
+        catch (NoSuchFileException e) {
+            return false;
+        }
+        catch (IOException e) {
+            throw new PrestoException(HIVE_FILESYSTEM_ERROR, getDeleteErrorMessage(path), e);
+        }
+    }
+
     public static Map<String, String> toPartitionNamesAndValues(String partitionName)
     {
         ImmutableMap.Builder<String, String> resultBuilder = ImmutableMap.builder();
@@ -757,6 +771,11 @@ public class MetastoreUtil
     private static String getRenameErrorMessage(Path source, Path target)
     {
         return format("Error moving data files from %s to final location %s", source, target);
+    }
+
+    private static String getDeleteErrorMessage(Path path)
+    {
+        return format("Error deleting data file %s", path);
     }
 
     public static List<String> convertPredicateToParts(Map<Column, Domain> partitionPredicates)

@@ -21,10 +21,31 @@ import java.util.Map;
 
 public interface PartitionObjectBuilder
 {
+    default Partition buildPartitionObject(
+            ConnectorSession session,
+            Table table,
+            PartitionUpdate partitionUpdate,
+            String prestoVersion,
+            Map<String, String> extraParameters)
+    {
+        return buildPartitionObject(session, table, partitionUpdate, prestoVersion, extraParameters, false);
+    }
+
+    default Partition buildUncommittedPartitionObject(
+            ConnectorSession session,
+            Table table,
+            PartitionUpdate partitionUpdate,
+            String prestoVersion,
+            Map<String, String> extraParameters)
+    {
+        return buildPartitionObject(session, table, partitionUpdate, prestoVersion, extraParameters, true);
+    }
+
     Partition buildPartitionObject(
             ConnectorSession session,
             Table table,
             PartitionUpdate partitionUpdate,
             String prestoVersion,
-            Map<String, String> extraParameters);
+            Map<String, String> extraParameters,
+            boolean uncommitted);
 }

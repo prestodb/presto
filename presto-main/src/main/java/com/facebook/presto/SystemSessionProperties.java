@@ -222,6 +222,7 @@ public final class SystemSessionProperties
     public static final String MAX_STAGE_COUNT_FOR_EAGER_SCHEDULING = "max_stage_count_for_eager_scheduling";
     public static final String HYPERLOGLOG_STANDARD_ERROR_WARNING_THRESHOLD = "hyperloglog_standard_error_warning_threshold";
     public static final String PREFER_MERGE_JOIN = "prefer_merge_join";
+    public static final String SMALL_FRAGMENT_COALESCING_SCAN_PARALLELISM = "small_fragment_coalescing_scan_parallelism";
 
     //TODO: Prestissimo related session properties that are temporarily put here. They will be relocated in the future
     public static final String PRESTISSIMO_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "simplified_expression_evaluation_enabled";
@@ -1260,6 +1261,11 @@ public final class SystemSessionProperties
                         ROUND_ROBIN_SHUFFLE_BEFORE_PARTIAL_DISTINCT_LIMIT,
                         "Add a local roundrobin shuffle before partial distinct limit",
                         featuresConfig.isRoundRobinShuffleBeforePartialDistinctLimit(),
+                        false),
+                integerProperty(
+                        SMALL_FRAGMENT_COALESCING_SCAN_PARALLELISM,
+                        "Per query number of threads reading small fragments when coalescing",
+                        featuresConfig.getSmallFragmentCoalescingScanParallelism(),
                         false));
     }
 
@@ -2119,5 +2125,10 @@ public final class SystemSessionProperties
     public static boolean isRoundRobinShuffleBeforePartialDistinctLimit(Session session)
     {
         return session.getSystemProperty(ROUND_ROBIN_SHUFFLE_BEFORE_PARTIAL_DISTINCT_LIMIT, Boolean.class);
+    }
+
+    public static int getSmallFragmentCoalescingScanParallelism(Session session)
+    {
+        return session.getSystemProperty(SMALL_FRAGMENT_COALESCING_SCAN_PARALLELISM, Integer.class);
     }
 }
