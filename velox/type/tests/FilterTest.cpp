@@ -788,3 +788,18 @@ TEST(FilterTest, multiRangeWithNaNs) {
   EXPECT_FALSE(filter->testDouble(1.2));
   EXPECT_TRUE(filter->testDouble(1.3));
 }
+
+TEST(FilterTest, createBigintValues) {
+  std::vector<int64_t> values = {
+      std::numeric_limits<int64_t>::max() - 1'000,
+      std::numeric_limits<int64_t>::min() + 1'000,
+      0,
+      123};
+  auto filter = createBigintValues(values, true);
+  for (auto v : values) {
+    ASSERT_TRUE(filter->testInt64(v));
+  }
+  ASSERT_FALSE(filter->testInt64(-5));
+  ASSERT_FALSE(filter->testInt64(12345));
+  ASSERT_TRUE(filter->testNull());
+}
