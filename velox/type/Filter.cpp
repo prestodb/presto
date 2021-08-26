@@ -180,7 +180,6 @@ bool BigintValuesUsingHashTable::testInt64Range(
   return !(min > max_ || max < min_);
 }
 
-// static
 std::unique_ptr<Filter> createBigintValues(
     const std::vector<int64_t>& values,
     bool nullAllowed) {
@@ -199,6 +198,10 @@ std::unique_ptr<Filter> createBigintValues(
   int64_t range;
   bool overflow = __builtin_sub_overflow(max, min, &range);
   if (LIKELY(!overflow)) {
+    if (range + 1 == values.size()) {
+      return std::make_unique<BigintRange>(min, max, nullAllowed);
+    }
+
     if (range < 32 * 64 || range < values.size() * 4 * 64) {
       return std::make_unique<BigintValuesUsingBitmask>(
           min, max, values, nullAllowed);

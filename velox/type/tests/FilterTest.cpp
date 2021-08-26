@@ -19,6 +19,7 @@
 #include <cstdint>
 #include <limits>
 #include <memory>
+#include <numeric>
 
 #include <gtest/gtest.h>
 
@@ -790,16 +791,49 @@ TEST(FilterTest, multiRangeWithNaNs) {
 }
 
 TEST(FilterTest, createBigintValues) {
-  std::vector<int64_t> values = {
-      std::numeric_limits<int64_t>::max() - 1'000,
-      std::numeric_limits<int64_t>::min() + 1'000,
-      0,
-      123};
-  auto filter = createBigintValues(values, true);
-  for (auto v : values) {
-    ASSERT_TRUE(filter->testInt64(v));
+  // Small number of values from a very large range.
+  {
+    std::vector<int64_t> values = {
+        std::numeric_limits<int64_t>::max() - 1'000,
+        std::numeric_limits<int64_t>::min() + 1'000,
+        0,
+        123};
+    auto filter = createBigintValues(values, true);
+    ASSERT_TRUE(dynamic_cast<BigintValuesUsingHashTable*>(filter.get()))
+        << filter->toString();
+    for (auto v : values) {
+      ASSERT_TRUE(filter->testInt64(v));
+    }
+    ASSERT_FALSE(filter->testInt64(-5));
+    ASSERT_FALSE(filter->testInt64(12345));
+    ASSERT_TRUE(filter->testNull());
   }
-  ASSERT_FALSE(filter->testInt64(-5));
-  ASSERT_FALSE(filter->testInt64(12345));
-  ASSERT_TRUE(filter->testNull());
+
+  // Small number of values from a small range.
+  {
+    std::vector<int64_t> values = {0, 123, -7, 56};
+    auto filter = createBigintValues(values, true);
+    ASSERT_TRUE(dynamic_cast<BigintValuesUsingBitmask*>(filter.get()))
+        << filter->toString();
+    for (auto v : values) {
+      ASSERT_TRUE(filter->testInt64(v));
+    }
+    ASSERT_FALSE(filter->testInt64(-5));
+    ASSERT_FALSE(filter->testInt64(12345));
+    ASSERT_TRUE(filter->testNull());
+  }
+
+  // Dense sequence of values without gaps.
+  {
+    std::vector<int64_t> values(100);
+    std::iota(values.begin(), values.end(), 5);
+    auto filter = createBigintValues(values, false);
+    ASSERT_TRUE(dynamic_cast<BigintRange*>(filter.get())) << filter->toString();
+    for (int i = 5; i < 105; i++) {
+      ASSERT_TRUE(filter->testInt64(i));
+    }
+    ASSERT_FALSE(filter->testInt64(4));
+    ASSERT_FALSE(filter->testInt64(106));
+    ASSERT_FALSE(filter->testNull());
+  }
 }
