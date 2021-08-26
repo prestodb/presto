@@ -1915,7 +1915,7 @@ public abstract class AbstractTestParquetReader
         return timestamp;
     }
 
-    private static SqlTimestamp intToSqlTimestamp(Integer input)
+    protected static SqlTimestamp intToSqlTimestamp(Integer input)
     {
         if (input == null) {
             return null;
