@@ -277,6 +277,8 @@ void WriterShared::flushStripe(bool close) {
   auto& dictionaryDataMemoryUsage =
       context.getMemoryUsage(MemoryUsageCategory::DICTIONARY);
 
+  LOG(INFO) << fmt::format(
+      "Flush overhead = {}, data length = {}", flushOverhead, dataLength);
   // Add flush overhead and other ratio logging.
   context.metricLogger->logStripeFlush(
       context.stripeIndex,

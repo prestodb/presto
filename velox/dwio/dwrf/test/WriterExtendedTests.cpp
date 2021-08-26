@@ -105,7 +105,7 @@ void testWriterDefaultFlushPolicy(
 }
 
 TEST(E2EWriterTests, FlushPolicySimpleEncoding) {
-  const size_t batchCount = 100;
+  const size_t batchCount = 200;
   const size_t size = 1000;
   auto scopedPool = facebook::velox::memory::getDefaultScopedMemoryPool();
   auto& pool = scopedPool->getPool();
@@ -122,31 +122,23 @@ TEST(E2EWriterTests, FlushPolicySimpleEncoding) {
 
   auto testCases = folly::make_array<FlushPolicyTestCase>(
       FlushPolicyTestCase{
-          /*stripeSize*/ 128 * kSizeKB,
-          /*dictSize*/ std::numeric_limits<int64_t>::max(),
-          /*numStripesLower*/ 12,
-          /*numStripesUpper*/ 12,
-          /*seed*/ 1411367325},
-      FlushPolicyTestCase{
-          /*stripeSize*/ 128 * kSizeKB,
+          /*stripeSize*/ 256 * kSizeKB,
           /*dictSize*/ std::numeric_limits<int64_t>::max(),
           /*numStripesLower*/ 13,
           /*numStripesUpper*/ 13,
-          /*seed*/ 1411367325,
-          768 * kSizeKB},
+          /*seed*/ 1411367325},
       FlushPolicyTestCase{
-          /*stripeSize*/ 256 * kSizeKB,
-          /*dictSize*/ std::numeric_limits<int64_t>::max(),
-          /*numStripesLower*/ 6,
-          /*numStripesUpper*/ 6,
-          /*seed*/ 2150384760},
-      FlushPolicyTestCase{
-          /*stripeSize*/ 256 * kSizeKB,
+          /*stripeSize*/ 512 * kSizeKB,
           /*dictSize*/ std::numeric_limits<int64_t>::max(),
           /*numStripesLower*/ 7,
           /*numStripesUpper*/ 7,
-          /*seed*/ 2150384760,
-          1 * kSizeMB});
+          /*seed*/ 1411367325},
+      FlushPolicyTestCase{
+          /*stripeSize*/ 1 * kSizeMB,
+          /*dictSize*/ std::numeric_limits<int64_t>::max(),
+          /*numStripesLower*/ 4,
+          /*numStripesUpper*/ 4,
+          /*seed*/ 1411367325});
 
   for (const auto& testCase : testCases) {
     auto config = std::make_shared<Config>();
@@ -187,21 +179,21 @@ TEST(E2EWriterTests, FlushPolicyDictionaryEncoding) {
       FlushPolicyTestCase{
           /*stripeSize*/ 1 * kSizeMB,
           /*dictSize*/ std::numeric_limits<int64_t>::max(),
-          /*numStripesLower*/ 9,
-          /*numStripesUpper*/ 9,
+          /*numStripesLower*/ 11,
+          /*numStripesUpper*/ 11,
           /*seed*/ 1630160118},
       FlushPolicyTestCase{
           /*stripeSize*/ 1 * kSizeMB,
           /*dictSize*/ std::numeric_limits<int64_t>::max(),
-          /*numStripesLower*/ 10,
-          /*numStripesUpper*/ 10,
+          /*numStripesLower*/ 11,
+          /*numStripesUpper*/ 11,
           /*seed*/ 1630160118,
           11 * kSizeMB},
       FlushPolicyTestCase{
           /*stripeSize*/ 2 * kSizeMB,
           /*dictSize*/ std::numeric_limits<int64_t>::max(),
-          /*numStripesLower*/ 4,
-          /*numStripesUpper*/ 4,
+          /*numStripesLower*/ 6,
+          /*numStripesUpper*/ 6,
           /*seed*/ 1630160118},
       FlushPolicyTestCase{
           /*stripeSize*/ 2 * kSizeMB,
@@ -229,31 +221,31 @@ TEST(E2EWriterTests, FlushPolicyDictionaryEncoding) {
 
   auto dictionaryEncodingTestCases = folly::make_array<FlushPolicyTestCase>(
       FlushPolicyTestCase{
-          /*stripeSize*/ 128 * kSizeKB,
-          /*dictSize*/ std::numeric_limits<int64_t>::max(),
-          /*numStripesLower*/ 81,
-          /*numStripesUpper*/ 82,
-          /*seed*/ 1630160118},
-      FlushPolicyTestCase{
-          /*stripeSize*/ 128 * kSizeKB,
-          /*dictSize*/ std::numeric_limits<int64_t>::max(),
-          /*numStripesLower*/ 81,
-          /*numStripesUpper*/ 82,
-          /*seed*/ 1630160118,
-          4 * kSizeMB},
-      FlushPolicyTestCase{
           /*stripeSize*/ 256 * kSizeKB,
           /*dictSize*/ std::numeric_limits<int64_t>::max(),
-          /*numStripesLower*/ 40,
-          /*numStripesUpper*/ 40,
+          /*numStripesLower*/ 42,
+          /*numStripesUpper*/ 42,
           /*seed*/ 1630160118},
       FlushPolicyTestCase{
           /*stripeSize*/ 256 * kSizeKB,
           /*dictSize*/ std::numeric_limits<int64_t>::max(),
-          /*numStripesLower*/ 40,
-          /*numStripesUpper*/ 40,
+          /*numStripesLower*/ 42,
+          /*numStripesUpper*/ 42,
           /*seed*/ 1630160118,
-          6 * kSizeMB});
+          6 * kSizeMB},
+      FlushPolicyTestCase{
+          /*stripeSize*/ 512 * kSizeKB,
+          /*dictSize*/ std::numeric_limits<int64_t>::max(),
+          /*numStripesLower*/ 22,
+          /*numStripesUpper*/ 22,
+          /*seed*/ 1630160118},
+      FlushPolicyTestCase{
+          /*stripeSize*/ 512 * kSizeKB,
+          /*dictSize*/ std::numeric_limits<int64_t>::max(),
+          /*numStripesLower*/ 22,
+          /*numStripesUpper*/ 22,
+          /*seed*/ 1630160118,
+          10 * kSizeMB});
 
   for (const auto& testCase : dictionaryEncodingTestCases) {
     auto config = std::make_shared<Config>();
@@ -328,29 +320,29 @@ TEST(E2EWriterTests, FlushPolicyNestedTypes) {
 
   auto testCases = folly::make_array<FlushPolicyTestCase>(
       FlushPolicyTestCase{
-          /*stripeSize*/ 128 * kSizeKB,
+          /*stripeSize*/ 256 * kSizeKB,
           /*dictSize*/ std::numeric_limits<int64_t>::max(),
-          /*numStripesLower*/ 8,
-          /*numStripesUpper*/ 8,
+          /*numStripesLower*/ 5,
+          /*numStripesUpper*/ 5,
           /*seed*/ 3850165650},
       FlushPolicyTestCase{
-          /*stripeSize*/ 128 * kSizeKB,
+          /*stripeSize*/ 256 * kSizeKB,
           /*dictSize*/ std::numeric_limits<int64_t>::max(),
-          /*numStripesLower*/ 8,
-          /*numStripesUpper*/ 8,
+          /*numStripesLower*/ 5,
+          /*numStripesUpper*/ 5,
           /*seed*/ 3850165650,
           8 * kSizeMB},
       FlushPolicyTestCase{
-          /*stripeSize*/ 256 * kSizeKB,
+          /*stripeSize*/ 512 * kSizeKB,
           /*dictSize*/ std::numeric_limits<int64_t>::max(),
-          /*numStripesLower*/ 4,
-          /*numStripesUpper*/ 4,
-          /*seed*/ 2969662436},
+          /*numStripesLower*/ 3,
+          /*numStripesUpper*/ 3,
+          /*seed*/ 3850165650},
       FlushPolicyTestCase{
-          /*stripeSize*/ 256 * kSizeKB,
+          /*stripeSize*/ 512 * kSizeKB,
           /*dictSize*/ std::numeric_limits<int64_t>::max(),
-          /*numStripesLower*/ 4,
-          /*numStripesUpper*/ 4,
+          /*numStripesLower*/ 3,
+          /*numStripesUpper*/ 3,
           /*seed*/ 2969662436,
           8 * kSizeMB});
 
@@ -399,8 +391,8 @@ TEST(E2EWriterTests, FlushPolicyWithMemoryBudget) {
       FlushPolicyTestCase{
           /*stripeSize*/ 1 * kSizeMB,
           /*dictSize*/ std::numeric_limits<int64_t>::max(),
-          /*numStripesLower*/ 42,
-          /*numStripesUpper*/ 42,
+          /*numStripesLower*/ 41,
+          /*numStripesUpper*/ 41,
           /*seed*/ 630992088,
           10 * kSizeMB},
       FlushPolicyTestCase{
@@ -412,39 +404,42 @@ TEST(E2EWriterTests, FlushPolicyWithMemoryBudget) {
       FlushPolicyTestCase{
           /*stripeSize*/ 1 * kSizeMB,
           /*dictSize*/ std::numeric_limits<int64_t>::max(),
-          /*numStripesLower*/ 42,
-          /*numStripesUpper*/ 42,
+          /*numStripesLower*/ 41,
+          /*numStripesUpper*/ 41,
           /*seed*/ 1630160118,
           13 * kSizeMB},
       FlushPolicyTestCase{
           /*stripeSize*/ 2 * kSizeMB,
           /*dictSize*/ std::numeric_limits<int64_t>::max(),
-          /*numStripesLower*/ 20,
-          /*numStripesUpper*/ 20,
+          /*numStripesLower*/ 21,
+          /*numStripesUpper*/ 21,
           /*seed*/ 1630160118},
       FlushPolicyTestCase{
           /*stripeSize*/ 2 * kSizeMB,
           /*dictSize*/ std::numeric_limits<int64_t>::max(),
-          /*numStripesLower*/ 22,
-          /*numStripesUpper*/ 22,
+          /*numStripesLower*/ 21,
+          /*numStripesUpper*/ 21,
           /*seed*/ 1630160118,
           13 * kSizeMB},
       FlushPolicyTestCase{
           /*stripeSize*/ 32 * kSizeMB,
           /*dictSize*/ std::numeric_limits<int64_t>::max(),
-          /*numStripesLower*/ 1,
-          /*numStripesUpper*/ 1,
+          /*numStripesLower*/ 2,
+          /*numStripesUpper*/ 2,
           /*seed*/ 1630160118},
       FlushPolicyTestCase{
           /*stripeSize*/ 32 * kSizeMB,
           /*dictSize*/ std::numeric_limits<int64_t>::max(),
-          /*numStripesLower*/ 4,
-          /*numStripesUpper*/ 6,
+          /*numStripesLower*/ 3,
+          /*numStripesUpper*/ 3,
           /*seed*/ 1630160118,
           40 * kSizeMB});
 
   for (const auto& testCase : testCases) {
     auto config = std::make_shared<Config>();
+    config->set(Config::DICTIONARY_NUMERIC_KEY_SIZE_THRESHOLD, 0.0f);
+    config->set(Config::DICTIONARY_STRING_KEY_SIZE_THRESHOLD, 0.0f);
+    config->set(Config::ENTROPY_KEY_STRING_SIZE_THRESHOLD, 1.0f);
     config->set(Config::DISABLE_LOW_MEMORY_MODE, true);
     config->set(Config::STRIPE_SIZE, testCase.stripeSize);
     auto batches = E2EWriterTestUtil::generateBatches(
@@ -461,7 +456,7 @@ TEST(E2EWriterTests, FlushPolicyWithMemoryBudget) {
 }
 
 TEST(E2EWriterTests, FlushPolicyDictionaryEncodingWithMemoryBudget) {
-  const size_t batchCount = 2000;
+  const size_t batchCount = 500;
   const size_t size = 1000;
   auto scopedPool = facebook::velox::memory::getDefaultScopedMemoryPool();
   auto& pool = scopedPool->getPool();
@@ -479,29 +474,29 @@ TEST(E2EWriterTests, FlushPolicyDictionaryEncodingWithMemoryBudget) {
 
   auto dictionaryEncodingTestCases = folly::make_array<FlushPolicyTestCase>(
       FlushPolicyTestCase{
-          /*stripeSize*/ 128 * kSizeKB,
+          /*stripeSize*/ 256 * kSizeKB,
           /*dictSize*/ std::numeric_limits<int64_t>::max(),
-          /*numStripesLower*/ 331,
-          /*numStripesUpper*/ 332,
+          /*numStripesLower*/ 42,
+          /*numStripesUpper*/ 42,
           /*seed*/ 630992088},
       FlushPolicyTestCase{
-          /*stripeSize*/ 128 * kSizeKB,
+          /*stripeSize*/ 256 * kSizeKB,
           /*dictSize*/ std::numeric_limits<int64_t>::max(),
-          /*numStripesLower*/ 331,
-          /*numStripesUpper*/ 332,
+          /*numStripesLower*/ 41,
+          /*numStripesUpper*/ 46,
           /*seed*/ 630992088,
           4 * kSizeMB},
       FlushPolicyTestCase{
-          /*stripeSize*/ 256 * kSizeKB,
+          /*stripeSize*/ 1 * kSizeMB,
           /*dictSize*/ std::numeric_limits<int64_t>::max(),
-          /*numStripesLower*/ 165,
-          /*numStripesUpper*/ 165,
+          /*numStripesLower*/ 11,
+          /*numStripesUpper*/ 11,
           /*seed*/ 1630160118},
       FlushPolicyTestCase{
-          /*stripeSize*/ 256 * kSizeKB,
+          /*stripeSize*/ 1 * kSizeMB,
           /*dictSize*/ std::numeric_limits<int64_t>::max(),
-          /*numStripesLower*/ 165,
-          /*numStripesUpper*/ 165,
+          /*numStripesLower*/ 21,
+          /*numStripesUpper*/ 41,
           /*seed*/ 1630160118,
           6 * kSizeMB});
 
@@ -545,46 +540,46 @@ TEST(E2EWriterTests, Trim) {
 
   auto dictionaryEncodingTestCases = folly::make_array<FlushPolicyTestCase>(
       FlushPolicyTestCase{
-          /*stripeSize*/ 128 * kSizeKB,
+          /*stripeSize*/ 256 * kSizeKB,
           /*dictSize*/ std::numeric_limits<int64_t>::max(),
-          /*numStripesLower*/ 331,
-          /*numStripesUpper*/ 332,
+          /*numStripesLower*/ 166,
+          /*numStripesUpper*/ 182,
           /*seed*/ 630992088,
           4 * kSizeMB},
       FlushPolicyTestCase{
-          /*stripeSize*/ 256 * kSizeKB,
+          /*stripeSize*/ 512 * kSizeKB,
           /*dictSize*/ std::numeric_limits<int64_t>::max(),
-          /*numStripesLower*/ 165,
-          /*numStripesUpper*/ 165,
-          /*seed*/ 1630160118,
+          /*numStripesLower*/ 86,
+          /*numStripesUpper*/ 86,
+          /*seed*/ 630992088,
           6 * kSizeMB},
       FlushPolicyTestCase{
           /*stripeSize*/ 1 * kSizeMB,
           /*dictSize*/ std::numeric_limits<int64_t>::max(),
-          /*numStripesLower*/ 39,
-          /*numStripesUpper*/ 40,
+          /*numStripesLower*/ 44,
+          /*numStripesUpper*/ 44,
           /*seed*/ 630992088,
           10 * kSizeMB},
-      FlushPolicyTestCase{
-          /*stripeSize*/ 1 * kSizeMB,
-          /*dictSize*/ std::numeric_limits<int64_t>::max(),
-          /*numStripesLower*/ 39,
-          /*numStripesUpper*/ 39,
-          /*seed*/ 1630160118,
-          11 * kSizeMB},
       FlushPolicyTestCase{
           /*stripeSize*/ 2 * kSizeMB,
           /*dictSize*/ std::numeric_limits<int64_t>::max(),
           /*numStripesLower*/ 20,
           /*numStripesUpper*/ 20,
-          /*seed*/ 1630160118,
+          /*seed*/ 630992088,
           12 * kSizeMB},
+      FlushPolicyTestCase{
+          /*stripeSize*/ 10 * kSizeMB,
+          /*dictSize*/ std::numeric_limits<int64_t>::max(),
+          /*numStripesLower*/ 5,
+          /*numStripesUpper*/ 5,
+          /*seed*/ 630992088,
+          20 * kSizeMB},
       FlushPolicyTestCase{
           /*stripeSize*/ 32 * kSizeMB,
           /*dictSize*/ std::numeric_limits<int64_t>::max(),
           /*numStripesLower*/ 2,
           /*numStripesUpper*/ 3,
-          /*seed*/ 1630160118,
+          /*seed*/ 630992088,
           40 * kSizeMB});
 
   for (const auto& testCase : dictionaryEncodingTestCases) {
@@ -627,37 +622,53 @@ TEST(E2EWriterTests, FlushPolicyFlatMap) {
 
   auto testCases = folly::make_array<FlatMapFlushPolicyTestCase>(
       FlatMapFlushPolicyTestCase{
-          /*stripeSize*/ 128 * kSizeKB,
+          /*stripeSize*/ 256 * kSizeKB,
           /*dictSize*/ std::numeric_limits<int64_t>::max(),
-          /*numStripesLower*/ 9,
-          /*numStripesUpper*/ 9,
+          /*numStripesLower*/ 10,
+          /*numStripesUpper*/ 10,
           /*enableDictionary*/ true,
           /*enableDictionarySharing*/ false,
           /*seed*/ 1321904009},
       FlatMapFlushPolicyTestCase{
-          /*stripeSize*/ 256 * kSizeKB,
+          /*stripeSize*/ 512 * kSizeKB,
           /*dictSize*/ std::numeric_limits<int64_t>::max(),
-          /*numStripesLower*/ 7,
-          /*numStripesUpper*/ 7,
+          /*numStripesLower*/ 6,
+          /*numStripesUpper*/ 6,
           /*enableDictionary*/ true,
           /*enableDictionarySharing*/ false,
-          /*seed*/ 3141693824},
+          /*seed*/ 1321904009},
       FlatMapFlushPolicyTestCase{
-          /*stripeSize*/ 128 * kSizeKB,
+          /*stripeSize*/ 2 * kSizeMB,
           /*dictSize*/ std::numeric_limits<int64_t>::max(),
-          /*numStripesLower*/ 9,
-          /*numStripesUpper*/ 9,
+          /*numStripesLower*/ 3,
+          /*numStripesUpper*/ 3,
           /*enableDictionary*/ true,
           /*enableDictionarySharing*/ true,
           /*seed*/ 1321904009},
       FlatMapFlushPolicyTestCase{
           /*stripeSize*/ 256 * kSizeKB,
           /*dictSize*/ std::numeric_limits<int64_t>::max(),
-          /*numStripesLower*/ 7,
-          /*numStripesUpper*/ 7,
-          /*enableDictionary*/ true,
+          /*numStripesLower*/ 10,
+          /*numStripesUpper*/ 10,
+          /*enableDictionary*/ false,
+          /*enableDictionarySharing*/ false,
+          /*seed*/ 1321904009},
+      FlatMapFlushPolicyTestCase{
+          /*stripeSize*/ 512 * kSizeKB,
+          /*dictSize*/ std::numeric_limits<int64_t>::max(),
+          /*numStripesLower*/ 6,
+          /*numStripesUpper*/ 6,
+          /*enableDictionary*/ false,
+          /*enableDictionarySharing*/ false,
+          /*seed*/ 1321904009},
+      FlatMapFlushPolicyTestCase{
+          /*stripeSize*/ 2 * kSizeMB,
+          /*dictSize*/ std::numeric_limits<int64_t>::max(),
+          /*numStripesLower*/ 3,
+          /*numStripesUpper*/ 3,
+          /*enableDictionary*/ false,
           /*enableDictionarySharing*/ true,
-          /*seed*/ 3141693824});
+          /*seed*/ 1321904009});
 
   for (const auto& testCase : testCases) {
     auto config = std::make_shared<Config>();
@@ -671,6 +682,8 @@ TEST(E2EWriterTests, FlushPolicyFlatMap) {
     if (testCase.enableDictionary) {
       // Force dictionary encoding for integer columns.
       config->set(Config::DICTIONARY_NUMERIC_KEY_SIZE_THRESHOLD, 1.0f);
+    } else {
+      config->set(Config::DICTIONARY_NUMERIC_KEY_SIZE_THRESHOLD, 0.0f);
     }
     config->set(Config::MAP_FLAT_DICT_SHARE, testCase.enableDictionarySharing);
     auto batches = E2EWriterTestUtil::generateBatches(
@@ -706,40 +719,40 @@ TEST(E2EWriterTests, FlushPolicyFlatMapWithBudget) {
 
   auto testCases = folly::make_array<FlatMapFlushPolicyTestCase>(
       FlatMapFlushPolicyTestCase{
-          /*stripeSize*/ 128 * kSizeKB,
+          /*stripeSize*/ 256 * kSizeKB,
           /*dictSize*/ std::numeric_limits<int64_t>::max(),
-          /*numStripesLower*/ 9,
-          /*numStripesUpper*/ 9,
+          /*numStripesLower*/ 10,
+          /*numStripesUpper*/ 10,
           /*enableDictionary*/ true,
           /*enableDictionarySharing*/ false,
           /*seed*/ 1321904009,
-          168 * kSizeMB},
-      FlatMapFlushPolicyTestCase{
-          /*stripeSize*/ 256 * kSizeKB,
-          /*dictSize*/ std::numeric_limits<int64_t>::max(),
-          /*numStripesLower*/ 7,
-          /*numStripesUpper*/ 7,
-          /*enableDictionary*/ true,
-          /*enableDictionarySharing*/ false,
-          /*seed*/ 3141693824,
           256 * kSizeMB},
       FlatMapFlushPolicyTestCase{
-          /*stripeSize*/ 128 * kSizeKB,
+          /*stripeSize*/ 1 * kSizeMB,
           /*dictSize*/ std::numeric_limits<int64_t>::max(),
-          /*numStripesLower*/ 9,
-          /*numStripesUpper*/ 9,
+          /*numStripesLower*/ 4,
+          /*numStripesUpper*/ 4,
           /*enableDictionary*/ true,
-          /*enableDictionarySharing*/ true,
+          /*enableDictionarySharing*/ false,
           /*seed*/ 1321904009,
-          168 * kSizeMB},
+          256 * kSizeMB},
       FlatMapFlushPolicyTestCase{
           /*stripeSize*/ 256 * kSizeKB,
           /*dictSize*/ std::numeric_limits<int64_t>::max(),
-          /*numStripesLower*/ 7,
-          /*numStripesUpper*/ 7,
+          /*numStripesLower*/ 10,
+          /*numStripesUpper*/ 10,
           /*enableDictionary*/ true,
           /*enableDictionarySharing*/ true,
-          /*seed*/ 3141693824,
+          /*seed*/ 1321904009,
+          256 * kSizeMB},
+      FlatMapFlushPolicyTestCase{
+          /*stripeSize*/ 1 * kSizeMB,
+          /*dictSize*/ std::numeric_limits<int64_t>::max(),
+          /*numStripesLower*/ 4,
+          /*numStripesUpper*/ 4,
+          /*enableDictionary*/ true,
+          /*enableDictionarySharing*/ true,
+          /*seed*/ 1321904009,
           256 * kSizeMB});
 
   for (const auto& testCase : testCases) {

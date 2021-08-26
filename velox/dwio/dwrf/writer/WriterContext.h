@@ -343,6 +343,13 @@ class WriterContext : public CompressionBufferPool {
     return ceil(compressionRatioTracker_.getEstimatedRatio() * dataRawSize);
   }
 
+  int64_t getEstimatedOutputStreamSize() const {
+    return (int64_t)std::ceil(
+        (getMemoryUsage(MemoryUsageCategory::OUTPUT_STREAM).getCurrentBytes() +
+         getMemoryUsage(MemoryUsageCategory::DICTIONARY).getCurrentBytes()) /
+        getConfig(Config::COMPRESSION_BLOCK_SIZE_EXTEND_RATIO));
+  }
+
   // The additional memory usage of writers during flush typically comes from
   // flushing remaining data to output buffer, or all of it in the case of
   // dictionary encoding. In either case, the maximal memory consumption is

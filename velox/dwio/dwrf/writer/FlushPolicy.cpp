@@ -27,12 +27,28 @@ DefaultFlushPolicy::DefaultFlushPolicy(
 bool DefaultFlushPolicy::operator()(
     bool overMemoryBudget,
     const WriterContext& context) const {
-  const memory::MemoryPool& dictionaryPool =
-      context.getMemoryUsage(MemoryUsageCategory::DICTIONARY);
-  return overMemoryBudget ||
-         operator()(
-             context.getEstimatedStripeSize(context.stripeRawSize),
-             dictionaryPool.getCurrentBytes());
+  const int64_t dictionaryMemUsage =
+      context.getMemoryUsage(MemoryUsageCategory::DICTIONARY).getCurrentBytes();
+  const int64_t generalMemUsage =
+      context.getMemoryUsage(MemoryUsageCategory::GENERAL).getCurrentBytes();
+  const int64_t outputStreamSize = context.getEstimatedOutputStreamSize();
+  const bool decision =
+      overMemoryBudget ||
+      operator()(
+          std::max(
+              context.getEstimatedStripeSize(context.stripeRawSize),
+              context.stripeIndex == 0 ? outputStreamSize : 0),
+          dictionaryMemUsage);
+  if (decision) {
+    LOG(INFO) << fmt::format(
+        "overMemoryBudget: {}, dictionaryMemUsage: {}, outputStreamSize: {}, generalMemUsage: {}, estimatedStripeSize: {}",
+        overMemoryBudget,
+        dictionaryMemUsage,
+        outputStreamSize,
+        generalMemUsage,
+        context.getEstimatedStripeSize(context.stripeRawSize));
+  }
+  return decision;
 }
 
 bool DefaultFlushPolicy::operator()(
