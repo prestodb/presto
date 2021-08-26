@@ -25,6 +25,8 @@ import java.util.Map;
 
 public interface ColumnWriter
 {
+    long NULL_SIZE = 1;
+
     default List<ColumnWriter> getNestedColumnWriters()
     {
         return ImmutableList.of();
@@ -34,7 +36,7 @@ public interface ColumnWriter
 
     void beginRowGroup();
 
-    void writeBlock(Block block);
+    long writeBlock(Block block);
 
     Map<Integer, ColumnStatistics> finishRowGroup();
 

@@ -111,23 +111,25 @@ public class ListColumnWriter
     }
 
     @Override
-    public void writeBlock(Block block)
+    public long writeBlock(Block block)
     {
         checkState(!closed);
         checkArgument(block.getPositionCount() > 0, "Block is empty");
 
         ColumnarArray columnarArray = toColumnarArray(block);
-        writeColumnarArray(columnarArray);
+        return writeColumnarArray(columnarArray);
     }
 
-    private void writeColumnarArray(ColumnarArray columnarArray)
+    private long writeColumnarArray(ColumnarArray columnarArray)
     {
         // write nulls and lengths
+        int blockNonNullValueCount = 0;
+        long childRawSize = 0;
         for (int position = 0; position < columnarArray.getPositionCount(); position++) {
             boolean present = !columnarArray.isNull(position);
             presentStream.writeBoolean(present);
             if (present) {
-                nonNullValueCount++;
+                blockNonNullValueCount++;
                 lengthStream.writeLong(columnarArray.getLength(position));
             }
         }
@@ -135,8 +137,10 @@ public class ListColumnWriter
         // write element values
         Block elementsBlock = columnarArray.getElementsBlock();
         if (elementsBlock.getPositionCount() > 0) {
-            elementWriter.writeBlock(elementsBlock);
+            childRawSize += elementWriter.writeBlock(elementsBlock);
         }
+        nonNullValueCount += blockNonNullValueCount;
+        return (columnarArray.getPositionCount() - blockNonNullValueCount) * NULL_SIZE + childRawSize;
     }
 
     @Override

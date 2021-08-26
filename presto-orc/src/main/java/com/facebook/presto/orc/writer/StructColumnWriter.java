@@ -107,34 +107,38 @@ public class StructColumnWriter
     }
 
     @Override
-    public void writeBlock(Block block)
+    public long writeBlock(Block block)
     {
         checkState(!closed);
         checkArgument(block.getPositionCount() > 0, "Block is empty");
 
         ColumnarRow columnarRow = toColumnarRow(block);
-        writeColumnarRow(columnarRow);
+        return writeColumnarRow(columnarRow);
     }
 
-    private void writeColumnarRow(ColumnarRow columnarRow)
+    private long writeColumnarRow(ColumnarRow columnarRow)
     {
         // record nulls
+        int blockNonNullValueCount = 0;
         for (int position = 0; position < columnarRow.getPositionCount(); position++) {
             boolean present = !columnarRow.isNull(position);
             presentStream.writeBoolean(present);
             if (present) {
-                nonNullValueCount++;
+                blockNonNullValueCount++;
             }
         }
 
         // write field values
+        long childRawSize = 0;
         for (int i = 0; i < structFields.size(); i++) {
             ColumnWriter columnWriter = structFields.get(i);
             Block fieldBlock = columnarRow.getField(i);
             if (fieldBlock.getPositionCount() > 0) {
-                columnWriter.writeBlock(fieldBlock);
+                childRawSize += columnWriter.writeBlock(fieldBlock);
             }
         }
+        nonNullValueCount += blockNonNullValueCount;
+        return (columnarRow.getPositionCount() - blockNonNullValueCount) * NULL_SIZE + childRawSize;
     }
 
     @Override
