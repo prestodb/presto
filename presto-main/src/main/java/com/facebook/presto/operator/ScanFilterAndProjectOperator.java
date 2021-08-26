@@ -287,6 +287,9 @@ public class ScanFilterAndProjectOperator
                 mergingOutput.addInput(output);
             }
 
+            // stats update
+            recordInputStats();
+
             if (finishing) {
                 mergingOutput.finish();
             }
@@ -364,8 +367,6 @@ public class ScanFilterAndProjectOperator
                 blockSizeSum += block.getSizeInBytes();
             }
         }
-        // stats update
-        recordInputStats();
 
         return (blocks == null) ? page : new Page(page.getPositionCount(), blocks);
     }
