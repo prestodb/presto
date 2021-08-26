@@ -19,6 +19,7 @@
 #include "velox/exec/tests/Cursor.h"
 #include "velox/exec/tests/HiveConnectorTestBase.h"
 #include "velox/exec/tests/PlanBuilder.h"
+#include "velox/type/tests/FilterBulder.h"
 
 #if __has_include("filesystem")
 #include <filesystem>
@@ -31,6 +32,7 @@ namespace fs = std::experimental::filesystem;
 using namespace facebook::velox;
 using namespace facebook::velox::connector::hive;
 using namespace facebook::velox::exec;
+using namespace facebook::velox::common::test;
 using namespace facebook::velox::exec::test;
 
 using ColumnHandleMap =
@@ -178,188 +180,6 @@ class TableScanTest : public HiveConnectorTestBase {
 };
 
 namespace {
-
-std::unique_ptr<common::BigintRange> lessThanOrEqual(
-    int64_t max,
-    bool nullAllowed = false) {
-  return std::make_unique<common::BigintRange>(
-      std::numeric_limits<int64_t>::min(), max, nullAllowed);
-}
-
-std::unique_ptr<common::BigintRange> greaterThanOrEqual(
-    int64_t min,
-    bool nullAllowed = false) {
-  return std::make_unique<common::BigintRange>(
-      min, std::numeric_limits<int64_t>::max(), nullAllowed);
-}
-
-std::unique_ptr<common::DoubleRange> lessThanOrEqualDouble(
-    double max,
-    bool nullAllowed = false) {
-  return std::make_unique<common::DoubleRange>(
-      std::numeric_limits<double>::lowest(),
-      true,
-      true,
-      max,
-      false,
-      false,
-      nullAllowed);
-}
-
-std::unique_ptr<common::DoubleRange> greaterThanOrEqualDouble(
-    double min,
-    bool nullAllowed = false) {
-  return std::make_unique<common::DoubleRange>(
-      min,
-      false,
-      false,
-      std::numeric_limits<double>::max(),
-      true,
-      true,
-      nullAllowed);
-}
-
-std::unique_ptr<common::DoubleRange>
-betweenDouble(double min, double max, bool nullAllowed = false) {
-  return std::make_unique<common::DoubleRange>(
-      min, false, false, max, false, false, nullAllowed);
-}
-
-std::unique_ptr<common::FloatRange> lessThanOrEqualFloat(
-    float max,
-    bool nullAllowed = false) {
-  return std::make_unique<common::FloatRange>(
-      std::numeric_limits<float>::lowest(),
-      true,
-      true,
-      max,
-      false,
-      false,
-      nullAllowed);
-}
-
-std::unique_ptr<common::FloatRange> greaterThanOrEqualFloat(
-    float min,
-    bool nullAllowed = false) {
-  return std::make_unique<common::FloatRange>(
-      min,
-      false,
-      false,
-      std::numeric_limits<float>::max(),
-      true,
-      true,
-      nullAllowed);
-}
-
-std::unique_ptr<common::FloatRange>
-betweenFloat(float min, float max, bool nullAllowed = false) {
-  return std::make_unique<common::FloatRange>(
-      min, false, false, max, false, false, nullAllowed);
-}
-
-std::unique_ptr<common::BigintRange>
-between(int64_t min, int64_t max, bool nullAllowed = false) {
-  return std::make_unique<common::BigintRange>(min, max, nullAllowed);
-}
-
-std::unique_ptr<common::BigintMultiRange> bigintOr(
-    std::unique_ptr<common::BigintRange> a,
-    std::unique_ptr<common::BigintRange> b,
-    bool nullAllowed = false) {
-  std::vector<std::unique_ptr<common::BigintRange>> filters;
-  filters.emplace_back(std::move(a));
-  filters.emplace_back(std::move(b));
-  return std::make_unique<common::BigintMultiRange>(
-      std::move(filters), nullAllowed);
-}
-
-std::unique_ptr<common::BigintMultiRange> bigintOr(
-    std::unique_ptr<common::BigintRange> a,
-    std::unique_ptr<common::BigintRange> b,
-    std::unique_ptr<common::BigintRange> c,
-    bool nullAllowed = false) {
-  std::vector<std::unique_ptr<common::BigintRange>> filters;
-  filters.emplace_back(std::move(a));
-  filters.emplace_back(std::move(b));
-  filters.emplace_back(std::move(c));
-  return std::make_unique<common::BigintMultiRange>(
-      std::move(filters), nullAllowed);
-}
-
-std::unique_ptr<common::BytesValues> equal(
-    const std::string& value,
-    bool nullAllowed = false) {
-  return std::make_unique<common::BytesValues>(
-      std::vector<std::string>{value}, nullAllowed);
-}
-
-std::unique_ptr<common::BigintRange> equal(
-    int64_t value,
-    bool nullAllowed = false) {
-  return std::make_unique<common::BigintRange>(value, value, nullAllowed);
-}
-
-std::unique_ptr<common::BytesRange> lessThanOrEqual(
-    const std::string& max,
-    bool nullAllowed = false) {
-  return std::make_unique<common::BytesRange>(
-      "", true, true, max, false, false, nullAllowed);
-}
-
-std::unique_ptr<common::BytesRange> greaterThanOrEqual(
-    const std::string& min,
-    bool nullAllowed = false) {
-  return std::make_unique<common::BytesRange>(
-      min, false, false, "", true, true, nullAllowed);
-}
-
-std::unique_ptr<common::MultiRange> stringOr(
-    std::unique_ptr<common::BytesRange> a,
-    std::unique_ptr<common::BytesRange> b,
-    bool nullAllowed = false) {
-  std::vector<std::unique_ptr<common::Filter>> filters;
-  filters.emplace_back(std::move(a));
-  filters.emplace_back(std::move(b));
-  return std::make_unique<common::MultiRange>(
-      std::move(filters), nullAllowed, false);
-}
-
-std::unique_ptr<common::Filter> in(
-    const std::vector<int64_t>& values,
-    bool nullAllowed = false) {
-  return common::createBigintValues(values, nullAllowed);
-}
-
-std::unique_ptr<common::BytesValues> in(
-    const std::vector<std::string>& values,
-    bool nullAllowed = false) {
-  return std::make_unique<common::BytesValues>(values, nullAllowed);
-}
-
-std::unique_ptr<common::BoolValue> boolEqual(
-    bool value,
-    bool nullAllowed = false) {
-  return std::make_unique<common::BoolValue>(value, nullAllowed);
-}
-
-std::unique_ptr<common::IsNull> isNull() {
-  return std::make_unique<common::IsNull>();
-}
-
-std::unique_ptr<common::IsNotNull> isNotNull() {
-  return std::make_unique<common::IsNotNull>();
-}
-
-template <typename T>
-std::unique_ptr<common::MultiRange>
-orFilter(std::unique_ptr<T> a, std::unique_ptr<T> b, bool nullAllowed = false) {
-  std::vector<std::unique_ptr<common::Filter>> filters;
-  filters.emplace_back(std::move(a));
-  filters.emplace_back(std::move(b));
-  return std::make_unique<common::MultiRange>(
-      std::move(filters), nullAllowed, false);
-}
-
 class SubfieldFiltersBuilder {
  public:
   SubfieldFiltersBuilder& add(
@@ -1245,7 +1065,7 @@ TEST_F(TableScanTest, statsBasedSkippingWithoutDecompression) {
   // skip 2nd row group
   filters = singleSubfieldFilter(
       "c0",
-      stringOr(
+      orFilter(
           lessThanOrEqual("com.facebook.presto.orc.stream.01234"),
           greaterThanOrEqual("com.facebook.presto.orc.stream.20123")));
   task = assertQuery(

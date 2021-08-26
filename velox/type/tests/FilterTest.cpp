@@ -15,6 +15,7 @@
  */
 
 #include "velox/type/Filter.h"
+#include "velox/type/tests/FilterBulder.h"
 
 #include <cstdint>
 #include <limits>
@@ -25,6 +26,7 @@
 
 using namespace facebook::velox;
 using namespace facebook ::velox::common;
+using namespace facebook ::velox::common::test;
 
 using V64 = simd::Vectors<int64_t>;
 using V32 = simd::Vectors<int32_t>;
@@ -117,7 +119,7 @@ void checkSimd(
 
 TEST(FilterTest, bigIntRange) {
   // x = 1
-  auto filter = std::make_unique<BigintRange>(1, 1, false);
+  auto filter = equal(1, false);
   EXPECT_TRUE(filter->testInt64(1));
 
   EXPECT_FALSE(filter->testNull());
@@ -159,7 +161,7 @@ TEST(FilterTest, bigIntRange) {
   }
 
   // x between 1 and 10
-  filter = std::make_unique<BigintRange>(1, 10, false);
+  filter = between(1, 10, false);
   EXPECT_TRUE(filter->testInt64(1));
   EXPECT_TRUE(filter->testInt64(10));
 
@@ -186,8 +188,7 @@ TEST(FilterTest, bigIntRange) {
   EXPECT_TRUE(filter->testInt64Range(-10, 10, false));
 
   // x > 0 or null
-  filter = std::make_unique<BigintRange>(
-      1, std::numeric_limits<int64_t>::max(), true);
+  filter = greaterThan(0, true);
   EXPECT_TRUE(filter->testNull());
   EXPECT_FALSE(filter->testInt64(0));
   EXPECT_TRUE(filter->testInt64(10));
@@ -225,13 +226,13 @@ TEST(FilterTest, bigIntRange) {
 }
 
 TEST(FilterTest, bigintValuesUsingHashTable) {
-  std::vector<int64_t> values = {1, 10, 100, 1000};
-  auto filter = std::make_unique<BigintValuesUsingHashTable>(
-      1, 1000, std::move(values), false);
+  auto filter = createBigintValues({1, 10, 100, 10'000}, false);
+  ASSERT_TRUE(dynamic_cast<BigintValuesUsingHashTable*>(filter.get()));
+
   EXPECT_TRUE(filter->testInt64(1));
   EXPECT_TRUE(filter->testInt64(10));
   EXPECT_TRUE(filter->testInt64(100));
-  EXPECT_TRUE(filter->testInt64(1000));
+  EXPECT_TRUE(filter->testInt64(10'000));
 
   EXPECT_FALSE(filter->testNull());
   EXPECT_FALSE(filter->testInt64(-1));
@@ -242,13 +243,12 @@ TEST(FilterTest, bigintValuesUsingHashTable) {
   EXPECT_TRUE(filter->testInt64Range(5, 50, false));
   EXPECT_FALSE(filter->testInt64Range(11, 11, false));
   EXPECT_FALSE(filter->testInt64Range(-10, -5, false));
-  EXPECT_FALSE(filter->testInt64Range(1234, 2000, false));
+  EXPECT_FALSE(filter->testInt64Range(10'234, 20'000, false));
 }
 
 TEST(FilterTest, bigintValuesUsingBitmask) {
-  std::vector<int64_t> values = {1, 10, 100, 1000};
-  auto filter =
-      std::make_unique<BigintValuesUsingBitmask>(1, 1000, values, false);
+  auto filter = createBigintValues({1, 10, 100, 1000}, false);
+  ASSERT_TRUE(dynamic_cast<BigintValuesUsingBitmask*>(filter.get()));
 
   EXPECT_TRUE(filter->testInt64(1));
   EXPECT_TRUE(filter->testInt64(10));
@@ -269,56 +269,53 @@ TEST(FilterTest, bigintValuesUsingBitmask) {
 
 TEST(FilterTest, bigintMultiRange) {
   // x between 1 and 10 or x between 100 and 120
-  std::vector<std::unique_ptr<BigintRange>> filters;
-  filters.emplace_back(std::make_unique<BigintRange>(1, 10, false));
-  filters.emplace_back(std::make_unique<BigintRange>(100, 120, false));
-  auto filter = BigintMultiRange(std::move(filters), false);
+  auto filter = bigintOr(between(1, 10), between(100, 120));
+  ASSERT_TRUE(dynamic_cast<BigintMultiRange*>(filter.get()));
 
-  EXPECT_TRUE(filter.testInt64(1));
-  EXPECT_TRUE(filter.testInt64(5));
-  EXPECT_TRUE(filter.testInt64(10));
-  EXPECT_TRUE(filter.testInt64(100));
-  EXPECT_TRUE(filter.testInt64(110));
-  EXPECT_TRUE(filter.testInt64(120));
+  EXPECT_TRUE(filter->testInt64(1));
+  EXPECT_TRUE(filter->testInt64(5));
+  EXPECT_TRUE(filter->testInt64(10));
+  EXPECT_TRUE(filter->testInt64(100));
+  EXPECT_TRUE(filter->testInt64(110));
+  EXPECT_TRUE(filter->testInt64(120));
 
-  EXPECT_FALSE(filter.testNull());
-  EXPECT_FALSE(filter.testInt64(0));
-  EXPECT_FALSE(filter.testInt64(50));
-  EXPECT_FALSE(filter.testInt64(150));
+  EXPECT_FALSE(filter->testNull());
+  EXPECT_FALSE(filter->testInt64(0));
+  EXPECT_FALSE(filter->testInt64(50));
+  EXPECT_FALSE(filter->testInt64(150));
 
-  EXPECT_TRUE(filter.testInt64Range(5, 15, false));
-  EXPECT_TRUE(filter.testInt64Range(5, 15, true));
-  EXPECT_TRUE(filter.testInt64Range(105, 115, false));
-  EXPECT_TRUE(filter.testInt64Range(105, 115, true));
-  EXPECT_FALSE(filter.testInt64Range(15, 45, false));
-  EXPECT_FALSE(filter.testInt64Range(15, 45, true));
+  EXPECT_TRUE(filter->testInt64Range(5, 15, false));
+  EXPECT_TRUE(filter->testInt64Range(5, 15, true));
+  EXPECT_TRUE(filter->testInt64Range(105, 115, false));
+  EXPECT_TRUE(filter->testInt64Range(105, 115, true));
+  EXPECT_FALSE(filter->testInt64Range(15, 45, false));
+  EXPECT_FALSE(filter->testInt64Range(15, 45, true));
 }
 
 TEST(FilterTest, boolValue) {
-  auto boolValueTrue = BoolValue(true, false);
-  EXPECT_TRUE(boolValueTrue.testBool(true));
+  auto boolValueTrue = boolEqual(true);
+  EXPECT_TRUE(boolValueTrue->testBool(true));
 
-  EXPECT_FALSE(boolValueTrue.testNull());
-  EXPECT_FALSE(boolValueTrue.testBool(false));
+  EXPECT_FALSE(boolValueTrue->testNull());
+  EXPECT_FALSE(boolValueTrue->testBool(false));
 
-  EXPECT_TRUE(boolValueTrue.testInt64Range(0, 1, false));
-  EXPECT_TRUE(boolValueTrue.testInt64Range(1, 1, false));
-  EXPECT_FALSE(boolValueTrue.testInt64Range(0, 0, false));
+  EXPECT_TRUE(boolValueTrue->testInt64Range(0, 1, false));
+  EXPECT_TRUE(boolValueTrue->testInt64Range(1, 1, false));
+  EXPECT_FALSE(boolValueTrue->testInt64Range(0, 0, false));
 
-  auto boolValueFalse = BoolValue(false, false);
-  EXPECT_TRUE(boolValueFalse.testBool(false));
+  auto boolValueFalse = boolEqual(false);
+  EXPECT_TRUE(boolValueFalse->testBool(false));
 
-  EXPECT_FALSE(boolValueFalse.testNull());
-  EXPECT_FALSE(boolValueFalse.testBool(true));
+  EXPECT_FALSE(boolValueFalse->testNull());
+  EXPECT_FALSE(boolValueFalse->testBool(true));
 
-  EXPECT_TRUE(boolValueFalse.testInt64Range(0, 1, false));
-  EXPECT_FALSE(boolValueFalse.testInt64Range(1, 1, false));
-  EXPECT_TRUE(boolValueFalse.testInt64Range(0, 0, false));
+  EXPECT_TRUE(boolValueFalse->testInt64Range(0, 1, false));
+  EXPECT_FALSE(boolValueFalse->testInt64Range(1, 1, false));
+  EXPECT_TRUE(boolValueFalse->testInt64Range(0, 0, false));
 }
 
 TEST(FilterTest, doubleRange) {
-  auto filter = std::make_unique<DoubleRange>(
-      1.2, false, false, 1.2, false, false, false);
+  auto filter = betweenDouble(1.2, 1.2);
   EXPECT_TRUE(filter->testDouble(1.2));
 
   EXPECT_FALSE(filter->testNull());
@@ -329,14 +326,7 @@ TEST(FilterTest, doubleRange) {
         filter.get(), &n4, [&](double x) { return filter->testDouble(x); });
   }
 
-  filter = std::make_unique<DoubleRange>(
-      std::numeric_limits<double>::lowest(),
-      true,
-      true,
-      1.2,
-      false,
-      false,
-      false);
+  filter = lessThanOrEqualDouble(1.2);
   EXPECT_TRUE(filter->testDouble(1.2));
   EXPECT_TRUE(filter->testDouble(1.1));
 
@@ -349,8 +339,7 @@ TEST(FilterTest, doubleRange) {
         filter.get(), &n4, [&](double x) { return filter->testDouble(x); });
   }
 
-  filter = std::make_unique<DoubleRange>(
-      1.2, false, true, std::numeric_limits<double>::max(), true, true, false);
+  filter = greaterThanDouble(1.2);
   EXPECT_TRUE(filter->testDouble(1.3));
   EXPECT_TRUE(filter->testDouble(5.6));
 
@@ -363,8 +352,7 @@ TEST(FilterTest, doubleRange) {
         filter.get(), &n4, [&](double x) { return filter->testDouble(x); });
   }
 
-  filter = std::make_unique<DoubleRange>(
-      1.2, false, false, 3.4, false, false, false);
+  filter = betweenDouble(1.2, 3.4);
   EXPECT_TRUE(filter->testDouble(1.2));
   EXPECT_TRUE(filter->testDouble(1.5));
   EXPECT_TRUE(filter->testDouble(3.4));
@@ -380,18 +368,12 @@ TEST(FilterTest, doubleRange) {
         filter.get(), &n4, [&](double x) { return filter->testDouble(x); });
   }
 
-  try {
-    filter = std::make_unique<DoubleRange>(
-        NAN, false, false, NAN, false, false, false);
-    EXPECT_TRUE(false) << "able to create a DoubleRange with NaN";
-  } catch (const std::exception& e) {
-    // expected
-  }
+  EXPECT_THROW(betweenDouble(NAN, NAN), VeloxRuntimeError)
+      << "able to create a DoubleRange with NaN";
 }
 
 TEST(FilterTest, floatRange) {
-  auto filter = std::make_unique<FloatRange>(
-      1.2f, false, false, 1.2f, false, false, false);
+  auto filter = betweenFloat(1.2, 1.2);
   EXPECT_TRUE(filter->testFloat(1.2f));
 
   EXPECT_FALSE(filter->testNull());
@@ -402,14 +384,7 @@ TEST(FilterTest, floatRange) {
         filter.get(), &n8, [&](float x) { return filter->testFloat(x); });
   }
 
-  filter = std::make_unique<FloatRange>(
-      std::numeric_limits<float>::lowest(),
-      true,
-      true,
-      1.2f,
-      false,
-      true,
-      false);
+  filter = lessThanFloat(1.2);
   EXPECT_TRUE(filter->testFloat(1.1f));
 
   EXPECT_FALSE(filter->testNull());
@@ -421,8 +396,7 @@ TEST(FilterTest, floatRange) {
         filter.get(), &n8, [&](float x) { return filter->testFloat(x); });
   }
 
-  filter = std::make_unique<FloatRange>(
-      1.2f, false, false, 3.4f, false, false, false);
+  filter = betweenFloat(1.2, 3.4);
   EXPECT_TRUE(filter->testFloat(1.2f));
   EXPECT_TRUE(filter->testFloat(2.3f));
   EXPECT_TRUE(filter->testFloat(3.4f));
@@ -437,49 +411,45 @@ TEST(FilterTest, floatRange) {
         filter.get(), &n8, [&](float x) { return filter->testFloat(x); });
   }
 
-  try {
-    std::make_unique<FloatRange>(
-        std::nanf("NAN"), false, false, std::nanf("NAN"), false, false, false);
-    EXPECT_TRUE(false) << "able to create a FloatRange with NaN";
-  } catch (const std::exception& e) {
-    // expected
-  }
+  EXPECT_THROW(
+      betweenFloat(std::nanf("NAN"), std::nanf("NAN")), VeloxRuntimeError)
+      << "able to create a FloatRange with NaN";
 }
 
 TEST(FilterTest, bytesRange) {
-  auto filter = std::make_shared<BytesRange>(
-      "abc", false, false, "abc", false, false, false);
-  EXPECT_TRUE(filter->testBytes("abc", 3));
-  EXPECT_FALSE(filter->testBytes("acb", 3));
-  EXPECT_TRUE(filter->testLength(3));
-  __m256si length8 = {0, 1, 3, 0, 4, 10, 11, 12};
-  // The bit for lane 2 should be set.
-  EXPECT_EQ(
-      4,
-      V32::compareBitMask(V32::compareResult(filter->test8xLength(length8))));
+  {
+    auto filter = equal("abc");
+    EXPECT_TRUE(filter->testBytes("abc", 3));
+    EXPECT_FALSE(filter->testBytes("acb", 3));
+    EXPECT_TRUE(filter->testLength(3));
+    __m256si length8 = {0, 1, 3, 0, 4, 10, 11, 12};
+    // The bit for lane 2 should be set.
+    EXPECT_EQ(
+        4,
+        V32::compareBitMask(V32::compareResult(filter->test8xLength(length8))));
 
-  EXPECT_FALSE(filter->testNull());
-  EXPECT_FALSE(filter->testBytes("apple", 5));
-  EXPECT_FALSE(filter->testLength(4));
+    EXPECT_FALSE(filter->testNull());
+    EXPECT_FALSE(filter->testBytes("apple", 5));
+    EXPECT_FALSE(filter->testLength(4));
 
-  EXPECT_TRUE(filter->testBytesRange("abc", "abc", false));
-  EXPECT_TRUE(filter->testBytesRange("a", "z", false));
-  EXPECT_TRUE(filter->testBytesRange("aaaaa", "bbbb", false));
-  EXPECT_FALSE(filter->testBytesRange("apple", "banana", false));
-  EXPECT_FALSE(filter->testBytesRange("orange", "plum", false));
+    EXPECT_TRUE(filter->testBytesRange("abc", "abc", false));
+    EXPECT_TRUE(filter->testBytesRange("a", "z", false));
+    EXPECT_TRUE(filter->testBytesRange("aaaaa", "bbbb", false));
+    EXPECT_FALSE(filter->testBytesRange("apple", "banana", false));
+    EXPECT_FALSE(filter->testBytesRange("orange", "plum", false));
 
-  EXPECT_FALSE(filter->testBytesRange(std::nullopt, "a", false));
-  EXPECT_TRUE(filter->testBytesRange(std::nullopt, "abc", false));
-  EXPECT_TRUE(filter->testBytesRange(std::nullopt, "banana", false));
+    EXPECT_FALSE(filter->testBytesRange(std::nullopt, "a", false));
+    EXPECT_TRUE(filter->testBytesRange(std::nullopt, "abc", false));
+    EXPECT_TRUE(filter->testBytesRange(std::nullopt, "banana", false));
 
-  EXPECT_FALSE(filter->testBytesRange("banana", std::nullopt, false));
-  EXPECT_TRUE(filter->testBytesRange("abc", std::nullopt, false));
-  EXPECT_TRUE(filter->testBytesRange("a", std::nullopt, false));
+    EXPECT_FALSE(filter->testBytesRange("banana", std::nullopt, false));
+    EXPECT_TRUE(filter->testBytesRange("abc", std::nullopt, false));
+    EXPECT_TRUE(filter->testBytesRange("a", std::nullopt, false));
+  }
 
   char const* theBestOfTimes =
       "It was the best of times, it was the worst of times, it was the age of wisdom, it was the age of foolishness, it was the epoch of belief, it was the epoch of incredulity,...";
-  filter = std::make_shared<BytesRange>(
-      "", true, true, theBestOfTimes, false, false, false);
+  auto filter = lessThanOrEqual(theBestOfTimes);
   EXPECT_TRUE(filter->testBytes(theBestOfTimes, std::strlen(theBestOfTimes)));
   EXPECT_TRUE(filter->testBytes(theBestOfTimes, 5));
   EXPECT_TRUE(filter->testBytes(theBestOfTimes, 50));
@@ -496,8 +466,7 @@ TEST(FilterTest, bytesRange) {
   EXPECT_FALSE(filter->testBytesRange("Pear", "Plum", false));
   EXPECT_FALSE(filter->testBytesRange("apple", "banana", false));
 
-  filter =
-      std::make_shared<BytesRange>("abc", false, false, "", true, true, false);
+  filter = greaterThanOrEqual("abc");
   EXPECT_TRUE(filter->testBytes("abc", 3));
   EXPECT_TRUE(filter->testBytes("ad", 2));
   EXPECT_TRUE(filter->testBytes("apple", 5));
@@ -507,8 +476,7 @@ TEST(FilterTest, bytesRange) {
   EXPECT_FALSE(filter->testBytes("ab", 2));
   EXPECT_FALSE(filter->testBytes("_abc", 4));
 
-  filter = std::make_shared<BytesRange>(
-      "apple", false, false, "banana", false, false, false);
+  filter = between("apple", "banana");
   EXPECT_TRUE(filter->testBytes("apple", 5));
   EXPECT_TRUE(filter->testBytes("banana", 6));
   EXPECT_TRUE(filter->testBytes("avocado", 7));
@@ -517,7 +485,7 @@ TEST(FilterTest, bytesRange) {
   EXPECT_FALSE(filter->testBytes("camel", 5));
   EXPECT_FALSE(filter->testBytes("_abc", 4));
 
-  filter = std::make_shared<BytesRange>(
+  filter = std::make_unique<BytesRange>(
       "apple", false, true, "banana", false, false, false);
   EXPECT_TRUE(filter->testBytes("banana", 6));
   EXPECT_TRUE(filter->testBytes("avocado", 7));
@@ -527,7 +495,7 @@ TEST(FilterTest, bytesRange) {
   EXPECT_FALSE(filter->testBytes("camel", 5));
   EXPECT_FALSE(filter->testBytes("_abc", 4));
 
-  filter = std::make_shared<BytesRange>(
+  filter = std::make_unique<BytesRange>(
       "apple", false, true, "banana", false, true, false);
   EXPECT_TRUE(filter->testBytes("avocado", 7));
 
@@ -540,8 +508,8 @@ TEST(FilterTest, bytesRange) {
 
 TEST(FilterTest, bytesValues) {
   // The filter has values of size on either side of 8 bytes.
-  std::vector<std::string> vec({"Igne", "natura", "renovitur", "integra."});
-  auto filter = std::make_unique<BytesValues>(std::move(vec), false);
+  std::vector<std::string> values({"Igne", "natura", "renovitur", "integra."});
+  auto filter = in(values);
   EXPECT_TRUE(filter->testBytes("Igne", 4));
   EXPECT_TRUE(filter->testBytes("natura", 6));
   EXPECT_TRUE(filter->testBytes("natural", 6));
@@ -577,12 +545,7 @@ TEST(FilterTest, bytesValues) {
 }
 
 TEST(FilterTest, multiRange) {
-  std::vector<std::unique_ptr<Filter>> filters;
-  filters.push_back(std::make_unique<BytesRange>(
-      "abc", false, false, "abc", false, false, false));
-  filters.push_back(std::make_unique<BytesRange>(
-      "dragon", false, false, "", true, true, false));
-  auto filter = std::make_unique<MultiRange>(std::move(filters), false, false);
+  auto filter = orFilter(between("abc", "abc"), greaterThanOrEqual("dragon"));
 
   EXPECT_TRUE(filter->testBytes("abc", 3));
   EXPECT_TRUE(filter->testBytes("dragon", 6));
@@ -597,18 +560,7 @@ TEST(FilterTest, multiRange) {
   EXPECT_FALSE(filter->testBytesRange("apple", "banana", false));
   EXPECT_FALSE(filter->testBytesRange("aaa", "aa123", false));
 
-  filters.clear();
-  filters.push_back(std::make_unique<DoubleRange>(
-      std::numeric_limits<double>::lowest(),
-      true,
-      true,
-      1.2,
-      false,
-      true,
-      false));
-  filters.push_back(std::make_unique<DoubleRange>(
-      1.2, false, true, std::numeric_limits<double>::max(), true, true, false));
-  filter = std::make_unique<MultiRange>(std::move(filters), false, false);
+  filter = orFilter(lessThanDouble(1.2), greaterThanDouble(1.2));
 
   EXPECT_TRUE(filter->testDouble(1.1));
   EXPECT_TRUE(filter->testDouble(1.3));
@@ -617,24 +569,7 @@ TEST(FilterTest, multiRange) {
   EXPECT_FALSE(filter->testDouble(std::nan("nan")));
   EXPECT_FALSE(filter->testDouble(1.2));
 
-  filters.clear();
-  filters.push_back(std::make_unique<FloatRange>(
-      std::numeric_limits<float>::lowest(),
-      true,
-      true,
-      1.2f,
-      false,
-      true,
-      false));
-  filters.push_back(std::make_unique<FloatRange>(
-      1.2f,
-      false,
-      true,
-      std::numeric_limits<float>::lowest(),
-      true,
-      true,
-      false));
-  filter = std::make_unique<MultiRange>(std::move(filters), false, false);
+  filter = orFilter(lessThanFloat(1.2), greaterThanFloat(1.2));
 
   EXPECT_FALSE(filter->testNull());
   EXPECT_TRUE(filter->testFloat(1.1f));
@@ -645,110 +580,35 @@ TEST(FilterTest, multiRange) {
 
 TEST(FilterTest, multiRangeWithNaNs) {
   // x <> 1.2 with nanAllowed true
-  std::vector<std::unique_ptr<Filter>> filters;
-  filters.push_back(std::make_unique<FloatRange>(
-      std::numeric_limits<float>::lowest(),
-      true,
-      true,
-      1.2f,
-      false,
-      true,
-      false));
-  filters.push_back(std::make_unique<FloatRange>(
-      1.2f, false, true, std::numeric_limits<float>::max(), true, true, false));
-  auto filter = std::make_unique<MultiRange>(std::move(filters), false, true);
+  auto filter =
+      orFilter(lessThanFloat(1.2), greaterThanFloat(1.2), false, true);
   EXPECT_TRUE(filter->testFloat(std::nanf("nan")));
   EXPECT_FALSE(filter->testFloat(1.2f));
   EXPECT_TRUE(filter->testFloat(1.1f));
 
-  filters.clear();
-  filters.push_back(std::make_unique<DoubleRange>(
-      std::numeric_limits<double>::lowest(),
-      true,
-      true,
-      1.2,
-      false,
-      true,
-      false));
-  filters.push_back(std::make_unique<DoubleRange>(
-      1.2, false, true, std::numeric_limits<double>::max(), true, true, false));
-  filter = std::make_unique<MultiRange>(std::move(filters), false, true);
+  filter = orFilter(lessThanDouble(1.2), greaterThanDouble(1.2), false, true);
   EXPECT_TRUE(filter->testDouble(std::nan("nan")));
   EXPECT_FALSE(filter->testDouble(1.2));
   EXPECT_TRUE(filter->testDouble(1.1));
 
   // x <> 1.2 with nanAllowed false
-  filters.clear();
-  filters.push_back(std::make_unique<FloatRange>(
-      std::numeric_limits<float>::lowest(),
-      true,
-      true,
-      1.2f,
-      false,
-      true,
-      false));
-  filters.push_back(std::make_unique<FloatRange>(
-      1.2f, false, true, std::numeric_limits<float>::max(), true, true, false));
-
-  filter = std::make_unique<MultiRange>(std::move(filters), false, false);
+  filter = orFilter(lessThanFloat(1.2), greaterThanFloat(1.2));
   EXPECT_FALSE(filter->testFloat(std::nanf("nan")));
   EXPECT_TRUE(filter->testFloat(1.0f));
 
-  filters.clear();
-  filters.push_back(std::make_unique<DoubleRange>(
-      std::numeric_limits<double>::lowest(),
-      true,
-      true,
-      1.2,
-      false,
-      true,
-      false));
-  filters.push_back(std::make_unique<DoubleRange>(
-      1.2, false, true, std::numeric_limits<double>::max(), true, true, false));
-
-  filter = std::make_unique<MultiRange>(std::move(filters), false, false);
+  filter = orFilter(lessThanDouble(1.2), greaterThanDouble(1.2));
   EXPECT_FALSE(filter->testDouble(std::nan("nan")));
   EXPECT_TRUE(filter->testDouble(1.4));
 
   // x NOT IN (1.2, 1.3) with nanAllowed true
-  auto floatRangePtr3 =
-      std::make_unique<FloatRange>(1.2f, false, true, 1.3f, false, true, false);
-  auto floatRangePtr4 = std::make_unique<FloatRange>(
-      1.3f, false, true, std::numeric_limits<float>::max(), true, true, false);
-  filters.clear();
-  filters.push_back(std::make_unique<FloatRange>(
-      std::numeric_limits<float>::lowest(),
-      true,
-      true,
-      1.2f,
-      false,
-      true,
-      false));
-  filters.push_back(std::make_unique<FloatRange>(
-      1.2f, false, true, 1.3f, false, true, false));
-  filters.push_back(std::make_unique<FloatRange>(
-      1.3f, false, true, std::numeric_limits<float>::max(), true, true, false));
-  filter = std::make_unique<MultiRange>(std::move(filters), false, true);
+  filter = orFilter(lessThanFloat(1.2), greaterThanFloat(1.3), false, true);
   EXPECT_TRUE(filter->testFloat(std::nanf("nan")));
   EXPECT_FALSE(filter->testFloat(1.2f));
   EXPECT_FALSE(filter->testFloat(1.3f));
   EXPECT_TRUE(filter->testFloat(1.4f));
   EXPECT_TRUE(filter->testFloat(1.1f));
 
-  filters.clear();
-  filters.push_back(std::make_unique<DoubleRange>(
-      std::numeric_limits<double>::lowest(),
-      true,
-      true,
-      1.2,
-      false,
-      true,
-      false));
-  filters.push_back(std::make_unique<FloatRange>(
-      1.2f, false, true, 1.3f, false, true, false));
-  filters.push_back(std::make_unique<FloatRange>(
-      1.3f, false, true, std::numeric_limits<float>::max(), true, true, false));
-  filter = std::make_unique<MultiRange>(std::move(filters), false, true);
+  filter = orFilter(lessThanDouble(1.2), greaterThanDouble(1.3), false, true);
   EXPECT_TRUE(filter->testDouble(std::nan("nan")));
   EXPECT_FALSE(filter->testDouble(1.2));
   EXPECT_FALSE(filter->testDouble(1.3));
@@ -756,35 +616,12 @@ TEST(FilterTest, multiRangeWithNaNs) {
   EXPECT_TRUE(filter->testDouble(1.1));
 
   // x NOT IN (1.2) with nanAllowed false
-  auto floatRangePtr5 = std::make_unique<FloatRange>(
-      1.2f, false, true, std::numeric_limits<float>::max(), true, true, false);
-  filters.clear();
-  filters.push_back(std::make_unique<FloatRange>(
-      std::numeric_limits<float>::lowest(),
-      true,
-      true,
-      1.2f,
-      false,
-      true,
-      false));
-  filters.push_back(std::move(floatRangePtr5));
-  filter = std::make_unique<MultiRange>(std::move(filters), false, false);
+  filter = orFilter(lessThanFloat(1.2), greaterThanFloat(1.2));
   EXPECT_FALSE(filter->testFloat(std::nanf("nan")));
   EXPECT_FALSE(filter->testFloat(1.2f));
   EXPECT_TRUE(filter->testFloat(1.3f));
 
-  filters.clear();
-  filters.push_back(std::make_unique<DoubleRange>(
-      std::numeric_limits<double>::lowest(),
-      true,
-      true,
-      1.2,
-      false,
-      true,
-      false));
-  filters.push_back(std::make_unique<DoubleRange>(
-      1.2, false, true, std::numeric_limits<double>::max(), true, true, false));
-  filter = std::make_unique<MultiRange>(std::move(filters), false, false);
+  filter = orFilter(lessThanDouble(1.2), greaterThanDouble(1.2));
   EXPECT_FALSE(filter->testDouble(std::nan("nan")));
   EXPECT_FALSE(filter->testDouble(1.2));
   EXPECT_TRUE(filter->testDouble(1.3));
