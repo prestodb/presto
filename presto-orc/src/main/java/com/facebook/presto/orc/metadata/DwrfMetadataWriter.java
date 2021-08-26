@@ -130,6 +130,10 @@ public class DwrfMetadataWriter
             footerProtobuf.setEncryption(toEncryption(footer.getEncryption().get()));
         }
 
+        if (footer.getRawSize().isPresent()) {
+            footerProtobuf.setRawDataSize(footer.getRawSize().getAsLong());
+        }
+
         if (footer.getDwrfStripeCacheOffsets().isPresent()) {
             footerProtobuf.addAllStripeCacheOffsets(footer.getDwrfStripeCacheOffsets().get());
         }
@@ -140,7 +144,7 @@ public class DwrfMetadataWriter
     @VisibleForTesting
     static DwrfProto.StripeInformation toStripeInformation(StripeInformation stripe)
     {
-        return DwrfProto.StripeInformation.newBuilder()
+        DwrfProto.StripeInformation.Builder builder = DwrfProto.StripeInformation.newBuilder()
                 .setNumberOfRows(stripe.getNumberOfRows())
                 .setOffset(stripe.getOffset())
                 .setIndexLength(stripe.getIndexLength())
@@ -148,8 +152,12 @@ public class DwrfMetadataWriter
                 .setFooterLength(stripe.getFooterLength())
                 .addAllKeyMetadata(stripe.getKeyMetadata().stream()
                         .map(ByteString::copyFrom)
-                        .collect(toImmutableList()))
-                .build();
+                        .collect(toImmutableList()));
+
+        if (stripe.getRawDataSize().isPresent()) {
+            builder.setRawDataSize(stripe.getRawDataSize().getAsLong());
+        }
+        return builder.build();
     }
 
     private static Type toType(OrcType type)
