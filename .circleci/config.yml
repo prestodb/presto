@@ -25,7 +25,7 @@ executors:
   build:
     docker:
       - image : prestocpp/velox-circleci:mikesh-20210610
-    resource_class: xlarge
+    resource_class: 2xlarge
     environment:
         CC:  /opt/rh/gcc-toolset-9/root/bin/gcc
         CXX: /opt/rh/gcc-toolset-9/root/bin/g++
@@ -99,7 +99,7 @@ jobs:
             export CCACHE_DIR=$(realpath .ccache)
             ccache -sz -M 5Gi
             source /opt/rh/gcc-toolset-9/enable
-            make debug NUM_THREADS=8 MAX_HIGH_MEM_JOBS=3 MAX_LINK_JOBS=4
+            make debug NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=16
             ccache -s
           no_output_timeout: 1h
       - store_artifacts:
@@ -112,7 +112,7 @@ jobs:
       - run:
           name: Run Unit Tests
           command: |
-            make unittest NUM_THREADS=8
+            make unittest NUM_THREADS=16
           no_output_timeout: 1h
 
   format-check:
