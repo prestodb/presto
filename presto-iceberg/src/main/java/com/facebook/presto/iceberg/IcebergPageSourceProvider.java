@@ -368,7 +368,7 @@ public class IcebergPageSourceProvider
                 }
             }
 
-            return new ParquetPageSource(parquetReader, prestoTypes.build(), internalFields.build(), namesBuilder.build());
+            return new ParquetPageSource(parquetReader, prestoTypes.build(), internalFields.build(), namesBuilder.build(), new RuntimeStats());
         }
         catch (Exception e) {
             try {
