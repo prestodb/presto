@@ -133,6 +133,11 @@ void WriterShared::flushStripe(bool close) {
     return;
   }
 
+  dwio::common::MetricsLog::StripeFlushMetrics metrics;
+  metrics.outputStreamMemoryEstimate = context.getEstimatedOutputStreamSize();
+  metrics.stripeSizeEstimate =
+      context.getEstimatedStripeSize(context.stripeRawSize);
+
   if (context.isIndexEnabled && context.indexRowCount > 0) {
     createRowIndexEntry();
   }
@@ -165,6 +170,7 @@ void WriterShared::flushStripe(bool close) {
           .getCurrentBytes() -
       preFlushStreamMemoryUsage;
   context.recordFlushOverhead(flushOverhead);
+  metrics.flushOverhead = flushOverhead;
 
   auto& sink = getSink();
   auto stripeOffset = sink.size();
@@ -236,6 +242,7 @@ void WriterShared::flushStripe(bool close) {
     sink.addBuffers(content);
   });
   DWIO_ENSURE_GT(dataLength, 0);
+  metrics.stripeSize = dataLength;
 
   if (handler.isEncrypted()) {
     // fill encryption metadata
@@ -274,28 +281,30 @@ void WriterShared::flushStripe(bool close) {
   context.recordCompressionRatio(dataLength);
 
   auto totalMemoryUsage = getTotalMemoryUsage(context);
+  metrics.limit = totalMemoryUsage;
+  metrics.availableMemory = context.getMemoryBudget() - totalMemoryUsage;
+
   auto& dictionaryDataMemoryUsage =
       context.getMemoryUsage(MemoryUsageCategory::DICTIONARY);
+  metrics.dictionaryMemory = dictionaryDataMemoryUsage.getCurrentBytes();
+  // TODO: what does this try to capture?
+  metrics.maxDictSize = dictionaryDataMemoryUsage.getMaxBytes();
+
+  metrics.stripeIndex = context.stripeIndex;
+  metrics.rawStripeSize = context.stripeRawSize;
+  metrics.rowsInStripe = context.stripeRowCount;
+  metrics.compressionRatio = context.getCompressionRatio();
+  metrics.flushOverheadRatio = context.getFlushOverheadRatio();
+  metrics.averageRowSize = context.getAverageRowSize();
+  metrics.groupSize = 0;
+  metrics.close = close;
 
   LOG(INFO) << fmt::format(
-      "Flush overhead = {}, data length = {}", flushOverhead, dataLength);
+      "Flush overhead = {}, data length = {}",
+      metrics.flushOverhead,
+      metrics.stripeSize);
   // Add flush overhead and other ratio logging.
-  context.metricLogger->logStripeFlush(
-      context.stripeIndex,
-      context.stripeRawSize,
-      context.stripeRowCount,
-      dataLength,
-      totalMemoryUsage /* total memory bytes */,
-      dictionaryDataMemoryUsage.getMaxBytes() /* max dict size */,
-      dictionaryDataMemoryUsage.getCurrentBytes() /* dict memory bytes */,
-      context.getMemoryBudget() - totalMemoryUsage /* available memory */,
-      flushOverhead,
-      context.getCompressionRatio(),
-      context.getFlushOverheadRatio(),
-      context.getAverageRowSize(),
-      // TODO: implement this after D20039581.
-      0 /* group size of streams based on stream layout optimization */,
-      close);
+  context.metricLogger->logStripeFlush(metrics);
 
   // prepare for next stripe
   context.nextStripe();

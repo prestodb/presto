@@ -97,28 +97,18 @@ class MetricsLog {
     uint64_t limit;
     uint64_t maxDictSize;
     uint64_t dictionaryMemory;
+    uint64_t outputStreamMemoryEstimate;
     uint64_t availableMemory;
+    size_t flushOverhead;
+    float compressionRatio;
+    float flushOverheadRatio;
+    float averageRowSize;
+    uint64_t stripeSizeEstimate;
     uint64_t groupSize;
     bool close;
   };
 
   virtual void logStripeFlush(const StripeFlushMetrics& metrics) const {};
-
-  virtual void logStripeFlush(
-      uint32_t stripeIndex,
-      size_t rawStripeSize,
-      size_t rowsInStripe,
-      size_t stripeSize,
-      size_t limit,
-      size_t maxDictSize,
-      size_t dictionaryMemory,
-      size_t availableMemory,
-      size_t flushOverhead,
-      float compressionRatio,
-      float flushOverheadRatio,
-      float averageRowSize,
-      size_t groupSize,
-      bool close) const {}
 
   struct FileCloseMetrics {
     uint64_t footerLength;
