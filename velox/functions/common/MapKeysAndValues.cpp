@@ -57,7 +57,7 @@ class MapKeysFunction : public MapKeyValueFunction {
       exec::Expr* /* caller */,
       exec::EvalCtx* context,
       VectorPtr* result) const override {
-    VELOX_CHECK(args.size() == 1);
+    VELOX_CHECK_EQ(args.size(), 1);
     auto arg = args[0];
 
     VELOX_CHECK(
@@ -91,7 +91,7 @@ class MapValuesFunction : public MapKeyValueFunction {
       exec::Expr* /* caller */,
       exec::EvalCtx* context,
       VectorPtr* result) const override {
-    VELOX_CHECK(args.size() == 1);
+    VELOX_CHECK_EQ(args.size(), 1);
     auto arg = args[0];
 
     VELOX_CHECK(
