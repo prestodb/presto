@@ -26,4 +26,7 @@ add_library(
 target_link_libraries(velox_functions_spark velox_functions_lib
                       velox_functions_common)
 
+set_property(TARGET velox_functions_spark PROPERTY JOB_POOL_COMPILE
+                                                   high_memory_pool)
+
 add_subdirectory(tests)
