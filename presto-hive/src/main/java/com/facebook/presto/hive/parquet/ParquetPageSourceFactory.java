@@ -255,6 +255,14 @@ public class ParquetPageSourceFactory
             for (BlockMetaData block : footerBlocks.build()) {
                 if (predicateMatches(parquetPredicate, block, finalDataSource, descriptorsByPath, parquetTupleDomain, failOnCorruptedParquetStatistics)) {
                     blocks.add(block);
+                    hiveFileContext.incrementCounter("parquet.blocksRead", 1);
+                    hiveFileContext.incrementCounter("parquet.rowsRead", block.getRowCount());
+                    hiveFileContext.incrementCounter("parquet.totalBytesRead", block.getTotalByteSize());
+                }
+                else {
+                    hiveFileContext.incrementCounter("parquet.blocksSkipped", 1);
+                    hiveFileContext.incrementCounter("parquet.rowsSkipped", block.getRowCount());
+                    hiveFileContext.incrementCounter("parquet.totalBytesSkipped", block.getTotalByteSize());
                 }
             }
             MessageColumnIO messageColumnIO = getColumnIO(fileSchema, requestedSchema);
@@ -298,7 +306,7 @@ public class ParquetPageSourceFactory
                     fieldsBuilder.add(Optional.empty());
                 }
             }
-            return new ParquetPageSource(parquetReader, typesBuilder.build(), fieldsBuilder.build(), namesBuilder.build());
+            return new ParquetPageSource(parquetReader, typesBuilder.build(), fieldsBuilder.build(), namesBuilder.build(), hiveFileContext.getStats());
         }
         catch (Exception e) {
             try {
