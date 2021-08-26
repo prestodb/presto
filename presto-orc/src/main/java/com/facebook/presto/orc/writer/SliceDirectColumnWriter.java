@@ -116,7 +116,7 @@ public class SliceDirectColumnWriter
     }
 
     @Override
-    public void writeBlock(Block block)
+    public long writeBlock(Block block)
     {
         checkState(!closed);
         checkArgument(block.getPositionCount() > 0, "Block is empty");
@@ -127,22 +127,22 @@ public class SliceDirectColumnWriter
         }
 
         // record values
+        long elementSize = 0;
+        int nonNullValueCount = 0;
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (!block.isNull(position)) {
                 Slice value = type.getSlice(block, position);
-                writeSlice(value);
+                elementSize += value.length();
+                writeSlice(value, 0, value.length());
+                nonNullValueCount++;
             }
         }
+        return (block.getPositionCount() - nonNullValueCount) * NULL_SIZE + elementSize;
     }
 
     void writePresentValue(boolean value)
     {
         presentStream.writeBoolean(value);
-    }
-
-    void writeSlice(Slice value)
-    {
-        writeSlice(value, 0, value.length());
     }
 
     void writeSlice(Slice slice, int sourceIndex, int length)

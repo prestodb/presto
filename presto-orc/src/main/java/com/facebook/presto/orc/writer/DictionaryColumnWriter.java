@@ -252,14 +252,13 @@ public abstract class DictionaryColumnWriter
     }
 
     @Override
-    public void writeBlock(Block block)
+    public long writeBlock(Block block)
     {
         checkState(!closed);
         checkArgument(block.getPositionCount() > 0, "Block is empty");
 
         if (directEncoded) {
-            getDirectColumnWriter().writeBlock(block);
-            return;
+            return getDirectColumnWriter().writeBlock(block);
         }
 
         rowGroupIndexes = ensureCapacity(rowGroupIndexes, rowGroupValueCount + block.getPositionCount(), MEDIUM, PRESERVE);
@@ -268,6 +267,7 @@ public abstract class DictionaryColumnWriter
         rawBytes += blockStatistics.getRawBytes();
         rowGroupValueCount += block.getPositionCount();
         totalValueCount += block.getPositionCount();
+        return blockStatistics.getRawBytesIncludingNulls();
     }
 
     @Override
@@ -474,11 +474,13 @@ public abstract class DictionaryColumnWriter
     {
         private final int nonNullValueCount;
         private final long rawBytes;
+        private final long rawBytesIncludingNulls;
 
-        public BlockStatistics(int nonNullValueCount, long rawBytes)
+        public BlockStatistics(int nonNullValueCount, long rawBytes, long rawBytesIncludingNulls)
         {
             this.nonNullValueCount = nonNullValueCount;
             this.rawBytes = rawBytes;
+            this.rawBytesIncludingNulls = rawBytesIncludingNulls;
         }
 
         public int getNonNullValueCount()
@@ -489,6 +491,11 @@ public abstract class DictionaryColumnWriter
         public long getRawBytes()
         {
             return rawBytes;
+        }
+
+        public long getRawBytesIncludingNulls()
+        {
+            return rawBytesIncludingNulls;
         }
     }
 }

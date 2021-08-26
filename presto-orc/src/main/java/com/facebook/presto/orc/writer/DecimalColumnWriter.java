@@ -114,7 +114,7 @@ public class DecimalColumnWriter
     }
 
     @Override
-    public void writeBlock(Block block)
+    public long writeBlock(Block block)
     {
         checkState(!closed);
         checkArgument(block.getPositionCount() > 0, "Block is empty");
@@ -144,11 +144,17 @@ public class DecimalColumnWriter
                 }
             }
         }
+
+        int nonNullValueCount = 0;
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (!block.isNull(position)) {
                 scaleStream.writeLong(type.getScale());
+                nonNullValueCount++;
             }
         }
+
+        long singleValueSize = Long.BYTES + (type.isShort() ? Long.BYTES : 2 * Long.BYTES);
+        return (block.getPositionCount() - nonNullValueCount) * NULL_SIZE + nonNullValueCount * singleValueSize;
     }
 
     @Override
