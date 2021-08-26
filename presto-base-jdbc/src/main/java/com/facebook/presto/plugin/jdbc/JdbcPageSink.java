@@ -44,6 +44,7 @@ import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.Decimals.readBigDecimal;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.JsonType.JSON;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
@@ -168,6 +169,9 @@ public class JdbcPageSink
         else if (UuidType.UUID.equals(type)) {
             Slice slice = type.getSlice(block, position);
             statement.setObject(parameter, prestoUuidToJavaUuid(slice));
+        }
+        else if (JSON.equals(type)) {
+            statement.setString(parameter, type.getSlice(block, position).toStringUtf8());
         }
         else {
             throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());

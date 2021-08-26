@@ -23,6 +23,7 @@ import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.datatype.CreateAndInsertDataSetup;
 import com.facebook.presto.tests.datatype.CreateAsSelectDataSetup;
 import com.facebook.presto.tests.datatype.DataSetup;
+import com.facebook.presto.tests.datatype.DataType;
 import com.facebook.presto.tests.datatype.DataTypeTest;
 import com.facebook.presto.tests.sql.JdbcSqlExecutor;
 import com.facebook.presto.tests.sql.PrestoSqlExecutor;
@@ -36,13 +37,17 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.function.Function;
 
+import static com.facebook.presto.common.type.JsonType.JSON;
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
+import static com.facebook.presto.sql.ExpressionFormatter.formatStringLiteral;
 import static com.facebook.presto.tests.datatype.DataType.bigintDataType;
 import static com.facebook.presto.tests.datatype.DataType.charDataType;
+import static com.facebook.presto.tests.datatype.DataType.dataType;
 import static com.facebook.presto.tests.datatype.DataType.dateDataType;
 import static com.facebook.presto.tests.datatype.DataType.decimalDataType;
 import static com.facebook.presto.tests.datatype.DataType.doubleDataType;
@@ -57,6 +62,7 @@ import static com.google.common.base.Strings.repeat;
 import static com.google.common.base.Verify.verify;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.function.Function.identity;
 
 @Test
 public class TestMySqlTypeMapping
@@ -293,5 +299,38 @@ public class TestMySqlTypeMapping
     {
         JdbcSqlExecutor mysqlUnicodeExecutor = new JdbcSqlExecutor(mysqlServer.getJdbcUrl() + "&useUnicode=true&characterEncoding=utf8");
         return new CreateAndInsertDataSetup(mysqlUnicodeExecutor, tableNamePrefix);
+    }
+
+    @Test
+    public void testJson()
+    {
+        jsonTestCases(jsonDataType(value -> "JSON " + formatStringLiteral(value)))
+                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_json"));
+        jsonTestCases(jsonDataType(value -> format("CAST(%s AS JSON)", formatStringLiteral(value))))
+                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.mysql_test_json"));
+    }
+
+    private DataTypeTest jsonTestCases(DataType<String> jsonDataType)
+    {
+        return DataTypeTest.create()
+                .addRoundTrip(jsonDataType, "{}")
+                .addRoundTrip(jsonDataType, null)
+                .addRoundTrip(jsonDataType, "null")
+                .addRoundTrip(jsonDataType, "123.4")
+                .addRoundTrip(jsonDataType, "\"abc\"")
+                .addRoundTrip(jsonDataType, "\"text with ' apostrophes\"")
+                .addRoundTrip(jsonDataType, "\"\"")
+                .addRoundTrip(jsonDataType, "{\"a\":1,\"b\":2}")
+                .addRoundTrip(jsonDataType, "{\"a\":[1,2,3],\"b\":{\"aa\":11,\"bb\":[{\"a\":1,\"b\":2},{\"a\":0}]}}")
+                .addRoundTrip(jsonDataType, "[]");
+    }
+
+    private static DataType<String> jsonDataType(Function<String, String> toLiteral)
+    {
+        return dataType(
+                "json",
+                JSON,
+                toLiteral,
+                identity());
     }
 }

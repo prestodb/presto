@@ -691,7 +691,7 @@ public final class ExpressionFormatter
         }
     }
 
-    static String formatStringLiteral(String s)
+    public static String formatStringLiteral(String s)
     {
         s = s.replace("'", "''");
         if (CharMatcher.inRange((char) 0x20, (char) 0x7E).matchesAllOf(s)) {
