@@ -185,12 +185,24 @@ class ArrayValReader : public ArrayValWriter<VAL> {
 
 template <typename... T>
 struct RowWriter {
+  template <std::size_t... Is>
+  static std::tuple<folly::Optional<T>...> addOptional(
+      const std::tuple<T...>& val,
+      std::index_sequence<Is...>) {
+    return std::tuple<folly::Optional<T>...>{std::get<Is>(val)...};
+  }
+
  public:
   static std::shared_ptr<const Type> veloxType() {
     return ROW({UdfToType<T>::veloxType()...});
   }
 
   RowWriter() {}
+
+  /* implicit */ RowWriter(const std::tuple<folly::Optional<T>...>& val)
+      : values_(val) {}
+  /* implicit */ RowWriter(const std::tuple<T...>& val)
+      : values_(addOptional(val, std::index_sequence_for<T...>{})) {}
 
   template <size_t N>
   auto& at() {

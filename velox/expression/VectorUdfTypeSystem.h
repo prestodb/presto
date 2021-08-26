@@ -582,6 +582,15 @@ struct VectorReader<Row<T...>> {
     return !decoded_.isNullAt(offset);
   }
 
+  bool doLoad(size_t offset, exec_in_t& results) const {
+    if (!isSet(offset)) {
+      return false;
+    }
+
+    doLoadInternal<0, T...>(offset, results);
+    return true;
+  }
+
  private:
   template <size_t... I>
   std::tuple<VectorReader<T>...> prepareChildReaders(
@@ -597,15 +606,6 @@ struct VectorReader<Row<T...>> {
         detail::decode<
             typename VectorExec::template resolver<CHILD_T>::in_type>(
             decoder, *vector_.childAt(I)));
-  }
-
-  bool doLoad(size_t offset, exec_in_t& results) const {
-    if (!isSet(offset)) {
-      return false;
-    }
-
-    doLoadInternal<0, T...>(offset, results);
-    return true;
   }
 
   template <size_t N, typename Type, typename... Types>
@@ -654,6 +654,7 @@ struct VectorWriter<Row<T...>> {
   void ensureSize(size_t size) {
     if (size != vector_->size()) {
       vector_->resize(size);
+      resizeVectorWritersInternal<0>(size);
       init(*vector_);
     }
   }
@@ -668,6 +669,7 @@ struct VectorWriter<Row<T...>> {
   }
 
   void commit(bool isSet) {
+    ensureSize(offset_ + 1);
     if (LIKELY(isSet)) {
       copyCommit(execOut_);
     } else {
@@ -678,6 +680,7 @@ struct VectorWriter<Row<T...>> {
 
   void setOffset(size_t offset) {
     offset_ = offset;
+    setOffsetVectorWritersInternal<0>(offset);
   }
 
   void reset() {
@@ -696,7 +699,7 @@ struct VectorWriter<Row<T...>> {
     if constexpr (sizeof...(Types) > 0) {
       initVectorWritersInternal<N + 1, Types...>();
     }
-  };
+  }
 
   template <size_t N>
   void resetVectorWritersInternal() {
@@ -704,7 +707,23 @@ struct VectorWriter<Row<T...>> {
     if constexpr (N + 1 < sizeof...(T)) {
       resetVectorWritersInternal<N + 1>();
     }
-  };
+  }
+
+  template <size_t N>
+  void resizeVectorWritersInternal(size_t size) {
+    std::get<N>(writers_).ensureSize(size);
+    if constexpr (N + 1 < sizeof...(T)) {
+      resizeVectorWritersInternal<N + 1>(size);
+    }
+  }
+
+  template <size_t N>
+  void setOffsetVectorWritersInternal(size_t offset) {
+    std::get<N>(writers_).setOffset(offset);
+    if constexpr (N + 1 < sizeof...(T)) {
+      setOffsetVectorWritersInternal<N + 1>(offset);
+    }
+  }
 
   template <size_t N>
   void copyCommitInternal(const exec_out_t& data) {
