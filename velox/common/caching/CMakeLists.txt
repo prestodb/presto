@@ -12,31 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(velox_caching DataCache.cpp FileIds.cpp StringIdMap.cpp)
-target_link_libraries(velox_caching ${GLOG} ${FOLLY_WITH_DEPENDENCIES})
+add_library(velox_caching DataCache.cpp FileIds.cpp StringIdMap.cpp
+                          AsyncDataCache.cpp)
+target_link_libraries(velox_caching velox_memory velox_exception ${GLOG}
+                      ${FOLLY_WITH_DEPENDENCIES})
 
-add_executable(simple_lru_cache_test SimpleLRUCacheTest.cpp)
-add_test(simple_lru_cache_test simple_lru_cache_test)
-target_link_libraries(simple_lru_cache_test ${GTEST_BOTH_LIBRARIES} ${GLOG}
-                      ${gflags_LIBRARIES} ${FOLLY_WITH_DEPENDENCIES})
-
-add_executable(velox_cache_test StringIdMapTest.cpp)
-add_test(velox_cache_test velox_cache_test)
-target_link_libraries(
-  velox_cache_test
-  velox_caching
-  velox_exception
-  ${GTEST_BOTH_LIBRARIES}
-  ${GLOG}
-  ${gflags_LIBRARIES}
-  ${FOLLY_WITH_DEPENDENCIES})
-
-add_executable(cached_factory_test CachedFactoryTest.cpp)
-add_test(cached_factory_test cached_factory_test)
-target_link_libraries(cached_factory_test ${GTEST_BOTH_LIBRARIES} ${GLOG}
-                      ${gflags_LIBRARIES} ${FOLLY_WITH_DEPENDENCIES})
-
-add_executable(data_cache_test DataCacheTest.cpp)
-add_test(data_cache_test data_cache_test)
-target_link_libraries(data_cache_test velox_caching ${GTEST_BOTH_LIBRARIES}
-                      ${GLOG} ${gflags_LIBRARIES} ${FOLLY_WITH_DEPENDENCIES})
+add_subdirectory(tests)
