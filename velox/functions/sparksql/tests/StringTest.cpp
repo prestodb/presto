@@ -27,6 +27,12 @@ static constexpr char kWomanFacepalmingLightSkinTone[] =
 
 class StringTest : public SparkFunctionBaseTest {
  protected:
+  std::optional<int32_t> instr(
+      std::optional<std::string> haystack,
+      std::optional<std::string> needle) {
+    return evaluateOnce<int32_t>("instr(c0, c1)", haystack, needle);
+  }
+
   std::optional<int32_t> length(std::optional<std::string> arg) {
     return evaluateOnce<int32_t>("length(c0)", arg);
   }
@@ -36,6 +42,26 @@ class StringTest : public SparkFunctionBaseTest {
         "length(c0)", {arg}, {VarbinaryType::create()});
   }
 };
+
+TEST_F(StringTest, Instr) {
+  EXPECT_EQ(instr("SparkSQL", "SQL"), 6);
+  EXPECT_EQ(instr(std::nullopt, "SQL"), std::nullopt);
+  EXPECT_EQ(instr("SparkSQL", std::nullopt), std::nullopt);
+  EXPECT_EQ(instr("SparkSQL", "Spark"), 1);
+  EXPECT_EQ(instr("SQL", "SparkSQL"), 0);
+  EXPECT_EQ(instr("", ""), 1);
+  EXPECT_EQ(instr("abdef", "g"), 0);
+  EXPECT_EQ(instr("", "a"), 0);
+  EXPECT_EQ(instr("abdef", ""), 1);
+  EXPECT_EQ(instr("abc😋def", "😋"), 4);
+  // Offsets are calculated in terms of codepoints, not characters.
+  // kWomanFacepalmingLightSkinTone is five codepoints.
+  EXPECT_EQ(
+      instr(std::string(kWomanFacepalmingLightSkinTone) + "abc😋def", "😋"), 9);
+  EXPECT_EQ(
+      instr(std::string(kWomanFacepalmingLightSkinTone) + "abc😋def", "def"),
+      10);
+}
 
 TEST_F(StringTest, LengthString) {
   EXPECT_EQ(length(""), 0);

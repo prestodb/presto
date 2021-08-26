@@ -17,6 +17,12 @@
 
 namespace facebook::velox::functions::sparksql {
 
+std::vector<std::shared_ptr<exec::FunctionSignature>> instrSignatures();
+
+std::shared_ptr<exec::VectorFunction> makeInstr(
+    const std::string& name,
+    const std::vector<exec::VectorFunctionArg>& inputArgs);
+
 std::vector<std::shared_ptr<exec::FunctionSignature>> lengthSignatures();
 
 std::shared_ptr<exec::VectorFunction> makeLength(

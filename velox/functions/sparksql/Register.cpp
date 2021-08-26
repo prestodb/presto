@@ -47,7 +47,6 @@ static void workAroundRegistrationMacro(const std::string& prefix) {
   VELOX_REGISTER_VECTOR_FUNCTION(udf_lower, prefix + "lower");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_upper, prefix + "upper");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_concat, prefix + "concat");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_strpos, prefix + "strpos");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_replace, prefix + "replace");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_concat_row, prefix + "ROW");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_not, prefix + "not");
@@ -85,6 +84,7 @@ void registerFunctions(const std::string& prefix) {
   VELOX_REGISTER_VECTOR_FUNCTION(udf_subscript, prefix + "subscript");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_regexp_split, prefix + "split");
 
+  exec::registerStatefulVectorFunction("instr", instrSignatures(), makeInstr);
   exec::registerStatefulVectorFunction(
       "regexp_extract", re2ExtractSignatures(), makeRegexExtract);
   exec::registerStatefulVectorFunction(
