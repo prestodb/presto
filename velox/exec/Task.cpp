@@ -484,6 +484,7 @@ void Task::terminate(TaskState terminalState) {
 }
 
 void Task::addOperatorStats(OperatorStats& stats) {
+  std::lock_guard<std::mutex> l(mutex_);
   VELOX_CHECK(
       stats.pipelineId >= 0 &&
       stats.pipelineId < taskStats_.pipelineStats.size());
