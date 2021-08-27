@@ -206,7 +206,7 @@ public class FeaturesConfig
     private boolean materializedViewDataConsistencyEnabled = true;
 
     private boolean queryOptimizationWithMaterializedViewEnabled;
-    private boolean aggregationIfToFilterRewriteEnabled = true;
+    private boolean aggregationIfToFilterRewriteEnabled;
 
     public enum PartitioningPrecisionStrategy
     {

@@ -30,7 +30,6 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.relational.Expressions;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 
@@ -56,12 +55,14 @@ import static java.util.function.Function.identity;
  * A optimizer rule which rewrites
  * AGG(IF(condition, expr))
  * to
- * AGG(expr) FILTER (WHERE condition).
+ * AGG(IF(condition, expr)) FILTER (WHERE condition).
  * <p>
  * The latter plan is more efficient because:
  * 1. The filter can be pushed down to the scan node.
  * 2. The rows not matching the condition are not aggregated.
- * 3. The IF() expression wrapper is removed.
+ * <p>
+ * This rule doesn't unwrap the IF expression in the aggregate, because the true branch might return errors for rows not matching the filters. For example:
+ * 'IF(CARDINALITY(array) > 0, array[1]))'
  */
 public class RewriteAggregationIfToFilter
         implements Rule<AggregationNode>
@@ -115,13 +116,10 @@ public class RewriteAggregationIfToFilter
                 .collect(toImmutableSortedMap(VariableReferenceExpression::compareTo, identity(), variable -> sourceProject.getAssignments().get(variable), (left, right) -> left));
 
         Assignments.Builder newAssignments = Assignments.builder();
-        // We don't remove the IF expression now in case the aggregation has other references to it. These will be cleaned up by the PruneUnreferencedOutputs rule later.
         newAssignments.putAll(sourceProject.getAssignments());
 
         // Map from the aggregation reference to the IF condition reference.
         Map<VariableReferenceExpression, VariableReferenceExpression> aggregationReferenceToConditionReference = new HashMap<>();
-        // Map from the aggregation reference to the IF result reference.
-        Map<VariableReferenceExpression, VariableReferenceExpression> aggregationReferenceToIfResultReference = new HashMap<>();
 
         for (Map.Entry<VariableReferenceExpression, RowExpression> entry : sourceAssignments.entrySet()) {
             VariableReferenceExpression outputVariable = entry.getKey();
@@ -131,11 +129,6 @@ public class RewriteAggregationIfToFilter
             VariableReferenceExpression conditionReference = context.getVariableAllocator().newVariable(condition);
             newAssignments.put(conditionReference, condition);
             aggregationReferenceToConditionReference.put(outputVariable, conditionReference);
-
-            RowExpression trueResult = ifExpression.getArguments().get(1);
-            VariableReferenceExpression ifResultReference = context.getVariableAllocator().newVariable(trueResult);
-            newAssignments.put(ifResultReference, trueResult);
-            aggregationReferenceToIfResultReference.put(outputVariable, ifResultReference);
         }
 
         // Build new aggregations.
@@ -153,11 +146,7 @@ public class RewriteAggregationIfToFilter
             CallExpression callExpression = aggregation.getCall();
             VariableReferenceExpression mask = aggregationReferenceToConditionReference.get(aggregationReference);
             aggregations.put(output, new Aggregation(
-                    new CallExpression(
-                            callExpression.getDisplayName(),
-                            callExpression.getFunctionHandle(),
-                            callExpression.getType(),
-                            ImmutableList.of(aggregationReferenceToIfResultReference.get(aggregationReference))),
+                    callExpression,
                     Optional.empty(),
                     aggregation.getOrderBy(),
                     aggregation.isDistinct(),
