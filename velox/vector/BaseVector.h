@@ -140,6 +140,11 @@ class BaseVector {
   }
 
   template <typename T>
+  const FlatVector<T>* asFlatVector() const {
+    return dynamic_cast<const FlatVector<T>*>(this);
+  }
+
+  template <typename T>
   FlatVector<T>* asFlatVector() {
     return dynamic_cast<FlatVector<T>*>(this);
   }
