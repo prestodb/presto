@@ -376,7 +376,6 @@ TEST(SelectivityVectorTest, iterator) {
 }
 
 TEST(SelectivityVectorTest, resize) {
-
   SelectivityVector vector(64, false);
   vector.resize(128, /* value */ true);
   // Ensure last 64 bits are set to 1
