@@ -30,8 +30,8 @@ namespace facebook::velox::exec {
 /// A helper class to decode VectorFunction arguments.
 /// Example:
 ///    DecodedArgs decodedArgs(rows, args, context);
-///    auto base = decodedArgs.decodedVector(0);
-///    auto exp = decodedArgs.decodedVector(1);
+///    auto base = decodedArgs.at(0);
+///    auto exp = decodedArgs.at(1);
 ///
 ///    rows.applyToSelected([&](int row) {
 ///      rawResults[row] =

@@ -32,9 +32,6 @@ using namespace facebook::velox;
 //
 // Check `velox/docs/develop/scalar-functions.rst` for more documentation on how
 // to build scalar functions.
-//
-// Check `velox/examples/SimpleFunctions.cpp` for a more complete set of simple
-// function examples, behaviors, and arguments.
 VELOX_UDF_BEGIN(times_two)
 FOLLY_ALWAYS_INLINE bool call(int64_t& out, const int64_t& a) {
   out = a * 2;
