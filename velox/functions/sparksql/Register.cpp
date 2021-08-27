@@ -33,22 +33,26 @@ namespace facebook::velox::functions {
 static void workAroundRegistrationMacro(const std::string& prefix) {
   // VELOX_REGISTER_VECTOR_FUNCTION must be invoked in the same namespace as the
   // vector function definition.
+  // Higher order functions.
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_transform, prefix + "transform");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_reduce, prefix + "aggregate");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_filter, prefix + "filter");
+  // Complex types.
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_array_constructor, prefix + "array");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_array_contains, prefix + "array_contains");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_element_at, prefix + "element_at");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_transform, prefix + "transform");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_reduce, prefix + "reduce");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_coalesce, prefix + "coalesce");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_is_null, prefix + "isnull");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_in, prefix + "in");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_array_constructor, prefix + "array");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_filter, prefix + "filter");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_map_entries, prefix + "map_entries");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_substr, prefix + "substring");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_lower, prefix + "lower");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_upper, prefix + "upper");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_concat, prefix + "concat");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_replace, prefix + "replace");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_concat_row, prefix + "ROW");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_map, prefix + "map_from_arrays");
+  // String functions.
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_concat, prefix + "concat");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_lower, prefix + "lower");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_replace, prefix + "replace");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_substr, prefix + "substring");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_upper, prefix + "upper");
+  // Logical.
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_coalesce, prefix + "coalesce");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_in, prefix + "in");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_is_null, prefix + "isnull");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_not, prefix + "not");
 }
 
@@ -72,6 +76,7 @@ void registerFunctions(const std::string& prefix) {
       {prefix + "xxhash64"});
   registerFunction<udf_xxhash64<Varbinary, Varbinary>, Varbinary, Varbinary>(
       {prefix + "xxhash64"});
+  exec::registerStatefulVectorFunction("instr", instrSignatures(), makeInstr);
   exec::registerStatefulVectorFunction(
       "length", lengthSignatures(), makeLength);
   registerFunction<udf_md5<Varbinary, Varbinary>, Varbinary, Varbinary>(
@@ -80,20 +85,18 @@ void registerFunctions(const std::string& prefix) {
       {prefix + "md5"});
   registerFunction<udf_md5_radix<Varchar, Varchar>, Varchar, Varchar, int64_t>(
       {prefix + "md5"});
-  registerFunction<udf_md5_radix<Varchar, Varchar>, Varchar, Varchar>({"md5"});
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_subscript, prefix + "subscript");
+  registerFunction<udf_md5_radix<Varchar, Varchar>, Varchar, Varchar>(
+      {prefix + "md5"});
+
+  exec::registerStatefulVectorFunction(
+      prefix + "regexp_extract", re2ExtractSignatures(), makeRegexExtract);
+  exec::registerStatefulVectorFunction(
+      prefix + "rlike", re2SearchSignatures(), makeRLike);
   VELOX_REGISTER_VECTOR_FUNCTION(udf_regexp_split, prefix + "split");
 
-  exec::registerStatefulVectorFunction("instr", instrSignatures(), makeInstr);
-  exec::registerStatefulVectorFunction(
-      "regexp_extract", re2ExtractSignatures(), makeRegexExtract);
-  exec::registerStatefulVectorFunction(
-      "rlike", re2MatchSignatures(), makeRLike);
-
-  // Datetime.
-  registerFunction<udf_to_unixtime, double, Timestamp>(
-      {prefix + "to_unixtime", prefix + "to_unix_timestamp"});
-  registerFunction<udf_from_unixtime, Timestamp, double>();
+  // Subscript operators. See ExtractValue in complexTypeExtractors.scala.
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_subscript, prefix + "getarrayitem");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_subscript, prefix + "getmapvalue");
 
   exec::registerStatefulVectorFunction(
       prefix + "least", leastSignatures(), makeLeast);
@@ -101,6 +104,7 @@ void registerFunctions(const std::string& prefix) {
       prefix + "greatest", greatestSignatures(), makeGreatest);
   exec::registerStatefulVectorFunction(
       prefix + "hash", hashSignatures(), makeHash);
+
   // These vector functions are only accessible via the
   // VELOX_REGISTER_VECTOR_FUNCTION macro, which must be invoked in the same
   // namespace as the function definition.

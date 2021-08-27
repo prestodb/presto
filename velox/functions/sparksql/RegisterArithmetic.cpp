@@ -23,14 +23,21 @@
 namespace facebook::velox::functions::sparksql {
 
 void registerArithmeticFunctions(const std::string& prefix) {
-  registerBinaryFloatingPoint<udf_plus>({prefix + "add"});
-  registerBinaryFloatingPoint<udf_minus>({prefix + "minus"});
-  registerBinaryFloatingPoint<udf_multiply>({prefix + "multiply"});
+  // Operators.
+  registerBinaryNumeric<udf_plus>({prefix + "add"});
+  registerBinaryNumeric<udf_minus>({prefix + "subtract"});
+  registerBinaryNumeric<udf_multiply>({prefix + "multiply"});
   registerFunction<udf_divide, double, double, double>({prefix + "divide"});
-  registerUnaryNumeric<udf_ceil>({prefix + "ceil", prefix + "ceiling"});
-  registerUnaryNumeric<udf_floor>({prefix + "floor"});
-  registerUnaryNumeric<udf_abs>({prefix + "abs"});
+  registerBinaryIntegral<udf_remainder>({prefix + "remainder"});
   registerUnaryNumeric<udf_unaryminus>({prefix + "unaryminus"});
+  // Math functions.
+  registerUnaryNumeric<udf_abs>({prefix + "abs"});
+  registerUnaryNumeric<udf_ceil>({prefix + "ceil"});
+  registerFunction<udf_exp, double, double>({prefix + "exp"});
+  registerUnaryNumeric<udf_floor>({prefix + "floor"});
+  registerBinaryIntegral<udf_pmod>({prefix + "pmod"});
+  registerFunction<udf_power<double>, double, double, double>(
+      {prefix + "power"});
   registerUnaryNumeric<udf_round>({prefix + "round"});
   registerFunction<udf_round<int8_t>, int8_t, int8_t, int32_t>(
       {prefix + "round"});
@@ -43,28 +50,6 @@ void registerArithmeticFunctions(const std::string& prefix) {
   registerFunction<udf_round<double>, double, double, int32_t>(
       {prefix + "round"});
   registerFunction<udf_round<float>, float, float, int32_t>({prefix + "round"});
-  registerFunction<udf_power<double>, double, double, double>(
-      {prefix + "power", prefix + "pow"});
-  registerFunction<udf_power<int64_t>, double, int64_t, int64_t>(
-      {prefix + "power", prefix + "pow"});
-  registerFunction<udf_exp, double, double>({prefix + "exp"});
-  registerFunction<udf_clamp<int8_t>, int8_t, int8_t, int8_t, int8_t>(
-      {prefix + "clamp"});
-  registerFunction<udf_clamp<int16_t>, int16_t, int16_t, int16_t, int16_t>(
-      {prefix + "clamp"});
-  registerFunction<udf_clamp<int32_t>, int32_t, int32_t, int32_t, int32_t>(
-      {prefix + "clamp"});
-  registerFunction<udf_clamp<int64_t>, int64_t, int64_t, int64_t, int64_t>(
-      {prefix + "clamp"});
-  registerFunction<udf_clamp<double>, double, double, double, double>(
-      {prefix + "clamp"});
-  registerFunction<udf_clamp<float>, float, float, float, float>(
-      {prefix + "clamp"});
-
-  // only integrals are accepted for mod operator in C++
-  registerBinaryIntegral<udf_pmod>({prefix + "pmod"});
-  // Decimal is not supported.
-  registerBinaryIntegral<udf_remainder>({prefix + "remainder"});
 }
 
 } // namespace facebook::velox::functions::sparksql

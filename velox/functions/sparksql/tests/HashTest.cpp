@@ -18,8 +18,6 @@
 
 #include <stdint.h>
 
-#include "velox/functions/sparksql/Hash.h"
-
 namespace facebook::velox::functions::sparksql::test {
 namespace {
 

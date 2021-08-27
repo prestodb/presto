@@ -15,11 +15,10 @@
  */
 
 #include <optional>
+
 #include "velox/functions/sparksql/tests/SparkFunctionBaseTest.h"
 
-using namespace facebook::velox;
-using functions::sparksql::test::SparkFunctionBaseTest;
-
+namespace facebook::velox::functions::sparksql::test {
 namespace {
 
 class SubscriptTest : public SparkFunctionBaseTest {
@@ -58,18 +57,26 @@ TEST_F(SubscriptTest, allFlavors2) {
       makeMapVector<int64_t, int64_t>(1, sizeAt, keyAt, mapValueAt);
 
   // #1
-  EXPECT_EQ(subscriptSimple("C0[0]", {arrayVector}), 10);
-  EXPECT_EQ(subscriptSimple("C0[1]", {arrayVector}), 11);
-  EXPECT_EQ(subscriptSimple("C0[2]", {arrayVector}), 12);
+  EXPECT_EQ(subscriptSimple("getarrayitem(C0, 0)", {arrayVector}), 10);
+  EXPECT_EQ(subscriptSimple("getarrayitem(C0, 1)", {arrayVector}), 11);
+  EXPECT_EQ(subscriptSimple("getarrayitem(C0, 2)", {arrayVector}), 12);
 
   // #2
-  EXPECT_EQ(subscriptSimple("C0[3]", {arrayVector}), std::nullopt);
-  EXPECT_EQ(subscriptSimple("C0[4]", {arrayVector}), std::nullopt);
-  EXPECT_EQ(subscriptSimple("C0[1001]", {mapVector}), std::nullopt);
+  EXPECT_EQ(
+      subscriptSimple("getarrayitem(C0, 3)", {arrayVector}), std::nullopt);
+  EXPECT_EQ(
+      subscriptSimple("getarrayitem(C0, 4)", {arrayVector}), std::nullopt);
+  EXPECT_EQ(
+      subscriptSimple("getmapvalue(C0, 1001)", {mapVector}), std::nullopt);
 
   // #3
-  EXPECT_EQ(subscriptSimple("C0[-1]", {arrayVector}), std::nullopt);
-  EXPECT_EQ(subscriptSimple("C0[-2]", {arrayVector}), std::nullopt);
-  EXPECT_EQ(subscriptSimple("C0[-3]", {arrayVector}), std::nullopt);
-  EXPECT_EQ(subscriptSimple("C0[-4]", {arrayVector}), std::nullopt);
+  EXPECT_EQ(
+      subscriptSimple("getarrayitem(C0, -1)", {arrayVector}), std::nullopt);
+  EXPECT_EQ(
+      subscriptSimple("getarrayitem(C0, -2)", {arrayVector}), std::nullopt);
+  EXPECT_EQ(
+      subscriptSimple("getarrayitem(C0, -3)", {arrayVector}), std::nullopt);
+  EXPECT_EQ(
+      subscriptSimple("getarrayitem(C0, -4)", {arrayVector}), std::nullopt);
 }
+} // namespace facebook::velox::functions::sparksql::test
