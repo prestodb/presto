@@ -92,7 +92,7 @@ ReaderBase::ReaderBase(
       arena_(std::make_unique<google::protobuf::Arena>()),
       bufferedInputFactory_(bufferedInputFactory),
       dataCacheConfig_(dataCacheConfig) {
-  input_ = bufferedInputFactory_->build(*stream_, pool, dataCacheConfig);
+  input_ = bufferedInputFactory_->create(*stream_, pool, dataCacheConfig);
 
   // We may have cached the tail before, in which case we can skip the read.
   if (dataCacheConfig) {

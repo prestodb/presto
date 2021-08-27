@@ -14,6 +14,9 @@
 
 add_subdirectory(utils)
 
+# for generated headers
+include_directories(${CMAKE_BINARY_DIR})
+
 set(VELOX_LINK_LIBS
     velox_dwio_common
     velox_dwio_common_exception
@@ -117,6 +120,12 @@ add_test(velox_dwio_dwrf_buffered_input_test
          velox_dwio_dwrf_buffered_input_test)
 
 target_link_libraries(velox_dwio_dwrf_buffered_input_test ${VELOX_LINK_LIBS}
+                      ${FOLLY_WITH_DEPENDENCIES} ${TEST_LINK_LIBS})
+
+add_executable(velox_dwio_dwrf_cache_input_test CacheInputTest.cpp)
+add_test(velox_dwio_dwrf_cache_input_test velox_dwio_dwrf_cache_input_test)
+
+target_link_libraries(velox_dwio_dwrf_cache_input_test ${VELOX_LINK_LIBS}
                       ${FOLLY_WITH_DEPENDENCIES} ${TEST_LINK_LIBS})
 
 add_executable(velox_dwio_dwrf_dictionary_encoder_test
@@ -456,7 +465,7 @@ target_link_libraries(
 add_executable(velox_dwrf_int_decoder_benchmark IntDecoderBenchmark.cpp)
 target_link_libraries(
   velox_dwrf_int_decoder_benchmark velox_dwio_common_exception velox_exception
-  velox_dwio_dwrf_common ${FOLLY} ${FOLLY_BENCHMARK})
+  ${FOLLY} ${FOLLY_BENCHMARK})
 
 add_executable(velox_dwrf_int_encoder_benchmark IntEncoderBenchmark.cpp)
 target_link_libraries(

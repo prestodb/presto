@@ -73,8 +73,17 @@ class BufferedInput {
     return ret;
   }
 
- private:
+  // True if there is free memory for prefetching the stripe. This is
+  // called to check if a stripe that is not next for read should be
+  // prefetched.
+  virtual bool shouldPreload() {
+    return false;
+  }
+
+ protected:
   dwio::common::InputStream& input_;
+
+ private:
   memory::MemoryPool& pool_;
   dwio::common::DataCacheConfig* dataCacheConfig_;
   std::vector<uint64_t> offsets_;
@@ -119,7 +128,7 @@ class BufferedInputFactory {
  public:
   virtual ~BufferedInputFactory() = default;
 
-  virtual std::unique_ptr<BufferedInput> build(
+  virtual std::unique_ptr<BufferedInput> create(
       dwio::common::InputStream& input,
       velox::memory::MemoryPool& pool,
       dwio::common::DataCacheConfig* dataCacheConfig = nullptr) const {

@@ -36,7 +36,7 @@ const proto::StripeInformation& StripeReaderBase::loadStripe(
     // if file is preloaded, return stripe is preloaded
     preload = true;
   } else {
-    stripeInput_ = reader_->bufferedInputFactory().build(
+    stripeInput_ = reader_->bufferedInputFactory().create(
         reader_->getStream(),
         reader_->getMemoryPool(),
         reader_->getDataCacheConfig());
