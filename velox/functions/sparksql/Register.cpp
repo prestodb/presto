@@ -62,7 +62,7 @@ void registerFunctions(const std::string& prefix) {
 
   // Register string functions.
   registerFunction<udf_chr, Varchar, int64_t>();
-  registerFunction<udf_codepoint, int32_t, Varchar>();
+  registerFunction<udf_ascii, int32_t, Varchar>();
   registerFunction<
       udf_xxhash64int<int64_t, Varchar>,
       int64_t,

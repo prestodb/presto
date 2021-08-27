@@ -27,6 +27,14 @@ static constexpr char kWomanFacepalmingLightSkinTone[] =
 
 class StringTest : public SparkFunctionBaseTest {
  protected:
+  std::optional<int32_t> ascii(std::optional<std::string> arg) {
+    return evaluateOnce<int32_t>("ascii(c0)", arg);
+  }
+
+  std::optional<std::string> chr(std::optional<int64_t> arg) {
+    return evaluateOnce<std::string>("chr(c0)", arg);
+  }
+
   std::optional<int32_t> instr(
       std::optional<std::string> haystack,
       std::optional<std::string> needle) {
@@ -42,6 +50,23 @@ class StringTest : public SparkFunctionBaseTest {
         "length(c0)", {arg}, {VarbinaryType::create()});
   }
 };
+
+TEST_F(StringTest, Ascii) {
+  EXPECT_EQ(ascii(std::string("\0", 1)), 0);
+  EXPECT_EQ(ascii(" "), 32);
+  EXPECT_EQ(ascii("😋"), -16);
+  EXPECT_EQ(ascii(""), 0);
+  EXPECT_EQ(ascii(std::nullopt), std::nullopt);
+}
+
+TEST_F(StringTest, Chr) {
+  EXPECT_EQ(chr(0), std::string("\0", 1));
+  EXPECT_EQ(chr(32), " ");
+  EXPECT_EQ(chr(-16), "");
+  EXPECT_EQ(chr(256), std::string("\0", 1));
+  EXPECT_EQ(chr(256 + 32), std::string(" ", 1));
+  EXPECT_EQ(chr(std::nullopt), std::nullopt);
+}
 
 TEST_F(StringTest, Instr) {
   EXPECT_EQ(instr("SparkSQL", "SQL"), 6);

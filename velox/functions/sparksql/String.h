@@ -14,8 +14,29 @@
  * limitations under the License.
  */
 #include "velox/expression/VectorFunction.h"
+#include "velox/functions/Macros.h"
+#include "velox/functions/UDFOutputString.h"
 
 namespace facebook::velox::functions::sparksql {
+
+VELOX_UDF_BEGIN(ascii)
+FOLLY_ALWAYS_INLINE bool call(int32_t& result, const arg_type<Varchar>& s) {
+  result = s.empty() ? 0 : s.data()[0];
+  return true;
+}
+VELOX_UDF_END();
+
+VELOX_UDF_BEGIN(chr)
+FOLLY_ALWAYS_INLINE bool call(out_type<Varchar>& result, int64_t ord) {
+  if (ord < 0) {
+    result.resize(0);
+  } else {
+    result.resize(1);
+    *result.data() = ord;
+  }
+  return true;
+}
+VELOX_UDF_END();
 
 std::vector<std::shared_ptr<exec::FunctionSignature>> instrSignatures();
 

@@ -197,6 +197,10 @@ struct StringView {
     return data() + size();
   }
 
+  bool empty() const {
+    return size() == 0;
+  }
+
  private:
   inline int64_t sizeAndPrefixAsInt64() const {
     return reinterpret_cast<const int64_t*>(this)[0];
