@@ -79,13 +79,7 @@ void registerFunctions(const std::string& prefix) {
   exec::registerStatefulVectorFunction("instr", instrSignatures(), makeInstr);
   exec::registerStatefulVectorFunction(
       "length", lengthSignatures(), makeLength);
-  registerFunction<udf_md5<Varbinary, Varbinary>, Varbinary, Varbinary>(
-      {prefix + "md5"});
-  registerFunction<udf_md5_radix<Varchar, Varchar>, Varchar, Varchar, int32_t>(
-      {prefix + "md5"});
-  registerFunction<udf_md5_radix<Varchar, Varchar>, Varchar, Varchar, int64_t>(
-      {prefix + "md5"});
-  registerFunction<udf_md5_radix<Varchar, Varchar>, Varchar, Varchar>(
+  registerFunction<udf_md5_radix<Varchar, Varbinary>, Varchar, Varbinary>(
       {prefix + "md5"});
 
   exec::registerStatefulVectorFunction(

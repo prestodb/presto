@@ -49,6 +49,11 @@ class StringTest : public SparkFunctionBaseTest {
     return evaluateOnce<int32_t, std::string>(
         "length(c0)", {arg}, {VarbinaryType::create()});
   }
+
+  std::optional<std::string> md5(std::optional<std::string> arg) {
+    return evaluateOnce<std::string, std::string>(
+        "md5(c0)", {arg}, {VarbinaryType::create()});
+  }
 };
 
 TEST_F(StringTest, Ascii) {
@@ -105,6 +110,12 @@ TEST_F(StringTest, LengthBytes) {
   EXPECT_EQ(length_bytes("😋"), 4);
   EXPECT_EQ(length_bytes(kWomanFacepalmingLightSkinTone), 17);
   EXPECT_EQ(length_bytes("1234567890abdef"), 15);
+}
+
+TEST_F(StringTest, MD5) {
+  EXPECT_EQ(md5(std::nullopt), std::nullopt);
+  EXPECT_EQ(md5(""), "d41d8cd98f00b204e9800998ecf8427e");
+  EXPECT_EQ(md5("Infinity"), "eb2ac5b04180d8d6011a016aeb8f75b3");
 }
 
 } // namespace
