@@ -113,28 +113,45 @@ class CountIfAggregate : public exec::Aggregate {
 
   void updateSingleGroupPartial(
       char* group,
-      const SelectivityVector& allRows,
+      const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /*mayPushdown*/) override {
-    DecodedVector decoded(*args[0], allRows);
+    DecodedVector decoded(*args[0], rows);
 
+    // Constant mapping - check once and add number of selected rows if true.
     if (decoded.isConstantMapping()) {
       if (!decoded.isNullAt(0)) {
         auto isTrue = decoded.valueAt<bool>(0);
         if (isTrue) {
-          addToGroup(group, allRows.size());
+          addToGroup(group, rows.countSelected());
         }
       }
       return;
     }
 
-    int64_t numTrue = countTrue(allRows, decoded);
+    int64_t numTrue = 0;
+    if (decoded.mayHaveNulls()) {
+      rows.applyToSelected([&](vector_size_t i) {
+        if (decoded.isNullAt(i)) {
+          return;
+        }
+        if (decoded.valueAt<bool>(i)) {
+          ++numTrue;
+        }
+      });
+    } else {
+      rows.applyToSelected([&](vector_size_t i) {
+        if (decoded.valueAt<bool>(i)) {
+          ++numTrue;
+        }
+      });
+    }
     addToGroup(group, numTrue);
   }
 
   void updateSingleGroupFinal(
       char* group,
-      const SelectivityVector& allRows,
+      const SelectivityVector& /*rows*/,
       const std::vector<VectorPtr>& args,
       bool /*mayPushdown*/) override {
     VELOX_CHECK_EQ(1, args[0]->size());
@@ -145,21 +162,6 @@ class CountIfAggregate : public exec::Aggregate {
  private:
   inline void addToGroup(char* group, int64_t numTrue) {
     *value<int64_t>(group) += numTrue;
-  }
-
-  inline int64_t countTrue(
-      const SelectivityVector& allRows,
-      DecodedVector& decoded) {
-    int64_t numTrue = 0;
-    for (vector_size_t i = 0; i < allRows.end(); ++i) {
-      if (decoded.isNullAt(i)) {
-        continue;
-      }
-      if (decoded.valueAt<bool>(i)) {
-        ++numTrue;
-      }
-    }
-    return numTrue;
   }
 };
 

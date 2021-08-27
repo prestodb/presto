@@ -63,6 +63,38 @@ class MinMaxByAggregationTest : public AggregationTestBase {
            BIGINT()})};
 };
 
+TEST_F(MinMaxByAggregationTest, maxByPartialConst) {
+  // Const values.
+  auto vectors = {
+      makeRowVector({
+          BaseVector::createConstant(5, 10, pool_.get()),
+          BaseVector::createConstant(10, 10, pool_.get()),
+      }),
+  };
+
+  // Const nulls.
+  auto op = PlanBuilder()
+                .values(vectors)
+                .partialAggregation({}, {"max_by(c0, c1)"})
+                .planNode();
+  assertQuery(op, "SELECT struct_pack(x => 5, y => 10)");
+}
+
+TEST_F(MinMaxByAggregationTest, maxByPartialConstNull) {
+  auto vectors = {
+      makeRowVector({
+          BaseVector::createConstant(5, 10, pool_.get()),
+          BaseVector::createNullConstant(BIGINT(), 10, pool_.get()),
+      }),
+  };
+
+  auto op = PlanBuilder()
+                .values(vectors)
+                .partialAggregation({}, {"max_by(c0, c1)"})
+                .planNode();
+  assertQuery(op, "SELECT null");
+}
+
 TEST_F(MinMaxByAggregationTest, maxByPartialNullCase) {
   auto vectors = {
       makeRowVector({
@@ -70,12 +102,27 @@ TEST_F(MinMaxByAggregationTest, maxByPartialNullCase) {
           makeNullableFlatVector<int64_t>({5, 10}),
       }),
   };
-  createDuckDbTable(vectors);
+
   auto partialAgg = PlanBuilder()
                         .values(vectors)
                         .partialAggregation({}, {"max_by(c0, c1)"})
                         .planNode();
   assertQuery(partialAgg, "SELECT struct_pack(x => NULL, y => 10)");
+}
+
+TEST_F(MinMaxByAggregationTest, maxByNoNullsCase) {
+  auto vectors = {
+      makeRowVector({
+          makeFlatVector<int64_t>({1, 3}),
+          makeFlatVector<int64_t>({5, 10}),
+      }),
+  };
+
+  auto partialAgg = PlanBuilder()
+                        .values(vectors)
+                        .partialAggregation({}, {"max_by(c0, c1)"})
+                        .planNode();
+  assertQuery(partialAgg, "SELECT struct_pack(x => 3, y => 10)");
 }
 
 TEST_F(MinMaxByAggregationTest, maxByPartialGroupByNullCase) {
@@ -87,7 +134,7 @@ TEST_F(MinMaxByAggregationTest, maxByPartialGroupByNullCase) {
           makeNullableFlatVector<int32_t>({1, 1, 2, 2, 3, 3}),
       }),
   };
-  createDuckDbTable(vectors);
+
   auto partialAgg = PlanBuilder()
                         .values(vectors)
                         .partialAggregation({2}, {"max_by(c0, c1)"})
@@ -104,7 +151,6 @@ TEST_F(MinMaxByAggregationTest, maxByFinalNullCase) {
           makeNullableFlatVector<int64_t>({5, 10}),
       }),
   };
-  createDuckDbTable(vectors);
 
   auto op = PlanBuilder()
                 .values(vectors)
@@ -123,7 +169,6 @@ TEST_F(MinMaxByAggregationTest, maxByFinalGroupByNullCase) {
           makeNullableFlatVector<int32_t>({1, 1, 2, 2, 3, 3}),
       }),
   };
-  createDuckDbTable(vectors);
 
   auto op = PlanBuilder()
                 .values(vectors)
@@ -167,7 +212,7 @@ TEST_F(MinMaxByAggregationTest, minByPartialNullCase) {
           makeNullableFlatVector<int64_t>({5, 10}),
       }),
   };
-  createDuckDbTable(vectors);
+
   auto partialAgg = PlanBuilder()
                         .values(vectors)
                         .partialAggregation({}, {"min_by(c0, c1)"})
@@ -182,7 +227,6 @@ TEST_F(MinMaxByAggregationTest, minByFinalNullCase) {
           makeNullableFlatVector<int64_t>({5, 10}),
       }),
   };
-  createDuckDbTable(vectors);
 
   auto op = PlanBuilder()
                 .values(vectors)
@@ -201,7 +245,6 @@ TEST_F(MinMaxByAggregationTest, minByFinalGroupByNullCase) {
           makeNullableFlatVector<int32_t>({1, 1, 2, 2, 3, 3}),
       }),
   };
-  createDuckDbTable(vectors);
 
   auto op = PlanBuilder()
                 .values(vectors)

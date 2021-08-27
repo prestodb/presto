@@ -25,6 +25,36 @@ namespace {
 
 class MapAggTest : public AggregationTestBase {};
 
+TEST_F(MapAggTest, finalGroupBy) {
+  vector_size_t num = 10;
+
+  auto vectors = {makeRowVector(
+      {makeFlatVector<int32_t>(num, [](vector_size_t row) { return row / 3; }),
+       makeFlatVector<int32_t>(num, [](vector_size_t row) { return row; }),
+       makeFlatVector<double>(
+           num, [](vector_size_t row) { return row + 0.05; })})};
+
+  auto op = PlanBuilder()
+                .values(vectors)
+                .partialAggregation({0}, {"map_agg(c1, c2)"})
+                .finalAggregation({0}, {"map_agg(a0)"})
+                .planNode();
+
+  static std::array<int32_t, 10> keys{0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+  vector_size_t keyIndex{0};
+  vector_size_t valIndex{0};
+
+  auto expectedResult = {makeRowVector(
+      {makeFlatVector<int32_t>({0, 1, 2, 3}),
+       makeMapVector<int32_t, double>(
+           4,
+           [&](vector_size_t row) { return (row == 3) ? 1 : 3; },
+           [&](vector_size_t row) { return keys[keyIndex++]; },
+           [&](vector_size_t row) { return keys[valIndex++] + 0.05; })})};
+
+  exec::test::assertQuery(op, expectedResult);
+}
+
 TEST_F(MapAggTest, groupBy) {
   vector_size_t size = 90;
 
@@ -60,13 +90,6 @@ TEST_F(MapAggTest, global) {
        makeFlatVector<double>(
            size, [](vector_size_t row) { return row + 0.05; }, nullEvery(7))})};
 
-  auto op = PlanBuilder()
-                .values(vectors)
-                .partialAggregation({}, {"map_agg(c0, c1)"})
-                .planNode();
-
-  auto value = readSingleValue(op);
-
   std::map<velox::variant, velox::variant> expected;
   for (auto i = 0; i < size; i++) {
     if (i % 7 == 0) {
@@ -75,7 +98,20 @@ TEST_F(MapAggTest, global) {
       expected.insert({i, i + 0.05});
     }
   }
-  ASSERT_EQ(velox::variant::map(expected), value);
+  const velox::variant mapExpected{velox::variant::map(expected)};
+
+  auto op = PlanBuilder()
+                .values(vectors)
+                .partialAggregation({}, {"map_agg(c0, c1)"})
+                .planNode();
+  ASSERT_EQ(mapExpected, readSingleValue(op));
+
+  op = PlanBuilder()
+           .values(vectors)
+           .partialAggregation({}, {"map_agg(c0, c1)"})
+           .finalAggregation({}, {"map_agg(a0)"})
+           .planNode();
+  ASSERT_EQ(mapExpected, readSingleValue(op));
 }
 
 TEST_F(MapAggTest, globalDuplicateKeys) {

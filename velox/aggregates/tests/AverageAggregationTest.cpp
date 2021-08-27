@@ -29,6 +29,145 @@ class AverageAggregation : public AggregationTestBase {
           {BIGINT(), SMALLINT(), INTEGER(), BIGINT(), REAL(), DOUBLE()})};
 };
 
+TEST_F(AverageAggregation, avgConst) {
+  // Have two row vectors a lest as it triggers different code paths.
+  auto vectors = {
+      makeRowVector({
+          makeFlatVector<int64_t>(
+              10, [](vector_size_t row) { return row / 3; }),
+          BaseVector::createConstant(5, 10, pool_.get()),
+          BaseVector::createConstant(6.0, 10, pool_.get()),
+      }),
+      makeRowVector({
+          makeFlatVector<int64_t>(
+              10, [](vector_size_t row) { return row / 3; }),
+          BaseVector::createConstant(5, 10, pool_.get()),
+          BaseVector::createConstant(6.0, 10, pool_.get()),
+      }),
+  };
+
+  createDuckDbTable(vectors);
+
+  {
+    auto agg = PlanBuilder()
+                   .values(vectors)
+                   .partialAggregation({}, {"avg(c1)", "avg(c2)"})
+                   .finalAggregation({}, {"avg(a0)", "avg(a1)"})
+                   .planNode();
+    assertQuery(agg, "SELECT avg(c1), avg(c2) FROM tmp");
+  }
+
+  {
+    auto agg = PlanBuilder()
+                   .values(vectors)
+                   .partialAggregation({0}, {"avg(c1)", "avg(c2)"})
+                   .finalAggregation({0}, {"avg(a0)", "avg(a1)"})
+                   .planNode();
+    assertQuery(agg, "SELECT c0, avg(c1), avg(c2) FROM tmp group by c0");
+  }
+
+  {
+    auto agg = PlanBuilder()
+                   .values(vectors)
+                   .partialAggregation({}, {"avg(c0)"})
+                   .finalAggregation({}, {"avg(a0)"})
+                   .planNode();
+    assertQuery(agg, "SELECT avg(c0) FROM tmp");
+  }
+  {
+    auto agg = PlanBuilder()
+                   .values(vectors)
+                   .project(
+                       std::vector<std::string>{"c0 % 2", "c0"},
+                       std::vector<std::string>{"c0_mod_2", "c0"})
+                   .partialAggregation({0}, {"avg(c0)"})
+                   .finalAggregation({0}, {"avg(a0)"})
+                   .planNode();
+    assertQuery(agg, "SELECT c0 % 2, avg(c0) FROM tmp group by 1");
+  }
+}
+
+TEST_F(AverageAggregation, avgConstNull) {
+  // Have two row vectors a lest as it triggers different code paths.
+  auto vectors = {
+      makeRowVector({
+          makeNullableFlatVector<int64_t>({0, 1, 2, 0, 1, 2, 0, 1, 2, 0}),
+          BaseVector::createNullConstant(BIGINT(), 10, pool_.get()),
+          BaseVector::createNullConstant(DOUBLE(), 10, pool_.get()),
+      }),
+      makeRowVector({
+          makeNullableFlatVector<int64_t>({0, 1, 2, 0, 1, 2, 0, 1, 2, 0}),
+          BaseVector::createNullConstant(BIGINT(), 10, pool_.get()),
+          BaseVector::createNullConstant(DOUBLE(), 10, pool_.get()),
+      }),
+  };
+
+  createDuckDbTable(vectors);
+
+  {
+    auto agg = PlanBuilder()
+                   .values(vectors)
+                   .partialAggregation({}, {"avg(c1)", "avg(c2)"})
+                   .finalAggregation({}, {"avg(a0)", "avg(a1)"})
+                   .planNode();
+    assertQuery(agg, "SELECT avg(c1), avg(c2) FROM tmp");
+  }
+
+  {
+    auto agg = PlanBuilder()
+                   .values(vectors)
+                   .partialAggregation({0}, {"avg(c1)", "avg(c2)"})
+                   .finalAggregation({0}, {"avg(a0)", "avg(a1)"})
+                   .planNode();
+    assertQuery(agg, "SELECT c0, avg(c1), avg(c2) FROM tmp group by c0");
+  }
+
+  {
+    auto agg = PlanBuilder()
+                   .values(vectors)
+                   .partialAggregation({}, {"avg(c0)"})
+                   .finalAggregation({}, {"avg(a0)"})
+                   .planNode();
+    assertQuery(agg, "SELECT avg(c0) FROM tmp");
+  }
+}
+
+TEST_F(AverageAggregation, avgNulls) {
+  // Have two row vectors a lest as it triggers different code paths.
+  auto vectors = {
+      makeRowVector({
+          makeNullableFlatVector<int64_t>({0, std::nullopt, 2, 0, 1}),
+          makeNullableFlatVector<int64_t>({0, 1, std::nullopt, 3, 4}),
+          makeNullableFlatVector<double>({0.1, 1.2, 2.3, std::nullopt, 4.4}),
+      }),
+      makeRowVector({
+          makeNullableFlatVector<int64_t>({0, std::nullopt, 2, 0, 1}),
+          makeNullableFlatVector<int64_t>({0, 1, std::nullopt, 3, 4}),
+          makeNullableFlatVector<double>({0.1, 1.2, 2.3, std::nullopt, 4.4}),
+      }),
+  };
+
+  createDuckDbTable(vectors);
+
+  {
+    auto agg = PlanBuilder()
+                   .values(vectors)
+                   .partialAggregation({}, {"avg(c1)", "avg(c2)"})
+                   .finalAggregation({}, {"avg(a0)", "avg(a1)"})
+                   .planNode();
+    assertQuery(agg, "SELECT avg(c1), avg(c2) FROM tmp");
+  }
+
+  {
+    auto agg = PlanBuilder()
+                   .values(vectors)
+                   .partialAggregation({0}, {"avg(c1)", "avg(c2)"})
+                   .finalAggregation({0}, {"avg(a0)", "avg(a1)"})
+                   .planNode();
+    assertQuery(agg, "SELECT c0, avg(c1), avg(c2) FROM tmp group by c0");
+  }
+}
+
 TEST_F(AverageAggregation, avg) {
   auto vectors = makeVectors(rowType_, 10, 100);
   createDuckDbTable(vectors);

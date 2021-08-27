@@ -74,9 +74,9 @@ class Aggregate {
   // with the 'args', e.g. data in the i-th row of the 'args' goes to the i-th
   // group. The groups may repeat if different rows go into the same group.
   // @param rows Rows of the 'args' to add to the accumulators. These may not be
-  // contiguous if the aggregation is configured to drop null grouping keys.
-  // This would be the case when aggregation is followed by the join on the
-  // grouping keys.
+  // contiguous if the aggregation has mask or is configured to drop null
+  // grouping keys. The latter would be the case when aggregation is followed
+  // by the join on the grouping keys.
   // @param args Data to add to the accumulators.
   // @param mayPushdown True if aggregation can be pushdown down via LazyVector.
   // The pushdown can happen only if this flag is true and 'args' is a single
@@ -92,18 +92,19 @@ class Aggregate {
 
   // Updates the single accumulator used for global aggregation.
   // @param group Pointer to the start of the group row.
-  // @param allRows A contiguous range of row numbers starting from 0.
+  // @param rows Rows of the 'args' to add to the accumulators. These may not
+  // be contiguous if the aggregation has mask.
   // @param args Data to add to the accumulators.
   // @param mayPushdown True if aggregation can be pushdown down via LazyVector.
   // The pushdown can happen only if this flag is true and 'args' is a single
   // LazyVector.
   void updateSingleGroup(
       char* group,
-      const SelectivityVector& allRows,
+      const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) {
-    isRawInput_ ? updateSingleGroupPartial(group, allRows, args, mayPushdown)
-                : updateSingleGroupFinal(group, allRows, args, mayPushdown);
+    isRawInput_ ? updateSingleGroupPartial(group, rows, args, mayPushdown)
+                : updateSingleGroupFinal(group, rows, args, mayPushdown);
   }
 
   // Finalizes the state in groups. Defaults to no op for cases like
@@ -162,7 +163,7 @@ class Aggregate {
   // @param args Raw input to add to the accumulators.
   virtual void updateSingleGroupPartial(
       char* group,
-      const SelectivityVector& allRows,
+      const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) = 0;
 
@@ -171,7 +172,7 @@ class Aggregate {
   // @param args Intermediate results produced by extractAccumulators().
   virtual void updateSingleGroupFinal(
       char* group,
-      const SelectivityVector& allRows,
+      const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) = 0;
 

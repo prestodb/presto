@@ -123,31 +123,39 @@ class SimpleNumericAggregate : public exec::Aggregate {
   template <typename UpdateSingle, typename UpdateDuplicate>
   void updateOneGroup(
       char* group,
-      const SelectivityVector& allRows,
+      const SelectivityVector& rows,
       const VectorPtr& arg,
       UpdateSingle updateSingleValue,
       UpdateDuplicate updateDuplicateValues,
       bool /*mayPushdown*/,
       TAccumulator initialValue) {
-    DecodedVector decoded(*arg, allRows);
+    DecodedVector decoded(*arg, rows);
+
+    // Do row by row if not all rows are selected.
     if (decoded.isConstantMapping()) {
       if (!decoded.isNullAt(0)) {
         updateDuplicateValues(
-            initialValue, decoded.valueAt<TInput>(0), allRows.end());
+            initialValue, decoded.valueAt<TInput>(0), rows.countSelected());
         updateNonNullValue<true>(group, initialValue, updateSingleValue);
       }
     } else if (decoded.mayHaveNulls()) {
-      for (vector_size_t i = 0; i < allRows.end(); i++) {
-        if (!decoded.isNullAt(i)) {
-          updateNonNullValue<true>(
-              group, decoded.valueAt<TInput>(i), updateSingleValue);
+      rows.applyToSelected([&](vector_size_t i) {
+        if (decoded.isNullAt(i)) {
+          return;
         }
-      }
+        updateNonNullValue<true>(
+            group, decoded.valueAt<TInput>(i), updateSingleValue);
+      });
+    } else if (decoded.isIdentityMapping() && !std::is_same_v<TInput, bool>) {
+      auto data = decoded.data<TInput>();
+      rows.applyToSelected([&](vector_size_t i) {
+        updateNonNullValue<true>(group, data[i], updateSingleValue);
+      });
     } else {
-      for (vector_size_t i = 0; i < allRows.end(); i++) {
-        updateSingleValue(initialValue, decoded.valueAt<TInput>(i));
-      }
-      updateNonNullValue<true>(group, initialValue, updateSingleValue);
+      rows.applyToSelected([&](vector_size_t i) {
+        updateNonNullValue<true>(
+            group, decoded.valueAt<TInput>(i), updateSingleValue);
+      });
     }
   }
 

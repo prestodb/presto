@@ -24,7 +24,7 @@ namespace facebook::velox::aggregate {
 
 namespace {
 
-// MinMaxByAggregate is the base clase for min_by and max_by functions. These
+// MinMaxByAggregate is the base class for min_by and max_by functions. These
 // functions return the value of X associated with the minimum/maximum value of
 // Y over all input values. Partial aggregation produces a pair of X and min/max
 // Y. Final aggregation takes a pair of X and min/max Y and returns X. T is the
@@ -202,47 +202,48 @@ class MinMaxByAggregate : public exec::Aggregate {
   template <typename MayUpdate>
   void updateSingleGroupPartial(
       char* group,
-      const SelectivityVector& allRows,
+      const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       MayUpdate mayUpdate) {
     // decodedValue will contain the values of column X.
     // decodedComparisonValue will contain the values of column Y which will be
     // used to select the minimum or the maximum.
-    DecodedVector decodedValue(*args[0], allRows);
-    DecodedVector decodedComparisonValue(*args[1], allRows);
+    DecodedVector decodedValue(*args[0], rows);
+    DecodedVector decodedComparisonValue(*args[1], rows);
 
     if (decodedValue.isConstantMapping() &&
         decodedComparisonValue.isConstantMapping()) {
       if (decodedComparisonValue.isNullAt(0)) {
         return;
       }
-      updateValues(
-          group,
-          decodedValue.valueAt<T>(0),
-          decodedComparisonValue.valueAt<U>(0),
-          decodedValue.isNullAt(0),
-          mayUpdate);
+      auto value = decodedValue.valueAt<T>(0);
+      auto comparisonValue = decodedComparisonValue.valueAt<U>(0);
+      auto nullValue = decodedValue.isNullAt(0);
+      rows.applyToSelected([&](vector_size_t /*i*/) {
+        updateValues(group, value, comparisonValue, nullValue, mayUpdate);
+      });
     } else if (
         decodedValue.mayHaveNulls() || decodedComparisonValue.mayHaveNulls()) {
-      for (vector_size_t i = 0; i < allRows.end(); i++) {
-        if (!decodedComparisonValue.isNullAt(i)) {
-          updateValues(
-              group,
-              decodedValue.valueAt<T>(i),
-              decodedComparisonValue.valueAt<U>(i),
-              decodedValue.isNullAt(i),
-              mayUpdate);
+      rows.applyToSelected([&](vector_size_t i) {
+        if (decodedComparisonValue.isNullAt(i)) {
+          return;
         }
-      }
+        updateValues(
+            group,
+            decodedValue.valueAt<T>(i),
+            decodedComparisonValue.valueAt<U>(i),
+            decodedValue.isNullAt(i),
+            mayUpdate);
+      });
     } else {
-      for (vector_size_t i = 0; i < allRows.end(); i++) {
+      rows.applyToSelected([&](vector_size_t i) {
         updateValues(
             group,
             decodedValue.valueAt<T>(i),
             decodedComparisonValue.valueAt<U>(i),
             false,
             mayUpdate);
-      }
+      });
     }
   }
 
@@ -252,11 +253,11 @@ class MinMaxByAggregate : public exec::Aggregate {
   template <typename MayUpdate>
   void updateSingleGroupFinal(
       char* group,
-      const SelectivityVector& allRows,
+      const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       MayUpdate mayUpdate) {
     // Decode struct(Value, ComparisonValue) as individual vectors.
-    DecodedVector decodedPairs(*args[0], allRows);
+    DecodedVector decodedPairs(*args[0], rows);
     auto baseRowVector = dynamic_cast<const RowVector*>(decodedPairs.base());
     auto baseValueVector = baseRowVector->childAt(0)->as<FlatVector<T>>();
     auto baseComparisonVector = baseRowVector->childAt(1)->as<FlatVector<U>>();
@@ -266,26 +267,17 @@ class MinMaxByAggregate : public exec::Aggregate {
         return;
       }
       auto decodedIndex = decodedPairs.index(0);
-      updateValues(
-          group,
-          baseValueVector->valueAt(decodedIndex),
-          baseComparisonVector->valueAt(decodedIndex),
-          baseValueVector->isNullAt(decodedIndex),
-          mayUpdate);
+      auto value = baseValueVector->valueAt(decodedIndex);
+      auto comparisonValue = baseComparisonVector->valueAt(decodedIndex);
+      auto nullValue = baseValueVector->isNullAt(decodedIndex);
+      rows.applyToSelected([&](vector_size_t /*i*/) {
+        updateValues(group, value, comparisonValue, nullValue, mayUpdate);
+      });
     } else if (decodedPairs.mayHaveNulls()) {
-      for (vector_size_t i = 0; i < allRows.end(); i++) {
-        if (!decodedPairs.isNullAt(i)) {
-          auto decodedIndex = decodedPairs.index(i);
-          updateValues(
-              group,
-              baseValueVector->valueAt(decodedIndex),
-              baseComparisonVector->valueAt(decodedIndex),
-              baseValueVector->isNullAt(decodedIndex),
-              mayUpdate);
+      rows.applyToSelected([&](vector_size_t i) {
+        if (decodedPairs.isNullAt(i)) {
+          return;
         }
-      }
-    } else {
-      for (vector_size_t i = 0; i < allRows.end(); i++) {
         auto decodedIndex = decodedPairs.index(i);
         updateValues(
             group,
@@ -293,7 +285,17 @@ class MinMaxByAggregate : public exec::Aggregate {
             baseComparisonVector->valueAt(decodedIndex),
             baseValueVector->isNullAt(decodedIndex),
             mayUpdate);
-      }
+      });
+    } else {
+      rows.applyToSelected([&](vector_size_t i) {
+        auto decodedIndex = decodedPairs.index(i);
+        updateValues(
+            group,
+            baseValueVector->valueAt(decodedIndex),
+            baseComparisonVector->valueAt(decodedIndex),
+            baseValueVector->isNullAt(decodedIndex),
+            mayUpdate);
+      });
     }
   }
 
@@ -364,22 +366,22 @@ class MaxByAggregate : public MinMaxByAggregate<T, U> {
 
   void updateSingleGroupPartial(
       char* group,
-      const SelectivityVector& allRows,
+      const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /*unused*/) override {
     MinMaxByAggregate<T, U>::updateSingleGroupPartial(
-        group, allRows, args, [](U& currentValue, U newValue) {
+        group, rows, args, [](U& currentValue, U newValue) {
           return newValue > currentValue;
         });
   }
 
   void updateSingleGroupFinal(
       char* group,
-      const SelectivityVector& allRows,
+      const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /*mayPushdown*/) override {
     MinMaxByAggregate<T, U>::updateSingleGroupFinal(
-        group, allRows, args, [](U& currentValue, U newValue) {
+        group, rows, args, [](U& currentValue, U newValue) {
           return newValue > currentValue;
         });
   }
@@ -418,22 +420,22 @@ class MinByAggregate : public MinMaxByAggregate<T, U> {
 
   void updateSingleGroupPartial(
       char* group,
-      const SelectivityVector& allRows,
+      const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /*unused*/) override {
     MinMaxByAggregate<T, U>::updateSingleGroupPartial(
-        group, allRows, args, [](U& currentValue, U newValue) {
+        group, rows, args, [](U& currentValue, U newValue) {
           return newValue < currentValue;
         });
   }
 
   void updateSingleGroupFinal(
       char* group,
-      const SelectivityVector& allRows,
+      const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /*mayPushdown*/) override {
     MinMaxByAggregate<T, U>::updateSingleGroupFinal(
-        group, allRows, args, [](U& currentValue, U newValue) {
+        group, rows, args, [](U& currentValue, U newValue) {
           return newValue < currentValue;
         });
   }

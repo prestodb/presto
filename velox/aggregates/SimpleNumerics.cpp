@@ -89,12 +89,12 @@ class SumAggregate : public SimpleNumericAggregate<T, ResultType, ResultType> {
 
   void updateSingleGroupPartial(
       char* group,
-      const SelectivityVector& allRows,
+      const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
     BaseAggregate::updateOneGroup(
         group,
-        allRows,
+        rows,
         args[0],
         [](ResultType& result, T value) { result += value; },
         [](ResultType& result, T value, int n) { result += n * value; },
@@ -104,10 +104,10 @@ class SumAggregate : public SimpleNumericAggregate<T, ResultType, ResultType> {
 
   void updateSingleGroupFinal(
       char* group,
-      const SelectivityVector& allRows,
+      const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    updateSingleGroupPartial(group, allRows, args, mayPushdown);
+    updateSingleGroupPartial(group, rows, args, mayPushdown);
   }
 };
 
@@ -176,35 +176,35 @@ class CountAggregate : public SimpleNumericAggregate<bool, int64_t, int64_t> {
 
   void updateSingleGroupPartial(
       char* group,
-      const SelectivityVector& allRows,
+      const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /*mayPushdown*/) override {
     if (args.empty()) {
-      addToGroup(group, allRows.size());
+      addToGroup(group, rows.size());
       return;
     }
 
-    DecodedVector decoded(*args[0], allRows);
+    DecodedVector decoded(*args[0], rows);
     if (decoded.isConstantMapping()) {
       if (!decoded.isNullAt(0)) {
-        addToGroup(group, allRows.size());
+        addToGroup(group, rows.size());
       }
     } else if (decoded.mayHaveNulls()) {
       int64_t nonNullCount = 0;
-      for (vector_size_t i = 0; i < allRows.end(); i++) {
+      rows.applyToSelected([&](vector_size_t i) {
         if (!decoded.isNullAt(i)) {
           ++nonNullCount;
         }
-      }
+      });
       addToGroup(group, nonNullCount);
     } else {
-      addToGroup(group, allRows.size());
+      addToGroup(group, rows.size());
     }
   }
 
   void updateSingleGroupFinal(
       char* /*group*/,
-      const SelectivityVector& /*allRows*/,
+      const SelectivityVector& /*rows*/,
       const std::vector<VectorPtr>& /*args*/,
       bool /*mayPushdown*/) override {
     VELOX_UNREACHABLE();

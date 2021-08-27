@@ -130,16 +130,16 @@ class MapAggAggregate : public exec::Aggregate {
 
   void updateSingleGroupPartial(
       char* group,
-      const SelectivityVector& allRows,
+      const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /* mayPushdown */) override {
     auto accumulator = value<MapAccumulator>(group);
     auto& keys = accumulator->keys;
     auto& values = accumulator->values;
 
-    decodedKeys_.decode(*args[0], allRows);
-    decodedValues_.decode(*args[1], allRows);
-    allRows.applyToSelected([&](vector_size_t row) {
+    decodedKeys_.decode(*args[0], rows);
+    decodedValues_.decode(*args[1], rows);
+    rows.applyToSelected([&](vector_size_t row) {
       // Skip null keys
       if (!decodedKeys_.isNullAt(row)) {
         keys.appendValue(decodedKeys_, row, allocator_);
@@ -150,7 +150,7 @@ class MapAggAggregate : public exec::Aggregate {
 
   void updateSingleGroupFinal(
       char* group,
-      const SelectivityVector& allRows,
+      const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /* mayPushdown */) override {
     auto accumulator = value<MapAccumulator>(group);
@@ -161,7 +161,7 @@ class MapAggAggregate : public exec::Aggregate {
     auto mapVector = args[0]->as<MapVector>();
     auto& mapKeys = mapVector->mapKeys();
     auto& mapValues = mapVector->mapValues();
-    allRows.applyToSelected([&](vector_size_t row) {
+    rows.applyToSelected([&](vector_size_t row) {
       auto offset = mapVector->offsetAt(row);
       auto size = mapVector->sizeAt(row);
       keys.appendRange(mapKeys, offset, size, allocator_);

@@ -27,6 +27,44 @@ class CountIfAggregationTest : public AggregationTestBase {
       ROW({"c0", "c1", "c2"}, {INTEGER(), BOOLEAN(), BOOLEAN()})};
 };
 
+TEST_F(CountIfAggregationTest, countIfConst) {
+  // Have two row vectors a lest as it triggers different code paths.
+  auto vectors = {
+      makeRowVector({
+          makeFlatVector<int64_t>(
+              10, [](vector_size_t row) { return row / 3; }),
+          BaseVector::createConstant(true, 10, pool_.get()),
+          BaseVector::createConstant(false, 10, pool_.get()),
+      }),
+  };
+
+  createDuckDbTable(vectors);
+
+  {
+    auto agg = PlanBuilder()
+                   .values(vectors)
+                   .partialAggregation({}, {"count_if(c1)", "count_if(c2)"})
+                   .finalAggregation({}, {"count_if(a0)", "count_if(a1)"})
+                   .planNode();
+    assertQuery(
+        agg,
+        "SELECT sum(if(c1, 1, 0)), "
+        "sum(if(c2, 1, 0)) FROM tmp");
+  }
+
+  {
+    auto agg = PlanBuilder()
+                   .values(vectors)
+                   .partialAggregation({0}, {"count_if(c1)", "count_if(c2)"})
+                   .finalAggregation({0}, {"count_if(a0)", "count_if(a1)"})
+                   .planNode();
+    assertQuery(
+        agg,
+        "SELECT c0, sum(if(c1, 1, 0)), "
+        "sum(if(c2, 1, 0)) FROM tmp group by c0");
+  }
+}
+
 TEST_F(CountIfAggregationTest, oneAggregateSingleGroup) {
   // Make two batches of rows: one with nulls; another without.
   auto vectors = {

@@ -94,10 +94,10 @@ class Arbitrary : public SimpleNumericAggregate<T, T, T> {
 
   void updateSingleGroupPartial(
       char* group,
-      const SelectivityVector& allRows,
+      const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /*unused*/) override {
-    DecodedVector decoded(*args[0], allRows);
+    DecodedVector decoded(*args[0], rows);
 
     if (decoded.isConstantMapping()) {
       if (decoded.isNullAt(0)) {
@@ -107,22 +107,23 @@ class Arbitrary : public SimpleNumericAggregate<T, T, T> {
     } else if (!decoded.mayHaveNulls()) {
       updateValue(group, decoded.valueAt<T>(0));
     } else {
-      for (vector_size_t i = 0; i < allRows.end(); ++i) {
-        // Find the first non-null value.
+      // Find the first non-null value.
+      rows.testSelected([&](vector_size_t i) {
         if (!decoded.isNullAt(i)) {
           updateValue(group, decoded.valueAt<T>(i));
-          return;
+          return false; // Stop
         }
-      }
+        return true; // Continue
+      });
     }
   }
 
   void updateSingleGroupFinal(
       char* group,
-      const SelectivityVector& allRows,
+      const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    updateSingleGroupPartial(group, allRows, args, mayPushdown);
+    updateSingleGroupPartial(group, rows, args, mayPushdown);
   }
 
  private:
@@ -223,10 +224,10 @@ class NonNumericArbitrary : public exec::Aggregate {
 
   void updateSingleGroupPartial(
       char* group,
-      const SelectivityVector& allRows,
+      const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /*unused*/) override {
-    DecodedVector decoded(*args[0], allRows, true);
+    DecodedVector decoded(*args[0], rows, true);
     if (decoded.isConstantMapping() && decoded.isNullAt(0)) {
       // nothing to do; all values are nulls
       return;
@@ -235,21 +236,22 @@ class NonNumericArbitrary : public exec::Aggregate {
     const auto* indices = decoded.indices();
     const auto* baseVector = decoded.base();
     auto* accumulator = value<SingleValueAccumulator>(group);
-    for (vector_size_t i = 0; i < allRows.end(); ++i) {
-      // Find the first non-null value.
+    // Find the first non-null value.
+    rows.testSelected([&](vector_size_t i) {
       if (!decoded.isNullAt(i)) {
         accumulator->write(baseVector, indices[i], allocator_);
-        return;
+        return false; // Stop
       }
-    }
+      return true; // Continue
+    });
   }
 
   void updateSingleGroupFinal(
       char* group,
-      const SelectivityVector& allRows,
+      const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    updateSingleGroupPartial(group, allRows, args, mayPushdown);
+    updateSingleGroupPartial(group, rows, args, mayPushdown);
   }
 };
 

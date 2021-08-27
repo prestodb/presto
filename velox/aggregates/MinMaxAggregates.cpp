@@ -130,12 +130,12 @@ class MaxAggregate : public MinMaxAggregate<T, ResultType> {
 
   void updateSingleGroupPartial(
       char* group,
-      const SelectivityVector& allRows,
+      const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
     BaseAggregate::updateOneGroup(
         group,
-        allRows,
+        rows,
         args[0],
         [](T& result, T value) { result = result > value ? result : value; },
         [](T& result, T value, int /* unused */) { result = value; },
@@ -145,10 +145,10 @@ class MaxAggregate : public MinMaxAggregate<T, ResultType> {
 
   void updateSingleGroupFinal(
       char* group,
-      const SelectivityVector& allRows,
+      const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    updateSingleGroupPartial(group, allRows, args, mayPushdown);
+    updateSingleGroupPartial(group, rows, args, mayPushdown);
   }
 
  private:
@@ -204,12 +204,12 @@ class MinAggregate : public MinMaxAggregate<T, ResultType> {
 
   void updateSingleGroupPartial(
       char* group,
-      const SelectivityVector& allRows,
+      const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
     BaseAggregate::updateOneGroup(
         group,
-        allRows,
+        rows,
         args[0],
         [](T& result, T value) { result = result < value ? result : value; },
         [](T& result, T value, int /* unused */) { result = value; },
@@ -219,10 +219,10 @@ class MinAggregate : public MinMaxAggregate<T, ResultType> {
 
   void updateSingleGroupFinal(
       char* group,
-      const SelectivityVector& allRows,
+      const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    updateSingleGroupPartial(group, allRows, args, mayPushdown);
+    updateSingleGroupPartial(group, rows, args, mayPushdown);
   }
 
  private:
@@ -321,10 +321,10 @@ class NonNumericMinMaxAggregateBase : public exec::Aggregate {
   template <typename TCompareTest>
   void doUpdateSingleGroup(
       char* group,
-      const SelectivityVector& allRows,
+      const SelectivityVector& rows,
       const VectorPtr& arg,
       TCompareTest compareTest) {
-    DecodedVector decoded(*arg, allRows, true);
+    DecodedVector decoded(*arg, rows, true);
     auto indices = decoded.indices();
     auto baseVector = decoded.base();
 
@@ -343,7 +343,7 @@ class NonNumericMinMaxAggregateBase : public exec::Aggregate {
     }
 
     auto accumulator = value<SingleValueAccumulator>(group);
-    allRows.applyToSelected([&](vector_size_t i) {
+    rows.applyToSelected([&](vector_size_t i) {
       if (decoded.isNullAt(i)) {
         return;
       }
@@ -382,20 +382,20 @@ class NonNumericMaxAggregate : public NonNumericMinMaxAggregateBase {
 
   void updateSingleGroupPartial(
       char* group,
-      const SelectivityVector& allRows,
+      const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /*mayPushdown*/) override {
-    doUpdateSingleGroup(group, allRows, args[0], [](int32_t compareResult) {
+    doUpdateSingleGroup(group, rows, args[0], [](int32_t compareResult) {
       return compareResult < 0;
     });
   }
 
   void updateSingleGroupFinal(
       char* group,
-      const SelectivityVector& allRows,
+      const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    updateSingleGroupPartial(group, allRows, args, mayPushdown);
+    updateSingleGroupPartial(group, rows, args, mayPushdown);
   }
 };
 
@@ -426,20 +426,20 @@ class NonNumericMinAggregate : public NonNumericMinMaxAggregateBase {
 
   void updateSingleGroupPartial(
       char* group,
-      const SelectivityVector& allRows,
+      const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /*mayPushdown*/) override {
-    doUpdateSingleGroup(group, allRows, args[0], [](int32_t compareResult) {
+    doUpdateSingleGroup(group, rows, args[0], [](int32_t compareResult) {
       return compareResult > 0;
     });
   }
 
   void updateSingleGroupFinal(
       char* group,
-      const SelectivityVector& allRows,
+      const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    updateSingleGroupPartial(group, allRows, args, mayPushdown);
+    updateSingleGroupPartial(group, rows, args, mayPushdown);
   }
 };
 

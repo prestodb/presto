@@ -130,27 +130,33 @@ class AverageAggregate : public exec::Aggregate {
 
   void updateSingleGroupPartial(
       char* group,
-      const SelectivityVector& allRows,
+      const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /*mayPushdown*/) override {
-    decodedRaw_.decode(*args[0], allRows);
+    decodedRaw_.decode(*args[0], rows);
+
     if (decodedRaw_.isConstantMapping()) {
       if (!decodedRaw_.isNullAt(0)) {
-        auto totalSum = decodedRaw_.valueAt<T>(0) * allRows.end();
-        updateNonNullValue(group, allRows.end(), totalSum);
+        const T value = decodedRaw_.valueAt<T>(0);
+        const auto numRows = rows.countSelected();
+        updateNonNullValue(group, numRows, value * numRows);
       }
     } else if (decodedRaw_.mayHaveNulls()) {
-      for (vector_size_t i = 0; i < allRows.end(); i++) {
+      rows.applyToSelected([&](vector_size_t i) {
         if (!decodedRaw_.isNullAt(i)) {
           updateNonNullValue(group, decodedRaw_.valueAt<T>(i));
         }
-      }
+      });
+    } else if (!exec::Aggregate::numNulls_ && decodedRaw_.isIdentityMapping()) {
+      const T* data = decodedRaw_.data<T>();
+      double totalSum = 0;
+      rows.applyToSelected([&](vector_size_t i) { totalSum += data[i]; });
+      updateNonNullValue<false>(group, rows.countSelected(), totalSum);
     } else {
       double totalSum = 0;
-      for (vector_size_t i = 0; i < allRows.end(); i++) {
-        totalSum += decodedRaw_.valueAt<T>(i);
-      }
-      updateNonNullValue(group, allRows.end(), totalSum);
+      rows.applyToSelected(
+          [&](vector_size_t i) { totalSum += decodedRaw_.valueAt<T>(i); });
+      updateNonNullValue(group, rows.countSelected(), totalSum);
     }
   }
 
@@ -198,24 +204,25 @@ class AverageAggregate : public exec::Aggregate {
 
   void updateSingleGroupFinal(
       char* group,
-      const SelectivityVector& allRows,
+      const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /* mayPushdown */) override {
-    decodedPartial_.decode(*args[0], allRows);
+    decodedPartial_.decode(*args[0], rows);
     auto baseRowVector = dynamic_cast<const RowVector*>(decodedPartial_.base());
     auto baseSumVector = baseRowVector->childAt(0)->as<SimpleVector<double>>();
     auto baseCountVector =
         baseRowVector->childAt(1)->as<SimpleVector<int64_t>>();
+
     if (decodedPartial_.isConstantMapping()) {
       if (!decodedPartial_.isNullAt(0)) {
         auto decodedIndex = decodedPartial_.index(0);
-        auto totalCount =
-            baseCountVector->valueAt(decodedIndex) * allRows.end();
-        auto totalSum = baseSumVector->valueAt(decodedIndex) * allRows.end();
+        const auto numRows = rows.countSelected();
+        auto totalCount = baseCountVector->valueAt(decodedIndex) * numRows;
+        auto totalSum = baseSumVector->valueAt(decodedIndex) * numRows;
         updateNonNullValue(group, totalCount, totalSum);
       }
     } else if (decodedPartial_.mayHaveNulls()) {
-      for (vector_size_t i = 0; i < allRows.end(); i++) {
+      rows.applyToSelected([&](vector_size_t i) {
         if (!decodedPartial_.isNullAt(i)) {
           auto decodedIndex = decodedPartial_.index(i);
           updateNonNullValue(
@@ -223,15 +230,15 @@ class AverageAggregate : public exec::Aggregate {
               baseCountVector->valueAt(decodedIndex),
               baseSumVector->valueAt(decodedIndex));
         }
-      }
+      });
     } else {
       double totalSum = 0;
       int64_t totalCount = 0;
-      for (vector_size_t i = 0; i < allRows.end(); i++) {
+      rows.applyToSelected([&](vector_size_t i) {
         auto decodedIndex = decodedPartial_.index(i);
         totalCount += baseCountVector->valueAt(decodedIndex);
         totalSum += baseSumVector->valueAt(decodedIndex);
-      }
+      });
       updateNonNullValue(group, totalCount, totalSum);
     }
   }
@@ -247,8 +254,11 @@ class AverageAggregate : public exec::Aggregate {
     accumulator(group)->count += 1;
   }
 
+  template <bool tableHasNulls = true>
   inline void updateNonNullValue(char* group, int64_t count, double sum) {
-    exec::Aggregate::clearNull(group);
+    if constexpr (tableHasNulls) {
+      exec::Aggregate::clearNull(group);
+    }
     accumulator(group)->sum += sum;
     accumulator(group)->count += count;
   }

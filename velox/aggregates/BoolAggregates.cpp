@@ -103,12 +103,12 @@ class BoolAndAggregate final : public BoolAndOrAggregate {
 
   void updateSingleGroupPartial(
       char* group,
-      const SelectivityVector& allRows,
+      const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
     BaseAggregate::updateOneGroup(
         group,
-        allRows,
+        rows,
         args[0],
         [](bool& result, bool value) { result = result && value; },
         [](bool& result, bool value, int /* unused */) {
@@ -120,10 +120,10 @@ class BoolAndAggregate final : public BoolAndOrAggregate {
 
   void updateSingleGroupFinal(
       char* group,
-      const SelectivityVector& allRows,
+      const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    updateSingleGroupPartial(group, allRows, args, mayPushdown);
+    updateSingleGroupPartial(group, rows, args, mayPushdown);
   }
 };
 
@@ -155,12 +155,12 @@ class BoolOrAggregate final : public BoolAndOrAggregate {
 
   void updateSingleGroupPartial(
       char* group,
-      const SelectivityVector& allRows,
+      const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
     BaseAggregate::updateOneGroup(
         group,
-        allRows,
+        rows,
         args[0],
         [](bool& result, bool value) { result = result || value; },
         [](bool& result, bool value, int /* unused */) {
@@ -172,10 +172,10 @@ class BoolOrAggregate final : public BoolAndOrAggregate {
 
   void updateSingleGroupFinal(
       char* group,
-      const SelectivityVector& allRows,
+      const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    updateSingleGroupPartial(group, allRows, args, mayPushdown);
+    updateSingleGroupPartial(group, rows, args, mayPushdown);
   }
 };
 

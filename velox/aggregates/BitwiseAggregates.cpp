@@ -63,10 +63,10 @@ class BitwiseAndOrAggregate : public SimpleNumericAggregate<T, T, T> {
 
   void updateSingleGroupFinal(
       char* group,
-      const SelectivityVector& allRows,
+      const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    this->updateSingleGroupPartial(group, allRows, args, mayPushdown);
+    this->updateSingleGroupPartial(group, rows, args, mayPushdown);
   }
 
  protected:
@@ -99,12 +99,12 @@ class BitwiseOrAggregate : public BitwiseAndOrAggregate<T> {
 
   void updateSingleGroupPartial(
       char* group,
-      const SelectivityVector& allRows,
+      const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
     SimpleNumericAggregate<T, T, T>::updateOneGroup(
         group,
-        allRows,
+        rows,
         args[0],
         [](T& result, T value) { result |= value; },
         [](T& result, T value, int /* unused */
@@ -140,12 +140,12 @@ class BitwiseAndAggregate : public BitwiseAndOrAggregate<T> {
 
   void updateSingleGroupPartial(
       char* group,
-      const SelectivityVector& allRows,
+      const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
     SimpleNumericAggregate<T, T, T>::template updateOneGroup(
         group,
-        allRows,
+        rows,
         args[0],
         [](T& result, T value) { result &= value; },
         [](T& result, T value, int /* unused */

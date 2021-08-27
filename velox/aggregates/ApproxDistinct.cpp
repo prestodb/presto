@@ -225,12 +225,12 @@ class ApproxDistinctAggregate : public exec::Aggregate {
 
   void updateSingleGroupPartial(
       char* group,
-      const SelectivityVector& allRows,
+      const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /*mayPushdown*/) override {
-    decodeArguments(allRows, args);
+    decodeArguments(rows, args);
 
-    allRows.applyToSelected([&](auto row) {
+    rows.applyToSelected([&](auto row) {
       if (decodedValue_.isNullAt(row)) {
         return;
       }
@@ -247,12 +247,12 @@ class ApproxDistinctAggregate : public exec::Aggregate {
 
   void updateSingleGroupFinal(
       char* group,
-      const SelectivityVector& allRows,
+      const SelectivityVector& row,
       const std::vector<VectorPtr>& args,
       bool /*mayPushdown*/) override {
-    decodedHll_.decode(*args[0], allRows, true);
+    decodedHll_.decode(*args[0], row, true);
 
-    allRows.applyToSelected([&](auto row) {
+    row.applyToSelected([&](auto row) {
       if (decodedHll_.isNullAt(row)) {
         return;
       }

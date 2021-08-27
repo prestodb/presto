@@ -113,20 +113,20 @@ class ArrayAggAggregate : public exec::Aggregate {
 
   void updateSingleGroupPartial(
       char* group,
-      const SelectivityVector& allRows,
+      const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /* mayPushdown */) override {
     auto& values = value<ArrayAccumulator>(group)->elements;
 
-    decodedElements_.decode(*args[0], allRows);
-    allRows.applyToSelected([&](vector_size_t row) {
+    decodedElements_.decode(*args[0], rows);
+    rows.applyToSelected([&](vector_size_t row) {
       values.appendValue(decodedElements_, row, allocator_);
     });
   }
 
   void updateSingleGroupFinal(
       char* group,
-      const SelectivityVector& allRows,
+      const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /* mayPushdown */) override {
     auto& values = value<ArrayAccumulator>(group)->elements;
@@ -134,7 +134,7 @@ class ArrayAggAggregate : public exec::Aggregate {
     VELOX_CHECK_EQ(args[0]->encoding(), VectorEncoding::Simple::ARRAY);
     auto arrayVector = args[0]->as<ArrayVector>();
     auto elements = arrayVector->elements();
-    allRows.applyToSelected([&](vector_size_t row) {
+    rows.applyToSelected([&](vector_size_t row) {
       values.appendRange(
           elements,
           arrayVector->offsetAt(row),

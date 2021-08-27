@@ -153,24 +153,30 @@ TEST_F(MinMaxTest, maxVarchar) {
                 .project({"c0 % 11", "c1"}, {"c0_mod_11", "c1"})
                 .partialAggregation({0}, {"max(c1)"})
                 .planNode();
-
   assertQuery(op, "SELECT c0 % 11, max(c1) FROM tmp GROUP BY 1");
 
   op = PlanBuilder()
            .values(vectors)
            .partialAggregation({}, {"max(c1)"})
            .planNode();
-
   assertQuery(op, "SELECT max(c1) FROM tmp");
 
-  // encodings: use filter to wrap aggregation inputs in a dictionary
+  // Encodings: use filter to wrap aggregation inputs in a dictionary
   op = PlanBuilder()
            .values(vectors)
            .filter("c0 % 2 = 0")
            .project({"c0 % 11", "c1"}, {"c0_mod_11", "c1"})
            .partialAggregation({0}, {"max(c1)"})
            .planNode();
+  assertQuery(
+      op, "SELECT c0 % 11, max(c1) FROM tmp WHERE c0 % 2 = 0 GROUP BY 1");
 
+  op = PlanBuilder()
+           .values(vectors)
+           .filter("c0 % 2 = 0")
+           .project({"c0 % 11", "c1"}, {"c0_mod_11", "c1"})
+           .finalAggregation({0}, {"max(c1)"})
+           .planNode();
   assertQuery(
       op, "SELECT c0 % 11, max(c1) FROM tmp WHERE c0 % 2 = 0 GROUP BY 1");
 
@@ -178,6 +184,13 @@ TEST_F(MinMaxTest, maxVarchar) {
            .values(vectors)
            .filter("c0 % 2 = 0")
            .partialAggregation({}, {"max(c1)"})
+           .planNode();
+  assertQuery(op, "SELECT max(c1) FROM tmp WHERE c0 % 2 = 0");
+
+  op = PlanBuilder()
+           .values(vectors)
+           .filter("c0 % 2 = 0")
+           .finalAggregation({}, {"max(c1)"})
            .planNode();
   assertQuery(op, "SELECT max(c1) FROM tmp WHERE c0 % 2 = 0");
 }
@@ -194,24 +207,30 @@ TEST_F(MinMaxTest, minVarchar) {
                 .project({"c0 % 17", "c1"}, {"c0_mod_17", "c1"})
                 .partialAggregation({0}, {"min(c1)"})
                 .planNode();
-
   assertQuery(op, "SELECT c0 % 17, min(c1) FROM tmp GROUP BY 1");
 
   op = PlanBuilder()
            .values(vectors)
            .partialAggregation({}, {"min(c1)"})
            .planNode();
-
   assertQuery(op, "SELECT min(c1) FROM tmp");
 
-  // encodings: use filter to wrap aggregation inputs in a dictionary
+  // Encodings: use filter to wrap aggregation inputs in a dictionary
   op = PlanBuilder()
            .values(vectors)
            .filter("c0 % 2 = 0")
            .project({"c0 % 17", "c1"}, {"c0_mod_17", "c1"})
            .partialAggregation({0}, {"min(c1)"})
            .planNode();
+  assertQuery(
+      op, "SELECT c0 % 17, min(c1) FROM tmp WHERE c0 % 2 = 0 GROUP BY 1");
 
+  op = PlanBuilder()
+           .values(vectors)
+           .filter("c0 % 2 = 0")
+           .project({"c0 % 17", "c1"}, {"c0_mod_17", "c1"})
+           .finalAggregation({0}, {"min(c1)"})
+           .planNode();
   assertQuery(
       op, "SELECT c0 % 17, min(c1) FROM tmp WHERE c0 % 2 = 0 GROUP BY 1");
 
@@ -221,18 +240,32 @@ TEST_F(MinMaxTest, minVarchar) {
            .partialAggregation({}, {"min(c1)"})
            .planNode();
   assertQuery(op, "SELECT min(c1) FROM tmp WHERE c0 % 2 = 0");
+
+  op = PlanBuilder()
+           .values(vectors)
+           .filter("c0 % 2 = 0")
+           .finalAggregation({}, {"min(c1)"})
+           .planNode();
+  assertQuery(op, "SELECT min(c1) FROM tmp WHERE c0 % 2 = 0");
 }
 
 TEST_F(MinMaxTest, constVarchar) {
+  // Create two batches of the source data for the aggregation:
+  // Column c0 with 1K of "apple" and 1K of "banana".
+  // Column c1 with 1K of nulls and 1K of nulls.
   auto constVectors = {
-      makeRowVector({BaseVector::createConstant("apple", 1'000, pool_.get())}),
       makeRowVector(
-          {BaseVector::createConstant("banana", 1'000, pool_.get())})};
-  auto op = PlanBuilder()
-                .values({constVectors})
-                .singleAggregation({}, {"min(c0)", "max(c0)"})
-                .planNode();
-  assertQuery(op, "SELECT 'apple', 'banana'");
+          {BaseVector::createConstant("apple", 1'000, pool_.get()),
+           BaseVector::createNullConstant(VARCHAR(), 1'000, pool_.get())}),
+      makeRowVector(
+          {BaseVector::createConstant("banana", 1'000, pool_.get()),
+           BaseVector::createNullConstant(VARCHAR(), 1'000, pool_.get())})};
+  auto op =
+      PlanBuilder()
+          .values({constVectors})
+          .singleAggregation({}, {"min(c0)", "max(c0)", "min(c1)", "max(c1)"})
+          .planNode();
+  assertQuery(op, "SELECT 'apple', 'banana', null, null");
 }
 
 TEST_F(MinMaxTest, minMaxTimestamp) {
