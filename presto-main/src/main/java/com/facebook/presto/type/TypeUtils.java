@@ -140,11 +140,7 @@ public final class TypeUtils
 
     public static long getHashPosition(List<? extends Type> hashTypes, Block[] hashBlocks, int position)
     {
-        int[] hashChannels = new int[hashBlocks.length];
-        for (int i = 0; i < hashBlocks.length; i++) {
-            hashChannels[i] = i;
-        }
-        HashGenerator hashGenerator = new InterpretedHashGenerator(ImmutableList.copyOf(hashTypes), hashChannels);
+        HashGenerator hashGenerator = InterpretedHashGenerator.createPositionalWithTypes(ImmutableList.copyOf(hashTypes));
         Page page = new Page(hashBlocks);
         return hashGenerator.hashPosition(position, page);
     }
@@ -152,11 +148,7 @@ public final class TypeUtils
     public static Block getHashBlock(List<? extends Type> hashTypes, Block... hashBlocks)
     {
         checkArgument(hashTypes.size() == hashBlocks.length);
-        int[] hashChannels = new int[hashBlocks.length];
-        for (int i = 0; i < hashBlocks.length; i++) {
-            hashChannels[i] = i;
-        }
-        HashGenerator hashGenerator = new InterpretedHashGenerator(ImmutableList.copyOf(hashTypes), hashChannels);
+        HashGenerator hashGenerator = InterpretedHashGenerator.createPositionalWithTypes(ImmutableList.copyOf(hashTypes));
         int positionCount = hashBlocks[0].getPositionCount();
         BlockBuilder builder = BIGINT.createFixedSizeBlockBuilder(positionCount);
         Page page = new Page(hashBlocks);
