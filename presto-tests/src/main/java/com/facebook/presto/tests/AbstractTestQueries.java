@@ -50,6 +50,9 @@ import java.util.Set;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.SystemSessionProperties.ENABLE_INTERMEDIATE_AGGREGATIONS;
+import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_FUNCTION;
+import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_PERCENTAGE;
 import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_JOINS_WITH_EMPTY_SOURCES;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -5812,5 +5815,57 @@ public abstract class AbstractTestQueries
     {
         assertQuerySucceeds("select sum(cardinality(s)) from (SELECT REDUCE_AGG(x, cast(array[] as array<bigint>), (x,y)->x||sequence(1, y), (x,y)->x||y) s FROM (SELECT x FROM (SELECT 1) CROSS JOIN UNNEST(SEQUENCE(1, 7000)) T(x)) group by random(100))");
         assertQuerySucceeds("select sum(cardinality(s)) from (SELECT REDUCE_AGG(x, cast(map() as map<bigint, bigint>), (x,y) -> map_concat(x, map(sequence(1, y), repeat(1, cast(y as int)))), (x,y)->map_concat(x,y)) s FROM (SELECT x FROM (SELECT 1) CROSS JOIN UNNEST(SEQUENCE(1, 7000)) T(x)) group by random(100))");
+    }
+
+    @Test
+    public void testDefaultSamplingPercent()
+    {
+        assertQuery("select key_sampling_percent('abc')", "select 0.56");
+    }
+
+    @Test
+    public void testKeyBasedSampling()
+    {
+        assertQuery("select count(1) from orders join lineitem using(orderkey)", "select 60175");
+        assertQuery("select count(1) from (select custkey, max(orderkey) from orders group by custkey)", "select 1000");
+        assertQuery("select count_if(m >= 1) from (select max(orderkey) over(partition by custkey) m from orders)", "select 15000");
+        assertQuery("select cast(m as bigint) from (select sum(totalprice) over(partition by custkey order by comment) m from orders order by 1 desc limit 1)", "select 5408941");
+        assertQuery("select count(1) from lineitem where orderkey in (select orderkey from orders where length(comment) > 7)", "select 60175");
+        assertQuery("select count(1) from lineitem where orderkey not in (select orderkey from orders where length(comment) > 27)", "select 9256");
+
+        Session sessionWithKeyBasedSampling = Session.builder(getSession())
+                .setSystemProperty(KEY_BASED_SAMPLING_ENABLED, "true")
+                .setSystemProperty(KEY_BASED_SAMPLING_PERCENTAGE, "0.2")
+                .build();
+
+        assertQuery(sessionWithKeyBasedSampling, "select count(1) from orders join lineitem using(orderkey)", "select 37170");
+        assertQuery(sessionWithKeyBasedSampling, "select count(1) from (select custkey, max(orderkey) from orders group by custkey)", "select 616");
+        assertQuery(sessionWithKeyBasedSampling, "select count_if(m >= 1) from (select max(orderkey) over(partition by custkey) m from orders)", "select 9189");
+        assertQuery(sessionWithKeyBasedSampling, "select cast(m as bigint) from (select sum(totalprice) over(partition by custkey order by comment) m from orders order by 1 desc limit 1)", "select '5408941'");
+        assertQuery(sessionWithKeyBasedSampling, "select count(1) from lineitem where orderkey in (select orderkey from orders where length(comment) > 7)", "select 37170");
+        assertQuery(sessionWithKeyBasedSampling, "select count(1) from lineitem where orderkey not in (select orderkey from orders where length(comment) > 27)", "select 5721");
+
+        sessionWithKeyBasedSampling = Session.builder(getSession())
+                .setSystemProperty(KEY_BASED_SAMPLING_ENABLED, "true")
+                .setSystemProperty(KEY_BASED_SAMPLING_PERCENTAGE, "0.1")
+                .build();
+
+        assertQuery(sessionWithKeyBasedSampling, "select count(1) from orders join lineitem using(orderkey)", "select 33649");
+        assertQuery(sessionWithKeyBasedSampling, "select count(1) from (select custkey, max(orderkey) from orders group by custkey)", "select 557");
+        assertQuery(sessionWithKeyBasedSampling, "select count_if(m >= 1) from (select max(orderkey) over(partition by custkey) m from orders)", "select 8377");
+        assertQuery(sessionWithKeyBasedSampling, "select cast(m as bigint) from (select sum(totalprice) over(partition by custkey order by comment) m from orders order by 1 desc limit 1)", "select 4644937");
+        assertQuery(sessionWithKeyBasedSampling, "select count(1) from lineitem where orderkey in (select orderkey from orders where length(comment) > 7)", "select 33649");
+        assertQuery(sessionWithKeyBasedSampling, "select count(1) from lineitem where orderkey not in (select orderkey from orders where length(comment) > 27)", "select 5098");
+    }
+
+    @Test
+    public void testKeyBasedSamplingFunctionError()
+    {
+        Session sessionWithKeyBasedSampling = Session.builder(getSession())
+                .setSystemProperty(KEY_BASED_SAMPLING_ENABLED, "true")
+                .setSystemProperty(KEY_BASED_SAMPLING_FUNCTION, "blah")
+                .build();
+
+        assertQueryFails(sessionWithKeyBasedSampling, "select count(1) from orders join lineitem using(orderkey)", "Sampling function: blah not cannot be resolved");
     }
 }
