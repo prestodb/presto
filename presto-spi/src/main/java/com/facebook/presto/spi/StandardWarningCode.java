@@ -23,6 +23,8 @@ public enum StandardWarningCode
     REDUNDANT_ORDER_BY(0x0000_0005),
     PARTIAL_RESULT_WARNING(0x0000_0006),
     MULTIPLE_ORDER_BY(0x0000_0007),
+    DEFAULT_SAMPLE_FUNCTION(0x0000_0008),
+    SAMPLED_FIELDS(0x0000_0009),
     /**/;
     private final WarningCode warningCode;
 
