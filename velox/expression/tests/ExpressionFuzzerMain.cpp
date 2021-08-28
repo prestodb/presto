@@ -17,7 +17,7 @@
 #include "velox/core/FunctionRegistry.h"
 #include "velox/expression/VectorFunctionRegistry.h"
 #include "velox/expression/tests/ExpressionFuzzer.h"
-#include "velox/functions/common/CoreFunctions.h"
+#include "velox/functions/prestosql/CoreFunctions.h"
 
 DEFINE_int64(
     seed,

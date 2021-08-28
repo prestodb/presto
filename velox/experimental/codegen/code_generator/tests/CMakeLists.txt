@@ -23,7 +23,7 @@ target_link_libraries(
   velox_parse_parser
   velox_exec_test_util
   velox_functions_lib
-  velox_functions_common
+  velox_functions_prestosql
   ${FOLLY_WITH_DEPENDENCIES}
   ${GTEST_BOTH_LIBRARIES}
   ${GFLAGS_LIBRARIES}
@@ -57,7 +57,7 @@ target_link_libraries(
   velox_parse_parser
   velox_exec_test_util
   velox_functions_lib
-  velox_functions_common
+  velox_functions_prestosql
   velox_all_link)
 
 add_test(velox_codegen_expression_test velox_codegen_expression_test)
@@ -75,7 +75,7 @@ target_link_libraries(
   velox_parse_parser
   velox_exec_test_util
   velox_functions_lib
-  velox_functions_common
+  velox_functions_prestosql
   velox_all_link)
 
 add_test(velox_codegen_ast_analysis_test velox_codegen_ast_analysis_test)

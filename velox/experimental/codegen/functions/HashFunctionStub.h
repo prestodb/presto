@@ -16,7 +16,7 @@
 
 #include <iostream>
 #include "velox/experimental/codegen/vector_function/StringTypes.h"
-#include "velox/functions/common/HashImpl.h"
+#include "velox/functions/prestosql/HashImpl.h"
 #include "velox/type/Conversions.h"
 #include "velox/type/Type.h"
 

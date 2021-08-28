@@ -469,7 +469,8 @@ TEST_F(ArithmeticFunctionsTest, DISABLED_testRound) {
 }
 
 // FIXME: This test errors on macs:
-// velox/velox/functions/common/HashImpl.h:22:31: error: implicit instantiation
+// velox/velox/functions/prestosql/HashImpl.h:22:31: error: implicit
+// instantiation
 // of undefined template 'folly::hasher<std::__1::basic_string_view<char, \
 // std::__1::char_traits<char> >, void>'
 TEST_F(ArithmeticFunctionsTest, DISABLED_testHash) {

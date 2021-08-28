@@ -32,7 +32,7 @@ target_link_libraries(
   velox_exec_test_util
   velox_expression
   velox_functions_lib
-  velox_functions_common
+  velox_functions_prestosql
   velox_functions_test_lib
   velox_parse_parser
   velox_parse_expression
@@ -57,4 +57,4 @@ target_link_libraries(velox_expression_fuzzer velox_type velox_vector_fuzzer
 add_executable(velox_expression_fuzzer_main ExpressionFuzzerMain.cpp)
 
 target_link_libraries(velox_expression_fuzzer_main velox_expression_fuzzer
-                      velox_functions_common)
+                      velox_functions_prestosql)

@@ -158,7 +158,7 @@ Here is an example with ceil function.
 
 .. code-block:: c++
 
-        #include "velox/functions/common/ArithmeticImpl.h"
+        #include "velox/functions/prestosql/ArithmeticImpl.h"
 
         template <typename T>
         VELOX_UDF_BEGIN(ceil)
@@ -168,7 +168,7 @@ Here is an example with ceil function.
         }
         VELOX_UDF_END();
 
-velox/functions/common/ArithmeticImpl.h:
+velox/functions/prestosql/ArithmeticImpl.h:
 
 .. code-block:: c++
 
@@ -649,7 +649,7 @@ Testing
 -------
 
 Add a test using FunctionBaseTest from
-velox/functions/common/tests/FunctionBaseTest.h as a base class. Name your test
+velox/functions/prestosql/tests/FunctionBaseTest.h as a base class. Name your test
 and the .cpp file <function-name>Test, e.g. CardinalityTest in
 CardinalityTest.cpp or IsNullTest in IsNullTest.cpp.
 

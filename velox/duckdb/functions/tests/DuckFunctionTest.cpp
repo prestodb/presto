@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #include "velox/duckdb/functions/DuckFunctions.h"
-#include "velox/functions/common/tests/FunctionBaseTest.h"
+#include "velox/functions/prestosql/tests/FunctionBaseTest.h"
 
 using namespace facebook::velox;
 

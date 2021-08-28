@@ -29,7 +29,7 @@ target_link_libraries(
   velox_functions_spark
   velox_functions_test_lib
   velox_functions_lib
-  velox_functions_common
+  velox_functions_prestosql
   ${FMT}
   ${GTEST_BOTH_LIBRARIES}
   ${gflags_LIBRARIES})

@@ -22,7 +22,7 @@ target_link_libraries(
   velox_duckdb_functions
   velox_duckdb_parser
   velox_parse_expression
-  velox_functions_common
+  velox_functions_prestosql
   velox_functions_lib
   velox_functions_test_lib
   ${GTEST_BOTH_LIBRARIES}

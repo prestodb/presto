@@ -12,5 +12,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 add_subdirectory(lib)
-add_subdirectory(common)
+add_subdirectory(prestosql)
 add_subdirectory(sparksql)

@@ -17,7 +17,7 @@
 #include "glog/logging.h"
 #include "gtest/gtest.h"
 #include "velox/functions/Udf.h"
-#include "velox/functions/common/tests/FunctionBaseTest.h"
+#include "velox/functions/prestosql/tests/FunctionBaseTest.h"
 
 namespace {
 

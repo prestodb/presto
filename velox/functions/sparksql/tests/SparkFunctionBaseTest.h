@@ -16,7 +16,7 @@
 #pragma once
 
 #include "velox/exec/tests/utils/FunctionUtils.h"
-#include "velox/functions/common/tests/FunctionBaseTest.h"
+#include "velox/functions/prestosql/tests/FunctionBaseTest.h"
 #include "velox/functions/sparksql/Register.h"
 
 namespace facebook::velox::functions::sparksql::test {

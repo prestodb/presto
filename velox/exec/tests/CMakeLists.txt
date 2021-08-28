@@ -73,7 +73,7 @@ target_link_libraries(
   velox_aggregates
   velox_aggregates_test_lib
   velox_functions_lib
-  velox_functions_common
+  velox_functions_prestosql
   velox_hive_connector
   velox_core
   velox_type

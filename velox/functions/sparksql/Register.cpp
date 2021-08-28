@@ -15,12 +15,12 @@
  */
 #include "velox/functions/sparksql/Register.h"
 
-#include "velox/functions/common/DateTimeFunctions.h"
-#include "velox/functions/common/JsonExtractScalar.h"
-#include "velox/functions/common/Rand.h"
-#include "velox/functions/common/StringFunctions.h"
 #include "velox/functions/lib/Re2Functions.h"
 #include "velox/functions/lib/RegistrationHelpers.h"
+#include "velox/functions/prestosql/DateTimeFunctions.h"
+#include "velox/functions/prestosql/JsonExtractScalar.h"
+#include "velox/functions/prestosql/Rand.h"
+#include "velox/functions/prestosql/StringFunctions.h"
 #include "velox/functions/sparksql/Hash.h"
 #include "velox/functions/sparksql/LeastGreatest.h"
 #include "velox/functions/sparksql/RegexFunctions.h"

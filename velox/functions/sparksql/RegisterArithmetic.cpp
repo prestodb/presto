@@ -15,9 +15,9 @@
  */
 #include "velox/functions/sparksql/RegisterArithmetic.h"
 
-#include "velox/functions/common/Arithmetic.h"
-#include "velox/functions/common/CheckedArithmetic.h"
 #include "velox/functions/lib/RegistrationHelpers.h"
+#include "velox/functions/prestosql/Arithmetic.h"
+#include "velox/functions/prestosql/CheckedArithmetic.h"
 #include "velox/functions/sparksql/Arithmetic.h"
 
 namespace facebook::velox::functions::sparksql {

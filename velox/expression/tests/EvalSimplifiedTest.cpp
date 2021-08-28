@@ -17,8 +17,8 @@
 #include "gtest/gtest.h"
 
 #include "velox/expression/tests/VectorFuzzer.h"
-#include "velox/functions/common/CoreFunctions.h"
-#include "velox/functions/common/tests/FunctionBaseTest.h"
+#include "velox/functions/prestosql/CoreFunctions.h"
+#include "velox/functions/prestosql/tests/FunctionBaseTest.h"
 
 using namespace facebook::velox;
 using functions::test::FunctionBaseTest;

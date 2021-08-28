@@ -19,8 +19,8 @@
 #include "velox/dwio/common/DataSink.h"
 #include "velox/exec/Exchange.h"
 #include "velox/exec/tests/utils/FunctionUtils.h"
-#include "velox/functions/common/CoreFunctions.h"
-#include "velox/functions/common/VectorFunctions.h"
+#include "velox/functions/prestosql/CoreFunctions.h"
+#include "velox/functions/prestosql/VectorFunctions.h"
 #include "velox/serializers/PrestoSerializer.h"
 
 namespace facebook::velox::exec::test {

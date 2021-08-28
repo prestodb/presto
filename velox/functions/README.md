@@ -6,7 +6,7 @@ There are different ways to define new UDF functions in Velox.
 
 The most straight forward way to add new UDFs to Velox is to add them as Scalar function and then declare and register
 them in Velox system. For example all arithmetic functions in Velox are scalar functions. For example here is how the
-`round` function is defined using templates (result first followed by arguments) in `velox/functions/common/Arithmetic.h`.
+`round` function is defined using templates (result first followed by arguments) in `velox/functions/prestosql/Arithmetic.h`.
 
 ```c++
 template <typename T>

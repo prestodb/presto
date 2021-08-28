@@ -21,7 +21,7 @@
 #include <optional>
 
 #include "velox/exec/tests/utils/FunctionUtils.h"
-#include "velox/functions/common/tests/FunctionBaseTest.h"
+#include "velox/functions/prestosql/tests/FunctionBaseTest.h"
 
 namespace facebook::velox::functions {
 namespace {

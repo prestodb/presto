@@ -20,8 +20,8 @@ namespace codegen {
 
 void registerVeloxArithmeticUDFs(UDFManager& udfManager) {
   const std::vector<std::string> arithmeticHeaders = {
-      "\"velox/functions/common/CheckedArithmeticImpl.h\"",
-      "\"velox/functions/common/ArithmeticImpl.h\""};
+      "\"velox/functions/prestosql/CheckedArithmeticImpl.h\"",
+      "\"velox/functions/prestosql/ArithmeticImpl.h\""};
 
   auto getDefaultArithmeticUDF = [&]() {
     return UDFInformation()
