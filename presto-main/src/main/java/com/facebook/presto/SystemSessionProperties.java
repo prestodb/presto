@@ -212,6 +212,9 @@ public final class SystemSessionProperties
 
     //TODO: Prestissimo related session properties that are temporarily put here. They will be relocated in the future
     public static final String PRESTISSIMO_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "simplified_expression_evaluation_enabled";
+    public static final String KEY_BASED_SAMPLING_ENABLED = "key_based_sampling_enabled";
+    public static final String KEY_BASED_SAMPLING_PERCENTAGE = "key_based_sampling_percentage";
+    public static final String KEY_BASED_SAMPLING_FUNCTION = "key_based_sampling_function";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1142,7 +1145,22 @@ public final class SystemSessionProperties
                         EXCEEDED_MEMORY_LIMIT_HEAP_DUMP_FILE_DIRECTORY,
                         "Directory to which heap snapshot will be dumped, if heap_dump_on_exceeded_memory_limit_enabled",
                         System.getProperty("java.io.tmpdir"),   // This is intended to be used for debugging purposes only and thus we does not need an associated config property
-                        true));
+                        true),
+                booleanProperty(
+                        KEY_BASED_SAMPLING_ENABLED,
+                        "Key based sampling of tables enabled",
+                        false,
+                        false),
+                doubleProperty(
+                        KEY_BASED_SAMPLING_PERCENTAGE,
+                        "Percentage of keys to be sampled",
+                        0.01,
+                        false),
+                stringProperty(
+                        KEY_BASED_SAMPLING_FUNCTION,
+                        "Sampling function for key based sampling",
+                        "key_sampling_percent",
+                        false));
     }
 
     public static boolean isEmptyJoinOptimization(Session session)
@@ -1163,6 +1181,21 @@ public final class SystemSessionProperties
     public static boolean isAllowWindowOrderByLiterals(Session session)
     {
         return session.getSystemProperty(ALLOW_WINDOW_ORDER_BY_LITERALS, Boolean.class);
+    }
+
+    public static boolean isKeyBasedSamplingEnabled(Session session)
+    {
+        return session.getSystemProperty(KEY_BASED_SAMPLING_ENABLED, Boolean.class);
+    }
+
+    public static double getKeyBasedSamplingPercentage(Session session)
+    {
+        return session.getSystemProperty(KEY_BASED_SAMPLING_PERCENTAGE, Double.class);
+    }
+
+    public static String getKeyBasedSamplingFunction(Session session)
+    {
+        return session.getSystemProperty(KEY_BASED_SAMPLING_FUNCTION, String.class);
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
