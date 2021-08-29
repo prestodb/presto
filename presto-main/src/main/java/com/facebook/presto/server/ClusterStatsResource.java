@@ -109,6 +109,7 @@ public class ClusterStatsResource
         }
 
         long runningDrivers = 0;
+        long runningTasks = 0;
         double memoryReservation = 0;
 
         long totalInputRows = dispatchManager.getStats().getConsumedInputRows().getTotalCount();
@@ -135,6 +136,7 @@ public class ClusterStatsResource
 
                 memoryReservation += query.getQueryStats().getUserMemoryReservation().toBytes();
                 runningDrivers += query.getQueryStats().getRunningDrivers();
+                runningTasks += query.getQueryStats().getRunningTasks();
             }
         }
 
@@ -144,6 +146,7 @@ public class ClusterStatsResource
                 queuedQueries,
                 activeNodes,
                 runningDrivers,
+                runningTasks,
                 memoryReservation,
                 totalInputRows,
                 totalInputBytes,
@@ -207,6 +210,7 @@ public class ClusterStatsResource
 
         private final long activeWorkers;
         private final long runningDrivers;
+        private final long runningTasks;
         private final double reservedMemory;
 
         private final long totalInputRows;
@@ -221,6 +225,7 @@ public class ClusterStatsResource
                 @JsonProperty("queuedQueries") long queuedQueries,
                 @JsonProperty("activeWorkers") long activeWorkers,
                 @JsonProperty("runningDrivers") long runningDrivers,
+                @JsonProperty("runningTasks") long runningTasks,
                 @JsonProperty("reservedMemory") double reservedMemory,
                 @JsonProperty("totalInputRows") long totalInputRows,
                 @JsonProperty("totalInputBytes") long totalInputBytes,
@@ -232,6 +237,7 @@ public class ClusterStatsResource
             this.queuedQueries = queuedQueries;
             this.activeWorkers = activeWorkers;
             this.runningDrivers = runningDrivers;
+            this.runningTasks = runningTasks;
             this.reservedMemory = reservedMemory;
             this.totalInputRows = totalInputRows;
             this.totalInputBytes = totalInputBytes;
@@ -267,6 +273,12 @@ public class ClusterStatsResource
         public long getRunningDrivers()
         {
             return runningDrivers;
+        }
+
+        @JsonProperty
+        public long getRunningTasks()
+        {
+            return runningTasks;
         }
 
         @JsonProperty

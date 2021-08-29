@@ -95,6 +95,7 @@ public class TestDistributedClusterStatsResource
         assertEquals(clusterStats.getRunningQueries(), 1);
         assertEquals(clusterStats.getBlockedQueries(), 0);
         assertEquals(clusterStats.getQueuedQueries(), 0);
+        assertEquals(clusterStats.getRunningTasks(), 4);
     }
 
     private ClusterStatsResource.ClusterStats getClusterStats(boolean followRedirects)

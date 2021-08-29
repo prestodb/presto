@@ -51,6 +51,7 @@ public class BasicQueryStats
     private final Duration elapsedTime;
     private final Duration executionTime;
 
+    private final int runningTasks;
     private final int peakRunningTasks;
 
     private final int totalDrivers;
@@ -88,6 +89,7 @@ public class BasicQueryStats
             @JsonProperty("queuedTime") Duration queuedTime,
             @JsonProperty("elapsedTime") Duration elapsedTime,
             @JsonProperty("executionTime") Duration executionTime,
+            @JsonProperty("runningTasks") int runningTasks,
             @JsonProperty("peakRunningTasks") int peakRunningTasks,
             @JsonProperty("totalDrivers") int totalDrivers,
             @JsonProperty("queuedDrivers") int queuedDrivers,
@@ -118,6 +120,7 @@ public class BasicQueryStats
         this.elapsedTime = requireNonNull(elapsedTime, "elapsedTime is null");
         this.executionTime = requireNonNull(executionTime, "executionTime is null");
 
+        this.runningTasks = runningTasks;
         this.peakRunningTasks = peakRunningTasks;
 
         checkArgument(totalDrivers >= 0, "totalDrivers is negative");
@@ -159,6 +162,7 @@ public class BasicQueryStats
                 queryStats.getQueuedTime(),
                 queryStats.getElapsedTime(),
                 queryStats.getExecutionTime(),
+                queryStats.getRunningTasks(),
                 queryStats.getPeakRunningTasks(),
                 queryStats.getTotalDrivers(),
                 queryStats.getQueuedDrivers(),
@@ -192,6 +196,7 @@ public class BasicQueryStats
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
+                0,
                 0,
                 0,
                 0,
@@ -401,5 +406,12 @@ public class BasicQueryStats
     public double getCumulativeTotalMemory()
     {
         return cumulativeTotalMemory;
+    }
+
+    @ThriftField(28)
+    @JsonProperty
+    public int getRunningTasks()
+    {
+        return runningTasks;
     }
 }
