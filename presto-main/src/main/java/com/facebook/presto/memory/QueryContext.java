@@ -111,6 +111,12 @@ public class QueryContext
     @GuardedBy("this")
     private boolean verboseExceededMemoryLimitErrorsEnabled;
 
+    @GuardedBy("this")
+    private boolean heapDumpOnExceededMemoryLimitEnabled;
+
+    @GuardedBy("this")
+    private Optional<String> heapDumpFilePath;
+
     public QueryContext(
             QueryId queryId,
             DataSize maxUserMemory,
@@ -332,6 +338,16 @@ public class QueryContext
         return maxTotalMemory;
     }
 
+    public synchronized void setHeapDumpOnExceededMemoryLimitEnabled(boolean heapDumpOnExceededMemoryLimitEnabled)
+    {
+        this.heapDumpOnExceededMemoryLimitEnabled = heapDumpOnExceededMemoryLimitEnabled;
+    }
+
+    public synchronized void setHeapDumpFilePath(String heapDumpFilePath)
+    {
+        this.heapDumpFilePath = Optional.ofNullable(heapDumpFilePath);
+    }
+
     public TaskContext addTaskContext(
             TaskStateMachine taskStateMachine,
             Session session,
@@ -477,7 +493,7 @@ public class QueryContext
     private void enforceUserMemoryLimit(long allocated, long delta, long maxMemory)
     {
         if (allocated + delta > maxMemory) {
-            throw exceededLocalUserMemoryLimit(succinctBytes(maxMemory), getAdditionalFailureInfo(allocated, delta));
+            throw exceededLocalUserMemoryLimit(succinctBytes(maxMemory), getAdditionalFailureInfo(allocated, delta), heapDumpOnExceededMemoryLimitEnabled, heapDumpFilePath);
         }
     }
 
@@ -487,7 +503,7 @@ public class QueryContext
         long totalMemory = allocated + delta;
         peakNodeTotalMemory = Math.max(totalMemory, peakNodeTotalMemory);
         if (totalMemory > maxMemory) {
-            throw exceededLocalTotalMemoryLimit(succinctBytes(maxMemory), getAdditionalFailureInfo(allocated, delta));
+            throw exceededLocalTotalMemoryLimit(succinctBytes(maxMemory), getAdditionalFailureInfo(allocated, delta), heapDumpOnExceededMemoryLimitEnabled, heapDumpFilePath);
         }
     }
 
@@ -495,7 +511,7 @@ public class QueryContext
     private void enforceRevocableMemoryLimit(long allocated, long delta, long maxMemory)
     {
         if (allocated + delta > maxMemory) {
-            throw exceededLocalRevocableMemoryLimit(succinctBytes(maxMemory), getAdditionalFailureInfo(allocated, delta));
+            throw exceededLocalRevocableMemoryLimit(succinctBytes(maxMemory), getAdditionalFailureInfo(allocated, delta), heapDumpOnExceededMemoryLimitEnabled, heapDumpFilePath);
         }
     }
 

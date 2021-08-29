@@ -207,6 +207,8 @@ public final class SystemSessionProperties
     public static final String QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED = "query_optimization_with_materialized_view_enabled";
     public static final String AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY = "aggregation_if_to_filter_rewrite_strategy";
     public static final String RESOURCE_AWARE_SCHEDULING_STRATEGY = "resource_aware_scheduling_strategy";
+    public static final String HEAP_DUMP_ON_EXCEEDED_MEMORY_LIMIT_ENABLED = "heap_dump_on_exceeded_memory_limit_enabled";
+    public static final String EXCEEDED_MEMORY_LIMIT_HEAP_DUMP_FILE_DIRECTORY = "exceeded_memory_limit_heap_dump_file_directory";
 
     //TODO: Prestissimo related session properties that are temporarily put here. They will be relocated in the future
     public static final String PRESTISSIMO_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "simplified_expression_evaluation_enabled";
@@ -1130,7 +1132,17 @@ public final class SystemSessionProperties
                         nodeSchedulerConfig.getResourceAwareSchedulingStrategy(),
                         false,
                         value -> ResourceAwareSchedulingStrategy.valueOf(((String) value).toUpperCase()),
-                        ResourceAwareSchedulingStrategy::name));
+                        ResourceAwareSchedulingStrategy::name),
+                booleanProperty(
+                        HEAP_DUMP_ON_EXCEEDED_MEMORY_LIMIT_ENABLED,
+                        "Trigger heap dump to `EXCEEDED_MEMORY_LIMIT_HEAP_DUMP_FILE_PATH` on exceeded memory limit exceptions",
+                        false, // This is intended to be used for debugging purposes only and thus we does not need an associated config property
+                        true),
+                stringProperty(
+                        EXCEEDED_MEMORY_LIMIT_HEAP_DUMP_FILE_DIRECTORY,
+                        "Directory to which heap snapshot will be dumped, if heap_dump_on_exceeded_memory_limit_enabled",
+                        System.getProperty("java.io.tmpdir"),   // This is intended to be used for debugging purposes only and thus we does not need an associated config property
+                        true));
     }
 
     public static boolean isEmptyJoinOptimization(Session session)
@@ -1894,5 +1906,15 @@ public final class SystemSessionProperties
     public static ResourceAwareSchedulingStrategy getResourceAwareSchedulingStrategy(Session session)
     {
         return session.getSystemProperty(RESOURCE_AWARE_SCHEDULING_STRATEGY, ResourceAwareSchedulingStrategy.class);
+    }
+
+    public static Boolean isHeapDumpOnExceededMemoryLimitEnabled(Session session)
+    {
+        return session.getSystemProperty(HEAP_DUMP_ON_EXCEEDED_MEMORY_LIMIT_ENABLED, Boolean.class);
+    }
+
+    public static String getHeapDumpFileDirectory(Session session)
+    {
+        return session.getSystemProperty(EXCEEDED_MEMORY_LIMIT_HEAP_DUMP_FILE_DIRECTORY, String.class);
     }
 }
