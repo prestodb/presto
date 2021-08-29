@@ -19,7 +19,6 @@ import com.facebook.airlift.http.client.jetty.JettyHttpClient;
 import com.facebook.presto.resourceGroups.FileResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.tests.DistributedQueryRunner;
-import com.facebook.presto.utils.ResourceUtils;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -32,11 +31,16 @@ import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.airlift.testing.Closeables.closeQuietly;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;
+import static com.facebook.presto.utils.QueryExecutionClientUtil.runToExecuting;
 import static com.facebook.presto.utils.QueryExecutionClientUtil.runToFirstResult;
 import static com.facebook.presto.utils.QueryExecutionClientUtil.runToQueued;
+import static java.lang.Thread.sleep;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 
+@Test(singleThreaded = true)
 public class TestClusterStatsResource
 {
     private HttpClient client;
@@ -51,7 +55,7 @@ public class TestClusterStatsResource
         server = runner.getCoordinator();
         server.getResourceGroupManager().get().addConfigurationManagerFactory(new FileResourceGroupConfigurationManagerFactory());
         server.getResourceGroupManager().get()
-                .setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", ResourceUtils.getResourceFilePath("resource_groups_config_simple.json")));
+                .setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_simple.json")));
     }
 
     @AfterClass(alwaysRun = true)
@@ -79,6 +83,26 @@ public class TestClusterStatsResource
         assertEquals(clusterStats.getAdjustedQueueSize(), 0);
     }
 
+    @Test(timeOut = 60_000)
+    public void testGetClusterStats()
+            throws Exception
+    {
+        runToExecuting(client, server, "SELECT * from tpch.sf100.orders");
+
+        // Sleep to allow query to make some progress
+        sleep(SECONDS.toMillis(5));
+
+        ClusterStatsResource.ClusterStats clusterStats = getClusterStats(true);
+
+        assertNotNull(clusterStats);
+        assertEquals(clusterStats.getActiveWorkers(), 4);
+        assertEquals(clusterStats.getRunningTasks(), 5);
+        assertTrue(clusterStats.getRunningDrivers() > 0);
+        assertEquals(clusterStats.getRunningQueries(), 1);
+        assertEquals(clusterStats.getBlockedQueries(), 0);
+        assertEquals(clusterStats.getQueuedQueries(), 0);
+    }
+
     private ClusterStatsResource.ClusterStats getClusterStats(boolean followRedirects)
     {
         Request request = prepareGet()
@@ -88,5 +112,10 @@ public class TestClusterStatsResource
                 .build();
 
         return client.execute(request, createJsonResponseHandler(jsonCodec(ClusterStatsResource.ClusterStats.class)));
+    }
+
+    private String getResourceFilePath(String fileName)
+    {
+        return this.getClass().getClassLoader().getResource(fileName).getPath();
     }
 }
