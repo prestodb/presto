@@ -349,6 +349,7 @@ public class QueryStateMachine
                 queryStateTimer.getElapsedTime(),
                 queryStateTimer.getExecutionTime(),
 
+                getCurrentRunningTaskCount(),
                 getPeakRunningTaskCount(),
 
                 stageStats.getTotalDrivers(),
