@@ -16,8 +16,10 @@ package com.facebook.presto.common;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
-import java.util.HashMap;
+import java.util.Collections;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 import static java.util.Objects.requireNonNull;
 
@@ -26,25 +28,22 @@ import static java.util.Objects.requireNonNull;
  */
 public class RuntimeStats
 {
-    private final Map<String, RuntimeMetric> metrics;
+    private final ConcurrentMap<String, RuntimeMetric> metrics = new ConcurrentHashMap<>();
 
     public RuntimeStats()
     {
-        metrics = new HashMap<>();
     }
 
     @JsonCreator
     public RuntimeStats(Map<String, RuntimeMetric> metrics)
     {
-        this.metrics = requireNonNull(metrics, "metrics is null");
+        requireNonNull(metrics, "metrics is null");
+        metrics.forEach((name, newMetric) -> this.metrics.computeIfAbsent(name, RuntimeMetric::new).mergeWith(newMetric));
     }
 
     public static RuntimeStats copyOf(RuntimeStats stats)
     {
-        requireNonNull(stats, "stats is null");
-        RuntimeStats statsCopy = new RuntimeStats();
-        statsCopy.mergeWith(stats);
-        return statsCopy;
+        return new RuntimeStats(stats.getMetrics());
     }
 
     /**
@@ -76,13 +75,20 @@ public class RuntimeStats
     @JsonValue
     public Map<String, RuntimeMetric> getMetrics()
     {
-        return metrics;
+        return Collections.unmodifiableMap(metrics);
     }
 
     public void addMetricValue(String name, long value)
     {
-        metrics.computeIfAbsent(name, RuntimeMetric::new);
-        metrics.get(name).addValue(value);
+        metrics.computeIfAbsent(name, RuntimeMetric::new).addValue(value);
+    }
+
+    /**
+     * Merges {@code metric} into this object with name {@code name}.
+     */
+    public void mergeMetric(String name, RuntimeMetric metric)
+    {
+        metrics.computeIfAbsent(name, RuntimeMetric::new).mergeWith(metric);
     }
 
     /**
@@ -93,10 +99,7 @@ public class RuntimeStats
         if (stats == null) {
             return;
         }
-        stats.getMetrics().values().forEach(metric -> {
-            metrics.computeIfAbsent(metric.getName(), RuntimeMetric::new);
-            metrics.get(metric.getName()).mergeWith(metric);
-        });
+        stats.getMetrics().forEach((name, newMetric) -> metrics.computeIfAbsent(name, RuntimeMetric::new).mergeWith(newMetric));
     }
 
     /**
@@ -108,8 +111,6 @@ public class RuntimeStats
         if (stats == null) {
             return;
         }
-        stats.getMetrics().values().forEach(metric -> {
-            metrics.put(metric.getName(), RuntimeMetric.copyOf(metric));
-        });
+        stats.getMetrics().forEach((name, newMetric) -> metrics.computeIfAbsent(name, RuntimeMetric::new).set(newMetric));
     }
 }
