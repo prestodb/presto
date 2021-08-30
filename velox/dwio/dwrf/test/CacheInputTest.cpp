@@ -314,8 +314,9 @@ TEST_F(CacheTest, TestSingleFileThreads) {
   std::vector<std::thread> threads;
   threads.reserve(numThreads);
   for (int i = 0; i < numThreads; ++i) {
-    threads.push_back(std::thread(
-				  [this, i]() { readLoop(fmt::format("testfile{}", i), 10, 70, 10, 20); }));
+    threads.push_back(std::thread([this, i]() {
+      readLoop(fmt::format("testfile{}", i), 10, 70, 10, 20);
+    }));
   }
   for (int i = 0; i < numThreads; ++i) {
     threads[i].join();

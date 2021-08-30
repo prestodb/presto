@@ -40,7 +40,8 @@ std::unique_ptr<SeekableInputStream> CachedBufferedInput::enqueue(
       cache_, region, input_, fileNum_, tracker_, id, groupId_);
 }
 
-  bool CachedBufferedInput::isBuffered(uint64_t /*offset*/, uint64_t /*length*/) const {
+bool CachedBufferedInput::isBuffered(uint64_t /*offset*/, uint64_t /*length*/)
+    const {
   return false;
 }
 
@@ -233,7 +234,7 @@ std::unique_ptr<SeekableInputStream> CachedBufferedInput::read(
       0);
 }
 
-  void CachedBufferedInput::loadFromSsd(std::vector<CacheRequest*> /*requests*/) {
+void CachedBufferedInput::loadFromSsd(std::vector<CacheRequest*> /*requests*/) {
   // No op placeholder.
 }
 } // namespace facebook::velox::dwrf
