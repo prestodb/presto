@@ -286,9 +286,6 @@ public final class SqlStageExecution
             return;
         }
 
-        if (getAllTasks().stream().anyMatch(task -> task.getTaskStatus().getState() == TaskState.RUNNING)) {
-            stateMachine.transitionToRunning();
-        }
         if (finishedTasks.size() == allTasks.size()) {
             stateMachine.transitionToFinished();
         }
