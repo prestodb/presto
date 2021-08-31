@@ -19,7 +19,7 @@
 #include "velox/exec/tests/Cursor.h"
 #include "velox/exec/tests/HiveConnectorTestBase.h"
 #include "velox/exec/tests/PlanBuilder.h"
-#include "velox/type/tests/FilterBulder.h"
+#include "velox/type/tests/FilterBuilder.h"
 
 #if __has_include("filesystem")
 #include <filesystem>

@@ -17,35 +17,35 @@
 
 namespace facebook::velox::common::test {
 
-std::unique_ptr<common::BigintRange> lessThan(
+inline std::unique_ptr<common::BigintRange> lessThan(
     int64_t max,
     bool nullAllowed = false) {
   return std::make_unique<common::BigintRange>(
       std::numeric_limits<int64_t>::min(), max - 1, nullAllowed);
 }
 
-std::unique_ptr<common::BigintRange> lessThanOrEqual(
+inline std::unique_ptr<common::BigintRange> lessThanOrEqual(
     int64_t max,
     bool nullAllowed = false) {
   return std::make_unique<common::BigintRange>(
       std::numeric_limits<int64_t>::min(), max, nullAllowed);
 }
 
-std::unique_ptr<common::BigintRange> greaterThan(
+inline std::unique_ptr<common::BigintRange> greaterThan(
     int64_t min,
     bool nullAllowed = false) {
   return std::make_unique<common::BigintRange>(
       min + 1, std::numeric_limits<int64_t>::max(), nullAllowed);
 }
 
-std::unique_ptr<common::BigintRange> greaterThanOrEqual(
+inline std::unique_ptr<common::BigintRange> greaterThanOrEqual(
     int64_t min,
     bool nullAllowed = false) {
   return std::make_unique<common::BigintRange>(
       min, std::numeric_limits<int64_t>::max(), nullAllowed);
 }
 
-std::unique_ptr<common::DoubleRange> lessThanDouble(
+inline std::unique_ptr<common::DoubleRange> lessThanDouble(
     double max,
     bool nullAllowed = false) {
   return std::make_unique<common::DoubleRange>(
@@ -58,7 +58,7 @@ std::unique_ptr<common::DoubleRange> lessThanDouble(
       nullAllowed);
 }
 
-std::unique_ptr<common::DoubleRange> lessThanOrEqualDouble(
+inline std::unique_ptr<common::DoubleRange> lessThanOrEqualDouble(
     double max,
     bool nullAllowed = false) {
   return std::make_unique<common::DoubleRange>(
@@ -71,7 +71,7 @@ std::unique_ptr<common::DoubleRange> lessThanOrEqualDouble(
       nullAllowed);
 }
 
-std::unique_ptr<common::DoubleRange> greaterThanDouble(
+inline std::unique_ptr<common::DoubleRange> greaterThanDouble(
     double min,
     bool nullAllowed = false) {
   return std::make_unique<common::DoubleRange>(
@@ -84,7 +84,7 @@ std::unique_ptr<common::DoubleRange> greaterThanDouble(
       nullAllowed);
 }
 
-std::unique_ptr<common::DoubleRange> greaterThanOrEqualDouble(
+inline std::unique_ptr<common::DoubleRange> greaterThanOrEqualDouble(
     double min,
     bool nullAllowed = false) {
   return std::make_unique<common::DoubleRange>(
@@ -97,13 +97,13 @@ std::unique_ptr<common::DoubleRange> greaterThanOrEqualDouble(
       nullAllowed);
 }
 
-std::unique_ptr<common::DoubleRange>
+inline std::unique_ptr<common::DoubleRange>
 betweenDouble(double min, double max, bool nullAllowed = false) {
   return std::make_unique<common::DoubleRange>(
       min, false, false, max, false, false, nullAllowed);
 }
 
-std::unique_ptr<common::FloatRange> lessThanFloat(
+inline std::unique_ptr<common::FloatRange> lessThanFloat(
     float max,
     bool nullAllowed = false) {
   return std::make_unique<common::FloatRange>(
@@ -116,7 +116,7 @@ std::unique_ptr<common::FloatRange> lessThanFloat(
       nullAllowed);
 }
 
-std::unique_ptr<common::FloatRange> lessThanOrEqualFloat(
+inline std::unique_ptr<common::FloatRange> lessThanOrEqualFloat(
     float max,
     bool nullAllowed = false) {
   return std::make_unique<common::FloatRange>(
@@ -129,7 +129,7 @@ std::unique_ptr<common::FloatRange> lessThanOrEqualFloat(
       nullAllowed);
 }
 
-std::unique_ptr<common::FloatRange> greaterThanFloat(
+inline std::unique_ptr<common::FloatRange> greaterThanFloat(
     float min,
     bool nullAllowed = false) {
   return std::make_unique<common::FloatRange>(
@@ -142,7 +142,7 @@ std::unique_ptr<common::FloatRange> greaterThanFloat(
       nullAllowed);
 }
 
-std::unique_ptr<common::FloatRange> greaterThanOrEqualFloat(
+inline std::unique_ptr<common::FloatRange> greaterThanOrEqualFloat(
     float min,
     bool nullAllowed = false) {
   return std::make_unique<common::FloatRange>(
@@ -155,18 +155,18 @@ std::unique_ptr<common::FloatRange> greaterThanOrEqualFloat(
       nullAllowed);
 }
 
-std::unique_ptr<common::FloatRange>
+inline std::unique_ptr<common::FloatRange>
 betweenFloat(float min, float max, bool nullAllowed = false) {
   return std::make_unique<common::FloatRange>(
       min, false, false, max, false, false, nullAllowed);
 }
 
-std::unique_ptr<common::BigintRange>
+inline std::unique_ptr<common::BigintRange>
 between(int64_t min, int64_t max, bool nullAllowed = false) {
   return std::make_unique<common::BigintRange>(min, max, nullAllowed);
 }
 
-std::unique_ptr<common::BigintMultiRange> bigintOr(
+inline std::unique_ptr<common::BigintMultiRange> bigintOr(
     std::unique_ptr<common::BigintRange> a,
     std::unique_ptr<common::BigintRange> b,
     bool nullAllowed = false) {
@@ -177,7 +177,7 @@ std::unique_ptr<common::BigintMultiRange> bigintOr(
       std::move(filters), nullAllowed);
 }
 
-std::unique_ptr<common::BigintMultiRange> bigintOr(
+inline std::unique_ptr<common::BigintMultiRange> bigintOr(
     std::unique_ptr<common::BigintRange> a,
     std::unique_ptr<common::BigintRange> b,
     std::unique_ptr<common::BigintRange> c,
@@ -190,20 +190,20 @@ std::unique_ptr<common::BigintMultiRange> bigintOr(
       std::move(filters), nullAllowed);
 }
 
-std::unique_ptr<common::BytesValues> equal(
+inline std::unique_ptr<common::BytesValues> equal(
     const std::string& value,
     bool nullAllowed = false) {
   return std::make_unique<common::BytesValues>(
       std::vector<std::string>{value}, nullAllowed);
 }
 
-std::unique_ptr<common::BigintRange> equal(
+inline std::unique_ptr<common::BigintRange> equal(
     int64_t value,
     bool nullAllowed = false) {
   return std::make_unique<common::BigintRange>(value, value, nullAllowed);
 }
 
-std::unique_ptr<common::BytesRange> between(
+inline std::unique_ptr<common::BytesRange> between(
     const std::string& min,
     const std::string& max,
     bool nullAllowed = false) {
@@ -211,43 +211,43 @@ std::unique_ptr<common::BytesRange> between(
       min, false, false, max, false, false, nullAllowed);
 }
 
-std::unique_ptr<common::BytesRange> lessThanOrEqual(
+inline std::unique_ptr<common::BytesRange> lessThanOrEqual(
     const std::string& max,
     bool nullAllowed = false) {
   return std::make_unique<common::BytesRange>(
       "", true, true, max, false, false, nullAllowed);
 }
 
-std::unique_ptr<common::BytesRange> greaterThanOrEqual(
+inline std::unique_ptr<common::BytesRange> greaterThanOrEqual(
     const std::string& min,
     bool nullAllowed = false) {
   return std::make_unique<common::BytesRange>(
       min, false, false, "", true, true, nullAllowed);
 }
 
-std::unique_ptr<common::Filter> in(
+inline std::unique_ptr<common::Filter> in(
     const std::vector<int64_t>& values,
     bool nullAllowed = false) {
   return common::createBigintValues(values, nullAllowed);
 }
 
-std::unique_ptr<common::BytesValues> in(
+inline std::unique_ptr<common::BytesValues> in(
     const std::vector<std::string>& values,
     bool nullAllowed = false) {
   return std::make_unique<common::BytesValues>(values, nullAllowed);
 }
 
-std::unique_ptr<common::BoolValue> boolEqual(
+inline std::unique_ptr<common::BoolValue> boolEqual(
     bool value,
     bool nullAllowed = false) {
   return std::make_unique<common::BoolValue>(value, nullAllowed);
 }
 
-std::unique_ptr<common::IsNull> isNull() {
+inline std::unique_ptr<common::IsNull> isNull() {
   return std::make_unique<common::IsNull>();
 }
 
-std::unique_ptr<common::IsNotNull> isNotNull() {
+inline std::unique_ptr<common::IsNotNull> isNotNull() {
   return std::make_unique<common::IsNotNull>();
 }
 

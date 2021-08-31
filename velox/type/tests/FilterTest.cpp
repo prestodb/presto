@@ -15,7 +15,7 @@
  */
 
 #include "velox/type/Filter.h"
-#include "velox/type/tests/FilterBulder.h"
+#include "velox/type/tests/FilterBuilder.h"
 
 #include <cstdint>
 #include <limits>
