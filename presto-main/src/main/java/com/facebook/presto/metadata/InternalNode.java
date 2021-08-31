@@ -23,8 +23,10 @@ import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
 
 import java.net.URI;
+import java.util.Objects;
 import java.util.OptionalInt;
 
+import static com.facebook.airlift.discovery.client.ServiceSelectorConfig.DEFAULT_POOL;
 import static com.facebook.presto.metadata.InternalNode.NodeStatus.ALIVE;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Strings.emptyToNull;
@@ -66,24 +68,32 @@ public class InternalNode
     private final boolean coordinator;
     private final boolean resourceManager;
     private final NodeStatus nodeStatus;
+    //the pool that this node belongs to
+    private final String pool;
 
     public InternalNode(String nodeIdentifier, URI internalUri, NodeVersion nodeVersion, boolean coordinator)
     {
-        this(nodeIdentifier, internalUri, nodeVersion, coordinator, false);
+        this(nodeIdentifier, internalUri, nodeVersion, coordinator, false, DEFAULT_POOL);
     }
 
-    public InternalNode(String nodeIdentifier, URI internalUri, NodeVersion nodeVersion, boolean coordinator, boolean resourceManager)
+    public InternalNode(String nodeIdentifier, URI internalUri, NodeVersion nodeVersion, boolean coordinator, String pool)
     {
-        this(nodeIdentifier, internalUri, OptionalInt.empty(), nodeVersion, coordinator, resourceManager, ALIVE);
+        this(nodeIdentifier, internalUri, nodeVersion, coordinator, false, pool);
+    }
+
+    public InternalNode(String nodeIdentifier, URI internalUri, NodeVersion nodeVersion, boolean coordinator, boolean resourceManager, String pool)
+    {
+        this(nodeIdentifier, internalUri, OptionalInt.empty(), nodeVersion, coordinator, resourceManager, ALIVE, pool);
     }
 
     @ThriftConstructor
-    public InternalNode(String nodeIdentifier, URI internalUri, OptionalInt thriftPort, String nodeVersion, boolean coordinator, boolean resourceManager)
+    public InternalNode(String nodeIdentifier, URI internalUri, OptionalInt thriftPort, String nodeVersion, boolean coordinator, boolean resourceManager, String pool)
     {
-        this(nodeIdentifier, internalUri, thriftPort, new NodeVersion(nodeVersion), coordinator, resourceManager, ALIVE);
+        this(nodeIdentifier, internalUri, thriftPort, new NodeVersion(nodeVersion), coordinator, resourceManager, ALIVE, pool);
     }
 
-    public InternalNode(String nodeIdentifier, URI internalUri, OptionalInt thriftPort, NodeVersion nodeVersion, boolean coordinator, boolean resourceManager, NodeStatus nodeStatus)
+    public InternalNode(String nodeIdentifier, URI internalUri, OptionalInt thriftPort, NodeVersion nodeVersion, boolean coordinator, boolean resourceManager, NodeStatus nodeStatus,
+            String pool)
     {
         nodeIdentifier = emptyToNull(nullToEmpty(nodeIdentifier).trim());
         this.nodeIdentifier = requireNonNull(nodeIdentifier, "nodeIdentifier is null or empty");
@@ -93,6 +103,7 @@ public class InternalNode
         this.coordinator = coordinator;
         this.resourceManager = resourceManager;
         this.nodeStatus = nodeStatus;
+        this.pool = requireNonNull(pool, "pool is null");
     }
 
     @ThriftField(1)
@@ -165,17 +176,31 @@ public class InternalNode
         return nodeStatus;
     }
 
+    @ThriftField(8)
+    @Override
+    public String getPool()
+    {
+        return pool;
+    }
+
     @Override
     public boolean equals(Object obj)
     {
         if (this == obj) {
             return true;
         }
-        if ((obj == null) || (getClass() != obj.getClass())) {
+        if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        InternalNode o = (InternalNode) obj;
-        return nodeIdentifier.equals(o.nodeIdentifier);
+        InternalNode that = (InternalNode) obj;
+        return coordinator == that.coordinator
+                && resourceManager == that.resourceManager
+                && Objects.equals(nodeIdentifier, that.nodeIdentifier)
+                && Objects.equals(internalUri, that.internalUri)
+                && Objects.equals(thriftPort, that.thriftPort)
+                && Objects.equals(nodeVersion, that.nodeVersion)
+                && nodeStatus == that.nodeStatus
+                && Objects.equals(pool, that.pool);
     }
 
     @Override
@@ -194,6 +219,7 @@ public class InternalNode
                 .add("nodeVersion", nodeVersion)
                 .add("coordinator", coordinator)
                 .add("resourceManager", resourceManager)
+                .add("pool", pool)
                 .toString();
     }
 }

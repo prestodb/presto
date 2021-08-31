@@ -30,6 +30,7 @@ import org.testng.annotations.Test;
 import java.net.URI;
 import java.util.OptionalInt;
 
+import static com.facebook.airlift.discovery.client.ServiceSelectorConfig.DEFAULT_POOL;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.String.format;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -67,7 +68,7 @@ public class TestResourceManagerClusterStatusSender
     {
         resourceManagerClient = new TestingResourceManagerClient();
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
-        nodeManager.addNode(CONNECTOR_ID, new InternalNode("identifier", URI.create("http://localhost:80/identifier"), OptionalInt.of(1), "1", false, true));
+        nodeManager.addNode(CONNECTOR_ID, new InternalNode("identifier", URI.create("http://localhost:80/identifier"), OptionalInt.of(1), "1", false, true, DEFAULT_POOL));
 
         sender = new ResourceManagerClusterStatusSender(
                 (addressSelectionContext, headers) -> resourceManagerClient,

@@ -30,6 +30,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.airlift.concurrent.MoreFutures.addExceptionCallback;
 import static com.facebook.airlift.concurrent.MoreFutures.addSuccessCallback;
+import static com.facebook.airlift.discovery.client.ServiceSelectorConfig.DEFAULT_POOL;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -172,6 +173,6 @@ public class TestClusterSizeMonitor
     private void addResourceManager(InMemoryNodeManager nodeManager)
     {
         String identifier = "resource_manager/" + numResourceManagers.incrementAndGet();
-        nodeManager.addNode(CONNECTOR_ID, new InternalNode(identifier, URI.create("localhost/" + identifier), new NodeVersion("1"), false, true));
+        nodeManager.addNode(CONNECTOR_ID, new InternalNode(identifier, URI.create("localhost/" + identifier), new NodeVersion("1"), false, true, DEFAULT_POOL));
     }
 }

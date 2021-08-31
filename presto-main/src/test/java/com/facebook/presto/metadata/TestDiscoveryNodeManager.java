@@ -71,19 +71,19 @@ public class TestDiscoveryNodeManager
         testHttpClient = new TestingHttpClient(input -> new TestingResponse(OK, ArrayListMultimap.create(), ACTIVE.name().getBytes()));
 
         expectedVersion = new NodeVersion("1");
-        coordinator = new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.2.8"), expectedVersion, true);
-        resourceManager = new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.2.9"), expectedVersion, false, true);
-        currentNode = new InternalNode(nodeInfo.getNodeId(), URI.create("http://192.0.1.1"), expectedVersion, false);
+        coordinator = new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.2.8"), expectedVersion, true, "testPool1");
+        resourceManager = new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.2.9"), expectedVersion, false, true, "testPool1");
+        currentNode = new InternalNode(nodeInfo.getNodeId(), URI.create("http://192.0.1.1"), expectedVersion, false, "testPool2");
 
         activeNodes = ImmutableSet.of(
                 currentNode,
-                new InternalNode(UUID.randomUUID().toString(), URI.create("http://192.0.2.1:8080"), expectedVersion, false),
-                new InternalNode(UUID.randomUUID().toString(), URI.create("http://192.0.2.3"), expectedVersion, false),
+                new InternalNode(UUID.randomUUID().toString(), URI.create("http://192.0.2.1:8080"), expectedVersion, false, "testPool3"),
+                new InternalNode(UUID.randomUUID().toString(), URI.create("http://192.0.2.3"), expectedVersion, false, "testPool3"),
                 coordinator,
                 resourceManager);
         inactiveNodes = ImmutableSet.of(
-                new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.3.9"), NodeVersion.UNKNOWN, false),
-                new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.4.9"), new NodeVersion("2"), false));
+                new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.3.9"), NodeVersion.UNKNOWN, false, "testPool4"),
+                new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.4.9"), new NodeVersion("2"), false, "testPool4"));
 
         selector.announceNodes(activeNodes, inactiveNodes);
     }
@@ -97,7 +97,6 @@ public class TestDiscoveryNodeManager
 
             Set<InternalNode> activeNodes = allNodes.getActiveNodes();
             assertEqualsIgnoreOrder(activeNodes, this.activeNodes);
-
             for (InternalNode actual : activeNodes) {
                 for (InternalNode expected : this.activeNodes) {
                     assertNotSame(actual, expected);
@@ -180,18 +179,18 @@ public class TestDiscoveryNodeManager
             BlockingQueue<AllNodes> notifications = new ArrayBlockingQueue<>(100);
             manager.addNodeChangeListener(notifications::add);
             AllNodes allNodes = notifications.take();
-            assertEquals(allNodes.getActiveNodes(), activeNodes);
-            assertEquals(allNodes.getInactiveNodes(), inactiveNodes);
+            assertEqualsIgnoreOrder(allNodes.getActiveNodes(), activeNodes);
+            assertEqualsIgnoreOrder(allNodes.getInactiveNodes(), inactiveNodes);
 
             selector.announceNodes(ImmutableSet.of(currentNode), ImmutableSet.of(coordinator));
             allNodes = notifications.take();
-            assertEquals(allNodes.getActiveNodes(), ImmutableSet.of(currentNode, coordinator));
-            assertEquals(allNodes.getActiveCoordinators(), ImmutableSet.of(coordinator));
+            assertEqualsIgnoreOrder(allNodes.getActiveNodes(), ImmutableSet.of(currentNode, coordinator));
+            assertEqualsIgnoreOrder(allNodes.getActiveCoordinators(), ImmutableSet.of(coordinator));
 
             selector.announceNodes(activeNodes, inactiveNodes);
             allNodes = notifications.take();
-            assertEquals(allNodes.getActiveNodes(), activeNodes);
-            assertEquals(allNodes.getInactiveNodes(), inactiveNodes);
+            assertEqualsIgnoreOrder(allNodes.getActiveNodes(), activeNodes);
+            assertEqualsIgnoreOrder(allNodes.getInactiveNodes(), inactiveNodes);
         }
         finally {
             manager.stop();
@@ -210,6 +209,7 @@ public class TestDiscoveryNodeManager
             for (InternalNode node : Iterables.concat(activeNodes, inactiveNodes)) {
                 descriptors.add(serviceDescriptor("presto")
                         .setNodeId(node.getNodeIdentifier())
+                        .setPool(node.getPool())
                         .addProperty("http", node.getInternalUri().toString())
                         .addProperty("node_version", node.getNodeVersion().toString())
                         .addProperty("coordinator", String.valueOf(node.isCoordinator()))
