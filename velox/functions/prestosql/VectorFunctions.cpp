@@ -15,6 +15,7 @@
  */
 #include "velox/functions/prestosql/VectorFunctions.h"
 #include "velox/functions/lib/Re2Functions.h"
+#include "velox/functions/prestosql/WidthBucketArray.h"
 
 namespace facebook::velox::functions {
 
@@ -51,6 +52,9 @@ void registerVectorFunctions() {
   VELOX_REGISTER_VECTOR_FUNCTION(udf_concat, "concat");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_strpos, "strpos");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_replace, "replace");
+
+  exec::registerStatefulVectorFunction(
+      "width_bucket", widthBucketArraySignature(), makeWidthBucketArray);
 
   exec::registerStatefulVectorFunction(
       "regexp_extract", re2ExtractSignatures(), makeRe2Extract);

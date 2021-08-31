@@ -71,3 +71,12 @@ Mathematical Functions
 
     Returns the bin number of ``x`` in an equi-width histogram with the
     specified ``bound1`` and ``bound2`` bounds and ``n`` number of buckets.
+
+.. function:: width_bucket(x, bins) -> bigint
+
+    Returns the zero-based bin number of ``x`` according to the bins specified
+    by the array ``bins``. The ``bins`` parameter must be an array of doubles and
+    is assumed to be in sorted ascending order.
+
+    For example, if ``bins`` is ``ARRAY[0, 2, 4]``, then we have four bins:
+    ``(-infinity(), 0)``, ``[0, 2)``, ``[2, 4)`` and ``[4, infinity())``.

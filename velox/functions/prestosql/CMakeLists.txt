@@ -41,13 +41,14 @@ add_library(
   Transform.cpp
   ElementAt.cpp
   Subscript.cpp
-  VectorArithmetic.cpp)
+  VectorArithmetic.cpp
+  WidthBucketArray.cpp)
 
 target_link_libraries(velox_functions_prestosql velox_exec velox_functions_json
                       velox_functions_lib velox_expression md5)
 
 set_property(TARGET velox_functions_prestosql PROPERTY JOB_POOL_COMPILE
-                                                    high_memory_pool)
+                                                       high_memory_pool)
 
 add_subdirectory(tests)
 add_subdirectory(benchmarks)

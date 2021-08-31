@@ -45,7 +45,8 @@ add_executable(
   MapEntriesTest.cpp
   MapFilterTest.cpp
   TransformTest.cpp
-  ElementAtTest.cpp)
+  ElementAtTest.cpp
+  WidthBucketArrayTest.cpp)
 
 add_test(velox_functions_test velox_functions_test)
 
