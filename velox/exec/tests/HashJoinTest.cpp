@@ -246,7 +246,7 @@ TEST_F(HashJoinTest, lazyVectors) {
 
   assertQuery(
       op,
-      {{0, rightFile}, {10, leftFile}},
+      {{0, {rightFile}}, {10, {leftFile}}},
       "SELECT t.c1 + 1 FROM t, u WHERE t.c0 = u.c0");
 }
 

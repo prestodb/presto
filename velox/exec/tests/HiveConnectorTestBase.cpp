@@ -86,7 +86,8 @@ std::shared_ptr<exec::Task> HiveConnectorTestBase::assertQuery(
 
 std::shared_ptr<exec::Task> HiveConnectorTestBase::assertQuery(
     const std::shared_ptr<const core::PlanNode>& plan,
-    const std::unordered_map<int, std::shared_ptr<TempFilePath>>& filePaths,
+    const std::unordered_map<int, std::vector<std::shared_ptr<TempFilePath>>>&
+        filePaths,
     const std::string& duckDbSql) {
   bool noMoreSplits = false;
   return test::assertQuery(
@@ -95,7 +96,9 @@ std::shared_ptr<exec::Task> HiveConnectorTestBase::assertQuery(
         if (!noMoreSplits) {
           for (const auto& entry : filePaths) {
             auto planNodeId = fmt::format("{}", entry.first);
-            addSplit(task, planNodeId, makeHiveSplit(entry.second->path));
+            for (auto file : entry.second) {
+              addSplit(task, planNodeId, makeHiveSplit(file->path));
+            }
             task->noMoreSplits(planNodeId);
           }
           noMoreSplits = true;

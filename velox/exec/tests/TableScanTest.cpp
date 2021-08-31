@@ -20,6 +20,7 @@
 #include "velox/exec/tests/HiveConnectorTestBase.h"
 #include "velox/exec/tests/PlanBuilder.h"
 #include "velox/type/tests/FilterBuilder.h"
+#include "velox/type/tests/SubfieldFiltersBuilder.h"
 
 #if __has_include("filesystem")
 #include <filesystem>
@@ -34,9 +35,6 @@ using namespace facebook::velox::connector::hive;
 using namespace facebook::velox::exec;
 using namespace facebook::velox::common::test;
 using namespace facebook::velox::exec::test;
-
-using ColumnHandleMap =
-    std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>;
 
 static const std::string kNodeSelectionStrategy = "node_selection_strategy";
 static const std::string kSoftAffinity = "SOFT_AFFINITY";
@@ -107,32 +105,6 @@ class TableScanTest : public HiveConnectorTestBase {
     return getTableScanStats(task).runtimeStats["skippedSplits"].sum;
   }
 
-  std::shared_ptr<connector::hive::HiveTableHandle> makeTableHandle(
-      SubfieldFilters subfieldFilters,
-      const std::shared_ptr<const core::ITypedExpr>& remainingFilter =
-          nullptr) {
-    return std::make_shared<connector::hive::HiveTableHandle>(
-        true, std::move(subfieldFilters), remainingFilter);
-  }
-
-  void addRegularColumns(
-      const std::shared_ptr<const RowType>& rowType,
-      ColumnHandleMap& assignments) const {
-    for (auto& name : rowType->names()) {
-      assignments[name] = regularColumn(name);
-    }
-  }
-
-  ColumnHandleMap allRegularColumns(
-      const std::shared_ptr<const RowType>& rowType) const {
-    ColumnHandleMap assignments;
-    assignments.reserve(rowType->size());
-    for (auto& name : rowType->names()) {
-      assignments[name] = regularColumn(name);
-    }
-    return assignments;
-  }
-
   void testPartitionedTable(const std::string& filePath) {
     auto outputType = ROW({"ds", "c0", "c1"}, {VARCHAR(), BIGINT(), DOUBLE()});
 
@@ -178,31 +150,6 @@ class TableScanTest : public HiveConnectorTestBase {
       ROW({"c0", "c1", "c2", "c3", "c4", "c5"},
           {BIGINT(), INTEGER(), SMALLINT(), REAL(), DOUBLE(), VARCHAR()})};
 };
-
-namespace {
-class SubfieldFiltersBuilder {
- public:
-  SubfieldFiltersBuilder& add(
-      const std::string& path,
-      std::unique_ptr<common::Filter> filter) {
-    filters_[common::Subfield(path)] = std::move(filter);
-    return *this;
-  }
-
-  SubfieldFilters build() {
-    return std::move(filters_);
-  }
-
- private:
-  SubfieldFilters filters_;
-};
-
-SubfieldFilters singleSubfieldFilter(
-    const std::string& path,
-    std::unique_ptr<common::Filter> filter) {
-  return SubfieldFiltersBuilder().add(path, std::move(filter)).build();
-}
-} // namespace
 
 TEST_F(TableScanTest, allColumns) {
   auto vectors = makeVectors(10, 1'000);

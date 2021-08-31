@@ -15,6 +15,8 @@
  */
 #pragma once
 
+#include "velox/type/Filter.h"
+
 namespace facebook::velox::common::test {
 
 inline std::unique_ptr<common::BigintRange> lessThan(
