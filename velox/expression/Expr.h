@@ -358,6 +358,8 @@ class ExprSet {
       core::ExecCtx* execCtx,
       bool enableConstantFolding = true);
 
+  virtual ~ExprSet() {}
+
   // Initialize and evaluate all expressions available in this ExprSet.
   void eval(
       const SelectivityVector& rows,
@@ -367,7 +369,7 @@ class ExprSet {
   }
 
   // Evaluate from expression `begin` to `end`.
-  void eval(
+  virtual void eval(
       int32_t begin,
       int32_t end,
       bool initialize,
@@ -421,6 +423,8 @@ class ExprSetSimplified : public ExprSet {
       core::ExecCtx* execCtx)
       : ExprSet(std::move(source), execCtx, /*enableConstantFolding*/ false) {}
 
+  virtual ~ExprSetSimplified() override {}
+
   // Initialize and evaluate all expressions available in this ExprSet.
   void eval(
       const SelectivityVector& rows,
@@ -435,8 +439,14 @@ class ExprSetSimplified : public ExprSet {
       bool initialize,
       const SelectivityVector& rows,
       EvalCtx* ctx,
-      std::vector<VectorPtr>* result);
+      std::vector<VectorPtr>* result) override;
 };
+
+// Factory method that takes `kExprEvalSimplified` (query parameter) into
+// account and instantiates the correct ExprSet class.
+std::unique_ptr<ExprSet> makeExprSetFromFlag(
+    std::vector<std::shared_ptr<const core::ITypedExpr>>&& source,
+    core::ExecCtx* execCtx);
 
 /// Enabled for string vectors. Computes the ascii status of the vector by
 /// scanning all the vector values. No-op if rows doesn't include all rows in

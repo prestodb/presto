@@ -140,3 +140,17 @@ TEST_F(EvalSimplifiedTest, strings) {
 TEST_F(EvalSimplifiedTest, doubles) {
   runTest("ceil(c1) * c0", ROW({"c0", "c1"}, {DOUBLE(), DOUBLE()}));
 }
+
+// Ensure that the right exprSet object is instantiated if `kExprEvalSimplified`
+// is specified.
+TEST_F(EvalSimplifiedTest, queryParameter) {
+  queryCtx_->setConfigOverridesUnsafe({
+      {core::QueryCtx::kExprEvalSimplified, "true"},
+  });
+
+  auto expr = makeTypedExpr("1 + 1", nullptr);
+  auto exprSet = exec::makeExprSetFromFlag({expr}, &execCtx_);
+
+  auto* ptr = dynamic_cast<exec::ExprSetSimplified*>(exprSet.get());
+  EXPECT_TRUE(ptr != nullptr) << "expected ExprSetSimplified derived object.";
+}

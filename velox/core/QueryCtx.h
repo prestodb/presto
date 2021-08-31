@@ -171,6 +171,10 @@ class QueryCtx : public Context {
     return get<std::string>(kSessionTimezone, "");
   }
 
+  bool exprEvalSimplified() const {
+    return get<bool>(kExprEvalSimplified, false);
+  }
+
   static constexpr const char* kCodegenEnabled = "driver.codegen.enabled";
   static constexpr const char* kCodegenConfigurationFilePath =
       "driver.codegen.configuration_file_path";
@@ -193,6 +197,10 @@ class QueryCtx : public Context {
   // False by default.
   static constexpr const char* kAdjustTimestampToTimezone =
       "driver.session.adjust_timestamp_to_timezone";
+
+  // Whether to use the simplified expression evaluation path. False by default.
+  static constexpr const char* kExprEvalSimplified =
+      "driver.expr_eval.simplified";
 
   // Flags used to configure the CAST operator:
 

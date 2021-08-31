@@ -71,8 +71,7 @@ FilterProject::FilterProject(
     isIdentityProjection_ = true;
   }
   numExprs_ = allExprs.size();
-  exprs_ =
-      std::make_unique<ExprSet>(std::move(allExprs), operatorCtx_->execCtx());
+  exprs_ = makeExprSetFromFlag(std::move(allExprs), operatorCtx_->execCtx());
 }
 
 void FilterProject::addInput(RowVectorPtr input) {
