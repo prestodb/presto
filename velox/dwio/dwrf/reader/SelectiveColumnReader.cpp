@@ -118,7 +118,7 @@ void SelectiveColumnReader::seekTo(vector_size_t offset, bool readsNullsOnly) {
     }
     readOffset_ = offset;
   } else {
-    VELOX_CHECK(false, "Seeking backward on a ColumnReader");
+    VELOX_FAIL("Seeking backward on a ColumnReader");
   }
 }
 
@@ -219,7 +219,7 @@ void SelectiveColumnReader::getFlatValues(
     VectorPtr* result,
     const TypePtr& type,
     bool isFinal) {
-  VELOX_CHECK(valueSize_ != kNoValueSize);
+  VELOX_CHECK_NE(valueSize_, kNoValueSize);
   VELOX_CHECK(mayGetValues_);
   if (isFinal) {
     mayGetValues_ = false;
@@ -258,7 +258,7 @@ void SelectiveColumnReader::getFlatValues<int8_t, bool>(
     bool isFinal) {
   constexpr int32_t kWidth = V8::VSize;
   static_assert(kWidth == 32);
-  VELOX_CHECK(valueSize_ == sizeof(int8_t));
+  VELOX_CHECK_EQ(valueSize_, sizeof(int8_t));
   compactScalarValues<int8_t, int8_t>(rows, isFinal);
   auto boolValues =
       AlignedBuffer::allocate<bool>(numValues_, &memoryPool, false);
@@ -283,12 +283,12 @@ void SelectiveColumnReader::getFlatValues<int8_t, bool>(
 
 template <typename T, typename TVector>
 void SelectiveColumnReader::upcastScalarValues(RowSet rows) {
-  VELOX_CHECK(rows.size() <= numValues_);
+  VELOX_CHECK_LE(rows.size(), numValues_);
   VELOX_CHECK(!rows.empty());
   if (!values_) {
     return;
   }
-  VELOX_CHECK(sizeof(TVector) > sizeof(T));
+  VELOX_CHECK_GT(sizeof(TVector), sizeof(T));
   // Since upcast is not going to be a common path, allocate buffer to copy
   // upcasted values to and then copy back to the values buffer.
   std::vector<TVector> buf;
@@ -338,7 +338,7 @@ void SelectiveColumnReader::upcastScalarValues(RowSet rows) {
 
 template <typename T, typename TVector>
 void SelectiveColumnReader::compactScalarValues(RowSet rows, bool isFinal) {
-  VELOX_CHECK(rows.size() <= numValues_);
+  VELOX_CHECK_LE(rows.size(), numValues_);
   VELOX_CHECK(!rows.empty());
   if (!values_ || (rows.size() == numValues_ && sizeof(T) == sizeof(TVector))) {
     if (values_) {
@@ -346,7 +346,7 @@ void SelectiveColumnReader::compactScalarValues(RowSet rows, bool isFinal) {
     }
     return;
   }
-  VELOX_CHECK(sizeof(TVector) <= sizeof(T));
+  VELOX_CHECK_LE(sizeof(TVector), sizeof(T));
   T* typedSourceValues = reinterpret_cast<T*>(rawValues_);
   TVector* typedDestValues = reinterpret_cast<TVector*>(rawValues_);
   RowSet sourceRows;
@@ -784,7 +784,7 @@ class ColumnVisitor {
           return 0;
         }
         if (nextNonNull < 64) {
-          VELOX_CHECK(rowIndex_ <= rowOfNullWord + nextNonNull);
+          VELOX_CHECK_LE(rowIndex_, rowOfNullWord + nextNonNull);
           rowIndex_ = rowOfNullWord + nextNonNull;
           current = currentRow();
           return 0;
@@ -1101,9 +1101,8 @@ class SelectiveByteRleColumnReader : public SelectiveColumnReader {
         getFlatValues<int8_t, int64_t>(rows, result);
         break;
       default:
-        VELOX_CHECK(
-            false,
-            "Result type {} not supported in ByteRLE encoding",
+        VELOX_FAIL(
+            "Result type not supported in ByteRLE encoding: {}",
             requestedType_->toString());
     }
   }
@@ -2081,7 +2080,7 @@ void SelectiveIntegerDictionaryColumnReader::readWithVisitor(
     RowSet rows,
     ColumnVisitor visitor) {
   vector_size_t numRows = rows.back() + 1;
-  VELOX_CHECK(rleVersion_ == RleVersion_1);
+  VELOX_CHECK_EQ(rleVersion_, RleVersion_1);
   auto reader = reinterpret_cast<RleDecoderV1<false>*>(dataReader_.get());
   if (nullsInReadRange_) {
     reader->readWithVisitor<true>(nullsInReadRange_->as<uint64_t>(), visitor);
@@ -3595,8 +3594,9 @@ static void scatter(RowSet rows, VectorPtr* result) {
 }
 
 void ColumnLoader::load(RowSet rows, ValueHook* hook, VectorPtr* result) {
-  VELOX_CHECK(
-      version_ == structReader_->numReads(),
+  VELOX_CHECK_EQ(
+      version_,
+      structReader_->numReads(),
       "Loading LazyVector after the enclosing reader has moved");
   auto offset = structReader_->lazyVectorReadOffset();
   auto incomingNulls = structReader_->nulls();
@@ -4204,7 +4204,7 @@ std::unique_ptr<SelectiveColumnReader> SelectiveColumnReader::build(
     case TypeKind::MAP:
       if (stripe.getEncoding(ek).kind() ==
           proto::ColumnEncoding_Kind_MAP_FLAT) {
-        VELOX_CHECK(false, "SelectiveColumnReader does not support flat maps");
+        VELOX_UNSUPPORTED("SelectiveColumnReader does not support flat maps");
       }
       return std::make_unique<SelectiveMapColumnReader>(
           ek, requestedType, dataType, stripe, scanSpec);
