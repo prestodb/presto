@@ -1030,6 +1030,14 @@ TEST_F(ExprTest, constantFolding) {
     EXPECT_EQ(1, extractConstant(expr->inputs()[0].get()));
     EXPECT_EQ(2, extractConstant(expr->inputs()[1].get()));
   }
+
+  {
+    // codepoint() takes a single character, so this expression
+    // deterministically throws; however, we should never throw at constant
+    // folding time. Ensure compiling this expression does not throw..
+    auto typedExpr = parseExpression("codepoint('abcdef')");
+    EXPECT_NO_THROW(exec::ExprSet exprSet({typedExpr}, execCtx_.get(), true));
+  }
 }
 
 TEST_F(ExprTest, constantArray) {

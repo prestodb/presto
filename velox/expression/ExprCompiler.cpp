@@ -247,27 +247,42 @@ std::shared_ptr<Expr> compileLambda(
       std::move(body));
 }
 
-ExprPtr foldIfConstant(const ExprPtr& expr, Scope* scope) {
+ExprPtr tryFoldIfConstant(const ExprPtr& expr, Scope* scope) {
   if (expr->isDeterministic() && !expr->inputs().empty() &&
       scope->exprSet->execCtx()) {
-    // Check that all inputs are literals.
-    for (auto& input : expr->inputs()) {
-      if (!dynamic_cast<ConstantExpr*>(input.get())) {
-        return expr;
+    try {
+      // Check that all inputs are literals.
+      for (auto& input : expr->inputs()) {
+        if (!dynamic_cast<ConstantExpr*>(input.get())) {
+          return expr;
+        }
       }
-    }
-    auto rowType = ROW({}, {});
-    auto execCtx = scope->exprSet->execCtx();
-    auto row = BaseVector::create(rowType, 1, execCtx->pool());
-    EvalCtx context(
-        execCtx, scope->exprSet, dynamic_cast<RowVector*>(row.get()));
-    VectorPtr result;
-    SelectivityVector rows(1);
-    expr->eval(rows, &context, &result);
-    auto constantVector =
-        BaseVector::wrapInConstant(BaseVector::kMaxElements, 0, result);
+      auto rowType = ROW({}, {});
+      auto execCtx = scope->exprSet->execCtx();
+      auto row = BaseVector::create(rowType, 1, execCtx->pool());
+      EvalCtx context(
+          execCtx, scope->exprSet, dynamic_cast<RowVector*>(row.get()));
+      VectorPtr result;
+      SelectivityVector rows(1);
+      expr->eval(rows, &context, &result);
+      auto constantVector =
+          BaseVector::wrapInConstant(BaseVector::kMaxElements, 0, result);
 
-    return std::make_shared<ConstantExpr>(constantVector);
+      return std::make_shared<ConstantExpr>(constantVector);
+    }
+    // Constant folding has a subtle gotcha: if folding a constant expression
+    // deterministically throws, we can't throw at expression compilation time
+    // yet because we can't guarantee that this expression would actually need
+    // to be evaluated.
+    //
+    // So, here, if folding an expression throws an exception, we just ignore it
+    // and leave the expression as-is. If this expression is hit at execution
+    // time and needs to be evaluated, it will throw and fail the query anyway.
+    // If not, in case this expression is never hit at execution time (for
+    // instance, if other arguments are all null in a function with default null
+    // behavior), the query won't fail.
+    catch (const std::exception&) {
+    }
   }
   return expr;
 }
@@ -363,7 +378,8 @@ ExprPtr compileExpression(
 
   result->computeMetadata();
 
-  auto folded = enableConstantFolding ? foldIfConstant(result, scope) : result;
+  auto folded =
+      enableConstantFolding ? tryFoldIfConstant(result, scope) : result;
   scope->visited[expr.get()] = folded;
   return folded;
 }
