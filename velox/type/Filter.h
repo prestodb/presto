@@ -221,7 +221,12 @@ class Filter {
     VELOX_UNSUPPORTED("{}: testBytesRange() is not supported.", toString());
   }
 
-  std::string toString() const;
+  // Combines this filter with another filter using 'AND' logic.
+  virtual std::unique_ptr<Filter> mergeWith(const Filter* /*other*/) const {
+    VELOX_UNSUPPORTED("{}: mergeWith() is not supported.", toString());
+  }
+
+  virtual std::string toString() const;
 
  protected:
   const bool nullAllowed_;
@@ -278,6 +283,11 @@ class AlwaysFalse final : public Filter {
 
   bool testLength(int32_t /* unused */) const final {
     return false;
+  }
+
+  std::unique_ptr<Filter> mergeWith(const Filter* /*other*/) const final {
+    // false AND <any> is false.
+    return this->clone();
   }
 };
 
@@ -337,6 +347,11 @@ class AlwaysTrue final : public Filter {
   bool testLength(int32_t /* unused */) const final {
     return true;
   }
+
+  std::unique_ptr<Filter> mergeWith(const Filter* other) const final {
+    // true AND <any> is <any>.
+    return other->clone();
+  }
 };
 
 class IsNull final : public Filter {
@@ -391,6 +406,8 @@ class IsNull final : public Filter {
   bool testLength(int32_t /* unused */) const final {
     return false;
   }
+
+  std::unique_ptr<Filter> mergeWith(const Filter* other) const final;
 };
 
 class IsNotNull final : public Filter {
@@ -445,6 +462,8 @@ class IsNotNull final : public Filter {
   bool testLength(int /* unused */) const final {
     return true;
   }
+
+  std::unique_ptr<Filter> mergeWith(const Filter* other) const final;
 };
 
 class BoolValue final : public Filter {
@@ -475,6 +494,8 @@ class BoolValue final : public Filter {
       return min <= 0 && max >= 0;
     }
   }
+
+  std::unique_ptr<Filter> mergeWith(const Filter* other) const final;
 
  private:
   const bool value_;
@@ -558,6 +579,16 @@ class BigintRange final : public Filter {
     return isSingleValue_;
   }
 
+  std::unique_ptr<Filter> mergeWith(const Filter* other) const final;
+
+  std::string toString() const final {
+    return fmt::format(
+        "BigintRange: [{}, {}] {}",
+        lower_,
+        upper_,
+        nullAllowed_ ? "with nulls" : "no nulls");
+  }
+
  private:
   const int64_t lower_;
   const int64_t upper_;
@@ -576,6 +607,15 @@ class BigintValuesUsingHashTable final : public Filter {
       const std::vector<int64_t>& values,
       bool nullAllowed);
 
+  BigintValuesUsingHashTable(
+      const BigintValuesUsingHashTable& other,
+      bool nullAllowed)
+      : Filter(true, nullAllowed, other.kind()),
+        min_(other.min_),
+        max_(other.max_),
+        hashTable_(other.hashTable_),
+        containsEmptyMarker_(other.containsEmptyMarker_) {}
+
   std::unique_ptr<Filter> clone() const final {
     return std::make_unique<BigintValuesUsingHashTable>(*this);
   }
@@ -584,7 +624,28 @@ class BigintValuesUsingHashTable final : public Filter {
 
   bool testInt64Range(int64_t min, int64_t max, bool hashNull) const final;
 
+  std::unique_ptr<Filter> mergeWith(const Filter* other) const final;
+
+  int64_t min() const {
+    return min_;
+  }
+
+  int64_t max() const {
+    return max_;
+  }
+
+  std::string toString() const final {
+    return fmt::format(
+        "BigintValuesUsingHashTable: [{}, {}] {}",
+        min_,
+        max_,
+        nullAllowed_ ? "with nulls" : "no nulls");
+  }
+
  private:
+  std::unique_ptr<Filter>
+  mergeWith(int64_t min, int64_t max, const Filter* other) const;
+
   static constexpr int64_t kEmptyMarker = 0xdeadbeefbadefeedL;
   // from Murmur hash
   static constexpr uint64_t M = 0xc6a4a7935bd1e995L;
@@ -603,6 +664,14 @@ class BigintValuesUsingBitmask final : public Filter {
       const std::vector<int64_t>& values,
       bool nullAllowed);
 
+  BigintValuesUsingBitmask(
+      const BigintValuesUsingBitmask& other,
+      bool nullAllowed)
+      : Filter(true, nullAllowed, FilterKind::kBigintValuesUsingBitmask),
+        bitmask_(other.bitmask_),
+        min_(other.min_),
+        max_(other.max_) {}
+
   std::unique_ptr<Filter> clone() const final {
     return std::make_unique<BigintValuesUsingBitmask>(*this);
   }
@@ -611,7 +680,12 @@ class BigintValuesUsingBitmask final : public Filter {
 
   bool testInt64Range(int64_t min, int64_t max, bool hasNull) const final;
 
+  std::unique_ptr<Filter> mergeWith(const Filter* other) const final;
+
  private:
+  std::unique_ptr<Filter>
+  mergeWith(int64_t min, int64_t max, const Filter* other) const;
+
   std::vector<bool> bitmask_;
   const int64_t min_;
   const int64_t max_;
@@ -688,9 +762,74 @@ class FloatingPointRange final : public AbstractRange {
     return !(min > upper_ || max < lower_);
   }
 
+  std::unique_ptr<Filter> mergeWith(const Filter* other) const final {
+    switch (other->kind()) {
+      case FilterKind::kAlwaysTrue:
+      case FilterKind::kAlwaysFalse:
+      case FilterKind::kIsNull:
+        return other->mergeWith(this);
+      case FilterKind::kIsNotNull:
+        return std::make_unique<FloatingPointRange<T>>(
+            lower_,
+            lowerUnbounded_,
+            lowerExclusive_,
+            upper_,
+            upperUnbounded_,
+            upperExclusive_,
+            false);
+      case FilterKind::kDoubleRange:
+      case FilterKind::kFloatRange: {
+        bool bothNullAllowed = nullAllowed_ && other->testNull();
+
+        auto otherRange = static_cast<const FloatingPointRange<T>*>(other);
+
+        auto lower = std::max(lower_, otherRange->lower_);
+        auto upper = std::min(upper_, otherRange->upper_);
+
+        auto bothLowerUnbounded =
+            lowerUnbounded_ && otherRange->lowerUnbounded_;
+        auto bothUpperUnbounded =
+            upperUnbounded_ && otherRange->upperUnbounded_;
+
+        auto lowerExclusive = !bothLowerUnbounded &&
+            (!testDouble(lower) || !other->testDouble(lower));
+        auto upperExclusive = !bothUpperUnbounded &&
+            (!testDouble(upper) || !other->testDouble(upper));
+
+        if (lower > upper || (lower == upper && lowerExclusive_)) {
+          if (bothNullAllowed) {
+            return std::make_unique<IsNull>();
+          }
+          return std::make_unique<AlwaysFalse>();
+        }
+
+        return std::make_unique<FloatingPointRange<T>>(
+            lower,
+            bothLowerUnbounded,
+            lowerExclusive,
+            upper,
+            bothUpperUnbounded,
+            upperExclusive,
+            bothNullAllowed);
+      }
+      default:
+        VELOX_UNREACHABLE();
+    }
+  }
+
+  std::string toString() const final;
+
  private:
-  const T lower_;
-  const T upper_;
+  std::string toString(const std::string& name) const {
+    return fmt::format(
+        "{}: {}{}, {}{} {}",
+        name,
+        (lowerExclusive_ || lowerUnbounded_) ? "(" : "[",
+        lowerUnbounded_ ? "-inf" : std::to_string(lower_),
+        upperUnbounded_ ? "+inf" : std::to_string(upper_),
+        (upperExclusive_ || upperUnbounded_) ? ")" : "]",
+        nullAllowed_ ? "with nulls" : "no nulls");
+  }
 
   bool testFloatingPoint(T value) const {
     if (std::isnan(value)) {
@@ -714,7 +853,20 @@ class FloatingPointRange final : public AbstractRange {
     }
     return true;
   }
+
+  const T lower_;
+  const T upper_;
 };
+
+template <>
+inline std::string FloatingPointRange<double>::toString() const {
+  return toString("DoubleRange");
+}
+
+template <>
+inline std::string FloatingPointRange<float>::toString() const {
+  return toString("FloatRange");
+}
 
 template <>
 inline __m256i FloatingPointRange<double>::test4x64(__m256i x) {
@@ -906,6 +1058,22 @@ class BigintMultiRange final : public Filter {
   bool testInt64(int64_t value) const final;
 
   bool testInt64Range(int64_t min, int64_t max, bool hasNull) const final;
+
+  std::unique_ptr<Filter> mergeWith(const Filter* other) const final;
+
+  const std::vector<std::unique_ptr<BigintRange>>& ranges() const {
+    return ranges_;
+  }
+
+  std::string toString() const override {
+    std::ostringstream out;
+    out << "BigintMultiRange: [";
+    for (const auto& range : ranges_) {
+      out << " " << range->toString();
+    }
+    out << " ]" << (nullAllowed_ ? "with nulls" : "no nulls");
+    return out.str();
+  }
 
  private:
   const std::vector<std::unique_ptr<BigintRange>> ranges_;

@@ -673,4 +673,228 @@ TEST(FilterTest, createBigintValues) {
     ASSERT_FALSE(filter->testInt64(106));
     ASSERT_FALSE(filter->testNull());
   }
+
+  // Single value.
+  {
+    std::vector<int64_t> values = {37};
+    auto filter = createBigintValues(values, false);
+    ASSERT_TRUE(dynamic_cast<BigintRange*>(filter.get())) << filter->toString();
+    for (int i = -100; i <= 100; i++) {
+      if (i != 37) {
+        ASSERT_FALSE(filter->testInt64(i));
+      }
+    }
+    ASSERT_TRUE(filter->testInt64(37));
+    ASSERT_FALSE(filter->testNull());
+  }
+}
+
+namespace {
+
+void addUntypedFilters(std::vector<std::unique_ptr<Filter>>& filters) {
+  filters.push_back(std::make_unique<AlwaysFalse>());
+  filters.push_back(std::make_unique<AlwaysTrue>());
+  filters.push_back(std::make_unique<IsNull>());
+  filters.push_back(std::make_unique<IsNotNull>());
+}
+
+void testMergeWithUntyped(Filter* left, Filter* right) {
+  auto merged = left->mergeWith(right);
+
+  // Null.
+  ASSERT_EQ(merged->testNull(), left->testNull() && right->testNull());
+
+  // Not null.
+  ASSERT_EQ(merged->testNonNull(), left->testNonNull() && right->testNonNull());
+
+  // Integer value.
+  ASSERT_EQ(
+      merged->testInt64(123), left->testInt64(123) && right->testInt64(123));
+}
+
+void testMergeWithBool(Filter* left, Filter* right) {
+  auto merged = left->mergeWith(right);
+  ASSERT_EQ(merged->testNull(), left->testNull() && right->testNull());
+  ASSERT_EQ(
+      merged->testBool(true), left->testBool(true) && right->testBool(true));
+  ASSERT_EQ(
+      merged->testBool(false), left->testBool(false) && right->testBool(false));
+}
+
+void testMergeWithBigint(Filter* left, Filter* right) {
+  auto merged = left->mergeWith(right);
+
+  ASSERT_EQ(merged->testNull(), left->testNull() && right->testNull())
+      << "left: " << left->toString() << ", right: " << right->toString()
+      << ", merged: " << merged->toString();
+
+  for (int64_t i = -1'000; i <= 1'000; i++) {
+    ASSERT_EQ(merged->testInt64(i), left->testInt64(i) && right->testInt64(i))
+        << "at " << i << ", left: " << left->toString()
+        << ", right: " << right->toString()
+        << ", merged: " << merged->toString();
+  }
+}
+
+void testMergeWithDouble(Filter* left, Filter* right) {
+  auto merged = left->mergeWith(right);
+  ASSERT_EQ(merged->testNull(), left->testNull() && right->testNull());
+  for (int64_t i = -10; i <= 10; i++) {
+    double d = i * 0.1;
+    ASSERT_EQ(
+        merged->testDouble(d), left->testDouble(d) && right->testDouble(d));
+  }
+}
+
+void testMergeWithFloat(Filter* left, Filter* right) {
+  auto merged = left->mergeWith(right);
+  ASSERT_EQ(merged->testNull(), left->testNull() && right->testNull());
+  for (int64_t i = -10; i <= 10; i++) {
+    float f = i * 0.1;
+    ASSERT_EQ(merged->testFloat(f), left->testFloat(f) && right->testFloat(f));
+  }
+}
+} // namespace
+
+TEST(FilterTest, mergeWithUntyped) {
+  std::vector<std::unique_ptr<Filter>> filters;
+  addUntypedFilters(filters);
+
+  for (const auto& left : filters) {
+    for (const auto& right : filters) {
+      testMergeWithUntyped(left.get(), right.get());
+    }
+  }
+}
+
+TEST(FilterTest, mergeWithBool) {
+  std::vector<std::unique_ptr<Filter>> filters;
+  addUntypedFilters(filters);
+  filters.push_back(boolEqual(true, false));
+  filters.push_back(boolEqual(true, true));
+  filters.push_back(boolEqual(false, false));
+  filters.push_back(boolEqual(false, true));
+
+  for (const auto& left : filters) {
+    for (const auto& right : filters) {
+      testMergeWithBool(left.get(), right.get());
+    }
+  }
+}
+
+TEST(FilterTest, mergeWithBigint) {
+  std::vector<std::unique_ptr<Filter>> filters;
+  addUntypedFilters(filters);
+  // Equality.
+  filters.push_back(equal(123));
+  filters.push_back(equal(123, true));
+
+  // Between.
+  filters.push_back(between(-7, 13));
+  filters.push_back(between(-7, 13, true));
+  filters.push_back(between(150, 500));
+  filters.push_back(between(150, 500, true));
+
+  // IN-list.
+  filters.push_back(in({1, 2, 3, 67, 134}));
+  filters.push_back(in({1, 2, 3, 67, 134}, true));
+  filters.push_back(in({-7, -6, -5, -4, -3, -2}));
+  filters.push_back(in({-7, -6, -5, -4, -3, -2}, true));
+  filters.push_back(in({1, 2, 3, 67, 10'134}));
+  filters.push_back(in({1, 2, 3, 67, 10'134}, true));
+
+  for (const auto& left : filters) {
+    for (const auto& right : filters) {
+      testMergeWithBigint(left.get(), right.get());
+    }
+  }
+}
+
+TEST(FilterTest, mergeWithDouble) {
+  std::vector<std::unique_ptr<Filter>> filters;
+  addUntypedFilters(filters);
+
+  // Less than.
+  filters.push_back(lessThanDouble(1.2));
+  filters.push_back(lessThanDouble(1.2, true));
+  filters.push_back(lessThanOrEqualDouble(1.2));
+  filters.push_back(lessThanOrEqualDouble(1.2, true));
+
+  // Greater than.
+  filters.push_back(greaterThanDouble(1.2));
+  filters.push_back(greaterThanDouble(1.2, true));
+  filters.push_back(greaterThanOrEqualDouble(1.2));
+  filters.push_back(greaterThanOrEqualDouble(1.2, true));
+
+  // Between.
+  filters.push_back(betweenDouble(-1.2, 3.4));
+  filters.push_back(betweenDouble(-1.2, 3.4, true));
+
+  for (const auto& left : filters) {
+    for (const auto& right : filters) {
+      testMergeWithDouble(left.get(), right.get());
+    }
+  }
+}
+
+TEST(FilterTest, mergeWithFloat) {
+  std::vector<std::unique_ptr<Filter>> filters;
+  addUntypedFilters(filters);
+
+  // Less than.
+  filters.push_back(lessThanFloat(1.2));
+  filters.push_back(lessThanFloat(1.2, true));
+  filters.push_back(lessThanOrEqualFloat(1.2));
+  filters.push_back(lessThanOrEqualFloat(1.2, true));
+
+  // Greater than.
+  filters.push_back(greaterThanFloat(1.2));
+  filters.push_back(greaterThanFloat(1.2, true));
+  filters.push_back(greaterThanOrEqualFloat(1.2));
+  filters.push_back(greaterThanOrEqualFloat(1.2, true));
+
+  // Between.
+  filters.push_back(betweenFloat(-1.2, 3.4));
+  filters.push_back(betweenFloat(-1.2, 3.4, true));
+
+  for (const auto& left : filters) {
+    for (const auto& right : filters) {
+      testMergeWithFloat(left.get(), right.get());
+    }
+  }
+}
+
+TEST(FilterTest, mergeWithBigintMultiRange) {
+  std::vector<std::unique_ptr<Filter>> filters;
+  addUntypedFilters(filters);
+
+  filters.push_back(bigintOr(equal(12), between(25, 47)));
+  filters.push_back(bigintOr(equal(12), between(25, 47), true));
+
+  filters.push_back(bigintOr(lessThan(12), greaterThan(47)));
+  filters.push_back(bigintOr(lessThan(12), greaterThan(47), true));
+
+  filters.push_back(bigintOr(lessThanOrEqual(12), greaterThan(47)));
+  filters.push_back(bigintOr(lessThanOrEqual(12), greaterThan(47), true));
+
+  filters.push_back(bigintOr(lessThanOrEqual(12), greaterThanOrEqual(47)));
+  filters.push_back(
+      bigintOr(lessThanOrEqual(12), greaterThanOrEqual(47), true));
+
+  filters.push_back(bigintOr(lessThan(-3), equal(12), between(25, 47)));
+  filters.push_back(bigintOr(lessThan(-3), equal(12), between(25, 47), true));
+
+  // IN-list using bitmask.
+  filters.push_back(in({1, 2, 3, 56}));
+  filters.push_back(in({1, 2, 3, 56}, true));
+
+  // IN-list using hash table.
+  filters.push_back(in({1, 2, 3, 67, 10'134}));
+  filters.push_back(in({1, 2, 3, 67, 10'134}, true));
+
+  for (const auto& left : filters) {
+    for (const auto& right : filters) {
+      testMergeWithBigint(left.get(), right.get());
+    }
+  }
 }

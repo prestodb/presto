@@ -180,10 +180,27 @@ bool BigintValuesUsingHashTable::testInt64Range(
   return !(min > max_ || max < min_);
 }
 
+namespace {
+std::unique_ptr<Filter> nullOrFalse(bool nullAllowed) {
+  if (nullAllowed) {
+    return std::make_unique<IsNull>();
+  }
+  return std::make_unique<AlwaysFalse>();
+}
+} // namespace
+
 std::unique_ptr<Filter> createBigintValues(
     const std::vector<int64_t>& values,
     bool nullAllowed) {
-  VELOX_CHECK(values.size() > 1);
+  if (values.empty()) {
+    return nullOrFalse(nullAllowed);
+  }
+
+  if (values.size() == 1) {
+    return std::make_unique<BigintRange>(
+        values.front(), values.front(), nullAllowed);
+  }
+
   int64_t min = values[0];
   int64_t max = values[0];
   for (int i = 1; i < values.size(); ++i) {
@@ -439,5 +456,327 @@ bool MultiRange::testBytesRange(
   }
 
   return false;
+}
+
+std::unique_ptr<Filter> IsNull::mergeWith(const Filter* other) const {
+  VELOX_CHECK(other->isDeterministic());
+
+  if (other->testNull()) {
+    return this->clone();
+  }
+
+  return std::make_unique<AlwaysFalse>();
+}
+
+std::unique_ptr<Filter> IsNotNull::mergeWith(const Filter* other) const {
+  switch (other->kind()) {
+    case FilterKind::kAlwaysTrue:
+    case FilterKind::kIsNotNull:
+      return this->clone();
+    case FilterKind::kAlwaysFalse:
+    case FilterKind::kIsNull:
+      return std::make_unique<AlwaysFalse>();
+    default:
+      return other->mergeWith(this);
+  }
+}
+
+std::unique_ptr<Filter> BoolValue::mergeWith(const Filter* other) const {
+  switch (other->kind()) {
+    case FilterKind::kAlwaysTrue:
+    case FilterKind::kAlwaysFalse:
+    case FilterKind::kIsNull:
+      return other->mergeWith(this);
+    case FilterKind::kIsNotNull:
+      return std::make_unique<BoolValue>(value_, false);
+    case FilterKind::kBoolValue: {
+      bool bothNullAllowed = nullAllowed_ && other->testNull();
+      if (other->testBool(value_)) {
+        return std::make_unique<BoolValue>(value_, bothNullAllowed);
+      }
+
+      return nullOrFalse(bothNullAllowed);
+    }
+    default:
+      VELOX_UNREACHABLE();
+  }
+}
+
+namespace {
+std::unique_ptr<Filter> combineBigintRanges(
+    std::vector<std::unique_ptr<BigintRange>> ranges,
+    bool nullAllowed) {
+  if (ranges.empty()) {
+    return nullOrFalse(nullAllowed);
+  }
+
+  if (ranges.size() == 1) {
+    return std::make_unique<BigintRange>(
+        ranges.front()->lower(), ranges.front()->upper(), nullAllowed);
+  }
+
+  return std::make_unique<BigintMultiRange>(std::move(ranges), nullAllowed);
+}
+
+std::unique_ptr<BigintRange> toBigintRange(std::unique_ptr<Filter> filter) {
+  return std::unique_ptr<BigintRange>(
+      dynamic_cast<BigintRange*>(filter.release()));
+}
+} // namespace
+
+std::unique_ptr<Filter> BigintRange::mergeWith(const Filter* other) const {
+  switch (other->kind()) {
+    case FilterKind::kAlwaysTrue:
+    case FilterKind::kAlwaysFalse:
+    case FilterKind::kIsNull:
+      return other->mergeWith(this);
+    case FilterKind::kIsNotNull:
+      return std::make_unique<BigintRange>(lower_, upper_, false);
+    case FilterKind::kBigintRange: {
+      bool bothNullAllowed = nullAllowed_ && other->testNull();
+
+      auto otherRange = static_cast<const BigintRange*>(other);
+
+      auto lower = std::max(lower_, otherRange->lower_);
+      auto upper = std::min(upper_, otherRange->upper_);
+
+      if (lower <= upper) {
+        return std::make_unique<BigintRange>(lower, upper, bothNullAllowed);
+      }
+
+      return nullOrFalse(bothNullAllowed);
+    }
+    case FilterKind::kBigintValuesUsingBitmask:
+    case FilterKind::kBigintValuesUsingHashTable:
+      return other->mergeWith(this);
+    case FilterKind::kBigintMultiRange: {
+      auto otherMultiRange = dynamic_cast<const BigintMultiRange*>(other);
+      std::vector<std::unique_ptr<BigintRange>> newRanges;
+      for (const auto& range : otherMultiRange->ranges()) {
+        auto merged = this->mergeWith(range.get());
+        if (merged->kind() == FilterKind::kBigintRange) {
+          newRanges.push_back(toBigintRange(std::move(merged)));
+        } else {
+          VELOX_CHECK(merged->kind() == FilterKind::kAlwaysFalse);
+        }
+      }
+
+      bool bothNullAllowed = nullAllowed_ && other->testNull();
+      return combineBigintRanges(std::move(newRanges), bothNullAllowed);
+    }
+    default:
+      VELOX_UNREACHABLE();
+  }
+}
+
+std::unique_ptr<Filter> BigintValuesUsingHashTable::mergeWith(
+    const Filter* other) const {
+  switch (other->kind()) {
+    case FilterKind::kAlwaysTrue:
+    case FilterKind::kAlwaysFalse:
+    case FilterKind::kIsNull:
+      return other->mergeWith(this);
+    case FilterKind::kIsNotNull:
+      return std::make_unique<BigintValuesUsingHashTable>(*this, false);
+    case FilterKind::kBigintRange: {
+      auto otherRange = dynamic_cast<const BigintRange*>(other);
+      auto min = std::max(min_, otherRange->lower());
+      auto max = std::min(max_, otherRange->upper());
+
+      return mergeWith(min, max, other);
+    }
+    case FilterKind::kBigintValuesUsingHashTable: {
+      auto otherValues = dynamic_cast<const BigintValuesUsingHashTable*>(other);
+      auto min = std::max(min_, otherValues->min());
+      auto max = std::min(max_, otherValues->max());
+
+      return mergeWith(min, max, other);
+    }
+    case FilterKind::kBigintValuesUsingBitmask:
+      return other->mergeWith(this);
+    case FilterKind::kBigintMultiRange: {
+      auto otherMultiRange = dynamic_cast<const BigintMultiRange*>(other);
+
+      std::vector<int64_t> valuesToKeep;
+      if (containsEmptyMarker_ && other->testInt64(kEmptyMarker)) {
+        valuesToKeep.emplace_back(kEmptyMarker);
+      }
+      for (const auto& range : otherMultiRange->ranges()) {
+        auto min = std::max(min_, range->lower());
+        auto max = std::min(max_, range->upper());
+
+        if (min <= max) {
+          for (int64_t v : hashTable_) {
+            if (v != kEmptyMarker && range->testInt64(v)) {
+              valuesToKeep.emplace_back(v);
+            }
+          }
+        }
+      }
+
+      bool bothNullAllowed = nullAllowed_ && other->testNull();
+      return createBigintValues(valuesToKeep, bothNullAllowed);
+    }
+    default:
+      VELOX_UNREACHABLE();
+  }
+}
+
+std::unique_ptr<Filter> BigintValuesUsingHashTable::mergeWith(
+    int64_t min,
+    int64_t max,
+    const Filter* other) const {
+  bool bothNullAllowed = nullAllowed_ && other->testNull();
+
+  if (max < min) {
+    return nullOrFalse(bothNullAllowed);
+  }
+
+  if (max == min) {
+    if (testInt64(min) && other->testInt64(min)) {
+      return std::make_unique<BigintRange>(min, min, bothNullAllowed);
+    }
+
+    return nullOrFalse(bothNullAllowed);
+  }
+
+  std::vector<int64_t> valuesToKeep;
+  valuesToKeep.reserve(max - min + 1);
+  if (containsEmptyMarker_ && other->testInt64(kEmptyMarker)) {
+    valuesToKeep.emplace_back(kEmptyMarker);
+  }
+
+  for (int64_t v : hashTable_) {
+    if (v != kEmptyMarker && other->testInt64(v)) {
+      valuesToKeep.emplace_back(v);
+    }
+  }
+
+  return createBigintValues(valuesToKeep, bothNullAllowed);
+}
+
+std::unique_ptr<Filter> BigintValuesUsingBitmask::mergeWith(
+    const Filter* other) const {
+  switch (other->kind()) {
+    case FilterKind::kAlwaysTrue:
+    case FilterKind::kAlwaysFalse:
+    case FilterKind::kIsNull:
+      return other->mergeWith(this);
+    case FilterKind::kIsNotNull:
+      return std::make_unique<BigintValuesUsingBitmask>(*this, false);
+    case FilterKind::kBigintRange: {
+      auto otherRange = dynamic_cast<const BigintRange*>(other);
+
+      auto min = std::max(min_, otherRange->lower());
+      auto max = std::min(max_, otherRange->upper());
+
+      return mergeWith(min, max, other);
+    }
+    case FilterKind::kBigintValuesUsingHashTable: {
+      auto otherValues = dynamic_cast<const BigintValuesUsingHashTable*>(other);
+
+      auto min = std::max(min_, otherValues->min());
+      auto max = std::min(max_, otherValues->max());
+
+      return mergeWith(min, max, other);
+    }
+    case FilterKind::kBigintValuesUsingBitmask: {
+      auto otherValues = dynamic_cast<const BigintValuesUsingBitmask*>(other);
+
+      auto min = std::max(min_, otherValues->min_);
+      auto max = std::min(max_, otherValues->max_);
+
+      return mergeWith(min, max, other);
+    }
+    case FilterKind::kBigintMultiRange: {
+      auto otherMultiRange = dynamic_cast<const BigintMultiRange*>(other);
+
+      std::vector<int64_t> valuesToKeep;
+      for (const auto& range : otherMultiRange->ranges()) {
+        auto min = std::max(min_, range->lower());
+        auto max = std::min(max_, range->upper());
+        for (auto i = min; i <= max; ++i) {
+          if (bitmask_[i - min_] && range->testInt64(i)) {
+            valuesToKeep.push_back(i);
+          }
+        }
+      }
+
+      bool bothNullAllowed = nullAllowed_ && other->testNull();
+      return createBigintValues(valuesToKeep, bothNullAllowed);
+    }
+    default:
+      VELOX_UNREACHABLE();
+  }
+}
+
+std::unique_ptr<Filter> BigintValuesUsingBitmask::mergeWith(
+    int64_t min,
+    int64_t max,
+    const Filter* other) const {
+  bool bothNullAllowed = nullAllowed_ && other->testNull();
+
+  std::vector<int64_t> valuesToKeep;
+  for (auto i = min; i <= max; ++i) {
+    if (bitmask_[i - min_] && other->testInt64(i)) {
+      valuesToKeep.push_back(i);
+    }
+  }
+  return createBigintValues(valuesToKeep, bothNullAllowed);
+}
+
+std::unique_ptr<Filter> BigintMultiRange::mergeWith(const Filter* other) const {
+  switch (other->kind()) {
+    case FilterKind::kAlwaysTrue:
+    case FilterKind::kAlwaysFalse:
+    case FilterKind::kIsNull:
+      return other->mergeWith(this);
+    case FilterKind::kIsNotNull: {
+      std::vector<std::unique_ptr<BigintRange>> ranges;
+      ranges.reserve(ranges_.size());
+      for (auto& range : ranges_) {
+        ranges.push_back(std::make_unique<BigintRange>(*range));
+      }
+      return std::make_unique<BigintMultiRange>(std::move(ranges), false);
+    }
+    case FilterKind::kBigintRange:
+    case FilterKind::kBigintValuesUsingBitmask:
+    case FilterKind::kBigintValuesUsingHashTable: {
+      return other->mergeWith(this);
+    }
+    case FilterKind::kBigintMultiRange: {
+      std::vector<std::unique_ptr<BigintRange>> newRanges;
+      for (const auto& range : ranges_) {
+        auto merged = range->mergeWith(other);
+        if (merged->kind() == FilterKind::kBigintRange) {
+          newRanges.push_back(toBigintRange(std::move(merged)));
+        } else if (merged->kind() == FilterKind::kBigintMultiRange) {
+          auto mergedMultiRange = dynamic_cast<BigintMultiRange*>(merged.get());
+          for (const auto& newRange : mergedMultiRange->ranges_) {
+            newRanges.push_back(toBigintRange(newRange->clone()));
+          }
+        } else {
+          VELOX_CHECK(merged->kind() == FilterKind::kAlwaysFalse);
+        }
+      }
+
+      bool bothNullAllowed = nullAllowed_ && other->testNull();
+      if (newRanges.empty()) {
+        return nullOrFalse(bothNullAllowed);
+      }
+
+      if (newRanges.size() == 1) {
+        return std::make_unique<BigintRange>(
+            newRanges.front()->lower(),
+            newRanges.front()->upper(),
+            bothNullAllowed);
+      }
+
+      return std::make_unique<BigintMultiRange>(
+          std::move(newRanges), bothNullAllowed);
+    }
+    default:
+      VELOX_UNREACHABLE();
+  }
 }
 } // namespace facebook::velox::common
