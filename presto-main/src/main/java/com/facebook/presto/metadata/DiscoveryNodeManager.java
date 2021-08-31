@@ -162,7 +162,7 @@ public final class DiscoveryNodeManager
             OptionalInt thriftPort = getThriftServerPort(service);
             NodeVersion nodeVersion = getNodeVersion(service);
             if (uri != null && nodeVersion != null) {
-                InternalNode node = new InternalNode(service.getNodeId(), uri, thriftPort, nodeVersion, isCoordinator(service), isResourceManager(service), ALIVE);
+                InternalNode node = new InternalNode(service.getNodeId(), uri, thriftPort, nodeVersion, isCoordinator(service), isResourceManager(service), ALIVE, service.getPool());
 
                 if (node.getNodeIdentifier().equals(currentNodeId)) {
                     checkState(
@@ -284,7 +284,7 @@ public final class DiscoveryNodeManager
             boolean coordinator = isCoordinator(service);
             boolean resourceManager = isResourceManager(service);
             if (uri != null && nodeVersion != null) {
-                InternalNode node = new InternalNode(service.getNodeId(), uri, thriftPort, nodeVersion, coordinator, resourceManager, ALIVE);
+                InternalNode node = new InternalNode(service.getNodeId(), uri, thriftPort, nodeVersion, coordinator, resourceManager, ALIVE, service.getPool());
                 NodeState nodeState = getNodeState(node);
 
                 switch (nodeState) {
@@ -348,7 +348,7 @@ public final class DiscoveryNodeManager
                 InternalNode deadNode = nodes.get(nodeId);
                 Set<ConnectorId> deadNodeConnectorIds = connectorIdsByNodeId.get(nodeId);
                 for (ConnectorId id : deadNodeConnectorIds) {
-                    byConnectorIdBuilder.put(id, new InternalNode(deadNode.getNodeIdentifier(), deadNode.getInternalUri(), deadNode.getThriftPort(), deadNode.getNodeVersion(), deadNode.isCoordinator(), deadNode.isResourceManager(), DEAD));
+                    byConnectorIdBuilder.put(id, new InternalNode(deadNode.getNodeIdentifier(), deadNode.getInternalUri(), deadNode.getThriftPort(), deadNode.getNodeVersion(), deadNode.isCoordinator(), deadNode.isResourceManager(), DEAD, deadNode.getPool()));
                 }
             }
         }
