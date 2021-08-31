@@ -248,6 +248,8 @@ class RleDecoderV1 : public IntDecoder<isSigned> {
 
   void next(int64_t* data, uint64_t numValues, const uint64_t* nulls) override;
 
+  void nextLengths(int32_t* data, int32_t numValues) override;
+
   template <bool hasNulls>
   inline void skip(int32_t numValues, int32_t current, const uint64_t* nulls) {
     if (hasNulls) {

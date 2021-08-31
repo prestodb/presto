@@ -232,7 +232,7 @@ void SelectiveColumnReader::getFlatValues(
         type,
         T(),
         cdvi::EMPTY_METADATA,
-        sizeof(T) * rows.size());
+        sizeof(TVector) * rows.size());
     return;
   }
   if (valueSize_ == sizeof(TVector)) {
@@ -570,7 +570,7 @@ void SelectiveColumnReader::filterNulls(
 
 common::AlwaysTrue Filters::alwaysTrue;
 
-void SelectiveColumnReader::addStringValue(folly::StringPiece value) {
+char* SelectiveColumnReader::copyStringValue(folly::StringPiece value) {
   uint64_t size = value.size();
   if (stringBuffers_.empty() || rawStringUsed_ + size > rawStringSize_) {
     if (!stringBuffers_.empty()) {
@@ -581,12 +581,20 @@ void SelectiveColumnReader::addStringValue(folly::StringPiece value) {
     stringBuffers_.push_back(buffer);
     rawStringBuffer_ = buffer->asMutable<char>();
     rawStringUsed_ = 0;
-    rawStringSize_ = buffer->capacity();
+    // Adjust the size downward so that the last store can take place
+    // at full width.
+    rawStringSize_ = buffer->capacity() - simd::kPadding;
   }
   memcpy(rawStringBuffer_ + rawStringUsed_, value.data(), size);
-  reinterpret_cast<StringView*>(rawValues_)[numValues_++] =
-      StringView(rawStringBuffer_ + rawStringUsed_, size);
+  auto start = rawStringUsed_;
   rawStringUsed_ += size;
+  return rawStringBuffer_ + start;
+}
+
+void SelectiveColumnReader::addStringValue(folly::StringPiece value) {
+  auto copy = copyStringValue(value);
+  reinterpret_cast<StringView*>(rawValues_)[numValues_++] =
+      StringView(copy, value.size());
 }
 
 std::vector<uint64_t> toPositions(const proto::RowIndexEntry& entry) {
@@ -1105,6 +1113,10 @@ class SelectiveByteRleColumnReader : public SelectiveColumnReader {
             "Result type not supported in ByteRLE encoding: {}",
             requestedType_->toString());
     }
+  }
+
+  bool useBulkPath() const override {
+    return false;
   }
 
  private:
@@ -2530,17 +2542,35 @@ class SelectiveStringDirectColumnReader : public SelectiveColumnReader {
       RowSet rows,
       ExtractValues extractValues);
 
+  void extractCrossBuffers(
+      const int32_t* lengths,
+      const int32_t* starts,
+      int32_t rowIndex,
+      int32_t numValues);
+
+  inline void makeSparseStarts(
+      int32_t startRow,
+      const int32_t* rows,
+      int32_t numRows,
+      int32_t* starts);
+
+  inline void extractNSparse(const int32_t* rows, int32_t row, int numRows);
+
+  void extractSparse(const int32_t* rows, int32_t numRows);
+
+  template <bool scatter, bool skip>
+  bool try8Consecutive(int32_t start, const int32_t* rows, int32_t row);
+
   std::unique_ptr<IntDecoder</*isSigned*/ false>> lengthDecoder_;
   std::unique_ptr<SeekableInputStream> blobStream_;
   const char* bufferStart_ = nullptr;
   const char* bufferEnd_ = nullptr;
-
   BufferPtr lengths_;
   int32_t lengthIndex_ = 0;
-  const uint64_t* rawLengths_ = nullptr;
+  const uint32_t* rawLengths_ = nullptr;
   int64_t bytesToSkip_ = 0;
-  // Storage for a string straddling a buffer boundary. Needed for calling the
-  // filter.
+  // Storage for a string straddling a buffer boundary. Needed for calling
+  // the filter.
   std::string tempString_;
 };
 
@@ -2565,14 +2595,190 @@ SelectiveStringDirectColumnReader::SelectiveStringDirectColumnReader(
 uint64_t SelectiveStringDirectColumnReader::skip(uint64_t numValues) {
   numValues = ColumnReader::skip(numValues);
   ensureCapacity<int64_t>(lengths_, numValues, &memoryPool);
-  lengthDecoder_->next(lengths_->asMutable<int64_t>(), numValues, nullptr);
-  rawLengths_ = lengths_->as<uint64_t>();
+  lengthDecoder_->nextLengths(lengths_->asMutable<int32_t>(), numValues);
+  rawLengths_ = lengths_->as<uint32_t>();
   for (auto i = 0; i < numValues; ++i) {
     bytesToSkip_ += rawLengths_[i];
   }
   skipBytes(bytesToSkip_, blobStream_.get(), bufferStart_, bufferEnd_);
   bytesToSkip_ = 0;
   return numValues;
+}
+
+void SelectiveStringDirectColumnReader::extractCrossBuffers(
+    const int32_t* lengths,
+    const int32_t* starts,
+    int32_t rowIndex,
+    int32_t numValues) {
+  int32_t current = 0;
+  bool scatter = !outerNonNullRows_.empty();
+  for (auto i = 0; i < numValues; ++i) {
+    auto gap = starts[i] - current;
+    bytesToSkip_ += gap;
+    auto size = lengths[i];
+    auto value = readValue(size);
+    current += size + gap;
+    if (!scatter) {
+      addValue(value);
+    } else {
+      auto index = outerNonNullRows_[rowIndex + i];
+      if (size <= StringView::kInlineSize) {
+        reinterpret_cast<StringView*>(rawValues_)[index] =
+            StringView(value.data(), size);
+      } else {
+        auto copy = copyStringValue(value);
+        reinterpret_cast<StringView*>(rawValues_)[index] =
+            StringView(copy, size);
+      }
+    }
+  }
+  skipBytes(bytesToSkip_, blobStream_.get(), bufferStart_, bufferEnd_);
+  bytesToSkip_ = 0;
+  if (scatter) {
+    numValues_ = outerNonNullRows_[rowIndex + numValues - 1] + 1;
+  }
+}
+
+inline int32_t
+rangeSum(const uint32_t* rows, int32_t start, int32_t begin, int32_t end) {
+  for (auto i = begin; i < end; ++i) {
+    start += rows[i];
+  }
+  return start;
+}
+
+inline void SelectiveStringDirectColumnReader::makeSparseStarts(
+    int32_t startRow,
+    const int32_t* rows,
+    int32_t numRows,
+    int32_t* starts) {
+  auto previousRow = lengthIndex_;
+  int32_t i = 0;
+  int32_t startOffset = 0;
+  for (; i < numRows; ++i) {
+    int targetRow = rows[startRow + i];
+    startOffset = rangeSum(rawLengths_, startOffset, previousRow, targetRow);
+    starts[i] = startOffset;
+    previousRow = targetRow + 1;
+    startOffset += rawLengths_[targetRow];
+  }
+}
+
+void SelectiveStringDirectColumnReader::extractNSparse(
+    const int32_t* rows,
+    int32_t row,
+    int32_t numValues) {
+  int32_t starts[8];
+  if (numValues == 8 &&
+      (outerNonNullRows_.empty() ? try8Consecutive<false, true>(0, rows, row)
+                                 : try8Consecutive<true, true>(0, rows, row))) {
+    return;
+  }
+  int32_t lengths[8];
+  for (auto i = 0; i < numValues; ++i) {
+    lengths[i] = rawLengths_[rows[row + i]];
+  }
+  makeSparseStarts(row, rows, numValues, starts);
+  extractCrossBuffers(lengths, starts, row, numValues);
+  lengthIndex_ = rows[row + numValues - 1] + 1;
+}
+
+template <bool scatter, bool sparse>
+inline bool SelectiveStringDirectColumnReader::try8Consecutive(
+    int32_t start,
+    const int32_t* rows,
+    int32_t row) {
+  const char* data = bufferStart_ + start + bytesToSkip_;
+  if (!data || bufferEnd_ - data < start + 8 * 12) {
+    return false;
+  }
+  int32_t* result = reinterpret_cast<int32_t*>(rawValues_);
+  int32_t resultIndex = numValues_ * 4 - 4;
+  auto rawUsed = rawStringUsed_;
+  auto previousRow = sparse ? lengthIndex_ : 0;
+  auto endRow = row + 8;
+  for (auto i = row; i < endRow; ++i) {
+    if (scatter) {
+      resultIndex = outerNonNullRows_[i] * 4;
+    } else {
+      resultIndex += 4;
+    }
+    if (sparse) {
+      auto targetRow = rows[i];
+      data += rangeSum(rawLengths_, 0, previousRow, rows[i]);
+      previousRow = targetRow + 1;
+    }
+    auto length = rawLengths_[rows[i]];
+    if (data + std::max<int32_t>(length, sizeof(__m128_u)) > bufferEnd_) {
+      // Slow path if the string does not fit whole or if there is no
+      // space for a 16 byte load.
+      return false;
+    }
+    result[resultIndex] = length;
+    auto first16 = *reinterpret_cast<const __m128_u*>(data);
+    *reinterpret_cast<__m128_u*>(result + resultIndex + 1) = first16;
+    if (length <= 12) {
+      data += length;
+      *reinterpret_cast<int64_t*>(
+          reinterpret_cast<char*>(result + resultIndex + 1) + length) = 0;
+      continue;
+    }
+    if (!rawStringBuffer_ || rawUsed + length > rawStringSize_) {
+      // Slow path if no space in raw strings
+      return false;
+    }
+    *reinterpret_cast<char**>(result + resultIndex + 2) =
+        rawStringBuffer_ + rawUsed;
+    *reinterpret_cast<__m128_u*>(rawStringBuffer_ + rawUsed) = first16;
+    if (length > 16) {
+      simd::memcpy(
+          rawStringBuffer_ + rawUsed + 16,
+          data + 16,
+          bits::roundUp(length - 16, 16));
+    }
+    rawUsed += length;
+    data += length;
+  }
+  // Update the data members only after successful completion.
+  bufferStart_ = data;
+  bytesToSkip_ = 0;
+  rawStringUsed_ = rawUsed;
+  numValues_ = scatter ? outerNonNullRows_[row + 7] + 1 : numValues_ + 8;
+  lengthIndex_ = sparse ? rows[row + 7] + 1 : lengthIndex_ + 8;
+  return true;
+}
+
+void SelectiveStringDirectColumnReader::extractSparse(
+    const int32_t* rows,
+    int32_t numRows) {
+  rowLoop(
+      rows,
+      0,
+      numRows,
+      8,
+      [&](int32_t row) {
+        int32_t start = rangeSum(rawLengths_, 0, lengthIndex_, rows[row]);
+        lengthIndex_ = rows[row];
+        auto lengths =
+            reinterpret_cast<const int32_t*>(rawLengths_) + lengthIndex_;
+
+        if (outerNonNullRows_.empty()
+                ? try8Consecutive<false, false>(start, rows, row)
+                : try8Consecutive<true, false>(start, rows, row)) {
+          return;
+        }
+        int32_t starts[8];
+        for (auto i = 0; i < 8; ++i) {
+          starts[i] = start;
+          start += lengths[i];
+        }
+        lengthIndex_ += 8;
+        extractCrossBuffers(lengths, starts, row, 8);
+      },
+      [&](int32_t row) { extractNSparse(rows, row, 8); },
+      [&](int32_t row, int32_t numRows) {
+        extractNSparse(rows, row, numRows);
+      });
 }
 
 template <bool hasNulls>
@@ -2608,7 +2814,6 @@ void SelectiveStringDirectColumnReader::decode(
     const uint64_t* nulls,
     Visitor visitor) {
   int32_t current = visitor.start();
-  skipInDecode<hasNulls>(current, 0, nulls);
   bool atEnd = false;
   bool allowNulls = hasNulls && visitor.allowNulls();
   for (;;) {
@@ -2653,7 +2858,46 @@ void SelectiveStringDirectColumnReader::readWithVisitor(
     RowSet rows,
     TVisitor visitor) {
   vector_size_t numRows = rows.back() + 1;
-  if (nullsInReadRange_) {
+  int32_t current = visitor.start();
+  constexpr bool isExtract =
+      std::is_same<typename TVisitor::FilterType, common::AlwaysTrue>::value &&
+      std::is_same<
+          typename TVisitor::Extract,
+          ExtractToReader<SelectiveStringDirectColumnReader>>::value;
+  auto nulls = nullsInReadRange_ ? nullsInReadRange_->as<uint64_t>() : nullptr;
+
+  if (process::hasAvx2() && isExtract) {
+    if (nullsInReadRange_) {
+      if (TVisitor::dense) {
+        returnReaderNulls_ = true;
+        nonNullRowsFromDense(nulls, rows.size(), outerNonNullRows_);
+        extractSparse(rows.data(), outerNonNullRows_.size());
+      } else {
+        int32_t tailSkip = -1;
+        anyNulls_ = nonNullRowsFromSparse<false, true>(
+            nulls,
+            rows,
+            innerNonNullRows_,
+            outerNonNullRows_,
+            rawResultNulls_,
+            tailSkip);
+        extractSparse(innerNonNullRows_.data(), innerNonNullRows_.size());
+        skipInDecode<false>(tailSkip, 0, nullptr);
+      }
+    } else {
+      extractSparse(rows.data(), rows.size());
+    }
+    numValues_ = rows.size();
+    readOffset_ += numRows;
+    return;
+  }
+
+  if (nulls) {
+    skipInDecode<true>(current, 0, nulls);
+  } else {
+    skipInDecode<false>(current, 0, nulls);
+  }
+  if (nulls) {
     decode<true, TVisitor>(nullsInReadRange_->as<uint64_t>(), visitor);
   } else {
     decode<false, TVisitor>(nullptr, visitor);
@@ -2716,9 +2960,9 @@ void SelectiveStringDirectColumnReader::read(
   auto end = rows.back() + 1;
   auto numNulls =
       nullsInReadRange_ ? BaseVector::countNulls(nullsInReadRange_, 0, end) : 0;
-  ensureCapacity<int64_t>(lengths_, end - numNulls, &memoryPool);
-  lengthDecoder_->next(lengths_->asMutable<int64_t>(), end - numNulls, nullptr);
-  rawLengths_ = lengths_->as<uint64_t>();
+  ensureCapacity<int32_t>(lengths_, end - numNulls, &memoryPool);
+  lengthDecoder_->nextLengths(lengths_->asMutable<int32_t>(), end - numNulls);
+  rawLengths_ = lengths_->as<uint32_t>();
   lengthIndex_ = 0;
   if (scanSpec_->keepValues()) {
     if (scanSpec_->valueHook()) {
@@ -2839,7 +3083,7 @@ class SelectiveStringDictionaryColumnReader : public SelectiveColumnReader {
   // lazy load the dictionary
   std::unique_ptr<IntDecoder</*isSigned*/ false>> lengthDecoder_;
   std::unique_ptr<SeekableInputStream> blobStream_;
-  std::vector<uint8_t> filterCache_;
+  raw_vector<uint8_t> filterCache_;
   bool initialized_{false};
 };
 
@@ -2963,7 +3207,6 @@ void SelectiveStringDictionaryColumnReader::loadStrideDictionary() {
   lastStrideIndex_ = nextStride;
 
   dictionaryValues_.reset();
-  filterCache_.clear();
   filterCache_.resize(dictionaryCount_ + strideDictCount_);
   simd::memset(
       filterCache_.data(),
@@ -3029,8 +3272,6 @@ class StringDictionaryColumnVisitor
       DictionaryColumnVisitor<int32_t, TFilter, ExtractValues, isDense>;
 
  public:
-  static constexpr bool kHasBulkPath = false;
-
   StringDictionaryColumnVisitor(
       TFilter& filter,
       SelectiveStringDictionaryColumnReader* reader,
@@ -3077,7 +3318,7 @@ class StringDictionaryColumnVisitor
           DictSuper::filterCache_[index] == FilterResult::kFailure) {
         super::filterFailed();
       } else {
-        if (applyFilter(
+        if (common::applyFilter(
                 super::filter_, valueInDictionary(value, inStrideDict))) {
           super::filterPassed(index);
           if (TFilter::deterministic) {
@@ -3103,7 +3344,151 @@ class StringDictionaryColumnVisitor
     return super::currentRow() - previous - 1;
   }
 
+  // Feeds'numValues' items starting at 'values' to the result. If
+  // projecting out do nothing. If hook, call hook. If filter, apply
+  // and produce hits and if not filter only compact the values to
+  // remove non-passing. Returns the number of values in the result
+  // after processing.
+  template <bool hasFilter, bool hasHook, bool scatter>
+  void processRun(
+      const int32_t* input,
+      int32_t numInput,
+      const int32_t* scatterRows,
+      int32_t* filterHits,
+      int32_t* values,
+      int32_t& numValues) {
+    setByInDict(values, numInput);
+    if (!hasFilter) {
+      if (hasHook) {
+        for (auto i = 0; i < numInput; ++i) {
+          auto value = input[i];
+          super::values_.addValue(
+              scatterRows ? scatterRows[super::rowIndex_ + i]
+                          : super::rowIndex_ + i,
+              value);
+        }
+      }
+      DCHECK_EQ(input, values + numValues);
+      if (scatter) {
+        scatterDense(input, scatterRows + super::rowIndex_, numInput, values);
+      }
+      numValues = scatter ? scatterRows[super::rowIndex_ + numInput - 1] + 1
+                          : numValues + numInput;
+      super::rowIndex_ += numInput;
+      return;
+    }
+    constexpr bool filterOnly =
+        std::is_same<typename super::Extract, DropValues>::value;
+    constexpr int32_t kWidth = V32::VSize;
+    for (auto i = 0; i < numInput; i += kWidth) {
+      auto indices = V32::load(input + i);
+      V32::TV cache;
+      if (i + kWidth > numInput) {
+        cache = V32::maskGather32<1>(
+            V32::setAll(0),
+            V32::leadingMask(numInput - i),
+            DictSuper::filterCache_ - 3,
+            indices);
+      } else {
+        cache = V32::gather32<1>(DictSuper::filterCache_ - 3, indices);
+      }
+      auto unknowns = V32::compareResult((cache & (kUnknown << 24)) << 1);
+      auto passed = V32::compareBitMask(V32::compareResult(cache));
+      if (UNLIKELY(unknowns)) {
+        uint16_t bits = V32::compareBitMask(unknowns);
+        while (bits) {
+          int index = bits::getAndClearLastSetBit(bits);
+          int32_t value = input[i + index];
+          bool result;
+          if (value >= baseDictSize_) {
+            result = applyFilter(
+                super::filter_, valueInDictionary(value - baseDictSize_, true));
+          } else {
+            result =
+                applyFilter(super::filter_, valueInDictionary(value, false));
+          }
+          if (result) {
+            DictSuper::filterCache_[value] = FilterResult::kSuccess;
+            passed |= 1 << index;
+          } else {
+            DictSuper::filterCache_[value] = FilterResult::kFailure;
+          }
+        }
+      }
+      if (!passed) {
+        continue;
+      } else if (passed == (1 << V32::VSize) - 1) {
+        V32::store(
+            filterHits + numValues,
+            V32::load(
+                (scatter ? scatterRows : super::rows_) + super::rowIndex_ + i));
+        if (!filterOnly) {
+          V32::store(values + numValues, indices);
+        }
+        numValues += kWidth;
+      } else {
+        int8_t numBits = __builtin_popcount(passed);
+        auto setBits = V32::load(&V32::byteSetBits()[passed]);
+        simd::storePermute(
+            filterHits + numValues,
+            V32::load(
+                (scatter ? scatterRows : super::rows_) + super::rowIndex_ + i),
+            setBits);
+        if (!filterOnly) {
+          simd::storePermute(values + numValues, indices, setBits);
+        }
+        numValues += numBits;
+      }
+    }
+    super::rowIndex_ += numInput;
+  }
+
+  // Processes a run length run.
+  // 'value' is the value for 'currentRow' and numRows is the number of
+  // selected rows that fall in this RLE. If value is 10 and delta is 3
+  // and rows is {20, 30}, then this processes a 25 at 20 and a 40 at
+  // 30.
+  template <bool hasFilter, bool hasHook, bool scatter>
+  void processRle(
+      int32_t value,
+      int32_t delta,
+      int32_t numRows,
+      int32_t currentRow,
+      const int32_t* scatterRows,
+      int32_t* filterHits,
+      int32_t* values,
+      int32_t& numValues) {
+    constexpr int32_t kWidth = V32::VSize;
+    for (auto i = 0; i < numRows; i += kWidth) {
+      V32::store(
+          values + numValues + i,
+          (V32::load(super::rows_ + super::rowIndex_ + i) - currentRow) *
+                  delta +
+              value);
+    }
+
+    processRun<hasFilter, hasHook, scatter>(
+        values + numValues,
+        numRows,
+        scatterRows,
+        filterHits,
+        values,
+        numValues);
+  }
+
  private:
+  void setByInDict(int32_t* values, int numValues) {
+    if (DictSuper::inDict_) {
+      auto current = super::rowIndex_;
+      int32_t i = 0;
+      for (; i < numValues; ++i) {
+        if (!bits::isBitSet(DictSuper::inDict_, super::rows_[i + current])) {
+          values[i] += baseDictSize_;
+        }
+      }
+    }
+  }
+
   folly::StringPiece valueInDictionary(int64_t index, bool inStrideDict) {
     if (inStrideDict) {
       auto start = strideDictOffset_[index];
@@ -3269,8 +3654,14 @@ void SelectiveStringDictionaryColumnReader::read(
   ensureInitialized();
 
   if (inDictionaryReader_) {
-    ensureCapacity<uint64_t>(inDict_, bits::nwords(numRows), &memoryPool);
-    inDictionaryReader_->next(inDict_->asMutable<char>(), numRows, nullsPtr);
+    auto end = rows.back() + 1;
+    bool isBulk = useBulkPath();
+    int32_t numFlags = (isBulk && nullsInReadRange_)
+        ? bits::countNonNulls(nullsInReadRange_->as<uint64_t>(), 0, end)
+        : end;
+    ensureCapacity<uint64_t>(inDict_, bits::nwords(numFlags), &memoryPool);
+    inDictionaryReader_->next(
+        inDict_->asMutable<char>(), numFlags, isBulk ? nullptr : nullsPtr);
     loadStrideDictionary();
     if (strideDict_) {
       DWIO_ENSURE_NOT_NULL(strideDictOffset_);
@@ -3343,7 +3734,9 @@ void SelectiveStringDictionaryColumnReader::getValues(
 
   *result = std::make_shared<DictionaryVector<StringView>>(
       &memoryPool,
-      anyNulls_ ? resultNulls_ : nullptr,
+      !anyNulls_               ? nullptr
+          : returnReaderNulls_ ? nullsInReadRange_
+                               : resultNulls_,
       numValues_,
       dictionaryValues_,
       TypeKind::INTEGER,
@@ -3366,7 +3759,6 @@ void SelectiveStringDictionaryColumnReader::ensureInitialized() {
   dictionaryBlob_ = loadDictionary(
       dictionaryCount_, *blobStream_, *lengthDecoder_, dictionaryOffset_);
   dictionaryValues_.reset();
-  filterCache_.clear();
   filterCache_.resize(dictionaryCount_);
   simd::memset(filterCache_.data(), FilterResult::kUnknown, dictionaryCount_);
 
@@ -3532,9 +3924,9 @@ void SelectiveStructColumnReader::next(
   VELOX_CHECK(!incomingNulls, "next may only be called for the root reader.");
   if (children_.empty()) {
     // no readers
-    // This can be either count(*) query or a query that select only constant
-    // columns (partition keys or columns missing from an old file due to schema
-    // evolution)
+    // This can be either count(*) query or a query that select only
+    // constant columns (partition keys or columns missing from an old file
+    // due to schema evolution)
     result->resize(numValues);
 
     auto resultRowVector = std::dynamic_pointer_cast<RowVector>(result);
@@ -3740,6 +4132,11 @@ void SelectiveStructColumnReader::getValues(RowSet rows, VectorPtr* result) {
 // Abstract superclass for list and map readers. Encapsulates common
 // logic for dealing with mapping between enclosing and nested rows.
 class SelectiveRepeatedColumnReader : public SelectiveColumnReader {
+ public:
+  bool useBulkPath() const override {
+    return false;
+  }
+
  protected:
   // Buffer size for reading length stream
   static constexpr size_t kBufferSize = 1024;
@@ -3785,7 +4182,8 @@ class SelectiveRepeatedColumnReader : public SelectiveColumnReader {
     vector_size_t nestedOffset = 0;
     for (auto rowIndex = 0; rowIndex < rows.size(); ++rowIndex) {
       auto row = rows[rowIndex];
-      // Add up the lengths of non-null rows skipped since the last non-null.
+      // Add up the lengths of non-null rows skipped since the last
+      // non-null.
       for (auto i = currentRow; i < row; ++i) {
         if (!nulls || !bits::isBitNull(nulls, i)) {
           nestedOffset += allLengths_[i];
