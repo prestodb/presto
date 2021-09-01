@@ -238,6 +238,21 @@ TEST_F(CastExprTest, truncateVsRound) {
   });
   testCast<double, int>(
       "int", {1.888, 2.5, 3.6, 100.44, -100.101}, {2, 3, 4, 100, -100});
+
+  testCast<int8_t, int32_t>("int", {111, 2, 3, 10, -10}, {111, 2, 3, 10, -10});
+
+  queryCtx_->setConfigOverridesUnsafe({
+      {core::QueryCtx::kCastIntByTruncate, "true"},
+  });
+  testCast<int32_t, int8_t>(
+      "tinyint", {1111111, 2, 3, 1000, -100101}, {71, 2, 3, -24, -5});
+  queryCtx_->setConfigOverridesUnsafe({
+      {core::QueryCtx::kCastIntByTruncate, "false"},
+  });
+  EXPECT_THROW(
+      (testCast<int32_t, int8_t>(
+          "tinyint", {1111111, 2, 3, 1000, -100101}, {71, 2, 3, -24, -5})),
+      std::exception);
 }
 
 TEST_F(CastExprTest, nullInputs) {

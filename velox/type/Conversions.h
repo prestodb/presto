@@ -127,19 +127,35 @@ struct Converter<
   }
 
   static T cast(const int8_t& v) {
-    return folly::to<T>(v);
+    if constexpr (TRUNCATE) {
+      return T(v);
+    } else {
+      return folly::to<T>(v);
+    }
   }
 
   static T cast(const int16_t& v) {
-    return folly::to<T>(v);
+    if constexpr (TRUNCATE) {
+      return T(v);
+    } else {
+      return folly::to<T>(v);
+    }
   }
 
   static T cast(const int32_t& v) {
-    return folly::to<T>(v);
+    if constexpr (TRUNCATE) {
+      return T(v);
+    } else {
+      return folly::to<T>(v);
+    }
   }
 
   static T cast(const int64_t& v) {
-    return folly::to<T>(v);
+    if constexpr (TRUNCATE) {
+      return T(v);
+    } else {
+      return folly::to<T>(v);
+    }
   }
 };
 
