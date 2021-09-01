@@ -48,14 +48,14 @@ class MinMaxTest : public aggregate::test::AggregationTestBase {
     // Global partial aggregation.
     auto op = PlanBuilder()
                   .values(vectors)
-                  .partialAggregation({}, {agg(c1)}, {intermediateType})
+                  .partialAggregation({}, {agg(c1)}, {}, {intermediateType})
                   .planNode();
     assertQuery(op, fmt::format("SELECT {} FROM tmp", agg(c1)));
 
     // Global final aggregation.
     op = PlanBuilder()
              .values(vectors)
-             .partialAggregation({}, {agg(c1)}, {intermediateType})
+             .partialAggregation({}, {agg(c1)}, {}, {intermediateType})
              .finalAggregation({}, {agg(a0)}, {inputType})
              .planNode();
     assertQuery(op, fmt::format("SELECT {} FROM tmp", agg(c1)));
@@ -64,7 +64,7 @@ class MinMaxTest : public aggregate::test::AggregationTestBase {
     op = PlanBuilder()
              .values(vectors)
              .project({"c0 % 10", "c1"}, {"c0 % 10", "c1"})
-             .partialAggregation({0}, {agg(c1)}, {intermediateType})
+             .partialAggregation({0}, {agg(c1)}, {}, {intermediateType})
              .planNode();
     assertQuery(
         op, fmt::format("SELECT c0 % 10, {} FROM tmp GROUP BY 1", agg(c1)));
@@ -73,7 +73,7 @@ class MinMaxTest : public aggregate::test::AggregationTestBase {
     op = PlanBuilder()
              .values(vectors)
              .project({"c0 % 10", "c1"}, {"c0 % 10", "c1"})
-             .partialAggregation({0}, {agg(c1)}, {intermediateType})
+             .partialAggregation({0}, {agg(c1)}, {}, {intermediateType})
              .finalAggregation({0}, {agg(a0)}, {inputType})
              .planNode();
     assertQuery(
@@ -84,7 +84,7 @@ class MinMaxTest : public aggregate::test::AggregationTestBase {
              .values(vectors)
              .filter("c0 % 2 = 0")
              .project({"c0 % 11", "c1"}, {"c0_mod_11", "c1"})
-             .partialAggregation({0}, {agg(c1)}, {intermediateType})
+             .partialAggregation({0}, {agg(c1)}, {}, {intermediateType})
              .planNode();
 
     assertQuery(
@@ -96,7 +96,7 @@ class MinMaxTest : public aggregate::test::AggregationTestBase {
     op = PlanBuilder()
              .values(vectors)
              .filter("c0 % 2 = 0")
-             .partialAggregation({}, {agg(c1)}, {inputType})
+             .partialAggregation({}, {agg(c1)}, {}, {inputType})
              .planNode();
     assertQuery(
         op, fmt::format("SELECT {} FROM tmp WHERE c0 % 2 = 0", agg(c1)));
@@ -276,7 +276,7 @@ TEST_F(MinMaxTest, minMaxTimestamp) {
   // Intermediate result type is BIGINT.
   auto agg = PlanBuilder()
                  .values(vectors)
-                 .partialAggregation({}, {"min(c0)", "max(c0)"}, {BIGINT()})
+                 .partialAggregation({}, {"min(c0)", "max(c0)"}, {}, {BIGINT()})
                  .finalAggregation({}, {"min(a0)", "max(a1)"}, {TIMESTAMP()})
                  .planNode();
   assertQuery(
@@ -286,7 +286,7 @@ TEST_F(MinMaxTest, minMaxTimestamp) {
   // Intermediate result type is TIMESTAMP.
   agg = PlanBuilder()
             .values(vectors)
-            .partialAggregation({}, {"min(c0)", "max(c0)"}, {TIMESTAMP()})
+            .partialAggregation({}, {"min(c0)", "max(c0)"}, {}, {TIMESTAMP()})
             .finalAggregation({}, {"min(a0)", "max(a1)"}, {TIMESTAMP()})
             .planNode();
   assertQuery(agg, "SELECT min(c0), max(c0) FROM tmp");
@@ -307,14 +307,14 @@ TEST_F(MinMaxTest, initialValue) {
   // Make sure they are not zero.
   auto agg = PlanBuilder()
                  .values({row})
-                 .partialAggregation({}, {"min(c0)"}, {BIGINT()})
+                 .partialAggregation({}, {"min(c0)"}, {}, {BIGINT()})
                  .finalAggregation({}, {"min(a0)"}, {TINYINT()})
                  .planNode();
   assertQuery(agg, "SELECT 1");
 
   agg = PlanBuilder()
             .values({row})
-            .partialAggregation({}, {"max(c1)"}, {BIGINT()})
+            .partialAggregation({}, {"max(c1)"}, {}, {BIGINT()})
             .finalAggregation({}, {"max(a0)"}, {TINYINT()})
             .planNode();
   assertQuery(agg, "SELECT -1");

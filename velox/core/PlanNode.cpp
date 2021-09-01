@@ -18,7 +18,35 @@
 namespace facebook::velox::core {
 
 namespace {
-static const std::vector<std::shared_ptr<const PlanNode>> EMPTY_SOURCES;
+const std::vector<std::shared_ptr<const PlanNode>> EMPTY_SOURCES;
+}
+
+AggregationNode::AggregationNode(
+    const PlanNodeId& id,
+    Step step,
+    const std::vector<std::shared_ptr<const FieldAccessTypedExpr>>&
+        groupingKeys,
+    const std::vector<std::string>& aggregateNames,
+    const std::vector<std::shared_ptr<const CallTypedExpr>>& aggregates,
+    const std::vector<std::shared_ptr<const FieldAccessTypedExpr>>& aggrMasks,
+    bool ignoreNullKeys,
+    std::shared_ptr<const PlanNode> source)
+    : PlanNode(id),
+      step_(step),
+      groupingKeys_(groupingKeys),
+      aggregateNames_(aggregateNames),
+      aggregates_(aggregates),
+      aggrMasks_(aggrMasks),
+      ignoreNullKeys_(ignoreNullKeys),
+      sources_{source},
+      outputType_(getOutputType(groupingKeys_, aggregateNames_, aggregates_)) {
+  // Empty grouping keys are used in global aggregation:
+  //    SELECT sum(c) FROM t
+  // Empty aggregates are used in distinct:
+  //    SELECT distinct(b, c) FROM t GROUP BY a
+  VELOX_CHECK(
+      !groupingKeys_.empty() || !aggregates_.empty(),
+      "Aggregation must specify either grouping keys or aggregates");
 }
 
 const std::vector<std::shared_ptr<const PlanNode>>& ValuesNode::sources()

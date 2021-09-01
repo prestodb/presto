@@ -69,7 +69,6 @@ TEST_F(SumTest, sumTinyint) {
             .project({"c0 % 11", "c1"}, {"c0_mod_11", "c1"})
             .partialAggregation({0}, {"sum(c1)"})
             .planNode();
-
   assertQuery(
       agg, "SELECT c0 % 11, sum(c1) FROM tmp WHERE c0 % 2 = 0 GROUP BY 1");
 
@@ -79,6 +78,87 @@ TEST_F(SumTest, sumTinyint) {
             .partialAggregation({}, {"sum(c1)"})
             .planNode();
   assertQuery(agg, "SELECT sum(c1) FROM tmp WHERE c0 % 2 = 0");
+}
+
+TEST_F(SumTest, sumWithMask) {
+  auto rowType =
+      ROW({"c0", "c1", "c2", "c3", "c4"},
+          {INTEGER(), TINYINT(), BIGINT(), BIGINT(), INTEGER()});
+  auto vectors = makeVectors(rowType, 100, 10);
+
+  std::shared_ptr<core::PlanNode> op;
+  createDuckDbTable(vectors);
+
+  // Aggregations 0 and 1 will use the same channel, but different masks.
+  // Aggregations 1 and 2 will use different channels, but the same mask.
+
+  // Global partial+final aggregation.
+  op = PlanBuilder()
+           .values(vectors)
+           .project(
+               {"c0", "c1", "c2 % 2 = 0", "c3 % 3 = 0"},
+               {"c0", "c1", "m0", "m1"})
+           .partialAggregation(
+               {}, {"sum(c0)", "sum(c0)", "sum(c1)"}, {"m0", "m1", "m1"})
+           .finalAggregation({}, {"sum(a0)", "sum(a1)", "sum(a2)"})
+           .planNode();
+  assertQuery(
+      op,
+      "SELECT sum(c0) filter (where c2 % 2 = 0), "
+      "sum(c0) filter (where c3 % 3 = 0), sum(c1) filter (where c3 % 3 = 0) "
+      "FROM tmp");
+
+  // Encodings: use filter to wrap aggregation inputs in a dictionary.
+  // Global partial+final aggregation.
+  op = PlanBuilder()
+           .values(vectors)
+           .filter("c3 % 2 = 0")
+           .project(
+               {"c0", "c1", "c2 % 2 = 0", "c3 % 3 = 0"},
+               {"c0", "c1", "m0", "m1"})
+           .partialAggregation(
+               {}, {"sum(c0)", "sum(c0)", "sum(c1)"}, {"m0", "m1", "m1"})
+           .finalAggregation({}, {"sum(a0)", "sum(a1)", "sum(a2)"})
+           .planNode();
+  assertQuery(
+      op,
+      "SELECT sum(c0) filter (where c2 % 2 = 0), "
+      "sum(c0) filter (where c3 % 3 = 0), sum(c1) filter (where c3 % 3 = 0) "
+      "FROM tmp where c3 % 2 = 0");
+
+  // Group by partial+final aggregation.
+  op = PlanBuilder()
+           .values(vectors)
+           .project(
+               {"c4", "c0", "c1", "c2 % 2 = 0", "c3 % 3 = 0"},
+               {"c4", "c0", "c1", "m0", "m1"})
+           .partialAggregation(
+               {0}, {"sum(c0)", "sum(c0)", "sum(c1)"}, {"m0", "m1", "m1"})
+           .finalAggregation({0}, {"sum(a0)", "sum(a1)", "sum(a2)"})
+           .planNode();
+  assertQuery(
+      op,
+      "SELECT c4, sum(c0) filter (where c2 % 2 = 0), "
+      "sum(c0) filter (where c3 % 3 = 0), sum(c1) filter (where c3 % 3 = 0) "
+      "FROM tmp group by c4");
+
+  // Encodings: use filter to wrap aggregation inputs in a dictionary.
+  // Group by partial+final aggregation.
+  op = PlanBuilder()
+           .values(vectors)
+           .filter("c3 % 2 = 0")
+           .project(
+               {"c4", "c0", "c1", "c2 % 2 = 0", "c3 % 3 = 0"},
+               {"c4", "c0", "c1", "m0", "m1"})
+           .partialAggregation(
+               {0}, {"sum(c0)", "sum(c0)", "sum(c1)"}, {"m0", "m1", "m1"})
+           .finalAggregation({0}, {"sum(a0)", "sum(a1)", "sum(a2)"})
+           .planNode();
+  assertQuery(
+      op,
+      "SELECT c4, sum(c0) filter (where c2 % 2 = 0), "
+      "sum(c0) filter (where c3 % 3 = 0), sum(c1) filter (where c3 % 3 = 0) "
+      "FROM tmp where c3 % 2 = 0 group by c4");
 }
 
 // Test aggregation over boolean key

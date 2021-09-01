@@ -163,15 +163,33 @@ class SimpleNumericAggregate : public exec::Aggregate {
   void
   pushdown(char** groups, const SelectivityVector& rows, const VectorPtr& arg) {
     DecodedVector decoded(*arg, rows, false);
-    auto indices = decoded.indices();
+    const vector_size_t* indices = decoded.indices();
     THook hook(
         exec::Aggregate::offset_,
         exec::Aggregate::nullByte_,
         exec::Aggregate::nullMask_,
         groups,
         &this->exec::Aggregate::numNulls_);
+    // The decoded vector does not really keep the info from the 'rows', except
+    // for the 'upper bound' of it. In case not all rows are selected we need to
+    // generate proper indices, which we 'indirect' through the ones we got from
+    // the decoded vector.
+    vector_size_t numIndices{arg->size()};
+    if (not rows.isAllSelected()) {
+      const auto numSelected = rows.countSelected();
+      if (numSelected != arg->size()) {
+        pushdownCustomIndices_.resize(numSelected);
+        vector_size_t tgtIndex{0};
+        rows.template applyToSelected([&](vector_size_t i) {
+          pushdownCustomIndices_[tgtIndex++] = indices[i];
+        });
+        indices = pushdownCustomIndices_.data();
+        numIndices = numSelected;
+      }
+    }
+
     decoded.base()->as<const LazyVector>()->load(
-        RowSet(indices, arg->size()), &hook);
+        RowSet(indices, numIndices), &hook);
   }
 
  private:

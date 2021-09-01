@@ -46,6 +46,7 @@ bool areAllLazyNotLoaded(const std::vector<VectorPtr>& vectors) {
 GroupingSet::GroupingSet(
     std::vector<std::unique_ptr<VectorHasher>>&& hashers,
     std::vector<std::unique_ptr<Aggregate>>&& aggregates,
+    std::vector<std::optional<ChannelIndex>>&& aggrMaskChannels,
     std::vector<std::vector<ChannelIndex>>&& channelLists,
     std::vector<std::vector<VectorPtr>>&& constantLists,
     bool ignoreNullKeys,
@@ -53,6 +54,7 @@ GroupingSet::GroupingSet(
     : hashers_(std::move(hashers)),
       isGlobal_(hashers_.empty()),
       aggregates_(std::move(aggregates)),
+      aggrMaskChannels_(std::move(aggrMaskChannels)),
       channelLists_(std::move(channelLists)),
       constantLists_(std::move(constantLists)),
       ignoreNullKeys_(ignoreNullKeys),
@@ -65,17 +67,17 @@ GroupingSet::GroupingSet(
     keyChannels_.push_back(hasher->channel());
   }
   std::unordered_map<ChannelIndex, int> channelUseCount;
-  for (auto argList : channelLists_) {
-    for (int channel : argList) {
+  for (const std::vector<ChannelIndex>& argList : channelLists_) {
+    for (ChannelIndex channel : argList) {
       ++channelUseCount[channel];
     }
   }
-  for (auto& argList : channelLists_) {
+  for (const std::vector<ChannelIndex>& argList : channelLists_) {
     mayPushdown_.push_back(allAreSinglyReferenced(argList, channelUseCount));
   }
 }
 
-void GroupingSet::addInput(RowVectorPtr input, bool mayPushdown) {
+void GroupingSet::addInput(const RowVectorPtr& input, bool mayPushdown) {
   auto numRows = input->size();
   activeRows_.resize(numRows);
   activeRows_.setAll();
@@ -85,13 +87,13 @@ void GroupingSet::addInput(RowVectorPtr input, bool mayPushdown) {
       initializeGlobalAggregation();
     }
     numAdded_ += numRows;
-    for (int32_t i = 0; i < aggregates_.size(); ++i) {
+    for (auto i = 0; i < aggregates_.size(); ++i) {
       populateTempVectors(i, input);
+      const SelectivityVector& rows = *prepareSelectivityVector(i, input);
+      const bool canPushdown =
+          mayPushdown && mayPushdown_[i] && areAllLazyNotLoaded(tempVectors_);
       aggregates_[i]->updateSingleGroup(
-          lookup_->hits[0],
-          activeRows_,
-          tempVectors_,
-          mayPushdown && mayPushdown_[i] && areAllLazyNotLoaded(tempVectors_));
+          lookup_->hits[0], rows, tempVectors_, canPushdown);
     }
     tempVectors_.clear();
     return;
@@ -156,13 +158,16 @@ void GroupingSet::addInput(RowVectorPtr input, bool mayPushdown) {
   }
   numAdded_ += lookup_->rows.size();
   table_->groupProbe(*lookup_);
-  for (int32_t i = 0; i < aggregates_.size(); ++i) {
+  for (auto i = 0; i < aggregates_.size(); ++i) {
+    const SelectivityVector& rows = *prepareSelectivityVector(i, input);
+    // TODO(spershin): We disable the pushdown at the moment if selectivity
+    // vector has changed after groups generation, we might want to revisit
+    // this.
+    const bool canPushdown = (&rows != &activeRows_) && mayPushdown &&
+        mayPushdown_[i] && areAllLazyNotLoaded(tempVectors_);
     populateTempVectors(i, input);
     aggregates_[i]->update(
-        lookup_->hits.data(),
-        activeRows_,
-        tempVectors_,
-        mayPushdown && mayPushdown_[i] && areAllLazyNotLoaded(tempVectors_));
+        lookup_->hits.data(), rows, tempVectors_, canPushdown);
   }
   tempVectors_.clear();
 }
@@ -199,22 +204,51 @@ void GroupingSet::populateTempVectors(
     const RowVectorPtr& input) {
   auto& channels = channelLists_[aggregateIndex];
   tempVectors_.resize(channels.size());
-  for (int32_t channelIndex = 0; channelIndex < channels.size();
-       ++channelIndex) {
-    if (channels[channelIndex] == kConstantChannel) {
-      tempVectors_[channelIndex] = constantLists_[aggregateIndex][channelIndex];
+  for (auto i = 0; i < channels.size(); ++i) {
+    if (channels[i] == kConstantChannel) {
+      tempVectors_[i] = constantLists_[aggregateIndex][i];
     } else {
       // No load of lazy vectors; The aggregate may decide to push down.
-      tempVectors_[channelIndex] = input->childAt(channels[channelIndex]);
+      tempVectors_[i] = input->childAt(channels[i]);
     }
   }
+}
+
+const SelectivityVector* GroupingSet::prepareSelectivityVector(
+    size_t aggregateIndex,
+    const RowVectorPtr& input) {
+  // No mask? Use the current selectivity vector for this aggregation.
+  if (not aggrMaskChannels_[aggregateIndex].has_value()) {
+    return &activeRows_;
+  }
+
+  // Get the projection column vector that would be our mask.
+  const auto& maskVector =
+      input->childAt(aggrMaskChannels_[aggregateIndex].value());
+
+  // Copy existing selectivity vector to the masked one.
+  // TODO(spershin): It would be good to cache the masked selectivity vector in
+  // case more than one columns uses it.
+  maskedActiveRows_ = activeRows_;
+
+  // Get decoded vector and update the masked selectivity vector.
+  decodedMask_.decode(*maskVector, activeRows_);
+  activeRows_.applyToSelected([&](vector_size_t i) {
+    if (maskVector->isNullAt(i) || !decodedMask_.valueAt<bool>(i)) {
+      maskedActiveRows_.setValid(i, false);
+    }
+  });
+  maskedActiveRows_.updateBounds();
+
+  // Use masked selectivity vector for this aggregation.
+  return &maskedActiveRows_;
 }
 
 bool GroupingSet::getOutput(
     int32_t batchSize,
     bool isPartial,
     RowContainerIterator* iterator,
-    RowVectorPtr result) {
+    RowVectorPtr& result) {
   if (isGlobal_) {
     // global aggregation
     VELOX_CHECK_EQ(batchSize, 1);
@@ -285,7 +319,7 @@ const HashLookup& GroupingSet::hashLookup() const {
 HashAggregation::HashAggregation(
     int32_t operatorId,
     DriverCtx* driverCtx,
-    std::shared_ptr<const core::AggregationNode> aggregationNode)
+    const std::shared_ptr<const core::AggregationNode>& aggregationNode)
     : Operator(
           driverCtx,
           aggregationNode->outputType(),
@@ -306,10 +340,11 @@ HashAggregation::HashAggregation(
   auto numHashers = aggregationNode->groupingKeys().size();
   std::vector<std::unique_ptr<VectorHasher>> hashers;
   hashers.reserve(numHashers);
-  for (auto& key : aggregationNode->groupingKeys()) {
+  for (const auto& key : aggregationNode->groupingKeys()) {
     auto channel = exprToChannel(key.get(), inputType);
-    VELOX_CHECK(
-        channel != kConstantChannel,
+    VELOX_CHECK_NE(
+        channel,
+        kConstantChannel,
         "Aggregation doesn't allow constant grouping keys");
     hashers.push_back(VectorHasher::create(key->type(), channel));
   }
@@ -317,6 +352,8 @@ HashAggregation::HashAggregation(
   auto numAggregates = aggregationNode->aggregates().size();
   std::vector<std::unique_ptr<Aggregate>> aggregates;
   aggregates.reserve(numAggregates);
+  std::vector<std::optional<uint32_t>> aggrMaskChannels;
+  aggrMaskChannels.reserve(numAggregates);
   std::vector<std::vector<ChannelIndex>> args;
   std::vector<std::vector<VectorPtr>> constantLists;
   for (auto i = 0; i < numAggregates; i++) {
@@ -335,6 +372,16 @@ HashAggregation::HashAggregation(
       } else {
         constants.push_back(nullptr);
       }
+    }
+
+    // Setup aggregation mask: convert the Variable Reference name to the
+    // channel (projection) index, if there is a mask.
+    const auto& aggrMask = aggregationNode->aggrMasks()[i];
+    if (aggrMask == nullptr) {
+      aggrMaskChannels.emplace_back(std::optional<ChannelIndex>{});
+    } else {
+      aggrMaskChannels.emplace_back(
+          inputType->asRow().getChildIdx(aggrMask->name()));
     }
 
     const auto& resultType = outputType_->childAt(numHashers + i);
@@ -364,6 +411,7 @@ HashAggregation::HashAggregation(
   groupingSet_ = std::make_unique<GroupingSet>(
       std::move(hashers),
       std::move(aggregates),
+      std::move(aggrMaskChannels),
       std::move(args),
       std::move(constantLists),
       aggregationNode->ignoreNullKeys(),

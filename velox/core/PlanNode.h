@@ -415,24 +415,9 @@ class AggregationNode : public PlanNode {
           groupingKeys,
       const std::vector<std::string>& aggregateNames,
       const std::vector<std::shared_ptr<const CallTypedExpr>>& aggregates,
+      const std::vector<std::shared_ptr<const FieldAccessTypedExpr>>& aggrMasks,
       bool ignoreNullKeys,
-      std::shared_ptr<const PlanNode> source)
-      : PlanNode(id),
-        step_(step),
-        groupingKeys_(groupingKeys),
-        aggregateNames_(aggregateNames),
-        aggregates_(aggregates),
-        ignoreNullKeys_(ignoreNullKeys),
-        sources_{source},
-        outputType_(
-            getOutputType(groupingKeys_, aggregateNames_, aggregates_)) {
-    // empty grouping keys are used in global aggregation: SELECT sum(c) FROM
-    // t empty aggregates are used in distinct:
-    //    SELECT distinct(b, c) FROM t GROUP BY a
-    VELOX_CHECK(
-        !groupingKeys.empty() || !aggregates.empty(),
-        "Aggregation must specify either grouping keys or aggregates");
-  }
+      std::shared_ptr<const PlanNode> source);
 
   const std::vector<std::shared_ptr<const PlanNode>>& sources() const override {
     return sources_;
@@ -457,6 +442,11 @@ class AggregationNode : public PlanNode {
 
   const std::vector<std::shared_ptr<const CallTypedExpr>>& aggregates() const {
     return aggregates_;
+  }
+
+  const std::vector<std::shared_ptr<const FieldAccessTypedExpr>>& aggrMasks()
+      const {
+    return aggrMasks_;
   }
 
   bool ignoreNullKeys() const {
@@ -501,6 +491,9 @@ class AggregationNode : public PlanNode {
   const std::vector<std::shared_ptr<const FieldAccessTypedExpr>> groupingKeys_;
   const std::vector<std::string> aggregateNames_;
   const std::vector<std::shared_ptr<const CallTypedExpr>> aggregates_;
+  // Keeps mask/'no mask' for every aggregation. Mask, if given, is a reference
+  // to a boolean projection column, used to mask out rows for the aggregation.
+  const std::vector<std::shared_ptr<const FieldAccessTypedExpr>> aggrMasks_;
   const bool ignoreNullKeys_;
   const std::vector<std::shared_ptr<const PlanNode>> sources_;
   const RowTypePtr outputType_;

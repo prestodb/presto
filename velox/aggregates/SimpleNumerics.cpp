@@ -62,6 +62,7 @@ class SumAggregate : public SimpleNumericAggregate<T, ResultType, ResultType> {
           groups, rows, arg);
       return;
     }
+
     if (exec::Aggregate::numNulls_) {
       BaseAggregate::template updateGroups<true>(
           groups,

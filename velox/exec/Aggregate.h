@@ -236,6 +236,11 @@ class Aggregate {
   // is not needed.
   uint64_t numNulls_ = 0;
   HashStringAllocator* allocator_;
+
+  // When selectivity vector has holes, in the pushdown, we need to generate a
+  // different indices vector as the one we get from the DecodedVector is simply
+  // sequential.
+  std::vector<vector_size_t> pushdownCustomIndices_;
 };
 
 using AggregateFunctionRegistry = Registry<

@@ -64,10 +64,12 @@ class PlanBuilder {
   PlanBuilder& partialAggregation(
       const std::vector<ChannelIndex>& groupingKeys,
       const std::vector<std::string>& aggregates,
+      const std::vector<std::string>& masks = {},
       const std::vector<TypePtr>& resultTypes = {}) {
     return aggregation(
         groupingKeys,
         aggregates,
+        masks,
         core::AggregationNode::Step::kPartial,
         false,
         resultTypes);
@@ -83,6 +85,7 @@ class PlanBuilder {
     return aggregation(
         groupingKeys,
         aggregates,
+        {},
         core::AggregationNode::Step::kFinal,
         false,
         resultTypes);
@@ -94,6 +97,7 @@ class PlanBuilder {
     return aggregation(
         groupingKeys,
         aggregates,
+        {},
         core::AggregationNode::Step::kIntermediate,
         false);
   }
@@ -105,6 +109,7 @@ class PlanBuilder {
     return aggregation(
         groupingKeys,
         aggregates,
+        {},
         core::AggregationNode::Step::kSingle,
         false,
         resultTypes);
@@ -113,6 +118,7 @@ class PlanBuilder {
   PlanBuilder& aggregation(
       const std::vector<ChannelIndex>& groupingKeys,
       const std::vector<std::string>& aggregates,
+      const std::vector<std::string>& masks,
       core::AggregationNode::Step step,
       bool ignoreNullKeys,
       const std::vector<TypePtr>& resultTypes = {});

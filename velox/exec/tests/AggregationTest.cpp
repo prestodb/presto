@@ -48,6 +48,7 @@ class AggregationTest : public AggregationTestBase {
                   .aggregation(
                       {rowType_->getChildIdx(keyName)},
                       aggregates,
+                      {},
                       core::AggregationNode::Step::kPartial,
                       ignoreNullKeys)
                   .planNode();
@@ -94,6 +95,7 @@ class AggregationTest : public AggregationTestBase {
                   .aggregation(
                       {0, 1, 6},
                       aggregates,
+                      {},
                       core::AggregationNode::Step::kPartial,
                       ignoreNullKeys)
                   .planNode();
@@ -220,6 +222,7 @@ TEST_F(AggregationTest, global) {
                      "max(c3)",
                      "max(c4)",
                      "max(c5)"},
+                    {},
                     core::AggregationNode::Step::kPartial,
                     false)
                 .planNode();
@@ -291,6 +294,7 @@ TEST_F(AggregationTest, aggregateOfNulls) {
                 .aggregation(
                     {0},
                     {"sum(c1)", "min(c1)", "max(c1)"},
+                    {},
                     core::AggregationNode::Step::kPartial,
                     false)
                 .planNode();
@@ -303,6 +307,7 @@ TEST_F(AggregationTest, aggregateOfNulls) {
            .aggregation(
                {},
                {"sum(c1)", "min(c1)", "max(c1)"},
+               {},
                core::AggregationNode::Step::kPartial,
                false)
            .planNode();

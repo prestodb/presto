@@ -215,6 +215,7 @@ class AggregateTypeResolver {
 PlanBuilder& PlanBuilder::aggregation(
     const std::vector<ChannelIndex>& groupingKeys,
     const std::vector<std::string>& aggregates,
+    const std::vector<std::string>& masks,
     core::AggregationNode::Step step,
     bool ignoreNullKeys,
     const std::vector<TypePtr>& resultTypes) {
@@ -234,12 +235,24 @@ PlanBuilder& PlanBuilder::aggregation(
 
   auto names = makeNames("a", aggregates.size());
   auto groupingExpr = fields(groupingKeys);
+
+  // Generate masks vector for aggregations.
+  std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>> aggrMasks(
+      aggregateExprs.size());
+  if (!masks.empty()) {
+    VELOX_CHECK_EQ(aggregates.size(), masks.size());
+    for (auto i = 0; i < masks.size(); i++) {
+      aggrMasks[i] = field(masks[i]);
+    }
+  }
+
   planNode_ = std::make_shared<core::AggregationNode>(
       nextPlanNodeId(),
       step,
       groupingExpr,
       names,
       aggregateExprs,
+      aggrMasks,
       ignoreNullKeys,
       planNode_);
   return *this;
