@@ -31,7 +31,7 @@ Task::Task(
     const std::string& taskId,
     std::shared_ptr<const core::PlanNode> planNode,
     int destination,
-    std::shared_ptr<core::QueryCtx>&& queryCtx,
+    std::shared_ptr<core::QueryCtx> queryCtx,
     ConsumerSupplier consumerSupplier,
     std::function<void(std::exception_ptr)> onError)
     : taskId_(taskId),
@@ -42,13 +42,7 @@ Task::Task(
       onError_(onError),
       pool_(queryCtx_->pool()->addScopedChild("task_root")),
       bufferManager_(
-          PartitionedOutputBufferManager::getInstance(queryCtx_->host())) {
-  if (!pool_->getMemoryUsageTracker()) {
-    // Enable eager memory usage tracking for this task's pool and any child
-    // pool created from this task.
-    pool_->setMemoryUsageTracker(memory::MemoryUsageTracker::create());
-  }
-}
+          PartitionedOutputBufferManager::getInstance(queryCtx_->host())) {}
 
 Task::~Task() {
   try {
@@ -90,7 +84,11 @@ void Task::start(std::shared_ptr<Task> self, uint32_t maxDrivers) {
     self->numDrivers_ += std::min(factory->maxDrivers, maxDrivers);
   }
   self->taskStats_.pipelineStats.resize(self->driverFactories_.size());
-  self->drivers_.resize(self->numDrivers_);
+  // Register self for possible memory recovery callback. Do this
+  // after sizing 'drivers_' but before starting the
+  // Drivers. 'drivers_' can be read by memory recovery or
+  // cancellation while Drivers are being made, so the array should
+  // have final size from the start.
 
   auto bufferManager = self->bufferManager_.lock();
   VELOX_CHECK_NOT_NULL(
@@ -98,6 +96,8 @@ void Task::start(std::shared_ptr<Task> self, uint32_t maxDrivers) {
       "Unable to initialize task. "
       "PartitionedOutputBufferManager was already destructed");
 
+  std::vector<std::shared_ptr<Driver>> drivers;
+  drivers.reserve(self->numDrivers_);
   for (auto pipeline = 0; pipeline < self->driverFactories_.size();
        ++pipeline) {
     auto& factory = self->driverFactories_[pipeline];
@@ -126,7 +126,7 @@ void Task::start(std::shared_ptr<Task> self, uint32_t maxDrivers) {
     }
 
     for (int32_t i = 0; i < numDrivers; ++i) {
-      self->drivers_.push_back(factory->createDriver(
+      drivers.push_back(factory->createDriver(
           std::make_unique<DriverCtx>(self, i, pipeline, numDrivers),
           exchangeClient,
           [self, maxDrivers](size_t i) {
@@ -135,23 +135,52 @@ void Task::start(std::shared_ptr<Task> self, uint32_t maxDrivers) {
                 : 0;
           }));
       if (i == 0) {
-        self->drivers_.back()->initializeOperatorStats(
+        drivers.back()->initializeOperatorStats(
             self->taskStats_.pipelineStats[pipeline].operatorStats);
       }
-      Driver::enqueue(self->drivers_.back(), self->queryCtx_->executor());
     }
   }
   self->noMoreLocalExchangeProducers();
+  // Set and start all Drivers together inside the CancelPool so that
+  // cancellations and pauses have well
+  // defined timing. For example, do not pause and restart a task
+  // while it is still adding Drivers.
+  std::lock_guard<std::mutex> l(*self->cancelPool()->mutex());
+  self->drivers_ = std::move(drivers);
+  for (auto& driver : self->drivers_) {
+    if (driver) {
+      Driver::enqueue(driver);
+    }
+  }
 }
 
 // static
 void Task::resume(std::shared_ptr<Task> self) {
   VELOX_CHECK(!self->exception_, "Cannot resume failed task");
-  std::lock_guard<std::mutex> l(self->mutex_);
+  std::lock_guard<std::mutex> l(*self->cancelPool()->mutex());
+  // Setting pause requested must be atomic with the resuming so that
+  // suspended sections do not go back on thread during resume.
+  self->cancelPool_->requestPauseLocked(false);
   for (auto& driver : self->drivers_) {
     if (driver) {
+      if (driver->state().isSuspended) {
+        // The Driver will come on thread in its own time as long as
+        // the cancel flag is reset. This check needs to be inside the
+        // CancelPool mutex.
+        continue;
+      }
+      if (driver->state().isEnqueued) {
+        // A Driver can wait for a thread and there can be a
+        // pause/resume during the wait. The Driver should not be
+        // enqueued twice.
+        continue;
+      }
       VELOX_CHECK(!driver->isOnThread() && !driver->isTerminated());
-      Driver::enqueue(driver, self->queryCtx_->executor());
+      if (!driver->state().hasBlockingFuture) {
+        // Do not continue a Driver that is blocked on external
+        // event. The Driver gets enqueued by the promise realization.
+        Driver::enqueue(driver);
+      }
     }
   }
 }

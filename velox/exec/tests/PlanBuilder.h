@@ -187,6 +187,14 @@ class PlanBuilder {
     return planNode_;
   }
 
+  // Adds a user defined PlanNode as the root of the plan. 'func' takes
+  // the current root of the plan and returns the new root.
+  PlanBuilder& addNode(std::function<std::shared_ptr<core::PlanNode>(
+                           std::shared_ptr<const core::PlanNode>)> func) {
+    planNode_ = func(planNode_);
+    return *this;
+  }
+
  private:
   std::string nextPlanNodeId();
 

@@ -70,7 +70,7 @@ class Task {
       const std::string& taskId,
       std::shared_ptr<const core::PlanNode> planNode,
       int destination,
-      std::shared_ptr<core::QueryCtx>&& queryCtx,
+      std::shared_ptr<core::QueryCtx> queryCtx,
       Consumer consumer = nullptr,
       std::function<void(std::exception_ptr)> onError = nullptr)
       : Task{
@@ -86,12 +86,9 @@ class Task {
       const std::string& taskId,
       std::shared_ptr<const core::PlanNode> planNode,
       int destination,
-      std::shared_ptr<core::QueryCtx>&& queryCtx,
+      std::shared_ptr<core::QueryCtx> queryCtx,
       ConsumerSupplier consumerSupplier,
       std::function<void(std::exception_ptr)> onError = nullptr);
-
-  Task(const std::string& id, std::shared_ptr<core::QueryCtx> ctx)
-      : taskId_(id), destination_(0), queryCtx_(ctx) {}
 
   ~Task();
 
@@ -109,7 +106,9 @@ class Task {
   // alive by 'self'. 'self' going out of scope may cause the Task to
   // be freed. This happens if a cancelled task is decoupled from the
   // task manager and threads are left to finish themselves.
-  static void removeDriver(std::shared_ptr<Task> self, Driver* instance);
+  static void removeDriver(
+      std::shared_ptr<Task> self,
+      Driver* FOLLY_NONNULL instance);
 
   // Sets the (so far) max split sequence id, so all splits with sequence id
   // equal or below that, will be ignored in the 'addSplitWithSequence' call.
@@ -329,6 +328,10 @@ class Task {
     return cancelPool_;
   }
 
+  // Returns the Driver running on the current thread or nullptr if the current
+  // thread is not running a Driver of 'this'.
+  Driver* FOLLY_NULLABLE thisDriver() const;
+
  private:
   struct BarrierState {
     int32_t numRequested;
@@ -437,4 +440,5 @@ class Task {
   core::CancelPoolPtr cancelPool_{std::make_shared<core::CancelPool>()};
   std::weak_ptr<PartitionedOutputBufferManager> bufferManager_;
 };
+
 } // namespace facebook::velox::exec

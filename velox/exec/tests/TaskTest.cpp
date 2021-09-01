@@ -27,7 +27,8 @@ TEST_F(TaskTest, splitGroup) {
   auto connectorSplit = std::make_shared<connector::hive::HiveConnectorSplit>(
       "test", "file:/tmp/abc", 0, 100);
   core::PlanNodeId planNodeId{"0"};
-  exec::Task task("0", nullptr);
+  auto queryCtx = std::make_shared<core::QueryCtx>();
+  exec::Task task("0", nullptr, 0, queryCtx);
 
   // This is the set of completed groups we expect.
   std::unordered_set<int32_t> completedSplitGroups;

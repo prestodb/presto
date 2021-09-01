@@ -109,6 +109,7 @@ class TaskCursor {
   std::shared_ptr<TaskQueue> queue_;
   std::shared_ptr<exec::Task> task_;
   RowVectorPtr current_;
+  static int32_t serial_;
 };
 
 class RowCursor {

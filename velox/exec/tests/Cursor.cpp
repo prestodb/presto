@@ -102,6 +102,8 @@ bool TaskQueue::hasNext() {
   return !queue_.empty();
 }
 
+int32_t TaskCursor::serial_;
+
 TaskCursor::TaskCursor(const CursorParameters& params) {
   std::shared_ptr<core::QueryCtx> queryCtx;
   if (params.queryCtx) {
@@ -114,7 +116,7 @@ TaskCursor::TaskCursor(const CursorParameters& params) {
   // Captured as a shared_ptr by the consumer callback of task_.
   auto queue = queue_;
   task_ = std::make_shared<exec::Task>(
-      "test_cursor",
+      fmt::format("test_cursor {}", ++serial_),
       params.planNode,
       params.destination,
       std::move(queryCtx),

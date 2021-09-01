@@ -298,7 +298,9 @@ std::shared_ptr<Driver> DriverFactory::createDriver(
             std::dynamic_pointer_cast<const core::UnnestNode>(planNode)) {
       operators.push_back(std::make_unique<Unnest>(id, ctx.get(), unnest));
     } else {
-      VELOX_FAIL("Unsupported plan node: {}", planNode->toString());
+      auto extended = Operator::fromPlanNode(ctx.get(), id, planNode);
+      VELOX_CHECK(extended, "Unsupported plan node: {}", planNode->toString());
+      operators.push_back(std::move(extended));
     }
   }
   if (consumerSupplier) {

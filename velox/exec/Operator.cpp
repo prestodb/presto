@@ -25,6 +25,25 @@ namespace facebook {
 namespace velox {
 namespace exec {
 
+std::vector<Operator::PlanNodeTranslator>& Operator::translators() {
+  static std::vector<PlanNodeTranslator> translators;
+  return translators;
+}
+
+// static
+std::unique_ptr<Operator> Operator::fromPlanNode(
+    DriverCtx* ctx,
+    int32_t id,
+    std::shared_ptr<const core::PlanNode> planNode) {
+  for (auto& translator : translators()) {
+    auto op = translator(ctx, id, planNode);
+    if (op) {
+      return op;
+    }
+  }
+  return nullptr;
+}
+
 memory::MappedMemory* OperatorCtx::mappedMemory() const {
   if (!mappedMemory_) {
     auto parent = driverCtx_->task->queryCtx()->mappedMemory();
