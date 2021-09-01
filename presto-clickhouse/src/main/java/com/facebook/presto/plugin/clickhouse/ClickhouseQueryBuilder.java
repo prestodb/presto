@@ -45,7 +45,7 @@ import static org.joda.time.DateTimeZone.UTC;
  * @date 2021/8/31 15:52
  * @since 1.0
  */
-public class ClickHouseQueryBuilder extends QueryBuilder {
+public class ClickhouseQueryBuilder extends QueryBuilder {
     private static final String ALWAYS_TRUE = "1=1";
     private static final String ALWAYS_FALSE = "1=0";
     private final String quote;
@@ -68,7 +68,7 @@ public class ClickHouseQueryBuilder extends QueryBuilder {
         }
     }
 
-    public ClickHouseQueryBuilder(String quote) {
+    public ClickhouseQueryBuilder(String quote) {
         super(quote);
         this.quote = requireNonNull(quote, "quote is null");
     }
@@ -176,7 +176,7 @@ public class ClickHouseQueryBuilder extends QueryBuilder {
                 validType instanceof CharType;
     }
 
-    private List<String> toConjuncts(List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> tupleDomain, List<ClickHouseQueryBuilder.ClickhouseTypeAndValue> accumulator) {
+    private List<String> toConjuncts(List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> tupleDomain, List<ClickhouseQueryBuilder.ClickhouseTypeAndValue> accumulator) {
         ImmutableList.Builder<String> builder = ImmutableList.builder();
         for (JdbcColumnHandle column : columns) {
             Type type = column.getColumnType();
@@ -190,7 +190,7 @@ public class ClickHouseQueryBuilder extends QueryBuilder {
         return builder.build();
     }
 
-    private String toPredicate(String columnName, Domain domain, Type type, List<ClickHouseQueryBuilder.ClickhouseTypeAndValue> accumulator) {
+    private String toPredicate(String columnName, Domain domain, Type type, List<ClickhouseQueryBuilder.ClickhouseTypeAndValue> accumulator) {
         checkArgument(domain.getType().isOrderable(), "Domain type must be orderable");
 
         if (domain.getValues().isNone()) {
@@ -263,7 +263,7 @@ public class ClickHouseQueryBuilder extends QueryBuilder {
         return "(" + Joiner.on(" OR ").join(disjuncts) + ")";
     }
 
-    private String toPredicate(String columnName, String operator, Object value, Type type, List<ClickHouseQueryBuilder.ClickhouseTypeAndValue> accumulator) {
+    private String toPredicate(String columnName, String operator, Object value, Type type, List<ClickhouseQueryBuilder.ClickhouseTypeAndValue> accumulator) {
         bindValue(value, type, accumulator);
         return quote(columnName) + " " + operator + " ?";
     }
@@ -273,8 +273,8 @@ public class ClickHouseQueryBuilder extends QueryBuilder {
         return quote + name + quote;
     }
 
-    private static void bindValue(Object value, Type type, List<ClickHouseQueryBuilder.ClickhouseTypeAndValue> accumulator) {
+    private static void bindValue(Object value, Type type, List<ClickhouseQueryBuilder.ClickhouseTypeAndValue> accumulator) {
         checkArgument(isAcceptedType(type), "Can't handle type: %s", type);
-        accumulator.add(new ClickHouseQueryBuilder.ClickhouseTypeAndValue(type, value));
+        accumulator.add(new ClickhouseQueryBuilder.ClickhouseTypeAndValue(type, value));
     }
 }

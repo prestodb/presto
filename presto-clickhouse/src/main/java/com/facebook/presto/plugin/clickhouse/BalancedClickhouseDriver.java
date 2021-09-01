@@ -23,11 +23,11 @@ import java.util.logging.Logger;
  * @date 2021/8/31 16:20
  * @since 1.0
  */
-public class BalancedClickHouseDriver implements Driver {
+public class BalancedClickhouseDriver implements Driver {
     private final String url;
     private BalancedClickhouseDataSource dataSource;
 
-    public BalancedClickHouseDriver(final String url, Properties properties) {
+    public BalancedClickhouseDriver(final String url, Properties properties) {
         this.url = url;
         this.dataSource = new BalancedClickhouseDataSource(url, properties);
     }

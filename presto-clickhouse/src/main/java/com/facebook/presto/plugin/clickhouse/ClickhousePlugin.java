@@ -16,11 +16,11 @@ import com.facebook.presto.plugin.jdbc.JdbcPlugin;
  * @date 2021/8/31 15:50
  * @since 1.0
  */
-public class ClickHousePlugin extends JdbcPlugin {
+public class ClickhousePlugin extends JdbcPlugin {
 
     private static final String PLUGIN_NAME="clickhouse";
 
-    public ClickHousePlugin() {
-        super(PLUGIN_NAME, new ClickHouseClientModule());
+    public ClickhousePlugin() {
+        super(PLUGIN_NAME, new ClickhouseClientModule());
     }
 }

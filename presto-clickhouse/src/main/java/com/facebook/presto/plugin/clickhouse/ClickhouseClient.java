@@ -13,6 +13,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.plugin.jdbc.*;
 import com.facebook.presto.spi.ConnectorSession;
 
+import javax.inject.Inject;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -25,12 +26,13 @@ import java.util.Properties;
  * @date 2021/8/31 15:47
  * @since 1.0
  */
-public class ClickHouseClient extends BaseJdbcClient {
+public class ClickhouseClient extends BaseJdbcClient {
 
 
-    private static final Logger log = Logger.get(ClickHouseClient.class);
+    private static final Logger log = Logger.get(ClickhouseClient.class);
 
-    public ClickHouseClient(JdbcConnectorId connectorId, BaseJdbcConfig config) {
+    @Inject
+    public ClickhouseClient(JdbcConnectorId connectorId, BaseJdbcConfig config) {
         super(connectorId, config, "\"", connectionFactory(config));
         log.info("Create a Clickhouse Client");
     }
@@ -44,13 +46,13 @@ public class ClickHouseClient extends BaseJdbcClient {
             properties.setProperty("password", config.getConnectionPassword());
         }
 
-        return new DriverConnectionFactory(new BalancedClickHouseDriver(config.getConnectionUrl(), properties), config);
+        return new DriverConnectionFactory(new BalancedClickhouseDriver(config.getConnectionUrl(), properties), config);
     }
 
 
     @Override
     public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, List<JdbcColumnHandle> columnHandles) throws SQLException {
-        return new ClickHouseQueryBuilder(identifierQuote).buildSql(
+        return new ClickhouseQueryBuilder(identifierQuote).buildSql(
                 this,
                 connection,
                 split.getCatalogName(),
