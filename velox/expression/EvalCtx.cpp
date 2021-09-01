@@ -53,9 +53,10 @@ void EvalCtx::setWrapped(
       return;
     }
     if (wrapEncoding_ == VectorEncoding::Simple::CONSTANT) {
-      auto constant = BaseVector::wrapInConstant(
-          BaseVector::kMaxElements, rows.begin(), source);
-      (*result)->copy(constant.get(), rows, nullptr);
+      rows.applyToSelected([&](auto row) {
+        (*result)->copy(source.get(), row, rows.begin(), 1);
+      });
+
       return;
     }
     VELOX_NYI();

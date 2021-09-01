@@ -31,8 +31,8 @@ void ConstantExpr::evalSpecialForm(
     EvalCtx* context,
     VectorPtr* result) {
   if (!sharedSubexprValues_) {
-    sharedSubexprValues_ = BaseVector::createConstant(
-        value_, BaseVector::kMaxElements, context->execCtx()->pool());
+    sharedSubexprValues_ =
+        BaseVector::createConstant(value_, 1, context->execCtx()->pool());
   }
 
   if (isString()) {
@@ -41,19 +41,15 @@ void ConstantExpr::evalSpecialForm(
     determineStringEncoding(context, vector, rows);
   }
 
-  if (result->get()) {
-    VELOX_CHECK_EQ((*result)->typeKind(), sharedSubexprValues_->typeKind());
-    BaseVector::ensureWritable(
-        rows, (*result)->type(), context->execCtx()->pool(), result);
-    (*result)->copy(sharedSubexprValues_.get(), rows, nullptr);
-    if (isString()) {
-      (*result)
-          ->asUnchecked<SimpleVector<StringView>>()
-          ->copyStringEncodingFrom(sharedSubexprValues_.get());
-    }
-    return;
+  context->moveOrCopyResult(
+      BaseVector::wrapInConstant(rows.end(), 0, sharedSubexprValues_),
+      rows,
+      result);
+
+  if (isString()) {
+    (*result)->asUnchecked<SimpleVector<StringView>>()->copyStringEncodingFrom(
+        sharedSubexprValues_.get());
   }
-  *result = sharedSubexprValues_;
 }
 
 void ConstantExpr::evalSpecialFormSimplified(
@@ -67,7 +63,7 @@ void ConstantExpr::evalSpecialFormSimplified(
   if (sharedSubexprValues_ == nullptr) {
     *result = BaseVector::createConstant(value_, rows.end(), context->pool());
   } else {
-    *result = value();
+    *result = BaseVector::wrapInConstant(rows.end(), 0, sharedSubexprValues_);
   }
 }
 

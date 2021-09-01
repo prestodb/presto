@@ -65,11 +65,6 @@ class FlatVector;
  */
 class BaseVector {
  public:
-  // 64M maximum elements. This is 1GB with an element size of
-  // 16. Practical applications will have much smaller values but a
-  // large value could occur in the nested vectors of arrays or maps.
-  static constexpr vector_size_t kMaxElements = 64U << 20;
-
   static constexpr SelectivityVector* kPreserveAll = nullptr;
 
   static constexpr uint64_t kNullHash = 1;

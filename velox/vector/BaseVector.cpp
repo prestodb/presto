@@ -475,13 +475,7 @@ void BaseVector::ensureWritable(
 
   // The copy-on-write size is the max of the writable row set and the
   // vector.
-  //
-  // If the vector size is kMaxElements then this is a constant vector's special
-  // case. In this case we use the selectivity vector size no matter if its
-  // empty. Otherwise we use the larger one as target size.
-  auto targetSize = (*result)->size() == kMaxElements
-      ? rows.size()
-      : std::max<vector_size_t>(rows.size(), (*result)->size());
+  auto targetSize = std::max<vector_size_t>(rows.size(), (*result)->size());
 
   auto copy =
       BaseVector::create(isUnknownType ? type : resultType, targetSize, pool);

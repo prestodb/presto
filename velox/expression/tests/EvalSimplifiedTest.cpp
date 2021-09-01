@@ -33,22 +33,9 @@ using functions::test::FunctionBaseTest;
 class EvalSimplifiedTest : public FunctionBaseTest {
  protected:
   void assertEqualVectors(const VectorPtr& expected, const VectorPtr& actual) {
-    size_t vectorSize = expected->size();
-
-    // If one of the vectors is constant, they will report kMaxElements as
-    // size().
-    if (expected->isConstantEncoding() || actual->isConstantEncoding()) {
-      // If one is constant, use the size of the other; if both are, assume size
-      // is 1.
-      vectorSize = std::min(expected->size(), actual->size());
-      if (vectorSize == BaseVector::kMaxElements) {
-        vectorSize = 1;
-      }
-    } else {
-      ASSERT_EQ(expected->size(), actual->size());
-    }
+    ASSERT_EQ(expected->size(), actual->size());
     FunctionBaseTest::assertEqualVectors(
-        expected, actual, vectorSize, fmt::format(" (seed {}).", seed_));
+        expected, actual, fmt::format(" (seed {}).", seed_));
   }
 
   // Generate random (but deterministic) input row vectors.

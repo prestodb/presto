@@ -205,7 +205,12 @@ class SubstrFunction : public exec::VectorFunction {
     auto lengthArgVectorEncoding =
         noLengthVector ? startArgVectorEncoding : lengthsVector->encoding();
 
-    prepareFlatResultsVector(result, rows, context, args[0]);
+    prepareFlatResultsVector(
+        result,
+        rows,
+        context,
+        args[0]->encoding() == VectorEncoding::Simple::FLAT ? args[0]
+                                                            : emptyVectorPtr);
 
     BufferPtr resultValues =
         (*result)->as<FlatVector<StringView>>()->mutableValues(rows.end());

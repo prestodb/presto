@@ -79,21 +79,10 @@ void compareExceptions(std::exception_ptr eptr1, std::exception_ptr eptr2) {
 }
 
 void compareVectors(const VectorPtr& vec1, const VectorPtr& vec2) {
-  size_t vectorSize = vec1->size();
-
-  // If one of the vectors is constant, they will report kMaxElements as size().
-  if (vec1->isConstantEncoding() || vec2->isConstantEncoding()) {
-    // If one is constant, use the size of the other; if both are, assume size
-    // is 1.
-    vectorSize = std::min(vec1->size(), vec2->size());
-    if (vectorSize == BaseVector::kMaxElements) {
-      vectorSize = 1;
-    }
-  } else {
-    VELOX_CHECK_EQ(vec1->size(), vec2->size());
-  }
+  VELOX_CHECK_EQ(vec1->size(), vec2->size());
 
   // Print vector contents if in verbose mode.
+  size_t vectorSize = vec1->size();
   if (VLOG_IS_ON(1)) {
     LOG(INFO) << "== Result contents (common vs. simple): ";
     for (auto i = 0; i < vectorSize; i++) {

@@ -2116,8 +2116,8 @@ TEST_F(ExprTest, complexNullOutput) {
 
   auto row = makeRowVector({makeAllNullFlatVector<int64_t>(1)});
 
-  auto expectedResults = BaseVector::createNullConstant(
-      ARRAY(VARCHAR()), BaseVector::kMaxElements, execCtx_->pool());
+  auto expectedResults =
+      BaseVector::createNullConstant(ARRAY(VARCHAR()), 1, execCtx_->pool());
   auto resultForNulls = evaluate("null_array(NULL, NULL)", row);
 
   // Making sure the output of the function is the same when returning all null

@@ -265,8 +265,7 @@ ExprPtr tryFoldIfConstant(const ExprPtr& expr, Scope* scope) {
       VectorPtr result;
       SelectivityVector rows(1);
       expr->eval(rows, &context, &result);
-      auto constantVector =
-          BaseVector::wrapInConstant(BaseVector::kMaxElements, 0, result);
+      auto constantVector = BaseVector::wrapInConstant(1, 0, result);
 
       return std::make_shared<ConstantExpr>(constantVector);
     }
@@ -366,8 +365,8 @@ ExprPtr compileExpression(
     if (constant->hasValueVector()) {
       result = std::make_shared<ConstantExpr>(constant->valueVector());
     } else {
-      result = std::make_shared<ConstantExpr>(BaseVector::createConstant(
-          constant->value(), BaseVector::kMaxElements, pool));
+      result = std::make_shared<ConstantExpr>(
+          BaseVector::createConstant(constant->value(), 1, pool));
     }
   } else if (
       auto lambda = dynamic_cast<const core::LambdaTypedExpr*>(expr.get())) {

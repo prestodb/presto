@@ -387,16 +387,10 @@ class FunctionBaseTest : public testing::Test {
   void assertEqualVectors(
       const VectorPtr& expected,
       const VectorPtr& actual,
-      std::optional<size_t> vectorSize = std::nullopt,
       const std::string& additionalContext = "") {
-    // TODO: Remove vectorSize when ConstantVectors carry their proper size (as
-    // opposed to kMaxElements).
-    if (vectorSize == std::nullopt) {
-      vectorSize = expected->size();
-      ASSERT_EQ(expected->size(), actual->size());
-    }
+    ASSERT_EQ(expected->size(), actual->size());
 
-    for (auto i = 0; i < *vectorSize; i++) {
+    for (auto i = 0; i < expected->size(); i++) {
       ASSERT_TRUE(expected->equalValueAt(actual.get(), i, i))
           << "at " << i << ": " << expected->toString(i) << " vs. "
           << actual->toString(i) << additionalContext;

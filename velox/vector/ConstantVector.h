@@ -293,14 +293,7 @@ class ConstantVector : public SimpleVector<T> {
   std::string toString() const override {
     std::stringstream out;
     out << "[" << encoding() << " " << this->type()->toString() << ": "
-        << toString(index_) << " value, ";
-
-    if (this->size() == this->kMaxElements) {
-      out << "kMaxElements";
-    } else {
-      out << this->size();
-    }
-    out << " size]";
+        << toString(index_) << " value, " << this->size() << " size]";
     return out.str();
   }
 
