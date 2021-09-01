@@ -46,7 +46,6 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.roundRobinExchan
 import static com.facebook.presto.sql.planner.plan.Patterns.Aggregation.groupingColumns;
 import static com.facebook.presto.sql.planner.plan.Patterns.Aggregation.step;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -113,11 +112,17 @@ public class AddIntermediateAggregations
         PlanNode source = rewrittenSource.get();
 
         if (getTaskConcurrency(session) > 1) {
+            Map<VariableReferenceExpression, Aggregation> variableToAggregations = inputsAsOutputs(aggregation.getAggregations(), types);
+
+            if (variableToAggregations.isEmpty()) {
+                return Result.empty();
+            }
+
             source = roundRobinExchange(idAllocator.getNextId(), LOCAL, source);
             source = new AggregationNode(
                     idAllocator.getNextId(),
                     source,
-                    inputsAsOutputs(aggregation.getAggregations(), types),
+                    variableToAggregations,
                     aggregation.getGroupingSets(),
                     aggregation.getPreGroupedVariables(),
                     INTERMEDIATE,
@@ -212,9 +217,9 @@ public class AddIntermediateAggregations
         for (Map.Entry<VariableReferenceExpression, Aggregation> entry : assignments.entrySet()) {
             // Should only have one input symbol
             Aggregation aggregation = entry.getValue();
-            checkArgument(
-                    aggregation.getArguments().size() == 1 && !aggregation.getOrderBy().isPresent() && !aggregation.getFilter().isPresent(),
-                    "Aggregation should only have one argument and should have no order by  or filter to be able to rewritten to intermediate form");
+            if (!(aggregation.getArguments().size() == 1 && !aggregation.getOrderBy().isPresent() && !aggregation.getFilter().isPresent())) {
+                return ImmutableMap.of();
+            }
             VariableReferenceExpression input = getOnlyElement(extractAggregationUniqueVariables(entry.getValue(), types));
             builder.put(input, entry.getValue());
         }
