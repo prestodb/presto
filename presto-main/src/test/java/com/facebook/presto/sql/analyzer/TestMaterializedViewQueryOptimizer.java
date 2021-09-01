@@ -275,19 +275,82 @@ public class TestMaterializedViewQueryOptimizer
         assertOptimizedQuery(originalViewSql, baseQuerySql, baseQuerySql);
     }
 
-    // TODO: Handle table alias rewrite for view definition and base query https://github.com/prestodb/presto/issues/16404#issue-940248564
     @Test
     public void testWithTableAlias()
     {
-        String originalViewSql = format("SELECT base1.a, b, c FROM %s base1", BASE_TABLE_1);
-        String baseQuerySql = format("SELECT a, c FROM %s", BASE_TABLE_1);
+        String originalViewSql = format("SELECT a, b, c FROM %s ORDER BY a, c", BASE_TABLE_1);
+        String originalViewSqlWithAliasPartially = format("SELECT base1.a, b, c FROM %s base1 ORDER BY base1.a, c", BASE_TABLE_1);
+        String originalViewSqlWithAliasFully = format("SELECT base1.a, base1.b, base1.c FROM %s base1 ORDER BY base1.a, base1.c", BASE_TABLE_1);
+        String originalViewSqlWithTablePrefix = format("SELECT %s.a, b, %s.c FROM %s ORDER BY %s.a, %s.c", BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1);
+        String baseQuerySql = format("SELECT a, c FROM %s ORDER BY c, a", BASE_TABLE_1);
+        String baseQuerySqlWithAliasPartially1 = format("SELECT base1.a, c FROM %s base1 ORDER BY c, base1.a", BASE_TABLE_1);
+        String baseQuerySqlWithAliasPartially2 = format("SELECT a, base1.c FROM %s base1 ORDER BY base1.c, a", BASE_TABLE_1);
+        String baseQuerySqlFully = format("SELECT base1.a, base1.c FROM %s base1 ORDER BY base1.c, base1.a", BASE_TABLE_1);
+        String baseQuerySqlWithTablePrefix = format("SELECT %s.a, %s.c FROM %s ORDER BY %s.c, %s.a", BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT a, c FROM %s ORDER BY c, a", VIEW);
 
-        assertOptimizedQuery(originalViewSql, baseQuerySql, baseQuerySql);
+        assertOptimizedQuery(originalViewSql, baseQuerySql, expectedRewrittenSql);
+        assertOptimizedQuery(originalViewSql, baseQuerySqlWithAliasPartially1, expectedRewrittenSql);
+        assertOptimizedQuery(originalViewSql, baseQuerySqlWithAliasPartially2, expectedRewrittenSql);
+        assertOptimizedQuery(originalViewSql, baseQuerySqlFully, expectedRewrittenSql);
+        assertOptimizedQuery(originalViewSql, baseQuerySqlWithTablePrefix, expectedRewrittenSql);
+        assertOptimizedQuery(originalViewSqlWithAliasPartially, baseQuerySql, expectedRewrittenSql);
+        assertOptimizedQuery(originalViewSqlWithAliasPartially, baseQuerySqlWithAliasPartially1, expectedRewrittenSql);
+        assertOptimizedQuery(originalViewSqlWithAliasPartially, baseQuerySqlWithAliasPartially2, expectedRewrittenSql);
+        assertOptimizedQuery(originalViewSqlWithAliasPartially, baseQuerySqlFully, expectedRewrittenSql);
+        assertOptimizedQuery(originalViewSqlWithAliasPartially, baseQuerySqlWithTablePrefix, expectedRewrittenSql);
+        assertOptimizedQuery(originalViewSqlWithAliasFully, baseQuerySql, expectedRewrittenSql);
+        assertOptimizedQuery(originalViewSqlWithAliasFully, baseQuerySqlWithAliasPartially1, expectedRewrittenSql);
+        assertOptimizedQuery(originalViewSqlWithAliasFully, baseQuerySqlWithAliasPartially2, expectedRewrittenSql);
+        assertOptimizedQuery(originalViewSqlWithAliasFully, baseQuerySqlFully, expectedRewrittenSql);
+        assertOptimizedQuery(originalViewSqlWithAliasFully, baseQuerySqlWithTablePrefix, expectedRewrittenSql);
+        assertOptimizedQuery(originalViewSqlWithTablePrefix, baseQuerySql, expectedRewrittenSql);
+        assertOptimizedQuery(originalViewSqlWithTablePrefix, baseQuerySqlWithAliasPartially1, expectedRewrittenSql);
+        assertOptimizedQuery(originalViewSqlWithTablePrefix, baseQuerySqlWithAliasPartially2, expectedRewrittenSql);
+        assertOptimizedQuery(originalViewSqlWithTablePrefix, baseQuerySqlFully, expectedRewrittenSql);
+        assertOptimizedQuery(originalViewSqlWithTablePrefix, baseQuerySqlWithTablePrefix, expectedRewrittenSql);
+    }
 
-        originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
-        baseQuerySql = format("SELECT base1.a, c FROM %s base1", BASE_TABLE_1);
+    @Test
+    public void testAggregationWithTableAlias()
+    {
+        String originalViewSql = format("SELECT SUM(a) AS sum_a, b FROM %s GROUP BY b", BASE_TABLE_1);
+        String originalViewSqlWithAliasPartially1 = format("SELECT SUM(base1.a) AS sum_a, b FROM %s base1 GROUP BY b", BASE_TABLE_1);
+        String originalViewSqlWithAliasPartially2 = format("SELECT SUM(a) AS sum_a, base1.b FROM %s base1 GROUP BY base1.b", BASE_TABLE_1);
+        String originalViewSqlWithAliasFully = format("SELECT SUM(base1.a) AS sum_a, base1.b FROM %s base1 GROUP BY base1.b", BASE_TABLE_1);
+        String originalViewSqlWithTablePrefix = format("SELECT SUM(%s.a) AS sum_a, %s.b FROM %s GROUP BY %s.b", BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1);
+        String baseQuerySql = format("SELECT SUM(a) AS sum_of_a, b FROM %s GROUP BY b", BASE_TABLE_1);
+        String baseQuerySqlWithAliasPartially1 = format("SELECT SUM(base1.a) AS sum_of_a, b FROM %s base1 GROUP BY b", BASE_TABLE_1);
+        String baseQuerySqlWithAliasPartially2 = format("SELECT SUM(a) AS sum_of_a, base1.b FROM %s base1 GROUP BY base1.b", BASE_TABLE_1);
+        String baseQuerySqlFully = format("SELECT SUM(base1.a) AS sum_of_a, base1.b FROM %s base1 GROUP BY base1.b", BASE_TABLE_1);
+        String baseQuerySqlWithTablePrefix = format("SELECT SUM(%s.a) AS sum_of_a, %s.b FROM %s GROUP BY %s.b", BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT SUM(sum_a) AS sum_of_a, b FROM %s GROUP BY b", VIEW);
 
-        assertOptimizedQuery(originalViewSql, baseQuerySql, baseQuerySql);
+        assertOptimizedQuery(originalViewSql, baseQuerySql, expectedRewrittenSql);
+        assertOptimizedQuery(originalViewSql, baseQuerySqlWithAliasPartially1, expectedRewrittenSql);
+        assertOptimizedQuery(originalViewSql, baseQuerySqlWithAliasPartially2, expectedRewrittenSql);
+        assertOptimizedQuery(originalViewSql, baseQuerySqlFully, expectedRewrittenSql);
+        assertOptimizedQuery(originalViewSql, baseQuerySqlWithTablePrefix, expectedRewrittenSql);
+        assertOptimizedQuery(originalViewSqlWithAliasPartially1, baseQuerySql, expectedRewrittenSql);
+        assertOptimizedQuery(originalViewSqlWithAliasPartially1, baseQuerySqlWithAliasPartially1, expectedRewrittenSql);
+        assertOptimizedQuery(originalViewSqlWithAliasPartially1, baseQuerySqlWithAliasPartially2, expectedRewrittenSql);
+        assertOptimizedQuery(originalViewSqlWithAliasPartially1, baseQuerySqlFully, expectedRewrittenSql);
+        assertOptimizedQuery(originalViewSqlWithAliasPartially1, baseQuerySqlWithTablePrefix, expectedRewrittenSql);
+        assertOptimizedQuery(originalViewSqlWithAliasPartially2, baseQuerySql, expectedRewrittenSql);
+        assertOptimizedQuery(originalViewSqlWithAliasPartially2, baseQuerySqlWithAliasPartially1, expectedRewrittenSql);
+        assertOptimizedQuery(originalViewSqlWithAliasPartially2, baseQuerySqlWithAliasPartially2, expectedRewrittenSql);
+        assertOptimizedQuery(originalViewSqlWithAliasPartially2, baseQuerySqlFully, expectedRewrittenSql);
+        assertOptimizedQuery(originalViewSqlWithAliasPartially2, baseQuerySqlWithTablePrefix, expectedRewrittenSql);
+        assertOptimizedQuery(originalViewSqlWithAliasFully, baseQuerySql, expectedRewrittenSql);
+        assertOptimizedQuery(originalViewSqlWithAliasFully, baseQuerySqlWithAliasPartially1, expectedRewrittenSql);
+        assertOptimizedQuery(originalViewSqlWithAliasFully, baseQuerySqlWithAliasPartially2, expectedRewrittenSql);
+        assertOptimizedQuery(originalViewSqlWithAliasFully, baseQuerySqlFully, expectedRewrittenSql);
+        assertOptimizedQuery(originalViewSqlWithAliasFully, baseQuerySqlWithTablePrefix, expectedRewrittenSql);
+        assertOptimizedQuery(originalViewSqlWithTablePrefix, baseQuerySql, expectedRewrittenSql);
+        assertOptimizedQuery(originalViewSqlWithTablePrefix, baseQuerySqlWithAliasPartially1, expectedRewrittenSql);
+        assertOptimizedQuery(originalViewSqlWithTablePrefix, baseQuerySqlWithAliasPartially2, expectedRewrittenSql);
+        assertOptimizedQuery(originalViewSqlWithTablePrefix, baseQuerySqlFully, expectedRewrittenSql);
+        assertOptimizedQuery(originalViewSqlWithTablePrefix, baseQuerySqlWithTablePrefix, expectedRewrittenSql);
     }
 
     @Test
