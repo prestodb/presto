@@ -3934,7 +3934,8 @@ void SelectiveStructColumnReader::next(
     for (auto& childSpec : childSpecs) {
       VELOX_CHECK(childSpec->isConstant());
       auto channel = childSpec->channel();
-      resultRowVector->childAt(channel) = childSpec->constantValue();
+      resultRowVector->childAt(channel) =
+          BaseVector::wrapInConstant(numValues, 0, childSpec->constantValue());
     }
     return;
   }
@@ -4106,7 +4107,8 @@ void SelectiveStructColumnReader::getValues(RowSet rows, VectorPtr* result) {
     auto index = childSpec->subscript();
     auto channel = childSpec->channel();
     if (childSpec->isConstant()) {
-      resultRow->childAt(channel) = childSpec->constantValue();
+      resultRow->childAt(channel) = BaseVector::wrapInConstant(
+          rows.size(), 0, childSpec->constantValue());
     } else {
       if (!childSpec->extractValues() && !childSpec->filter()) {
         // LazyVector result.

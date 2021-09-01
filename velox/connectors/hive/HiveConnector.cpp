@@ -423,15 +423,13 @@ vector_size_t HiveDataSource::evaluateRemainingFilter(RowVectorPtr& rowVector) {
 void HiveDataSource::setConstantValue(
     common::ScanSpec* spec,
     const velox::variant& value) const {
-  spec->setConstantValue(
-      BaseVector::createConstant(value, BaseVector::kMaxElements, pool_));
+  spec->setConstantValue(BaseVector::createConstant(value, 1, pool_));
 }
 
 void HiveDataSource::setNullConstantValue(
     common::ScanSpec* spec,
     const TypePtr& type) const {
-  spec->setConstantValue(
-      BaseVector::createNullConstant(type, BaseVector::kMaxElements, pool_));
+  spec->setConstantValue(BaseVector::createNullConstant(type, 1, pool_));
 }
 
 HiveConnector::HiveConnector(
