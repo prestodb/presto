@@ -206,7 +206,8 @@ void GroupingSet::populateTempVectors(
   tempVectors_.resize(channels.size());
   for (auto i = 0; i < channels.size(); ++i) {
     if (channels[i] == kConstantChannel) {
-      tempVectors_[i] = constantLists_[aggregateIndex][i];
+      tempVectors_[i] = BaseVector::wrapInConstant(
+          input->size(), 0, constantLists_[aggregateIndex][i]);
     } else {
       // No load of lazy vectors; The aggregate may decide to push down.
       tempVectors_[i] = input->childAt(channels[i]);
@@ -368,7 +369,7 @@ HashAggregation::HashAggregation(
       if (channels.back() == kConstantChannel) {
         auto constant = dynamic_cast<const core::ConstantTypedExpr*>(arg.get());
         constants.push_back(BaseVector::createConstant(
-            constant->value(), BaseVector::kMaxElements, operatorCtx_->pool()));
+            constant->value(), 1, operatorCtx_->pool()));
       } else {
         constants.push_back(nullptr);
       }
