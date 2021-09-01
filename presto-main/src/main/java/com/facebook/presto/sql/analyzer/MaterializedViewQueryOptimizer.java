@@ -32,6 +32,7 @@ import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
+import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
@@ -66,6 +67,10 @@ import static com.facebook.presto.expressions.LogicalRowExpressions.and;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.spi.relation.DomainTranslator.BASIC_COLUMN_EXTRACTOR;
 import static com.facebook.presto.spi.relation.DomainTranslator.ExtractionResult;
+import static com.facebook.presto.sql.ExpressionUtils.removeExpressionPrefix;
+import static com.facebook.presto.sql.ExpressionUtils.removeGroupingElementPrefix;
+import static com.facebook.presto.sql.ExpressionUtils.removeSingleColumnPrefix;
+import static com.facebook.presto.sql.ExpressionUtils.removeSortItemPrefix;
 import static com.facebook.presto.sql.analyzer.MaterializedViewInformationExtractor.MaterializedViewInfo;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
@@ -92,6 +97,7 @@ public class MaterializedViewQueryOptimizer
             QualifiedName.of("SUM"));
 
     private MaterializedViewInfo materializedViewInfo;
+    private Optional<Identifier> removablePrefix = Optional.empty();
 
     public MaterializedViewQueryOptimizer(
             Metadata metadata,
@@ -154,6 +160,18 @@ public class MaterializedViewQueryOptimizer
         if (!node.getFrom().isPresent()) {
             throw new IllegalStateException("Query with no From clause is not rewritable by materialized view");
         }
+        Relation relation = node.getFrom().get();
+        if (relation instanceof AliasedRelation) {
+            removablePrefix = Optional.of(((AliasedRelation) relation).getAlias());
+            relation = ((AliasedRelation) relation).getRelation();
+        }
+        if (!(relation instanceof Table)) {
+            throw new SemanticException(NOT_SUPPORTED, node, "Relation other than Table is not supported in query optimizer");
+        }
+        Table baseTable = (Table) relation;
+        if (!removablePrefix.isPresent()) {
+            removablePrefix = Optional.of(new Identifier(baseTable.getName().toString()));
+        }
         if (materializedViewInfo.getGroupBy().isPresent() && !node.getGroupBy().isPresent()) {
             throw new IllegalStateException("Query with no groupBy clause is not rewritable by materialized view with groupBy clause");
         }
@@ -165,10 +183,6 @@ public class MaterializedViewQueryOptimizer
             if (!node.getWhere().isPresent()) {
                 throw new IllegalStateException("Query with no where clause is not rewritable by materialized view with where clause");
             }
-            if (!(node.getFrom().get() instanceof Table)) {
-                throw new SemanticException(NOT_SUPPORTED, node, "Relation other than Table is not supported in query optimizer");
-            }
-            Table baseTable = (Table) node.getFrom().get();
             QualifiedObjectName baseTableName = createQualifiedObjectName(session, baseTable, baseTable.getName());
 
             Optional<TableHandle> tableHandle = metadata.getTableHandle(session, baseTableName);
@@ -237,7 +251,10 @@ public class MaterializedViewQueryOptimizer
     @Override
     protected Node visitSingleColumn(SingleColumn node, Void context)
     {
-        return new SingleColumn((Expression) process(node.getExpression(), context), node.getAlias());
+        // For a single table, without sub-queries, the column prefix is unnecessary. Here It is removed so that it can be mapped to the view column properly.
+        // For relations other than single table, it needs to be reserved to differentiate columns from different tables.
+        // One way to do so is to process the prefix within `visitDereferenceExpression()` since the prefix information is saved as `base` in `DereferenceExpression` node.
+        return new SingleColumn((Expression) process(removeSingleColumnPrefix(node, removablePrefix).getExpression(), context), node.getAlias());
     }
 
     @Override
@@ -261,7 +278,13 @@ public class MaterializedViewQueryOptimizer
         if (!materializedViewInfo.getBaseToViewColumnMap().containsKey(node)) {
             throw new IllegalStateException("Materialized view definition does not contain mapping for the column: " + node.getValue());
         }
-        return new Identifier(materializedViewInfo.getBaseToViewColumnMap().get(node).getValue(), node.isDelimited());
+        return new Identifier((materializedViewInfo.getBaseToViewColumnMap().get(node)).getValue(), node.isDelimited());
+    }
+
+    @Override
+    protected Node visitExpression(Expression node, Void context)
+    {
+        return super.visitExpression(removeExpressionPrefix(node, removablePrefix), context);
     }
 
     @Override
@@ -289,6 +312,12 @@ public class MaterializedViewQueryOptimizer
                 node.isDistinct(),
                 node.isIgnoreNulls(),
                 rewrittenArguments.build());
+    }
+
+    @Override
+    protected Node visitAliasedRelation(AliasedRelation node, Void context)
+    {
+        return visitRelation(node.getRelation(), context);
     }
 
     @Override
@@ -323,6 +352,7 @@ public class MaterializedViewQueryOptimizer
     {
         ImmutableList.Builder<GroupingElement> rewrittenGroupBy = ImmutableList.builder();
         for (GroupingElement element : node.getGroupingElements()) {
+            element = removeGroupingElementPrefix(element, removablePrefix);
             if (materializedViewInfo.getGroupBy().isPresent() && !materializedViewInfo.getGroupBy().get().contains(element)) {
                 throw new IllegalStateException(format("Grouping element %s is not present in materialized view groupBy field", element));
             }
@@ -336,6 +366,7 @@ public class MaterializedViewQueryOptimizer
     {
         ImmutableList.Builder<SortItem> rewrittenOrderBy = ImmutableList.builder();
         for (SortItem sortItem : node.getSortItems()) {
+            sortItem = removeSortItemPrefix(sortItem, removablePrefix);
             if (!materializedViewInfo.getBaseToViewColumnMap().containsKey(sortItem.getSortKey())) {
                 throw new IllegalStateException(format("Sort key %s is not present in materialized view select fields", sortItem.getSortKey()));
             }
@@ -355,7 +386,7 @@ public class MaterializedViewQueryOptimizer
     {
         ImmutableList.Builder<Expression> rewrittenSimpleGroupBy = ImmutableList.builder();
         for (Expression column : node.getExpressions()) {
-            rewrittenSimpleGroupBy.add((Expression) process(column, context));
+            rewrittenSimpleGroupBy.add((Expression) process(removeExpressionPrefix(column, removablePrefix), context));
         }
         return new SimpleGroupBy(rewrittenSimpleGroupBy.build());
     }

@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GroupBy;
 import com.facebook.presto.sql.tree.GroupingElement;
 import com.facebook.presto.sql.tree.Identifier;
@@ -25,13 +27,15 @@ import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.Table;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.sql.ExpressionUtils.removeGroupingElementPrefix;
+import static com.facebook.presto.sql.ExpressionUtils.removeSingleColumnPrefix;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -49,6 +53,10 @@ public class MaterializedViewInformationExtractor
         if (node.getHaving().isPresent()) {
             throw new SemanticException(NOT_SUPPORTED, node, "Having clause is not supported in query optimizer");
         }
+        if (!node.getFrom().isPresent()) {
+            throw new SemanticException(NOT_SUPPORTED, node, "Materialized view with no From clause is not supported in query optimizer");
+        }
+        materializedViewInfo.setBaseTable(node.getFrom().get());
         materializedViewInfo.setWhereClause(node.getWhere());
         return super.visitQuerySpecification(node, context);
     }
@@ -61,23 +69,9 @@ public class MaterializedViewInformationExtractor
     }
 
     @Override
-    protected Void visitRelation(Relation node, Void context)
-    {
-        if (!(node instanceof Table)) {
-            throw new SemanticException(NOT_SUPPORTED, node, "Relation other than Table is not supported in query optimizer");
-        }
-        if (materializedViewInfo.getBaseTable().isPresent()) {
-            throw new SemanticException(NOT_SUPPORTED, node, "Only support single table rewrite in query optimizer");
-        }
-        materializedViewInfo.setBaseTable(Optional.of(node));
-        return null;
-    }
-
-    @Override
     protected Void visitSingleColumn(SingleColumn node, Void context)
     {
-        Expression baseColumnName = node.getExpression();
-        materializedViewInfo.addBaseToViewColumn(baseColumnName, node.getAlias().orElse(new Identifier(baseColumnName.toString())));
+        materializedViewInfo.addBaseToViewColumn(node);
         return null;
     }
 
@@ -90,7 +84,9 @@ public class MaterializedViewInformationExtractor
     @Override
     protected Void visitGroupBy(GroupBy node, Void context)
     {
-        materializedViewInfo.setGroupBy(Optional.of(ImmutableSet.copyOf(node.getGroupingElements())));
+        for (GroupingElement element : node.getGroupingElements()) {
+            materializedViewInfo.addGroupBy(element);
+        }
         return null;
     }
 
@@ -106,22 +102,40 @@ public class MaterializedViewInformationExtractor
         private Optional<Expression> whereClause = Optional.empty();
         private Optional<Set<GroupingElement>> groupBy = Optional.empty();
         private boolean isDistinct;
+        private Optional<Identifier> removablePrefix = Optional.empty();
 
-        private void addBaseToViewColumn(Expression key, Identifier value)
+        private void addBaseToViewColumn(SingleColumn singleColumn)
         {
-            baseToViewColumnMap.put(key, value);
+            singleColumn = removeSingleColumnPrefix(singleColumn, removablePrefix);
+            Expression key = singleColumn.getExpression();
+            if (key instanceof FunctionCall && !singleColumn.getAlias().isPresent()) {
+                throw new SemanticException(NOT_SUPPORTED, singleColumn, "Derived field in materialized view must have an alias");
+            }
+            baseToViewColumnMap.put(key, singleColumn.getAlias().orElse(new Identifier(key.toString())));
         }
 
-        private void setGroupBy(Optional<Set<GroupingElement>> groupBy)
+        private void addGroupBy(GroupingElement groupingElement)
         {
-            checkState(!this.groupBy.isPresent());
-            this.groupBy = groupBy;
+            if (!groupBy.isPresent()) {
+                groupBy = Optional.of(new HashSet<>());
+            }
+            groupBy.get().add(removeGroupingElementPrefix(groupingElement, removablePrefix));
         }
 
-        private void setBaseTable(Optional<Relation> baseTable)
+        private void setBaseTable(Relation baseTable)
         {
-            checkState(!this.baseTable.isPresent());
-            this.baseTable = baseTable;
+            checkState(!this.baseTable.isPresent(), "Only support single table rewrite in query optimizer");
+            if (baseTable instanceof AliasedRelation) {
+                removablePrefix = Optional.of(((AliasedRelation) baseTable).getAlias());
+                baseTable = ((AliasedRelation) baseTable).getRelation();
+            }
+            if (!(baseTable instanceof Table)) {
+                throw new SemanticException(NOT_SUPPORTED, baseTable, "Relation other than Table is not supported in query optimizer");
+            }
+            this.baseTable = Optional.of(baseTable);
+            if (!removablePrefix.isPresent()) {
+                removablePrefix = Optional.of(new Identifier(((Table) baseTable).getName().toString()));
+            }
         }
 
         private void setWhereClause(Optional<Expression> whereClause)
