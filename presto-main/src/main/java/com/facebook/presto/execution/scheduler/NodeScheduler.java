@@ -80,7 +80,7 @@ public class NodeScheduler
     private final NodeTaskMap nodeTaskMap;
     private final boolean useNetworkTopology;
     private final Duration nodeMapRefreshInterval;
-    private final boolean consistentHashSoftAffinitySchedulingEnabled;
+    private final boolean consistentHashAffinitySchedulingEnabled;
     private final int consistentHashReplicas;
 
     @Inject
@@ -108,7 +108,7 @@ public class NodeScheduler
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
         checkArgument(maxSplitsPerNode >= maxPendingSplitsPerTask, "maxSplitsPerNode must be > maxPendingSplitsPerTask");
         this.useNetworkTopology = !config.getNetworkTopology().equals(NetworkTopologyType.LEGACY);
-        this.consistentHashSoftAffinitySchedulingEnabled = config.isConsistentHashSoftAffinitySchedulingEnabled();
+        this.consistentHashAffinitySchedulingEnabled = config.isConsistentHashAffinitySchedulingEnabled();
         this.consistentHashReplicas = config.getConsistentHashReplicas();
 
         ImmutableList.Builder<CounterStat> builder = ImmutableList.builder();
@@ -166,10 +166,22 @@ public class NodeScheduler
                     maxUnacknowledgedSplitsPerTask,
                     topologicalSplitCounters,
                     networkLocationSegmentNames,
-                    networkLocationCache);
+                    networkLocationCache,
+                    consistentHashAffinitySchedulingEnabled);
         }
         else {
-            return new SimpleNodeSelector(nodeManager, nodeSelectionStats, nodeTaskMap, includeCoordinator, nodeMap, minCandidates, maxSplitsPerNode, maxPendingSplitsPerTask, maxUnacknowledgedSplitsPerTask, maxTasksPerStage, consistentHashSoftAffinitySchedulingEnabled);
+            return new SimpleNodeSelector(
+                    nodeManager,
+                    nodeSelectionStats,
+                    nodeTaskMap,
+                    includeCoordinator,
+                    nodeMap,
+                    minCandidates,
+                    maxSplitsPerNode,
+                    maxPendingSplitsPerTask,
+                    maxUnacknowledgedSplitsPerTask,
+                    maxTasksPerStage,
+                    consistentHashAffinitySchedulingEnabled);
         }
     }
 

@@ -48,6 +48,7 @@ import java.util.function.ToIntFunction;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.SystemSessionProperties.getMaxTasksPerStage;
+import static com.facebook.presto.SystemSessionProperties.isConsistentHashingAffinitySchedulingEnabled;
 import static com.facebook.presto.metadata.InternalNode.NodeStatus.DEAD;
 import static com.facebook.presto.spi.StandardErrorCode.NODE_SELECTION_NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -210,15 +211,25 @@ public class NodePartitioningManager
         checkArgument(!(partitioningHandle.getConnectorHandle() instanceof SystemPartitioningHandle));
         ConnectorId connectorId = partitioningHandle.getConnectorId()
                 .orElseThrow(() -> new IllegalArgumentException("No connector ID for partitioning handle: " + partitioningHandle));
-        List<Node> nodes = getNodes(session, connectorId);
 
         ConnectorNodePartitioningProvider partitioningProvider = partitioningProviderManager.getPartitioningProvider(partitioningHandle.getConnectorId().get());
-
-        ConnectorBucketNodeMap connectorBucketNodeMap = partitioningProvider.getBucketNodeMap(
-                partitioningHandle.getTransactionHandle().orElse(null),
-                session.toConnectorSession(partitioningHandle.getConnectorId().get()),
-                partitioningHandle.getConnectorHandle(),
-                nodes);
+        ConnectorBucketNodeMap connectorBucketNodeMap;
+        boolean consistentHashingAffinitySchedulingEnabled = isConsistentHashingAffinitySchedulingEnabled(session);
+        if (consistentHashingAffinitySchedulingEnabled) {
+            connectorBucketNodeMap = partitioningProvider.getBucketNodeMap(
+                    partitioningHandle.getTransactionHandle().orElse(null),
+                    session.toConnectorSession(partitioningHandle.getConnectorId().get()),
+                    partitioningHandle.getConnectorHandle(),
+                    nodeScheduler.createNodeSelector(session, connectorId).getConsistentHashingRing());
+        }
+        else {
+            List<Node> nodes = getNodes(session, connectorId);
+            connectorBucketNodeMap = partitioningProvider.getBucketNodeMap(
+                    partitioningHandle.getTransactionHandle().orElse(null),
+                    session.toConnectorSession(partitioningHandle.getConnectorId().get()),
+                    partitioningHandle.getConnectorHandle(),
+                    nodes);
+        }
 
         checkArgument(connectorBucketNodeMap != null, "No partition map %s", partitioningHandle);
         return connectorBucketNodeMap;

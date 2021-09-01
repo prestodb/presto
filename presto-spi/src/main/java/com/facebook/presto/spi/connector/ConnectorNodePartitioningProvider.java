@@ -18,6 +18,7 @@ import com.facebook.presto.spi.BucketFunction;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.Node;
+import com.facebook.presto.spi.hashing.ConsistentHashSelector;
 
 import java.util.List;
 import java.util.function.ToIntFunction;
@@ -42,6 +43,11 @@ public interface ConnectorNodePartitioningProvider
     }
 
     ConnectorBucketNodeMap getBucketNodeMap(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle, List<Node> sortedNodes);
+
+    default ConnectorBucketNodeMap getBucketNodeMap(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle, ConsistentHashSelector<Node> selector)
+    {
+        throw new UnsupportedOperationException();
+    }
 
     ToIntFunction<ConnectorSplit> getSplitBucketFunction(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle);
 

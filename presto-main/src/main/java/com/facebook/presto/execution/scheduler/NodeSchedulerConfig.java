@@ -37,7 +37,7 @@ public class NodeSchedulerConfig
     private int maxPendingSplitsPerTask = 10;
     private int maxUnacknowledgedSplitsPerTask = 500;
     private String networkTopology = NetworkTopologyType.LEGACY;
-    private boolean consistentHashSoftAffinitySchedulingEnabled = false;
+    private boolean consistentHashAffinitySchedulingEnabled;
     private int consistentHashReplicas = 10;
 
     @NotNull
@@ -117,16 +117,16 @@ public class NodeSchedulerConfig
         return this;
     }
 
-    public boolean isConsistentHashSoftAffinitySchedulingEnabled()
+    public boolean isConsistentHashAffinitySchedulingEnabled()
     {
-        return consistentHashSoftAffinitySchedulingEnabled;
+        return consistentHashAffinitySchedulingEnabled;
     }
 
-    @Config("experimental.node-scheduler.consistent-hash-soft-affinity-enabled")
-    @ConfigDescription("Use consistent hash algorithm for soft affinity scheduling")
-    public NodeSchedulerConfig setConsistentHashSoftAffinitySchedulingEnabled(boolean enabled)
+    @Config("experimental.node-scheduler.consistent-hash-affinity-enabled")
+    @ConfigDescription("Use consistent hash algorithm for affinity scheduling")
+    public NodeSchedulerConfig setConsistentHashAffinitySchedulingEnabled(boolean enabled)
     {
-        this.consistentHashSoftAffinitySchedulingEnabled = enabled;
+        this.consistentHashAffinitySchedulingEnabled = enabled;
         return this;
     }
 
@@ -136,7 +136,7 @@ public class NodeSchedulerConfig
     }
 
     @Config("experimental.node-scheduler.consistent-hash-replicas")
-    @ConfigDescription("the node replica of consistent hash algorithm for soft affinity scheduling")
+    @ConfigDescription("the node replica of consistent hash algorithm for affinity scheduling")
     public NodeSchedulerConfig setConsistentHashReplicas(int replicas)
     {
         this.consistentHashReplicas = replicas;

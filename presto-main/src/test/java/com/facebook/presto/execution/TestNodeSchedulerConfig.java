@@ -34,7 +34,8 @@ public class TestNodeSchedulerConfig
                 .setMaxPendingSplitsPerTask(10)
                 .setMaxUnacknowledgedSplitsPerTask(500)
                 .setIncludeCoordinator(true)
-                .setConsistentHashSoftAffinitySchedulingEnabled(false));
+                .setConsistentHashAffinitySchedulingEnabled(false)
+                .setConsistentHashReplicas(10));
     }
 
     @Test
@@ -47,7 +48,8 @@ public class TestNodeSchedulerConfig
                 .put("node-scheduler.max-pending-splits-per-task", "11")
                 .put("node-scheduler.max-unacknowledged-splits-per-task", "501")
                 .put("node-scheduler.max-splits-per-node", "101")
-                .put("experimental.node-scheduler.consistent-hash-soft-affinity-enabled", "true")
+                .put("experimental.node-scheduler.consistent-hash-affinity-enabled", "true")
+                .put("experimental.node-scheduler.consistent-hash-replicas", "20")
                 .build();
 
         NodeSchedulerConfig expected = new NodeSchedulerConfig()
@@ -57,7 +59,8 @@ public class TestNodeSchedulerConfig
                 .setMaxPendingSplitsPerTask(11)
                 .setMaxUnacknowledgedSplitsPerTask(501)
                 .setMinCandidates(11)
-                .setConsistentHashSoftAffinitySchedulingEnabled(true);
+                .setConsistentHashAffinitySchedulingEnabled(true)
+                .setConsistentHashReplicas(20);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

@@ -24,6 +24,7 @@ import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.hashing.ConsistentHashSelector;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 
 import java.util.List;
@@ -72,6 +73,23 @@ public class HiveNodePartitioningProvider
             case HARD_AFFINITY:
             case SOFT_AFFINITY:
                 return createBucketNodeMap(Stream.generate(() -> sortedNodes).flatMap(List::stream).limit(bucketCount).collect(toImmutableList()), nodeSelectionStrategy);
+            case NO_PREFERENCE:
+                return createBucketNodeMap(bucketCount);
+            default:
+                throw new PrestoException(NODE_SELECTION_NOT_SUPPORTED, format("Unsupported node selection strategy %s", nodeSelectionStrategy));
+        }
+    }
+
+    @Override
+    public ConnectorBucketNodeMap getBucketNodeMap(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle, ConsistentHashSelector<Node> selector)
+    {
+        HivePartitioningHandle handle = (HivePartitioningHandle) partitioningHandle;
+        NodeSelectionStrategy nodeSelectionStrategy = getNodeSelectionStrategy(session);
+        int bucketCount = handle.getBucketCount();
+        switch (nodeSelectionStrategy) {
+            case HARD_AFFINITY:
+            case SOFT_AFFINITY:
+                return createBucketNodeMap(selector.getN("", bucketCount), nodeSelectionStrategy);
             case NO_PREFERENCE:
                 return createBucketNodeMap(bucketCount);
             default:

@@ -204,6 +204,7 @@ public final class SystemSessionProperties
     public static final String MATERIALIZED_VIEW_DATA_CONSISTENCY_ENABLED = "materialized_view_data_consistency_enabled";
     public static final String QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED = "query_optimization_with_materialized_view_enabled";
     public static final String AGGREGATION_IF_TO_FILTER_REWRITE_ENABLED = "aggregation_if_to_filter_rewrite_enabled";
+    public static final String CONSISTENT_HASHING_AFFINITY_SCHEDULING_ENABLED = "consistent_hashing_affinity_scheduling_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1859,5 +1860,10 @@ public final class SystemSessionProperties
     public static boolean isAggregationIfToFilterRewriteEnabled(Session session)
     {
         return session.getSystemProperty(AGGREGATION_IF_TO_FILTER_REWRITE_ENABLED, Boolean.class);
+    }
+
+    public static boolean isConsistentHashingAffinitySchedulingEnabled(Session session)
+    {
+        return session.getSystemProperty(CONSISTENT_HASHING_AFFINITY_SCHEDULING_ENABLED, Boolean.class);
     }
 }

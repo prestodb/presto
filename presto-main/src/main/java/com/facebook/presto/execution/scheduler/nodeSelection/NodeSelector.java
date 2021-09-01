@@ -18,6 +18,8 @@ import com.facebook.presto.execution.scheduler.BucketNodeMap;
 import com.facebook.presto.execution.scheduler.SplitPlacementResult;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.spi.Node;
+import com.facebook.presto.spi.hashing.ConsistentHashSelector;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
@@ -32,6 +34,8 @@ public interface NodeSelector
     List<InternalNode> getAllNodes();
 
     InternalNode selectCurrentNode();
+
+    ConsistentHashSelector<Node> getConsistentHashingRing();
 
     default List<InternalNode> selectRandomNodes(int limit)
     {

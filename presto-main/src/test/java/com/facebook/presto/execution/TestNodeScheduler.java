@@ -401,7 +401,7 @@ public class TestNodeScheduler
                 .setMaxSplitsPerNode(20)
                 .setIncludeCoordinator(false)
                 .setMaxPendingSplitsPerTask(10)
-                .setConsistentHashSoftAffinitySchedulingEnabled(true);
+                .setConsistentHashAffinitySchedulingEnabled(true);
 
         NodeScheduler nodeScheduler = new NodeScheduler(new LegacyNetworkTopology(), nodeManager, new NodeSelectionStats(), nodeSchedulerConfig, nodeTaskMap);
         NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, CONNECTOR_ID, 3);
@@ -422,7 +422,7 @@ public class TestNodeScheduler
         nodes.add(hashSelector.getN("p2", 1).get(0));
         assertEquals(internalNodesSecondCall.size(), nodes.size());
 
-        while(true) {
+        while (true) {
             String path = "p" + new Random().nextInt();
             if (!nodes.contains(hashSelector.getN(path, 1).get(0))) {
                 splits.add(new Split(CONNECTOR_ID, transactionHandle, new TestAffinitySplitRemoteWithConsistentHashing(path)));
@@ -484,7 +484,7 @@ public class TestNodeScheduler
                 .setMaxSplitsPerNode(200)
                 .setIncludeCoordinator(false)
                 .setMaxPendingSplitsPerTask(100)
-                .setConsistentHashSoftAffinitySchedulingEnabled(true);
+                .setConsistentHashAffinitySchedulingEnabled(true);
 
         NodeScheduler nodeScheduler = new NodeScheduler(new LegacyNetworkTopology(), nodeManager, new NodeSelectionStats(), nodeSchedulerConfig, nodeTaskMap);
         NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, CONNECTOR_ID, 100);

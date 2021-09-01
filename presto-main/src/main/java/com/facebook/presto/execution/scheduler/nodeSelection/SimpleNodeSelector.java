@@ -25,8 +25,10 @@ import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SplitContext;
+import com.facebook.presto.spi.hashing.ConsistentHashSelector;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.HashMultimap;
@@ -72,7 +74,7 @@ public class SimpleNodeSelector
     private final int maxPendingSplitsPerTask;
     private final int maxUnacknowledgedSplitsPerTask;
     private final int maxTasksPerStage;
-    private final boolean consistentHashSoftAffinitySchedulingEnabled;
+    private final boolean consistentHashAffinitySchedulingEnabled;
 
     public SimpleNodeSelector(
             InternalNodeManager nodeManager,
@@ -85,7 +87,7 @@ public class SimpleNodeSelector
             int maxPendingSplitsPerTask,
             int maxUnacknowledgedSplitsPerTask,
             int maxTasksPerStage,
-            boolean consistentHashSoftAffinitySchedulingEnabled)
+            boolean consistentHashAffinitySchedulingEnabled)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.nodeSelectionStats = requireNonNull(nodeSelectionStats, "nodeSelectionStats is null");
@@ -98,7 +100,7 @@ public class SimpleNodeSelector
         this.maxUnacknowledgedSplitsPerTask = maxUnacknowledgedSplitsPerTask;
         checkArgument(maxUnacknowledgedSplitsPerTask > 0, "maxUnacknowledgedSplitsPerTask must be > 0, found: %s", maxUnacknowledgedSplitsPerTask);
         this.maxTasksPerStage = maxTasksPerStage;
-        this.consistentHashSoftAffinitySchedulingEnabled = consistentHashSoftAffinitySchedulingEnabled;
+        this.consistentHashAffinitySchedulingEnabled = consistentHashAffinitySchedulingEnabled;
     }
 
     @Override
@@ -117,6 +119,12 @@ public class SimpleNodeSelector
     public List<InternalNode> getAllNodes()
     {
         return ImmutableList.copyOf(nodeMap.get().get().getAllNodes());
+    }
+
+    @Override
+    public ConsistentHashSelector<Node> getConsistentHashingRing()
+    {
+        return nodeMap.get().get().getActiveNodesInHashRing();
     }
 
     @Override
@@ -156,11 +164,16 @@ public class SimpleNodeSelector
             List<InternalNode> candidateNodes;
             switch (split.getNodeSelectionStrategy()) {
                 case HARD_AFFINITY:
-                    candidateNodes = selectExactNodes(nodeMap, split.getPreferredNodes(activeCandidates), includeCoordinator);
+                    if (consistentHashAffinitySchedulingEnabled) {
+                        candidateNodes = selectExactNodes(nodeMap, split.getPreferredNodes(activeCandidates, nodeMap.getActiveNodesInHashRing()), includeCoordinator);
+                    }
+                    else {
+                        candidateNodes = selectExactNodes(nodeMap, split.getPreferredNodes(allCandidates), includeCoordinator);
+                    }
                     preferredNodeCount = OptionalInt.of(candidateNodes.size());
                     break;
                 case SOFT_AFFINITY:
-                    if (consistentHashSoftAffinitySchedulingEnabled) {
+                    if (consistentHashAffinitySchedulingEnabled) {
                         candidateNodes = selectExactNodes(nodeMap, split.getPreferredNodes(activeCandidates, nodeMap.getActiveNodesInHashRing()), includeCoordinator);
                     }
                     else {
