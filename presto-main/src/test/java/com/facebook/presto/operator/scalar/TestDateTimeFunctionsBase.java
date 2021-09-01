@@ -184,6 +184,19 @@ public abstract class TestDateTimeFunctionsBase
     }
 
     @Test
+    public void testToDate()
+    {
+        assertFunction("to_date()", DateType.DATE, new SqlDate(toIntExact(epochDaysInZone(TIME_ZONE_KEY, session.getStartTime()))));
+        assertFunction("to_date('2009-07-30')", DateType.DATE, new SqlDate(toIntExact(LocalDate.of(2009, 7, 30).toEpochDay())));
+        assertFunction("to_date('1988/06/08','yyyy/MM/dd')", DateType.DATE, new SqlDate(toIntExact(LocalDate.of(1988, 6, 8).toEpochDay())));
+        assertFunction("to_date('04-08-1988','MM-dd-yyyy')", DateType.DATE, new SqlDate(toIntExact(LocalDate.of(1988, 4, 8).toEpochDay())));
+        assertFunction("to_date('04.1988,08','MM.yyyy,dd')", DateType.DATE, new SqlDate(toIntExact(LocalDate.of(1988, 4, 8).toEpochDay())));
+        assertFunction("to_date(';198804:08',';yyyyMM:dd')", DateType.DATE, new SqlDate(toIntExact(LocalDate.of(1988, 4, 8).toEpochDay())));
+        assertFunction("to_date(';198804:08',';yyyyMM:dd')", DateType.DATE, new SqlDate(toIntExact(LocalDate.of(1988, 4, 8).toEpochDay())));
+        assertFunction("to_date('20201111','yyyyMMdd')", DateType.DATE, new SqlDate(toIntExact(LocalDate.of(2020, 11, 11).toEpochDay())));
+    }
+
+    @Test
     public void testFromUnixTime()
     {
         DateTime dateTime = new DateTime(2001, 1, 22, 3, 4, 5, 0, DATE_TIME_ZONE);

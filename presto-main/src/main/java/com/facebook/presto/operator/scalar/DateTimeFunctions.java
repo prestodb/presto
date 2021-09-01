@@ -47,6 +47,7 @@ import static com.facebook.presto.common.type.TimeZoneKey.getTimeZoneKeyForOffse
 import static com.facebook.presto.operator.scalar.QuarterOfYearDateTimeField.QUARTER_OF_YEAR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
+import static com.facebook.presto.type.DateOperators.castFromSlice;
 import static com.facebook.presto.type.DateTimeOperators.modulo24Hour;
 import static com.facebook.presto.util.DateTimeZoneIndex.extractZoneOffsetMinutes;
 import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
@@ -156,6 +157,30 @@ public final class DateTimeFunctions
         }
         ISOChronology localChronology = getChronology(properties.getTimeZoneKey());
         return localChronology.getZone().convertUTCToLocal(properties.getSessionStartTime());
+    }
+
+    @ScalarFunction("to_date")
+    @SqlType(StandardTypes.DATE)
+    public static long toDate(SqlFunctionProperties sqlFunctionProperties)
+    {
+        return currentDate(sqlFunctionProperties);
+    }
+
+    @ScalarFunction("to_date")
+    @SqlType(StandardTypes.DATE)
+    public static long toDate(@SqlType(StandardTypes.VARCHAR) Slice dateTime)
+    {
+        return castFromSlice(dateTime);
+    }
+
+    @ScalarFunction("to_date")
+    @SqlType(StandardTypes.DATE)
+    public static long toDate(SqlFunctionProperties sqlFunctionProperties, @SqlType(StandardTypes.VARCHAR) Slice dateTime, @SqlType(StandardTypes.VARCHAR) Slice formatString)
+    {
+        ISOChronology chronology = getChronology(sqlFunctionProperties.getTimeZoneKey());
+        DateTimeFormatter formatter = DateTimeFormat.forPattern(formatString.toStringUtf8()).withChronology(chronology);
+        DateTime currentDateTime = formatter.parseDateTime(dateTime.toStringUtf8());
+        return Days.daysBetween(new LocalDate(1970, 1, 1), currentDateTime.toLocalDate()).getDays();
     }
 
     @ScalarFunction("from_unixtime")
