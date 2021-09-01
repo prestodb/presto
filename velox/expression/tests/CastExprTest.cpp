@@ -458,3 +458,22 @@ TEST_F(CastExprTest, nulls) {
       kVectorSize, [](auto row) { return row; }, nullEvery(2));
   assertEqualVectors(expectedResult, result);
 }
+
+TEST_F(CastExprTest, testNullOnFailure) {
+  auto input =
+      makeNullableFlatVector<std::string>({"1", "2", "", "3.4", std::nullopt});
+  auto expected = makeNullableFlatVector<int32_t>(
+      {1, 2, std::nullopt, std::nullopt, std::nullopt});
+  auto rowVector = makeRowVector({input});
+  auto result = evaluateComplexCast<FlatVector<int32_t>>(
+      "c0", rowVector, INTEGER(), true);
+
+  // nullOnFailure is true, so we should return null instead of throwing
+  assertEqualVectors(expected, result);
+
+  // nullOnFailure is false, so we should throw
+  EXPECT_THROW(
+      evaluateComplexCast<FlatVector<int32_t>>(
+          "c0", rowVector, INTEGER(), false),
+      std::exception);
+}
