@@ -42,13 +42,15 @@ FOLLY_ALWAYS_INLINE void initializeSelectivityVector(
   selectivityVector.updateBounds();
 }
 
-void decode(
+auto& decode(
+    WriterContext& context,
+    WriterContext::LocalDecodedVector& decoded,
     const VectorPtr& slice,
-    const Ranges& ranges,
-    DecodedVector& decodedVector) {
-  SelectivityVector selectivityVector(slice->size());
-  initializeSelectivityVector(ranges, selectivityVector);
-  decodedVector.decode(*slice, selectivityVector);
+    const Ranges& ranges) {
+  auto localSv = context.getLocalSelectivityVector(slice->size());
+  initializeSelectivityVector(ranges, localSv.get());
+  decoded.get().decode(*slice, localSv.get());
+  return decoded.get();
 }
 
 template <typename T>
@@ -104,8 +106,8 @@ uint64_t ByteRleColumnWriter<int8_t>::write(
         ranges);
   } else {
     // The path for non-flat vectors
-    DecodedVector decodedVector;
-    decode(slice, ranges, decodedVector);
+    auto localDv = context_.getLocalDecodedVector();
+    auto& decodedVector = decode(context_, localDv, slice, ranges);
     ColumnWriter::write(decodedVector, ranges);
 
     std::function<bool(vector_size_t)> isNullAt = nullptr;
@@ -153,8 +155,8 @@ uint64_t ByteRleColumnWriter<bool>::write(
         slice,
         ranges);
   } else {
-    DecodedVector decodedVector;
-    decode(slice, ranges, decodedVector);
+    auto localDv = context_.getLocalDecodedVector();
+    auto& decodedVector = decode(context_, localDv, slice, ranges);
     ColumnWriter::write(decodedVector, ranges);
 
     std::function<bool(vector_size_t)> isNullAt = nullptr;
@@ -478,8 +480,8 @@ uint64_t IntegerColumnWriter<T>::write(
     const Ranges& ranges) {
   if (useDictionaryEncoding_) {
     // Decode and then write
-    DecodedVector decodedVector;
-    decode(slice, ranges, decodedVector);
+    auto localDv = context_.getLocalDecodedVector();
+    auto& decodedVector = decode(context_, localDv, slice, ranges);
     return writeDict(decodedVector, ranges);
   } else {
     // If the input is not a flat vector we make a complete copy and convert
@@ -736,8 +738,10 @@ FOLLY_ALWAYS_INLINE int64_t formatNanos(uint64_t nanos) {
 uint64_t TimestampColumnWriter::write(
     const VectorPtr& slice,
     const Ranges& ranges) {
-  DecodedVector decodedVector;
-  decode(slice, ranges, decodedVector);
+  // Timestamp is not frequently used, always decode so we have less branches to
+  // deal with.
+  auto localDv = context_.getLocalDecodedVector();
+  auto& decodedVector = decode(context_, localDv, slice, ranges);
   ColumnWriter::write(decodedVector, ranges);
 
   size_t count = 0;
@@ -1083,8 +1087,8 @@ class StringColumnWriter : public ColumnWriter {
 uint64_t StringColumnWriter::write(
     const VectorPtr& slice,
     const Ranges& ranges) {
-  DecodedVector decodedVector;
-  decode(slice, ranges, decodedVector);
+  auto localDv = context_.getLocalDecodedVector();
+  auto& decodedVector = decode(context_, localDv, slice, ranges);
 
   if (useDictionaryEncoding_) {
     return writeDict(decodedVector, ranges);
@@ -1403,8 +1407,8 @@ uint64_t FloatColumnWriter<T>::write(
       }
     }
   } else {
-    DecodedVector decodedVector;
-    decode(slice, ranges, decodedVector);
+    auto localDv = context_.getLocalDecodedVector();
+    auto& decodedVector = decode(context_, localDv, slice, ranges);
     ColumnWriter::write(decodedVector, ranges);
 
     // higher throughput is achieved through this local buffer
@@ -1416,7 +1420,7 @@ uint64_t FloatColumnWriter<T>::write(
         });
 
     auto processRow = [&](size_t pos) {
-      auto val = decodedVector.valueAt<T>(pos);
+      auto val = decodedVector.template valueAt<T>(pos);
       writer.add(val);
       statsBuilder.addValues(val);
     };
@@ -1590,8 +1594,8 @@ uint64_t StructColumnWriter::write(
     const RowVector* rowSlice;
     const Ranges* childRangesPtr;
     if (slice->encoding() != VectorEncoding::Simple::ROW) {
-      DecodedVector decodedVector;
-      decode(slice, ranges, decodedVector);
+      auto localDv = context_.getLocalDecodedVector();
+      auto& decodedVector = decode(context_, localDv, slice, ranges);
       rowSlice = decodedVector.base()->as<RowVector>();
       DWIO_ENSURE(rowSlice, "unexpected vector type");
       childRangesPtr = &childRanges;
@@ -1616,8 +1620,8 @@ uint64_t StructColumnWriter::write(
   const RowVector* rowSlice;
   const Ranges* childRangesPtr;
   if (slice->encoding() != VectorEncoding::Simple::ROW) {
-    DecodedVector decodedVector;
-    decode(slice, ranges, decodedVector);
+    auto localDv = context_.getLocalDecodedVector();
+    auto& decodedVector = decode(context_, localDv, slice, ranges);
     rowSlice = decodedVector.base()->as<RowVector>();
     DWIO_ENSURE(rowSlice, "unexpected vector type");
     childRangesPtr = &childRanges;
@@ -1717,8 +1721,8 @@ uint64_t ListColumnWriter::write(const VectorPtr& slice, const Ranges& ranges) {
   };
 
   if (slice->encoding() != VectorEncoding::Simple::ARRAY) {
-    DecodedVector decodedVector;
-    decode(slice, ranges, decodedVector);
+    auto localDv = context_.getLocalDecodedVector();
+    auto& decodedVector = decode(context_, localDv, slice, ranges);
     arraySlice = decodedVector.base()->as<ArrayVector>();
     DWIO_ENSURE(arraySlice, "unexpected vector type");
 
@@ -1841,8 +1845,8 @@ uint64_t MapColumnWriter::write(const VectorPtr& slice, const Ranges& ranges) {
   };
 
   if (slice->encoding() != VectorEncoding::Simple::MAP) {
-    DecodedVector decodedVector;
-    decode(slice, ranges, decodedVector);
+    auto localDv = context_.getLocalDecodedVector();
+    auto& decodedVector = decode(context_, localDv, slice, ranges);
     mapSlice = decodedVector.base()->as<MapVector>();
     DWIO_ENSURE(mapSlice, "unexpected vector type");
 

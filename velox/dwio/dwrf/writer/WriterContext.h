@@ -23,6 +23,7 @@
 #include "velox/dwio/dwrf/writer/IndexBuilder.h"
 #include "velox/dwio/dwrf/writer/IntegerDictionaryEncoder.h"
 #include "velox/dwio/dwrf/writer/RatioTracker.h"
+#include "velox/vector/DecodedVector.h"
 
 namespace facebook::velox::dwrf {
 
@@ -376,8 +377,81 @@ class WriterContext : public CompressionBufferPool {
     return lowMemoryMode_;
   }
 
+  class LocalDecodedVector {
+   public:
+    explicit LocalDecodedVector(WriterContext& context)
+        : context_(context), vector_(context_.getDecodedVector()) {}
+
+    ~LocalDecodedVector() {
+      context_.releaseDecodedVector(std::move(vector_));
+    }
+
+    DecodedVector& get() {
+      return *vector_;
+    }
+
+   private:
+    WriterContext& context_;
+    std::unique_ptr<velox::DecodedVector> vector_;
+  };
+
+  LocalDecodedVector getLocalDecodedVector() {
+    return LocalDecodedVector{*this};
+  }
+
+  class LocalSelectivityVector {
+   public:
+    LocalSelectivityVector(WriterContext& context, velox::vector_size_t size)
+        : context_(context), vector_(context_.getSelectivityVector(size)) {}
+
+    ~LocalSelectivityVector() {
+      context_.releaseSelectivityVector(std::move(vector_));
+    }
+
+    SelectivityVector& get() {
+      return *vector_;
+    }
+
+   private:
+    WriterContext& context_;
+    std::unique_ptr<velox::SelectivityVector> vector_;
+  };
+
+  LocalSelectivityVector getLocalSelectivityVector(velox::vector_size_t size) {
+    return LocalSelectivityVector{*this, size};
+  }
+
  private:
   void validateConfigs() const;
+
+  std::unique_ptr<velox::SelectivityVector> getSelectivityVector(
+      velox::vector_size_t size) {
+    if (selectivityVectorPool_.empty()) {
+      return std::make_unique<velox::SelectivityVector>(size);
+    }
+    auto vector = std::move(selectivityVectorPool_.back());
+    selectivityVectorPool_.pop_back();
+    vector->resize(size);
+    return vector;
+  }
+
+  void releaseSelectivityVector(
+      std::unique_ptr<velox::SelectivityVector>&& vector) {
+    selectivityVectorPool_.push_back(std::move(vector));
+  }
+
+  std::unique_ptr<velox::DecodedVector> getDecodedVector() {
+    if (decodedVectorPool_.empty()) {
+      return std::make_unique<velox::DecodedVector>();
+    }
+    auto vector = std::move(decodedVectorPool_.back());
+    decodedVectorPool_.pop_back();
+    return vector;
+  }
+
+  void releaseDecodedVector(std::unique_ptr<velox::DecodedVector>&& vector) {
+    decodedVectorPool_.push_back(std::move(vector));
+  }
 
   std::shared_ptr<const Config> config_;
   std::unique_ptr<memory::ScopedMemoryPool> scopedPool_;
@@ -398,6 +472,10 @@ class WriterContext : public CompressionBufferPool {
       std::unique_ptr<BufferedOutputStream>)>
       indexBuilderFactory_;
   std::unique_ptr<dwio::common::DataBuffer<char>> compressionBuffer_;
+  // A pool of reusable DecodedVectors.
+  std::vector<std::unique_ptr<velox::DecodedVector>> decodedVectorPool_;
+  // A pool of reusable SelectivityVectors.
+  std::vector<std::unique_ptr<velox::SelectivityVector>> selectivityVectorPool_;
 
   std::unique_ptr<encryption::EncryptionHandler> handler_;
   folly::F14FastMap<uint32_t, uint64_t> nodeSize;
