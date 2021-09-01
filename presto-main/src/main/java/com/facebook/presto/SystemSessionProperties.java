@@ -1101,6 +1101,11 @@ public final class SystemSessionProperties
                         AGGREGATION_IF_TO_FILTER_REWRITE_ENABLED,
                         "Enable rewriting the IF expression inside an aggregation function to a filter clause outside the aggregation",
                         featuresConfig.isAggregationIfToFilterRewriteEnabled(),
+                        false),
+                booleanProperty(
+                        CONSISTENT_HASHING_AFFINITY_SCHEDULING_ENABLED,
+                        "Enable consistent hashing for affinity scheduling",
+                        nodeSchedulerConfig.isConsistentHashAffinitySchedulingEnabled(),
                         false));
     }
 
