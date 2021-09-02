@@ -20,6 +20,7 @@ import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.RenameColumn;
@@ -39,7 +40,7 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Locale.ENGLISH;
 
 public class RenameColumnTask
-        implements DataDefinitionTask<RenameColumn>
+        implements DDLDefinitionTask<RenameColumn>
 {
     @Override
     public String getName()
@@ -48,9 +49,8 @@ public class RenameColumnTask
     }
 
     @Override
-    public ListenableFuture<?> execute(RenameColumn statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
+    public ListenableFuture<?> execute(RenameColumn statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
     {
-        Session session = stateMachine.getSession();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable());
         Optional<TableHandle> tableHandleOptional = metadata.getTableHandle(session, tableName);
         if (!tableHandleOptional.isPresent()) {

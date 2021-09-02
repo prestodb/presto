@@ -24,6 +24,7 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.MaterializedViewColumnMappingExtractor;
@@ -53,7 +54,7 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Objects.requireNonNull;
 
 public class CreateMaterializedViewTask
-        implements DataDefinitionTask<CreateMaterializedView>
+        implements DDLDefinitionTask<CreateMaterializedView>
 {
     private final SqlParser sqlParser;
 
@@ -70,9 +71,8 @@ public class CreateMaterializedViewTask
     }
 
     @Override
-    public ListenableFuture<?> execute(CreateMaterializedView statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
+    public ListenableFuture<?> execute(CreateMaterializedView statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
     {
-        Session session = stateMachine.getSession();
         QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getName());
 
         Optional<TableHandle> viewHandle = metadata.getTableHandle(session, viewName);
@@ -86,7 +86,7 @@ public class CreateMaterializedViewTask
         accessControl.checkCanCreateTable(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), viewName);
         accessControl.checkCanCreateView(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), viewName);
 
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.empty(), parameters, stateMachine.getWarningCollector());
+        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.empty(), parameters, warningCollector);
         Analysis analysis = analyzer.analyze(statement);
 
         ConnectorId connectorId = metadata.getCatalogHandle(session, viewName.getCatalogName())
