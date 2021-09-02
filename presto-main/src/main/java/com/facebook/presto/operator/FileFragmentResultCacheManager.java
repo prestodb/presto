@@ -47,6 +47,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.page.PagesSerdeUtil.readPages;
@@ -71,8 +72,9 @@ public class FileFragmentResultCacheManager
     private final FragmentCacheStats fragmentCacheStats;
     private final ExecutorService flushExecutor;
     private final ExecutorService removalExecutor;
+    private final AtomicLong maxReaderBufferSize;
 
-    private final Cache<CacheKey, Path> cache;
+    private final Cache<CacheKey, CacheValue> cache;
 
     // TODO: Decouple CacheKey by encoding PlanNode and SplitIdentifier separately so we don't have to keep too many objects in memory
     @Inject
@@ -94,6 +96,8 @@ public class FileFragmentResultCacheManager
         this.fragmentCacheStats = requireNonNull(fragmentCacheStats, "fragmentCacheStats is null");
         this.flushExecutor = requireNonNull(flushExecutor, "flushExecutor is null");
         this.removalExecutor = requireNonNull(removalExecutor, "removalExecutor is null");
+        this.maxReaderBufferSize = new AtomicLong(cacheConfig.getMaxReaderBufferSize().toBytes());
+        fragmentCacheStats.incrementReaderBufferSize(maxReaderBufferSize.get());
         this.cache = CacheBuilder.newBuilder()
                 .maximumSize(cacheConfig.getMaxCachedEntries())
                 .expireAfterAccess(cacheConfig.getCacheTtl().toMillis(), MILLISECONDS)
@@ -155,7 +159,7 @@ public class FileFragmentResultCacheManager
             Files.createFile(path);
             try (SliceOutput output = new OutputStreamSliceOutput(newOutputStream(path, APPEND))) {
                 writePages(pagesSerdeFactory.createPagesSerde(), output, pages.iterator());
-                cache.put(key, path);
+                cache.put(key, new CacheValue(path, resultSize));
                 fragmentCacheStats.incrementCacheEntries();
             }
             catch (UncheckedIOException | IOException e) {
@@ -189,20 +193,22 @@ public class FileFragmentResultCacheManager
     public Optional<Iterator<Page>> get(String serializedPlan, Split split)
     {
         CacheKey key = new CacheKey(serializedPlan, split.getSplitIdentifier());
-        Path path = cache.getIfPresent(key);
-        if (path == null) {
+        CacheValue value = cache.getIfPresent(key);
+        if (value == null && maxReaderBufferSize.get() < value.getSize()) {
             fragmentCacheStats.incrementCacheMiss();
             return Optional.empty();
         }
 
         try {
-            InputStream inputStream = newInputStream(path);
+            InputStream inputStream = newInputStream(value.getPath());
             Iterator<Page> result = readPages(pagesSerdeFactory.createPagesSerde(), new InputStreamSliceInput(inputStream));
             fragmentCacheStats.incrementCacheHit();
-            return Optional.of(closeWhenExhausted(result, inputStream));
+            maxReaderBufferSize.getAndAdd(-value.getSize());
+            fragmentCacheStats.incrementReaderBufferSize(-value.getSize());
+            return Optional.of(closeWhenExhausted(result, inputStream, maxReaderBufferSize, fragmentCacheStats));
         }
         catch (UncheckedIOException | IOException e) {
-            log.error(e, "read path %s error", path);
+            log.error(e, "read path %s error", value.getPath());
             // there might be a chance the file has been deleted. We would return cache miss in this case.
             fragmentCacheStats.incrementCacheMiss();
             return Optional.empty();
@@ -215,18 +221,21 @@ public class FileFragmentResultCacheManager
         cache.invalidateAll();
     }
 
-    private static <T> Iterator<T> closeWhenExhausted(Iterator<T> iterator, Closeable resource)
+    private static Iterator<Page> closeWhenExhausted(Iterator<Page> iterator, Closeable resource, AtomicLong maxReaderBufferSize, FragmentCacheStats fragmentCacheStats)
     {
         requireNonNull(iterator, "iterator is null");
         requireNonNull(resource, "resource is null");
 
-        return new AbstractIterator<T>()
+        return new AbstractIterator<Page>()
         {
             @Override
-            protected T computeNext()
+            protected Page computeNext()
             {
                 if (iterator.hasNext()) {
-                    return iterator.next();
+                    Page page = iterator.next();
+                    maxReaderBufferSize.getAndAdd(page.getSizeInBytes());
+                    fragmentCacheStats.incrementReaderBufferSize(page.getSizeInBytes());
+                    return page;
                 }
                 try {
                     resource.close();
@@ -281,13 +290,35 @@ public class FileFragmentResultCacheManager
         }
     }
 
+    private static class CacheValue
+    {
+        private final Path path;
+        private final long size;
+
+        public CacheValue(Path path, long size)
+        {
+            this.path = path;
+            this.size = size;
+        }
+
+        public Path getPath()
+        {
+            return path;
+        }
+
+        public long getSize()
+        {
+            return size;
+        }
+    }
+
     private class CacheRemovalListener
-            implements RemovalListener<CacheKey, Path>
+            implements RemovalListener<CacheKey, CacheValue>
     {
         @Override
-        public void onRemoval(RemovalNotification<CacheKey, Path> notification)
+        public void onRemoval(RemovalNotification<CacheKey, CacheValue> notification)
         {
-            removalExecutor.submit(() -> tryDeleteFile(notification.getValue()));
+            removalExecutor.submit(() -> tryDeleteFile(notification.getValue().getPath()));
             fragmentCacheStats.incrementCacheRemoval();
             fragmentCacheStats.decrementCacheEntries();
         }

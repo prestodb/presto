@@ -38,6 +38,7 @@ public class FileFragmentResultCacheConfig
     private Duration cacheTtl = new Duration(2, DAYS);
     private DataSize maxInFlightSize = new DataSize(1, GIGABYTE);
     private DataSize maxSinglePagesSize = new DataSize(500, MEGABYTE);
+    private DataSize maxReaderBufferSize = new DataSize(4, GIGABYTE);
 
     public boolean isCachingEnabled()
     {
@@ -131,6 +132,20 @@ public class FileFragmentResultCacheConfig
     public FileFragmentResultCacheConfig setMaxSinglePagesSize(DataSize maxSinglePagesSize)
     {
         this.maxSinglePagesSize = maxSinglePagesSize;
+        return this;
+    }
+
+    @MinDataSize("0B")
+    public DataSize getMaxReaderBufferSize()
+    {
+        return maxReaderBufferSize;
+    }
+
+    @Config("fragment-result-cache.max-reader-buffer-size")
+    @ConfigDescription("Maximum size of buffer to read cache file")
+    public FileFragmentResultCacheConfig setMaxReaderBufferSize(DataSize maxReaderBufferSize)
+    {
+        this.maxReaderBufferSize = maxReaderBufferSize;
         return this;
     }
 }

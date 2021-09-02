@@ -24,6 +24,7 @@ public class FragmentCacheStats
     private final AtomicLong inFlightBytes = new AtomicLong();
     private final AtomicLong cacheRemoval = new AtomicLong();
     private final AtomicLong cacheEntries = new AtomicLong();
+    private final AtomicLong readerBufferSize = new AtomicLong();
 
     public void incrementCacheHit()
     {
@@ -55,6 +56,11 @@ public class FragmentCacheStats
         cacheEntries.getAndDecrement();
     }
 
+    public void incrementReaderBufferSize(long size)
+    {
+        readerBufferSize.getAndAdd(size);
+    }
+
     @Managed
     public long getCacheHit()
     {
@@ -83,5 +89,11 @@ public class FragmentCacheStats
     public long getCacheEntries()
     {
         return cacheEntries.get();
+    }
+
+    @Managed
+    public long getReaderBufferSize()
+    {
+        return readerBufferSize.get();
     }
 }
