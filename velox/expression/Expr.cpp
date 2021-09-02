@@ -875,7 +875,7 @@ void Expr::evalAll(
 
   if (!tryPeelArgs ||
       !applyFunctionWithPeeling(rows, *remainingRows, context, result)) {
-    applyFunction(rows, *remainingRows, context, result);
+    applyFunction(*remainingRows, context, result);
   }
   if (remainingRows != &rows) {
     addNulls(rows, remainingRows->asRange().bits(), context, result);
@@ -1007,21 +1007,20 @@ bool Expr::applyFunctionWithPeeling(
   }
 
   VectorPtr peeledResult;
-  applyFunction(*newRows, *newRows, context, &peeledResult);
+  applyFunction(*newRows, context, &peeledResult);
   context->setWrapped(this, peeledResult, rows, result);
   return true;
 }
 
 void Expr::applyFunction(
     const SelectivityVector& rows,
-    const SelectivityVector& applyRows,
     EvalCtx* context,
     VectorPtr* result) {
   scanVectorFunctionInputsStringEncoding(
       vectorFunction_.get(), inputValues_, context, rows);
   auto resultEncoding = getVectorFunctionResultStringEncoding(
       vectorFunction_.get(), inputValues_);
-  applyVectorFunction(applyRows, context, result);
+  applyVectorFunction(rows, context, result);
   if (resultEncoding.has_value()) {
     (*result)->as<SimpleVector<StringView>>()->setStringEncoding(
         *resultEncoding);

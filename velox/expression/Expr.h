@@ -258,7 +258,6 @@ class Expr {
   // 'inputValues_'. Handles cases of VectorFunction and VectorAdapter.
   void applyFunction(
       const SelectivityVector& rows,
-      const SelectivityVector& applyRows,
       EvalCtx* context,
       VectorPtr* result);
 
