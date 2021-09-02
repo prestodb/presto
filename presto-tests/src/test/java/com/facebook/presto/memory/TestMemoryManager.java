@@ -466,7 +466,7 @@ public class TestMemoryManager
                 queryFutures.add(executor.submit(() -> queryRunner.execute(coordinator, "SELECT COUNT(*), clerk FROM orders GROUP BY clerk")));
             }
 
-            ClusterMemoryManager memoryManager = queryRunner.getCoordinators().get(0).getClusterMemoryManager();
+            ClusterMemoryManager memoryManager = queryRunner.getCoordinator(0).getClusterMemoryManager();
             ClusterMemoryPoolInfo reservedPool;
             while ((reservedPool = memoryManager.getClusterInfo(RESERVED_POOL)) == null) {
                 MILLISECONDS.sleep(10);

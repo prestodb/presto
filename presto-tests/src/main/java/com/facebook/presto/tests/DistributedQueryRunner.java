@@ -14,6 +14,9 @@
 package com.facebook.presto.tests;
 
 import com.facebook.airlift.discovery.server.testing.TestingDiscoveryServer;
+import com.facebook.airlift.http.client.HttpClient;
+import com.facebook.airlift.http.client.Request;
+import com.facebook.airlift.http.client.jetty.JettyHttpClient;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.testing.Assertions;
 import com.facebook.presto.Session;
@@ -30,6 +33,7 @@ import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.NodeState;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.WarningCollector;
@@ -71,6 +75,10 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
+import static com.facebook.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
+import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
 import static com.facebook.presto.tests.AbstractTestQueries.TEST_CATALOG_PROPERTIES;
@@ -80,6 +88,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.units.Duration.nanosSince;
+import static java.lang.String.format;
 import static java.lang.System.nanoTime;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -90,15 +99,18 @@ public class DistributedQueryRunner
 {
     private static final Logger log = Logger.get(DistributedQueryRunner.class);
     private static final String ENVIRONMENT = "testing";
+    private static final String DEFAULT_USER = "user";
     private static final SqlParserOptions DEFAULT_SQL_PARSER_OPTIONS = new SqlParserOptions();
 
     private final TestingDiscoveryServer discoveryServer;
     private final List<TestingPrestoServer> coordinators;
+    private final int coordinatorCount;
     private final List<TestingPrestoServer> servers;
     private final List<Process> externalWorkers;
     private final List<Module> extraModules;
 
     private final Closer closer = Closer.create();
+    private final HttpClient client = new JettyHttpClient();
 
     private final List<TestingPrestoClient> prestoClients;
 
@@ -147,6 +159,7 @@ public class DistributedQueryRunner
         try {
             long start = nanoTime();
             discoveryServer = new TestingDiscoveryServer(environment);
+            this.coordinatorCount = coordinatorCount;
             closer.register(() -> closeUnchecked(discoveryServer));
             log.info("Created TestingDiscoveryServer in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
             URI discoveryUrl = discoveryServer.getBaseUrl();
@@ -155,11 +168,6 @@ public class DistributedQueryRunner
             ImmutableList.Builder<TestingPrestoServer> servers = ImmutableList.builder();
             ImmutableList.Builder<TestingPrestoServer> coordinators = ImmutableList.builder();
             Map<String, String> extraCoordinatorProperties = new HashMap<>();
-
-            if (resourceManagerEnabled) {
-                resourceManager = Optional.of(closer.register(createTestingPrestoServer(discoveryUrl, true, true, false, resourceManagerProperties, parserOptions, environment, baseDataDir, extraModules)));
-                servers.add(resourceManager.get());
-            }
 
             if (externalWorkerLauncher.isPresent()) {
                 ImmutableList.Builder<Process> externalWorkersBuilder = ImmutableList.builder();
@@ -194,6 +202,11 @@ public class DistributedQueryRunner
                 servers.add(coordinator);
                 coordinators.add(coordinator);
                 extraCoordinatorProperties.remove("http-server.http.port");
+            }
+
+            if (resourceManagerEnabled) {
+                resourceManager = Optional.of(closer.register(createTestingPrestoServer(discoveryUrl, true, true, false, resourceManagerProperties, parserOptions, environment, baseDataDir, extraModules)));
+                servers.add(resourceManager.get());
             }
 
             this.servers = servers.build();
@@ -239,6 +252,36 @@ public class DistributedQueryRunner
             sessionPropertyManager.addSystemSessionProperties(TEST_SYSTEM_PROPERTIES);
             sessionPropertyManager.addConnectorSessionProperties(bogusTestingCatalog.getConnectorId(), TEST_CATALOG_PROPERTIES);
         }
+    }
+
+    public void waitForClusterToGetReady()
+            throws InterruptedException
+    {
+        for (int i = 0; i < coordinators.size(); i++) {
+            NodeState state = NodeState.INACTIVE;
+            while (state != NodeState.ACTIVE) {
+                MILLISECONDS.sleep(10);
+                state = getCoordinatorInfoState(i);
+            }
+        }
+
+        int availableCoordinaors = 0;
+        while (availableCoordinaors != coordinators.size()) {
+            MILLISECONDS.sleep(10);
+            availableCoordinaors = getResourceManager().get().getNodeManager().getCoordinators().size();
+        }
+    }
+
+    private NodeState getCoordinatorInfoState(int coordinator)
+    {
+        URI uri = URI.create(getCoordinator(coordinator).getBaseUrl().toString() + "/v1/info/state");
+        Request request = prepareGet()
+                .setHeader(PRESTO_USER, DEFAULT_USER)
+                .setUri(uri)
+                .build();
+
+        NodeState state = client.execute(request, createJsonResponseHandler(jsonCodec(NodeState.class)));
+        return state;
     }
 
     private static TestingPrestoServer createTestingPrestoServer(URI discoveryUri, boolean resourceManager, boolean resourceManagerEnabled, boolean coordinator, Map<String, String> extraProperties, SqlParserOptions parserOptions, String environment, Optional<Path> baseDataDir, List<Module> extraModules)
@@ -369,6 +412,12 @@ public class DistributedQueryRunner
     {
         checkState(coordinators.size() == 1, "Expected a single coordinator");
         return coordinators.get(0);
+    }
+
+    public TestingPrestoServer getCoordinator(int coordinator)
+    {
+        checkState(coordinator < coordinators.size(), format("Expected coordinator index %d < %d", coordinator, coordinatorCount));
+        return coordinators.get(coordinator);
     }
 
     public List<TestingPrestoServer> getCoordinators()
