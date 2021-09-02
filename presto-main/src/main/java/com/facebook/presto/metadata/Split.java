@@ -17,8 +17,10 @@ import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.hashing.ConsistentHashSelector;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -97,6 +99,11 @@ public final class Split
     public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
     {
         return connectorSplit.getPreferredNodes(sortedCandidates);
+    }
+
+    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates, ConsistentHashSelector<Node> hashSelector)
+    {
+        return connectorSplit.getPreferredNodes(sortedCandidates, hashSelector);
     }
 
     public NodeSelectionStrategy getNodeSelectionStrategy()

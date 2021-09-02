@@ -28,7 +28,9 @@ import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.hashing.ConsistentHashSelector;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.HashMultimap;
@@ -74,6 +76,7 @@ public class TopologyAwareNodeSelector
     private final List<CounterStat> topologicalSplitCounters;
     private final List<String> networkLocationSegmentNames;
     private final NetworkLocationCache networkLocationCache;
+    private final boolean consistentHashAffinitySchedulingEnabled;
 
     public TopologyAwareNodeSelector(
             InternalNodeManager nodeManager,
@@ -87,7 +90,8 @@ public class TopologyAwareNodeSelector
             int maxUnacknowledgedSplitsPerTask,
             List<CounterStat> topologicalSplitCounters,
             List<String> networkLocationSegmentNames,
-            NetworkLocationCache networkLocationCache)
+            NetworkLocationCache networkLocationCache,
+            boolean consistentHashAffinitySchedulingEnabled)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.nodeSelectionStats = requireNonNull(nodeSelectionStats, "nodeSelectionStats is null");
@@ -102,6 +106,7 @@ public class TopologyAwareNodeSelector
         this.topologicalSplitCounters = requireNonNull(topologicalSplitCounters, "topologicalSplitCounters is null");
         this.networkLocationSegmentNames = requireNonNull(networkLocationSegmentNames, "networkLocationSegmentNames is null");
         this.networkLocationCache = requireNonNull(networkLocationCache, "networkLocationCache is null");
+        this.consistentHashAffinitySchedulingEnabled = consistentHashAffinitySchedulingEnabled;
     }
 
     @Override
@@ -120,6 +125,12 @@ public class TopologyAwareNodeSelector
     public List<InternalNode> getAllNodes()
     {
         return ImmutableList.copyOf(nodeMap.get().get().getAllNodes());
+    }
+
+    @Override
+    public ConsistentHashSelector<Node> getConsistentHashingRing()
+    {
+        return nodeMap.get().get().getActiveNodesInHashRing();
     }
 
     @Override
@@ -174,7 +185,14 @@ public class TopologyAwareNodeSelector
             int depth = networkLocationSegmentNames.size();
             int chosenDepth = 0;
             Set<NetworkLocation> locations = new HashSet<>();
-            for (HostAddress host : split.getPreferredNodes(candidates)) {
+            List<HostAddress> preferredNodes;
+            if (consistentHashAffinitySchedulingEnabled) {
+                preferredNodes = split.getPreferredNodes(candidates, nodeMap.getActiveNodesInHashRing());
+            }
+            else {
+                preferredNodes = split.getPreferredNodes(candidates);
+            }
+            for (HostAddress host : preferredNodes) {
                 locations.add(networkLocationCache.get(host));
             }
             if (locations.isEmpty()) {

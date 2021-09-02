@@ -37,6 +37,8 @@ public class NodeSchedulerConfig
     private int maxPendingSplitsPerTask = 10;
     private int maxUnacknowledgedSplitsPerTask = 500;
     private String networkTopology = NetworkTopologyType.LEGACY;
+    private boolean consistentHashAffinitySchedulingEnabled;
+    private int consistentHashReplicas = 10;
 
     @NotNull
     public String getNetworkTopology()
@@ -112,6 +114,32 @@ public class NodeSchedulerConfig
     public NodeSchedulerConfig setMaxUnacknowledgedSplitsPerTask(int maxUnacknowledgedSplitsPerTask)
     {
         this.maxUnacknowledgedSplitsPerTask = maxUnacknowledgedSplitsPerTask;
+        return this;
+    }
+
+    public boolean isConsistentHashAffinitySchedulingEnabled()
+    {
+        return consistentHashAffinitySchedulingEnabled;
+    }
+
+    @Config("experimental.node-scheduler.consistent-hash-affinity-enabled")
+    @ConfigDescription("Use consistent hash algorithm for affinity scheduling")
+    public NodeSchedulerConfig setConsistentHashAffinitySchedulingEnabled(boolean enabled)
+    {
+        this.consistentHashAffinitySchedulingEnabled = enabled;
+        return this;
+    }
+
+    public int getConsistentHashReplicas()
+    {
+        return consistentHashReplicas;
+    }
+
+    @Config("experimental.node-scheduler.consistent-hash-replicas")
+    @ConfigDescription("the node replica of consistent hash algorithm for affinity scheduling")
+    public NodeSchedulerConfig setConsistentHashReplicas(int replicas)
+    {
+        this.consistentHashReplicas = replicas;
         return this;
     }
 }
