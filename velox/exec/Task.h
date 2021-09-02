@@ -306,6 +306,7 @@ class Task {
   std::string toString();
 
   TaskState state() const {
+    std::lock_guard<std::mutex> l(mutex_);
     return state_;
   }
 
