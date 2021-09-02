@@ -21,8 +21,6 @@
 #include <ostream>
 #include <vector>
 
-#include <folly/Optional.h>
-
 #include "velox/common/base/BitUtil.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/Range.h"
@@ -113,7 +111,7 @@ class SelectivityVector {
     VELOX_DCHECK_LE(end, size_, "Range end out of range");
     begin_ = begin;
     end_ = end;
-    allSelected_ = folly::none;
+    allSelected_.reset();
   }
 
   vector_size_t begin() const {
@@ -138,7 +136,7 @@ class SelectivityVector {
     bits::fillBits(bits_.data(), 0, size_, false);
     begin_ = 0;
     end_ = 0;
-    allSelected_ = folly::none;
+    allSelected_.reset();
   }
 
   /**
@@ -243,11 +241,11 @@ class SelectivityVector {
       return;
     }
     end_ = bits::findLastBit(bits_.data(), begin_, size_) + 1;
-    allSelected_ = folly::none;
+    allSelected_.reset();
   }
 
   bool isAllSelected() const {
-    if (allSelected_.hasValue()) {
+    if (allSelected_.has_value()) {
       return allSelected_.value();
     }
     allSelected_ = begin_ == 0 && end_ == size_ &&
@@ -317,7 +315,7 @@ class SelectivityVector {
   vector_size_t begin_ = 0;
   // one past the last selected value, if there are any selected
   vector_size_t end_ = 0;
-  mutable folly::Optional<bool> allSelected_;
+  mutable std::optional<bool> allSelected_;
 
   friend class SelectivityIterator;
 };
