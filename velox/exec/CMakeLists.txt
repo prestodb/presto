@@ -15,33 +15,34 @@ add_library(
   velox_exec
   Aggregate.cpp
   AllocationPool.cpp
-  HashAggregation.cpp
-  HashStringAllocator.cpp
-  RowContainer.cpp
   ContainerRowSerde.cpp
-  HashTable.cpp
   Driver.cpp
+  Exchange.cpp
+  FilterProject.cpp
+  GroupingSet.cpp
+  HashAggregation.cpp
+  HashBuild.cpp
+  HashProbe.cpp
+  HashStringAllocator.cpp
+  HashTable.cpp
+  Limit.cpp
   LocalPartition.cpp
   LocalPlanner.cpp
-  Task.cpp
-  TableScan.cpp
+  Merge.cpp
+  MergeSource.cpp
   Operator.cpp
   OperatorUtils.cpp
-  FilterProject.cpp
+  OrderBy.cpp
+  PartitionedOutput.cpp
+  PartitionedOutputBufferManager.cpp
+  RowContainer.cpp
+  TableScan.cpp
+  TableWriter.cpp
+  Task.cpp
+  TopN.cpp
   Unnest.cpp
   Values.cpp
-  VectorHasher.cpp
-  PartitionedOutputBufferManager.cpp
-  PartitionedOutput.cpp
-  Exchange.cpp
-  TableWriter.cpp
-  TopN.cpp
-  Limit.cpp
-  OrderBy.cpp
-  Merge.cpp
-  HashProbe.cpp
-  HashBuild.cpp
-  MergeSource.cpp)
+  VectorHasher.cpp)
 
 target_link_libraries(
   velox_exec
