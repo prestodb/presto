@@ -161,7 +161,7 @@ class Task {
   void createLocalMergeSources(
       unsigned numSources,
       const std::shared_ptr<const RowType>& rowType,
-      memory::MappedMemory* mappedMemory);
+      memory::MappedMemory* FOLLY_NONNULL mappedMemory);
 
   std::shared_ptr<MergeSource> getLocalMergeSource(int sourceId) {
     VELOX_CHECK_LT(sourceId, localMergeSources_.size(), "Incorrect source id ");
@@ -228,7 +228,7 @@ class Task {
     return message;
   }
 
-  void driverClosed(Driver* instance);
+  void driverClosed(Driver* FOLLY_NONNULL instance);
 
   std::shared_ptr<core::QueryCtx> queryCtx() const {
     return queryCtx_;
@@ -254,8 +254,8 @@ class Task {
   // if 'this' is in an error state.
   bool allPeersFinished(
       const core::PlanNodeId& planNodeId,
-      Driver* caller,
-      ContinueFuture* future,
+      Driver* FOLLY_NONNULL caller,
+      ContinueFuture* FOLLY_NONNULL future,
       std::vector<VeloxPromise<bool>>& promises,
       std::vector<std::shared_ptr<Driver>>& peers);
 
@@ -320,7 +320,7 @@ class Task {
     return numDrivers_;
   }
 
-  velox::memory::MemoryPool* pool() const {
+  velox::memory::MemoryPool* FOLLY_NONNULL pool() const {
     return pool_.get();
   }
 

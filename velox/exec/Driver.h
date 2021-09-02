@@ -148,7 +148,7 @@ class Driver {
     return state_;
   }
 
-  core::CancelPool* cancelPool() const {
+  core::CancelPool* FOLLY_NONNULL cancelPool() const {
     return cancelPool_.get();
   }
 
