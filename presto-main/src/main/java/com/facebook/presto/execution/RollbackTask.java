@@ -29,7 +29,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_IN_TRANSACTION;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 public class RollbackTask
-        implements DataDefinitionTask<Rollback>
+        implements SessionTransactionControlTask<Rollback>
 {
     @Override
     public String getName()
@@ -49,11 +49,5 @@ public class RollbackTask
         stateMachine.clearTransactionId();
         transactionManager.asyncAbort(transactionId);
         return immediateFuture(null);
-    }
-
-    @Override
-    public boolean isTransactionControl()
-    {
-        return true;
     }
 }

@@ -15,29 +15,21 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 
-import static com.google.common.util.concurrent.Futures.immediateFuture;
-
-public class DeallocateTask
-        implements SessionTransactionControlTask<Deallocate>
+/**
+ * Interface specifically for tasks needing QueryStateMachine for transaction and session management.
+ * @param <T>
+ */
+public interface SessionTransactionControlTask<T extends Statement>
+        extends DataDefinitionTask<T>
 {
-    @Override
-    public String getName()
-    {
-        return "DEALLOCATE";
-    }
-
-    @Override
-    public ListenableFuture<?> execute(Deallocate statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine queryStateMachine, List<Expression> parameters)
-    {
-        String statementName = statement.getName().getValue();
-        queryStateMachine.removePreparedStatement(statementName);
-        return immediateFuture(null);
-    }
+    ListenableFuture<?> execute(T statement, TransactionManager transactionManager, Metadata metadata,
+                                AccessControl accessControl, QueryStateMachine stateMachine,
+                                List<Expression> parameters);
 }
