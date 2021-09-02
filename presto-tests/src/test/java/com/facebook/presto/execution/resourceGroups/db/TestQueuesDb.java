@@ -73,6 +73,7 @@ public class TestQueuesDb
 {
     // Copy of TestQueues with tests for db reconfiguration of resource groups
     private static final String LONG_LASTING_QUERY = "SELECT COUNT(*) FROM lineitem";
+    public static final String DEFAULT_TEST_USER = "user";
     private DistributedQueryRunner queryRunner;
     private H2ResourceGroupsDao dao;
 
@@ -82,7 +83,7 @@ public class TestQueuesDb
     {
         String dbConfigUrl = getDbConfigUrl();
         dao = getDao(dbConfigUrl);
-        queryRunner = createQueryRunner(dbConfigUrl, dao);
+        queryRunner = createQueryRunner(dbConfigUrl, dao, ImmutableMap.of(), 1);
     }
 
     @AfterMethod(alwaysRun = true)
@@ -104,63 +105,6 @@ public class TestQueuesDb
             }
             TimeUnit.SECONDS.sleep(2);
         }
-    }
-
-    // Disabled, please look at https://github.com/prestodb/presto/issues/16461
-    @Test(timeOut = 60_000, enabled = false)
-    public void testResourceGroupConcurrencyThreshold()
-            throws Exception
-    {
-        String dbConfigUrl1 = getDbConfigUrl();
-        H2ResourceGroupsDao dao = getDao(dbConfigUrl1);
-        DistributedQueryRunner queryRunner = createQueryRunner(dbConfigUrl1, dao, ImmutableMap.of("concurrency-threshold-to-enable-resource-group-refresh", "0.1", "resource-group-runtimeinfo-refresh-interval", "10s"));
-
-        MILLISECONDS.sleep(500);
-        QueryId firstAdhocQuery = createQuery(queryRunner, adhocSession(), LONG_LASTING_QUERY);
-        // wait for the first "dashboard" query to start
-        waitForQueryState(queryRunner, firstAdhocQuery, RUNNING);
-        waitForRunningQueryCount(queryRunner, 1);
-
-        QueryId secondAdhocQuery = createQuery(queryRunner, adhocSession(), LONG_LASTING_QUERY);
-        // wait for the second "dashboard" query to be queued ("dashboard.${USER}" queue strategy only allows one "dashboard" query to be accepted for execution)
-        MILLISECONDS.sleep(100);
-        waitForQueryState(queryRunner, secondAdhocQuery, QUEUED);
-        MILLISECONDS.sleep(500);
-        waitForQueryState(queryRunner, secondAdhocQuery, RUNNING);
-        waitForRunningQueryCount(queryRunner, 2);
-
-        closeQuietly(queryRunner);
-    }
-
-    @Test(timeOut = 60_000)
-    public void testMultiResourceGroupConcurrencyThreshold()
-            throws Exception
-    {
-        String dbConfigUrl1 = getDbConfigUrl();
-        H2ResourceGroupsDao dao = getDao(dbConfigUrl1);
-        DistributedQueryRunner queryRunner = createQueryRunner(dbConfigUrl1, dao, ImmutableMap.of("concurrency-threshold-to-enable-resource-group-refresh", "0.1", "resource-group-runtimeinfo-refresh-interval", "2s"));
-
-        MILLISECONDS.sleep(500);
-        QueryId firstAdhocQuery = createQuery(queryRunner, adhocSession(), LONG_LASTING_QUERY);
-
-        QueryId secondAdhocQuery = createQuery(queryRunner, adhocSession(), LONG_LASTING_QUERY);
-
-        QueryId thirdAdhocQuery = createQuery(queryRunner, adhocSession(), LONG_LASTING_QUERY);
-
-        waitForQueryState(queryRunner, firstAdhocQuery, RUNNING);
-        waitForQueryState(queryRunner, secondAdhocQuery, RUNNING);
-        waitForQueryState(queryRunner, thirdAdhocQuery, RUNNING);
-
-        QueryId firstDashboardQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
-
-        waitForQueryState(queryRunner, firstDashboardQuery, QUEUED);
-
-        cancelQuery(queryRunner, firstAdhocQuery);
-        waitForQueryState(queryRunner, firstDashboardQuery, RUNNING);
-
-        waitForRunningQueryCount(queryRunner, 3);
-
-        closeQuietly(queryRunner);
     }
 
     @Test(timeOut = 600_000)
