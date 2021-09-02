@@ -25,6 +25,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationIfToFilterRewriteStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMergingStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
@@ -203,7 +204,7 @@ public final class SystemSessionProperties
     public static final String VERBOSE_EXCEEDED_MEMORY_LIMIT_ERRORS_ENABLED = "verbose_exceeded_memory_limit_errors_enabled";
     public static final String MATERIALIZED_VIEW_DATA_CONSISTENCY_ENABLED = "materialized_view_data_consistency_enabled";
     public static final String QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED = "query_optimization_with_materialized_view_enabled";
-    public static final String AGGREGATION_IF_TO_FILTER_REWRITE_ENABLED = "aggregation_if_to_filter_rewrite_enabled";
+    public static final String AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY = "aggregation_if_to_filter_rewrite_strategy";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1096,11 +1097,18 @@ public final class SystemSessionProperties
                         "Enable query optimization with materialized view",
                         featuresConfig.isQueryOptimizationWithMaterializedViewEnabled(),
                         true),
-                booleanProperty(
-                        AGGREGATION_IF_TO_FILTER_REWRITE_ENABLED,
-                        "Enable rewriting the IF expression inside an aggregation function to a filter clause outside the aggregation",
-                        featuresConfig.isAggregationIfToFilterRewriteEnabled(),
-                        false));
+                new PropertyMetadata<>(
+                        AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY,
+                        format("Set the strategy used to rewrite AGG IF to AGG FILTER. Options are %s",
+                                Stream.of(AggregationIfToFilterRewriteStrategy.values())
+                                        .map(AggregationIfToFilterRewriteStrategy::name)
+                                        .collect(joining(","))),
+                        VARCHAR,
+                        AggregationIfToFilterRewriteStrategy.class,
+                        featuresConfig.getAggregationIfToFilterRewriteStrategy(),
+                        false,
+                        value -> AggregationIfToFilterRewriteStrategy.valueOf(((String) value).toUpperCase()),
+                        AggregationIfToFilterRewriteStrategy::name));
     }
 
     public static boolean isEmptyJoinOptimization(Session session)
@@ -1856,8 +1864,8 @@ public final class SystemSessionProperties
         return session.getSystemProperty(QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED, Boolean.class);
     }
 
-    public static boolean isAggregationIfToFilterRewriteEnabled(Session session)
+    public static AggregationIfToFilterRewriteStrategy getAggregationIfToFilterRewriteStrategy(Session session)
     {
-        return session.getSystemProperty(AGGREGATION_IF_TO_FILTER_REWRITE_ENABLED, Boolean.class);
+        return session.getSystemProperty(AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY, AggregationIfToFilterRewriteStrategy.class);
     }
 }
