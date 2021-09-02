@@ -236,6 +236,23 @@ bool testFilters(
 }
 } // namespace
 
+void HiveDataSource::addDynamicFilter(
+    ChannelIndex outputChannel,
+    const std::shared_ptr<common::Filter>& filter) {
+  common::Subfield subfield{outputType_->nameOf(outputChannel)};
+  auto fieldSpec = scanSpec_->getOrCreateChild(subfield);
+  if (fieldSpec->filter()) {
+    fieldSpec->filter()->mergeWith(filter.get());
+  } else {
+    fieldSpec->setFilter(filter->clone());
+  }
+  scanSpec_->resetCachedValues();
+
+  auto columnReader =
+      dynamic_cast<SelectiveColumnReader*>(rowReader_->columnReader());
+  columnReader->resetFilterCaches();
+}
+
 void HiveDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
   VELOX_CHECK(
       split_ == nullptr,

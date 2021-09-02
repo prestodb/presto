@@ -19,6 +19,9 @@
 #include "velox/core/Context.h"
 #include "velox/vector/ComplexVector.h"
 
+namespace facebook::velox::common {
+class Filter;
+}
 namespace facebook::velox::core {
 class ITypedExpr;
 }
@@ -84,6 +87,14 @@ class DataSource {
   // Process a split added via addSplit. Returns nullptr if split has been fully
   // processed.
   virtual RowVectorPtr next(uint64_t size) = 0;
+
+  // Add dynamically generated filter.
+  // @param outputChannel index into outputType specified in
+  // Connector::createDataSource() that identifies the column this filter
+  // applies to.
+  virtual void addDynamicFilter(
+      ChannelIndex outputChannel,
+      const std::shared_ptr<common::Filter>& filter) = 0;
 
   // Returns the number of input bytes processed so far.
   virtual uint64_t getCompletedBytes() = 0;

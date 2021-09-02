@@ -43,6 +43,16 @@ class TableScan : public SourceOperator {
     close();
   }
 
+  bool canAddDynamicFilter() const override {
+    // TODO Consult with the connector. Return true only if connector can accept
+    // dynamic filters.
+    return true;
+  }
+
+  void addDynamicFilter(
+      ChannelIndex outputChannel,
+      const std::shared_ptr<common::Filter>& filter) override;
+
   void close() override;
 
  private:
@@ -63,5 +73,8 @@ class TableScan : public SourceOperator {
   bool noMoreSplits_ = false;
   // The bucketed group id we are in the middle of processing.
   int32_t currentSplitGroupId_{-1};
+  // Dynamic filters to add to the data source when it gets created.
+  std::unordered_map<ChannelIndex, std::shared_ptr<common::Filter>>
+      pendingDynamicFilters_;
 };
 } // namespace facebook::velox::exec

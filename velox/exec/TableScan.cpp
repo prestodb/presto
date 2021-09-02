@@ -75,6 +75,10 @@ RowVectorPtr TableScan::getOutput() {
             tableHandle_,
             columnHandles_,
             connectorQueryCtx_.get());
+        for (const auto& entry : pendingDynamicFilters_) {
+          dataSource_->addDynamicFilter(entry.first, entry.second);
+        }
+        pendingDynamicFilters_.clear();
       } else {
         VELOX_CHECK(
             connector_->connectorId() == connectorSplit->connectorId,
@@ -100,6 +104,16 @@ RowVectorPtr TableScan::getOutput() {
     driverCtx_->task->splitFinished(planNodeId_, currentSplitGroupId_);
     currentSplitGroupId_ = -1;
     needNewSplit_ = true;
+  }
+}
+
+void TableScan::addDynamicFilter(
+    ChannelIndex outputChannel,
+    const std::shared_ptr<common::Filter>& filter) {
+  if (dataSource_) {
+    dataSource_->addDynamicFilter(outputChannel, filter);
+  } else {
+    pendingDynamicFilters_.emplace(outputChannel, filter);
   }
 }
 

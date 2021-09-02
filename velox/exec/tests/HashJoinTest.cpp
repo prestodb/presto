@@ -18,6 +18,8 @@
 #include "velox/exec/tests/Cursor.h"
 #include "velox/exec/tests/HiveConnectorTestBase.h"
 #include "velox/exec/tests/PlanBuilder.h"
+#include "velox/type/tests/FilterBuilder.h"
+#include "velox/type/tests/SubfieldFiltersBuilder.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
@@ -86,6 +88,27 @@ class HashJoinTest : public HiveConnectorTestBase {
     std::vector<ChannelIndex> channels(numChannels);
     std::iota(channels.begin(), channels.end(), 0);
     return channels;
+  }
+
+  static RuntimeMetric getFiltersProduced(
+      const std::shared_ptr<Task>& task,
+      int operatorIndex) {
+    auto stats = task->taskStats().pipelineStats.front().operatorStats;
+    return stats[operatorIndex].runtimeStats["dynamicFiltersProduced"];
+  }
+
+  static RuntimeMetric getFiltersAccepted(
+      const std::shared_ptr<Task>& task,
+      int operatorIndex) {
+    auto stats = task->taskStats().pipelineStats.front().operatorStats;
+    return stats[operatorIndex].runtimeStats["dynamicFiltersAccepted"];
+  }
+
+  static uint64_t getInputPositions(
+      const std::shared_ptr<Task>& task,
+      int operatorIndex) {
+    auto stats = task->taskStats().pipelineStats.front().operatorStats;
+    return stats[operatorIndex].inputPositions;
   }
 };
 
@@ -435,4 +458,144 @@ TEST_F(HashJoinTest, antiJoin) {
            .planNode();
 
   assertQuery(op, "SELECT t.c1 FROM t WHERE t.c0 NOT IN (SELECT c0 FROM u)");
+}
+
+TEST_F(HashJoinTest, dynamicFilters) {
+  std::vector<RowVectorPtr> leftVectors;
+  leftVectors.reserve(20);
+
+  auto leftFiles = makeFilePaths(20);
+
+  for (int i = 0; i < 20; i++) {
+    auto rowVector = makeRowVector({
+        makeFlatVector<int32_t>(1'024, [&](auto row) { return row - i * 10; }),
+        makeFlatVector<int64_t>(1'024, [](auto row) { return row; }),
+    });
+    leftVectors.push_back(rowVector);
+    writeToFile(leftFiles[i]->path, kWriter, rowVector);
+  }
+
+  // 100 key values in [35, 233] range.
+  auto rightVectors = {makeRowVector(
+      {makeFlatVector<int32_t>(100, [](auto row) { return 35 + row * 2; })})};
+
+  createDuckDbTable("t", {leftVectors});
+  createDuckDbTable("u", {rightVectors});
+
+  auto probeType = ROW({"c0", "c1"}, {INTEGER(), BIGINT()});
+
+  // Basic push-down.
+  {
+    auto op = PlanBuilder(10)
+                  .tableScan(probeType)
+                  .hashJoin(
+                      {0},
+                      {0},
+                      PlanBuilder(0).values(rightVectors).planNode(),
+                      "",
+                      {1})
+                  .project({"c1 + 1"})
+                  .planNode();
+
+    auto task = assertQuery(
+        op, {{10, leftFiles}}, "SELECT t.c1 + 1 FROM t, u WHERE t.c0 = u.c0");
+    EXPECT_EQ(1, getFiltersProduced(task, 1).sum);
+    EXPECT_EQ(1, getFiltersAccepted(task, 0).sum);
+    EXPECT_LT(getInputPositions(task, 1), 1024 * 20);
+  }
+
+  // Push-down that requires merging filters.
+  {
+    auto filters =
+        common::test::singleSubfieldFilter("c0", common::test::lessThan(500));
+    auto op = PlanBuilder(10)
+                  .tableScan(
+                      probeType,
+                      makeTableHandle(std::move(filters)),
+                      allRegularColumns(probeType))
+                  .hashJoin(
+                      {0},
+                      {0},
+                      PlanBuilder(0).values(rightVectors).planNode(),
+                      "",
+                      {1})
+                  .project({"c1 + 1"})
+                  .planNode();
+
+    auto task = assertQuery(
+        op,
+        {{10, leftFiles}},
+        "SELECT t.c1 + 1 FROM t, u WHERE t.c0 = u.c0 AND t.c0 < 500");
+    EXPECT_EQ(1, getFiltersProduced(task, 1).sum);
+    EXPECT_EQ(1, getFiltersAccepted(task, 0).sum);
+  }
+
+  // Disable filter push-down by using highly selective filter in the scan.
+  {
+    auto filters =
+        common::test::singleSubfieldFilter("c0", common::test::lessThan(200));
+    auto op = PlanBuilder(10)
+                  .tableScan(
+                      probeType,
+                      makeTableHandle(std::move(filters)),
+                      allRegularColumns(probeType))
+                  .hashJoin(
+                      {0},
+                      {0},
+                      PlanBuilder(0).values(rightVectors).planNode(),
+                      "",
+                      {1})
+                  .project({"c1 + 1"})
+                  .planNode();
+
+    auto task = assertQuery(
+        op,
+        {{10, leftFiles}},
+        "SELECT t.c1 + 1 FROM t, u WHERE t.c0 = u.c0 AND t.c0 < 200");
+    EXPECT_EQ(0, getFiltersProduced(task, 1).sum);
+    EXPECT_EQ(0, getFiltersAccepted(task, 0).sum);
+  }
+
+  // Disable filter push-down by using values in place of scan.
+  {
+    auto op = PlanBuilder(10)
+                  .values(leftVectors)
+                  .hashJoin(
+                      {0},
+                      {0},
+                      PlanBuilder(0).values(rightVectors).planNode(),
+                      "",
+                      {1})
+                  .project({"c1 + 1"})
+                  .planNode();
+
+    auto task = assertQuery(op, "SELECT t.c1 + 1 FROM t, u WHERE t.c0 = u.c0");
+    EXPECT_EQ(0, getFiltersProduced(task, 1).sum);
+    EXPECT_EQ(0, getFiltersAccepted(task, 0).sum);
+    EXPECT_EQ(getInputPositions(task, 1), 1024 * 20);
+  }
+
+  // Disable filter push-down by using an expression as the join key on the
+  // probe side.
+  {
+    auto op = PlanBuilder(10)
+                  .tableScan(probeType)
+                  .project({"c0 + 1", "c1"})
+                  .hashJoin(
+                      {0},
+                      {0},
+                      PlanBuilder(0).values(rightVectors).planNode(),
+                      "",
+                      {1})
+                  .project({"p1 + 1"})
+                  .planNode();
+
+    auto task = assertQuery(
+        op,
+        {{10, leftFiles}},
+        "SELECT t.c1 + 1 FROM t, u WHERE (t.c0 + 1) = u.c0");
+    EXPECT_EQ(0, getFiltersProduced(task, 1).sum);
+    EXPECT_EQ(0, getFiltersAccepted(task, 0).sum);
+    EXPECT_EQ(getInputPositions(task, 1), 1024 * 20);
+  }
 }

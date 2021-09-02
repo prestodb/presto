@@ -61,6 +61,10 @@ class DwrfRowReader : public DwrfRowReaderShared {
     return skippedStrides_;
   }
 
+  ColumnReader* columnReader() {
+    return columnReader_.get();
+  }
+
  private:
   void checkSkipStrides(const StatsContext& context, uint64_t strideSize);
 

@@ -1983,6 +1983,13 @@ class SelectiveIntegerDictionaryColumnReader : public SelectiveColumnReader {
       common::ScanSpec* scanSpec,
       uint32_t numBytes);
 
+  void resetFilterCaches() override {
+    if (!filterCache_.empty()) {
+      simd::memset(
+          filterCache_.data(), FilterResult::kUnknown, dictionarySize_);
+    }
+  }
+
   bool hasBulkPath() const override {
     return true;
   }
@@ -3003,6 +3010,13 @@ class SelectiveStringDictionaryColumnReader : public SelectiveColumnReader {
       StripeStreams& stripe,
       common::ScanSpec* scanSpec);
 
+  void resetFilterCaches() override {
+    if (!filterCache_.empty()) {
+      simd::memset(
+          filterCache_.data(), FilterResult::kUnknown, dictionaryCount_);
+    }
+  }
+
   void seekToRowGroup(uint32_t index) override {
     ensureRowGroupIndex();
 
@@ -3785,6 +3799,12 @@ class SelectiveStructColumnReader : public SelectiveColumnReader {
       StripeStreams& stripe,
       common::ScanSpec* scanSpec);
 
+  void resetFilterCaches() override {
+    for (auto& child : children_) {
+      child->resetFilterCaches();
+    }
+  }
+
   void seekToRowGroup(uint32_t index) override {
     for (auto& child : children_) {
       child->seekToRowGroup(index);
@@ -4278,6 +4298,10 @@ class SelectiveListColumnReader : public SelectiveRepeatedColumnReader {
       StripeStreams& stripe,
       common::ScanSpec* scanSpec);
 
+  void resetFilterCaches() override {
+    child_->resetFilterCaches();
+  }
+
   void seekToRowGroup(uint32_t index) override {
     ensureRowGroupIndex();
 
@@ -4401,6 +4425,11 @@ class SelectiveMapColumnReader : public SelectiveRepeatedColumnReader {
       const std::shared_ptr<const TypeWithId>& dataType,
       StripeStreams& stripe,
       common::ScanSpec* scanSpec);
+
+  void resetFilterCaches() override {
+    keyReader_->resetFilterCaches();
+    elementReader_->resetFilterCaches();
+  }
 
   void seekToRowGroup(uint32_t index) override {
     ensureRowGroupIndex();
