@@ -976,6 +976,13 @@ struct VectorWriter<std::shared_ptr<T>> {
     vector_ = &vector;
   }
 
+  void ensureSize(size_t size) {
+    if (size != vector_->size()) {
+      vector_->resize(size);
+      init(*vector_);
+    }
+  }
+
   VectorWriter() {}
 
   exec_out_t& current() {

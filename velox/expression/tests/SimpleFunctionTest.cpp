@@ -216,4 +216,75 @@ TEST_F(SimpleFunctionTest, arrayRowReader) {
   assertEqualVectors(expected, result);
 }
 
+using MyType = std::pair<int64_t, double>;
+
+// Function that returns a tuple containing an opaque type
+VELOX_UDF_BEGIN(row_opaque_writer_func)
+FOLLY_ALWAYS_INLINE bool call(
+    out_type<Row<std::shared_ptr<MyType>, int64_t>>& out,
+    const arg_type<int64_t>& input) {
+  out = std::make_tuple(
+      std::make_shared<MyType>(rowVectorCol1[input], rowVectorCol2[input]),
+      input + 10);
+  return true;
+}
+VELOX_UDF_END();
+
+TEST_F(SimpleFunctionTest, rowOpaqueWriter) {
+  registerFunction<
+      udf_row_opaque_writer_func,
+      Row<std::shared_ptr<MyType>, int64_t>,
+      int64_t>();
+
+  const size_t rows = rowVectorCol1.size();
+  auto flatVector = makeFlatVector<int64_t>(rows, [](auto row) { return row; });
+  auto result = evaluate<RowVector>(
+      "row_opaque_writer_func(c0)", makeRowVector({flatVector}));
+  auto opaqueOutput =
+      std::dynamic_pointer_cast<FlatVector<std::shared_ptr<void>>>(
+          result->childAt(0));
+  auto bigintOutput =
+      std::dynamic_pointer_cast<FlatVector<int64_t>>(result->childAt(1));
+
+  // Opaque flat vector are not comparable with equalValueAt(), so we check it
+  // manually.
+  for (size_t i = 0; i < rows; i++) {
+    auto val = std::static_pointer_cast<MyType>(opaqueOutput->valueAt(i));
+    ASSERT_EQ(rowVectorCol1[i], val->first);
+    ASSERT_EQ(rowVectorCol2[i], val->second);
+
+    ASSERT_EQ(i + 10, bigintOutput->valueAt(i));
+  }
+}
+
+// Function that takes a tuple containing an opaque type as a parameter.
+VELOX_UDF_BEGIN(row_opaque_reader_func)
+FOLLY_ALWAYS_INLINE bool call(
+    int64_t& out,
+    const arg_type<Row<std::shared_ptr<MyType>, int64_t>>& input) {
+  const auto& myType = *input.template at<0>();
+  out = myType->first;
+  return true;
+}
+VELOX_UDF_END();
+
+TEST_F(SimpleFunctionTest, rowOpaqueReader) {
+  registerFunction<
+      udf_row_opaque_reader_func,
+      int64_t,
+      Row<std::shared_ptr<MyType>, int64_t>>();
+
+  const size_t rows = rowVectorCol1.size();
+  auto vector1 = makeFlatVector<std::shared_ptr<void>>(rows, [&](auto row) {
+    return std::make_shared<MyType>(rowVectorCol1[row], rowVectorCol2[row]);
+  });
+  auto vector2 = vectorMaker_.flatVector(rowVectorCol1);
+  auto internalRowVector = makeRowVector({vector1, vector2});
+  auto result = evaluate<FlatVector<int64_t>>(
+      "row_opaque_reader_func(c0)", makeRowVector({internalRowVector}));
+
+  auto expected = vectorMaker_.flatVector(rowVectorCol1);
+  assertEqualVectors(expected, result);
+}
+
 } // namespace
