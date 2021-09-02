@@ -1,0 +1,55 @@
+load("@fbcode_macros//build_defs:cpp_library.bzl", "cpp_library")
+
+# @autodeps
+
+load("@fbcode_macros//build_defs:cpp_unittest.bzl", "cpp_unittest")
+
+cpp_library(
+    name = "velox_experimental_codegen_test_utils",
+    headers = ["CodegenTestBase.h"],
+    resources = {
+        "include": "//velox/experimental/codegen/code_generator/tests:copy_dependencies[include]",
+        "package_json": "//velox/experimental/codegen/code_generator/tests:copy_dependencies[package.json]",
+    },
+    deps = [
+        "//folly:benchmark",
+        "//velox/core:velox_core",
+        "//velox/dwio/dwrf/test/utils:lib_test_batch_maker",
+        "//velox/exec:velox_exec_lib",
+        "//velox/exec/tests:velox_exec_test_lib",
+        "//velox/exec/tests/utils:velox_exec_test_util",
+        "//velox/experimental/codegen:velox_experimental_codegen_header",
+        "//velox/experimental/codegen:velox_experimental_codegen_impl",
+        "//velox/experimental/codegen/code_generator:velox_codegen_code_generator",
+        "//velox/experimental/codegen/utils/resources:velox_experimental_codegen_utils_resource_path",
+        "//velox/functions/prestosql:velox_functions_prestosql",
+        "//velox/parse:velox_parse",
+        "//velox/parse:velox_parse_expression",
+        "//velox/type:velox_type",
+    ],
+    external_deps = [
+        "glog",
+        ("googletest", None, "gtest"),
+    ],
+)
+
+cpp_unittest(
+    name = "velox_experimental_codegen_test",
+    srcs = [
+        "CodegenTest.cpp",
+    ],
+    linker_flags = ["--export-dynamic"],
+    resources = {
+        "include": "//velox/experimental/codegen/code_generator/tests:copy_dependencies[include]",
+        "package_json": "//velox/experimental/codegen/code_generator/tests:copy_dependencies[package.json]",
+    },
+    deps = [
+        ":velox_experimental_codegen_test_utils",
+        "//velox/core:velox_core",
+        "//velox/experimental/codegen:velox_experimental_codegen_exceptions",
+        "//velox/experimental/codegen:velox_experimental_codegen_impl",
+        "//velox/experimental/codegen/utils/timer:velox_codegen_utils_timer",
+        "//velox/functions/prestosql:velox_functions_prestosql",
+        "//velox/type:velox_type",
+    ],
+)
