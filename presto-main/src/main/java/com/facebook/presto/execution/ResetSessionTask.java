@@ -29,7 +29,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 public class ResetSessionTask
-        implements DataDefinitionTask<ResetSession>
+        implements SessionTransactionControlTask<ResetSession>
 {
     @Override
     public String getName()

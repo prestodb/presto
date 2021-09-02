@@ -97,7 +97,8 @@ public class TestSetRoleTask
                 .setCatalog(CATALOG_NAME)
                 .build();
         QueryStateMachine stateMachine = createQueryStateMachine(statement, session, false, transactionManager, executor, metadata);
-        new SetRoleTask().execute(setRole, transactionManager, metadata, accessControl, stateMachine, ImmutableList.of());
+        SetRoleTask setRoleTask = new SetRoleTask();
+        setRoleTask.execute(setRole, transactionManager, metadata, accessControl, stateMachine, ImmutableList.of());
         QueryInfo queryInfo = stateMachine.getQueryInfo(Optional.empty());
         assertEquals(queryInfo.getSetRoles(), expected);
     }

@@ -977,7 +977,7 @@ public class FileHiveMetastore
         }
         Path permissionFilePath = getPermissionsPath(getPermissionsDirectory(table), principal);
         result.addAll(readFile("permissions", permissionFilePath, permissionsCodec).orElse(ImmutableList.of()).stream()
-                .map(PermissionMetadata::toHivePrivilegeInfo)
+                .map(permissionMetadata -> permissionMetadata.toHivePrivilegeInfo(principal.getName()))
                 .collect(toSet()));
         return result.build();
     }
@@ -992,9 +992,11 @@ public class FileHiveMetastore
     public synchronized void revokeTablePrivileges(MetastoreContext metastoreContext, String databaseName, String tableName, PrestoPrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
         Set<HivePrivilegeInfo> currentPrivileges = listTablePrivileges(metastoreContext, databaseName, tableName, grantee);
-        currentPrivileges.removeAll(privileges);
 
-        setTablePrivileges(metastoreContext, grantee, databaseName, tableName, currentPrivileges);
+        //create mutable list to operate on collection
+        Set<HivePrivilegeInfo> updatedPrivileges = currentPrivileges.stream().filter(currentPrivilege -> !privileges.contains(currentPrivilege)).collect(toSet());
+
+        setTablePrivileges(metastoreContext, grantee, databaseName, tableName, updatedPrivileges);
     }
 
     @Override
