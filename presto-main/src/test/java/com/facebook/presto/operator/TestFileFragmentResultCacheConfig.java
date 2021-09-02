@@ -40,7 +40,8 @@ public class TestFileFragmentResultCacheConfig
                 .setMaxCachedEntries(10_000)
                 .setCacheTtl(new Duration(2, DAYS))
                 .setMaxInFlightSize(new DataSize(1, GIGABYTE))
-                .setMaxSinglePagesSize(new DataSize(500, MEGABYTE)));
+                .setMaxSinglePagesSize(new DataSize(500, MEGABYTE))
+                .setMaxOutFlightSize(new DataSize(4, GIGABYTE)));
     }
 
     @Test
@@ -55,6 +56,7 @@ public class TestFileFragmentResultCacheConfig
                 .put("fragment-result-cache.cache-ttl", "1d")
                 .put("fragment-result-cache.max-in-flight-size", "2GB")
                 .put("fragment-result-cache.max-single-pages-size", "200MB")
+                .put("fragment-result-cache.max-out-flight-size", "6GB")
                 .build();
 
         FileFragmentResultCacheConfig expected = new FileFragmentResultCacheConfig()
@@ -64,7 +66,8 @@ public class TestFileFragmentResultCacheConfig
                 .setMaxCachedEntries(100000)
                 .setCacheTtl(new Duration(1, DAYS))
                 .setMaxInFlightSize(new DataSize(2, GIGABYTE))
-                .setMaxSinglePagesSize(new DataSize(200, MEGABYTE));
+                .setMaxSinglePagesSize(new DataSize(200, MEGABYTE))
+                .setMaxOutFlightSize(new DataSize(6, GIGABYTE));
 
         assertFullMapping(properties, expected);
     }

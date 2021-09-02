@@ -66,13 +66,14 @@ public class FileFragmentResultCacheManager
 
     private final Path baseDirectory;
     private final long maxInFlightBytes;
+    private final long maxOutFlightBytes;
     private final long maxSinglePagesBytes;
     private final PagesSerdeFactory pagesSerdeFactory;
     private final FragmentCacheStats fragmentCacheStats;
     private final ExecutorService flushExecutor;
     private final ExecutorService removalExecutor;
 
-    private final Cache<CacheKey, Path> cache;
+    private final Cache<CacheKey, FieldInfo> cache;
 
     // TODO: Decouple CacheKey by encoding PlanNode and SplitIdentifier separately so we don't have to keep too many objects in memory
     @Inject
@@ -88,6 +89,7 @@ public class FileFragmentResultCacheManager
 
         this.baseDirectory = Paths.get(cacheConfig.getBaseDirectory());
         this.maxInFlightBytes = cacheConfig.getMaxInFlightSize().toBytes();
+        this.maxOutFlightBytes = cacheConfig.getMaxOutFlightSize().toBytes();
         this.maxSinglePagesBytes = cacheConfig.getMaxSinglePagesSize().toBytes();
         // pagesSerde is not thread safe
         this.pagesSerdeFactory = new PagesSerdeFactory(blockEncodingSerde, cacheConfig.isBlockEncodingCompressionEnabled());
@@ -132,11 +134,13 @@ public class FileFragmentResultCacheManager
     {
         CacheKey key = new CacheKey(serializedPlan, split.getSplitIdentifier());
         long resultSize = getPagesSize(result);
-        if (fragmentCacheStats.getInFlightBytes() + resultSize > maxInFlightBytes || cache.getIfPresent(key) != null || resultSize > maxSinglePagesBytes) {
+        long inFlightBytes = fragmentCacheStats.addAndGetInFlightBytes(resultSize);
+        if (inFlightBytes > maxInFlightBytes || cache.getIfPresent(key) != null || resultSize > maxSinglePagesBytes) {
+            fragmentCacheStats.addAndGetInFlightBytes(-resultSize);
             return immediateFuture(null);
         }
 
-        fragmentCacheStats.addInFlightBytes(resultSize);
+        fragmentCacheStats.addAndGetInFlightBytes(resultSize);
         Path path = baseDirectory.resolve(randomUUID().toString().replaceAll("-", "_"));
         return flushExecutor.submit(() -> cachePages(key, path, result, resultSize));
     }
@@ -155,7 +159,7 @@ public class FileFragmentResultCacheManager
             Files.createFile(path);
             try (SliceOutput output = new OutputStreamSliceOutput(newOutputStream(path, APPEND))) {
                 writePages(pagesSerdeFactory.createPagesSerde(), output, pages.iterator());
-                cache.put(key, path);
+                cache.put(key, new FieldInfo(path, resultSize));
                 fragmentCacheStats.incrementCacheEntries();
             }
             catch (UncheckedIOException | IOException e) {
@@ -168,7 +172,7 @@ public class FileFragmentResultCacheManager
             tryDeleteFile(path);
         }
         finally {
-            fragmentCacheStats.addInFlightBytes(-resultSize);
+            fragmentCacheStats.addAndGetInFlightBytes(-resultSize);
         }
     }
 
@@ -189,20 +193,27 @@ public class FileFragmentResultCacheManager
     public Optional<Iterator<Page>> get(String serializedPlan, Split split)
     {
         CacheKey key = new CacheKey(serializedPlan, split.getSplitIdentifier());
-        Path path = cache.getIfPresent(key);
-        if (path == null) {
+        FieldInfo value = cache.getIfPresent(key);
+
+        if (value == null) {
+            fragmentCacheStats.incrementCacheMiss();
+            return Optional.empty();
+        }
+        long freeOutFlightBytes = fragmentCacheStats.addAndGetOutFlightBytes(value.getSize());
+        if (freeOutFlightBytes > maxOutFlightBytes) {
+            fragmentCacheStats.addAndGetOutFlightBytes(value.getSize());
             fragmentCacheStats.incrementCacheMiss();
             return Optional.empty();
         }
 
         try {
-            InputStream inputStream = newInputStream(path);
+            InputStream inputStream = newInputStream(value.getPath());
             Iterator<Page> result = readPages(pagesSerdeFactory.createPagesSerde(), new InputStreamSliceInput(inputStream));
             fragmentCacheStats.incrementCacheHit();
-            return Optional.of(closeWhenExhausted(result, inputStream));
+            return Optional.of(closeWhenExhausted(result, inputStream, fragmentCacheStats));
         }
         catch (UncheckedIOException | IOException e) {
-            log.error(e, "read path %s error", path);
+            log.error(e, "read path %s error", value.getPath());
             // there might be a chance the file has been deleted. We would return cache miss in this case.
             fragmentCacheStats.incrementCacheMiss();
             return Optional.empty();
@@ -215,18 +226,20 @@ public class FileFragmentResultCacheManager
         cache.invalidateAll();
     }
 
-    private static <T> Iterator<T> closeWhenExhausted(Iterator<T> iterator, Closeable resource)
+    private static Iterator<Page> closeWhenExhausted(Iterator<Page> iterator, Closeable resource, FragmentCacheStats fragmentCacheStats)
     {
         requireNonNull(iterator, "iterator is null");
         requireNonNull(resource, "resource is null");
 
-        return new AbstractIterator<T>()
+        return new AbstractIterator<Page>()
         {
             @Override
-            protected T computeNext()
+            protected Page computeNext()
             {
                 if (iterator.hasNext()) {
-                    return iterator.next();
+                    Page page = iterator.next();
+                    fragmentCacheStats.addAndGetOutFlightBytes(-page.getSizeInBytes());
+                    return page;
                 }
                 try {
                     resource.close();
@@ -281,13 +294,35 @@ public class FileFragmentResultCacheManager
         }
     }
 
+    private static class FieldInfo
+    {
+        private final Path path;
+        private final long size;
+
+        public FieldInfo(Path path, long size)
+        {
+            this.path = path;
+            this.size = size;
+        }
+
+        public Path getPath()
+        {
+            return path;
+        }
+
+        public long getSize()
+        {
+            return size;
+        }
+    }
+
     private class CacheRemovalListener
-            implements RemovalListener<CacheKey, Path>
+            implements RemovalListener<CacheKey, FieldInfo>
     {
         @Override
-        public void onRemoval(RemovalNotification<CacheKey, Path> notification)
+        public void onRemoval(RemovalNotification<CacheKey, FieldInfo> notification)
         {
-            removalExecutor.submit(() -> tryDeleteFile(notification.getValue()));
+            removalExecutor.submit(() -> tryDeleteFile(notification.getValue().getPath()));
             fragmentCacheStats.incrementCacheRemoval();
             fragmentCacheStats.decrementCacheEntries();
         }
