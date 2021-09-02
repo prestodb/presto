@@ -18,6 +18,7 @@ import com.facebook.airlift.configuration.testing.ConfigAssertions;
 import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggGroupImplementation;
 import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
 import com.facebook.presto.operator.aggregation.multimapagg.MultimapAggGroupImplementation;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationIfToFilterRewriteStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartitioningPrecisionStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.SingleStreamSpillerChoice;
@@ -178,7 +179,7 @@ public class TestFeaturesConfig
                 .setPartialResultsMaxExecutionTimeMultiplier(2.0)
                 .setMaterializedViewDataConsistencyEnabled(true)
                 .setQueryOptimizationWithMaterializedViewEnabled(false)
-                .setAggregationIfToFilterRewriteEnabled(false));
+                .setAggregationIfToFilterRewriteStrategy(AggregationIfToFilterRewriteStrategy.DISABLED));
     }
 
     @Test
@@ -308,7 +309,7 @@ public class TestFeaturesConfig
                 .put("offset-clause-enabled", "true")
                 .put("materialized-view-data-consistency-enabled", "false")
                 .put("query-optimization-with-materialized-view-enabled", "true")
-                .put("optimizer.aggregation-if-to-filter-rewrite-enabled", "true")
+                .put("optimizer.aggregation-if-to-filter-rewrite-strategy", "filter_with_if")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -436,7 +437,7 @@ public class TestFeaturesConfig
                 .setPartialResultsMaxExecutionTimeMultiplier(1.5)
                 .setMaterializedViewDataConsistencyEnabled(false)
                 .setQueryOptimizationWithMaterializedViewEnabled(true)
-                .setAggregationIfToFilterRewriteEnabled(true);
+                .setAggregationIfToFilterRewriteStrategy(AggregationIfToFilterRewriteStrategy.FILTER_WITH_IF);
         assertFullMapping(properties, expected);
     }
 

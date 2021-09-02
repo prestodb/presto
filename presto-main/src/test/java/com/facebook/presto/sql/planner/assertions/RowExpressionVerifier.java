@@ -50,6 +50,7 @@ import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
+import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
@@ -161,6 +162,16 @@ final class RowExpressionVerifier
         return process(expected.getCondition(), ((SpecialFormExpression) actual).getArguments().get(0)) &&
                 process(expected.getTrueValue(), ((SpecialFormExpression) actual).getArguments().get(1)) &&
                 process(expected.getFalseValue().orElse(new NullLiteral()), ((SpecialFormExpression) actual).getArguments().get(2));
+    }
+
+    @Override
+    protected Boolean visitSubscriptExpression(SubscriptExpression expected, RowExpression actual)
+    {
+        if (!(actual instanceof CallExpression) || !functionResolution.isSubscriptFunction(((CallExpression) actual).getFunctionHandle())) {
+            return false;
+        }
+        return process(expected.getBase(), ((CallExpression) actual).getArguments().get(0)) &&
+                process(expected.getIndex(), ((CallExpression) actual).getArguments().get(1));
     }
 
     @Override
