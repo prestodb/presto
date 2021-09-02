@@ -41,6 +41,7 @@ import static com.facebook.presto.execution.QueryState.TERMINAL_QUERY_STATES;
 import static com.facebook.presto.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static com.facebook.presto.spi.resourceGroups.QueryType.EXPLAIN;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 class H2TestUtil
@@ -120,21 +121,28 @@ class H2TestUtil
     public static DistributedQueryRunner createQueryRunner(String dbConfigUrl, H2ResourceGroupsDao dao)
             throws Exception
     {
-        return createQueryRunner(dbConfigUrl, dao, TEST_ENVIRONMENT, ImmutableMap.of());
+        return createQueryRunner(dbConfigUrl, dao, TEST_ENVIRONMENT, ImmutableMap.of(), 1);
     }
 
-    public static DistributedQueryRunner createQueryRunner(String dbConfigUrl, H2ResourceGroupsDao dao, Map<String, String> coordinatorProperties)
+    public static DistributedQueryRunner createQueryRunner(String dbConfigUrl, H2ResourceGroupsDao dao, int coordinatorCount)
             throws Exception
     {
-        return createQueryRunner(dbConfigUrl, dao, TEST_ENVIRONMENT, coordinatorProperties);
+        return createQueryRunner(dbConfigUrl, dao, TEST_ENVIRONMENT, ImmutableMap.of(), coordinatorCount);
     }
 
-    public static DistributedQueryRunner createQueryRunner(String dbConfigUrl, H2ResourceGroupsDao dao, String environment, Map<String, String> coordinatorProperties)
+    public static DistributedQueryRunner createQueryRunner(String dbConfigUrl, H2ResourceGroupsDao dao, Map<String, String> coordinatorProperties, int coordinatorCount)
+            throws Exception
+    {
+        return createQueryRunner(dbConfigUrl, dao, TEST_ENVIRONMENT, coordinatorProperties, coordinatorCount);
+    }
+
+    public static DistributedQueryRunner createQueryRunner(String dbConfigUrl, H2ResourceGroupsDao dao, String environment, Map<String, String> coordinatorProperties, int coordinatorCount)
             throws Exception
     {
         DistributedQueryRunner queryRunner = DistributedQueryRunner
                 .builder(testSessionBuilder().setCatalog("tpch").setSchema("tiny").build())
                 .setNodeCount(2)
+                .setCoordinatorCount(coordinatorCount)
                 .setEnvironment(environment)
                 .setResourceManagerEnabled(true)
                 .setCoordinatorProperties(coordinatorProperties)
@@ -142,11 +150,14 @@ class H2TestUtil
         try {
             Plugin h2ResourceGroupManagerPlugin = new H2ResourceGroupManagerPlugin();
             queryRunner.installPlugin(h2ResourceGroupManagerPlugin);
-            queryRunner.getCoordinator().getResourceGroupManager().get()
-                    .setConfigurationManager(CONFIGURATION_MANAGER_TYPE, ImmutableMap.of("resource-groups.config-db-url", dbConfigUrl, "node.environment", environment));
+            for (int coordinator = 0; coordinator < coordinatorCount; coordinator++) {
+                queryRunner.getCoordinator(coordinator).getResourceGroupManager().get()
+                        .setConfigurationManager(CONFIGURATION_MANAGER_TYPE, ImmutableMap.of("resource-groups.config-db-url", dbConfigUrl, "node.environment", environment));
+            }
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
             setup(queryRunner, dao, environment);
+            queryRunner.waitForClusterToGetReady();
             return queryRunner;
         }
         catch (Exception e) {
@@ -188,15 +199,23 @@ class H2TestUtil
         }
 
         // Selectors are loaded last
-        while (getSelectors(queryRunner).size() != expectedSelectors) {
-            MILLISECONDS.sleep(500);
+        for (int coordinator = 0; coordinator < queryRunner.getCoordinators().size(); coordinator++) {
+            while (getSelectors(queryRunner, coordinator).size() != expectedSelectors) {
+                MILLISECONDS.sleep(500);
+            }
         }
     }
 
     public static List<ResourceGroupSelector> getSelectors(DistributedQueryRunner queryRunner)
     {
+        checkState(queryRunner.getCoordinators().size() == 1, "Expected a single coordinator");
+        return getSelectors(queryRunner, 0);
+    }
+
+    public static List<ResourceGroupSelector> getSelectors(DistributedQueryRunner queryRunner, int coordinator)
+    {
         try {
-            return ((ReloadingResourceGroupConfigurationManager) queryRunner.getCoordinator().getResourceGroupManager().get().getConfigurationManager()).getSelectors();
+            return ((ReloadingResourceGroupConfigurationManager) queryRunner.getCoordinator(coordinator).getResourceGroupManager().get().getConfigurationManager()).getSelectors();
         }
         catch (PrestoException e) {
             if (e.getErrorCode() == CONFIGURATION_INVALID.toErrorCode()) {
