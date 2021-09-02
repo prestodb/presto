@@ -13,10 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/exec/tests/utils/SignatureBinder.h"
+#include "velox/expression/SignatureBinder.h"
 #include <boost/algorithm/string.hpp>
 
-namespace facebook::velox::exec::test {
+namespace facebook::velox::exec {
 
 namespace {
 bool isAny(const TypeSignature& typeSignature) {
@@ -136,4 +136,4 @@ TypePtr SignatureBinder::tryResolveType(
 
   return it->second;
 }
-} // namespace facebook::velox::exec::test
+} // namespace facebook::velox::exec

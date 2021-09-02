@@ -19,6 +19,7 @@ add_library(
   Expr.cpp
   ExprCompiler.cpp
   FunctionSignature.cpp
+  SignatureBinder.cpp
   VectorFunction.cpp
   VectorFunctionRegistry.cpp)
 

@@ -17,7 +17,7 @@ include_directories(${CMAKE_BINARY_DIR})
 
 add_executable(
   velox_expression_test ExprTest.cpp CastExprTest.cpp EvalSimplifiedTest.cpp
-                        SimpleFunctionTest.cpp)
+                        SignatureBinderTest.cpp SimpleFunctionTest.cpp)
 
 add_test(
   NAME velox_expression_test

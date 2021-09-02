@@ -17,7 +17,7 @@
 
 #include "velox/expression/FunctionSignature.h"
 
-namespace facebook::velox::exec::test {
+namespace facebook::velox::exec {
 
 /// Resolves generic type names in the function signature using actual input
 /// types. E.g. given function signature array(T) -> T and input type
@@ -53,4 +53,4 @@ class SignatureBinder {
   const std::vector<TypePtr>& actualTypes_;
   std::unordered_map<std::string, TypePtr> bindings_;
 };
-} // namespace facebook::velox::exec::test
+} // namespace facebook::velox::exec

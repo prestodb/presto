@@ -15,8 +15,8 @@
  */
 #include "velox/exec/tests/utils/FunctionUtils.h"
 #include "velox/core/ITypedExpr.h"
-#include "velox/exec/tests/utils/SignatureBinder.h"
 #include "velox/expression/Expr.h"
+#include "velox/expression/SignatureBinder.h"
 #include "velox/expression/VectorFunction.h"
 #include "velox/parse/Expressions.h"
 #include "velox/type/Type.h"

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/exec/tests/utils/SignatureBinder.h"
+#include "velox/expression/SignatureBinder.h"
 #include <gtest/gtest.h>
 
 using namespace facebook::velox;
@@ -22,7 +22,7 @@ void testSignatureBinder(
     const std::shared_ptr<exec::FunctionSignature>& signature,
     const std::vector<TypePtr>& actualTypes,
     const TypePtr& expectedReturnType) {
-  exec::test::SignatureBinder binder(*signature, actualTypes);
+  exec::SignatureBinder binder(*signature, actualTypes);
   ASSERT_TRUE(binder.tryBind());
 
   auto returnType = binder.tryResolveReturnType();
@@ -149,7 +149,7 @@ TEST(SignatureBinderTest, variableArity) {
 void assertCannotResolve(
     const std::shared_ptr<exec::FunctionSignature>& signature,
     const std::vector<TypePtr>& actualTypes) {
-  exec::test::SignatureBinder binder(*signature, actualTypes);
+  exec::SignatureBinder binder(*signature, actualTypes);
   ASSERT_FALSE(binder.tryBind());
 }
 
