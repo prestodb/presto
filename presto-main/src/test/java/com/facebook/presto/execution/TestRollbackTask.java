@@ -19,6 +19,7 @@ import com.facebook.presto.Session.SessionBuilder;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.sql.tree.Rollback;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
@@ -62,10 +63,13 @@ public class TestRollbackTask
                 .setTransactionId(transactionManager.beginTransaction(false))
                 .build();
         QueryStateMachine stateMachine = createQueryStateMachine("ROLLBACK", session, true, transactionManager, executor, metadata);
+        WarningCollector warningCollector = stateMachine.getWarningCollector();
+        RollbackTask rollbackTask = new RollbackTask();
+        rollbackTask.setQueryStateMachine(stateMachine);
         assertTrue(stateMachine.getSession().getTransactionId().isPresent());
         assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
 
-        getFutureValue(new RollbackTask().execute(new Rollback(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()));
+        getFutureValue(rollbackTask.execute(new Rollback(), transactionManager, metadata, new AllowAllAccessControl(), session, emptyList(), warningCollector));
         assertTrue(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId());
         assertFalse(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent());
 
@@ -80,9 +84,11 @@ public class TestRollbackTask
         Session session = sessionBuilder()
                 .build();
         QueryStateMachine stateMachine = createQueryStateMachine("ROLLBACK", session, true, transactionManager, executor, metadata);
-
+        WarningCollector warningCollector = stateMachine.getWarningCollector();
+        RollbackTask rollbackTask = new RollbackTask();
+        rollbackTask.setQueryStateMachine(stateMachine);
         try {
-            getFutureValue(new RollbackTask().execute(new Rollback(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()));
+            getFutureValue(rollbackTask.execute(new Rollback(), transactionManager, metadata, new AllowAllAccessControl(), session, emptyList(), warningCollector));
             fail();
         }
         catch (PrestoException e) {
@@ -103,8 +109,11 @@ public class TestRollbackTask
                 .setTransactionId(TransactionId.create()) // Use a random transaction ID that is unknown to the system
                 .build();
         QueryStateMachine stateMachine = createQueryStateMachine("ROLLBACK", session, true, transactionManager, executor, metadata);
+        WarningCollector warningCollector = stateMachine.getWarningCollector();
 
-        getFutureValue(new RollbackTask().execute(new Rollback(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()));
+        RollbackTask rollbackTask = new RollbackTask();
+        rollbackTask.setQueryStateMachine(stateMachine);
+        getFutureValue(rollbackTask.execute(new Rollback(), transactionManager, metadata, new AllowAllAccessControl(), session, emptyList(), warningCollector));
         assertTrue(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId()); // Still issue clear signal
         assertFalse(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent());
 

@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.Isolation;
@@ -75,10 +76,12 @@ public class TestStartTransactionTask
         Session session = sessionBuilder().build();
         TransactionManager transactionManager = createTestTransactionManager();
         QueryStateMachine stateMachine = createQueryStateMachine("START TRANSACTION", session, true, transactionManager, executor, metadata);
+        WarningCollector warningCollector = stateMachine.getWarningCollector();
         assertFalse(stateMachine.getSession().getTransactionId().isPresent());
-
+        StartTransactionTask startTransactionTask = new StartTransactionTask();
+        startTransactionTask.setQueryStateMachine(stateMachine);
         try {
-            getFutureValue(new StartTransactionTask().execute(new StartTransaction(ImmutableList.of()), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()));
+            getFutureValue(startTransactionTask.execute(new StartTransaction(ImmutableList.of()), transactionManager, metadata, new AllowAllAccessControl(), session, emptyList(), warningCollector));
             fail();
         }
         catch (PrestoException e) {
@@ -99,9 +102,11 @@ public class TestStartTransactionTask
                 .setClientTransactionSupport()
                 .build();
         QueryStateMachine stateMachine = createQueryStateMachine("START TRANSACTION", session, true, transactionManager, executor, metadata);
-
+        WarningCollector warningCollector = stateMachine.getWarningCollector();
+        StartTransactionTask startTransactionTask = new StartTransactionTask();
+        startTransactionTask.setQueryStateMachine(stateMachine);
         try {
-            getFutureValue(new StartTransactionTask().execute(new StartTransaction(ImmutableList.of()), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()));
+            getFutureValue(startTransactionTask.execute(new StartTransaction(ImmutableList.of()), transactionManager, metadata, new AllowAllAccessControl(), session, emptyList(), warningCollector));
             fail();
         }
         catch (PrestoException e) {
@@ -121,9 +126,11 @@ public class TestStartTransactionTask
                 .build();
         TransactionManager transactionManager = createTestTransactionManager();
         QueryStateMachine stateMachine = createQueryStateMachine("START TRANSACTION", session, true, transactionManager, executor, metadata);
+        WarningCollector warningCollector = stateMachine.getWarningCollector();
         assertFalse(stateMachine.getSession().getTransactionId().isPresent());
-
-        getFutureValue(new StartTransactionTask().execute(new StartTransaction(ImmutableList.of()), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()));
+        StartTransactionTask startTransactionTask = new StartTransactionTask();
+        startTransactionTask.setQueryStateMachine(stateMachine);
+        getFutureValue(startTransactionTask.execute(new StartTransaction(ImmutableList.of()), transactionManager, metadata, new AllowAllAccessControl(), session, emptyList(), warningCollector));
         assertFalse(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId());
         assertTrue(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent());
         assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
@@ -140,15 +147,19 @@ public class TestStartTransactionTask
                 .build();
         TransactionManager transactionManager = createTestTransactionManager();
         QueryStateMachine stateMachine = createQueryStateMachine("START TRANSACTION", session, true, transactionManager, executor, metadata);
-        assertFalse(stateMachine.getSession().getTransactionId().isPresent());
+        WarningCollector warningCollector = stateMachine.getWarningCollector();
 
-        getFutureValue(new StartTransactionTask().execute(
+        assertFalse(stateMachine.getSession().getTransactionId().isPresent());
+        StartTransactionTask startTransactionTask = new StartTransactionTask();
+        startTransactionTask.setQueryStateMachine(stateMachine);
+        getFutureValue(startTransactionTask.execute(
                 new StartTransaction(ImmutableList.of(new Isolation(Isolation.Level.SERIALIZABLE), new TransactionAccessMode(true))),
                 transactionManager,
                 metadata,
                 new AllowAllAccessControl(),
-                stateMachine,
-                emptyList()));
+                session,
+                emptyList(),
+                warningCollector));
         assertFalse(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId());
         assertTrue(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent());
         assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
@@ -167,16 +178,19 @@ public class TestStartTransactionTask
                 .build();
         TransactionManager transactionManager = createTestTransactionManager();
         QueryStateMachine stateMachine = createQueryStateMachine("START TRANSACTION", session, true, transactionManager, executor, metadata);
+        WarningCollector warningCollector = stateMachine.getWarningCollector();
         assertFalse(stateMachine.getSession().getTransactionId().isPresent());
-
+        StartTransactionTask startTransactionTask = new StartTransactionTask();
+        startTransactionTask.setQueryStateMachine(stateMachine);
         try {
-            getFutureValue(new StartTransactionTask().execute(
+            getFutureValue(startTransactionTask.execute(
                     new StartTransaction(ImmutableList.of(new Isolation(Isolation.Level.READ_COMMITTED), new Isolation(Isolation.Level.READ_COMMITTED))),
                     transactionManager,
                     metadata,
                     new AllowAllAccessControl(),
-                    stateMachine,
-                    emptyList()));
+                    session,
+                    emptyList(),
+                    warningCollector));
             fail();
         }
         catch (SemanticException e) {
@@ -196,16 +210,19 @@ public class TestStartTransactionTask
                 .build();
         TransactionManager transactionManager = createTestTransactionManager();
         QueryStateMachine stateMachine = createQueryStateMachine("START TRANSACTION", session, true, transactionManager, executor, metadata);
+        WarningCollector warningCollector = stateMachine.getWarningCollector();
         assertFalse(stateMachine.getSession().getTransactionId().isPresent());
-
+        StartTransactionTask startTransactionTask = new StartTransactionTask();
+        startTransactionTask.setQueryStateMachine(stateMachine);
         try {
             getFutureValue(new StartTransactionTask().execute(
                     new StartTransaction(ImmutableList.of(new TransactionAccessMode(true), new TransactionAccessMode(true))),
                     transactionManager,
                     metadata,
                     new AllowAllAccessControl(),
-                    stateMachine,
-                    emptyList()));
+                    session,
+                    emptyList(),
+                    warningCollector));
             fail();
         }
         catch (SemanticException e) {
@@ -232,15 +249,18 @@ public class TestStartTransactionTask
                 new CatalogManager(),
                 executor);
         QueryStateMachine stateMachine = createQueryStateMachine("START TRANSACTION", session, true, transactionManager, executor, metadata);
+        WarningCollector warningCollector = stateMachine.getWarningCollector();
         assertFalse(stateMachine.getSession().getTransactionId().isPresent());
-
-        getFutureValue(new StartTransactionTask().execute(
+        StartTransactionTask startTransactionTask = new StartTransactionTask();
+        startTransactionTask.setQueryStateMachine(stateMachine);
+        getFutureValue(startTransactionTask.execute(
                 new StartTransaction(ImmutableList.of()),
                 transactionManager,
                 metadata,
                 new AllowAllAccessControl(),
-                stateMachine,
-                emptyList()));
+                session,
+                emptyList(),
+                warningCollector));
         assertFalse(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId());
         assertTrue(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent());
 

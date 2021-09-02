@@ -25,6 +25,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.event.QueryMonitor;
+import com.facebook.presto.execution.DataDefinitionTask;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.QueryInfo;
@@ -70,6 +71,7 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskInputs;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskOutput;
 import com.facebook.presto.spark.classloader_interface.SerializedPrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.classloader_interface.SerializedTaskInfo;
+import com.facebook.presto.spark.execution.PrestoSparkDataDefinitionExecution;
 import com.facebook.presto.spark.execution.PrestoSparkExecutionExceptionFactory;
 import com.facebook.presto.spark.execution.PrestoSparkTaskExecutorFactory;
 import com.facebook.presto.spark.planner.PrestoSparkPlanFragmenter;
@@ -87,6 +89,7 @@ import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.storage.StorageCapabilities;
 import com.facebook.presto.spi.storage.TempDataOperationContext;
@@ -97,10 +100,12 @@ import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
+import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.storage.TempStorageManager;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionInfo;
 import com.facebook.presto.transaction.TransactionManager;
+import com.facebook.presto.util.StatementUtils;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
@@ -237,6 +242,7 @@ public class PrestoSparkQueryExecutionFactory
     private final String storageBasedBroadcastJoinStorage;
     private final NodeMemoryConfig nodeMemoryConfig;
     private final Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics;
+    private final Map<Class<? extends Statement>, DataDefinitionTask<?>> ddlTasks;
 
     @Inject
     public PrestoSparkQueryExecutionFactory(
@@ -267,7 +273,8 @@ public class PrestoSparkQueryExecutionFactory
             TempStorageManager tempStorageManager,
             PrestoSparkConfig prestoSparkConfig,
             NodeMemoryConfig nodeMemoryConfig,
-            Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics)
+            Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics,
+            Map<Class<? extends Statement>, DataDefinitionTask<?>> ddlTasks)
     {
         this.queryIdGenerator = requireNonNull(queryIdGenerator, "queryIdGenerator is null");
         this.sessionSupplier = requireNonNull(sessionSupplier, "sessionSupplier is null");
@@ -297,6 +304,7 @@ public class PrestoSparkQueryExecutionFactory
         this.storageBasedBroadcastJoinStorage = requireNonNull(prestoSparkConfig, "prestoSparkConfig is null").getStorageBasedBroadcastJoinStorage();
         this.nodeMemoryConfig = requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null");
         this.waitTimeMetrics = ImmutableSet.copyOf(requireNonNull(waitTimeMetrics, "waitTimeMetrics is null"));
+        this.ddlTasks = ImmutableMap.copyOf(requireNonNull(ddlTasks, "ddlTasks is null"));
     }
 
     @Override
@@ -397,51 +405,59 @@ public class PrestoSparkQueryExecutionFactory
             queryStateTimer.beginAnalyzing();
 
             PreparedQuery preparedQuery = queryPreparer.prepareQuery(session, sql, warningCollector);
-            planAndMore = queryPlanner.createQueryPlan(session, preparedQuery, warningCollector);
-            SubPlan fragmentedPlan = planFragmenter.fragmentQueryPlan(session, planAndMore.getPlan(), warningCollector);
-            log.info(textDistributedPlan(fragmentedPlan, metadata.getFunctionAndTypeManager(), session, true));
-            fragmentedPlan = configureOutputPartitioning(session, fragmentedPlan);
-            TableWriteInfo tableWriteInfo = getTableWriteInfo(session, fragmentedPlan);
+            Optional<QueryType> queryType = StatementUtils.getQueryType(preparedQuery.getStatement().getClass());
+            if (queryType.isPresent() && (queryType.get() == QueryType.DATA_DEFINITION)) {
+                queryStateTimer.endAnalysis();
+                DataDefinitionTask<?> task = (DataDefinitionTask<?>) ddlTasks.get(preparedQuery.getStatement().getClass());
+                return new PrestoSparkDataDefinitionExecution(task, preparedQuery.getStatement(), transactionManager, accessControl, metadata, session, queryStateTimer, warningCollector);
+            }
+            else {
+                planAndMore = queryPlanner.createQueryPlan(session, preparedQuery, warningCollector);
+                SubPlan fragmentedPlan = planFragmenter.fragmentQueryPlan(session, planAndMore.getPlan(), warningCollector);
+                log.info(textDistributedPlan(fragmentedPlan, metadata.getFunctionAndTypeManager(), session, true));
+                fragmentedPlan = configureOutputPartitioning(session, fragmentedPlan);
+                TableWriteInfo tableWriteInfo = getTableWriteInfo(session, fragmentedPlan);
 
-            JavaSparkContext javaSparkContext = new JavaSparkContext(sparkContext);
-            CollectionAccumulator<SerializedTaskInfo> taskInfoCollector = new CollectionAccumulator<>();
-            taskInfoCollector.register(sparkContext, Option.empty(), false);
-            CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector = new CollectionAccumulator<>();
-            shuffleStatsCollector.register(sparkContext, Option.empty(), false);
-            TempStorage tempStorage = tempStorageManager.getTempStorage(storageBasedBroadcastJoinStorage);
-            queryStateTimer.endAnalysis();
+                JavaSparkContext javaSparkContext = new JavaSparkContext(sparkContext);
+                CollectionAccumulator<SerializedTaskInfo> taskInfoCollector = new CollectionAccumulator<>();
+                taskInfoCollector.register(sparkContext, Option.empty(), false);
+                CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector = new CollectionAccumulator<>();
+                shuffleStatsCollector.register(sparkContext, Option.empty(), false);
+                TempStorage tempStorage = tempStorageManager.getTempStorage(storageBasedBroadcastJoinStorage);
+                queryStateTimer.endAnalysis();
 
-            return new PrestoSparkQueryExecution(
-                    javaSparkContext,
-                    session,
-                    queryMonitor,
-                    taskInfoCollector,
-                    shuffleStatsCollector,
-                    prestoSparkTaskExecutorFactory,
-                    executorFactoryProvider,
-                    queryStateTimer,
-                    warningCollector,
-                    sql,
-                    planAndMore,
-                    fragmentedPlan,
-                    sparkQueueName,
-                    taskInfoCodec,
-                    sparkTaskDescriptorJsonCodec,
-                    queryStatusInfoJsonCodec,
-                    queryDataJsonCodec,
-                    rddFactory,
-                    tableWriteInfo,
-                    transactionManager,
-                    createPagesSerde(blockEncodingManager),
-                    executionExceptionFactory,
-                    queryTimeout,
-                    queryCompletionDeadline,
-                    metadataStorage,
-                    queryStatusInfoOutputLocation,
-                    queryDataOutputLocation,
-                    tempStorage,
-                    nodeMemoryConfig,
-                    waitTimeMetrics);
+                return new PrestoSparkQueryExecution(
+                        javaSparkContext,
+                        session,
+                        queryMonitor,
+                        taskInfoCollector,
+                        shuffleStatsCollector,
+                        prestoSparkTaskExecutorFactory,
+                        executorFactoryProvider,
+                        queryStateTimer,
+                        warningCollector,
+                        sql,
+                        planAndMore,
+                        fragmentedPlan,
+                        sparkQueueName,
+                        taskInfoCodec,
+                        sparkTaskDescriptorJsonCodec,
+                        queryStatusInfoJsonCodec,
+                        queryDataJsonCodec,
+                        rddFactory,
+                        tableWriteInfo,
+                        transactionManager,
+                        createPagesSerde(blockEncodingManager),
+                        executionExceptionFactory,
+                        queryTimeout,
+                        queryCompletionDeadline,
+                        metadataStorage,
+                        queryStatusInfoOutputLocation,
+                        queryDataOutputLocation,
+                        tempStorage,
+                        nodeMemoryConfig,
+                        waitTimeMetrics);
+            }
         }
         catch (Throwable executionFailure) {
             queryStateTimer.beginFinishing();
@@ -924,12 +940,15 @@ public class PrestoSparkQueryExecutionFactory
 
             List<Tuple2<MutablePartitionId, PrestoSparkSerializedPage>> rddResults;
             try {
+                Optional<TransactionInfo> transaction = session.getTransactionId()
+                        .flatMap(transactionManager::getOptionalTransactionInfo);
                 rddResults = doExecute(fragmentedPlan);
                 queryStateTimer.beginFinishing();
                 commit(session, transactionManager);
                 queryStateTimer.endQuery();
             }
             catch (Throwable executionException) {
+                executionException.printStackTrace();
                 queryStateTimer.beginFinishing();
                 try {
                     rollback(session, transactionManager);

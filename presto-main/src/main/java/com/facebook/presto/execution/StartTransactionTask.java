@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.Expression;
@@ -37,6 +38,8 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 public class StartTransactionTask
         implements DataDefinitionTask<StartTransaction>
 {
+    private QueryStateMachine stateMachine;
+
     @Override
     public String getName()
     {
@@ -44,9 +47,14 @@ public class StartTransactionTask
     }
 
     @Override
-    public ListenableFuture<?> execute(StartTransaction statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
+    public void setQueryStateMachine(QueryStateMachine stateMachine)
     {
-        Session session = stateMachine.getSession();
+        this.stateMachine = stateMachine;
+    }
+
+    @Override
+    public ListenableFuture<?> execute(StartTransaction statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
+    {
         if (!session.isClientTransactionSupport()) {
             throw new PrestoException(StandardErrorCode.INCOMPATIBLE_CLIENT, "Client does not support transactions");
         }

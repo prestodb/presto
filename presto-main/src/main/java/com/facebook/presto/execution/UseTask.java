@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Use;
@@ -33,6 +34,8 @@ import static java.util.Locale.ENGLISH;
 public class UseTask
         implements DataDefinitionTask<Use>
 {
+    private QueryStateMachine stateMachine;
+
     @Override
     public String getName()
     {
@@ -40,10 +43,14 @@ public class UseTask
     }
 
     @Override
-    public ListenableFuture<?> execute(Use statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
+    public void setQueryStateMachine(QueryStateMachine stateMachine)
     {
-        Session session = stateMachine.getSession();
+        this.stateMachine = stateMachine;
+    }
 
+    @Override
+    public ListenableFuture<?> execute(Use statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
+    {
         if (!statement.getCatalog().isPresent() && !session.getCatalog().isPresent()) {
             throw new SemanticException(CATALOG_NOT_SPECIFIED, statement, "Catalog must be specified when session catalog is not set");
         }
@@ -53,10 +60,10 @@ public class UseTask
             if (!metadata.getCatalogHandle(session, catalog).isPresent()) {
                 throw new PrestoException(NOT_FOUND, "Catalog does not exist: " + catalog);
             }
-            stateMachine.setSetCatalog(catalog);
+            this.stateMachine.setSetCatalog(catalog);
         }
 
-        stateMachine.setSetSchema(statement.getSchema().getValue().toLowerCase(ENGLISH));
+        this.stateMachine.setSetSchema(statement.getSchema().getValue().toLowerCase(ENGLISH));
 
         return immediateFuture(null);
     }

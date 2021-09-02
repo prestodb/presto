@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Rollback;
 import com.facebook.presto.transaction.TransactionId;
@@ -31,6 +32,8 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 public class RollbackTask
         implements DataDefinitionTask<Rollback>
 {
+    private QueryStateMachine stateMachine;
+
     @Override
     public String getName()
     {
@@ -38,15 +41,20 @@ public class RollbackTask
     }
 
     @Override
-    public ListenableFuture<?> execute(Rollback statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
+    public void setQueryStateMachine(QueryStateMachine stateMachine)
     {
-        Session session = stateMachine.getSession();
+        this.stateMachine = stateMachine;
+    }
+
+    @Override
+    public ListenableFuture<?> execute(Rollback statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
+    {
         if (!session.getTransactionId().isPresent()) {
             throw new PrestoException(NOT_IN_TRANSACTION, "No transaction in progress");
         }
         TransactionId transactionId = session.getTransactionId().get();
 
-        stateMachine.clearTransactionId();
+        this.stateMachine.clearTransactionId();
         transactionManager.asyncAbort(transactionId);
         return immediateFuture(null);
     }

@@ -20,6 +20,9 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.cost.StatsCalculator;
+import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerConfig;
+import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutors;
+import com.facebook.presto.functionNamespace.testing.InMemoryFunctionNamespaceManager;
 import com.facebook.presto.hive.HdfsConfiguration;
 import com.facebook.presto.hive.HdfsConfigurationInitializer;
 import com.facebook.presto.hive.HdfsEnvironment;
@@ -38,6 +41,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.spark.PrestoSparkQueryExecutionFactory.PrestoSparkQueryExecution;
+import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecution;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecutionFactory;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutorFactory;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkConfInitializer;
@@ -45,6 +49,7 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.eventlistener.EventListener;
+import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
@@ -87,6 +92,7 @@ import static com.facebook.airlift.log.Level.WARN;
 import static com.facebook.presto.spark.PrestoSparkSettingsRequirements.SPARK_EXECUTOR_CORES_PROPERTY;
 import static com.facebook.presto.spark.PrestoSparkSettingsRequirements.SPARK_TASK_CPUS_PROPERTY;
 import static com.facebook.presto.spark.classloader_interface.SparkProcessType.DRIVER;
+import static com.facebook.presto.spi.function.RoutineCharacteristics.Language.SQL;
 import static com.facebook.presto.testing.MaterializedResult.DEFAULT_PRECISION;
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
@@ -292,10 +298,25 @@ public class PrestoSparkQueryRunner
         metastore.createDatabase(METASTORE_CONTEXT, createDatabaseMetastoreObject("hive_test"));
         pluginManager.installPlugin(new HivePlugin("hive", Optional.of(metastore)));
 
-        connectorManager.createConnection("hive", "hive", ImmutableMap.of(
-                "hive.experimental-optimized-partition-update-serialization-enabled", "true"));
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
+                                          .put("hive.experimental-optimized-partition-update-serialization-enabled", "true")
+                                          .put("hive.allow-drop-table", "true")
+                                          .put("hive.allow-rename-table", "true")
+                                          .put("hive.allow-rename-column", "true")
+                                          .put("hive.allow-add-column", "true")
+                                          .put("hive.allow-drop-column", "true").build();
+
+        connectorManager.createConnection("hive", "hive", properties);
 
         metadata.registerBuiltInFunctions(AbstractTestQueries.CUSTOM_FUNCTIONS);
+        metadata.getFunctionAndTypeManager().addFunctionNamespace(
+                "unittest",
+                new InMemoryFunctionNamespaceManager(
+                        "unittest",
+                        new SqlFunctionExecutors(
+                                ImmutableMap.of(SQL, FunctionImplementationType.SQL),
+                                null),
+                        new SqlInvokedFunctionNamespaceManagerConfig().setSupportedFunctionLanguages("sql")));
 
         // add bogus catalog for testing procedures and session properties
         CatalogManager catalogManager = injector.getInstance(CatalogManager.class);
@@ -401,7 +422,7 @@ public class PrestoSparkQueryRunner
     public MaterializedResult execute(Session session, String sql)
     {
         IPrestoSparkQueryExecutionFactory executionFactory = prestoSparkService.getQueryExecutionFactory();
-        PrestoSparkQueryExecution execution = (PrestoSparkQueryExecution) executionFactory.create(
+        IPrestoSparkQueryExecution execution = executionFactory.create(
                 sparkContext,
                 createSessionInfo(session),
                 Optional.of(sql),
@@ -417,17 +438,30 @@ public class PrestoSparkQueryRunner
                 .map(result -> new MaterializedRow(DEFAULT_PRECISION, result))
                 .collect(toImmutableList());
 
-        if (!execution.getUpdateType().isPresent()) {
-            return new MaterializedResult(rows, execution.getOutputTypes());
+        if (execution instanceof PrestoSparkQueryExecution) {
+            PrestoSparkQueryExecution p = (PrestoSparkQueryExecution) execution;
+            if (!p.getUpdateType().isPresent()) {
+                return new MaterializedResult(rows, p.getOutputTypes());
+            }
+            else {
+                return new MaterializedResult(
+                    rows,
+                    p.getOutputTypes(),
+                    ImmutableMap.of(),
+                    ImmutableSet.of(),
+                    p.getUpdateType(),
+                    OptionalLong.of((Long) getOnlyElement(getOnlyElement(rows).getFields())),
+                    ImmutableList.of());
+            }
         }
         else {
             return new MaterializedResult(
                     rows,
-                    execution.getOutputTypes(),
+                    ImmutableList.of(),
                     ImmutableMap.of(),
                     ImmutableSet.of(),
-                    execution.getUpdateType(),
-                    OptionalLong.of((Long) getOnlyElement(getOnlyElement(rows).getFields())),
+                    Optional.empty(),
+                    OptionalLong.empty(),
                     ImmutableList.of());
         }
     }

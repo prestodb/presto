@@ -20,6 +20,7 @@ import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.Expression;
@@ -40,6 +41,8 @@ import static java.lang.String.format;
 public class SetSessionTask
         implements DataDefinitionTask<SetSession>
 {
+    private QueryStateMachine stateMachine;
+
     @Override
     public String getName()
     {
@@ -47,9 +50,14 @@ public class SetSessionTask
     }
 
     @Override
-    public ListenableFuture<?> execute(SetSession statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
+    public void setQueryStateMachine(QueryStateMachine stateMachine)
     {
-        Session session = stateMachine.getSession();
+        this.stateMachine = stateMachine;
+    }
+
+    @Override
+    public ListenableFuture<?> execute(SetSession statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
+    {
         QualifiedName propertyName = statement.getName();
         List<String> parts = propertyName.getParts();
         if (parts.size() > 2) {
@@ -87,7 +95,7 @@ public class SetSessionTask
         // verify the SQL value can be decoded by the property
         propertyMetadata.decode(objectValue);
 
-        stateMachine.addSetSessionProperties(propertyName.toString(), value);
+        this.stateMachine.addSetSessionProperties(propertyName.toString(), value);
 
         return immediateFuture(null);
     }

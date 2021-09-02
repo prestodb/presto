@@ -18,6 +18,7 @@ import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.Expression;
@@ -47,9 +48,8 @@ public class GrantTask
     }
 
     @Override
-    public ListenableFuture<?> execute(Grant statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
+    public ListenableFuture<?> execute(Grant statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
     {
-        Session session = stateMachine.getSession();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTableName());
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
         if (!tableHandle.isPresent()) {
@@ -72,6 +72,10 @@ public class GrantTask
             accessControl.checkCanGrantTablePrivilege(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), privilege, tableName, createPrincipal(statement.getGrantee()), statement.isWithGrantOption());
         }
 
+        System.out.println("GRANT priviliges");
+        System.out.println(privileges.toString());
+        System.out.println(session.getIdentity());
+        System.out.println(session.getIdentity());
         metadata.grantTablePrivileges(session, tableName, privileges, createPrincipal(statement.getGrantee()), statement.isWithGrantOption());
         return immediateFuture(null);
     }

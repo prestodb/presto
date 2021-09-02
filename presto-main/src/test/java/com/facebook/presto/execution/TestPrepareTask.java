@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.Execute;
@@ -101,7 +102,10 @@ public class TestPrepareTask
         TransactionManager transactionManager = createTestTransactionManager();
         QueryStateMachine stateMachine = createQueryStateMachine(sqlString, session, false, transactionManager, executor, metadata);
         Prepare prepare = new Prepare(identifier(statementName), statement);
-        new PrepareTask(new SqlParser()).execute(prepare, transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList());
+        WarningCollector warningCollector = stateMachine.getWarningCollector();
+        PrepareTask prepareTask = new PrepareTask(new SqlParser());
+        prepareTask.setQueryStateMachine(stateMachine);
+        prepareTask.execute(prepare, transactionManager, metadata, new AllowAllAccessControl(), session, emptyList(), warningCollector);
         return stateMachine.getAddedPreparedStatements();
     }
 }

@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.sql.SqlFormatter;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Prepare;
@@ -29,7 +31,7 @@ public interface DataDefinitionTask<T extends Statement>
 {
     String getName();
 
-    ListenableFuture<?> execute(T statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters);
+    ListenableFuture<?> execute(T statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector);
 
     default String explain(T statement, List<Expression> parameters)
     {
@@ -43,5 +45,10 @@ public interface DataDefinitionTask<T extends Statement>
     default boolean isTransactionControl()
     {
         return false;
+    }
+
+    default void setQueryStateMachine(QueryStateMachine stateMachine)
+    {
+        // To be overriden by DataDefinitionTasks mainly session and transaction tasks that require QueryStateMachine
     }
 }

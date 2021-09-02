@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.transaction.TransactionManager;
@@ -78,7 +79,10 @@ public class TestDeallocateTask
         TransactionManager transactionManager = createTestTransactionManager();
         QueryStateMachine stateMachine = createQueryStateMachine(sqlString, session, false, transactionManager, executor, metadata);
         Deallocate deallocate = new Deallocate(new Identifier(statementName));
-        new DeallocateTask().execute(deallocate, transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList());
+        WarningCollector warningCollector = stateMachine.getWarningCollector();
+        DeallocateTask deallocateTask = new DeallocateTask();
+        deallocateTask.setQueryStateMachine(stateMachine);
+        deallocateTask.execute(deallocate, transactionManager, metadata, new AllowAllAccessControl(), session, emptyList(), warningCollector);
         return stateMachine.getDeallocatedPreparedStatements();
     }
 }

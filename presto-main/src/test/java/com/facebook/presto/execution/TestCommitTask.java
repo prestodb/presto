@@ -19,6 +19,7 @@ import com.facebook.presto.Session.SessionBuilder;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
@@ -63,10 +64,13 @@ public class TestCommitTask
                 .setTransactionId(transactionManager.beginTransaction(false))
                 .build();
         QueryStateMachine stateMachine = createQueryStateMachine("COMMIT", session, true, transactionManager, executor, metadata);
+        WarningCollector warningCollector = stateMachine.getWarningCollector();
         assertTrue(stateMachine.getSession().getTransactionId().isPresent());
         assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
 
-        getFutureValue(new CommitTask().execute(new Commit(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()));
+        CommitTask commitTask = new CommitTask();
+        commitTask.setQueryStateMachine(stateMachine);
+        getFutureValue(commitTask.execute(new Commit(), transactionManager, metadata, new AllowAllAccessControl(), session, emptyList(), warningCollector));
         assertTrue(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId());
         assertFalse(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent());
 
@@ -81,9 +85,12 @@ public class TestCommitTask
         Session session = sessionBuilder()
                 .build();
         QueryStateMachine stateMachine = createQueryStateMachine("COMMIT", session, true, transactionManager, executor, metadata);
+        WarningCollector warningCollector = stateMachine.getWarningCollector();
 
         try {
-            getFutureValue(new CommitTask().execute(new Commit(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()));
+            CommitTask commitTask = new CommitTask();
+            commitTask.setQueryStateMachine(stateMachine);
+            getFutureValue(commitTask.execute(new Commit(), transactionManager, metadata, new AllowAllAccessControl(), session, emptyList(), warningCollector));
             fail();
         }
         catch (PrestoException e) {
@@ -104,9 +111,12 @@ public class TestCommitTask
                 .setTransactionId(TransactionId.create()) // Use a random transaction ID that is unknown to the system
                 .build();
         QueryStateMachine stateMachine = createQueryStateMachine("COMMIT", session, true, transactionManager, executor, metadata);
+        WarningCollector warningCollector = stateMachine.getWarningCollector();
 
         try {
-            getFutureValue(new CommitTask().execute(new Commit(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()));
+            CommitTask commitTask = new CommitTask();
+            commitTask.setQueryStateMachine(stateMachine);
+            getFutureValue(commitTask.execute(new Commit(), transactionManager, metadata, new AllowAllAccessControl(), session, emptyList(), warningCollector));
             fail();
         }
         catch (PrestoException e) {

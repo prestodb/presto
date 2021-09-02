@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.security.AllowAllAccessControl;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.ResetSession;
@@ -88,14 +89,17 @@ public class TestResetSessionTask
                 .setCatalogSessionProperty(CATALOG_NAME, "baz", "blah")
                 .build();
         QueryStateMachine stateMachine = createQueryStateMachine("reset foo", session, false, transactionManager, executor, metadata);
-
-        getFutureValue(new ResetSessionTask().execute(
+        WarningCollector warningCollector = stateMachine.getWarningCollector();
+        ResetSessionTask resetSessionTask = new ResetSessionTask();
+        resetSessionTask.setQueryStateMachine(stateMachine);
+        getFutureValue(resetSessionTask.execute(
                 new ResetSession(QualifiedName.of(CATALOG_NAME, "baz")),
                 transactionManager,
                 metadata,
                 accessControl,
-                stateMachine,
-                emptyList()));
+                stateMachine.getSession(),
+                emptyList(),
+                warningCollector));
 
         Set<String> sessionProperties = stateMachine.getResetSessionProperties();
         assertEquals(sessionProperties, ImmutableSet.of("catalog.baz"));
