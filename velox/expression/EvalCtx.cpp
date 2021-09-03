@@ -128,17 +128,18 @@ void EvalCtx::saveAndReset(ContextSaver* saver, const SelectivityVector& rows) {
 
 void EvalCtx::addError(
     vector_size_t index,
-    StringView string,
-    FlatVectorPtr<StringView>* errorsPtr) const {
+    const std::exception_ptr& exceptionPtr,
+    ErrorVectorPtr* errorsPtr) const {
   auto errors = errorsPtr->get();
   auto oldSize = errors ? errors->size() : 0;
   if (!errors) {
     auto size = index + 1;
-    *errorsPtr = std::make_shared<FlatVector<StringView>>(
+    *errorsPtr = std::make_shared<ErrorVector>(
         pool(),
         AlignedBuffer::allocate<bool>(size, pool(), true) /*nulls*/,
         size /*length*/,
-        AlignedBuffer::allocate<StringView>(size, pool(), StringView()),
+        AlignedBuffer::allocate<ErrorVector::value_type>(
+            size, pool(), ErrorVector::value_type()),
         std::vector<BufferPtr>(0),
         cdvi::EMPTY_METADATA,
         1 /*distinctValueCount*/,
@@ -155,7 +156,7 @@ void EvalCtx::addError(
   }
   if (errors->isNullAt(index)) {
     errors->setNull(index, false);
-    errors->set(index, string);
+    errors->set(index, std::make_shared<std::exception_ptr>(exceptionPtr));
   }
 }
 
@@ -176,7 +177,11 @@ void EvalCtx::restore(ContextSaver* saver) {
       }
       vector_size_t innerRow = indices ? indices[row] : constantWrapIndex_;
       if (innerRow < errorSize && !errors_->isNullAt(innerRow)) {
-        addError(row, errors_->valueAt(innerRow), &saver->errors);
+        addError(
+            row,
+            *std::static_pointer_cast<std::exception_ptr>(
+                errors_->valueAt(innerRow)),
+            &saver->errors);
       }
     }
   }
@@ -193,11 +198,7 @@ void EvalCtx::setError(
   if (throwOnError_) {
     std::rethrow_exception(exceptionPtr);
   }
-  try {
-    std::rethrow_exception(exceptionPtr);
-  } catch (const std::exception& ex) {
-    addError(index, StringView(ex.what()), &errors_);
-  }
+  addError(index, exceptionPtr, &errors_);
 }
 
 VectorPtr EvalCtx::getField(int32_t index) const {

@@ -23,24 +23,8 @@
 namespace facebook::velox::exec {
 
 class Expr;
-class EvalCtx;
-
-struct ContextSaver {
-  ~ContextSaver();
-  // The context to restore. nullptr if nothing to restore.
-  EvalCtx* context = nullptr;
-  std::vector<VectorPtr> peeled;
-  BufferPtr wrap;
-  BufferPtr wrapNulls;
-  VectorEncoding::Simple wrapEncoding;
-  bool mayHaveNulls = false;
-  // The selection of the context being saved.
-  const SelectivityVector* rows;
-  const SelectivityVector* finalSelection;
-  FlatVectorPtr<StringView> errors;
-};
-
 class ExprSet;
+struct ContextSaver;
 
 // Context for holding the base row vector, error state and various
 // flags for Expr interpreter.
@@ -104,22 +88,29 @@ class EvalCtx {
     });
   }
 
+  // Error vector uses an opaque flat vector to store std::exception_ptr.
+  // Since opaque types are stored as shared_ptr<void>, this ends up being a
+  // double pointer in the form of std::shared_ptr<std::exception_ptr>. This is
+  // fine since we only need to actually follow the pointer in failure cases.
+  using ErrorVector = FlatVector<std::shared_ptr<void>>;
+  using ErrorVectorPtr = std::shared_ptr<ErrorVector>;
+
   // Sets the error at 'index' in '*errorPtr' if the value is
   // null. Creates and resizes '*errorPtr' as needed and initializes
   // new positions to null.
   void addError(
       vector_size_t index,
-      StringView string,
-      FlatVectorPtr<StringView>* errorsPtr) const;
+      const std::exception_ptr& exceptionPtr,
+      ErrorVectorPtr* errorsPtr) const;
 
   // Returns the vector of errors or nullptr if no errors. This is
   // intentionally a raw pointer to signify that the caller may not
   // retain references to this.
-  FlatVector<StringView>* errors() const {
+  ErrorVector* errors() const {
     return errors_.get();
   }
 
-  void swapErrors(FlatVectorPtr<StringView>* other) {
+  void swapErrors(ErrorVectorPtr* other) {
     std::swap(errors_, *other);
   }
 
@@ -220,7 +211,25 @@ class EvalCtx {
   // OR. Used to determine the set of rows for loading lazy vectors.
   const SelectivityVector* finalSelection_;
 
-  FlatVectorPtr<StringView> errors_;
+  // Stores exception found during expression evaluation. Exceptions are stored
+  // in a opaque flat vector, which will translate to a
+  // std::shared_ptr<std::exception_ptr>.
+  ErrorVectorPtr errors_;
+};
+
+struct ContextSaver {
+  ~ContextSaver();
+  // The context to restore. nullptr if nothing to restore.
+  EvalCtx* context = nullptr;
+  std::vector<VectorPtr> peeled;
+  BufferPtr wrap;
+  BufferPtr wrapNulls;
+  VectorEncoding::Simple wrapEncoding;
+  bool mayHaveNulls = false;
+  // The selection of the context being saved.
+  const SelectivityVector* rows;
+  const SelectivityVector* finalSelection;
+  EvalCtx::ErrorVectorPtr errors;
 };
 
 class LocalSelectivityVector {
