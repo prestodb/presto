@@ -179,14 +179,19 @@ public class LocalDispatchQuery
     {
         ListenableFuture<?> minimumWorkerFuture = clusterSizeMonitor.waitForMinimumWorkers();
         // when worker requirement is met, wait for query execution to finish construction and then start the execution
-        addSuccessCallback(minimumWorkerFuture, () -> addSuccessCallback(queryExecutionFuture, this::startExecution));
+        addSuccessCallback(minimumWorkerFuture, () -> {
+            // It's the time to end waiting for resources
+            boolean isDispatching = stateMachine.transitionToDispatching();
+            addSuccessCallback(queryExecutionFuture, queryExecution -> startExecution(queryExecution, isDispatching));
+        });
+
         addExceptionCallback(minimumWorkerFuture, throwable -> queryExecutor.execute(() -> fail(throwable)));
     }
 
-    private void startExecution(QueryExecution queryExecution)
+    private void startExecution(QueryExecution queryExecution, boolean isDispatching)
     {
         queryExecutor.execute(() -> {
-            if (stateMachine.transitionToDispatching()) {
+            if (isDispatching) {
                 try {
                     resourceGroupQueryLimits.get().ifPresent(queryExecution::setResourceGroupQueryLimits);
                     querySubmitter.accept(queryExecution);
