@@ -56,11 +56,11 @@ DictionaryVector<T>::DictionaryVector(
     TypeKind indexType,
     BufferPtr dictionaryIndices,
     const folly::F14FastMap<std::string, std::string>& metaData,
-    folly::Optional<vector_size_t> distinctValueCount,
-    folly::Optional<vector_size_t> nullCount,
-    folly::Optional<bool> isSorted,
-    folly::Optional<ByteCount> representedBytes,
-    folly::Optional<ByteCount> storageByteCount)
+    std::optional<vector_size_t> distinctValueCount,
+    std::optional<vector_size_t> nullCount,
+    std::optional<bool> isSorted,
+    std::optional<ByteCount> representedBytes,
+    std::optional<ByteCount> storageByteCount)
     : SimpleVector<T>(
           pool,
           dictionaryValues->type(),

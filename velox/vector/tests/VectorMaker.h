@@ -575,7 +575,7 @@ class VectorMaker {
         size,
         0,
         std::make_shared<RowVector>(
-            pool_, rowType, nullptr, 1, std::move(fields), folly::none));
+            pool_, rowType, nullptr, 1, std::move(fields)));
   }
 
   static VectorPtr flatten(const VectorPtr& vector);

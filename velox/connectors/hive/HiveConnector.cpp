@@ -412,12 +412,7 @@ RowVectorPtr HiveDataSource::next(uint64_t size) {
     }
 
     return std::make_shared<RowVector>(
-        pool_,
-        outputType_,
-        BufferPtr(nullptr),
-        rowsRemaining,
-        outputColumns,
-        folly::none);
+        pool_, outputType_, BufferPtr(nullptr), rowsRemaining, outputColumns);
   }
 
   skippedStrides_ += rowReader_->skippedStrides();

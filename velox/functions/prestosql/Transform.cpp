@@ -74,8 +74,7 @@ class TransformFunction : public exec::VectorFunction {
         flatArray->size(),
         flatArray->offsets(),
         flatArray->sizes(),
-        newElements,
-        folly::none);
+        newElements);
     context->moveOrCopyResult(localResult, rows, result);
   }
 

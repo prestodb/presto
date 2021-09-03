@@ -91,8 +91,7 @@ class MapConcatFunction : public exec::VectorFunction {
         offsets,
         sizes,
         combinedKeys,
-        combinedValues,
-        folly::none);
+        combinedValues);
 
     combinedMap->canonicalize(true);
 
@@ -142,8 +141,7 @@ class MapConcatFunction : public exec::VectorFunction {
           offsets,
           sizes,
           keys,
-          values,
-          folly::none);
+          values);
     }
 
     context->moveOrCopyResult(combinedMap, rows, result);

@@ -22,7 +22,6 @@
 #include <folly/hash/Hash.h>
 #include <glog/logging.h>
 
-#include <folly/Optional.h>
 #include "velox/type/Type.h"
 #include "velox/vector/BaseVector.h"
 #include "velox/vector/LazyVector.h"
@@ -40,8 +39,8 @@ class RowVector : public BaseVector {
       BufferPtr nulls,
       size_t length,
       std::vector<VectorPtr> children,
-      folly::Optional<vector_size_t> nullCount = folly::none)
-      : BaseVector(pool, type, nulls, length, folly::none, nullCount, 1),
+      std::optional<vector_size_t> nullCount = std::nullopt)
+      : BaseVector(pool, type, nulls, length, std::nullopt, nullCount, 1),
         childrenSize_(children.size()),
         children_(std::move(children)) {
     // Some columns may not be projected out
@@ -183,15 +182,14 @@ class ArrayVector : public BaseVector {
       BufferPtr offsets,
       BufferPtr lengths,
       VectorPtr elements,
-      folly::Optional<vector_size_t> nullCount = folly::none)
+      std::optional<vector_size_t> nullCount = std::nullopt)
       : BaseVector(
             pool,
             type,
             nulls,
             length,
-            folly::none /*distinctValueCount*/,
-            nullCount,
-            folly::none /*representedByteCount*/),
+            std::nullopt /*distinctValueCount*/,
+            nullCount),
         offsets_(std::move(offsets)),
         rawOffsets_(offsets_->as<vector_size_t>()),
         sizes_(std::move(lengths)),
@@ -328,15 +326,15 @@ class MapVector : public BaseVector {
       BufferPtr sizes,
       VectorPtr keys,
       VectorPtr values,
-      folly::Optional<vector_size_t> nullCount = folly::none)
+      std::optional<vector_size_t> nullCount = std::nullopt)
       : BaseVector(
             pool,
             type,
             nulls,
             length,
-            folly::none /*distinctValueCount*/,
+            std::nullopt /*distinctValueCount*/,
             nullCount,
-            folly::none /*representedByteCount*/),
+            std::nullopt /*representedByteCount*/),
         offsets_(std::move(offsets)),
         rawOffsets_(offsets_->as<vector_size_t>()),
         sizes_(std::move(sizes)),

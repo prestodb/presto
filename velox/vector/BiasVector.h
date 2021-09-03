@@ -15,7 +15,6 @@
  */
 #pragma once
 
-#include <folly/Optional.h>
 #include <folly/dynamic.h>
 
 #include "velox/common/base/SimdUtil.h"
@@ -106,11 +105,11 @@ class BiasVector : public SimpleVector<T> {
       BufferPtr values,
       const folly::F14FastMap<std::string, std::string>& metaData =
           cdvi::EMPTY_METADATA,
-      folly::Optional<int32_t> distinctCount = folly::none,
-      folly::Optional<vector_size_t> nullCount = folly::none,
-      folly::Optional<bool> sorted = folly::none,
-      folly::Optional<ByteCount> representedBytes = folly::none,
-      folly::Optional<ByteCount> storageByteCount = folly::none);
+      std::optional<int32_t> distinctCount = std::nullopt,
+      std::optional<vector_size_t> nullCount = std::nullopt,
+      std::optional<bool> sorted = std::nullopt,
+      std::optional<ByteCount> representedBytes = std::nullopt,
+      std::optional<ByteCount> storageByteCount = std::nullopt);
 
   ~BiasVector() override {}
 

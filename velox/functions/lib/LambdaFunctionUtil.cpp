@@ -111,8 +111,7 @@ ArrayVectorPtr flattenArray(
           BufferPtr(nullptr),
           elementIndices,
           newNumElements,
-          array->elements()),
-      folly::none);
+          array->elements()));
 }
 
 MapVectorPtr flattenMap(
@@ -149,8 +148,10 @@ MapVectorPtr flattenMap(
       BaseVector::wrapInDictionary(
           BufferPtr(nullptr), elementIndices, newNumElements, map->mapKeys()),
       BaseVector::wrapInDictionary(
-          BufferPtr(nullptr), elementIndices, newNumElements, map->mapValues()),
-      folly::none);
+          BufferPtr(nullptr),
+          elementIndices,
+          newNumElements,
+          map->mapValues()));
 }
 
 } // namespace facebook::velox::functions

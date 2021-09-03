@@ -153,7 +153,7 @@ class VectorTest : public testing::Test {
         BiasKind,
         std::move(values),
         std::move(metadata),
-        folly::none,
+        std::nullopt,
         numNulls,
         false,
         size * sizeof(T));

@@ -60,16 +60,7 @@ VectorPtr createScalar(
   }
 
   return std::make_shared<FlatVector<T>>(
-      &pool,
-      nulls,
-      size,
-      values,
-      std::vector<BufferPtr>{},
-      cdvi::EMPTY_METADATA,
-      folly::none /*distinctValueCount*/,
-      nullCount,
-      false /*isSorted*/,
-      0 /*representedBytes*/);
+      &pool, nulls, size, values, std::vector<BufferPtr>{});
 }
 
 template <TypeKind KIND>

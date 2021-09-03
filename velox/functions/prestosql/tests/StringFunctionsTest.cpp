@@ -1209,7 +1209,7 @@ TEST_F(StringFunctionsTest, controlExprEncodingPropagation) {
             makeFlatVector(dataASCII),
             makeFlatVector(dataUTF8),
         }));
-    ASSERT_EQ(result->getStringEncoding(), folly::none);
+    ASSERT_EQ(result->getStringEncoding(), std::nullopt);
   };
 
   // Test if expressions

@@ -94,14 +94,7 @@ class FunctionVector : public BaseVector {
   };
 
   FunctionVector(velox::memory::MemoryPool* pool, TypePtr type)
-      : BaseVector(
-            pool,
-            type,
-            BufferPtr(nullptr),
-            0,
-            folly::none,
-            folly::none,
-            folly::none) {}
+      : BaseVector(pool, type, BufferPtr(nullptr), 0) {}
 
   VectorEncoding::Simple encoding() const override {
     return VectorEncoding::Simple::FUNCTION;

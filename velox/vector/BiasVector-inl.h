@@ -57,11 +57,11 @@ BiasVector<T>::BiasVector(
     TypeKind valueType,
     BufferPtr values,
     const folly::F14FastMap<std::string, std::string>& metaData,
-    folly::Optional<vector_size_t> distinctCount,
-    folly::Optional<vector_size_t> nullCount,
-    folly::Optional<bool> sorted,
-    folly::Optional<ByteCount> representedBytes,
-    folly::Optional<ByteCount> storageByteCount)
+    std::optional<vector_size_t> distinctCount,
+    std::optional<vector_size_t> nullCount,
+    std::optional<bool> sorted,
+    std::optional<ByteCount> representedBytes,
+    std::optional<ByteCount> storageByteCount)
     : SimpleVector<T>(
           pool,
           nulls,
@@ -81,7 +81,7 @@ BiasVector<T>::BiasVector(
 
   auto bias =
       SimpleVector<T>::template getMetaDataValue<T>(metaData, BIAS_VALUE);
-  VELOX_CHECK(bias.hasValue(), "Bias value is required");
+  VELOX_CHECK(bias.has_value(), "Bias value is required");
   bias_ = bias.value();
   biasBuffer_ = simd::setAll256i(bias_);
 
@@ -123,7 +123,7 @@ std::unique_ptr<SimpleVector<uint64_t>> BiasVector<T>::hashAll() const {
       hashes,
       std::vector<BufferPtr>(0) /*stringBuffers*/,
       cdvi::EMPTY_METADATA,
-      folly::none /*distinctValueCount*/,
+      std::nullopt /*distinctValueCount*/,
       0 /* nullCount */,
       false /*isSorted*/,
       sizeof(uint64_t) * BaseVector::length_ /*representedBytes*/);

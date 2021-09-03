@@ -36,24 +36,14 @@ RowVectorPtr VectorMaker::rowVector(const std::vector<VectorPtr>& children) {
   auto rowType = this->rowType(std::move(childTypes));
 
   return std::make_shared<RowVector>(
-      pool_,
-      rowType,
-      BufferPtr(nullptr),
-      children[0]->size(),
-      children,
-      folly::none);
+      pool_, rowType, BufferPtr(nullptr), children[0]->size(), children);
 }
 
 RowVectorPtr VectorMaker::rowVector(
     const std::shared_ptr<const RowType>& rowType,
     vector_size_t size) {
   return std::make_shared<RowVector>(
-      pool_,
-      rowType,
-      BufferPtr(nullptr),
-      size,
-      std::vector<VectorPtr>{},
-      folly::none);
+      pool_, rowType, BufferPtr(nullptr), size, std::vector<VectorPtr>{});
 }
 
 vector_size_t VectorMaker::createOffsetsAndSizes(

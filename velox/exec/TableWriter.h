@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include "folly/Optional.h"
 #include "velox/core/PlanNode.h"
 #include "velox/exec/Operator.h"
 

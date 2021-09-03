@@ -23,7 +23,6 @@
 
 #include <fmt/format.h>
 #include <folly/Format.h>
-#include <folly/Optional.h>
 #include <folly/Range.h>
 #include <folly/container/F14Map.h>
 
@@ -76,10 +75,10 @@ class BaseVector {
       std::shared_ptr<const Type> type,
       BufferPtr nulls,
       size_t length,
-      folly::Optional<vector_size_t> distinctValueCount = folly::none,
-      folly::Optional<vector_size_t> nullCount = folly::none,
-      folly::Optional<ByteCount> representedByteCount = folly::none,
-      folly::Optional<ByteCount> storageByteCount = folly::none);
+      std::optional<vector_size_t> distinctValueCount = std::nullopt,
+      std::optional<vector_size_t> nullCount = std::nullopt,
+      std::optional<ByteCount> representedByteCount = std::nullopt,
+      std::optional<ByteCount> storageByteCount = std::nullopt);
 
   virtual ~BaseVector() = default;
 
@@ -153,7 +152,7 @@ class BaseVector {
     return rawNulls_ ? bits::isBitNull(rawNulls_, idx) : false;
   }
 
-  folly::Optional<vector_size_t> getNullCount() const {
+  std::optional<vector_size_t> getNullCount() const {
     return nullCount_;
   }
 
@@ -200,7 +199,7 @@ class BaseVector {
     return nulls_;
   }
 
-  folly::Optional<vector_size_t> getDistinctValueCount() const {
+  std::optional<vector_size_t> getDistinctValueCount() const {
     return distinctValueCount_;
   }
 
@@ -226,7 +225,7 @@ class BaseVector {
    * @return the number of bytes this vector takes on disk when in a compressed
    * and serialized format
    */
-  folly::Optional<ByteCount> storageBytes() const {
+  std::optional<ByteCount> storageBytes() const {
     return storageByteCount_;
   }
 
@@ -235,7 +234,7 @@ class BaseVector {
    * in this vector - the raw data size if not in a compressed or otherwise
    * optimized format
    */
-  folly::Optional<ByteCount> representedBytes() const {
+  std::optional<ByteCount> representedBytes() const {
     return representedByteCount_;
   }
 
@@ -598,7 +597,7 @@ class BaseVector {
   void setNulls(BufferPtr nulls) {
     nulls_ = nulls;
     rawNulls_ = nulls ? nulls->as<uint64_t>() : nullptr;
-    nullCount_ = folly::none;
+    nullCount_ = std::nullopt;
   }
 
   std::shared_ptr<const Type> type_;
@@ -611,14 +610,14 @@ class BaseVector {
 
   /**
    * Holds the number of nulls in the vector. If the number of nulls
-   * is not available, it is set to folly::none. Setting the value to
+   * is not available, it is set to std::nullopt. Setting the value to
    * zero does have implications (SIMD operations need null count to be
-   * zero) and is not the same as folly::none.
+   * zero) and is not the same as std::nullopt.
    */
-  folly::Optional<vector_size_t> nullCount_;
-  folly::Optional<vector_size_t> distinctValueCount_;
-  folly::Optional<ByteCount> representedByteCount_;
-  folly::Optional<ByteCount> storageByteCount_;
+  std::optional<vector_size_t> nullCount_;
+  std::optional<vector_size_t> distinctValueCount_;
+  std::optional<ByteCount> representedByteCount_;
+  std::optional<ByteCount> storageByteCount_;
   ByteCount inMemoryBytes_ = 0;
 
  private:

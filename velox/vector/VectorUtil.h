@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include "folly/Optional.h"
 #include "velox/buffer/Buffer.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/type/Type.h"

@@ -125,6 +125,6 @@ RowVectorPtr TableWriter::getOutput() {
   }
 
   return std::make_shared<RowVector>(
-      pool, outputType_, BufferPtr(nullptr), 1, columns, folly::none);
+      pool, outputType_, BufferPtr(nullptr), 1, columns);
 }
 } // namespace facebook::velox::exec

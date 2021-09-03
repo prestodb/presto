@@ -245,7 +245,7 @@ template <typename T>
 void verifyBatch(
     std::vector<std::optional<T>> const& data,
     const VectorPtr& out,
-    const folly::Optional<vector_size_t>& nullCount,
+    const std::optional<vector_size_t>& nullCount,
     const uint32_t seed) {
   auto size = data.size();
   ASSERT_EQ(out->size(), size) << "Batch size mismatch with seed " << seed;
@@ -1545,7 +1545,7 @@ struct IntegerColumnWriterTypedTestCase {
             resultIv->rawValues(), resultIv->rawValues() + resultIv->size()};
         ASSERT_EQ(batch->size(), resultBatch->size());
         ASSERT_EQ(batch->getNullCount(), resultBatch->getNullCount());
-        if (!batch->getNullCount().hasValue() ||
+        if (!batch->getNullCount().has_value() ||
             batch->getNullCount().value() > 0) {
           // Normalizing the null values so that we can leverage gtest
           // matchers later for better failure dumps.

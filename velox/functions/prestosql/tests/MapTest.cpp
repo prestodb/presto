@@ -153,8 +153,7 @@ TEST_F(MapTest, encodings) {
       flatKeys->offsets(),
       flatKeys->sizes(),
       flatKeys->elements(),
-      flatValues->elements(),
-      folly::none);
+      flatValues->elements());
 
   auto result =
       evaluate<MapVector>("map(c0, c1)", makeRowVector({keys, values}));

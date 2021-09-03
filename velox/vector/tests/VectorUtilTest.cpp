@@ -15,7 +15,6 @@
  */
 
 #include <fmt/core.h>
-#include <glog/logging.h>
 #include <gtest/gtest.h>
 #include <algorithm>
 
@@ -23,7 +22,6 @@
 #include <folly/Optional.h>
 
 #include "velox/buffer/Buffer.h"
-#include "velox/type/StringView.h"
 #include "velox/vector/VectorUtil.h"
 
 namespace facebook {

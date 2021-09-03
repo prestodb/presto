@@ -709,8 +709,7 @@ class ExprCallable : public Callable {
         capture_->type(),
         BufferPtr(nullptr),
         rows.end(),
-        std::move(allVectors),
-        folly::none);
+        std::move(allVectors));
     EvalCtx lambdaCtx(context->execCtx(), context->exprSet(), row.get());
     body_->eval(rows, &lambdaCtx, result);
   }

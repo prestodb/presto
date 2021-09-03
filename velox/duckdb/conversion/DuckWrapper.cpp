@@ -88,8 +88,7 @@ RowVectorPtr DuckResult::getVector() {
       rowType,
       BufferPtr(nullptr),
       currentChunk_->size(),
-      outputColumns,
-      folly::none);
+      outputColumns);
 }
 
 TypePtr DuckResult::getType(size_t columnIdx) {

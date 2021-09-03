@@ -28,11 +28,11 @@ SequenceVector<T>::SequenceVector(
     std::shared_ptr<BaseVector> sequenceValues,
     BufferPtr sequenceLengths,
     const folly::F14FastMap<std::string, std::string>& metaData,
-    folly::Optional<int32_t> distinctCount,
-    folly::Optional<vector_size_t> nullCount,
-    folly::Optional<bool> isSorted,
-    folly::Optional<ByteCount> representedBytes,
-    folly::Optional<ByteCount> storageByteCount)
+    std::optional<int32_t> distinctCount,
+    std::optional<vector_size_t> nullCount,
+    std::optional<bool> isSorted,
+    std::optional<ByteCount> representedBytes,
+    std::optional<ByteCount> storageByteCount)
     : SimpleVector<T>(
           pool,
           sequenceValues->type(),
@@ -103,7 +103,7 @@ std::unique_ptr<SimpleVector<uint64_t>> SequenceVector<T>::hashAll() const {
       hashes,
       std::vector<BufferPtr>(0) /*stringBuffers*/,
       cdvi::EMPTY_METADATA,
-      folly::none /*distinctValueCount*/,
+      std::nullopt /*distinctValueCount*/,
       0 /* nullCount */,
       false /* sorted */,
       sizeof(uint64_t) * sequenceCount /* representedBytes */);
@@ -114,7 +114,7 @@ std::unique_ptr<SimpleVector<uint64_t>> SequenceVector<T>::hashAll() const {
       std::move(hashValues),
       sequenceLengths_,
       folly::F14FastMap<std::string, std::string>(),
-      folly::none /*distinctCount*/,
+      std::nullopt /*distinctCount*/,
       0 /* nullCount */,
       false /* sorted */,
       sizeof(uint64_t) * BaseVector::length_ /* representedBytes */,

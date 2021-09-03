@@ -173,7 +173,6 @@ wrap(vector_size_t size, BufferPtr mapping, const RowVectorPtr& vector) {
       vector->type(),
       BufferPtr(nullptr),
       size,
-      wrappedChildren,
-      folly::none);
+      wrappedChildren);
 }
 } // namespace facebook::velox::exec

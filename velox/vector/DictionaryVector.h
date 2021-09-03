@@ -18,7 +18,6 @@
 #include <memory>
 #include <type_traits>
 
-#include <folly/Optional.h>
 #include <folly/container/F14Map.h>
 
 #include "velox/common/base/SimdUtil.h"
@@ -58,11 +57,11 @@ class DictionaryVector : public SimpleVector<T> {
       BufferPtr dictionaryIndexArray,
       const folly::F14FastMap<std::string, std::string>& metaData =
           cdvi::EMPTY_METADATA,
-      folly::Optional<vector_size_t> distinctValueCount = folly::none,
-      folly::Optional<vector_size_t> nullCount = folly::none,
-      folly::Optional<bool> isSorted = folly::none,
-      folly::Optional<ByteCount> representedBytes = folly::none,
-      folly::Optional<ByteCount> storageByteCount = folly::none);
+      std::optional<vector_size_t> distinctValueCount = std::nullopt,
+      std::optional<vector_size_t> nullCount = std::nullopt,
+      std::optional<bool> isSorted = std::nullopt,
+      std::optional<ByteCount> representedBytes = std::nullopt,
+      std::optional<ByteCount> storageByteCount = std::nullopt);
 
   virtual ~DictionaryVector() override = default;
 

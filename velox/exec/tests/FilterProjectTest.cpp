@@ -268,8 +268,7 @@ TEST_F(FilterProjectTest, allFailedOrPassed) {
         rowType,
         BufferPtr(nullptr),
         2,
-        std::vector<VectorPtr>{c0, c1},
-        folly::none));
+        std::vector<VectorPtr>{c0, c1}));
   }
   createDuckDbTable(vectors);
 

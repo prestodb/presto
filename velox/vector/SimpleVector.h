@@ -86,11 +86,11 @@ class SimpleVector : public BaseVector {
       BufferPtr nulls,
       size_t length,
       const folly::F14FastMap<std::string, std::string>& metaData,
-      folly::Optional<vector_size_t> distinctValueCount,
-      folly::Optional<vector_size_t> nullCount,
-      folly::Optional<bool> isSorted,
-      folly::Optional<ByteCount> representedByteCount,
-      folly::Optional<ByteCount> storageByteCount = folly::none)
+      std::optional<vector_size_t> distinctValueCount,
+      std::optional<vector_size_t> nullCount,
+      std::optional<bool> isSorted,
+      std::optional<ByteCount> representedByteCount,
+      std::optional<ByteCount> storageByteCount = std::nullopt)
       : BaseVector(
             pool,
             std::move(type),
@@ -111,11 +111,11 @@ class SimpleVector : public BaseVector {
       BufferPtr nulls,
       size_t length,
       const folly::F14FastMap<std::string, std::string>& metaData,
-      folly::Optional<vector_size_t> distinctValueCount,
-      folly::Optional<vector_size_t> nullCount,
-      folly::Optional<bool> isSorted,
-      folly::Optional<ByteCount> representedByteCount,
-      folly::Optional<ByteCount> storageByteCount = folly::none)
+      std::optional<vector_size_t> distinctValueCount,
+      std::optional<vector_size_t> nullCount,
+      std::optional<bool> isSorted,
+      std::optional<ByteCount> representedByteCount,
+      std::optional<ByteCount> storageByteCount = std::nullopt)
       : SimpleVector(
             pool,
             CppToType<T>::create(),
@@ -203,15 +203,15 @@ class SimpleVector : public BaseVector {
                            : folly::hasher<T>{}(valueAt(index));
   }
 
-  folly::Optional<bool> isSorted() const {
+  std::optional<bool> isSorted() const {
     return isSorted_;
   }
 
-  const folly::Optional<T>& getMin() const {
+  const std::optional<T>& getMin() const {
     return min_;
   }
 
-  const folly::Optional<T>& getMax() const {
+  const std::optional<T>& getMax() const {
     return max_;
   }
 
@@ -219,7 +219,7 @@ class SimpleVector : public BaseVector {
   template <typename U = T>
   typename std::enable_if<
       std::is_same<U, StringView>::value,
-      folly::Optional<functions::stringCore::StringEncodingMode>>::type
+      std::optional<functions::stringCore::StringEncodingMode>>::type
   getStringEncoding() const {
     return encodingMode_;
   }
@@ -244,7 +244,7 @@ class SimpleVector : public BaseVector {
   template <typename U = T>
   typename std::enable_if<std::is_same<U, StringView>::value, void>::type
   invalidateStringEncoding() {
-    encodingMode_ = folly::none;
+    encodingMode_ = std::nullopt;
   }
 
   void resize(vector_size_t size) override {
@@ -278,13 +278,13 @@ class SimpleVector : public BaseVector {
    * @return the value of the specified key from the given map, if present
    */
   template <typename V>
-  folly::Optional<V> getMetaDataValue(
+  std::optional<V> getMetaDataValue(
       const folly::F14FastMap<std::string, std::string>& metaData,
       const std::string& key) {
     const auto& value = metaData.find(key);
     return value == metaData.end()
-        ? folly::none
-        : folly::Optional<V>(velox::to<V>(value->second));
+        ? std::nullopt
+        : std::optional<V>(velox::to<V>(value->second));
   }
 
   // Throws if the elementSize_ does not match sizeof(T) or if T is ComplexType.
@@ -300,8 +300,8 @@ class SimpleVector : public BaseVector {
         sizeof(T));
   }
 
-  folly::Optional<T> min_;
-  folly::Optional<T> max_;
+  std::optional<T> min_;
+  std::optional<T> max_;
   // Holds the data for StringView min/max.
   std::string minString_;
   std::string maxString_;
@@ -313,7 +313,7 @@ class SimpleVector : public BaseVector {
   }
 
  protected:
-  folly::Optional<bool> isSorted_ = folly::none;
+  std::optional<bool> isSorted_ = std::nullopt;
 
   // Allows checking that access is with the same width of T as
   // construction. For example, casting FlatVector<uint8_t> to
@@ -321,8 +321,8 @@ class SimpleVector : public BaseVector {
   const uint8_t elementSize_;
 
   // If T is velox::StringView, specifies the string encoding mode
-  folly::Optional<functions::stringCore::StringEncodingMode> encodingMode_ =
-      folly::none;
+  std::optional<functions::stringCore::StringEncodingMode> encodingMode_ =
+      std::nullopt;
 }; // namespace velox
 
 template <>

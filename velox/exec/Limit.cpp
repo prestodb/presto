@@ -58,8 +58,7 @@ RowVectorPtr Limit::getOutput() {
       input_->type(),
       input_->nulls(),
       remainingLimit_,
-      input_->children(),
-      folly::none);
+      input_->children());
   input_.reset();
   remainingLimit_ = 0;
   return output;

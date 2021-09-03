@@ -246,8 +246,7 @@ class MapAggAggregate : public exec::Aggregate {
               BufferPtr(nullptr),
               elementIndices,
               numElements,
-              mapVector->mapValues()),
-          folly::none);
+              mapVector->mapValues()));
     } else {
       return mapVector;
     }

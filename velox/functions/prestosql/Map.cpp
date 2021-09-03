@@ -64,8 +64,7 @@ class MapFunction : public exec::VectorFunction {
           keysArray->offsets(),
           keysArray->sizes(),
           keysArray->elements(),
-          valuesArray->elements(),
-          folly::none);
+          valuesArray->elements());
     } else {
       auto keyIndices = decodedKeys->indices();
       auto valueIndices = decodedValues->indices();
@@ -120,8 +119,7 @@ class MapFunction : public exec::VectorFunction {
           offsets,
           sizes,
           keysArray->elements(),
-          wrappedValues,
-          folly::none);
+          wrappedValues);
     }
 
     mapVector->canonicalize();

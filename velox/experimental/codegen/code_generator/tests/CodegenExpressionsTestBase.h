@@ -548,12 +548,7 @@ class ExpressionCodegenTestBase : public testing::Test {
     auto rowType = makeRowType(std::move(childTypes));
 
     return std::make_shared<RowVector>(
-        execCtx_->pool(),
-        rowType,
-        BufferPtr(nullptr),
-        size,
-        children,
-        folly::none);
+        execCtx_->pool(), rowType, BufferPtr(nullptr), size, children);
   }
 
   // Takes a string expression as input and returns the ITypeExpression with

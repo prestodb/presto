@@ -15,7 +15,6 @@
  */
 #pragma once
 
-#include <folly/Optional.h>
 #include <folly/container/F14Map.h>
 #include <folly/dynamic.h>
 #include <gflags/gflags_declare.h>
@@ -49,11 +48,11 @@ class FlatVector : public SimpleVector<T> {
       std::vector<BufferPtr>&& stringBuffers,
       const folly::F14FastMap<std::string, std::string>& metaData =
           cdvi::EMPTY_METADATA,
-      folly::Optional<vector_size_t> distinctValueCount = folly::none,
-      folly::Optional<vector_size_t> nullCount = folly::none,
-      folly::Optional<bool> isSorted = folly::none,
-      folly::Optional<ByteCount> representedBytes = folly::none,
-      folly::Optional<ByteCount> storageByteCount = folly::none)
+      std::optional<vector_size_t> distinctValueCount = std::nullopt,
+      std::optional<vector_size_t> nullCount = std::nullopt,
+      std::optional<bool> isSorted = std::nullopt,
+      std::optional<ByteCount> representedBytes = std::nullopt,
+      std::optional<ByteCount> storageByteCount = std::nullopt)
       : FlatVector<T>(
             pool,
             CppToType<T>::create(),
@@ -77,11 +76,11 @@ class FlatVector : public SimpleVector<T> {
       std::vector<BufferPtr>&& stringBuffers,
       const folly::F14FastMap<std::string, std::string>& metaData =
           cdvi::EMPTY_METADATA,
-      folly::Optional<vector_size_t> distinctValueCount = folly::none,
-      folly::Optional<vector_size_t> nullCount = folly::none,
-      folly::Optional<bool> isSorted = folly::none,
-      folly::Optional<ByteCount> representedBytes = folly::none,
-      folly::Optional<ByteCount> storageByteCount = folly::none)
+      std::optional<vector_size_t> distinctValueCount = std::nullopt,
+      std::optional<vector_size_t> nullCount = std::nullopt,
+      std::optional<bool> isSorted = std::nullopt,
+      std::optional<ByteCount> representedBytes = std::nullopt,
+      std::optional<ByteCount> storageByteCount = std::nullopt)
       : SimpleVector<T>(
             pool,
             type,

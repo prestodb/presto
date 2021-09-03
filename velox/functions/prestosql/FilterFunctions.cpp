@@ -151,8 +151,7 @@ class ArrayFilterFunction : public FilterFunctionBase {
         rows.size(),
         std::move(resultOffsets),
         std::move(resultSizes),
-        wrappedElements,
-        folly::none);
+        wrappedElements);
     context->moveOrCopyResult(localResult, rows, result);
   }
 
@@ -218,8 +217,7 @@ class MapFilterFunction : public FilterFunctionBase {
         std::move(resultOffsets),
         std::move(resultSizes),
         wrappedKeys,
-        wrappedValues,
-        folly::none);
+        wrappedValues);
     context->moveOrCopyResult(localResult, rows, result);
   }
 

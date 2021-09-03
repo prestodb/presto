@@ -31,10 +31,10 @@ BaseVector::BaseVector(
     std::shared_ptr<const Type> type,
     BufferPtr nulls,
     size_t length,
-    folly::Optional<vector_size_t> distinctValueCount,
-    folly::Optional<vector_size_t> nullCount,
-    folly::Optional<ByteCount> representedByteCount,
-    folly::Optional<ByteCount> storageByteCount)
+    std::optional<vector_size_t> distinctValueCount,
+    std::optional<vector_size_t> nullCount,
+    std::optional<ByteCount> representedByteCount,
+    std::optional<ByteCount> storageByteCount)
     : type_(std::move(type)),
       typeKind_(type_->kind()),
       nulls_(std::move(nulls)),
@@ -112,10 +112,10 @@ static VectorPtr addDictionary(
       indicesBuffer->size() / sizeof(vector_size_t) /*distinctValueCount*/,
       base->getNullCount(),
       false /*isSorted*/,
-      base->representedBytes().hasValue()
-          ? folly::Optional<ByteCount>(
+      base->representedBytes().has_value()
+          ? std::optional<ByteCount>(
                 base->representedBytes().value() * size / (1 + vsize))
-          : folly::none);
+          : std::nullopt);
 }
 
 // static
@@ -142,14 +142,14 @@ addSequence(BufferPtr lengths, vector_size_t size, VectorPtr vector) {
       std::move(vector),
       std::move(lengths),
       cdvi::EMPTY_METADATA,
-      folly::none /*distinctCount*/,
-      folly::none,
+      std::nullopt /*distinctCount*/,
+      std::nullopt,
       false /*sorted*/,
       base->representedBytes().has_value()
-          ? folly::Optional<ByteCount>(
+          ? std::optional<ByteCount>(
                 base->representedBytes().value() * size /
                 (1 + (lsize / sizeof(vector_size_t))))
-          : folly::none);
+          : std::nullopt);
 }
 
 // static
@@ -356,7 +356,7 @@ void BaseVector::clearNulls(const SelectivityVector& rows) {
       rows.asRange().bits(),
       std::min(length_, rows.begin()),
       std::min(length_, rows.end()));
-  nullCount_ = folly::none;
+  nullCount_ = std::nullopt;
 }
 
 void BaseVector::clearNulls(vector_size_t begin, vector_size_t end) {
@@ -374,7 +374,7 @@ void BaseVector::clearNulls(vector_size_t begin, vector_size_t end) {
 
   auto rawNulls = nulls_->asMutable<uint64_t>();
   bits::fillBits(rawNulls, begin, end, true);
-  nullCount_ = folly::none;
+  nullCount_ = std::nullopt;
 }
 
 // static

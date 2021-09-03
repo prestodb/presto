@@ -47,8 +47,8 @@ class ConstantVector : public SimpleVector<T> {
       T&& val,
       const folly::F14FastMap<std::string, std::string>& metaData =
           cdvi::EMPTY_METADATA,
-      folly::Optional<ByteCount> representedBytes = folly::none,
-      folly::Optional<ByteCount> storageByteCount = folly::none)
+      std::optional<ByteCount> representedBytes = std::nullopt,
+      std::optional<ByteCount> storageByteCount = std::nullopt)
       : ConstantVector(
             pool,
             length,
@@ -67,8 +67,8 @@ class ConstantVector : public SimpleVector<T> {
       T&& val,
       const folly::F14FastMap<std::string, std::string>& metaData =
           cdvi::EMPTY_METADATA,
-      folly::Optional<ByteCount> representedBytes = folly::none,
-      folly::Optional<ByteCount> storageByteCount = folly::none)
+      std::optional<ByteCount> representedBytes = std::nullopt,
+      std::optional<ByteCount> storageByteCount = std::nullopt)
       : SimpleVector<T>(
             pool,
             std::move(type),
@@ -115,14 +115,14 @@ class ConstantVector : public SimpleVector<T> {
             BufferPtr(nullptr),
             length,
             metaData,
-            folly::none,
-            folly::none,
+            std::nullopt,
+            std::nullopt,
             true /*isSorted*/,
             base->representedBytes().has_value()
-                ? folly::Optional<ByteCount>(
+                ? std::optional<ByteCount>(
                       (base->representedBytes().value() / base->size()) *
                       length)
-                : folly::none /* representedBytes */),
+                : std::nullopt /* representedBytes */),
         valueVector_(base),
         index_(index) {
     VELOX_CHECK_NE(

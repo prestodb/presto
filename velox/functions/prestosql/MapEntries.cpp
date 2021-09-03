@@ -38,8 +38,7 @@ class MapEntriesFunction : public exec::VectorFunction {
         caller->type()->childAt(0),
         BufferPtr(nullptr),
         inputMap->mapKeys()->size(),
-        std::vector<VectorPtr>{inputMap->mapKeys(), inputMap->mapValues()},
-        folly::none);
+        std::vector<VectorPtr>{inputMap->mapKeys(), inputMap->mapValues()});
     auto resultArray = std::make_shared<ArrayVector>(
         context->pool(),
         caller->type(),
@@ -47,8 +46,7 @@ class MapEntriesFunction : public exec::VectorFunction {
         rows.size(),
         inputMap->offsets(),
         inputMap->sizes(),
-        resultElements,
-        folly::none);
+        resultElements);
 
     context->moveOrCopyResult(resultArray, rows, result);
   }
