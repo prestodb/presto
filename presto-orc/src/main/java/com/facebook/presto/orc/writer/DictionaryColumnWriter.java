@@ -36,7 +36,6 @@ import com.facebook.presto.orc.stream.StreamDataOutput;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -56,7 +55,6 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.airlift.slice.SizeOf.sizeOfObjectArray;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -75,7 +73,7 @@ public abstract class DictionaryColumnWriter
     private final PresentOutputStream presentStream;
     private final CompressedMetadataWriter compressedMetadataWriter;
     private final List<DictionaryRowGroup> rowGroups = new ArrayList<>();
-    private long rowGroupRetainedSizeInBytes;
+    private long columnStatisticsRetainedSizeInBytes;
 
     private int[] rowGroupIndexes;
     private int rowGroupValueCount;
@@ -286,7 +284,7 @@ public abstract class DictionaryColumnWriter
         ColumnStatistics statistics = createColumnStatistics();
         DictionaryRowGroup rowGroup = new DictionaryRowGroup(rowGroupIndexes, rowGroupValueCount, statistics);
         rowGroups.add(rowGroup);
-        rowGroupRetainedSizeInBytes += rowGroup.getRetainedSizeInBytes();
+        columnStatisticsRetainedSizeInBytes += rowGroup.getColumnStatistics().getRetainedSizeInBytes();
         rowGroupValueCount = 0;
         return ImmutableMap.of(column, statistics);
     }
@@ -416,8 +414,7 @@ public abstract class DictionaryColumnWriter
                 dataStream.getRetainedBytes() +
                 presentStream.getRetainedBytes() +
                 getRetainedDictionaryBytes() +
-                rowGroupRetainedSizeInBytes +
-                sizeOfObjectArray(rowGroups.size());
+                columnStatisticsRetainedSizeInBytes;
     }
 
     @Override
@@ -428,7 +425,7 @@ public abstract class DictionaryColumnWriter
         dataStream.reset();
         presentStream.reset();
         rowGroups.clear();
-        rowGroupRetainedSizeInBytes = 0;
+        columnStatisticsRetainedSizeInBytes = 0;
         rowGroupValueCount = 0;
         resetDictionary();
 
@@ -444,8 +441,6 @@ public abstract class DictionaryColumnWriter
 
     private static class DictionaryRowGroup
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(DictionaryRowGroup.class).instanceSize();
-
         private final int[] dictionaryIndexes;
         private final ColumnStatistics columnStatistics;
 
@@ -472,13 +467,6 @@ public abstract class DictionaryColumnWriter
         public ColumnStatistics getColumnStatistics()
         {
             return columnStatistics;
-        }
-
-        public long getRetainedSizeInBytes()
-        {
-            return INSTANCE_SIZE +
-                    sizeOf(dictionaryIndexes) +
-                    columnStatistics.getRetainedSizeInBytes();
         }
     }
 
