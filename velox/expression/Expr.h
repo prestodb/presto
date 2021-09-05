@@ -293,6 +293,11 @@ class Expr {
       EvalCtx* context,
       const VectorPtr& result);
 
+  void evalSimplifiedImpl(
+      const SelectivityVector& rows,
+      EvalCtx* context,
+      VectorPtr* result);
+
  protected:
   const std::shared_ptr<const Type> type_;
   const std::vector<std::shared_ptr<Expr>> inputs_;

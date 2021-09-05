@@ -41,23 +41,25 @@ namespace facebook::velox::test {
 namespace {
 
 // Called if at least one of the ptrs has an exception.
-void compareExceptions(std::exception_ptr eptr1, std::exception_ptr eptr2) {
+void compareExceptions(
+    std::exception_ptr commonPtr,
+    std::exception_ptr simplifiedPtr) {
   // If we don't have two exceptions, fail.
-  if (!eptr1 || !eptr2) {
-    LOG(ERROR) << "Only one path threw exception:";
-
-    if (!eptr1) {
-      std::rethrow_exception(eptr2);
+  if (!commonPtr || !simplifiedPtr) {
+    if (!commonPtr) {
+      LOG(ERROR) << "Only simplified path threw exception:";
+      std::rethrow_exception(simplifiedPtr);
     }
-    std::rethrow_exception(eptr1);
+    LOG(ERROR) << "Only common path threw exception:";
+    std::rethrow_exception(commonPtr);
   }
 
   // Otherwise, make sure the exceptions are the same.
   try {
-    std::rethrow_exception(eptr1);
+    std::rethrow_exception(commonPtr);
   } catch (const VeloxException& ve1) {
     try {
-      std::rethrow_exception(eptr2);
+      std::rethrow_exception(simplifiedPtr);
     } catch (const VeloxException& ve2) {
       // Error messages sometimes differ; check at least error codes.
       VELOX_CHECK_EQ(ve1.errorCode(), ve2.errorCode());
@@ -69,7 +71,7 @@ void compareExceptions(std::exception_ptr eptr1, std::exception_ptr eptr2) {
     }
   } catch (const std::exception& e1) {
     try {
-      std::rethrow_exception(eptr2);
+      std::rethrow_exception(simplifiedPtr);
     } catch (const std::exception& e2) {
       VELOX_CHECK_EQ(std::string(e1.what()), std::string(e2.what()));
       return;

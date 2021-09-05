@@ -148,6 +148,33 @@ void Expr::evalSimplified(
     const SelectivityVector& rows,
     EvalCtx* context,
     VectorPtr* result) {
+  LocalSelectivityVector nonNullHolder(context);
+
+  // First we try to update the initial selectivity vector, setting null for
+  // every null on input fields (if default null behavior).
+  if (propagatesNulls_) {
+    removeSureNulls(rows, context, nonNullHolder);
+  }
+
+  // If the initial non null holder couldn't be created, start with the input
+  // `rows`.
+  auto* remainingRows = nonNullHolder.get() ? nonNullHolder.get() : &rows;
+
+  if (remainingRows->hasSelections()) {
+    evalSimplifiedImpl(*remainingRows, context, result);
+  }
+
+  // If there's no output vector yet, return a null constant.
+  if (*result == nullptr) {
+    *result =
+        BaseVector::createNullConstant(type(), rows.size(), context->pool());
+  }
+}
+
+void Expr::evalSimplifiedImpl(
+    const SelectivityVector& rows,
+    EvalCtx* context,
+    VectorPtr* result) {
   if (!rows.hasSelections()) {
     return;
   }
@@ -164,7 +191,8 @@ void Expr::evalSimplified(
 
   for (int32_t i = 0; i < inputs_.size(); ++i) {
     auto& inputValue = inputValues_[i];
-    inputs_[i]->evalSimplified(remainingRows, context, &inputValue);
+    inputs_[i]->evalSimplifiedImpl(remainingRows, context, &inputValue);
+
     BaseVector::flattenVector(&inputValue, rows.end());
     VELOX_CHECK_EQ(VectorEncoding::Simple::FLAT, inputValue->encoding());
 
@@ -190,7 +218,8 @@ void Expr::evalSimplified(
   vectorFunction_->apply(remainingRows, inputValues_, this, context, result);
 
   // Make sure the returned vector has its null bitmap properly set.
-  (*result)->addNulls(remainingRows.asRange().bits(), rows);
+  (*result)->addNulls(
+      remainingRows.asRange().bits(), SelectivityVector((*result)->size()));
   inputValues_.clear();
 }
 

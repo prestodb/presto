@@ -38,6 +38,18 @@ class EvalSimplifiedTest : public FunctionBaseTest {
         expected, actual, fmt::format(" (seed {}).", seed_));
   }
 
+  void assertExceptions(
+      std::exception_ptr commonPtr,
+      std::exception_ptr simplifiedPtr) {
+    if (!commonPtr) {
+      LOG(ERROR) << "Only simplified path threw exception:";
+      std::rethrow_exception(simplifiedPtr);
+    } else if (!simplifiedPtr) {
+      LOG(ERROR) << "Only common path threw exception:";
+      std::rethrow_exception(commonPtr);
+    }
+  }
+
   // Generate random (but deterministic) input row vectors.
   RowVectorPtr genRowVector(
       const RowTypePtr& types,
@@ -92,12 +104,28 @@ class EvalSimplifiedTest : public FunctionBaseTest {
       std::vector<VectorPtr> commonEvalResult{nullptr};
       std::vector<VectorPtr> simplifiedEvalResult{nullptr};
 
-      exprSetCommon.eval(rows, &evalCtxCommon, &commonEvalResult);
-      exprSetSimplified.eval(rows, &evalCtxSimplified, &simplifiedEvalResult);
+      std::exception_ptr exceptionCommonPtr;
+      std::exception_ptr exceptionSimplifiedPtr;
 
-      // Compare results.
-      assertEqualVectors(
-          commonEvalResult.front(), simplifiedEvalResult.front());
+      try {
+        exprSetCommon.eval(rows, &evalCtxCommon, &commonEvalResult);
+      } catch (const std::exception& e) {
+        exceptionCommonPtr = std::current_exception();
+      }
+
+      try {
+        exprSetSimplified.eval(rows, &evalCtxSimplified, &simplifiedEvalResult);
+      } catch (const std::exception& e) {
+        exceptionSimplifiedPtr = std::current_exception();
+      }
+
+      // Compare results or exceptions (if any). Fail is anything is different.
+      if (exceptionCommonPtr || exceptionSimplifiedPtr) {
+        assertExceptions(exceptionCommonPtr, exceptionSimplifiedPtr);
+      } else {
+        assertEqualVectors(
+            commonEvalResult.front(), simplifiedEvalResult.front());
+      }
 
       // Update the seed for the next iteration.
       seed_ = folly::Random::rand32(rng);
@@ -118,6 +146,9 @@ TEST_F(EvalSimplifiedTest, constantOnly) {
 
 TEST_F(EvalSimplifiedTest, constantAndInput) {
   runTest("1 + c0 - 2 + c0", ROW({"c0"}, {BIGINT()}));
+
+  // Let it trigger some overflow exceptions.
+  runTest("c0 + c1", ROW({"c0", "c1"}, {TINYINT(), TINYINT()}));
 }
 
 TEST_F(EvalSimplifiedTest, strings) {
