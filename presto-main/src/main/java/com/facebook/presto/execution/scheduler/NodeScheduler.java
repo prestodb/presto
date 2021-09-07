@@ -18,16 +18,19 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.RemoteTask;
-import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionStats;
-import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelector;
-import com.facebook.presto.execution.scheduler.nodeSelection.SimpleNodeSelector;
-import com.facebook.presto.execution.scheduler.nodeSelection.SimpleTtlNodeSelector;
-import com.facebook.presto.execution.scheduler.nodeSelection.TopologyAwareNodeSelector;
+import com.facebook.presto.execution.scheduler.nodeselection.NodeSelectionConfigurationManager;
+import com.facebook.presto.execution.scheduler.nodeselection.NodeSelectionCriteria;
+import com.facebook.presto.execution.scheduler.nodeselection.NodeSelectionStats;
+import com.facebook.presto.execution.scheduler.nodeselection.NodeSelector;
+import com.facebook.presto.execution.scheduler.nodeselection.SimpleNodeSelector;
+import com.facebook.presto.execution.scheduler.nodeselection.SimpleTtlNodeSelector;
+import com.facebook.presto.execution.scheduler.nodeselection.TopologyAwareNodeSelector;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.ttl.nodettlfetchermanagers.NodeTtlFetcherManager;
 import com.google.common.base.Supplier;
@@ -42,6 +45,7 @@ import io.airlift.units.Duration;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
+import javax.validation.constraints.NotNull;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -53,6 +57,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Predicate;
 
 import static com.facebook.airlift.concurrent.MoreFutures.whenAnyCompleteCancelOthers;
 import static com.facebook.presto.SystemSessionProperties.getMaxUnacknowledgedSplitsPerTask;
@@ -88,6 +93,7 @@ public class NodeScheduler
     private final Duration nodeMapRefreshInterval;
     private final NodeTtlFetcherManager nodeTtlFetcherManager;
     private final QueryManager queryManager;
+    private final NodeSelectionConfigurationManager nodeSelectionConfigurationManager;
 
     @Inject
     public NodeScheduler(
@@ -97,7 +103,8 @@ public class NodeScheduler
             NodeSchedulerConfig config,
             NodeTaskMap nodeTaskMap,
             NodeTtlFetcherManager nodeTtlFetcherManager,
-            QueryManager queryManager)
+            QueryManager queryManager,
+            NodeSelectionConfigurationManager nodeSelectionConfigurationManager)
     {
         this(new NetworkLocationCache(networkTopology),
                 networkTopology,
@@ -107,7 +114,8 @@ public class NodeScheduler
                 nodeTaskMap,
                 new Duration(5, SECONDS),
                 nodeTtlFetcherManager,
-                queryManager);
+                queryManager,
+                nodeSelectionConfigurationManager);
     }
 
     public NodeScheduler(
@@ -119,7 +127,8 @@ public class NodeScheduler
             NodeTaskMap nodeTaskMap,
             Duration nodeMapRefreshInterval,
             NodeTtlFetcherManager nodeTtlFetcherManager,
-            QueryManager queryManager)
+            QueryManager queryManager,
+            NodeSelectionConfigurationManager nodeSelectionConfigurationManager)
     {
         this.networkLocationCache = networkLocationCache;
         this.nodeManager = nodeManager;
@@ -146,6 +155,7 @@ public class NodeScheduler
         this.nodeMapRefreshInterval = requireNonNull(nodeMapRefreshInterval, "nodeMapRefreshInterval is null");
         this.nodeTtlFetcherManager = requireNonNull(nodeTtlFetcherManager, "nodeTtlFetcherManager is null");
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
+        this.nodeSelectionConfigurationManager = requireNonNull(nodeSelectionConfigurationManager, "nodeFilterConfigurationManager is null");
     }
 
     @PreDestroy
@@ -172,8 +182,9 @@ public class NodeScheduler
     {
         // this supplier is thread-safe. TODO: this logic should probably move to the scheduler since the choice of which node to run in should be
         // done as close to when the the split is about to be scheduled
+        Predicate<Node> nodeFilterPredicate = filterNode(new NodeSelectionCriteria(session.getClientTags()));
         Supplier<NodeMap> nodeMap = nodeMapRefreshInterval.toMillis() > 0 ?
-                memoizeWithExpiration(createNodeMapSupplier(connectorId), nodeMapRefreshInterval.toMillis(), MILLISECONDS) : createNodeMapSupplier(connectorId);
+                memoizeWithExpiration(createNodeMapSupplier(connectorId, nodeFilterPredicate), nodeMapRefreshInterval.toMillis(), MILLISECONDS) : createNodeMapSupplier(connectorId, nodeFilterPredicate);
 
         int maxUnacknowledgedSplitsPerTask = getMaxUnacknowledgedSplitsPerTask(requireNonNull(session, "session is null"));
         ResourceAwareSchedulingStrategy resourceAwareSchedulingStrategy = getResourceAwareSchedulingStrategy(session);
@@ -223,22 +234,30 @@ public class NodeScheduler
         return simpleNodeSelector;
     }
 
-    private Supplier<NodeMap> createNodeMapSupplier(ConnectorId connectorId)
+    @NotNull
+    private Predicate<Node> filterNode(NodeSelectionCriteria nodeSelectionCriteria)
+    {
+        return node -> nodeSelectionConfigurationManager.getApplicablePools(nodeSelectionCriteria)
+                .map(pools -> pools.contains(node.getPool()))
+                .orElse(true);
+    }
+
+    private Supplier<NodeMap> createNodeMapSupplier(ConnectorId connectorId, Predicate<Node> nodeFilterPredicate)
     {
         return () -> {
             ImmutableMap.Builder<String, InternalNode> activeNodesByNodeId = ImmutableMap.builder();
             ImmutableSetMultimap.Builder<NetworkLocation, InternalNode> activeWorkersByNetworkPath = ImmutableSetMultimap.builder();
             ImmutableSetMultimap.Builder<HostAddress, InternalNode> allNodesByHostAndPort = ImmutableSetMultimap.builder();
             ImmutableSetMultimap.Builder<InetAddress, InternalNode> allNodesByHost = ImmutableSetMultimap.builder();
-
+            Predicate<Node> finalNodeFilterPredicate = nodeFilterPredicate.and(node -> !node.isResourceManager());
             Set<InternalNode> activeNodes;
             Set<InternalNode> allNodes;
             if (connectorId != null) {
-                activeNodes = nodeManager.getActiveConnectorNodes(connectorId).stream().filter(node -> !node.isResourceManager()).collect(toImmutableSet());
-                allNodes = nodeManager.getAllConnectorNodes(connectorId).stream().filter(node -> !node.isResourceManager()).collect(toImmutableSet());
+                activeNodes = nodeManager.getActiveConnectorNodes(connectorId).stream().filter(finalNodeFilterPredicate).collect(toImmutableSet());
+                allNodes = nodeManager.getAllConnectorNodes(connectorId).stream().filter(finalNodeFilterPredicate).collect(toImmutableSet());
             }
             else {
-                activeNodes = nodeManager.getNodes(ACTIVE).stream().filter(node -> !node.isResourceManager()).collect(toImmutableSet());
+                activeNodes = nodeManager.getNodes(ACTIVE).stream().filter(finalNodeFilterPredicate).collect(toImmutableSet());
                 allNodes = activeNodes;
             }
 

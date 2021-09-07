@@ -1,0 +1,22 @@
+{
+  "defaultApplicablePools" : ["pool3"],
+  "nodeSelectionCriteria": [
+    {
+      "clientTags": [
+        "tag_for_pool_1_2"
+      ],
+      "pools": [
+        "pool1",
+        "pool2"
+      ]
+    },
+    {
+      "clientTags": [
+        "tag_for_pool_1_2_3"
+      ],
+      "pools": [
+        "pool3"
+      ]
+    }
+  ]
+}

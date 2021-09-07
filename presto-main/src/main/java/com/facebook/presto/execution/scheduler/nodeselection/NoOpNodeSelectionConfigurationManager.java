@@ -11,20 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution.scheduler.nodeSelection;
+package com.facebook.presto.execution.scheduler.nodeselection;
 
-import com.facebook.presto.metadata.InternalNode;
-import com.facebook.presto.metadata.Split;
+import java.util.Optional;
+import java.util.Set;
 
-import java.util.List;
-
-public interface NodeSelection
+public class NoOpNodeSelectionConfigurationManager
+        implements NodeSelectionConfigurationManager
 {
-    /**
-     *
-     * Pick nodes according to different strategies for a split
-     * @param split
-     * @return picked nodes
-     */
-    List<InternalNode> pickNodes(Split split);
+    @Override
+    public Optional<Set<String>> getApplicablePools(NodeSelectionCriteria nodeSelectionCriteria)
+    {
+        return Optional.empty();
+    }
 }

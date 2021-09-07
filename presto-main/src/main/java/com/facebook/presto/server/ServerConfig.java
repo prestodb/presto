@@ -31,6 +31,7 @@ public class ServerConfig
     private Duration gracePeriod = new Duration(2, MINUTES);
     private boolean enhancedErrorReporting = true;
     private boolean queryResultsCompressionEnabled = true;
+    private boolean nodeFilterEnabled;
 
     public boolean isResourceManager()
     {
@@ -143,6 +144,18 @@ public class ServerConfig
     public ServerConfig setQueryResultsCompressionEnabled(boolean queryResultsCompressionEnabled)
     {
         this.queryResultsCompressionEnabled = queryResultsCompressionEnabled;
+        return this;
+    }
+
+    public boolean isNodeFilterEnabled()
+    {
+        return nodeFilterEnabled;
+    }
+
+    @Config("node-filter.enabled")
+    public ServerConfig setNodeFilterEnabled(boolean nodeFilterEnabled)
+    {
+        this.nodeFilterEnabled = nodeFilterEnabled;
         return this;
     }
 }

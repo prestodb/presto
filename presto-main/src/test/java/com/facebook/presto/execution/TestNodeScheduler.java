@@ -23,8 +23,12 @@ import com.facebook.presto.execution.scheduler.NetworkTopology;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.execution.scheduler.SplitPlacementResult;
-import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionStats;
-import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelector;
+import com.facebook.presto.execution.scheduler.nodeselection.FileBasedNodeSelectionConfigurationManager;
+import com.facebook.presto.execution.scheduler.nodeselection.NoOpNodeSelectionConfigurationManager;
+import com.facebook.presto.execution.scheduler.nodeselection.NodeSelectionConfig;
+import com.facebook.presto.execution.scheduler.nodeselection.NodeSelectionConfigurationSpec;
+import com.facebook.presto.execution.scheduler.nodeselection.NodeSelectionStats;
+import com.facebook.presto.execution.scheduler.nodeselection.NodeSelector;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Split;
@@ -80,11 +84,13 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.SystemSessionProperties.MAX_UNACKNOWLEDGED_SPLITS_PER_TASK;
 import static com.facebook.presto.SystemSessionProperties.RESOURCE_AWARE_SCHEDULING_STRATEGY;
 import static com.facebook.presto.execution.scheduler.NetworkLocation.ROOT_LOCATION;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
+import static com.google.common.io.Resources.getResource;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -99,6 +105,11 @@ import static org.testng.Assert.fail;
 public class TestNodeScheduler
 {
     private static final ConnectorId CONNECTOR_ID = new ConnectorId("connector_id");
+    private static final String NODE_FILTER_CONFIG = "node_selection_config.json";
+    public static final String POOL_1 = "pool1";
+    public static final String POOL_2 = "pool2";
+    public static final String POOL_3 = "pool3";
+    public static final String POOL_4 = "pool4";
     private FinalizerService finalizerService;
     private NodeTaskMap nodeTaskMap;
     private InMemoryNodeManager nodeManager;
@@ -136,7 +147,8 @@ public class TestNodeScheduler
                 nodeSchedulerConfig,
                 nodeTaskMap,
                 new ThrowingNodeTtlFetcherManager(),
-                new NoOpQueryManager());
+                new NoOpQueryManager(),
+                new NoOpNodeSelectionConfigurationManager());
         // contents of taskMap indicate the node-task map for the current stage
         taskMap = new HashMap<>();
         nodeSelector = nodeScheduler.createNodeSelector(session, CONNECTOR_ID);
@@ -275,7 +287,7 @@ public class TestNodeScheduler
                 }
             }
         };
-        NodeScheduler nodeScheduler = new NodeScheduler(locationCache, topology, nodeManager, new NodeSelectionStats(), nodeSchedulerConfig, nodeTaskMap, new Duration(5, SECONDS), new ThrowingNodeTtlFetcherManager(), new NoOpQueryManager());
+        NodeScheduler nodeScheduler = new NodeScheduler(locationCache, topology, nodeManager, new NodeSelectionStats(), nodeSchedulerConfig, nodeTaskMap, new Duration(5, SECONDS), new ThrowingNodeTtlFetcherManager(), new NoOpQueryManager(), new NoOpNodeSelectionConfigurationManager());
         NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, CONNECTOR_ID);
 
         // Fill up the nodes with non-local data
@@ -423,7 +435,8 @@ public class TestNodeScheduler
                 nodeSchedulerConfig,
                 nodeTaskMap,
                 nodeTtlFetcherManager,
-                queryManager);
+                queryManager,
+                new NoOpNodeSelectionConfigurationManager());
 
         // Query is estimated to take 20 mins and has been executing for 3 mins, i.e, 17 mins left
         // So only node2 and node3 have enough TTL to run additional work
@@ -521,7 +534,7 @@ public class TestNodeScheduler
                 .setIncludeCoordinator(false)
                 .setMaxPendingSplitsPerTask(10);
 
-        NodeScheduler nodeScheduler = new NodeScheduler(new LegacyNetworkTopology(), nodeManager, new NodeSelectionStats(), nodeSchedulerConfig, nodeTaskMap, new ThrowingNodeTtlFetcherManager(), new NoOpQueryManager());
+        NodeScheduler nodeScheduler = new NodeScheduler(new LegacyNetworkTopology(), nodeManager, new NodeSelectionStats(), nodeSchedulerConfig, nodeTaskMap, new ThrowingNodeTtlFetcherManager(), new NoOpQueryManager(), new NoOpNodeSelectionConfigurationManager());
         NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, CONNECTOR_ID, 2);
 
         Set<Split> splits = new HashSet<>();
@@ -544,7 +557,7 @@ public class TestNodeScheduler
                 .setIncludeCoordinator(false)
                 .setMaxPendingSplitsPerTask(10);
 
-        NodeScheduler nodeScheduler = new NodeScheduler(new LegacyNetworkTopology(), nodeManager, new NodeSelectionStats(), nodeSchedulerConfig, nodeTaskMap, new ThrowingNodeTtlFetcherManager(), new NoOpQueryManager());
+        NodeScheduler nodeScheduler = new NodeScheduler(new LegacyNetworkTopology(), nodeManager, new NodeSelectionStats(), nodeSchedulerConfig, nodeTaskMap, new ThrowingNodeTtlFetcherManager(), new NoOpQueryManager(), new NoOpNodeSelectionConfigurationManager());
         NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, CONNECTOR_ID, 3);
 
         Set<Split> splits = new HashSet<>();
@@ -582,7 +595,7 @@ public class TestNodeScheduler
                 .setIncludeCoordinator(false)
                 .setMaxPendingSplitsPerTask(10);
 
-        NodeScheduler nodeScheduler = new NodeScheduler(new LegacyNetworkTopology(), nodeManager, new NodeSelectionStats(), nodeSchedulerConfig, nodeTaskMap, new ThrowingNodeTtlFetcherManager(), new NoOpQueryManager());
+        NodeScheduler nodeScheduler = new NodeScheduler(new LegacyNetworkTopology(), nodeManager, new NodeSelectionStats(), nodeSchedulerConfig, nodeTaskMap, new ThrowingNodeTtlFetcherManager(), new NoOpQueryManager(), new NoOpNodeSelectionConfigurationManager());
         NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, CONNECTOR_ID, 3);
 
         Set<Split> splits = new HashSet<>();
@@ -885,7 +898,7 @@ public class TestNodeScheduler
                 .setIncludeCoordinator(false)
                 .setMaxPendingSplitsPerTask(10);
 
-        NodeScheduler nodeScheduler = new NodeScheduler(new LegacyNetworkTopology(), nodeManager, new NodeSelectionStats(), nodeSchedulerConfig, nodeTaskMap, new ThrowingNodeTtlFetcherManager(), new NoOpQueryManager());
+        NodeScheduler nodeScheduler = new NodeScheduler(new LegacyNetworkTopology(), nodeManager, new NodeSelectionStats(), nodeSchedulerConfig, nodeTaskMap, new ThrowingNodeTtlFetcherManager(), new NoOpQueryManager(), new NoOpNodeSelectionConfigurationManager());
         NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, CONNECTOR_ID, 2);
 
         Set<Split> splits = new HashSet<>();
@@ -923,7 +936,7 @@ public class TestNodeScheduler
 
         LegacyNetworkTopology networkTopology = new LegacyNetworkTopology();
         // refresh interval is 1 nanosecond
-        NodeScheduler nodeScheduler = new NodeScheduler(new NetworkLocationCache(networkTopology), networkTopology, nodeManager, new NodeSelectionStats(), nodeSchedulerConfig, nodeTaskMap, Duration.valueOf("0s"), new ThrowingNodeTtlFetcherManager(), new NoOpQueryManager());
+        NodeScheduler nodeScheduler = new NodeScheduler(new NetworkLocationCache(networkTopology), networkTopology, nodeManager, new NodeSelectionStats(), nodeSchedulerConfig, nodeTaskMap, Duration.valueOf("0s"), new ThrowingNodeTtlFetcherManager(), new NoOpQueryManager(), new NoOpNodeSelectionConfigurationManager());
         NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, CONNECTOR_ID, 2);
 
         Set<Split> splits = new HashSet<>();
@@ -947,6 +960,45 @@ public class TestNodeScheduler
         internalNodes = splitPlacementResult.getAssignments().keySet();
         assertEquals(internalNodes.size(), 2);
         assertTrue(internalNodesSecondCall.containsAll(internalNodes));
+    }
+
+    @Test
+    public void testNodeFiltering()
+    {
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager();
+
+        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
+        NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig()
+                .setMaxSplitsPerNode(20)
+                .setIncludeCoordinator(false)
+                .setMaxPendingSplitsPerTask(10);
+
+        InternalNode node1 = new InternalNode("node1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false, POOL_1);
+        InternalNode node2 = new InternalNode("node2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN, false, POOL_2);
+        InternalNode node3 = new InternalNode("node3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN, false, POOL_3);
+        InternalNode node4 = new InternalNode("node4", URI.create("http://127.0.0.1:14"), NodeVersion.UNKNOWN, false, POOL_4);
+        nodeManager.addNode(CONNECTOR_ID, ImmutableList.of(node1));
+        nodeManager.addNode(CONNECTOR_ID, ImmutableList.of(node2));
+        nodeManager.addNode(CONNECTOR_ID, ImmutableList.of(node3));
+        nodeManager.addNode(CONNECTOR_ID, ImmutableList.of(node4));
+        int nodeCount = nodeManager.getActiveConnectorNodes(CONNECTOR_ID).size();
+        LegacyNetworkTopology networkTopology = new LegacyNetworkTopology();
+        FileBasedNodeSelectionConfigurationManager fileBasedNodeFilterConfigurationManager = new FileBasedNodeSelectionConfigurationManager(jsonCodec(NodeSelectionConfigurationSpec.class),
+                new NodeSelectionConfig().setConfigFile(getResource(NODE_FILTER_CONFIG).getPath()));
+        NodeScheduler nodeScheduler = new NodeScheduler(new NetworkLocationCache(networkTopology), networkTopology, nodeManager, new NodeSelectionStats(), nodeSchedulerConfig,
+                nodeTaskMap, Duration.valueOf("0s"), new ThrowingNodeTtlFetcherManager(), new NoOpQueryManager(), fileBasedNodeFilterConfigurationManager);
+        NodeSelector nodeSelector = nodeScheduler.createNodeSelector(TestingSession.testSessionBuilder().setClientTags(ImmutableSet.of("tag_for_pool_1_2")).build(), CONNECTOR_ID);
+
+        Set<Split> splits = new HashSet<>();
+        for (int node = 0; node < nodeCount; node++) {
+            splits.add(new Split(CONNECTOR_ID, TestingTransactionHandle.create(), new TestSplitRemote()));
+        }
+        Multimap<InternalNode, Split> assignments = nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values())).getAssignments();
+        assertEquals(assignments.keySet(), ImmutableSet.of(node1, node2));
+
+        nodeSelector = nodeScheduler.createNodeSelector(TestingSession.testSessionBuilder().setClientTags(ImmutableSet.of("unknown_tag")).build(), CONNECTOR_ID);
+        assignments = nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values())).getAssignments();
+        assertEquals(assignments.keySet(), ImmutableSet.of(node3));
     }
 
     private List<RemoteTask> getRemoteTableScanTask(SplitPlacementResult splitPlacementResult)

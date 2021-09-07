@@ -38,7 +38,8 @@ public class TestServerConfig
                 .setEnhancedErrorReporting(true)
                 .setQueryResultsCompressionEnabled(true)
                 .setResourceManagerEnabled(false)
-                .setResourceManager(false));
+                .setResourceManager(false)
+                .setNodeFilterEnabled(false));
     }
 
     @Test
@@ -54,6 +55,7 @@ public class TestServerConfig
                 .put("query-results.compression-enabled", "false")
                 .put("resource-manager-enabled", "true")
                 .put("resource-manager", "true")
+                .put("node-filter.enabled", "true")
                 .build();
 
         ServerConfig expected = new ServerConfig()
@@ -65,7 +67,8 @@ public class TestServerConfig
                 .setEnhancedErrorReporting(false)
                 .setQueryResultsCompressionEnabled(false)
                 .setResourceManagerEnabled(true)
-                .setResourceManager(true);
+                .setResourceManager(true)
+                .setNodeFilterEnabled(true);
 
         assertFullMapping(properties, expected);
     }

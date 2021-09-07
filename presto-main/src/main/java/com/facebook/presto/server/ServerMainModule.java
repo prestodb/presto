@@ -66,7 +66,9 @@ import com.facebook.presto.execution.scheduler.NetworkTopology;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.execution.scheduler.NodeSchedulerExporter;
-import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionStats;
+import com.facebook.presto.execution.scheduler.nodeselection.NoOpNodeSelectionConfigurationManager;
+import com.facebook.presto.execution.scheduler.nodeselection.NodeSelectionConfigurationManager;
+import com.facebook.presto.execution.scheduler.nodeselection.NodeSelectionStats;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.memory.LocalMemoryManagerExporter;
@@ -322,6 +324,9 @@ public class ServerMainModule
         // node scheduler
         // TODO: remove from NodePartitioningManager and move to CoordinatorModule
         configBinder(binder).bindConfig(NodeSchedulerConfig.class);
+        if (!serverConfig.isNodeFilterEnabled()) {
+            binder.bind(NodeSelectionConfigurationManager.class).to(NoOpNodeSelectionConfigurationManager.class).in(Scopes.SINGLETON);
+        }
         binder.bind(NodeScheduler.class).in(Scopes.SINGLETON);
         binder.bind(NodeSelectionStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(NodeSelectionStats.class).withGeneratedName();
