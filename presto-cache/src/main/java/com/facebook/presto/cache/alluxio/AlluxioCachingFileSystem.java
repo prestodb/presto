@@ -82,6 +82,7 @@ public class AlluxioCachingFileSystem
             // hence using md5 hash of the file path as the identifier in the cache.
             // We don't set fileId because fileId is Alluxio specific
             FileInfo info = new FileInfo()
+                    .setLastModificationTimeMs(hiveFileContext.getModificationTime())
                     .setPath(path.toString())
                     .setFolder(false)
                     .setLength(hiveFileContext.getFileSize().get());

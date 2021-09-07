@@ -22,6 +22,7 @@ import io.airlift.slice.Slices;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.Maps.transformValues;
@@ -31,6 +32,7 @@ public class Footer
 {
     private final long numberOfRows;
     private final int rowsInRowGroup;
+    private final OptionalLong rawSize;
     private final List<StripeInformation> stripes;
     private final List<OrcType> types;
     private final List<ColumnStatistics> fileStats;
@@ -41,6 +43,7 @@ public class Footer
     public Footer(
             long numberOfRows,
             int rowsInRowGroup,
+            OptionalLong rawSize,
             List<StripeInformation> stripes,
             List<OrcType> types,
             List<ColumnStatistics> fileStats,
@@ -50,6 +53,7 @@ public class Footer
     {
         this.numberOfRows = numberOfRows;
         this.rowsInRowGroup = rowsInRowGroup;
+        this.rawSize = requireNonNull(rawSize, "rawSize is null");
         this.stripes = ImmutableList.copyOf(requireNonNull(stripes, "stripes is null"));
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.fileStats = ImmutableList.copyOf(requireNonNull(fileStats, "columnStatistics is null"));
@@ -67,6 +71,11 @@ public class Footer
     public int getRowsInRowGroup()
     {
         return rowsInRowGroup;
+    }
+
+    public OptionalLong getRawSize()
+    {
+        return rawSize;
     }
 
     public List<StripeInformation> getStripes()

@@ -14,6 +14,7 @@
 
 package com.facebook.presto.hive;
 
+import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.StandardTypes;
@@ -98,7 +99,12 @@ public class TestHivePartitionManager
                 metastore,
                 tableHandle,
                 Constraint.alwaysTrue(),
-                new TestingConnectorSession(new HiveSessionProperties(new HiveClientConfig(), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties()));
+                new TestingConnectorSession(
+                        new HiveSessionProperties(
+                                new HiveClientConfig(),
+                                new OrcFileWriterConfig(),
+                                new ParquetFileWriterConfig(),
+                                new CacheConfig()).getSessionProperties()));
         assertTrue(result.getBucketHandle().isPresent(), "bucketHandle is not present");
         assertFalse(result.getBucketFilter().isPresent(), "bucketFilter is present");
     }
@@ -110,7 +116,8 @@ public class TestHivePartitionManager
                 new HiveSessionProperties(
                         new HiveClientConfig().setMaxBucketsForGroupedExecution(100),
                         new OrcFileWriterConfig(),
-                        new ParquetFileWriterConfig())
+                        new ParquetFileWriterConfig(),
+                        new CacheConfig())
                         .getSessionProperties());
         HivePartitionResult result = hivePartitionManager.getPartitions(metastore, new HiveTableHandle(SCHEMA_NAME, TABLE_NAME), Constraint.alwaysTrue(), session);
         assertFalse(result.getBucketHandle().isPresent(), "bucketHandle is present");
@@ -120,7 +127,12 @@ public class TestHivePartitionManager
     @Test
     public void testUsesBucketingWithPartitionFilters()
     {
-        ConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(new HiveClientConfig().setMaxBucketsForGroupedExecution(100), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
+        ConnectorSession session = new TestingConnectorSession(
+                new HiveSessionProperties(
+                        new HiveClientConfig().setMaxBucketsForGroupedExecution(100),
+                        new OrcFileWriterConfig(),
+                        new ParquetFileWriterConfig(),
+                        new CacheConfig()).getSessionProperties());
         HiveTableHandle tableHandle = new HiveTableHandle(SCHEMA_NAME, TABLE_NAME);
         HivePartitionResult result = hivePartitionManager.getPartitions(
                 metastore,
@@ -144,7 +156,12 @@ public class TestHivePartitionManager
     @Test
     public void testUsesBucketingWithBucketFilters()
     {
-        ConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(new HiveClientConfig().setMaxBucketsForGroupedExecution(100), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
+        ConnectorSession session = new TestingConnectorSession(
+                new HiveSessionProperties(
+                        new HiveClientConfig().setMaxBucketsForGroupedExecution(100),
+                        new OrcFileWriterConfig(),
+                        new ParquetFileWriterConfig(),
+                        new CacheConfig()).getSessionProperties());
         HiveTableHandle tableHandle = new HiveTableHandle(SCHEMA_NAME, TABLE_NAME);
         HivePartitionResult result = hivePartitionManager.getPartitions(
                 metastore,
@@ -168,7 +185,12 @@ public class TestHivePartitionManager
     @Test
     public void testUsesBucketingWithBucketColumn()
     {
-        ConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(new HiveClientConfig().setMaxBucketsForGroupedExecution(1), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
+        ConnectorSession session = new TestingConnectorSession(
+                new HiveSessionProperties(
+                        new HiveClientConfig().setMaxBucketsForGroupedExecution(1),
+                        new OrcFileWriterConfig(),
+                        new ParquetFileWriterConfig(),
+                        new CacheConfig()).getSessionProperties());
         HiveTableHandle tableHandle = new HiveTableHandle(SCHEMA_NAME, TABLE_NAME);
         HivePartitionResult result = hivePartitionManager.getPartitions(
                 metastore,
@@ -189,7 +211,8 @@ public class TestHivePartitionManager
                 new HiveSessionProperties(
                         new HiveClientConfig().setIgnoreTableBucketing(true),
                         new OrcFileWriterConfig(),
-                        new ParquetFileWriterConfig())
+                        new ParquetFileWriterConfig(),
+                        new CacheConfig())
                         .getSessionProperties());
         HivePartitionResult result = hivePartitionManager.getPartitions(metastore, new HiveTableHandle(SCHEMA_NAME, TABLE_NAME), Constraint.alwaysTrue(), session);
         assertFalse(result.getBucketHandle().isPresent(), "bucketHandle is present");

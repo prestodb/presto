@@ -74,7 +74,11 @@ public class TestAccessControlManager
     public void testInitializing()
     {
         AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager());
-        accessControlManager.checkCanSetUser(new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Optional.empty()), Optional.empty(), "foo");
+        accessControlManager.checkCanSetUser(
+                new Identity(USER_NAME, Optional.of(PRINCIPAL)),
+                new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Optional.empty()),
+                Optional.empty(),
+                "foo");
     }
 
     @Test
@@ -82,7 +86,11 @@ public class TestAccessControlManager
     {
         AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager());
         accessControlManager.setSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
-        accessControlManager.checkCanSetUser(new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Optional.empty()), Optional.empty(), USER_NAME);
+        accessControlManager.checkCanSetUser(
+                new Identity(USER_NAME, Optional.of(PRINCIPAL)),
+                new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Optional.empty()),
+                Optional.empty(),
+                USER_NAME);
     }
 
     @Test
@@ -95,7 +103,7 @@ public class TestAccessControlManager
         AccessControlContext context = new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Optional.empty());
 
         accessControlManager.setSystemAccessControl(ReadOnlySystemAccessControl.NAME, ImmutableMap.of());
-        accessControlManager.checkCanSetUser(context, Optional.of(PRINCIPAL), USER_NAME);
+        accessControlManager.checkCanSetUser(identity, context, Optional.of(PRINCIPAL), USER_NAME);
         accessControlManager.checkCanSetSystemSessionProperty(identity, context, "property");
 
         transaction(transactionManager, accessControlManager)
@@ -133,7 +141,11 @@ public class TestAccessControlManager
         accessControlManager.addSystemAccessControlFactory(accessControlFactory);
         accessControlManager.setSystemAccessControl("test", ImmutableMap.of());
 
-        accessControlManager.checkCanSetUser(new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Optional.empty()), Optional.of(PRINCIPAL), USER_NAME);
+        accessControlManager.checkCanSetUser(
+                new Identity(USER_NAME, Optional.of(PRINCIPAL)),
+                new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Optional.empty()),
+                Optional.of(PRINCIPAL),
+                USER_NAME);
         assertEquals(accessControlFactory.getCheckedUserName(), USER_NAME);
         assertEquals(accessControlFactory.getCheckedPrincipal(), Optional.of(PRINCIPAL));
     }
@@ -309,7 +321,7 @@ public class TestAccessControlManager
             return new SystemAccessControl()
             {
                 @Override
-                public void checkCanSetUser(AccessControlContext context, Optional<Principal> principal, String userName)
+                public void checkCanSetUser(Identity identity, AccessControlContext context, Optional<Principal> principal, String userName)
                 {
                     checkedPrincipal = principal;
                     checkedUserName = userName;

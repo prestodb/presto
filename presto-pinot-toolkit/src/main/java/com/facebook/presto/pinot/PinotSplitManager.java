@@ -93,7 +93,7 @@ public class PinotSplitManager
         String pql = basePql.getQuery().replace(TABLE_NAME_SUFFIX_TEMPLATE, suffix);
         if (timePredicate.isPresent()) {
             String tp = timePredicate.get();
-            pql = pql.replace(TIME_BOUNDARY_FILTER_TEMPLATE, basePql.isHaveFilter() ? tp : " WHERE " + tp);
+            pql = pql.replace(TIME_BOUNDARY_FILTER_TEMPLATE, basePql.isHaveFilter() ? " AND " + tp : " WHERE " + tp);
         }
         else {
             pql = pql.replace(TIME_BOUNDARY_FILTER_TEMPLATE, "");

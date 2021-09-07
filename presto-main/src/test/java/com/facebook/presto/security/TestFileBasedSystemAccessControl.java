@@ -74,33 +74,33 @@ public class TestFileBasedSystemAccessControl
         AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "catalog_principal.json");
 
         try {
-            accessControlManager.checkCanSetUser(context, Optional.empty(), alice.getUser());
+            accessControlManager.checkCanSetUser(alice, context, Optional.empty(), alice.getUser());
             throw new AssertionError("expected AccessDeniedExeption");
         }
         catch (AccessDeniedException expected) {
         }
 
-        accessControlManager.checkCanSetUser(context, kerberosValidAlice.getPrincipal(), kerberosValidAlice.getUser());
-        accessControlManager.checkCanSetUser(context, kerberosValidNonAsciiUser.getPrincipal(), kerberosValidNonAsciiUser.getUser());
+        accessControlManager.checkCanSetUser(kerberosValidAlice, context, kerberosValidAlice.getPrincipal(), kerberosValidAlice.getUser());
+        accessControlManager.checkCanSetUser(kerberosValidNonAsciiUser, context, kerberosValidNonAsciiUser.getPrincipal(), kerberosValidNonAsciiUser.getUser());
         try {
-            accessControlManager.checkCanSetUser(context, kerberosInvalidAlice.getPrincipal(), kerberosInvalidAlice.getUser());
+            accessControlManager.checkCanSetUser(kerberosInvalidAlice, context, kerberosInvalidAlice.getPrincipal(), kerberosInvalidAlice.getUser());
             throw new AssertionError("expected AccessDeniedExeption");
         }
         catch (AccessDeniedException expected) {
         }
 
-        accessControlManager.checkCanSetUser(context, kerberosValidShare.getPrincipal(), kerberosValidShare.getUser());
+        accessControlManager.checkCanSetUser(kerberosValidShare, context, kerberosValidShare.getPrincipal(), kerberosValidShare.getUser());
         try {
-            accessControlManager.checkCanSetUser(context, kerberosInValidShare.getPrincipal(), kerberosInValidShare.getUser());
+            accessControlManager.checkCanSetUser(kerberosInValidShare, context, kerberosInValidShare.getPrincipal(), kerberosInValidShare.getUser());
             throw new AssertionError("expected AccessDeniedExeption");
         }
         catch (AccessDeniedException expected) {
         }
 
-        accessControlManager.checkCanSetUser(context, validSpecialRegexWildDot.getPrincipal(), validSpecialRegexWildDot.getUser());
-        accessControlManager.checkCanSetUser(context, validSpecialRegexEndQuote.getPrincipal(), validSpecialRegexEndQuote.getUser());
+        accessControlManager.checkCanSetUser(validSpecialRegexWildDot, context, validSpecialRegexWildDot.getPrincipal(), validSpecialRegexWildDot.getUser());
+        accessControlManager.checkCanSetUser(validSpecialRegexEndQuote, context, validSpecialRegexEndQuote.getPrincipal(), validSpecialRegexEndQuote.getUser());
         try {
-            accessControlManager.checkCanSetUser(context, invalidSpecialRegex.getPrincipal(), invalidSpecialRegex.getUser());
+            accessControlManager.checkCanSetUser(invalidSpecialRegex, context, invalidSpecialRegex.getPrincipal(), invalidSpecialRegex.getUser());
             throw new AssertionError("expected AccessDeniedExeption");
         }
         catch (AccessDeniedException expected) {
@@ -108,7 +108,7 @@ public class TestFileBasedSystemAccessControl
 
         TransactionManager transactionManagerNoPatterns = createTestTransactionManager();
         AccessControlManager accessControlManagerNoPatterns = newAccessControlManager(transactionManager, "catalog.json");
-        accessControlManagerNoPatterns.checkCanSetUser(context, kerberosValidAlice.getPrincipal(), kerberosValidAlice.getUser());
+        accessControlManagerNoPatterns.checkCanSetUser(kerberosValidAlice, context, kerberosValidAlice.getPrincipal(), kerberosValidAlice.getUser());
     }
 
     @Test

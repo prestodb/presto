@@ -51,7 +51,7 @@ public interface SystemAccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanSetUser(AccessControlContext context, Optional<Principal> principal, String userName);
+    void checkCanSetUser(Identity identity, AccessControlContext context, Optional<Principal> principal, String userName);
 
     /**
      * Check if the query is unexpectedly modified using the credentials passed in the identity.

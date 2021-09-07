@@ -256,6 +256,18 @@ public class TestMySqlIntegrationSmokeTest
         assertUpdate("DROP TABLE test_insert_not_null");
     }
 
+    @Test
+    public void testColumnComment()
+            throws Exception
+    {
+        execute("create table tpch.test_column_comment (column_a char(3) comment 'first field', column_b int comment '', column_c int)");
+        assertQuery(
+                "SELECT column_name, comment FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = 'test_column_comment'",
+                "VALUES ('column_a', 'first field'), ('column_b', null), ('column_c', null)");
+
+        assertUpdate("DROP TABLE test_column_comment");
+    }
+
     private void execute(String sql)
             throws SQLException
     {

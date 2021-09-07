@@ -95,7 +95,7 @@ public class DoubleColumnWriter
     }
 
     @Override
-    public void writeBlock(Block block)
+    public long writeBlock(Block block)
     {
         checkState(!closed);
         checkArgument(block.getPositionCount() > 0, "Block is empty");
@@ -106,13 +106,16 @@ public class DoubleColumnWriter
         }
 
         // record values
+        int nonNullValueCount = 0;
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (!block.isNull(position)) {
                 double value = type.getDouble(block, position);
                 statisticsBuilder.addValue(value);
                 dataStream.writeDouble(value);
+                nonNullValueCount++;
             }
         }
+        return nonNullValueCount * Double.BYTES + (block.getPositionCount() - nonNullValueCount) * NULL_SIZE;
     }
 
     @Override

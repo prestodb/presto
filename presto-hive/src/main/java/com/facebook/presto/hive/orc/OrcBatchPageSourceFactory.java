@@ -259,7 +259,8 @@ public class OrcBatchPageSourceFactory
                     orcReaderOptions,
                     hiveFileContext.isCacheable(),
                     dwrfEncryptionProvider,
-                    dwrfKeyProvider);
+                    dwrfKeyProvider,
+                    hiveFileContext.getStats());
 
             List<HiveColumnHandle> physicalColumns = getPhysicalHiveColumnHandles(columns, useOrcColumnNames, reader.getTypes(), path);
             ImmutableMap.Builder<Integer, Type> includedColumns = ImmutableMap.builder();

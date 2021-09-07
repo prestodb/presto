@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.orc.OrcTester.Format;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
@@ -37,6 +38,7 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import java.util.OptionalLong;
 import java.util.Properties;
 import java.util.Random;
 import java.util.stream.Stream;
@@ -107,7 +109,7 @@ public class TestCachingOrcDataSource
 
         actual = wrapWithCacheIfTinyStripes(
                 NoopOrcDataSource.INSTANCE,
-                ImmutableList.of(new StripeInformation(123, 3, 10, 10, 10, ImmutableList.of())),
+                ImmutableList.of(new StripeInformation(123, 3, 10, 10, 10, OptionalLong.empty(), ImmutableList.of())),
                 maxMergeDistance,
                 tinyStripeThreshold,
                 systemMemoryContext);
@@ -116,9 +118,9 @@ public class TestCachingOrcDataSource
         actual = wrapWithCacheIfTinyStripes(
                 NoopOrcDataSource.INSTANCE,
                 ImmutableList.of(
-                        new StripeInformation(123, 3, 10, 10, 10, ImmutableList.of()),
-                        new StripeInformation(123, 33, 10, 10, 10, ImmutableList.of()),
-                        new StripeInformation(123, 63, 10, 10, 10, ImmutableList.of())),
+                        new StripeInformation(123, 3, 10, 10, 10, OptionalLong.empty(), ImmutableList.of()),
+                        new StripeInformation(123, 33, 10, 10, 10, OptionalLong.empty(), ImmutableList.of()),
+                        new StripeInformation(123, 63, 10, 10, 10, OptionalLong.empty(), ImmutableList.of())),
                 maxMergeDistance,
                 tinyStripeThreshold,
                 systemMemoryContext);
@@ -127,9 +129,9 @@ public class TestCachingOrcDataSource
         actual = wrapWithCacheIfTinyStripes(
                 NoopOrcDataSource.INSTANCE,
                 ImmutableList.of(
-                        new StripeInformation(123, 3, 10, 10, 10, ImmutableList.of()),
-                        new StripeInformation(123, 33, 10, 10, 10, ImmutableList.of()),
-                        new StripeInformation(123, 63, 1048576 * 8 - 20, 10, 10, ImmutableList.of())),
+                        new StripeInformation(123, 3, 10, 10, 10, OptionalLong.empty(), ImmutableList.of()),
+                        new StripeInformation(123, 33, 10, 10, 10, OptionalLong.empty(), ImmutableList.of()),
+                        new StripeInformation(123, 63, 1048576 * 8 - 20, 10, 10, OptionalLong.empty(), ImmutableList.of())),
                 maxMergeDistance,
                 tinyStripeThreshold,
                 systemMemoryContext);
@@ -138,9 +140,9 @@ public class TestCachingOrcDataSource
         actual = wrapWithCacheIfTinyStripes(
                 NoopOrcDataSource.INSTANCE,
                 ImmutableList.of(
-                        new StripeInformation(123, 3, 10, 10, 10, ImmutableList.of()),
-                        new StripeInformation(123, 33, 10, 10, 10, ImmutableList.of()),
-                        new StripeInformation(123, 63, 1048576 * 8 - 20 + 1, 10, 10, ImmutableList.of())),
+                        new StripeInformation(123, 3, 10, 10, 10, OptionalLong.empty(), ImmutableList.of()),
+                        new StripeInformation(123, 33, 10, 10, 10, OptionalLong.empty(), ImmutableList.of()),
+                        new StripeInformation(123, 63, 1048576 * 8 - 20 + 1, 10, 10, OptionalLong.empty(), ImmutableList.of())),
                 maxMergeDistance,
                 tinyStripeThreshold,
                 systemMemoryContext);
@@ -161,9 +163,9 @@ public class TestCachingOrcDataSource
                 testingOrcDataSource,
                 createTinyStripesRangeFinder(
                         ImmutableList.of(
-                                new StripeInformation(123, 3, 10, 10, 10, ImmutableList.of()),
-                                new StripeInformation(123, 33, 10, 10, 10, ImmutableList.of()),
-                                new StripeInformation(123, 63, 1048576 * 8 - 20, 10, 10, ImmutableList.of())),
+                                new StripeInformation(123, 3, 10, 10, 10, OptionalLong.empty(), ImmutableList.of()),
+                                new StripeInformation(123, 33, 10, 10, 10, OptionalLong.empty(), ImmutableList.of()),
+                                new StripeInformation(123, 63, 1048576 * 8 - 20, 10, 10, OptionalLong.empty(), ImmutableList.of())),
                         maxMergeDistance,
                         tinyStripeThreshold),
                 systemMemoryContext.newOrcLocalMemoryContext(CachingOrcDataSource.class.getSimpleName()));
@@ -179,9 +181,9 @@ public class TestCachingOrcDataSource
                 testingOrcDataSource,
                 createTinyStripesRangeFinder(
                         ImmutableList.of(
-                                new StripeInformation(123, 3, 10, 10, 10, ImmutableList.of()),
-                                new StripeInformation(123, 33, 10, 10, 10, ImmutableList.of()),
-                                new StripeInformation(123, 63, 1048576 * 8 - 20, 10, 10, ImmutableList.of())),
+                                new StripeInformation(123, 3, 10, 10, 10, OptionalLong.empty(), ImmutableList.of()),
+                                new StripeInformation(123, 33, 10, 10, 10, OptionalLong.empty(), ImmutableList.of()),
+                                new StripeInformation(123, 63, 1048576 * 8 - 20, 10, 10, OptionalLong.empty(), ImmutableList.of())),
                         maxMergeDistance,
                         tinyStripeThreshold),
                 systemMemoryContext.newOrcLocalMemoryContext(CachingOrcDataSource.class.getSimpleName()));
@@ -197,9 +199,9 @@ public class TestCachingOrcDataSource
                 testingOrcDataSource,
                 createTinyStripesRangeFinder(
                         ImmutableList.of(
-                                new StripeInformation(123, 3, 1, 1, 1, ImmutableList.of()),
-                                new StripeInformation(123, 4, 1048576, 1048576, 1048576 * 3, ImmutableList.of()),
-                                new StripeInformation(123, 4 + 1048576 * 5, 1048576, 1048576, 1048576, ImmutableList.of())),
+                                new StripeInformation(123, 3, 1, 1, 1, OptionalLong.empty(), ImmutableList.of()),
+                                new StripeInformation(123, 4, 1048576, 1048576, 1048576 * 3, OptionalLong.empty(), ImmutableList.of()),
+                                new StripeInformation(123, 4 + 1048576 * 5, 1048576, 1048576, 1048576, OptionalLong.empty(), ImmutableList.of())),
                         maxMergeDistance,
                         tinyStripeThreshold),
                 systemMemoryContext.newOrcLocalMemoryContext(CachingOrcDataSource.class.getSimpleName()));
@@ -242,7 +244,8 @@ public class TestCachingOrcDataSource
                 new OrcReaderOptions(maxMergeDistance, tinyStripeThreshold, new DataSize(1, Unit.MEGABYTE), false),
                 false,
                 NO_ENCRYPTION,
-                DwrfKeyProvider.EMPTY);
+                DwrfKeyProvider.EMPTY,
+                new RuntimeStats());
         // 1 for reading file footer
         assertEquals(orcDataSource.getReadCount(), 1);
         List<StripeInformation> stripes = orcReader.getFooter().getStripes();

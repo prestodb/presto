@@ -95,6 +95,7 @@ public class HiveSplit
         checkArgument(start >= 0, "start must be positive");
         checkArgument(length >= 0, "length must be positive");
         checkArgument(fileSize >= 0, "fileSize must be positive");
+        checkArgument(fileModifiedTime >= 0, "modificationTime must be positive");
         requireNonNull(database, "database is null");
         requireNonNull(table, "table is null");
         requireNonNull(partitionName, "partitionName is null");
@@ -303,6 +304,7 @@ public class HiveSplit
                 .put("start", start)
                 .put("length", length)
                 .put("fileSize", fileSize)
+                .put("fileModifiedTime", fileModifiedTime)
                 .put("hosts", addresses)
                 .put("database", database)
                 .put("table", table)

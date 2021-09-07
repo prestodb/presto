@@ -152,7 +152,7 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanSetUser(AccessControlContext context, Optional<Principal> principal, String userName)
+    public void checkCanSetUser(Identity identity, AccessControlContext context, Optional<Principal> principal, String userName)
     {
         requireNonNull(principal, "principal is null");
         requireNonNull(userName, "userName is null");

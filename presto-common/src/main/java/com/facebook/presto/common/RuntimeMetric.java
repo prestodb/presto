@@ -16,6 +16,8 @@ package com.facebook.presto.common;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.concurrent.atomic.AtomicLong;
+
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -24,10 +26,10 @@ import static java.util.Objects.requireNonNull;
 public class RuntimeMetric
 {
     private final String name;
-    private long sum;
-    private long count;
-    private long max = Long.MIN_VALUE;
-    private long min = Long.MAX_VALUE;
+    private final AtomicLong sum = new AtomicLong();
+    private final AtomicLong count = new AtomicLong();
+    private final AtomicLong max = new AtomicLong(Long.MIN_VALUE);
+    private final AtomicLong min = new AtomicLong(Long.MAX_VALUE);
 
     /**
      * Creates a new empty RuntimeMetric.
@@ -36,7 +38,7 @@ public class RuntimeMetric
      */
     public RuntimeMetric(String name)
     {
-        this.name = name;
+        this.name = requireNonNull(name, "name is null");
     }
 
     public static RuntimeMetric copyOf(RuntimeMetric metric)
@@ -53,11 +55,22 @@ public class RuntimeMetric
             @JsonProperty("max") long max,
             @JsonProperty("min") long min)
     {
-        this.name = requireNonNull(name, "name is null");
-        this.sum = sum;
-        this.count = count;
-        this.max = max;
-        this.min = min;
+        this(name);
+        set(sum, count, max, min);
+    }
+
+    private void set(long sum, long count, long max, long min)
+    {
+        this.sum.set(sum);
+        this.count.set(count);
+        this.max.set(max);
+        this.min.set(min);
+    }
+
+    public void set(RuntimeMetric metric)
+    {
+        requireNonNull(metric, "metric is null");
+        set(metric.getSum(), metric.getCount(), metric.getMax(), metric.getMin());
     }
 
     @JsonProperty
@@ -68,10 +81,10 @@ public class RuntimeMetric
 
     public void addValue(long value)
     {
-        sum += value;
-        count++;
-        max = Math.max(max, value);
-        min = Math.min(min, value);
+        sum.addAndGet(value);
+        count.incrementAndGet();
+        max.accumulateAndGet(value, Math::max);
+        min.accumulateAndGet(value, Math::min);
     }
 
     /**
@@ -98,33 +111,33 @@ public class RuntimeMetric
         if (metric == null) {
             return;
         }
-        sum += metric.getSum();
-        count += metric.getCount();
-        max = Math.max(max, metric.getMax());
-        min = Math.min(min, metric.getMin());
+        sum.addAndGet(metric.getSum());
+        count.addAndGet(metric.getCount());
+        max.accumulateAndGet(metric.getMax(), Math::max);
+        min.accumulateAndGet(metric.getMin(), Math::min);
     }
 
     @JsonProperty
     public long getSum()
     {
-        return sum;
+        return sum.get();
     }
 
     @JsonProperty
     public long getCount()
     {
-        return count;
+        return count.get();
     }
 
     @JsonProperty
     public long getMax()
     {
-        return max;
+        return max.get();
     }
 
     @JsonProperty
     public long getMin()
     {
-        return min;
+        return min.get();
     }
 }

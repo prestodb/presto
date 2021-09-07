@@ -51,6 +51,22 @@ public class TestRuntimeStats
     }
 
     @Test
+    public void testMergeMetric()
+    {
+        RuntimeStats stats1 = new RuntimeStats();
+        stats1.addMetricValue(TEST_METRIC_NAME_1, 2);
+        stats1.addMetricValue(TEST_METRIC_NAME_1, 3);
+
+        RuntimeStats stats2 = new RuntimeStats();
+        stats2.mergeMetric(TEST_METRIC_NAME_2, stats1.getMetric(TEST_METRIC_NAME_1));
+
+        assertEquals(stats2.getMetrics().size(), 1);
+        assertRuntimeMetricEquals(
+                stats2.getMetric(TEST_METRIC_NAME_2),
+                new RuntimeMetric(TEST_METRIC_NAME_2, 5, 2, 3, 2));
+    }
+
+    @Test
     public void testMerge()
     {
         RuntimeStats stats1 = new RuntimeStats();
@@ -130,8 +146,7 @@ public class TestRuntimeStats
         String json = codec.toJson(stats);
         RuntimeStats actual = codec.fromJson(json);
 
-        assertRuntimeMetricEquals(actual.getMetric(TEST_METRIC_NAME_1), stats.getMetric(TEST_METRIC_NAME_1));
-        assertRuntimeMetricEquals(actual.getMetric(TEST_METRIC_NAME_2), stats.getMetric(TEST_METRIC_NAME_2));
+        actual.getMetrics().forEach((name, metric) -> assertRuntimeMetricEquals(metric, stats.getMetric(name)));
     }
 
     @Test
@@ -141,5 +156,12 @@ public class TestRuntimeStats
         String nullJson = codec.toJson(null);
         RuntimeStats actual = codec.fromJson(nullJson);
         assertNull(actual);
+    }
+
+    @Test(expectedExceptions = UnsupportedOperationException.class)
+    public void testReturnUnmodifiedMetrics()
+    {
+        RuntimeStats stats = new RuntimeStats();
+        stats.getMetrics().put(TEST_METRIC_NAME_1, new RuntimeMetric(TEST_METRIC_NAME_1));
     }
 }

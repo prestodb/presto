@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.BooleanType;
@@ -452,7 +453,8 @@ public class TestMapFlatBatchStreamReader
                 OrcReaderTestingUtils.createDefaultTestConfig(),
                 false,
                 NO_ENCRYPTION,
-                DwrfKeyProvider.EMPTY);
+                DwrfKeyProvider.EMPTY,
+                new RuntimeStats());
         Type mapType = FUNCTION_AND_TYPE_MANAGER.getParameterizedType(
                 StandardTypes.MAP,
                 ImmutableList.of(

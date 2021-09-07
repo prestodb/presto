@@ -483,15 +483,20 @@ public class TestMemoryManager
             }
 
             // Make sure the queries are blocked
-            List<BasicQueryInfo> currentQueryInfos = queryRunner.getCoordinators().stream()
-                    .map(TestingPrestoServer::getQueryManager)
-                    .map(QueryManager::getQueries)
-                    .flatMap(Collection::stream)
-                    .collect(toImmutableList());
+            List<BasicQueryInfo> currentQueryInfos;
+            do {
+                currentQueryInfos = queryRunner.getCoordinators().stream()
+                        .map(TestingPrestoServer::getQueryManager)
+                        .map(QueryManager::getQueries)
+                        .flatMap(Collection::stream)
+                        .collect(toImmutableList());
+                MILLISECONDS.sleep(10);
+            } while (currentQueryInfos.size() != 2);
+
             for (BasicQueryInfo info : currentQueryInfos) {
                 assertFalse(info.getState().isDone());
             }
-            assertEquals(currentQueryInfos.size(), 2);
+
             // Check that the pool information propagated to the query objects
             assertNotEquals(currentQueryInfos.get(0).getMemoryPool(), currentQueryInfos.get(1).getMemoryPool());
 

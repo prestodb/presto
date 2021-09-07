@@ -1009,7 +1009,7 @@ public abstract class AbstractTestHiveClient
                 HiveTestUtils.PARTITION_UPDATE_SMILE_CODEC,
                 new TestingNodeManager("fake-environment"),
                 new HiveEventClient(),
-                new HiveSessionProperties(hiveClientConfig, new OrcFileWriterConfig(), new ParquetFileWriterConfig()),
+                new HiveSessionProperties(hiveClientConfig, new OrcFileWriterConfig(), new ParquetFileWriterConfig(), new CacheConfig()),
                 new HiveWriterStats(),
                 getDefaultOrcFileWriterFactory(hiveClientConfig, metastoreClientConfig));
         pageSourceProvider = new HivePageSourceProvider(hiveClientConfig, hdfsEnvironment, getDefaultHiveRecordCursorProvider(hiveClientConfig, metastoreClientConfig), getDefaultHiveBatchPageSourceFactories(hiveClientConfig, metastoreClientConfig), getDefaultHiveSelectivePageSourceFactories(hiveClientConfig, metastoreClientConfig), FUNCTION_AND_TYPE_MANAGER, ROW_EXPRESSION_SERVICE);
@@ -1039,7 +1039,7 @@ public abstract class AbstractTestHiveClient
 
     protected ConnectorSession newSession()
     {
-        return newSession(new HiveSessionProperties(getHiveClientConfig(), new OrcFileWriterConfig(), new ParquetFileWriterConfig()));
+        return newSession(new HiveSessionProperties(getHiveClientConfig(), new OrcFileWriterConfig(), new ParquetFileWriterConfig(), new CacheConfig()));
     }
 
     protected ConnectorSession newSession(HiveSessionProperties hiveSessionProperties)
@@ -3845,7 +3845,8 @@ public abstract class AbstractTestHiveClient
         return newSession(new HiveSessionProperties(
                 getHiveClientConfig().setPartitionStatisticsSampleSize(sampleSize),
                 new OrcFileWriterConfig(),
-                new ParquetFileWriterConfig()));
+                new ParquetFileWriterConfig(),
+                new CacheConfig()));
     }
 
     private void verifyViewCreation(SchemaTableName temporaryCreateView)

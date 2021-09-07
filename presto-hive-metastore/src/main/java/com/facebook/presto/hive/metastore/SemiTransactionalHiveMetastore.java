@@ -41,6 +41,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import io.airlift.units.Duration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -669,6 +670,17 @@ public class SemiTransactionalHiveMetastore
         Map<String, Optional<Partition>> delegateResult = delegate.getPartitionsByNames(metastoreContext, databaseName, tableName, partitionNamesToQuery.build());
         resultBuilder.putAll(delegateResult);
         return resultBuilder.build();
+    }
+
+    public synchronized void setPartitionLeases(MetastoreContext metastoreContext, String databaseName, String tableName, Map<String, String> partitionNameToLocation, Duration leaseDuration)
+    {
+        checkReadable();
+        Table table = getTable(metastoreContext, databaseName, tableName)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
+        boolean isPartitioned = table.getPartitionColumns() != null && !table.getPartitionColumns().isEmpty();
+        if (table.getTableType().equals(MANAGED_TABLE) && isPartitioned && leaseDuration.toMillis() > 0) {
+            delegate.setPartitionLeases(metastoreContext, databaseName, tableName, partitionNameToLocation, leaseDuration);
+        }
     }
 
     private static Optional<Partition> getPartitionFromPartitionAction(Action<PartitionAndMore> partitionAction)

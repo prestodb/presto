@@ -14,6 +14,7 @@
 package com.facebook.presto.orc;
 
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.orc.metadata.DwrfStripeCacheMode;
@@ -154,7 +155,8 @@ public class TestOrcRecordReaderDwrfStripeCaching
                     orcReaderOptions,
                     false,
                     NO_ENCRYPTION,
-                    DwrfKeyProvider.EMPTY);
+                    DwrfKeyProvider.EMPTY,
+                    new RuntimeStats());
 
             assertRecordValues(orcDataSource, orcReader);
 
@@ -178,7 +180,8 @@ public class TestOrcRecordReaderDwrfStripeCaching
                     OrcReaderTestingUtils.createDefaultTestConfig(),
                     false,
                     NO_ENCRYPTION,
-                    DwrfKeyProvider.EMPTY);
+                    DwrfKeyProvider.EMPTY,
+                    new RuntimeStats());
 
             assertRecordValues(orcDataSource, orcReader);
         }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.common.PrestoException;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveCompressionCodec;
@@ -68,6 +69,7 @@ public final class IcebergSessionProperties
     private static final String ORC_OPTIMIZED_WRITER_MAX_STRIPE_ROWS = "orc_optimized_writer_max_stripe_rows";
     private static final String ORC_OPTIMIZED_WRITER_MAX_DICTIONARY_MEMORY = "orc_optimized_writer_max_dictionary_memory";
     private static final String ORC_COMPRESSION_CODEC = "orc_compression_codec";
+    private static final String CACHE_ENABLED = "cache_enabled";
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
@@ -75,7 +77,8 @@ public final class IcebergSessionProperties
             IcebergConfig icebergConfig,
             HiveClientConfig hiveClientConfig,
             ParquetFileWriterConfig parquetFileWriterConfig,
-            OrcFileWriterConfig orcFileWriterConfig)
+            OrcFileWriterConfig orcFileWriterConfig,
+            CacheConfig cacheConfig)
     {
         sessionProperties = ImmutableList.of(
                 new PropertyMetadata<>(
@@ -227,7 +230,12 @@ public final class IcebergSessionProperties
                         hiveClientConfig.getOrcCompressionCodec(),
                         false,
                         value -> HiveCompressionCodec.valueOf(((String) value).toUpperCase()),
-                        HiveCompressionCodec::name));
+                        HiveCompressionCodec::name),
+                booleanProperty(
+                        CACHE_ENABLED,
+                        "Enable cache for Iceberg",
+                        cacheConfig.isCachingEnabled(),
+                        false));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -368,5 +376,10 @@ public final class IcebergSessionProperties
     public static HiveCompressionCodec getOrcCompressionCodec(ConnectorSession session)
     {
         return session.getProperty(ORC_COMPRESSION_CODEC, HiveCompressionCodec.class);
+    }
+
+    public static boolean isCacheEnabled(ConnectorSession session)
+    {
+        return session.getProperty(CACHE_ENABLED, Boolean.class);
     }
 }

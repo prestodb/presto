@@ -15,6 +15,7 @@ package com.facebook.presto.hive.util;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PrestoException;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.HiveOrcAggregatedMemoryContext;
@@ -68,7 +69,8 @@ public class TempFileReader
                             false),
                     false,
                     NO_ENCRYPTION,
-                    DwrfKeyProvider.EMPTY);
+                    DwrfKeyProvider.EMPTY,
+                    new RuntimeStats());
 
             Map<Integer, Type> includedColumns = new HashMap<>();
             for (int i = 0; i < types.size(); i++) {

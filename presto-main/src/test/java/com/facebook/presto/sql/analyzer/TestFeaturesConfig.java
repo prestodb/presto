@@ -178,7 +178,7 @@ public class TestFeaturesConfig
                 .setPartialResultsMaxExecutionTimeMultiplier(2.0)
                 .setMaterializedViewDataConsistencyEnabled(true)
                 .setQueryOptimizationWithMaterializedViewEnabled(false)
-                .setAggregationIfToFilterRewriteEnabled(true));
+                .setAggregationIfToFilterRewriteEnabled(false));
     }
 
     @Test
@@ -308,7 +308,7 @@ public class TestFeaturesConfig
                 .put("offset-clause-enabled", "true")
                 .put("materialized-view-data-consistency-enabled", "false")
                 .put("query-optimization-with-materialized-view-enabled", "true")
-                .put("optimizer.aggregation-if-to-filter-rewrite-enabled", "false")
+                .put("optimizer.aggregation-if-to-filter-rewrite-enabled", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -436,7 +436,7 @@ public class TestFeaturesConfig
                 .setPartialResultsMaxExecutionTimeMultiplier(1.5)
                 .setMaterializedViewDataConsistencyEnabled(false)
                 .setQueryOptimizationWithMaterializedViewEnabled(true)
-                .setAggregationIfToFilterRewriteEnabled(false);
+                .setAggregationIfToFilterRewriteEnabled(true);
         assertFullMapping(properties, expected);
     }
 

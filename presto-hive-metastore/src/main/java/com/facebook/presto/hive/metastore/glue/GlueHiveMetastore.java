@@ -95,6 +95,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import io.airlift.units.Duration;
 import org.apache.hadoop.fs.Path;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
@@ -991,5 +992,11 @@ public class GlueHiveMetastore
     public Set<HivePrivilegeInfo> listTablePrivileges(MetastoreContext metastoreContext, String databaseName, String tableName, PrestoPrincipal principal)
     {
         throw new PrestoException(NOT_SUPPORTED, "listTablePrivileges is not supported by Glue");
+    }
+
+    @Override
+    public void setPartitionLeases(MetastoreContext metastoreContext, String databaseName, String tableName, Map<String, String> partitionNameToLocation, Duration leaseDuration)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "setPartitionLeases is not supported by Glue");
     }
 }

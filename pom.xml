@@ -10,7 +10,7 @@
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.261-SNAPSHOT</version>
+    <version>0.262-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -622,7 +622,7 @@
             <dependency>
                 <groupId>com.facebook.presto.orc</groupId>
                 <artifactId>orc-protobuf</artifactId>
-                <version>12</version>
+                <version>13</version>
             </dependency>
 
             <dependency>

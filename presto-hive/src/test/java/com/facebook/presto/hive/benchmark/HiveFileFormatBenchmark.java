@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.benchmark;
 
+import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.BlockBuilder;
@@ -97,8 +98,12 @@ public class HiveFileFormatBenchmark
     @SuppressWarnings("deprecation")
     private static final HiveClientConfig CONFIG = new HiveClientConfig();
 
-    private static final ConnectorSession SESSION = new TestingConnectorSession(new HiveSessionProperties(CONFIG, new OrcFileWriterConfig(), new ParquetFileWriterConfig())
-            .getSessionProperties());
+    private static final ConnectorSession SESSION = new TestingConnectorSession(
+            new HiveSessionProperties(
+                    CONFIG,
+                    new OrcFileWriterConfig(),
+                    new ParquetFileWriterConfig(),
+                    new CacheConfig()).getSessionProperties());
 
     private static final HdfsEnvironment HDFS_ENVIRONMENT = createTestHdfsEnvironment(CONFIG, METASTORE_CLIENT_CONFIG);
 

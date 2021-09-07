@@ -81,7 +81,7 @@ public class OrcBatchPageSource
         int size = requireNonNull(columns, "columns is null").size();
 
         this.stats = requireNonNull(stats, "stats is null");
-        this.runtimeStats = runtimeStats;
+        this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
 
         this.constantBlocks = new Block[size];
         this.hiveColumnIndexes = new int[size];
