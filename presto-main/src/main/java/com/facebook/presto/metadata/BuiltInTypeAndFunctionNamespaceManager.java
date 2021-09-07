@@ -291,6 +291,10 @@ import static com.facebook.presto.operator.aggregation.ChecksumAggregationFuncti
 import static com.facebook.presto.operator.aggregation.CountColumn.COUNT_COLUMN;
 import static com.facebook.presto.operator.aggregation.DecimalAverageAggregation.DECIMAL_AVERAGE_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.DecimalSumAggregation.DECIMAL_SUM_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.FirstFunction.FIRST_FUNCTION;
+import static com.facebook.presto.operator.aggregation.FirstFunctionIgnoreNulls.FIRST_FUNCTION_IGNORE_NULLS;
+import static com.facebook.presto.operator.aggregation.LastFunction.LAST_FUNCTION;
+import static com.facebook.presto.operator.aggregation.LastFunctionIgnoreNulls.LAST_FUNCTION_IGNORE_NULLS;
 import static com.facebook.presto.operator.aggregation.MapAggregationFunction.MAP_AGG;
 import static com.facebook.presto.operator.aggregation.MapUnionAggregation.MAP_UNION;
 import static com.facebook.presto.operator.aggregation.MapUnionSumAggregation.MAP_UNION_SUM;
@@ -815,6 +819,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .functions(MAX_BY, MIN_BY, MAX_BY_N_AGGREGATION, MIN_BY_N_AGGREGATION)
                 .functions(MAX_AGGREGATION, MIN_AGGREGATION, MAX_N_AGGREGATION, MIN_N_AGGREGATION)
                 .function(COUNT_COLUMN)
+                .functions(FIRST_FUNCTION, FIRST_FUNCTION_IGNORE_NULLS, LAST_FUNCTION, LAST_FUNCTION_IGNORE_NULLS)
                 .functions(ROW_HASH_CODE, ROW_TO_JSON, JSON_TO_ROW, JSON_STRING_TO_ROW, ROW_DISTINCT_FROM, ROW_EQUAL, ROW_GREATER_THAN, ROW_GREATER_THAN_OR_EQUAL, ROW_LESS_THAN, ROW_LESS_THAN_OR_EQUAL, ROW_NOT_EQUAL, ROW_TO_ROW_CAST, ROW_INDETERMINATE)
                 .functions(VARCHAR_CONCAT, VARBINARY_CONCAT)
                 .function(DECIMAL_TO_DECIMAL_CAST)
