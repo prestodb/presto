@@ -172,43 +172,6 @@ public class HiveSplitManager
                 hiveClientConfig.getSplitLoaderConcurrency(),
                 hiveClientConfig.getRecursiveDirWalkerEnabled(),
                 cacheQuotaRequirementProvider,
-                encryptionInformationProvider);
-    }
-
-    public HiveSplitManager(
-            HiveTransactionManager hiveTransactionManager,
-            NamenodeStats namenodeStats,
-            HdfsEnvironment hdfsEnvironment,
-            DirectoryLister directoryLister,
-            Executor executor,
-            CoercionPolicy coercionPolicy,
-            CounterStat highMemorySplitSourceCounter,
-            int maxOutstandingSplits,
-            DataSize maxOutstandingSplitsSize,
-            int minPartitionBatchSize,
-            int maxPartitionBatchSize,
-            int maxInitialSplits,
-            int splitLoaderConcurrency,
-            boolean recursiveDfsWalkerEnabled,
-            CacheQuotaRequirementProvider cacheQuotaRequirementProvider,
-            HiveEncryptionInformationProvider encryptionInformationProvider)
-    {
-        this(
-                hiveTransactionManager,
-                namenodeStats,
-                hdfsEnvironment,
-                directoryLister,
-                executor,
-                coercionPolicy,
-                highMemorySplitSourceCounter,
-                maxOutstandingSplits,
-                maxOutstandingSplitsSize,
-                minPartitionBatchSize,
-                maxPartitionBatchSize,
-                maxInitialSplits,
-                splitLoaderConcurrency,
-                recursiveDfsWalkerEnabled,
-                cacheQuotaRequirementProvider,
                 encryptionInformationProvider,
                 Optional.empty());
     }

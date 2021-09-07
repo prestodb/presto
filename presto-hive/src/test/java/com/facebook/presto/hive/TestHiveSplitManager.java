@@ -528,7 +528,8 @@ public class TestHiveSplitManager
                 hiveClientConfig.getSplitLoaderConcurrency(),
                 false,
                 new ConfigBasedCacheQuotaRequirementProvider(new CacheConfig()),
-                new HiveEncryptionInformationProvider(ImmutableList.of()));
+                new HiveEncryptionInformationProvider(ImmutableList.of()),
+                Optional.empty());
 
         HiveColumnHandle partitionColumn = new HiveColumnHandle(
                 "ds",
