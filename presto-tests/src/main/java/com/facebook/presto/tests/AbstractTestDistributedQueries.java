@@ -77,6 +77,11 @@ public abstract class AbstractTestDistributedQueries
         return true;
     }
 
+    protected boolean supportsMaterializedViews()
+    {
+        return false;
+    }
+
     protected boolean supportsNotNullColumns()
     {
         return true;
@@ -1061,6 +1066,41 @@ public abstract class AbstractTestDistributedQueries
         assertAccessAllowed(nestedViewOwnerSession, "DROP VIEW test_nested_view_access");
         assertAccessAllowed(viewOwnerSession, "DROP VIEW test_view_access");
         assertAccessAllowed(viewOwnerSession, "DROP VIEW test_invoker_view_access");
+    }
+
+    @Test
+    public void testMaterializedViewAccessControl()
+    {
+        skipTestUnless(supportsMaterializedViews());
+
+        Session viewOwnerSession = TestingSession.testSessionBuilder()
+                .setIdentity(new Identity("test_view_owner", Optional.empty()))
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema(getSession().getSchema().get())
+                .build();
+
+        computeActual("CREATE TABLE test_orders_base WITH (partitioned_by = ARRAY['orderstatus']) " +
+                "AS SELECT orderkey, custkey, totalprice, orderstatus FROM orders LIMIT 10");
+
+        String createViewSql = "CREATE MATERIALIZED VIEW test_orders_view %s " +
+                "WITH (partitioned_by = ARRAY['orderstatus']) " +
+                "AS SELECT orderkey, totalprice, orderstatus FROM test_orders_base";
+        String definerSecurity = "SECURITY DEFINER";
+        String invokerSecurity = "SECURITY INVOKER";
+
+        // Verify creating a materialized view over a base table requires the special view creation privileges for the base table
+        assertAccessDenied(
+                viewOwnerSession,
+                format(createViewSql, definerSecurity),
+                "View owner 'test_view_owner' cannot create view that selects from .*.test_orders_base.*",
+                privilege(viewOwnerSession.getUser(), "test_orders_base", CREATE_VIEW_WITH_SELECT_COLUMNS));
+
+        assertAccessAllowed(
+                viewOwnerSession,
+                format(createViewSql, definerSecurity),
+                privilege("test_orders_base", SELECT_COLUMN));
+
+        assertAccessAllowed(viewOwnerSession, "DROP MATERIALIZED VIEW test_orders_view");
     }
 
     @Test

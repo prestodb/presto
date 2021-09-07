@@ -251,6 +251,7 @@ import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.ExpressionDeterminismEvaluator.isDeterministic;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionOptimizer;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
+import static com.facebook.presto.sql.tree.CreateView.Security.DEFINER;
 import static com.facebook.presto.sql.tree.ExplainType.Type.DISTRIBUTED;
 import static com.facebook.presto.sql.tree.FrameBound.Type.CURRENT_ROW;
 import static com.facebook.presto.sql.tree.FrameBound.Type.FOLLOWING;
@@ -692,8 +693,10 @@ class StatementAnalyzer
             accessControl.checkCanCreateTable(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), viewName);
             accessControl.checkCanCreateView(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), viewName);
 
-            // analyze the query that creates the table
-            Scope queryScope = process(node.getQuery(), scope);
+            // analyze the query that creates the materialized view
+            AccessControl viewAccessControl = node.getSecurity().orElse(DEFINER).equals(DEFINER) ? new ViewAccessControl(accessControl) : accessControl;
+            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, viewAccessControl, session, warningCollector);
+            Scope queryScope = analyzer.analyze(node.getQuery(), scope);
 
             validateColumns(node, queryScope.getRelationType());
 

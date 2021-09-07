@@ -50,6 +50,7 @@ import com.facebook.presto.sql.tree.CreateFunction;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateView;
+import com.facebook.presto.sql.tree.CreateView.Security;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.Expression;
@@ -478,6 +479,8 @@ final class ShowQueriesRewrite
 
                 Query query = parseView(materializedViewDefinition.get().getOriginalSql(), objectName, node);
 
+                Security security = materializedViewDefinition.get().getOwner().isPresent() ? Security.DEFINER : Security.INVOKER;
+
                 ConnectorTableMetadata connectorTableMetadata = metadata.getTableMetadata(session, tableHandle.get()).getMetadata();
                 Map<String, Object> properties = connectorTableMetadata.getProperties();
                 Map<String, PropertyMetadata<?>> allTableProperties = metadata.getTablePropertyManager().getAllProperties().get(tableHandle.get().getConnectorId());
@@ -489,7 +492,8 @@ final class ShowQueriesRewrite
                         query,
                         false,
                         propertyNodes,
-                        connectorTableMetadata.getComment());
+                        connectorTableMetadata.getComment(),
+                        Optional.of(security));
                 return singleValueQuery("Create Materialized View", formatSql(createMaterializedView, Optional.of(parameters)).trim());
             }
 

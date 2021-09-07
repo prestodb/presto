@@ -1630,17 +1630,51 @@ public class TestSqlParser
         assertStatement(
                 "CREATE MATERIALIZED VIEW mv" +
                         " AS SELECT * FROM t",
-                new CreateMaterializedView(Optional.empty(), QualifiedName.of("mv"), query, false, ImmutableList.of(), Optional.empty()));
+                new CreateMaterializedView(
+                        Optional.empty(),
+                        QualifiedName.of("mv"),
+                        query,
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertStatement(
+                "CREATE MATERIALIZED VIEW mv" +
+                        " SECURITY INVOKER" +
+                        " AS SELECT * FROM t",
+                new CreateMaterializedView(
+                        Optional.empty(),
+                        QualifiedName.of("mv"),
+                        query,
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty(),
+                        Optional.of(CreateView.Security.INVOKER)));
 
         assertStatement(
                 "CREATE MATERIALIZED VIEW mv COMMENT 'A simple materialized view'" +
                         " AS SELECT * FROM t",
-                new CreateMaterializedView(Optional.empty(), QualifiedName.of("mv"), query, false, ImmutableList.of(), Optional.of("A simple materialized view")));
+                new CreateMaterializedView(
+                        Optional.empty(),
+                        QualifiedName.of("mv"),
+                        query,
+                        false,
+                        ImmutableList.of(),
+                        Optional.of("A simple materialized view"),
+                        Optional.empty()));
 
         assertStatement(
                 "CREATE MATERIALIZED VIEW IF NOT EXISTS mv COMMENT 'A simple materialized view'" +
                         " AS SELECT * FROM t",
-                new CreateMaterializedView(Optional.empty(), QualifiedName.of("mv"), query, true, ImmutableList.of(), Optional.of("A simple materialized view")));
+                new CreateMaterializedView(
+                        Optional.empty(),
+                        QualifiedName.of("mv"),
+                        query,
+                        true,
+                        ImmutableList.of(),
+                        Optional.of("A simple materialized view"),
+                        Optional.empty()));
 
         List<Property> properties = ImmutableList.of(
                 new Property(new Identifier("partitioned_by"), new ArrayConstructor(ImmutableList.of(new StringLiteral("ds")))));
@@ -1648,7 +1682,14 @@ public class TestSqlParser
                 "CREATE MATERIALIZED VIEW IF NOT EXISTS mv COMMENT 'A simple materialized view'" +
                         " WITH (partitioned_by = ARRAY ['ds'])" +
                         " AS SELECT * FROM t",
-                new CreateMaterializedView(Optional.empty(), QualifiedName.of("mv"), query, true, properties, Optional.of("A simple materialized view")));
+                new CreateMaterializedView(
+                        Optional.empty(),
+                        QualifiedName.of("mv"),
+                        query,
+                        true,
+                        properties,
+                        Optional.of("A simple materialized view"),
+                        Optional.empty()));
 
         List<Property> properties1 = ImmutableList.of(
                 new Property(new Identifier("partitioned_by"), new ArrayConstructor(ImmutableList.of(new StringLiteral("ds")))),
@@ -1657,7 +1698,14 @@ public class TestSqlParser
                 "CREATE MATERIALIZED VIEW IF NOT EXISTS mv COMMENT 'A simple materialized view'" +
                         " WITH (partitioned_by = ARRAY ['ds'], retention_days = 90)" +
                         " AS SELECT * FROM t",
-                new CreateMaterializedView(Optional.empty(), QualifiedName.of("mv"), query, true, properties1, Optional.of("A simple materialized view")));
+                new CreateMaterializedView(
+                        Optional.empty(),
+                        QualifiedName.of("mv"),
+                        query,
+                        true,
+                        properties1,
+                        Optional.of("A simple materialized view"),
+                        Optional.empty()));
     }
 
     @Test

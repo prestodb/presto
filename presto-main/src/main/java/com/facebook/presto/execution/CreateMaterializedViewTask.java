@@ -47,6 +47,8 @@ import static com.facebook.presto.sql.NodeUtils.mapFromProperties;
 import static com.facebook.presto.sql.SqlFormatterUtil.getFormattedSql;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MATERIALIZED_VIEW_ALREADY_EXISTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.sql.tree.CreateView.Security.DEFINER;
+import static com.facebook.presto.sql.tree.CreateView.Security.INVOKER;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Objects.requireNonNull;
@@ -127,12 +129,18 @@ public class CreateMaterializedViewTask
                 .distinct()
                 .collect(toImmutableList());
 
+        // Use DEFINER security by default
+        Optional<String> owner = Optional.of(session.getUser());
+        if (statement.getSecurity().orElse(DEFINER).equals(INVOKER)) {
+            owner = Optional.empty();
+        }
+
         ConnectorMaterializedViewDefinition viewDefinition = new ConnectorMaterializedViewDefinition(
                 sql,
                 viewName.getSchemaName(),
                 viewName.getObjectName(),
                 baseTables,
-                Optional.of(session.getUser()),
+                owner,
                 analysis.getOriginalColumnMapping(statement.getQuery()),
                 Optional.empty());
         try {

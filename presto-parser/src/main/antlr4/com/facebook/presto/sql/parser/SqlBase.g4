@@ -65,6 +65,7 @@ statement
             (SECURITY (DEFINER | INVOKER))? AS query                   #createView
     | DROP VIEW (IF EXISTS)? qualifiedName                             #dropView
     | CREATE MATERIALIZED VIEW (IF NOT EXISTS)? qualifiedName
+        (SECURITY (DEFINER | INVOKER))?
         (COMMENT string)?
         (WITH properties)? AS (query | '('query')')                    #createMaterializedView
     | DROP MATERIALIZED VIEW (IF EXISTS)? qualifiedName                #dropMaterializedView

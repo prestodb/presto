@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.tree.CreateView.Security;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -30,8 +31,16 @@ public class CreateMaterializedView
     private final boolean notExists;
     private final List<Property> properties;
     private final Optional<String> comment;
+    private final Optional<Security> security;
 
-    public CreateMaterializedView(Optional<NodeLocation> location, QualifiedName name, Query query, boolean notExists, List<Property> properties, Optional<String> comment)
+    public CreateMaterializedView(
+            Optional<NodeLocation> location,
+            QualifiedName name,
+            Query query,
+            boolean notExists,
+            List<Property> properties,
+            Optional<String> comment,
+            Optional<Security> security)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");
@@ -39,6 +48,7 @@ public class CreateMaterializedView
         this.notExists = notExists;
         this.properties = ImmutableList.copyOf(requireNonNull(properties, "properties is null"));
         this.comment = requireNonNull(comment, "comment is null");
+        this.security = requireNonNull(security, "security is null");
     }
 
     public QualifiedName getName()
@@ -66,6 +76,11 @@ public class CreateMaterializedView
         return comment;
     }
 
+    public Optional<Security> getSecurity()
+    {
+        return security;
+    }
+
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
@@ -81,7 +96,7 @@ public class CreateMaterializedView
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, query, notExists, properties, comment);
+        return Objects.hash(name, query, notExists, properties, comment, security);
     }
 
     @Override
@@ -98,7 +113,8 @@ public class CreateMaterializedView
                 && Objects.equals(query, o.query)
                 && Objects.equals(notExists, o.notExists)
                 && Objects.equals(properties, o.properties)
-                && Objects.equals(comment, o.comment);
+                && Objects.equals(comment, o.comment)
+                && Objects.equals(security, o.security);
     }
 
     @Override
@@ -110,6 +126,7 @@ public class CreateMaterializedView
                 .add("notExists", notExists)
                 .add("properties", properties)
                 .add("comment", comment)
+                .add("security", security)
                 .toString();
     }
 }

@@ -496,13 +496,22 @@ class AstBuilder
             properties = visit(context.properties().property(), Property.class);
         }
 
+        Optional<CreateView.Security> security = Optional.empty();
+        if (context.DEFINER() != null) {
+            security = Optional.of(CreateView.Security.DEFINER);
+        }
+        else if (context.INVOKER() != null) {
+            security = Optional.of(CreateView.Security.INVOKER);
+        }
+
         return new CreateMaterializedView(
                 Optional.of(getLocation(context)),
                 getQualifiedName(context.qualifiedName()),
                 (Query) visit(context.query()),
                 context.EXISTS() != null,
                 properties,
-                comment);
+                comment,
+                security);
     }
 
     @Override
