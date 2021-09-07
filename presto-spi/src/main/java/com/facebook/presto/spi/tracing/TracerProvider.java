@@ -16,9 +16,8 @@ package com.facebook.presto.spi.tracing;
 public interface TracerProvider
 {
     /**
-     * Initiate a trace.
      *
      * @return A @Tracer that should be kept throughout the whole duration of tracing.
      */
-    Tracer getNewTracer(boolean isTracingEnabled);
+    Tracer getNewTracer();
 }
