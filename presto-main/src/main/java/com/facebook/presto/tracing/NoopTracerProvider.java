@@ -21,13 +21,13 @@ import com.google.inject.Inject;
 public class NoopTracerProvider
         implements TracerProvider
 {
-    private static final NoopTracer NOOP_TRACER = new NoopTracer();
+    public static final NoopTracer NOOP_TRACER = new NoopTracer();
 
     @Inject
     public NoopTracerProvider() {}
 
     @Override
-    public Tracer getNewTracer(boolean isTracingEnabled)
+    public Tracer getNewTracer()
     {
         return NOOP_TRACER;
     }
