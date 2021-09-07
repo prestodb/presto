@@ -140,6 +140,7 @@ public class HiveSplitManager
     private final int splitLoaderConcurrency;
     private final boolean recursiveDfsWalkerEnabled;
     private final CounterStat highMemorySplitSourceCounter;
+    private Optional<HivePartitionVerifier> hivePartitionVerifier;
     private final CacheQuotaRequirementProvider cacheQuotaRequirementProvider;
     private final HiveEncryptionInformationProvider encryptionInformationProvider;
 
@@ -192,6 +193,45 @@ public class HiveSplitManager
             CacheQuotaRequirementProvider cacheQuotaRequirementProvider,
             HiveEncryptionInformationProvider encryptionInformationProvider)
     {
+        this(
+                hiveTransactionManager,
+                namenodeStats,
+                hdfsEnvironment,
+                directoryLister,
+                executor,
+                coercionPolicy,
+                highMemorySplitSourceCounter,
+                maxOutstandingSplits,
+                maxOutstandingSplitsSize,
+                minPartitionBatchSize,
+                maxPartitionBatchSize,
+                maxInitialSplits,
+                splitLoaderConcurrency,
+                recursiveDfsWalkerEnabled,
+                cacheQuotaRequirementProvider,
+                encryptionInformationProvider,
+                Optional.empty());
+    }
+
+    public HiveSplitManager(
+            HiveTransactionManager hiveTransactionManager,
+            NamenodeStats namenodeStats,
+            HdfsEnvironment hdfsEnvironment,
+            DirectoryLister directoryLister,
+            Executor executor,
+            CoercionPolicy coercionPolicy,
+            CounterStat highMemorySplitSourceCounter,
+            int maxOutstandingSplits,
+            DataSize maxOutstandingSplitsSize,
+            int minPartitionBatchSize,
+            int maxPartitionBatchSize,
+            int maxInitialSplits,
+            int splitLoaderConcurrency,
+            boolean recursiveDfsWalkerEnabled,
+            CacheQuotaRequirementProvider cacheQuotaRequirementProvider,
+            HiveEncryptionInformationProvider encryptionInformationProvider,
+            Optional<HivePartitionVerifier> hivePartitionVerifier)
+    {
         this.hiveTransactionManager = requireNonNull(hiveTransactionManager, "hiveTransactionManager is null");
         this.namenodeStats = requireNonNull(namenodeStats, "namenodeStats is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -209,6 +249,7 @@ public class HiveSplitManager
         this.recursiveDfsWalkerEnabled = recursiveDfsWalkerEnabled;
         this.cacheQuotaRequirementProvider = requireNonNull(cacheQuotaRequirementProvider, "cacheQuotaRequirementProvider is null");
         this.encryptionInformationProvider = requireNonNull(encryptionInformationProvider, "encryptionInformationProvider is null");
+        this.hivePartitionVerifier = hivePartitionVerifier;
     }
 
     @Override
@@ -492,6 +533,8 @@ public class HiveSplitManager
                     }
                 }
 
+                hivePartitionVerifier.ifPresent(verifier -> verifier.verify(partition, warningCollector));
+
                 results.add(
                         new HivePartitionMetadata(
                                 hivePartition,
@@ -507,6 +550,7 @@ public class HiveSplitManager
                 }
                 warningCollector.add(new PrestoWarning(PARTITION_NOT_READABLE, warningMessage.toString()));
             }
+            hivePartitionVerifier.ifPresent(verifier -> verifier.aggregateWarning(warningCollector));
             return results.build();
         });
         return concat(partitionBatches);
