@@ -999,6 +999,63 @@ TEST_F(VectorTest, resizeAtConstruction) {
   EXPECT_EQ(oldByteSize, flat->values()->size());
 }
 
+TEST_F(VectorTest, resizeStringAsciiness) {
+  auto vectorMaker = std::make_unique<test::VectorMaker>(pool_.get());
+  std::vector<std::string> stringInput = {"hellow", "how", "are"};
+  auto flatVector = vectorMaker->flatVector(stringInput);
+  auto stringVector = flatVector->as<SimpleVector<StringView>>();
+  SelectivityVector rows(stringInput.size());
+  stringVector->computeAndSetIsAscii(rows);
+  ASSERT_TRUE(stringVector->isAscii(rows).value());
+  stringVector->resize(2);
+  ASSERT_FALSE(stringVector->isAscii(rows));
+}
+
+TEST_F(VectorTest, copyAscii) {
+  auto maker = std::make_unique<test::VectorMaker>(pool_.get());
+  std::vector<std::string> stringData = {"a", "b", "c"};
+  auto source = maker->flatVector(stringData);
+  SelectivityVector all(stringData.size());
+  source->setAllIsAscii(true);
+
+  auto other = maker->flatVector(stringData);
+  other->copy(source.get(), all, nullptr);
+  auto ascii = other->isAscii(all);
+  ASSERT_TRUE(ascii.has_value());
+  ASSERT_TRUE(ascii.value());
+
+  // Copy over asciness from a vector without asciiness set.
+  source->invalidateIsAscii();
+  other->copy(source.get(), all, nullptr);
+  // Ensure isAscii returns nullopt
+  ascii = other->isAscii(all);
+  ASSERT_FALSE(ascii.has_value());
+
+  // Now copy over some rows from vector without ascii compute on it.
+  other->setAllIsAscii(false);
+  SelectivityVector some(all.size(), false);
+  some.setValid(1, true);
+  some.updateBounds();
+  other->copy(source.get(), some, nullptr);
+  // We will have invalidated all.
+  ascii = other->isAscii(all);
+  ASSERT_FALSE(ascii.has_value());
+
+  std::vector<std::string> moreData = {"a", "b", "c", "d"};
+  auto largerSource = maker->flatVector(moreData);
+  vector_size_t sourceMappings[] = {3, 2, 1, 0};
+  some.setAll();
+  some.setValid(0, false);
+  some.updateBounds();
+
+  other->setAllIsAscii(false);
+  largerSource->setAllIsAscii(true);
+  other->copy(largerSource.get(), some, sourceMappings);
+  ascii = other->isAscii(all);
+  ASSERT_TRUE(ascii.has_value());
+  ASSERT_FALSE(ascii.value());
+}
+
 TEST_F(VectorTest, compareNan) {
   auto vectorMaker = std::make_unique<test::VectorMaker>(pool_.get());
 

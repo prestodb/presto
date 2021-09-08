@@ -198,7 +198,7 @@ class SubstrFunction : public exec::VectorFunction {
     BaseVector* stringsVector = args[0].get();
     BaseVector* startsVector = args[1].get();
     BaseVector* lengthsVector = noLengthVector ? nullptr : args[2].get();
-    auto stringArgStringEncoding = getStringEncodingOrUTF8(stringsVector);
+    auto stringArgStringEncoding = getStringEncodingOrUTF8(stringsVector, rows);
 
     auto stringArgVectorEncoding = stringsVector->encoding();
     auto startArgVectorEncoding = startsVector->encoding();
@@ -395,7 +395,7 @@ class UpperLowerTemplateFunction : public exec::VectorFunction {
     exec::LocalDecodedVector inputHolder(context, *inputStringsVector, rows);
     auto decodedInput = inputHolder.get();
 
-    auto stringEncoding = getStringEncodingOrUTF8(inputStringsVector);
+    auto stringEncoding = getStringEncodingOrUTF8(inputStringsVector, rows);
 
     bool inPlace = (stringEncoding == StringEncodingMode::ASCII) &&
         (inputStringsVector->encoding() == VectorEncoding::Simple::FLAT) &&
@@ -554,7 +554,8 @@ class StringPosition : public exec::VectorFunction {
       }
     }
 
-    auto stringArgStringEncoding = getStringEncodingOrUTF8(args.at(0).get());
+    auto stringArgStringEncoding =
+        getStringEncodingOrUTF8(args.at(0).get(), rows);
     BaseVector::ensureWritable(rows, BIGINT(), context->pool(), result);
 
     auto* resultFlatVector = (*result)->as<FlatVector<int64_t>>();

@@ -52,9 +52,23 @@ bool isValidBiasOrDictionary(const VectorEncoding::Simple& vectorType) {
   return true;
 }
 
+void assertIsAscii(
+    const SimpleVectorPtr<StringView>& vector,
+    const SelectivityVector& rows,
+    bool expected) {
+  auto ascii = vector->isAscii(rows);
+  ASSERT_TRUE(ascii.has_value());
+  ASSERT_EQ(ascii.value(), expected);
+};
+
 } // namespace
 
-class SimpleVectorNonParameterizedTest : public SimpleVectorTest {};
+class SimpleVectorNonParameterizedTest : public SimpleVectorTest {
+ protected:
+  using S = StringView;
+  ExpectedData<StringView> stringData_ =
+      {S("àá"), S("abc"), S("xyz"), S("mno"), S("wv"), S("abc"), S("xyz")};
+};
 
 TEST_F(SimpleVectorNonParameterizedTest, ConstantVectorTest) {
   ExpectedData<int64_t> expected(10, 123456);
@@ -192,6 +206,172 @@ class SimpleVectorTypedTest : public SimpleVectorTest {
         1001 /*seed*/);
   }
 };
+
+namespace {
+std::vector<VectorEncoding::Simple> kAsciiEncodings = {
+    VectorEncoding::Simple::DICTIONARY,
+    VectorEncoding::Simple::FLAT,
+    VectorEncoding::Simple::SEQUENCE};
+}
+
+// StringView Ascii Tests
+TEST_F(SimpleVectorNonParameterizedTest, computeAscii) {
+  for (auto encoding : kAsciiEncodings) {
+    LOG(INFO) << "Running:" << encoding;
+
+    auto vector = maker_.encodedVector(encoding, stringData_);
+    SelectivityVector all(stringData_.size());
+    vector->computeAndSetIsAscii(all);
+
+    ASSERT_TRUE(vector->isAscii(all).has_value());
+    ASSERT_FALSE(vector->isAscii(all).value());
+
+    // Exclude the first row, the only row with non-ASCII characters.
+    SelectivityVector asciiSubset(stringData_.size());
+    asciiSubset.setValid(0, false);
+    asciiSubset.updateBounds();
+
+    vector->invalidateIsAscii();
+    vector->computeAndSetIsAscii(asciiSubset);
+
+    ASSERT_TRUE(vector->isAscii(asciiSubset).has_value());
+    ASSERT_TRUE(vector->isAscii(asciiSubset).value());
+  }
+}
+
+TEST_F(SimpleVectorNonParameterizedTest, isAscii) {
+  for (auto encoding : kAsciiEncodings) {
+    LOG(INFO) << "Running:" << encoding;
+
+    auto vector = maker_.encodedVector(encoding, stringData_);
+    SelectivityVector all(stringData_.size());
+    vector->computeAndSetIsAscii(all);
+
+    bool ascii = vector->isAscii(all).value();
+    ASSERT_FALSE(ascii);
+
+    // Clear asciiness and compute asciiness only for 2nd row
+    // Then ask for asciiness for some other row.
+    vector->invalidateIsAscii();
+    SelectivityVector first(stringData_.size(), false);
+    first.setValid(1, true);
+    first.updateBounds();
+    vector->computeAndSetIsAscii(first);
+
+    SelectivityVector other(stringData_.size(), false);
+    other.setValid(2, true);
+    other.updateBounds();
+
+    ASSERT_FALSE(vector->isAscii(other).has_value());
+    ASSERT_TRUE(vector->isAscii(first).value());
+
+    // Give it a selectivity vector with larger bounds than supported.
+    vector->invalidateIsAscii();
+    vector->computeAndSetIsAscii(all);
+
+    SelectivityVector larger(stringData_.size() + 1, false);
+    larger.setValid(stringData_.size(), true);
+    larger.updateBounds();
+    ASSERT_FALSE(vector->isAscii(larger).has_value());
+
+    // Selectivity Vector which is empty.
+    SelectivityVector empty(stringData_.size(), false);
+    EXPECT_THROW(vector->isAscii(empty).has_value(), VeloxException);
+  }
+}
+
+TEST_F(SimpleVectorNonParameterizedTest, isAsciiIndex) {
+  for (auto encoding : kAsciiEncodings) {
+    LOG(INFO) << "Running:" << encoding;
+
+    auto vector = maker_.encodedVector(encoding, stringData_);
+    SelectivityVector all(stringData_.size());
+    vector->computeAndSetIsAscii(all);
+
+    assertIsAscii(vector, all, false);
+
+    ASSERT_FALSE(vector->isAscii(stringData_.size() + 1).has_value());
+    EXPECT_THROW(vector->isAscii(-1).has_value(), VeloxException);
+  }
+}
+
+TEST_F(SimpleVectorNonParameterizedTest, isAsciiSourceRows) {
+  for (auto encoding : kAsciiEncodings) {
+    LOG(INFO) << "Running:" << encoding;
+
+    auto vector = maker_.encodedVector(encoding, stringData_);
+    SelectivityVector all(stringData_.size());
+    vector->computeAndSetIsAscii(all);
+
+    assertIsAscii(vector, all, false);
+
+    vector_size_t sourceMappings[] = {0, 2, 1, 3, 5, 6, 4};
+
+    auto ascii = vector->isAscii(all, sourceMappings);
+    ASSERT_TRUE(ascii.has_value());
+    ASSERT_FALSE(ascii.value());
+
+    vector->setAllIsAscii(true);
+
+    ascii = vector->isAscii(all, sourceMappings);
+    ASSERT_TRUE(ascii.has_value());
+    ASSERT_TRUE(ascii.value());
+
+    // Ensure we return nullopt if we arent a subset.
+    SelectivityVector some(all.size(), false);
+    some.setValid(0, true);
+    some.updateBounds();
+    vector->invalidateIsAscii();
+    vector->setIsAscii(true, some);
+    ascii = vector->isAscii(all, sourceMappings);
+    ASSERT_FALSE(ascii.has_value());
+  }
+}
+
+TEST_F(SimpleVectorNonParameterizedTest, invalidateIsAscii) {
+  for (auto encoding : kAsciiEncodings) {
+    LOG(INFO) << "Running:" << encoding;
+
+    auto vector = maker_.encodedVector(encoding, stringData_);
+    SelectivityVector all(stringData_.size());
+    vector->computeAndSetIsAscii(all);
+
+    assertIsAscii(vector, all, false);
+
+    vector->invalidateIsAscii();
+    ASSERT_FALSE(vector->isAscii(all).has_value());
+  }
+}
+
+TEST_F(SimpleVectorNonParameterizedTest, setAscii) {
+  for (auto encoding : kAsciiEncodings) {
+    LOG(INFO) << "Running:" << encoding;
+    auto vector = maker_.encodedVector(encoding, stringData_);
+
+    SelectivityVector all(stringData_.size());
+    vector->computeAndSetIsAscii(all);
+    assertIsAscii(vector, all, false);
+
+    vector->invalidateIsAscii();
+    vector->setIsAscii(true, all);
+    assertIsAscii(vector, all, true);
+
+    // Subset of all.
+    SelectivityVector some(stringData_.size(), false);
+    some.setValid(1, true);
+    some.updateBounds();
+    vector->setIsAscii(true, some);
+
+    assertIsAscii(vector, all, true);
+
+    some.clearAll();
+    some.setValid(0, false);
+    some.updateBounds();
+    vector->setIsAscii(false, some);
+
+    assertIsAscii(vector, all, false);
+  }
+}
 
 VELOX_TYPED_TEST_SUITE(SimpleVectorTypedTest, SimpleTypes);
 

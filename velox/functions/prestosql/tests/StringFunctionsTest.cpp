@@ -148,10 +148,6 @@ class StringFunctionsTest : public FunctionBaseTest {
       inputsFlatVector->set(i, StringView(std::get<0>(tests[i])));
     }
 
-    if (stringEncoding.has_value()) {
-      inputsFlatVector->setStringEncoding(stringEncoding.value());
-    }
-
     auto crossRefVector = std::dynamic_pointer_cast<FlatVector<StringView>>(
         BaseVector::create(VARCHAR(), 1, execCtx_.pool()));
 
@@ -161,8 +157,6 @@ class StringFunctionsTest : public FunctionBaseTest {
 
     auto result = evaluate<FlatVector<StringView>>(
         "upper(c0)", makeRowVector({inputsFlatVector}));
-
-    ASSERT_EQ(result->getStringEncoding().value(), expectedResultEncoding);
 
     for (int32_t i = 0; i < tests.size(); ++i) {
       ASSERT_EQ(result->valueAt(i), StringView(std::get<1>(tests[i])));
@@ -181,10 +175,6 @@ class StringFunctionsTest : public FunctionBaseTest {
       inputsFlatVector->set(i, StringView(std::get<0>(tests[i])));
     }
 
-    if (stringEncoding.has_value()) {
-      inputsFlatVector->setStringEncoding(stringEncoding.value());
-    }
-
     auto crossRefVector = std::dynamic_pointer_cast<FlatVector<StringView>>(
         BaseVector::create(VARCHAR(), 1, execCtx_.pool()));
 
@@ -194,7 +184,6 @@ class StringFunctionsTest : public FunctionBaseTest {
     auto testQuery = [&](const std::string& query) {
       auto result = evaluate<FlatVector<StringView>>(
           query, makeRowVector({inputsFlatVector}));
-      ASSERT_EQ(result->getStringEncoding().value(), expectedResultEncoding);
 
       for (int32_t i = 0; i < tests.size(); ++i) {
         ASSERT_EQ(result->valueAt(i), StringView(std::get<1>(tests[i])));
@@ -257,15 +246,42 @@ class StringFunctionsTest : public FunctionBaseTest {
     for (int i = 0; i < tests.size(); i++) {
       inputsFlatVector->set(i, StringView(std::get<0>(tests[i])));
     }
-    if (stringEncoding.has_value()) {
-      inputsFlatVector->setStringEncoding(stringEncoding.value());
-    }
     auto result = evaluate<FlatVector<int64_t>>(
         "length(c0)", makeRowVector({inputsFlatVector}));
 
     for (int32_t i = 0; i < tests.size(); ++i) {
       ASSERT_EQ(result->valueAt(i), std::get<1>(tests[i]));
     }
+  }
+
+  void testAsciiPropagation(
+      std::vector<std::string> firstColumn,
+      std::vector<std::string> secondColumn,
+      std::vector<std::string> thirdColumn,
+      SelectivityVector rows,
+      std::optional<bool> isAscii,
+      std::string function = "multi_string_fn",
+      std::set<size_t> computeAscinessFor = {0, 1}) {
+    auto argFirst = makeFlatVector<std::string>(firstColumn);
+    auto argSecond = makeFlatVector<std::string>(secondColumn);
+    auto argThird = makeFlatVector<std::string>(thirdColumn);
+
+    // Compute asciiness for required columns.
+    if (computeAscinessFor.count(0)) {
+      (argFirst->as<SimpleVector<StringView>>())->computeAndSetIsAscii(rows);
+    }
+    if (computeAscinessFor.count(1)) {
+      (argSecond->as<SimpleVector<StringView>>())->computeAndSetIsAscii(rows);
+    }
+    if (computeAscinessFor.count(2)) {
+      (argThird->as<SimpleVector<StringView>>())->computeAndSetIsAscii(rows);
+    }
+
+    auto result = evaluate<SimpleVector<StringView>>(
+        fmt::format("{}(c0, c1, c2)", function),
+        makeRowVector({argFirst, argSecond, argThird}));
+    auto ascii = result->isAscii(rows);
+    ASSERT_EQ(ascii, isAscii);
   }
 
   using strpos_input_test_t = std::vector<
@@ -304,7 +320,7 @@ class StringFunctionsTest : public FunctionBaseTest {
   void testStringEncodingResolution(
       const std::vector<std::vector<std::string>>& content,
       const std::vector<folly::Optional<StringEncodingMode>>& encodings,
-      StringEncodingMode expectedResolvedEncoding);
+      bool isAscii);
 
   void testXXHash64(
       const std::vector<std::tuple<std::string, int64_t, int64_t>>& tests);
@@ -771,14 +787,6 @@ TEST_F(StringFunctionsTest, concat) {
     EXPECT_EQ(result->valueAt(i), StringView(c0 + c1));
   }
 
-  // Test string encoding propagation
-  result =
-      evaluate<SimpleVector<StringView>>("concat('ali', 'ali','ali')", rows);
-  EXPECT_EQ(result->getStringEncoding().value(), StringEncodingMode::ASCII);
-
-  result = evaluate<SimpleVector<StringView>>(
-      "concat('ali', 'àáâãäåæçè','ali')", rows);
-  EXPECT_EQ(result->getStringEncoding().value(), StringEncodingMode::UTF8);
 }
 
 // Test length vector function
@@ -843,12 +851,6 @@ void StringFunctionsTest::testStringPositionAllFlatVector(
     }
   }
 
-  if (stringEncodings[0].has_value()) {
-    stringVector->setStringEncoding(stringEncodings[0].value());
-  }
-  if (stringEncodings[1].has_value()) {
-    subStringVector->setStringEncoding(stringEncodings[1].value());
-  }
 
   FlatVectorPtr<int64_t> result;
   if (withInstanceArgument) {
@@ -1138,7 +1140,7 @@ TEST_F(StringFunctionsTest, replace) {
 void StringFunctionsTest::testStringEncodingResolution(
     const std::vector<std::vector<std::string>>& content,
     const std::vector<folly::Optional<StringEncodingMode>>& encodings,
-    StringEncodingMode expectedResolvedEncoding) {
+    bool isAscii) {
   std::vector<FlatVectorPtr<StringView>> inputVectors;
   inputVectors.resize(content.size());
 
@@ -1149,11 +1151,6 @@ void StringFunctionsTest::testStringEncodingResolution(
     }
   }
 
-  for (int i = 0; i < encodings.size(); i++) {
-    if (encodings[i].has_value()) {
-      inputVectors[i]->setStringEncoding(encodings[i].value());
-    }
-  }
 
   SelectivityVector rows(content[0].size());
   rows.setAll();
@@ -1163,29 +1160,26 @@ void StringFunctionsTest::testStringEncodingResolution(
     baseVectors.push_back(vector.get());
   }
 
-  // A dummy context used to call determineStringEncoding
-  exec::EvalCtx evalCtx(
-      &execCtx_, nullptr, makeRowVector(ROW({}, {}), 0).get());
-
   auto resolvedEncoding = StringEncodingMode::ASCII;
   for (auto vector : baseVectors) {
     auto simpleVector = vector->as<SimpleVector<StringView>>();
-    if (!simpleVector->getStringEncoding().has_value()) {
-      SelectivityVector allRows(simpleVector->size());
-      determineStringEncoding(&evalCtx, simpleVector, allRows);
-    }
-
+    SelectivityVector allRows(simpleVector->size());
+    simpleVector->computeAndSetIsAscii(rows);
     resolvedEncoding = functions::maxEncoding(
-        resolvedEncoding, simpleVector->getStringEncoding().value());
+        resolvedEncoding,
+        simpleVector->isAscii(allRows).value() ? StringEncodingMode::ASCII
+                                               : StringEncodingMode::UTF8);
   }
-  ASSERT_EQ(resolvedEncoding, expectedResolvedEncoding);
+  ASSERT_EQ(
+      resolvedEncoding,
+      isAscii ? StringEncodingMode::ASCII : StringEncodingMode::UTF8);
 }
 
 TEST_F(StringFunctionsTest, controlExprEncodingPropagation) {
   std::vector<std::string> dataASCII({"ali", "ali", "ali"});
   std::vector<std::string> dataUTF8({"àáâãäåæçè", "àáâãäåæçè", "àáâãäå"});
 
-  auto test = [&](std::string query, StringEncodingMode expectedEncoding) {
+  auto test = [&](std::string query, bool expectedEncoding) {
     auto conditionVector = makeFlatVector<bool>({false, true, false});
 
     auto result = evaluate<SimpleVector<StringView>>(
@@ -1195,71 +1189,16 @@ TEST_F(StringFunctionsTest, controlExprEncodingPropagation) {
             makeFlatVector(dataASCII),
             makeFlatVector(dataUTF8),
         }));
-    ASSERT_TRUE(result->getStringEncoding().has_value());
-    ASSERT_EQ(result->getStringEncoding().value(), expectedEncoding);
-  };
-
-  auto testEncodingNotSet = [&](std::string query) {
-    auto conditionVector = makeFlatVector<bool>({false, true, false});
-
-    auto result = evaluate<SimpleVector<StringView>>(
-        query,
-        makeRowVector({
-            conditionVector,
-            makeFlatVector(dataASCII),
-            makeFlatVector(dataUTF8),
-        }));
-    ASSERT_EQ(result->getStringEncoding(), std::nullopt);
+    SelectivityVector all(result->size());
+    auto ascii = result->isAscii(all);
+    ASSERT_EQ(ascii && ascii.value(), expectedEncoding);
   };
 
   // Test if expressions
 
-  // Setting encoding on partially populated vector is not yet supported.
-  testEncodingNotSet("if(C0, lower(C1), lower(C2))");
+  test("if(1=1, lower(C1), lower(C2))", true);
 
-  // always then path
-  test("if(1=1, lower(C1), lower(C2))", StringEncodingMode::ASCII);
-
-  test("if(1!=1, lower(C1), lower(C2))", StringEncodingMode::UTF8);
-
-  // if and shared expression
-
-  // Setting encoding on partially populated vector is not yet supported.
-  testEncodingNotSet("if(C0, lower(C1), lower(C1))");
-
-  // Test const expressions ascii
-  test("if(C0, 'ali', 'àáâãäåæçè')", StringEncodingMode::UTF8);
-
-  test("if(C0, 'ali' ,'ali')", StringEncodingMode::ASCII);
-
-  // Test some more complicated expression
-  test(
-      "if(C0, upper('ali'), if(C0,'ali','àáâãäåæçè'))",
-      StringEncodingMode::UTF8);
-
-  // Test field reference expression
-  testEncodingNotSet("if(C0, C1, C2)");
-
-  testEncodingNotSet("if(1=1, C1, C2)");
-  testEncodingNotSet("if(1=1, C1, C1)");
-
-  auto testWithEncodingPreset = [&](std::string query,
-                                    StringEncodingMode expectedEncoding) {
-    auto conditionVector = makeFlatVector<bool>({false, true, false});
-    auto argASCII = makeFlatVector<std::string>({"ali", "ali", "ali"});
-    argASCII->setStringEncoding(StringEncodingMode::ASCII);
-
-    auto argUTF8 =
-        makeFlatVector<std::string>({"àáâãäåæçè", "àáâãäåæçè", "àáâãäå"});
-    argUTF8->setStringEncoding(StringEncodingMode::UTF8);
-
-    auto result = evaluate<FlatVector<StringView>>(
-        query, makeRowVector({conditionVector, argASCII, argUTF8}));
-    ASSERT_EQ(result->getStringEncoding().value(), expectedEncoding);
-  };
-
-  testWithEncodingPreset("if(C0, C1, C1)", StringEncodingMode::ASCII);
-  testWithEncodingPreset("if(C0, C2, C2)", StringEncodingMode::UTF8);
+  test("if(1!=1, lower(C1), lower(C2))", false);
 }
 
 // Test the string encoding reselution
@@ -1317,66 +1256,41 @@ TEST_F(StringFunctionsTest, findCommonEncoding) {
   };
 
   // Test identifying ascii
-  testStringEncodingResolution(
-      {asciiCol}, {folly::none}, StringEncodingMode::ASCII);
+  testStringEncodingResolution({asciiCol}, {folly::none}, true);
+
+  testStringEncodingResolution({asciiCol}, {StringEncodingMode::ASCII}, true);
 
   testStringEncodingResolution(
-      {asciiCol}, {StringEncodingMode::ASCII}, StringEncodingMode::ASCII);
-
-  testStringEncodingResolution(
-      {asciiCol, asciiCol},
-      {folly::none, folly::none},
-      StringEncodingMode::ASCII);
+      {asciiCol, asciiCol}, {folly::none, folly::none}, true);
 
   testStringEncodingResolution(
       {asciiCol, asciiCol, asciiCol},
       {folly::none, folly::none, folly::none},
-      StringEncodingMode::ASCII);
-
-  // Test identifying likely ascii
-  testStringEncodingResolution(
-      {mostlyAsciiCol}, {folly::none}, StringEncodingMode::MOSTLY_ASCII);
-
-  testStringEncodingResolution(
-      {asciiCol, mostlyAsciiCol},
-      {folly::none, folly::none},
-      StringEncodingMode::MOSTLY_ASCII);
-
-  testStringEncodingResolution(
-      {asciiCol, mostlyAsciiCol},
-      {StringEncodingMode::ASCII, StringEncodingMode::MOSTLY_ASCII},
-      StringEncodingMode::MOSTLY_ASCII);
-
-  testStringEncodingResolution(
-      {asciiCol, asciiCol},
-      {StringEncodingMode::MOSTLY_ASCII, StringEncodingMode::ASCII},
-      StringEncodingMode::MOSTLY_ASCII);
+      true);
 
   // Test identifying UTF8
-  testStringEncodingResolution(
-      {utf8Col}, {folly::none}, StringEncodingMode::UTF8);
+  testStringEncodingResolution({utf8Col}, {folly::none}, false);
 
-  testStringEncodingResolution(
-      {mixUTF8Col}, {folly::none}, StringEncodingMode::UTF8);
+  testStringEncodingResolution({mixUTF8Col}, {folly::none}, false);
 
   testStringEncodingResolution(
       {asciiCol, mostlyAsciiCol, utf8Col},
       {folly::none, folly::none, folly::none},
-      StringEncodingMode::UTF8);
+      false);
 
   testStringEncodingResolution(
       {asciiCol, mostlyAsciiCol, utf8Col},
       {StringEncodingMode::ASCII,
        StringEncodingMode::MOSTLY_ASCII,
        folly::none},
-      StringEncodingMode::UTF8);
+      false);
 
   testStringEncodingResolution(
       {asciiCol, mostlyAsciiCol, utf8Col},
       {StringEncodingMode::ASCII,
        StringEncodingMode::MOSTLY_ASCII,
        StringEncodingMode::UTF8},
-      StringEncodingMode::UTF8);
+      false);
 }
 
 void StringFunctionsTest::testXXHash64(
@@ -1453,4 +1367,290 @@ TEST_F(StringFunctionsTest, xxhash64) {
     // Default value seed for string inputs
     testXXHash64(validInputTest, true);
   }
+}
+
+namespace {
+
+class MultiStringFunction : public exec::VectorFunction {
+ public:
+  void apply(
+      const SelectivityVector& rows,
+      std::vector<VectorPtr>& args,
+      exec::Expr* /*caller*/,
+      exec::EvalCtx* /*context*/,
+      VectorPtr* result) const override {
+    *result = BaseVector::wrapInConstant(rows.size(), 0, args[0]);
+  }
+
+  static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
+    return {
+        // varchar, varchar, varchar -> varchar
+        exec::FunctionSignatureBuilder()
+            .returnType("varchar")
+            .argumentType("varchar")
+            .argumentType("varchar")
+            .argumentType("varchar")
+            .build(),
+    };
+  }
+
+  bool ensureStringEncodingSetAtAllInputs() const override {
+    return true;
+  }
+
+  bool propagateStringEncodingFromAllInputs() const override {
+    return true;
+  }
+};
+} // namespace
+
+VELOX_DECLARE_VECTOR_FUNCTION(
+    udf_multi_string_function,
+    MultiStringFunction::signatures(),
+    std::make_unique<MultiStringFunction>());
+
+TEST_F(StringFunctionsTest, ascinessOnDictionary) {
+  using S = StringView;
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_multi_string_function, "multi_string_fn")
+  vector_size_t size = 5;
+  auto flatVector = makeFlatVector<StringView>(
+      {S("hello how do"),
+       S("how are"),
+       S("is this how"),
+       S("abcd"),
+       S("yes no")});
+
+  auto searchVector = makeFlatVector<StringView>(
+      {S("hello"), S("how"), S("is"), S("abc"), S("yes")});
+  auto replaceVector = makeFlatVector<StringView>(
+      {S("hi"), S("hmm"), S("it"), S("mno"), S("xyz")});
+  BufferPtr nulls = nullptr;
+
+  BufferPtr indices = AlignedBuffer::allocate<vector_size_t>(size, pool());
+  auto rawIndices = indices->asMutable<vector_size_t>();
+  for (int i = 0; i < size; i++) {
+    rawIndices[i] = i;
+  }
+
+  auto dictionaryVector =
+      BaseVector::wrapInDictionary(nulls, indices, size, flatVector);
+
+  auto result = evaluate<SimpleVector<StringView>>(
+      fmt::format("multi_string_fn(c0, c1, c2)"),
+      makeRowVector({dictionaryVector, searchVector, replaceVector}));
+  SelectivityVector all(size);
+  auto ascii = result->isAscii(all);
+  ASSERT_EQ(ascii && ascii.value(), true);
+}
+
+TEST_F(StringFunctionsTest, vectorAccessCheck) {
+  using S = StringView;
+
+  auto flatVectorWithNulls = makeNullableFlatVector<StringView>(
+      std::vector<std::optional<StringView>>{
+          S("hello"), std::nullopt, S("world")},
+      VARCHAR());
+
+  exec::EvalCtx evalCtx(
+      &execCtx_, nullptr, makeRowVector(ROW({}, {}), 0).get());
+
+  auto vectorWithNulls = flatVectorWithNulls->as<SimpleVector<StringView>>();
+  SelectivityVector rows(vectorWithNulls->size());
+  rows.setValid(1, false); // Dont access the middle element.
+  vectorWithNulls->computeAndSetIsAscii(rows);
+  auto ascii = vectorWithNulls->isAscii(rows);
+  ASSERT_TRUE(ascii && ascii.value());
+}
+
+TEST_F(StringFunctionsTest, switchCaseCheck) {
+  auto testConditionalPropagation = [&](std::vector<bool> conditionColumn,
+                                        std::vector<std::string> firstColumn,
+                                        std::vector<std::string> secondColumn,
+                                        SelectivityVector rows,
+                                        std::string query,
+                                        bool isAscii) {
+    auto conditionVector = makeFlatVector<bool>(conditionColumn);
+    auto argASCII = makeFlatVector<std::string>(firstColumn);
+    auto asciiVector = argASCII->as<SimpleVector<StringView>>();
+    asciiVector->computeAndSetIsAscii(rows);
+
+    auto argUTF8 = makeFlatVector<std::string>(secondColumn);
+    auto utfVector = argUTF8->as<SimpleVector<StringView>>();
+    utfVector->computeAndSetIsAscii(rows);
+
+    auto result = evaluate<FlatVector<StringView>>(
+        query, makeRowVector({conditionVector, argASCII, argUTF8}));
+    auto ascii = result->isAscii(rows);
+    ASSERT_EQ(ascii && ascii.value(), isAscii);
+  };
+
+  auto condition = std::vector<bool>{false, true, false};
+  auto c1 = std::vector<std::string>{"ali", "ali", "ali"};
+  auto c2 = std::vector<std::string>{"àáâãäåæçè", "àáâãäåæçè", "àáâãäå"};
+  SelectivityVector rows(condition.size());
+  testConditionalPropagation(
+      condition, c1, c2, rows, "if(C0, upper(C1), lower(C1))", true);
+  testConditionalPropagation(
+      condition, c1, c2, rows, "lower(if(C0, C2, C2))", false);
+  testConditionalPropagation(
+      condition, c1, c2, rows, "lower(if(C0, C1, C1))", true);
+}
+
+TEST_F(StringFunctionsTest, asciiPropogation) {
+  /// This test case catches case where we ensure that ascii propagation is
+  /// the AND of all input vectors.
+
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_multi_string_function, "multi_string_fn")
+
+  auto c1 = std::vector<std::string>{"a", "a", "a"};
+  auto c2 = std::vector<std::string>{"à", "b", "å"};
+  auto c3 = std::vector<std::string>{"a", "a", "a"};
+
+  SelectivityVector rows(c1.size(), false);
+  rows.setValid(2, true);
+  rows.updateBounds();
+  testAsciiPropagation(c1, c2, c3, rows, /*isAscii*/ false);
+
+  // There is no row level asciiness, thus even the middle element will
+  // be false.
+  rows.clearAll();
+  rows.setValid(1, true);
+  rows.updateBounds();
+  testAsciiPropagation(c1, c2, c3, rows, /*isAscii*/ false);
+
+  // Only compute asciiness on first row.
+  rows.setAll();
+  testAsciiPropagation(
+      c1, c2, c3, rows, /*isAscii*/ false, "multi_string_fn", {0});
+
+  testAsciiPropagation(c1, c3, c3, rows, /*isAscii*/ true);
+}
+
+namespace {
+
+class InputModifyingFunction : public MultiStringFunction {
+ public:
+  void apply(
+      const SelectivityVector& rows,
+      std::vector<VectorPtr>& args,
+      exec::Expr* expr,
+      exec::EvalCtx* ctx,
+      VectorPtr* result) const override {
+    MultiStringFunction::apply(rows, args, expr, ctx, result);
+
+    // Modify args and remove its asciness
+    for (auto& arg : args) {
+      auto input = arg->as<SimpleVector<StringView>>();
+      input->invalidateIsAscii();
+    }
+  }
+};
+} // namespace
+
+VELOX_DECLARE_VECTOR_FUNCTION(
+    udf_input_modifying_string_function,
+    InputModifyingFunction::signatures(),
+    std::make_unique<InputModifyingFunction>());
+
+TEST_F(StringFunctionsTest, asciiPropogationOnInputModification) {
+  /// This test case catches case where we ensure that ascii propagation is
+  /// still captured despite inputs being modified.
+
+  VELOX_REGISTER_VECTOR_FUNCTION(
+      udf_input_modifying_string_function, "modifying_string_input")
+
+  auto c1 = std::vector<std::string>{"a", "a", "a"};
+  auto c2 = std::vector<std::string>{"à", "b", "å"};
+  auto c3 = std::vector<std::string>{"a", "a", "a"};
+
+  SelectivityVector rows(c1.size(), false);
+  rows.setValid(2, true);
+  rows.updateBounds();
+  testAsciiPropagation(c1, c2, c3, rows, false, "modifying_string_input");
+}
+
+namespace {
+class AsciiPropagationCheckFn : public MultiStringFunction {
+ public:
+  std::optional<std::vector<size_t>> propagateStringEncodingFrom()
+      const override {
+    return {{0, 1}};
+  }
+
+  bool propagateStringEncodingFromAllInputs() const override {
+    return false;
+  }
+};
+} // namespace
+
+VELOX_DECLARE_VECTOR_FUNCTION(
+    udf_ascii_propagation_check,
+    AsciiPropagationCheckFn::signatures(),
+    std::make_unique<AsciiPropagationCheckFn>());
+
+TEST_F(StringFunctionsTest, asciiPropagationForSpecificInput) {
+  /// This test case catches case where we ensure that ascii propagation is
+  /// only propagated from the inputs specified.
+
+  VELOX_REGISTER_VECTOR_FUNCTION(
+      udf_ascii_propagation_check, "index_ascii_propagation")
+
+  auto c1 = std::vector<std::string>{"a", "a", "a"};
+  auto c2 = std::vector<std::string>{"à", "à", "å"};
+  auto c3 = std::vector<std::string>{"a", "a", "a"};
+
+  SelectivityVector all(c1.size());
+  testAsciiPropagation(c1, c2, c3, all, false, "index_ascii_propagation");
+
+  testAsciiPropagation(c1, c3, c2, all, true, "index_ascii_propagation");
+}
+
+namespace {
+class AsciiPropagationTestFn : public MultiStringFunction {
+ public:
+  std::optional<std::vector<size_t>> propagateStringEncodingFrom()
+      const override {
+    return {{0, 1}};
+  }
+
+  bool propagateStringEncodingFromAllInputs() const override {
+    return false;
+  }
+
+  bool ensureStringEncodingSetAtAllInputs() const override {
+    return false;
+  }
+
+  std::vector<size_t> ensureStringEncodingSetAt() const override {
+    return {1};
+  }
+};
+} // namespace
+
+VELOX_DECLARE_VECTOR_FUNCTION(
+    udf_ascii_propagation_input_check,
+    InputModifyingFunction::signatures(),
+    std::make_unique<AsciiPropagationTestFn>());
+
+TEST_F(StringFunctionsTest, asciiPropagationWithDisparateInput) {
+  /// This test case catches case where we ensure that ascii propagation
+  /// should happen even without computing asciiness on the inputs.
+
+  VELOX_REGISTER_VECTOR_FUNCTION(
+      udf_ascii_propagation_check, "ascii_propagation_check")
+
+  auto c1 = std::vector<std::string>{"a", "a", "a"};
+  auto c2 = std::vector<std::string>{"à", "à", "å"};
+  auto c3 = std::vector<std::string>{"a", "a", "a"};
+
+  // Compute Asciness for inputs 2,3 explicitly.
+  SelectivityVector all(c1.size());
+  testAsciiPropagation(c1, c2, c3, all, false, "ascii_propagation_check");
+
+  testAsciiPropagation(c1, c3, c2, all, true, "ascii_propagation_check");
+
+  // Do not compute asciness explicitly.
+  testAsciiPropagation(c1, c2, c3, all, false, "ascii_propagation_check", {});
+
+  testAsciiPropagation(c1, c3, c2, all, true, "ascii_propagation_check", {});
 }

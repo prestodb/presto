@@ -320,21 +320,18 @@ class ConstantVector : public SimpleVector<T> {
       isNull_ = simple->isNullAt(index_);
       if (!isNull_) {
         value_ = simple->valueAt(index_);
-        if (std::is_same<T, StringView>::value) {
+        if constexpr (std::is_same<T, StringView>::value) {
           // Copy string value.
           StringView* valuePtr = reinterpret_cast<StringView*>(&value_);
           setValue(std::string(valuePtr->data(), valuePtr->size()));
+
+          auto stringVector = simple->template as<SimpleVector<StringView>>();
+          if (auto ascii = stringVector->isAscii(index_)) {
+            SimpleVector<T>::setAllIsAscii(ascii.value());
+          }
         }
       }
       valueVector_ = nullptr;
-
-      // Preserve string encoding
-      if constexpr (std::is_same_v<T, StringView>) {
-        if (simple->getStringEncoding().has_value()) {
-          SimpleVector<T>::setStringEncoding(
-              simple->getStringEncoding().value());
-        }
-      }
     }
     makeNullsBuffer();
     initialized_ = true;

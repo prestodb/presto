@@ -64,7 +64,7 @@ class LengthFunction : public exec::VectorFunction {
     auto* resultFlatVector = (*result)->as<FlatVector<int64_t>>();
 
     if (inputArg->typeKind() == TypeKind::VARCHAR) {
-      auto stringEncoding = getStringEncodingOrUTF8(inputArg.get());
+      auto stringEncoding = getStringEncodingOrUTF8(inputArg.get(), rows);
       StringEncodingTemplateWrapper<ApplyInternalString>::apply(
           stringEncoding, rows, decodedInput, resultFlatVector);
       return;

@@ -295,6 +295,10 @@ void FlatVector<T>::resize(vector_size_t size) {
   values_->setSize(minBytes);
 
   if (std::is_same<T, StringView>::value) {
+    if (size < previousSize) {
+      auto vector = this->template as<SimpleVector<StringView>>();
+      vector->invalidateIsAscii();
+    }
     if (size == 0) {
       stringBuffers_.clear();
     }

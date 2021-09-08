@@ -295,6 +295,22 @@ void FlatVector<StringView>::copy(
       }
     });
   }
+
+  if (auto stringVector = source->as<SimpleVector<StringView>>()) {
+    if (auto ascii = stringVector->isAscii(rows, toSourceRow)) {
+      setIsAscii(ascii.value(), rows);
+    } else {
+      // ASCII-ness for the 'rows' is not known.
+      ensureIsAsciiCapacity(rows.end());
+      // If we arent All ascii, then invalidate
+      // because the remaining selected rows might be ascii
+      if (!isAllAscii_) {
+        invalidateIsAscii();
+      } else {
+        asciiSetRows_.deselect(rows);
+      }
+    }
+  }
 }
 
 template <>

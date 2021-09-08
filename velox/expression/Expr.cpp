@@ -249,12 +249,6 @@ void Expr::eval(
     }
   }
 
-  // Invalidate old result string encoding if exist
-  if (isString() && result && *result) {
-    (*result)
-        ->asUnchecked<SimpleVector<StringView>>()
-        ->invalidateStringEncoding();
-  }
   if (inputs_.empty()) {
     evalAll(rows, context, result);
     return;
@@ -305,11 +299,6 @@ bool Expr::checkGetSharedSubexprValues(
     evalEncodings(*missingRows, context, &sharedSubexprValues_);
   }
   context->moveOrCopyResult(sharedSubexprValues_, rows, result);
-  // Copy string encoding
-  if (isString()) {
-    (*result)->as<SimpleVector<StringView>>()->copyStringEncodingFrom(
-        sharedSubexprValues_.get());
-  }
   return true;
 }
 
@@ -787,10 +776,9 @@ void Expr::setAllNulls(
 }
 
 namespace {
-void scanVectorFunctionInputsStringEncoding(
+void computeIsAsciiForInputs(
     const VectorFunction* vectorFunction,
-    std::vector<VectorPtr>& inputValues,
-    EvalCtx* context,
+    const std::vector<VectorPtr>& inputValues,
     const SelectivityVector& rows) {
   std::vector<size_t> indices;
   if (vectorFunction->ensureStringEncodingSetAtAllInputs()) {
@@ -802,25 +790,25 @@ void scanVectorFunctionInputsStringEncoding(
     indices.push_back(index);
   }
 
-  // Compute string encoding for input vectors at indicies
+  // Compute string encoding for input vectors at indicies.
   for (auto& index : indices) {
-    // Some arguments are optionals and hence may not exist. And some functions
-    // operates on dynamic types, but we only scan them when the type is string
+    // Some arguments are optional and hence may not exist. And some
+    // functions operate on dynamic types, but we only scan them when the
+    // type is string.
     if (index < inputValues.size() &&
         inputValues[index]->type()->kind() == TypeKind::VARCHAR) {
       auto* vector =
           inputValues[index]->template as<SimpleVector<StringView>>();
-      determineStringEncoding(context, vector, rows);
+      vector->computeAndSetIsAscii(rows);
     }
   }
 }
 
-// Determine the string encoding of the result based on the inputs encoding if
-// encoding propagation is configured. Return std::nullopt if not determined.
-std::optional<functions::stringCore::StringEncodingMode>
-getVectorFunctionResultStringEncoding(
+/// Computes asciiness on specified inputs for propagation.
+std::optional<bool> computeIsAsciiForResult(
     const VectorFunction* vectorFunction,
-    std::vector<VectorPtr>& inputValues) {
+    const std::vector<VectorPtr>& inputValues,
+    const SelectivityVector& rows) {
   std::vector<size_t> indices;
   if (vectorFunction->propagateStringEncodingFromAllInputs()) {
     for (auto i = 0; i < inputValues.size(); i++) {
@@ -828,29 +816,31 @@ getVectorFunctionResultStringEncoding(
     }
   } else if (vectorFunction->propagateStringEncodingFrom().has_value()) {
     indices = vectorFunction->propagateStringEncodingFrom().value();
-  } else {
-    // no propagation is done
+  }
+
+  if (indices.empty()) {
     return std::nullopt;
   }
 
-  auto resultEncoding = StringEncodingMode::ASCII;
+  // Return false if at least one input is not all ASCII.
+  // Return true if all inputs are all ASCII.
+  // Return unknown otherwise.
+  bool isAsciiSet = true;
   for (auto& index : indices) {
-    // Some arguments are optionals and hence may not exist. And some functions
-    // operates on dynamic types.
-    if (index >= inputValues.size() ||
-        inputValues[index]->type()->kind() != TypeKind::VARCHAR) {
-      continue;
-    }
-
-    auto inputVector = inputValues[index]->as<SimpleVector<StringView>>();
-    if (!inputVector->getStringEncoding().has_value()) {
-      return std::nullopt;
-    } else {
-      resultEncoding =
-          maxEncoding(resultEncoding, inputVector->getStringEncoding().value());
+    if (index < inputValues.size() &&
+        inputValues[index]->type()->kind() == TypeKind::VARCHAR) {
+      auto* vector =
+          inputValues[index]->template as<SimpleVector<StringView>>();
+      auto isAscii = vector->isAscii(rows);
+      if (!isAscii.has_value()) {
+        isAsciiSet = false;
+      } else if (!isAscii.value()) {
+        return false;
+      }
     }
   }
-  return resultEncoding;
+
+  return isAsciiSet ? std::optional(true) : std::nullopt;
 }
 
 inline bool isPeelable(VectorEncoding::Simple encoding) {
@@ -1045,14 +1035,13 @@ void Expr::applyFunction(
     const SelectivityVector& rows,
     EvalCtx* context,
     VectorPtr* result) {
-  scanVectorFunctionInputsStringEncoding(
-      vectorFunction_.get(), inputValues_, context, rows);
-  auto resultEncoding = getVectorFunctionResultStringEncoding(
-      vectorFunction_.get(), inputValues_);
+  computeIsAsciiForInputs(vectorFunction_.get(), inputValues_, rows);
+  auto isAscii =
+      computeIsAsciiForResult(vectorFunction_.get(), inputValues_, rows);
   applyVectorFunction(rows, context, result);
-  if (resultEncoding.has_value()) {
-    (*result)->as<SimpleVector<StringView>>()->setStringEncoding(
-        *resultEncoding);
+  if (isAscii.has_value()) {
+    (*result)->asUnchecked<SimpleVector<StringView>>()->setIsAscii(
+        isAscii.value(), rows);
   }
 }
 
@@ -1190,95 +1179,6 @@ std::unique_ptr<ExprSet> makeExprSetFromFlag(
     return std::make_unique<ExprSetSimplified>(std::move(source), execCtx);
   }
   return std::make_unique<ExprSet>(std::move(source), execCtx);
-}
-
-void determineStringEncoding(
-    exec::EvalCtx* context,
-    SimpleVector<StringView>* vector,
-    const SelectivityVector& rows) {
-  if (vector->getStringEncoding().has_value()) {
-    return;
-  }
-
-  if (!vector->isConstantEncoding() &&
-      !(rows.size() >= vector->size() && rows.isAllSelected())) {
-    // TODO Allow setting string encoding for a subset of rows.
-    return;
-  }
-
-  vector_size_t totalValuesCount = 0;
-  vector_size_t totalAsciiCount = 0;
-
-  auto countAscii = [&](const StringView& string) {
-    totalValuesCount++;
-    if (functions::stringCore::isAscii(string.data(), string.size())) {
-      totalAsciiCount++;
-      return true;
-    }
-    return false;
-  };
-
-  if (vector->isConstantEncoding()) {
-    auto* constantVector = vector->as<ConstantVector<StringView>>();
-    if (!constantVector->isNullAt(0)) {
-      countAscii(*constantVector->rawValues());
-    }
-  } else if (vector->encoding() == VectorEncoding::Simple::FLAT) {
-    auto* flatVector = vector->as<FlatVector<StringView>>();
-    for (auto i = 0; i < flatVector->size(); i++) {
-      if (!vector->isNullAt(i)) {
-        countAscii(flatVector->valueAtFast(i));
-      }
-    }
-  } else {
-    // For the general case we use a decoder
-    exec::LocalDecodedVector decodedVectorHolder(context);
-    auto* decodedVector = decodedVectorHolder.get();
-
-    SelectivityVector localRows(vector->size());
-    decodedVector->decode(*vector, localRows);
-
-    // if encoding of underlying vector is set then use it
-    if (auto stringEncodung = decodedVector->base()
-                                  ->as<SimpleVector<StringView>>()
-                                  ->getStringEncoding()) {
-      vector->setStringEncoding(*stringEncodung);
-      return;
-    }
-
-    std::unordered_map<vector_size_t, bool> baseIndicesAscii;
-    auto* indiciesMap = decodedVector->indices();
-
-    for (auto i = 0; i < vector->size(); i++) {
-      auto baseIndex = indiciesMap[i];
-
-      // Make sure an index in the base vector is not proccessed multiple times
-      if (!decodedVector->isNullAt(i)) {
-        if (!baseIndicesAscii.count(baseIndex)) {
-          baseIndicesAscii[baseIndex] =
-              countAscii(decodedVector->valueAt<StringView>(i));
-          continue;
-        }
-        // ascii already computed for underlying value
-        totalValuesCount++;
-        if (baseIndicesAscii[baseIndex]) {
-          totalAsciiCount++;
-        }
-      }
-    }
-  }
-
-  if (totalAsciiCount == totalValuesCount) {
-    vector->setStringEncoding(functions::stringCore::StringEncodingMode::ASCII);
-    return;
-  }
-
-  double asciiRatio = (double)totalAsciiCount / totalValuesCount;
-
-  vector->setStringEncoding(
-      asciiRatio > 0.80
-          ? functions::stringCore::StringEncodingMode::MOSTLY_ASCII
-          : functions::stringCore::StringEncodingMode::UTF8);
 }
 
 } // namespace facebook::velox::exec

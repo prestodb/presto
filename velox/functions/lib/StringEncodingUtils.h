@@ -23,13 +23,13 @@ namespace facebook::velox::functions {
 using namespace stringCore;
 
 /// Return the string encoding of a vector, if not set UTF8 is returned
-static StringEncodingMode getStringEncodingOrUTF8(BaseVector* vector) {
+static StringEncodingMode getStringEncodingOrUTF8(
+    BaseVector* vector,
+    const SelectivityVector& rows) {
   if (auto simpleVector = vector->template as<SimpleVector<StringView>>()) {
-    if (!simpleVector->getStringEncoding().has_value()) {
-      return StringEncodingMode::UTF8;
-    } else {
-      return simpleVector->getStringEncoding().value();
-    }
+    auto ascii = simpleVector->isAscii(rows);
+    return ascii && ascii.value() ? StringEncodingMode::ASCII
+                                  : StringEncodingMode::UTF8;
   }
   VELOX_UNREACHABLE();
   return StringEncodingMode::UTF8;
