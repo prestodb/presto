@@ -331,7 +331,8 @@ public class OrcReader
                 writeValidation,
                 initialBatchSize,
                 stripeMetadataSource,
-                cacheable);
+                cacheable,
+                runtimeStats);
     }
 
     public OrcSelectiveRecordReader createSelectiveRecordReader(
@@ -385,7 +386,8 @@ public class OrcReader
                 writeValidation,
                 initialBatchSize,
                 stripeMetadataSource,
-                cacheable);
+                cacheable,
+                runtimeStats);
     }
 
     private static OrcDataSource wrapWithCacheIfTiny(OrcDataSource dataSource, DataSize maxCacheSize, OrcAggregatedMemoryContext systemMemoryContext)
