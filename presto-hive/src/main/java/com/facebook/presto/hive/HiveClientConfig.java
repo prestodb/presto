@@ -197,6 +197,7 @@ public class HiveClientConfig
     private int materializedViewMissingPartitionsThreshold = 100;
 
     private boolean verboseRuntimeStatsEnabled;
+    private boolean useRecordPageSourceForCustomSplit = true;
 
     private boolean sizeBasedSplitWeightsEnabled = true;
     private double minimumAssignedSplitWeight = 0.05;
@@ -1711,5 +1712,18 @@ public class HiveClientConfig
     public double getMinimumAssignedSplitWeight()
     {
         return minimumAssignedSplitWeight;
+    }
+
+    public boolean isUseRecordPageSourceForCustomSplit()
+    {
+        return this.useRecordPageSourceForCustomSplit;
+    }
+
+    @Config("hive.use-record-page-source-for-custom-split")
+    @ConfigDescription("Use record page source for custom split. By default, true. Used to query MOR tables in Hudi.")
+    public HiveClientConfig setUseRecordPageSourceForCustomSplit(boolean useRecordPageSourceForCustomSplit)
+    {
+        this.useRecordPageSourceForCustomSplit = useRecordPageSourceForCustomSplit;
+        return this;
     }
 }
