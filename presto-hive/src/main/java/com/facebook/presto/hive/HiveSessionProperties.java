@@ -131,6 +131,7 @@ public final class HiveSessionProperties
     private static final String DWRF_WRITER_STRIPE_CACHE_SIZE = "dwrf_writer_stripe_cache_size";
     public static final String SIZE_BASED_SPLIT_WEIGHTS_ENABLED = "size_based_split_weights_enabled";
     public static final String MINIMUM_ASSIGNED_SPLIT_WEIGHT = "minimum_assigned_split_weight";
+    private static final String USE_RECORD_PAGE_SOURCE_FOR_CUSTOM_SPLIT = "use_record_page_source_for_custom_split";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -639,7 +640,12 @@ public final class HiveSessionProperties
                             }
                             return doubleValue;
                         },
-                        value -> value));
+                        value -> value),
+                booleanProperty(
+                        USE_RECORD_PAGE_SOURCE_FOR_CUSTOM_SPLIT,
+                        "Use record page source for custom split",
+                        hiveClientConfig.isUseRecordPageSourceForCustomSplit(),
+                        false));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -1108,5 +1114,10 @@ public final class HiveSessionProperties
     public static double getMinimumAssignedSplitWeight(ConnectorSession session)
     {
         return session.getProperty(MINIMUM_ASSIGNED_SPLIT_WEIGHT, Double.class);
+    }
+
+    public static boolean isUseRecordPageSourceForCustomSplit(ConnectorSession session)
+    {
+        return session.getProperty(USE_RECORD_PAGE_SOURCE_FOR_CUSTOM_SPLIT, Boolean.class);
     }
 }
