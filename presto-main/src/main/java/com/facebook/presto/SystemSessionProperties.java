@@ -1160,9 +1160,9 @@ public final class SystemSessionProperties
         return session.getSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.class);
     }
 
-    public static Optional<DataSize> getJoinMaxBroadcastTableSize(Session session)
+    public static DataSize getJoinMaxBroadcastTableSize(Session session)
     {
-        return Optional.ofNullable(session.getSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, DataSize.class));
+        return session.getSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, DataSize.class);
     }
 
     public static boolean isDistributedIndexJoinEnabled(Session session)

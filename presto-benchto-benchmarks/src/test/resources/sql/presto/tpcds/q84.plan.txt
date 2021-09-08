@@ -1,9 +1,10 @@
 local exchange (GATHER, SINGLE, [])
     remote exchange (GATHER, SINGLE, [])
-        join (INNER, REPLICATED):
-            scan store_returns
+        join (INNER, PARTITIONED):
+            remote exchange (REPARTITION, HASH, [sr_cdemo_sk])
+                scan store_returns
             local exchange (GATHER, SINGLE, [])
-                remote exchange (REPLICATE, BROADCAST, [])
+                remote exchange (REPARTITION, HASH, [c_current_cdemo_sk])
                     join (INNER, REPLICATED):
                         scan customer_demographics
                         local exchange (GATHER, SINGLE, [])
