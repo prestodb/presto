@@ -1355,6 +1355,10 @@ class StatementAnalyzer
                 return materializedViewCreateSql;
             }
 
+            if(materializedViewStatus.isTooMuchNotMaterialized()) {
+                return materializedViewCreateSql;
+            }
+
             checkState(materializedViewStatus.isPartiallyMaterialized(), "materialized view status is " + materializedViewStatus);
 
             Statement createSqlStatement = sqlParser.createStatement(materializedViewCreateSql, createParsingOptions(session, warningCollector));

@@ -22,6 +22,7 @@ import java.util.Map;
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.FULLY_MATERIALIZED;
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.NOT_MATERIALIZED;
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.PARTIALLY_MATERIALIZED;
+import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.TOO_MUCH_NOT_MATERIALIZED;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
@@ -32,7 +33,8 @@ public class MaterializedViewStatus
     {
         NOT_MATERIALIZED,
         PARTIALLY_MATERIALIZED,
-        FULLY_MATERIALIZED
+        FULLY_MATERIALIZED,
+        TOO_MUCH_NOT_MATERIALIZED
     }
 
     public static class MaterializedDataPredicates
@@ -94,6 +96,11 @@ public class MaterializedViewStatus
     public boolean isPartiallyMaterialized()
     {
         return materializedViewState == PARTIALLY_MATERIALIZED;
+    }
+
+    public boolean isTooMuchNotMaterialized()
+    {
+        return materializedViewState == TOO_MUCH_NOT_MATERIALIZED;
     }
 
     public Map<SchemaTableName, MaterializedDataPredicates> getPartitionsFromBaseTables()

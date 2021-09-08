@@ -306,6 +306,7 @@ import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedDataPre
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.FULLY_MATERIALIZED;
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.NOT_MATERIALIZED;
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.PARTIALLY_MATERIALIZED;
+import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.TOO_MUCH_NOT_MATERIALIZED;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_ANALYZE_PROPERTY;
@@ -2334,6 +2335,9 @@ public class HiveMetadata
 
         for (MaterializedDataPredicates dataPredicates : partitionsFromBaseTables.values()) {
             if (!dataPredicates.getPredicateDisjuncts().isEmpty()) {
+                if(dataPredicates.getPredicateDisjuncts().size() >  HiveSessionProperties.getMaxNonMaterializedPartitionsLimitForOptimization(session)) {
+                    return new MaterializedViewStatus(TOO_MUCH_NOT_MATERIALIZED, partitionsFromBaseTables);
+                }
                 return new MaterializedViewStatus(PARTIALLY_MATERIALIZED, partitionsFromBaseTables);
             }
         }

@@ -193,6 +193,8 @@ public class HiveClientConfig
 
     private Duration partitionLeaseDuration = new Duration(0, TimeUnit.SECONDS);
 
+    private Integer maxNonMaterializedPartitionsLimitForOptimization = 100;
+
     public int getMaxInitialSplits()
     {
         return maxInitialSplits;
@@ -998,6 +1000,17 @@ public class HiveClientConfig
     {
         this.fileStatusCacheExpireAfterWrite = fileStatusCacheExpireAfterWrite;
         return this;
+    }
+
+    @Config("hive.max-non-materialized-partitions-limit-for_optimization")
+    public void setMaxNonMaterializedPartitionsLimitForOptimization(Integer maxNonMaterializedPartitionsLimitForOptimization)
+    {
+        this.maxNonMaterializedPartitionsLimitForOptimization = maxNonMaterializedPartitionsLimitForOptimization;
+    }
+
+    public Integer getMaxNonMaterializedPartitionsLimitForOptimization()
+    {
+        return maxNonMaterializedPartitionsLimitForOptimization;
     }
 
     public enum HiveMetastoreAuthenticationType

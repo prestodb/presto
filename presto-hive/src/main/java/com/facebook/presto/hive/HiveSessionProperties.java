@@ -124,6 +124,8 @@ public final class HiveSessionProperties
     public static final String PARTITION_LEASE_DURATION = "partition_lease_duration";
     public static final String CACHE_ENABLED = "cache_enabled";
 
+    public static final String MAX_NON_MATERIALIZED_PARTITIONS_LIMIT_FOR_OPTIMIZATION = "max_non_materialized_partitions_limit_for_optimization";
+
     private final List<PropertyMetadata<?>> sessionProperties;
 
     public enum InsertExistingPartitionsBehavior
@@ -581,6 +583,11 @@ public final class HiveSessionProperties
                         CACHE_ENABLED,
                         "Enable cache for hive",
                         cacheConfig.isCachingEnabled(),
+                        false),
+                integerProperty(
+                        MAX_NON_MATERIALIZED_PARTITIONS_LIMIT_FOR_OPTIMIZATION,
+                        "maximum number of non materialized partitions allowed",
+                        hiveClientConfig.getMaxNonMaterializedPartitionsLimitForOptimization(),
                         false));
     }
 
@@ -1015,5 +1022,10 @@ public final class HiveSessionProperties
     public static boolean isCacheEnabled(ConnectorSession session)
     {
         return session.getProperty(CACHE_ENABLED, Boolean.class);
+    }
+
+    public static Integer getMaxNonMaterializedPartitionsLimitForOptimization(ConnectorSession session)
+    {
+        return session.getProperty(MAX_NON_MATERIALIZED_PARTITIONS_LIMIT_FOR_OPTIMIZATION, Integer.class);
     }
 }
