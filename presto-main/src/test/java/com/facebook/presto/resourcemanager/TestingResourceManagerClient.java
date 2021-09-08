@@ -31,6 +31,7 @@ class TestingResourceManagerClient
 {
     private final AtomicInteger queryHeartbeats = new AtomicInteger();
     private final AtomicInteger nodeHeartbeats = new AtomicInteger();
+    private final AtomicInteger resourceGroupRuntimeHeartbeats = new AtomicInteger();
     private final Map<String, Integer> resourceGroupInfoCalls = new ConcurrentHashMap<>();
 
     private volatile List<ResourceGroupRuntimeInfo> resourceGroupRuntimeInfos = ImmutableList.of();
@@ -66,6 +67,12 @@ class TestingResourceManagerClient
         return ImmutableMap.of();
     }
 
+    @Override
+    public void resourceGroupRuntimeHeartbeat(String node, List<ResourceGroupRuntimeInfo> resourceGroupRuntimeInfo)
+    {
+        resourceGroupRuntimeHeartbeats.incrementAndGet();
+    }
+
     public int getQueryHeartbeats()
     {
         return queryHeartbeats.get();
@@ -79,5 +86,10 @@ class TestingResourceManagerClient
     public int getResourceGroupInfoCalls(String identifier)
     {
         return resourceGroupInfoCalls.get(identifier);
+    }
+
+    public int getResourceGroupRuntimeHeartbeats()
+    {
+        return resourceGroupRuntimeHeartbeats.get();
     }
 }

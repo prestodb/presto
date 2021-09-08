@@ -39,4 +39,7 @@ public interface ResourceManagerClient
 
     @ThriftMethod
     Map<MemoryPoolId, ClusterMemoryPoolInfo> getMemoryPoolInfo();
+
+    @ThriftMethod
+    void resourceGroupRuntimeHeartbeat(String node, List<ResourceGroupRuntimeInfo> resourceGroupRuntimeInfo);
 }
