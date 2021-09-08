@@ -47,6 +47,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
@@ -55,6 +56,7 @@ import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.facebook.presto.memory.LocalMemoryManager.RESERVED_POOL;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -67,7 +69,8 @@ public class ResourceManagerClusterStateProvider
 {
     private final Map<String, CoordinatorQueriesState> nodeQueryStates = new ConcurrentHashMap<>();
     private final Map<String, InternalNodeState> nodeStatuses = new ConcurrentHashMap<>();
-
+    private final Map<String, CoordinatorResourceGroupState> resourceGroupStates = new ConcurrentHashMap<>();
+    private final AtomicReference<Integer> adjustedQueueSize = new AtomicReference<>(0);
     private final InternalNodeManager internalNodeManager;
     private final SessionPropertyManager sessionPropertyManager;
     private final int maxCompletedQueries;
@@ -137,6 +140,10 @@ public class ResourceManagerClusterStateProvider
                 }
             }
         }, 100, 100, MILLISECONDS);
+
+        scheduledExecutorService.scheduleAtFixedRate(() -> {
+            adjustedQueueSize.set(computeAdjustedQueueSize());
+        }, 100, 1000, MILLISECONDS);
     }
 
     public void registerQueryHeartbeat(String nodeId, BasicQueryInfo basicQueryInfo, long sequenceId)
@@ -168,6 +175,42 @@ public class ResourceManagerClusterStateProvider
         else {
             nodeState.updateNodeStatus(nodeStatus);
         }
+    }
+
+    public void registerResourceGroupRuntimeHeartbeat(String node, List<ResourceGroupRuntimeInfo> resourceGroupRuntimeInfos)
+    {
+        resourceGroupStates.put(node, new CoordinatorResourceGroupState(node, resourceGroupRuntimeInfos));
+    }
+
+    public int getAdjustedQueueSize()
+    {
+        return adjustedQueueSize.get();
+    }
+
+    private int computeAdjustedQueueSize()
+    {
+        Map<ResourceGroupId, ResourceGroupRuntimeInfo.Builder> resourceGroupBuilders = new HashMap<>();
+        resourceGroupStates.values().stream()
+                .map(CoordinatorResourceGroupState::getResourceGroups)
+                .flatMap(Collection::stream)
+                .forEach(resourceGroupRuntimeInfo -> {
+                    ResourceGroupId resourceGroupId = resourceGroupRuntimeInfo.getResourceGroupId();
+                    ResourceGroupRuntimeInfo.Builder runtimeInfoBuilder = resourceGroupBuilders.computeIfAbsent(resourceGroupId, ResourceGroupRuntimeInfo::builder);
+                    runtimeInfoBuilder.addQueuedQueries(resourceGroupRuntimeInfo.getQueuedQueries());
+                    runtimeInfoBuilder.addRunningQueries(resourceGroupRuntimeInfo.getRunningQueries());
+                    runtimeInfoBuilder.addDescendantQueuedQueries(resourceGroupRuntimeInfo.getDescendantQueuedQueries());
+                    runtimeInfoBuilder.addDescendantRunningQueries(resourceGroupRuntimeInfo.getDescendantRunningQueries());
+                    if (resourceGroupRuntimeInfo.getResourceGroupConfigSpec().isPresent()) {
+                        runtimeInfoBuilder.setResourceGroupSpecInfo(resourceGroupRuntimeInfo.getResourceGroupConfigSpec().get());
+                    }
+                });
+        List<ResourceGroupRuntimeInfo> resourceGroupRuntimeInfos = resourceGroupBuilders.values().stream().map(ResourceGroupRuntimeInfo.Builder::build).collect(toImmutableList());
+        int adjustedQueueSize = 0;
+        for (ResourceGroupRuntimeInfo runtimeInfo : resourceGroupRuntimeInfos) {
+            checkState(runtimeInfo.getResourceGroupConfigSpec().isPresent());
+            adjustedQueueSize += Math.max(Math.min(runtimeInfo.getQueuedQueries(), runtimeInfo.getResourceGroupConfigSpec().get().getSoftConcurrencyLimit() - runtimeInfo.getRunningQueries()), 0);
+        }
+        return adjustedQueueSize;
     }
 
     public List<ResourceGroupRuntimeInfo> getClusterResourceGroups(String excludingNode)
@@ -295,6 +338,30 @@ public class ResourceManagerClusterStateProvider
                 .collect(toImmutableSet());
         if (!(Sets.difference(coordinators, heartbeatedCoordinatorNodes).isEmpty() && !coordinators.isEmpty())) {
             throw new ResourceManagerInconsistentException(format("%s nodes found in discovery vs. %s nodes found in heartbeats", coordinators.size(), heartbeatedCoordinatorNodes.size()));
+        }
+    }
+
+    private static class CoordinatorResourceGroupState
+    {
+        private final String nodeId;
+        private final List<ResourceGroupRuntimeInfo> resourceGroups;
+
+        public CoordinatorResourceGroupState(
+                String nodeId,
+                List<ResourceGroupRuntimeInfo> resourceGroups)
+        {
+            this.nodeId = requireNonNull(nodeId, "nodeId is null");
+            this.resourceGroups = requireNonNull(resourceGroups, "resourceGroups is null");
+        }
+
+        public List<ResourceGroupRuntimeInfo> getResourceGroups()
+        {
+            return resourceGroups;
+        }
+
+        public String getNodeId()
+        {
+            return nodeId;
         }
     }
 

@@ -15,9 +15,11 @@ package com.facebook.presto.resourcemanager;
 
 import com.facebook.drift.client.DriftClient;
 import com.facebook.presto.execution.ManagedQueryExecution;
+import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.NodeStatus;
+import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.server.StatusResource;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.QueryId;
@@ -44,6 +46,7 @@ public class ResourceManagerClusterStatusSender
 {
     private final DriftClient<ResourceManagerClient> resourceManagerClient;
     private final InternalNodeManager internalNodeManager;
+    private final ResourceGroupManager<?> resourceGroupManager;
     private final Supplier<NodeStatus> statusSupplier;
     private final ScheduledExecutorService executor;
     private final Duration queryHeartbeatInterval;
@@ -51,6 +54,7 @@ public class ResourceManagerClusterStatusSender
     private final Map<QueryId, PeriodicTaskExecutor> queries = new ConcurrentHashMap<>();
 
     private final PeriodicTaskExecutor nodeHeartbeatSender;
+    private final Optional<PeriodicTaskExecutor> resourceRuntimeHeartbeatSender;
 
     @Inject
     public ResourceManagerClusterStatusSender(
@@ -58,15 +62,18 @@ public class ResourceManagerClusterStatusSender
             InternalNodeManager internalNodeManager,
             StatusResource statusResource,
             @ForResourceManager ScheduledExecutorService executor,
-            ResourceManagerConfig resourceManagerConfig)
+            ResourceManagerConfig resourceManagerConfig,
+            ServerConfig serverConfig,
+            ResourceGroupManager<?> resourceGroupManager)
     {
-        this.resourceManagerClient = requireNonNull(resourceManagerClient, "resourceManagerService is null");
-        this.internalNodeManager = requireNonNull(internalNodeManager, "internalNodeManager is null");
-        requireNonNull(statusResource, "statusResource is null");
-        this.statusSupplier = statusResource::getStatus;
-        this.executor = requireNonNull(executor, "executor is null");
-        this.queryHeartbeatInterval = requireNonNull(resourceManagerConfig, "resourceManagerConfig is null").getQueryHeartbeatInterval();
-        nodeHeartbeatSender = new PeriodicTaskExecutor(resourceManagerConfig.getNodeHeartbeatInterval().toMillis(), executor, this::sendNodeHeartbeat);
+        this(
+                resourceManagerClient,
+                internalNodeManager,
+                requireNonNull(statusResource, "statusResource is null")::getStatus,
+                executor,
+                resourceManagerConfig,
+                serverConfig,
+                resourceGroupManager);
     }
 
     public ResourceManagerClusterStatusSender(
@@ -74,20 +81,28 @@ public class ResourceManagerClusterStatusSender
             InternalNodeManager internalNodeManager,
             Supplier<NodeStatus> statusResource,
             ScheduledExecutorService executor,
-            ResourceManagerConfig resourceManagerConfig)
+            ResourceManagerConfig resourceManagerConfig,
+            ServerConfig serverConfig,
+            ResourceGroupManager<?> resourceGroupManager)
     {
         this.resourceManagerClient = requireNonNull(resourceManagerClient, "resourceManagerService is null");
         this.internalNodeManager = requireNonNull(internalNodeManager, "internalNodeManager is null");
         this.statusSupplier = requireNonNull(statusResource, "statusResource is null");
         this.executor = requireNonNull(executor, "executor is null");
         this.queryHeartbeatInterval = requireNonNull(resourceManagerConfig, "resourceManagerConfig is null").getQueryHeartbeatInterval();
-        nodeHeartbeatSender = new PeriodicTaskExecutor(resourceManagerConfig.getNodeHeartbeatInterval().toMillis(), executor, this::sendNodeHeartbeat);
+        this.nodeHeartbeatSender = new PeriodicTaskExecutor(resourceManagerConfig.getNodeHeartbeatInterval().toMillis(), executor, this::sendNodeHeartbeat);
+        this.resourceRuntimeHeartbeatSender = serverConfig.isCoordinator() ? Optional.of(
+                new PeriodicTaskExecutor(resourceManagerConfig.getResourceGroupRuntimeHeartbeatInterval().toMillis(), executor, this::sendResourceGroupRuntimeHeartbeat)) : Optional.empty();
+        this.resourceGroupManager = requireNonNull(resourceGroupManager, "resourceGroupManager is null");
     }
 
     @PostConstruct
     public void init()
     {
         nodeHeartbeatSender.start();
+        if (resourceRuntimeHeartbeatSender.isPresent()) {
+            resourceRuntimeHeartbeatSender.get().start();
+        }
     }
 
     @PreDestroy
@@ -96,6 +111,9 @@ public class ResourceManagerClusterStatusSender
         queries.values().forEach(PeriodicTaskExecutor::stop);
         if (nodeHeartbeatSender != null) {
             nodeHeartbeatSender.stop();
+        }
+        if (resourceRuntimeHeartbeatSender.isPresent()) {
+            resourceRuntimeHeartbeatSender.get().stop();
         }
     }
 
@@ -146,5 +164,12 @@ public class ResourceManagerClusterStatusSender
                     return HostAddress.fromParts(hostAndPort.getHostText(), resourceManagerNode.getThriftPort().getAsInt());
                 })
                 .collect(toImmutableList());
+    }
+
+    public void sendResourceGroupRuntimeHeartbeat()
+    {
+        List resourceGroupRuntimeInfos = resourceGroupManager.getResourceGroupRuntimeInfos();
+        getResourceManagers().forEach(hostAndPort ->
+                resourceManagerClient.get(Optional.of(hostAndPort.toString())).resourceGroupRuntimeHeartbeat(internalNodeManager.getCurrentNode().getNodeIdentifier(), resourceGroupRuntimeInfos));
     }
 }
