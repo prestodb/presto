@@ -147,7 +147,7 @@ The following diagram shows the expression tree for the **strpos(upper
 (a)** is a common subexpression. It is represented by a single instance of Expr
 class which appears twice in the tree.
 
-.. image:: cse.png
+.. image:: images/cse.png
   :width: 600
   :align: center
 
@@ -164,7 +164,7 @@ For example, in the expression **upper(a) > upper('Foo')** subexpression **upper
 evaluated during compilation time and replaced by a single ConstantExpr
 node **FOO**.
 
-.. image:: constant-folding.png
+.. image:: images/constant-folding.png
   :width: 600
   :align: center
 
@@ -175,7 +175,7 @@ Adjacent AND nodes are consolidated into one. Similarly, adjacent OR nodes are
 consolidated into one. This maximizes the effect of adaptive conjunct
 reordering during execution of the AND and OR expressions.
 
-.. image:: flatten-and.png
+.. image:: images/flatten-and.png
   :width: 600
   :align: center
 
@@ -201,7 +201,7 @@ fields because they depend on exactly the same columns as their parent nodes.
 The distinct fields metadata triggers peeling of encodings for the input data
 and allows to run whole subexpressions on a subset of unique values.
 
-.. image:: distinct-fields.png
+.. image:: images/distinct-fields.png
   :width: 300
   :align: center
 
@@ -300,7 +300,7 @@ Evaluation Algorithm
 Expression evaluation traverses the expression tree starting at the root in the
 depth-first order. For each node a sequence of operations is performed.
 
-.. image:: expression-evaluation.png
+.. image:: images/expression-evaluation.png
   :width: 800
   :align: center
 

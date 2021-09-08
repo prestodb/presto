@@ -57,7 +57,7 @@ discussion.
 VELOX_UDF_BEGIN(ceil) expands to define udf_ceil struct. You can see the
 expanded struct in CLion by hovering on the VELOX_UDF_BEGIN macro.
 
-.. image:: velox-udf-begin-macro.png
+.. image:: images/velox-udf-begin-macro.png
   :width: 600
 
 Null Behavior
@@ -731,8 +731,8 @@ complexity.
 Documenting
 -----------
 
-If the function implements Presto semantics, document it by adding an entry to
-one of the *.rst files in velox/docs/functions. Each file documents a set of
+If a function implements Presto semantics, document it by adding an entry to
+one of the `*.rst` files in velox/docs/functions. Each file documents a set of
 related functions. E.g. math.rst contains all of the mathematical functions,
 while array.rst file contains all of the array functions. Within a file,
 functions are listed in alphabetical order.

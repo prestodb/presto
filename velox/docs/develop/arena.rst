@@ -22,7 +22,7 @@ Memory is allocated in standard size contiguous runs of 4KB pages. The available
 sizes are: 4, 8, 16, 32, 64, 128, 256 pages. The minimum run is 16KB = 4 pages
 of 4KB each. Individual blocks are then allocated from the page runs.
 
-.. image:: arena-page-runs.png
+.. image:: images/arena-page-runs.png
   :width: 600
 
 exec::HashStringAllocator writes a 4 bytes end marker (kArenaEnd) at the end of
@@ -32,7 +32,7 @@ a block is free. kContinued indicates a block in a multi-part non-contiguous
 allocation. kPreviousFree indicates that a block immediately before this block
 is free,
 
-.. image:: arena-block.png
+.. image:: images/arena-block.png
   :width: 600
 
 When blocks are freed, adjacent free blocks are coalesced into larger free
@@ -43,7 +43,7 @@ next and previous free blocks are stored in 12 bytes immediately following the
 header. The size of the free block is stored in the header and also in the last
 4 bytes of the block.
 
-.. image:: arena-free-block.png
+.. image:: images/arena-free-block.png
   :width: 800
 
 The size of the free block written at the end of the block is used to coalesce
@@ -61,7 +61,7 @@ Blocks in multi-part non-contiguous allocations use kContinued bit to indicate
 the presence of the “next” block and store the pointer to that block in the last
 8 bytes.
 
-.. image:: arena-multipart-block.png
+.. image:: images/arena-multipart-block.png
   :width: 600
 
 API

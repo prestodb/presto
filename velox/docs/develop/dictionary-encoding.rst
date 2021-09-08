@@ -32,14 +32,14 @@ vector. First, we make a flat base vector containing only distinct colors:
 into an array of indices: [0, 1, 0, 0, 1, 2]. Finally, we combine the indices and
 a base vector to make a dictionary vector.
 
-.. image:: dictionary-repeated.png
+.. image:: images/dictionary-repeated.png
   :width: 300
 
 Now, let’s say we want to represent a subset of the people whose favourite color
 is red. We can take the original flat vector of names and wrap it in a dictionary
 vector with indices pointing only to rows where color = “red”, e.g. rows 0, 2 and 3.
 
-.. image:: dictionary-subset.png
+.. image:: images/dictionary-subset.png
   :width: 300
 
 As you can see, dictionary vectors can be used to represent both cardinality increase

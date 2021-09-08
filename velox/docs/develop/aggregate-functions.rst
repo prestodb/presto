@@ -89,7 +89,7 @@ A row is a contiguous byte buffer. Given N aggregates, first N / 8 bytes
 store the null flags, one bit per aggregate, followed by fixed-width
 accumulators.
 
-.. image:: aggregation-layout.png
+.. image:: images/aggregation-layout.png
   :width: 600
 
 Aggregate class
