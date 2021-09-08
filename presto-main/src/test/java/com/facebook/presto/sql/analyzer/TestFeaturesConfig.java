@@ -61,7 +61,7 @@ public class TestFeaturesConfig
                 .setNetworkCostWeight(15)
                 .setDistributedIndexJoinsEnabled(false)
                 .setJoinDistributionType(PARTITIONED)
-                .setJoinMaxBroadcastTableSize(null)
+                .setJoinMaxBroadcastTableSize(new DataSize(100, MEGABYTE))
                 .setGroupedExecutionEnabled(true)
                 .setRecoverableGroupedExecutionEnabled(false)
                 .setMaxFailedTaskPercentage(0.3)
