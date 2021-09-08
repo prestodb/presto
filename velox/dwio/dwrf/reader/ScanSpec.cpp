@@ -89,7 +89,7 @@ void ScanSpec::reorder() {
 }
 
 bool ScanSpec::hasFilter() const {
-  if (hasFilter_.hasValue()) {
+  if (hasFilter_.has_value()) {
     return hasFilter_.value();
   }
   if (!isConstant() && filter_) {
