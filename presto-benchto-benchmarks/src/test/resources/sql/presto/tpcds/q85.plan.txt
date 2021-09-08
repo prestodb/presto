@@ -11,24 +11,25 @@ local exchange (GATHER, SINGLE, [])
                                         scan customer_demographics
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, [cd_education_status, cd_marital_status, wr_returning_cdemo_sk])
-                                            join (INNER, REPLICATED):
-                                                join (INNER, PARTITIONED):
-                                                    remote exchange (REPARTITION, HASH, [ws_item_sk, ws_order_number])
-                                                        join (INNER, REPLICATED):
-                                                            scan web_sales
-                                                            local exchange (GATHER, SINGLE, [])
-                                                                remote exchange (REPLICATE, BROADCAST, [])
-                                                                    scan date_dim
-                                                    local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPARTITION, HASH, [wr_item_sk, wr_order_number])
+                                            join (INNER, PARTITIONED):
+                                                remote exchange (REPARTITION, HASH, [wr_refunded_addr_sk])
+                                                    join (INNER, PARTITIONED):
+                                                        remote exchange (REPARTITION, HASH, [ws_item_sk, ws_order_number])
                                                             join (INNER, REPLICATED):
-                                                                scan web_returns
+                                                                scan web_sales
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                                        scan customer_address
+                                                                        scan date_dim
+                                                        local exchange (GATHER, SINGLE, [])
+                                                            remote exchange (REPARTITION, HASH, [wr_item_sk, wr_order_number])
+                                                                join (INNER, REPLICATED):
+                                                                    scan web_returns
+                                                                    local exchange (GATHER, SINGLE, [])
+                                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                                            scan customer_demographics
                                                 local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPLICATE, BROADCAST, [])
-                                                        scan customer_demographics
+                                                    remote exchange (REPARTITION, HASH, [ca_address_sk])
+                                                        scan customer_address
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
                                         scan web_page

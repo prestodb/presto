@@ -8,27 +8,29 @@ remote exchange (GATHER, SINGLE, [])
                             join (INNER, PARTITIONED):
                                 remote exchange (REPARTITION, HASH, [suppkey_4])
                                     join (INNER, PARTITIONED):
-                                        remote exchange (REPARTITION, HASH, [orderkey_7])
-                                            join (INNER, REPLICATED):
-                                                scan orders
+                                        remote exchange (REPARTITION, HASH, [custkey])
+                                            join (INNER, PARTITIONED):
+                                                remote exchange (REPARTITION, HASH, [orderkey_7])
+                                                    scan orders
                                                 local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPLICATE, BROADCAST, [])
-                                                        join (INNER, REPLICATED):
-                                                            scan customer
+                                                    remote exchange (REPARTITION, HASH, [orderkey])
+                                                        join (INNER, PARTITIONED):
+                                                            remote exchange (REPARTITION, HASH, [partkey_3])
+                                                                scan lineitem
                                                             local exchange (GATHER, SINGLE, [])
-                                                                remote exchange (REPLICATE, BROADCAST, [])
-                                                                    join (INNER, REPLICATED):
-                                                                        scan nation
-                                                                        local exchange (GATHER, SINGLE, [])
-                                                                            remote exchange (REPLICATE, BROADCAST, [])
-                                                                                scan region
+                                                                remote exchange (REPARTITION, HASH, [partkey])
+                                                                    scan part
                                         local exchange (GATHER, SINGLE, [])
-                                            remote exchange (REPARTITION, HASH, [orderkey])
+                                            remote exchange (REPARTITION, HASH, [custkey_10])
                                                 join (INNER, REPLICATED):
-                                                    scan lineitem
+                                                    scan customer
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            scan part
+                                                            join (INNER, REPLICATED):
+                                                                scan nation
+                                                                local exchange (GATHER, SINGLE, [])
+                                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                                        scan region
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, [suppkey])
                                         join (INNER, REPLICATED):
