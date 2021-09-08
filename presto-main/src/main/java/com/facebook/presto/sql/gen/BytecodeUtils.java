@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.bytecode.Binding;
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.CallSiteBinder;
 import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.IfStatement;
@@ -24,9 +26,9 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
-import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty;
-import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ScalarImplementationChoice;
+import com.facebook.presto.spi.function.Argument.ArgumentProperty;
+import com.facebook.presto.spi.function.Argument.NullConvention;
 import com.facebook.presto.sql.gen.InputReferenceCompiler.InputReferenceNode;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -40,13 +42,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.bytecode.Bootstrap.BOOTSTRAP_METHOD;
 import static com.facebook.presto.bytecode.OpCode.NOP;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantTrue;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeDynamic;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentType.VALUE_TYPE;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ReturnPlaceConvention.PROVIDED_BLOCKBUILDER;
-import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
+import static com.facebook.presto.spi.function.Argument.ArgumentType.VALUE_TYPE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;

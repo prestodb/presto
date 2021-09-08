@@ -35,7 +35,9 @@ import javax.annotation.Nullable;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -160,6 +162,23 @@ public class FunctionsParserHelper
                 method -> checkArgument(isPublic(method.getModifiers()), "Annotated method [%s] must be public"),
                 includedAnnotations,
                 excludedAnnotations);
+    }
+
+    public static Set<Field> findPublicStaticFields(Class<?> clazz, Set<Class<? extends Annotation>> includedAnnotations, Set<Class<? extends Annotation>> excludedAnnotations)
+    {
+        return Arrays.stream(clazz.getFields()).filter(field -> {
+            for (Annotation annotation : field.getAnnotations()) {
+                if (!includedAnnotations.stream().allMatch(annotationClass -> annotationClass.isInstance(annotation))) {
+                    return false;
+                }
+
+                if (excludedAnnotations.stream().anyMatch(annotationClass -> annotationClass.isInstance(annotation))) {
+                    return false;
+                }
+            }
+
+            return Modifier.isStatic(field.getModifiers());
+        }).collect(ImmutableSet.toImmutableSet());
     }
 
     public static Set<Method> findMethods(

@@ -14,7 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
-import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty;
+import com.facebook.presto.spi.function.Argument.ArgumentProperty;
 import com.facebook.presto.spi.function.InvocationConvention;
 import com.facebook.presto.spi.function.InvocationConvention.InvocationReturnConvention;
 import com.google.common.collect.ImmutableList;
@@ -23,11 +23,11 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.facebook.presto.metadata.FunctionInvokerProvider.checkChoice;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentType.VALUE_TYPE;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.BLOCK_AND_POSITION;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
+import static com.facebook.presto.spi.function.Argument.ArgumentType.VALUE_TYPE;
+import static com.facebook.presto.spi.function.Argument.NullConvention.BLOCK_AND_POSITION;
+import static com.facebook.presto.spi.function.Argument.NullConvention.RETURN_NULL_ON_NULL;
+import static com.facebook.presto.spi.function.Argument.NullConvention.USE_BOXED_TYPE;
+import static com.facebook.presto.spi.function.Argument.NullConvention.USE_NULL_FLAG;
 import static com.facebook.presto.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static com.facebook.presto.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static com.facebook.presto.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;

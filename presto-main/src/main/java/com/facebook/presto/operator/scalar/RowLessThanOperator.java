@@ -24,8 +24,8 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 
 import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static com.facebook.presto.spi.function.Argument.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.spi.function.Argument.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public final class RowLessThanOperator

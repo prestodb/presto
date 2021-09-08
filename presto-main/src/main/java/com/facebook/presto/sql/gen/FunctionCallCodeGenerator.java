@@ -18,6 +18,7 @@ import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
+import com.facebook.presto.spi.function.Argument.ArgumentProperty;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.gen.BytecodeUtils.OutputBlockVariableAndType;
@@ -26,7 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentType.VALUE_TYPE;
+import static com.facebook.presto.spi.function.Argument.ArgumentType.VALUE_TYPE;
 
 public class FunctionCallCodeGenerator
 {
@@ -39,7 +40,7 @@ public class FunctionCallCodeGenerator
         List<BytecodeNode> argumentsBytecode = new ArrayList<>();
         for (int i = 0; i < arguments.size(); i++) {
             RowExpression argument = arguments.get(i);
-            BuiltInScalarFunctionImplementation.ArgumentProperty argumentProperty = function.getArgumentProperty(i);
+            ArgumentProperty argumentProperty = function.getArgumentProperty(i);
             if (argumentProperty.getArgumentType() == VALUE_TYPE) {
                 argumentsBytecode.add(context.generate(argument, Optional.empty()));
             }

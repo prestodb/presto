@@ -26,8 +26,8 @@ import java.lang.invoke.MethodHandle;
 
 import static com.facebook.presto.common.function.OperatorType.HASH_CODE;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static com.facebook.presto.spi.function.Argument.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.spi.function.Argument.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.function.Signature.comparableTypeParameter;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.type.TypeUtils.hashPosition;

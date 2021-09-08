@@ -16,6 +16,7 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.BytecodeVisitor;
+import com.facebook.presto.bytecode.CallSiteBinder;
 import com.facebook.presto.bytecode.MethodGenerationContext;
 import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.bytecode.Variable;
@@ -37,7 +38,7 @@ import org.objectweb.asm.MethodVisitor;
 import java.util.List;
 import java.util.function.BiFunction;
 
-import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
+import static com.facebook.presto.bytecode.SqlTypeBytecodeExpression.constantType;
 import static java.util.Objects.requireNonNull;
 
 class InputReferenceCompiler
