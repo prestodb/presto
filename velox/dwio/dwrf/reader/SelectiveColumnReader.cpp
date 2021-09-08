@@ -3371,7 +3371,8 @@ class StringDictionaryColumnVisitor
       int32_t* filterHits,
       int32_t* values,
       int32_t& numValues) {
-    setByInDict(values, numInput);
+    DCHECK(input == values + numValues);
+    setByInDict(values + numValues, numInput);
     if (!hasFilter) {
       if (hasHook) {
         for (auto i = 0; i < numInput; ++i) {

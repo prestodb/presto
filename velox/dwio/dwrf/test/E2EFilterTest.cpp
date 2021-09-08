@@ -485,7 +485,8 @@ class E2EFilterTest : public testing::Test {
   void makeStringDistribution(
       const Subfield& field,
       int cardinality,
-      bool keepNulls) {
+      bool keepNulls,
+      bool addOneOffs) {
     int counter = 0;
     for (RowVectorPtr batch : batches_) {
       auto strings =
@@ -500,6 +501,10 @@ class E2EFilterTest : public testing::Test {
           strings->set(row, StringView(value));
         } else if (counter % 100 > 90 && row > 0) {
           strings->copy(strings, row - 1, row, 1);
+        } else if (addOneOffs && counter % 234 == 0) {
+          value = fmt::format(
+              "s{}", folly::Random::rand32(rng_) % (111 * cardinality));
+
         } else {
           value = fmt::format("s{}", folly::Random::rand32(rng_) % cardinality);
           strings->set(row, StringView(value));
@@ -994,8 +999,8 @@ TEST_F(E2EFilterTest, stringDictionary) {
       "string_val:string,"
       "string_val_2:string",
       [&]() {
-        makeStringDistribution(Subfield("string_val"), 100, true);
-        makeStringDistribution(Subfield("string_val_2"), 170, false);
+        makeStringDistribution(Subfield("string_val"), 100, true, false);
+        makeStringDistribution(Subfield("string_val_2"), 170, false, true);
       },
       true,
       {"string_val", "string_val_2"},
