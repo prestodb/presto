@@ -17,6 +17,7 @@ import com.facebook.presto.operator.scalar.annotations.ScalarFromAnnotationsPars
 import com.facebook.presto.operator.scalar.annotations.SqlInvokedScalarFromAnnotationsParser;
 import com.facebook.presto.operator.window.WindowAnnotationsParser;
 import com.facebook.presto.spi.function.AggregationFunction;
+import com.facebook.presto.spi.function.CodegenScalarFunction;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlFunction;
@@ -61,6 +62,10 @@ public final class FunctionExtractor
 
         if (clazz.isAnnotationPresent(SqlInvokedScalarFunction.class)) {
             return SqlInvokedScalarFromAnnotationsParser.parseFunctionDefinition(clazz);
+        }
+
+        if (CodegenScalarFunction.class.isAssignableFrom(clazz)) {
+            return ScalarFromAnnotationsParser.parseFields(clazz);
         }
 
         List<SqlFunction> scalarFunctions = ImmutableList.<SqlFunction>builder()

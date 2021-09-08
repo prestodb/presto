@@ -13,14 +13,20 @@
  */
 package com.facebook.presto.operator.scalar.annotations;
 
+import com.facebook.presto.metadata.BoundVariables;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.operator.ParametricImplementationsGroup;
 import com.facebook.presto.operator.annotations.FunctionsParserHelper;
+import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.ParametricScalar;
 import com.facebook.presto.operator.scalar.annotations.ParametricScalarImplementation.SpecializedSignature;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.CodegenScalarFunction;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.facebook.presto.spi.function.SqlInvokedScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.google.common.collect.ImmutableList;
@@ -38,6 +44,7 @@ import static com.facebook.presto.operator.scalar.annotations.OperatorValidator.
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class ScalarFromAnnotationsParser
@@ -61,6 +68,64 @@ public final class ScalarFromAnnotationsParser
             builder.add(parseParametricScalar(methods, Optional.empty()));
         }
         return builder.build();
+    }
+
+    public static List<SqlScalarFunction> parseFields(Class<?> clazz)
+    {
+        return FunctionsParserHelper.findPublicStaticFields(clazz, ImmutableSet.of(ScalarFunction.class), ImmutableSet.of())
+                        .stream()
+                        .map(field -> {
+                            Object obj;
+                            try {
+                                obj = field.get(null);
+                            }
+                            catch (IllegalAccessException e) {
+                                throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, format("Field %s of Class [%s] cannot be accessed", field.getName(), clazz.getName()));
+                            }
+                            checkCondition(
+                                    obj instanceof CodegenScalarFunction,
+                                    FUNCTION_IMPLEMENTATION_ERROR,
+                                    "Field %s of Class [%s] should be instance of SpecializedScalarFunction",
+                                    field.getName(),
+                                    clazz.getName());
+                            CodegenScalarFunction f = (CodegenScalarFunction) obj;
+                            return new SqlScalarFunction(f.getSignature()) {
+                                @Override
+                                public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
+                                {
+                                    return new BuiltInScalarFunctionImplementation(
+                                            f.isNullable(),
+                                            f.getArgumentProperties(),
+                                            f.getMethodHandle(boundVariables.getTypeVariables(), boundVariables.getLongVariables()),
+                                            f.getInstanceFactory(boundVariables.getTypeVariables(), boundVariables.getLongVariables()));
+                                }
+
+                                @Override
+                                public SqlFunctionVisibility getVisibility()
+                                {
+                                    return f.getVisibility();
+                                }
+
+                                @Override
+                                public boolean isDeterministic()
+                                {
+                                    return f.isDeterministic();
+                                }
+
+                                @Override
+                                public String getDescription()
+                                {
+                                    return f.getDescription();
+                                }
+
+                                @Override
+                                public boolean isCalledOnNullInput()
+                                {
+                                    return f.isCalledOnNullInput();
+                                }
+                            };
+                        })
+                        .collect(ImmutableList.toImmutableList());
     }
 
     private static List<ScalarHeaderAndMethods> findScalarsInFunctionDefinitionClass(Class<?> annotated)
