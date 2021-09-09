@@ -187,14 +187,15 @@ void Task::resume(std::shared_ptr<Task> self) {
 
 // static
 void Task::removeDriver(std::shared_ptr<Task> self, Driver* driver) {
+  std::lock_guard<std::mutex> cancelPoolLock(*self->cancelPool()->mutex());
   for (auto& driverPtr : self->drivers_) {
     if (driverPtr.get() == driver) {
       driverPtr = nullptr;
-      self->driverClosed(driver);
+      self->driverClosed();
       return;
     }
   }
-  VELOX_CHECK(false, "Trying to delete a Driver twice from its Task");
+  VELOX_FAIL("Trying to delete a Driver twice from its Task");
 }
 
 void Task::setMaxSplitSequenceId(
@@ -387,8 +388,7 @@ void Task::setAllOutputConsumed() {
   }
 }
 
-void Task::driverClosed(Driver* /* unused */) {
-  std::lock_guard<std::mutex> cancelPoolLock(*cancelPool()->mutex());
+void Task::driverClosed() {
   --numDrivers_;
   if ((numDrivers_ == 0) && (state_ == kRunning)) {
     std::lock_guard<std::mutex> l(mutex_);

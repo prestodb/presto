@@ -228,8 +228,6 @@ class Task {
     return message;
   }
 
-  void driverClosed(Driver* FOLLY_NONNULL instance);
-
   std::shared_ptr<core::QueryCtx> queryCtx() const {
     return queryCtx_;
   }
@@ -369,7 +367,8 @@ class Task {
     SplitsState& operator=(SplitsState const&) = delete;
   };
 
- private:
+  void driverClosed();
+
   std::shared_ptr<ExchangeClient> addExchangeClient();
 
   void stateChangedLocked();
