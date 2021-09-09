@@ -786,7 +786,6 @@ TEST_F(StringFunctionsTest, concat) {
   for (int i = 0; i < 10; ++i) {
     EXPECT_EQ(result->valueAt(i), StringView(c0 + c1));
   }
-
 }
 
 // Test length vector function
@@ -850,7 +849,6 @@ void StringFunctionsTest::testStringPositionAllFlatVector(
       instanceVector->set(i, std::get<2>(tests[i].first));
     }
   }
-
 
   FlatVectorPtr<int64_t> result;
   if (withInstanceArgument) {
@@ -1150,7 +1148,6 @@ void StringFunctionsTest::testStringEncodingResolution(
       inputVectors[i]->set(j, StringView(content[i][j]));
     }
   }
-
 
   SelectivityVector rows(content[0].size());
   rows.setAll();

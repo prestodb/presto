@@ -186,7 +186,6 @@ void SwitchExpr::evalSpecialForm(
 
           inputs_[2 * i + 1]->eval(*thenRows.get(), context, result);
           remainingRows.get()->deselect(*thenRows.get());
-
         }
       }
     }
@@ -208,7 +207,6 @@ void SwitchExpr::evalSpecialForm(
           [&](auto row) { (*result)->setNull(row, true); });
     }
   }
-
 }
 
 bool SwitchExpr::propagatesNulls() const {
