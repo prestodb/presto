@@ -139,24 +139,10 @@ struct FilterNode {
         expression,
         partitionKey);
   }
-
-  template <typename T>
-  static std::vector<FilterNode> fromColumns(const std::vector<T>& cols);
 };
 
 // Define two aliases to capture column filter types
 using ColumnFilter = std::vector<FilterNode>;
-
-template <typename T>
-std::vector<FilterNode> FilterNode::fromColumns(const std::vector<T>& cols) {
-  std::vector<FilterNode> nodes;
-  nodes.reserve(cols.size());
-  for (auto& col : cols) {
-    nodes.push_back(col);
-  }
-
-  return nodes;
-}
 
 /**
  * This class is exact physical schema of data (file)
