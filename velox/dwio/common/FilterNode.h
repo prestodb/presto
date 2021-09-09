@@ -163,8 +163,6 @@ class FilterType {
   bool read_;
   // a flag to indicate if current node is in content
   bool inContent_;
-  // this saves the project order of current filter node
-  uint64_t projectOrder_;
   // request type in the filter tree node
   std::shared_ptr<const velox::Type> requestType_;
   // data type in the filter tree node
@@ -192,7 +190,6 @@ class FilterType {
         children_{std::move(children)},
         read_{node.node == 0},
         inContent_{inContent},
-        projectOrder_{0},
         requestType_{std::move(type)},
         dataType_{std::move(contentType)},
         seqFilter_{std::make_shared<std::unordered_set<size_t>>()} {}
@@ -232,14 +229,6 @@ class FilterType {
 
   inline void setInContent(bool inContent) {
     inContent_ = inContent;
-  }
-
-  inline uint64_t getProjectOrder() const {
-    return projectOrder_;
-  }
-
-  inline void setProjectOrder(uint64_t order) {
-    projectOrder_ = order;
   }
 
   inline const std::shared_ptr<const velox::Type>& getRequestType() const {

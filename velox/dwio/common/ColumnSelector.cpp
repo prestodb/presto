@@ -131,7 +131,6 @@ void ColumnSelector::copy(
   auto originIsNull = (origin == nullptr);
   if (!originIsNull) {
     node->setInContent(origin->isInContent());
-    node->setProjectOrder(origin->getProjectOrder());
     node->setSequenceFilter(origin->getSequenceFilter());
   }
 

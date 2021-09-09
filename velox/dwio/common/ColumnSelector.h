@@ -317,7 +317,6 @@ class ColumnSelector {
     }
 
     DWIO_ENSURE(!shouldReadAll(), "should not read all with filters");
-    uint64_t order = 0;
     std::vector<T> notFound;
     for (const auto& col : filter) {
       auto node = process(col, byNode);
@@ -326,7 +325,7 @@ class ColumnSelector {
         continue;
       }
 
-      // set read on this node and record its project order
+      // set read on this node
       setRead(node, byNode);
 
       // TODO (cao) - should we have project order on node level
@@ -338,7 +337,6 @@ class ColumnSelector {
           cursor = p;
         }
 
-        cursor->setProjectOrder(order++);
         filter_.push_back(cursor->getNode());
       }
     }
