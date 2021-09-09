@@ -171,6 +171,9 @@ TEST(DuckParserTest, cast) {
       "cast(0.99, VARCHAR)", parseExpr("cast(0.99 as string)")->toString());
   EXPECT_EQ(
       "cast(0.99, VARCHAR)", parseExpr("cast(0.99 as varchar)")->toString());
+  // Cast varchar to varbinary produces a varbinary value which is serialized
+  // using base64 encoding.
+  EXPECT_EQ("\"YWJj\"", parseExpr("cast('abc' as varbinary)")->toString());
   EXPECT_EQ(
       "cast(\"str_col\", TIMESTAMP)",
       parseExpr("cast(str_col as timestamp)")->toString());

@@ -99,4 +99,20 @@ FOLLY_ALWAYS_INLINE bool call(
   return true;
 }
 VELOX_UDF_END();
+
+VELOX_UDF_BEGIN(to_hex)
+FOLLY_ALWAYS_INLINE bool call(
+    out_type<Varbinary>& result,
+    const arg_type<Varchar>& input) {
+  return stringImpl::toHex(result, input);
+}
+VELOX_UDF_END();
+
+VELOX_UDF_BEGIN(from_hex)
+FOLLY_ALWAYS_INLINE bool call(
+    out_type<Varchar>& result,
+    const arg_type<Varbinary>& input) {
+  return stringImpl::fromHex(result, input);
+}
+VELOX_UDF_END();
 } // namespace facebook::velox::functions

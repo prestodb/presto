@@ -77,8 +77,7 @@ TEST(DuckConversionTest, duckValueToVariantUnsupported) {
       LogicalType::INTERVAL,
       LogicalType::LIST({LogicalType::INTEGER}),
       LogicalType::STRUCT(
-          {{"a", LogicalType::INTEGER}, {"b", LogicalType::TINYINT}}),
-      LogicalType::BLOB};
+          {{"a", LogicalType::INTEGER}, {"b", LogicalType::TINYINT}})};
 
   for (const auto& i : unsupported) {
     EXPECT_THROW(duckValueToVariant(Value(i)), std::runtime_error);

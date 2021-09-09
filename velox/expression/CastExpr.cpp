@@ -46,7 +46,9 @@ void applyCastKernel(
     auto proxy =
         exec::StringProxy<FlatVector<StringView>>(resultFlatVector, row);
     proxy.resize(output.size());
-    std::memcpy(proxy.data(), output.data(), output.size());
+    if (output.size()) {
+      std::memcpy(proxy.data(), output.data(), output.size());
+    }
     proxy.finalize();
   } else {
     auto result =

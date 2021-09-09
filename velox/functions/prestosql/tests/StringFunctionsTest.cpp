@@ -68,25 +68,12 @@ int expectedLength(int i) {
   return i % 3;
 }
 
-int hexToDec(char c) {
-  if (c >= 'a' && c <= 'f') {
-    return c - 'a' + 10;
-  }
-  if (c >= 'A' && c <= 'F') {
-    return c - 'A' + 10;
-  }
-  if (c >= '0' && c <= '9') {
-    return c - '0';
-  }
-  VELOX_FAIL("Unsupported hex character: {}", c);
-}
-
 std::string hexToDec(const std::string& str) {
   char output[16];
   auto chars = str.data();
   for (int i = 0; i < 16; i++) {
-    int high = hexToDec(chars[2 * i]);
-    int low = hexToDec(chars[2 * i + 1]);
+    int high = facebook::velox::functions::stringImpl::fromHex(chars[2 * i]);
+    int low = facebook::velox::functions::stringImpl::fromHex(chars[2 * i + 1]);
     output[i] = (high << 4) | (low & 0xf);
   }
   return std::string(output, 16);
@@ -1364,6 +1351,46 @@ TEST_F(StringFunctionsTest, xxhash64) {
     // Default value seed for string inputs
     testXXHash64(validInputTest, true);
   }
+}
+
+TEST_F(StringFunctionsTest, toHex) {
+  const auto toHex = [&](std::optional<std::string> value) {
+    return evaluateOnce<std::string>("to_hex(cast(c0 as varbinary))", value);
+  };
+
+  EXPECT_EQ(std::nullopt, toHex(std::nullopt));
+  EXPECT_EQ("", toHex(""));
+  EXPECT_EQ("61", toHex("a"));
+  EXPECT_EQ("616263", toHex("abc"));
+  EXPECT_EQ("68656C6C6F20776F726C64", toHex("hello world"));
+  EXPECT_EQ(
+      "48656C6C6F20576F726C642066726F6D2056656C6F7821",
+      toHex("Hello World from Velox!"));
+}
+
+TEST_F(StringFunctionsTest, fromHex) {
+  const auto fromHex = [&](std::optional<std::string> value) {
+    return evaluateOnce<std::string>("from_hex(c0)", value);
+  };
+
+  EXPECT_EQ(std::nullopt, fromHex(std::nullopt));
+  EXPECT_EQ("", fromHex(""));
+  EXPECT_EQ("a", fromHex("61"));
+  EXPECT_EQ("abc", fromHex("616263"));
+  EXPECT_EQ("azo", fromHex("617a6f"));
+  EXPECT_EQ("azo", fromHex("617a6F"));
+  EXPECT_EQ("azo", fromHex("617A6F"));
+  EXPECT_EQ("hello world", fromHex("68656C6C6F20776F726C64"));
+  EXPECT_EQ(
+      "Hello World from Velox!",
+      fromHex("48656C6C6F20576F726C642066726F6D2056656C6F7821"));
+
+  EXPECT_THROW(fromHex("f/"), VeloxUserError);
+  EXPECT_THROW(fromHex("f:"), VeloxUserError);
+  EXPECT_THROW(fromHex("f@"), VeloxUserError);
+  EXPECT_THROW(fromHex("f`"), VeloxUserError);
+  EXPECT_THROW(fromHex("fg"), VeloxUserError);
+  EXPECT_THROW(fromHex("fff"), VeloxUserError);
 }
 
 namespace {

@@ -56,6 +56,8 @@ void registerFunctions() {
   registerFunction<udf_md5_radix<Varchar, Varchar>, Varchar, Varchar, int64_t>(
       {"md5"});
   registerFunction<udf_md5_radix<Varchar, Varchar>, Varchar, Varchar>({"md5"});
+  registerFunction<udf_to_hex, Varchar, Varbinary>();
+  registerFunction<udf_from_hex, Varbinary, Varchar>();
 
   registerFunction<udf_to_unixtime, double, Timestamp>(
       {"to_unixtime", "to_unix_timestamp"});

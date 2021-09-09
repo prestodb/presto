@@ -104,6 +104,8 @@ TypePtr toVeloxType(LogicalType type) {
     case LogicalTypeId::DATE:
     case LogicalTypeId::TIMESTAMP:
       return TIMESTAMP();
+    case LogicalTypeId::BLOB:
+      return VARBINARY();
     default:
       throw std::runtime_error(
           "unsupported type for duckdb -> velox conversion: " +
@@ -133,6 +135,8 @@ variant duckValueToVariant(const Value& val) {
       return variant(val.GetValue<double>());
     case LogicalTypeId::VARCHAR:
       return variant(val.GetValue<std::string>());
+    case LogicalTypeId::BLOB:
+      return variant::binary(val.GetValue<std::string>());
     default:
       throw std::runtime_error(
           "unsupported type for duckdb value -> velox  variant conversion: " +
