@@ -116,13 +116,10 @@ struct FilterNode {
   // so that current node can have partial info to match any of list item
   std::vector<FilterNode>::const_iterator in(
       const std::vector<FilterNode>& list) const {
-    for (auto itr = list.cbegin(); itr != list.cend(); ++itr) {
-      if (itr->match(*this)) {
-        return itr;
-      }
-    }
-
-    return list.cend();
+    return std::find_if(
+        list.cbegin(), list.cend(), [this](const FilterNode& node) {
+          return node.match(*this);
+        });
   }
 
   std::size_t hash() const {
