@@ -621,7 +621,7 @@ public class PrestoS3FileSystem
 
     private static boolean isHadoopFolderMarker(S3ObjectSummary object)
     {
-        return object.getKey().endsWith("_$folder$");
+        return (object.getKey().endsWith(DIRECTORY_SUFFIX) && (object.getSize() == 0));
     }
 
     /**
