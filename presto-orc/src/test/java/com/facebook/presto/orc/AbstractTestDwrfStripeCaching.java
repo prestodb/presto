@@ -185,11 +185,9 @@ public abstract class AbstractTestDwrfStripeCaching
             List<Type> types = ImmutableList.of(type, type, type);
             OrcWriterOptions writerOptions = OrcWriterOptions.builder()
                     .withStripeMaxRowCount(100)
-                    .build();
-            DwrfWriterOptions dwrfWriterOptions = DwrfWriterOptions.builder()
-                    .withStripeCacheEnabled(cacheEnabled)
-                    .withStripeCacheMode(cacheMode)
-                    .withStripeCacheMaxSize(cacheMaxSize)
+                    .withDwrfStripeCacheEnabled(cacheEnabled)
+                    .withDwrfStripeCacheMode(cacheMode)
+                    .withDwrfStripeCacheMaxSize(cacheMaxSize)
                     .build();
 
             OrcWriter writer = new OrcWriter(
@@ -201,7 +199,6 @@ public abstract class AbstractTestDwrfStripeCaching
                     Optional.empty(),
                     NO_ENCRYPTION,
                     writerOptions,
-                    Optional.of(dwrfWriterOptions),
                     ImmutableMap.of(),
                     HIVE_STORAGE_TIME_ZONE,
                     true,
