@@ -34,9 +34,9 @@ public class TestTracingConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("tracing.tracer-type", "testing").build();
+                .put("tracing.tracer-type", "simple").build();
 
-        TracingConfig expected = new TracingConfig().setTracerType("testing");
+        TracingConfig expected = new TracingConfig().setTracerType("simple");
         assertFullMapping(properties, expected);
     }
 }

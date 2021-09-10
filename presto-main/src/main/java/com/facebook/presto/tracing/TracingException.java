@@ -13,32 +13,15 @@
  */
 package com.facebook.presto.tracing;
 
-import com.facebook.airlift.configuration.Config;
+import com.facebook.presto.spi.PrestoException;
 
-public class TracingConfig
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+
+public class TracingException
+        extends PrestoException
 {
-    public static class TracerType
+    public TracingException(String message)
     {
-        public static final String NOOP = "noop";
-        public static final String SIMPLE = "simple";
-    }
-
-    private String tracerType;
-
-    public TracingConfig()
-    {
-        this.tracerType = TracerType.NOOP;
-    }
-
-    public String getTracerType()
-    {
-        return this.tracerType;
-    }
-
-    @Config("tracing.tracer-type")
-    public TracingConfig setTracerType(String tracerType)
-    {
-        this.tracerType = tracerType;
-        return this;
+        super(GENERIC_INTERNAL_ERROR, message);
     }
 }

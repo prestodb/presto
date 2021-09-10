@@ -13,32 +13,34 @@
  */
 package com.facebook.presto.tracing;
 
-import com.facebook.airlift.configuration.Config;
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
-public class TracingConfig
+public class SimpleTracerPoint
 {
-    public static class TracerType
+    private final String annotation;
+    private final long time = System.currentTimeMillis();
+
+    public SimpleTracerPoint(String annotation)
     {
-        public static final String NOOP = "noop";
-        public static final String SIMPLE = "simple";
+        this.annotation = requireNonNull(annotation, "annotation is null");
     }
 
-    private String tracerType;
-
-    public TracingConfig()
+    public String getAnnotation()
     {
-        this.tracerType = TracerType.NOOP;
+        return annotation;
     }
 
-    public String getTracerType()
+    public long getTime()
     {
-        return this.tracerType;
+        return time;
     }
 
-    @Config("tracing.tracer-type")
-    public TracingConfig setTracerType(String tracerType)
+    public String toString()
     {
-        this.tracerType = tracerType;
-        return this;
+        return toStringHelper(this)
+                .add("time", time)
+                .add("annotation", annotation)
+                .toString();
     }
 }

@@ -13,32 +13,21 @@
  */
 package com.facebook.presto.tracing;
 
-import com.facebook.airlift.configuration.Config;
+import com.facebook.presto.spi.tracing.Tracer;
+import com.facebook.presto.spi.tracing.TracerProvider;
+import com.google.inject.Inject;
 
-public class TracingConfig
+public class SimpleTracerProvider
+        implements TracerProvider
 {
-    public static class TracerType
+    @Inject
+    public SimpleTracerProvider()
     {
-        public static final String NOOP = "noop";
-        public static final String SIMPLE = "simple";
     }
 
-    private String tracerType;
-
-    public TracingConfig()
+    @Override
+    public Tracer getNewTracer()
     {
-        this.tracerType = TracerType.NOOP;
-    }
-
-    public String getTracerType()
-    {
-        return this.tracerType;
-    }
-
-    @Config("tracing.tracer-type")
-    public TracingConfig setTracerType(String tracerType)
-    {
-        this.tracerType = tracerType;
-        return this;
+        return new SimpleTracer();
     }
 }
