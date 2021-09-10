@@ -86,10 +86,11 @@ void GroupingSet::addInput(const RowVectorPtr& input, bool mayPushdown) {
     if (numAdded_ == 0) {
       initializeGlobalAggregation();
     }
+    prepareMaskedSelectivityVectors(input);
     numAdded_ += numRows;
     for (auto i = 0; i < aggregates_.size(); ++i) {
       populateTempVectors(i, input);
-      const SelectivityVector& rows = *prepareSelectivityVector(i, input);
+      const SelectivityVector& rows = getSelectivityVector(i);
       const bool canPushdown =
           mayPushdown && mayPushdown_[i] && areAllLazyNotLoaded(tempVectors_);
       aggregates_[i]->updateSingleGroup(
@@ -158,8 +159,9 @@ void GroupingSet::addInput(const RowVectorPtr& input, bool mayPushdown) {
   }
   numAdded_ += lookup_->rows.size();
   table_->groupProbe(*lookup_);
+  prepareMaskedSelectivityVectors(input);
   for (auto i = 0; i < aggregates_.size(); ++i) {
-    const SelectivityVector& rows = *prepareSelectivityVector(i, input);
+    const SelectivityVector& rows = getSelectivityVector(i);
     // TODO(spershin): We disable the pushdown at the moment if selectivity
     // vector has changed after groups generation, we might want to revisit
     // this.
@@ -215,34 +217,49 @@ void GroupingSet::populateTempVectors(
   }
 }
 
-const SelectivityVector* GroupingSet::prepareSelectivityVector(
-    size_t aggregateIndex,
-    const RowVectorPtr& input) {
+void GroupingSet::prepareMaskedSelectivityVectors(const RowVectorPtr& input) {
+  // Clear the flag for existing selectivity vectors (from the previous batch),
+  // so we know if we need to recalculate them.
+  for (auto& it : maskedActiveRows_) {
+    it.second.prepared = false;
+  }
+  for (auto aggrIndex = 0; aggrIndex < aggrMaskChannels_.size(); ++aggrIndex) {
+    if (not aggrMaskChannels_[aggrIndex].has_value()) {
+      continue;
+    }
+    const auto maskChannelIndex = aggrMaskChannels_[aggrIndex].value();
+
+    // See, if we already prepared 'rows' for this channel or not.
+    MaskedRows& maskedRows = maskedActiveRows_[maskChannelIndex];
+    if (not maskedRows.prepared) {
+      // Get the projection column vector that would be our mask.
+      const auto& maskVector = input->childAt(maskChannelIndex);
+
+      maskedRows.rows = activeRows_;
+      // Get decoded vector and update the masked selectivity vector.
+      decodedMask_.decode(*maskVector, activeRows_);
+      activeRows_.applyToSelected([&](vector_size_t i) {
+        if (maskVector->isNullAt(i) || !decodedMask_.valueAt<bool>(i)) {
+          maskedRows.rows.setValid(i, false);
+        }
+      });
+      maskedRows.prepared = true;
+      maskedRows.rows.updateBounds();
+    }
+  }
+}
+
+const SelectivityVector& GroupingSet::getSelectivityVector(
+    size_t aggregateIndex) const {
   // No mask? Use the current selectivity vector for this aggregation.
   if (not aggrMaskChannels_[aggregateIndex].has_value()) {
-    return &activeRows_;
+    return activeRows_;
   }
 
   // Get the projection column vector that would be our mask.
-  const auto& maskVector =
-      input->childAt(aggrMaskChannels_[aggregateIndex].value());
-
-  // Copy existing selectivity vector to the masked one.
-  // TODO(spershin): It would be good to cache the masked selectivity vector in
-  // case more than one columns uses it.
-  maskedActiveRows_ = activeRows_;
-
-  // Get decoded vector and update the masked selectivity vector.
-  decodedMask_.decode(*maskVector, activeRows_);
-  activeRows_.applyToSelected([&](vector_size_t i) {
-    if (maskVector->isNullAt(i) || !decodedMask_.valueAt<bool>(i)) {
-      maskedActiveRows_.setValid(i, false);
-    }
-  });
-  maskedActiveRows_.updateBounds();
-
-  // Use masked selectivity vector for this aggregation.
-  return &maskedActiveRows_;
+  auto it = maskedActiveRows_.find(aggrMaskChannels_[aggregateIndex].value());
+  DCHECK(it != maskedActiveRows_.end());
+  return it->second.rows;
 }
 
 bool GroupingSet::getOutput(
