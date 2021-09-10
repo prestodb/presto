@@ -193,6 +193,9 @@ public class HiveClientConfig
 
     private Duration partitionLeaseDuration = new Duration(0, TimeUnit.SECONDS);
 
+    private boolean executionBasedMemoryAccounting;
+    private boolean enableLooseMemoryAccounting;
+
     public int getMaxInitialSplits()
     {
         return maxInitialSplits;
@@ -1637,5 +1640,18 @@ public class HiveClientConfig
     public Duration getPartitionLeaseDuration()
     {
         return partitionLeaseDuration;
+    }
+
+    public boolean isLooseMemoryAccountingEnabled()
+    {
+        return enableLooseMemoryAccounting;
+    }
+
+    @Config("hive.loose-memory-accounting-enabled")
+    @ConfigDescription("When enabled relaxes memory accounting for queries violating memory limits to run that previously honored memory thresholds.")
+    public HiveClientConfig setLooseMemoryAccountingEnabled(boolean enableLooseMemoryAccounting)
+    {
+        this.enableLooseMemoryAccounting = enableLooseMemoryAccounting;
+        return this;
     }
 }

@@ -66,6 +66,8 @@ public class TestDictionaryColumnWriter
     private static final int STRIPE_MAX_ROWS = 15_000;
     private static final Random RANDOM = new Random();
 
+    private long retainedSizeInBytes;
+
     private static int megabytes(int size)
     {
         return toIntExact(new DataSize(size, MEGABYTE).toBytes());
@@ -293,6 +295,21 @@ public class TestDictionaryColumnWriter
             values.add(RANDOM.nextBoolean() ? null : RANDOM.nextInt());
         }
         return values;
+    }
+
+    @Test
+    public void testDictionaryRetainedSizeWithDifferentSettings()
+            throws IOException
+    {
+        List<Long> values = generateRandomLongs(70_000);
+
+        DirectConversionTester tester1 = new DirectConversionTester();
+        long retainedSizeWithoutRowGroupRetainedSize = testDictionaryWithMemoryAccounting(tester1, values, true);
+
+        DirectConversionTester tester2 = new DirectConversionTester();
+        long retainedSizeWithRowGroupRetainedSize = testDictionaryWithMemoryAccounting(tester2, values, false);
+
+        assertTrue(retainedSizeWithoutRowGroupRetainedSize <= retainedSizeWithRowGroupRetainedSize, String.format("Retained memory with rowgroup=%d should be greater than without row group=%d.", retainedSizeWithRowGroupRetainedSize, retainedSizeWithoutRowGroupRetainedSize));
     }
 
     @Test
@@ -569,6 +586,20 @@ public class TestDictionaryColumnWriter
         }
     }
 
+    private long testDictionaryWithMemoryAccounting(DirectConversionTester directConversionTester, List<?> values, boolean memoryAccountingFlag)
+            throws IOException
+    {
+        OrcWriterOptions orcWriterOptions = OrcWriterOptions.builder()
+                .withStripeMaxRowCount(STRIPE_MAX_ROWS)
+                .withIntegerDictionaryEncodingEnabled(true)
+                .withStringDictionarySortingEnabled(true)
+                .setIgnoreDictionaryRowGroupSizes(memoryAccountingFlag)
+                .build();
+
+        testDictionary(BIGINT, DWRF, orcWriterOptions, directConversionTester, values);
+        return retainedSizeInBytes;
+    }
+
     private List<StripeFooter> testLongDictionary(DirectConversionTester directConversionTester, List<?> values)
             throws IOException
     {
@@ -648,6 +679,7 @@ public class TestDictionaryColumnWriter
                 index = end;
             }
 
+            retainedSizeInBytes = writer.getRetainedBytes();
             writer.close();
             writer.validate(new FileOrcDataSource(
                     tempFile.getFile(),
