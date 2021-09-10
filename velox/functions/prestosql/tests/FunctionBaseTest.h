@@ -274,6 +274,10 @@ class FunctionBaseTest : public testing::Test {
     return BaseVector::createConstant(variant(typeKind), size, execCtx_.pool());
   }
 
+  BufferPtr makeIndices(
+      vector_size_t size,
+      std::function<vector_size_t(vector_size_t)> indexAt);
+
   BufferPtr makeOddIndices(vector_size_t size);
 
   BufferPtr makeEvenIndices(vector_size_t size);
@@ -290,11 +294,6 @@ class FunctionBaseTest : public testing::Test {
 
   static VectorPtr
   wrapInDictionary(BufferPtr indices, vector_size_t size, VectorPtr vector);
-
-  static BufferPtr makeIndices(
-      vector_size_t size,
-      std::function<vector_size_t(vector_size_t)> indexAt,
-      memory::MemoryPool* pool);
 
   static VectorPtr flatten(const VectorPtr& vector) {
     return velox::test::VectorMaker::flatten(vector);

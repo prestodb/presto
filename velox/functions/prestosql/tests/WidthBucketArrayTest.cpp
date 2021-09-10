@@ -59,8 +59,8 @@ TEST_F(WidthBucketArrayTest, success) {
   // Also encode the Array in a dictionary, and test using it as input.
   // The dictionary repeats each row of the original array twice.
   auto binsVectorNewSize = binsVector->size() * 2;
-  auto binsIndices = makeIndices(
-      binsVectorNewSize, [](auto row) { return row / 2; }, execCtx_.pool());
+  auto binsIndices =
+      makeIndices(binsVectorNewSize, [](auto row) { return row / 2; });
   auto binsDict = wrapInDictionary(binsIndices, binsVectorNewSize, binsVector);
 
   auto testWidthBucketArray = [&](const double operand,

@@ -39,8 +39,7 @@ class ArrayIntersectTest : public FunctionBaseTest {
       // The expression evaluation on both dictionary inputs should result in
       // the dictionary of the expected result vector.
       auto newSize = input[0]->size() * 2;
-      auto indices = makeIndices(
-          newSize, [](auto row) { return row / 2; }, execCtx_.pool());
+      auto indices = makeIndices(newSize, [](auto row) { return row / 2; });
       auto firstDict = wrapInDictionary(indices, newSize, input[0]);
       auto secondFlat = flatten(wrapInDictionary(indices, newSize, input[1]));
 

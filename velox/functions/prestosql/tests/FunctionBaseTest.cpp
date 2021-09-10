@@ -26,13 +26,11 @@ void FunctionBaseTest::SetUpTestCase() {
 }
 
 BufferPtr FunctionBaseTest::makeOddIndices(vector_size_t size) {
-  return makeIndices(
-      size, [](vector_size_t i) { return 2 * i + 1; }, execCtx_.pool());
+  return makeIndices(size, [](vector_size_t i) { return 2 * i + 1; });
 }
 
 BufferPtr FunctionBaseTest::makeEvenIndices(vector_size_t size) {
-  return makeIndices(
-      size, [](vector_size_t i) { return 2 * i; }, execCtx_.pool());
+  return makeIndices(size, [](vector_size_t i) { return 2 * i; });
 }
 
 // static
@@ -47,9 +45,9 @@ VectorPtr FunctionBaseTest::wrapInDictionary(
 // static
 BufferPtr FunctionBaseTest::makeIndices(
     vector_size_t size,
-    std::function<vector_size_t(vector_size_t)> indexAt,
-    memory::MemoryPool* pool) {
-  BufferPtr indices = AlignedBuffer::allocate<vector_size_t>(size, pool);
+    std::function<vector_size_t(vector_size_t)> indexAt) {
+  BufferPtr indices =
+      AlignedBuffer::allocate<vector_size_t>(size, execCtx_.pool());
   auto rawIndices = indices->asMutable<vector_size_t>();
 
   for (vector_size_t i = 0; i < size; i++) {
