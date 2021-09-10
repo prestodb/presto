@@ -17,6 +17,7 @@ import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.session.ResourceEstimates;
+import com.facebook.presto.spi.tracing.Tracer;
 import com.facebook.presto.transaction.TransactionId;
 
 import javax.annotation.Nullable;
@@ -55,6 +56,11 @@ public interface SessionContext
 
     @Nullable
     String getLanguage();
+
+    @Nullable
+    Optional<Tracer> getTracer();
+
+    void setTracerIfEnabled(Tracer tracer);
 
     Map<String, String> getSystemProperties();
 
