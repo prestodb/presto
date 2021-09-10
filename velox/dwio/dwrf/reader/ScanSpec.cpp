@@ -285,4 +285,13 @@ bool testFilter(
   return true;
 }
 
+ScanSpec& ScanSpec::getChildByChannel(ChannelIndex channel) {
+  for (auto& child : children_) {
+    if (child->channel_ == channel) {
+      return *child;
+    }
+  }
+  VELOX_FAIL("No ScanSpec produces channel {}", channel);
+}
+
 } // namespace facebook::velox::common

@@ -248,6 +248,9 @@ class ScanSpec {
     enableFilterReorder_ = enableFilterReorder;
   }
 
+  // Returns the child which produces values for 'channel'. Throws if not found.
+  ScanSpec& getChildByChannel(ChannelIndex channel);
+
  private:
   void reorder();
 

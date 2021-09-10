@@ -4068,7 +4068,7 @@ void SelectiveStructColumnReader::read(
       continue;
     }
     auto fieldIndex = childSpec->subscript();
-    auto reader = children_[fieldIndex].get();
+    auto reader = children_.at(fieldIndex).get();
     advanceFieldReader(reader, offset);
     if (childSpec->filter()) {
       hasFilter = true;
