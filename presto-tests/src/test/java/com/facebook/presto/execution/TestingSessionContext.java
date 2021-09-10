@@ -116,7 +116,7 @@ public class TestingSessionContext
     @Override
     public Optional<Tracer> getTracer()
     {
-        return Optional.empty();
+        return session.getTracer();
     }
 
     @Override
