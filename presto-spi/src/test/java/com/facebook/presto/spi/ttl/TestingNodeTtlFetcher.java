@@ -35,7 +35,7 @@ public class TestingNodeTtlFetcher
     @Override
     public Map<NodeInfo, NodeTtl> getTtlInfo(Set<NodeInfo> nodes)
     {
-        return nodes.stream().collect(toImmutableMap(Function.identity(), ttlInfo::get));
+        return nodes.stream().filter(ttlInfo::containsKey).collect(toImmutableMap(Function.identity(), ttlInfo::get));
     }
 
     @Override
