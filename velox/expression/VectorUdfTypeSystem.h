@@ -91,8 +91,8 @@ struct resolver<Array<V>> {
     using childType = typename resolver<V>::in_type;
     std::vector<variant> v(t.size());
     std::transform(
-        t.begin(), t.end(), v.begin(), [](const folly::Optional<childType>& v) {
-          return v.hasValue()
+        t.begin(), t.end(), v.begin(), [](const std::optional<childType>& v) {
+          return v.has_value()
               ? resolver<childType>::toVariant(v)
               : variant::null(in_type::veloxType()->childAt(0)->kind());
         });
@@ -111,8 +111,8 @@ struct resolver<Array<V>> {
     in_type retVal;
     for (auto& v : values) {
       auto convertedVal = v.isNull()
-          ? folly::Optional<childType>{}
-          : folly::Optional<childType>{resolver<V>::fromVariant(v)};
+          ? std::optional<childType>{}
+          : std::optional<childType>{resolver<V>::fromVariant(v)};
       retVal.append(std::move(convertedVal));
     }
 
@@ -300,7 +300,7 @@ struct VectorWriter<Map<K, V>> {
       keyWriter_.setOffset(childSize);
       valWriter_.setOffset(childSize);
       keyWriter_.copyCommit(pair.first);
-      if (pair.second.hasValue()) {
+      if (pair.second.has_value()) {
         valWriter_.copyCommit(pair.second.value());
       } else {
         valWriter_.commitNull();
@@ -397,9 +397,9 @@ struct VectorReader<Map<K, V>> {
       }
       const bool isSet = valReader_.doLoad(i, val);
       if (LIKELY(isSet)) {
-        target.emplace(key, folly::Optional<exec_in_val_t>{std::move(val)});
+        target.emplace(key, std::optional<exec_in_val_t>{std::move(val)});
       } else {
-        target.emplace(key, folly::Optional<exec_in_val_t>{});
+        target.emplace(key, std::optional<exec_in_val_t>{});
       }
     }
     return true;
@@ -522,7 +522,7 @@ struct VectorWriter<Array<V>> {
     for (auto& val : data) {
       childWriter_.setOffset(childSize);
       ++childSize;
-      if (val.hasValue()) {
+      if (val.has_value()) {
         childWriter_.copyCommit(val.value());
       } else {
         childWriter_.commitNull();
@@ -728,7 +728,7 @@ struct VectorWriter<Row<T...>> {
   template <size_t N>
   void copyCommitInternal(const exec_out_t& data) {
     const auto& value = data.template at<N>();
-    if (value.hasValue()) {
+    if (value.has_value()) {
       std::get<N>(writers_).copyCommit(value.value());
     } else {
       std::get<N>(writers_).commitNull();

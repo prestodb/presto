@@ -15,7 +15,6 @@
  */
 #pragma once
 
-#include "folly/Optional.h"
 #include "velox/type/Type.h"
 
 #define VELOX_UDF_BEGIN(Name)                                                \
@@ -32,12 +31,12 @@
                                                                              \
       template <typename __Velox_TArg>                                       \
       using opt_arg_type =                                                   \
-          folly::Optional<typename __Velox_ExecParams::template resolver<    \
+          std::optional<typename __Velox_ExecParams::template resolver<      \
               __Velox_TArg>::in_type>;                                       \
                                                                              \
       template <typename __Velox_TArg>                                       \
       using opt_out_type =                                                   \
-          folly::Optional<typename __Velox_ExecParams::template resolver<    \
+          std::optional<typename __Velox_ExecParams::template resolver<      \
               __Velox_TArg>::out_type>;                                      \
                                                                              \
       template <typename __Velox_TKey, typename __Velox_TVal>                \

@@ -143,11 +143,11 @@ VELOX_UDF_BEGIN(array_row_writer_func)
 FOLLY_ALWAYS_INLINE bool call(
     out_type<Array<Row<int64_t, double>>>& out,
     const arg_type<int32_t>& input) {
-  // Appends each row tree times.
+  // Appends each row three times.
   auto tuple = std::make_tuple(rowVectorCol1[input], rowVectorCol2[input]);
-  out.append(tuple);
-  out.append(tuple);
-  out.append(tuple);
+  out.append(std::optional(tuple));
+  out.append(std::optional(tuple));
+  out.append(std::optional(tuple));
   return true;
 }
 VELOX_UDF_END();

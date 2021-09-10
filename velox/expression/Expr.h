@@ -18,7 +18,6 @@
 
 #include <vector>
 
-#include <folly/Optional.h>
 #include <folly/container/F14Map.h>
 
 #include "velox/core/Expressions.h"

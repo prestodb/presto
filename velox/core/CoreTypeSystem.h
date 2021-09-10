@@ -20,7 +20,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include "folly/Optional.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/core/Metaprogramming.h"
 #include "velox/functions/UDFOutputString.h"
@@ -117,7 +116,7 @@ struct UdfToType {
 template <typename VAL>
 class ArrayValWriter {
  public:
-  using container_t = typename std::vector<folly::Optional<VAL>>;
+  using container_t = typename std::vector<std::optional<VAL>>;
   using iterator = typename container_t::iterator;
   using reference = typename container_t::reference;
   using const_iterator = typename container_t::const_iterator;
@@ -142,13 +141,13 @@ class ArrayValWriter {
     return values_.end();
   }
   void append(val_type val) {
-    values_.push_back(folly::Optional<val_type>{std::move(val)});
+    values_.push_back(std::optional<val_type>{std::move(val)});
   }
-  void append(folly::Optional<val_type> val) {
+  void append(std::optional<val_type> val) {
     values_.push_back(std::move(val));
   }
   void appendNullable() {
-    append(folly::Optional<val_type>{});
+    append(std::optional<val_type>{});
   }
   void clear() {
     values_.clear();
@@ -186,10 +185,10 @@ class ArrayValReader : public ArrayValWriter<VAL> {
 template <typename... T>
 struct RowWriter {
   template <std::size_t... Is>
-  static std::tuple<folly::Optional<T>...> addOptional(
+  static std::tuple<std::optional<T>...> addOptional(
       const std::tuple<T...>& val,
       std::index_sequence<Is...>) {
-    return std::tuple<folly::Optional<T>...>{std::get<Is>(val)...};
+    return std::tuple<std::optional<T>...>{std::get<Is>(val)...};
   }
 
  public:
@@ -199,7 +198,7 @@ struct RowWriter {
 
   RowWriter() {}
 
-  /* implicit */ RowWriter(const std::tuple<folly::Optional<T>...>& val)
+  /* implicit */ RowWriter(const std::tuple<std::optional<T>...>& val)
       : values_(val) {}
   /* implicit */ RowWriter(const std::tuple<T...>& val)
       : values_(addOptional(val, std::index_sequence_for<T...>{})) {}
@@ -215,11 +214,11 @@ struct RowWriter {
   }
 
   void clear() {
-    values_ = std::tuple<folly::Optional<T>...>();
+    values_ = std::tuple<std::optional<T>...>();
   }
 
  private:
-  std::tuple<folly::Optional<T>...> values_;
+  std::tuple<std::optional<T>...> values_;
 };
 
 template <typename... T>
@@ -230,7 +229,7 @@ struct IMapVal {
   static std::shared_ptr<const Type> veloxType() {
     return MAP(UdfToType<KEY>::veloxType(), UdfToType<VAL>::veloxType());
   }
-  using container_t = typename std::unordered_map<KEY, folly::Optional<VAL>>;
+  using container_t = typename std::unordered_map<KEY, std::optional<VAL>>;
   using iterator = typename container_t::iterator;
   using reference = typename container_t::reference;
   using const_iterator = typename container_t::const_iterator;
@@ -251,15 +250,15 @@ struct IMapVal {
     return data_.at(key);
   }
   val_type& append(const key_type& key) {
-    auto& opt = (data_[key] = folly::make_optional(val_type{}));
+    auto& opt = (data_[key] = std::optional(val_type{}));
     return *opt; // todo(youknowjack): avoid presence check here
   }
-  folly::Optional<val_type>& appendNullable(const key_type& key) {
+  std::optional<val_type>& appendNullable(const key_type& key) {
     return data_[key] = {};
   }
   std::pair<iterator, bool> emplace(
       const key_type& key,
-      folly::Optional<val_type> value) {
+      std::optional<val_type> value) {
     return data_.emplace(key, std::move(value));
   }
   void clear() {
@@ -301,7 +300,7 @@ class SlowMapWriter : public IMapVal<KEY, VAL> {
   SlowMapWriter& operator=(const IMapVal<KEY, VAL>& rh) {
     IMapVal<KEY, VAL>::clear();
     for (const auto& it : rh) {
-      IMapVal<KEY, VAL>::emplace(it.first, folly::Optional<VAL>(it.second));
+      IMapVal<KEY, VAL>::emplace(it.first, std::optional<VAL>(it.second));
     }
     return *this;
   }
@@ -363,8 +362,8 @@ struct DynamicResolver<Array<V>, void> {
     using childType = typename DynamicResolver<V>::in_type;
     std::vector<variant> v(t.size());
     std::transform(
-        t.begin(), t.end(), v.begin(), [](const folly::Optional<childType>& v) {
-          return v.hasValue()
+        t.begin(), t.end(), v.begin(), [](const std::optional<childType>& v) {
+          return v.has_value()
               ? DynamicResolver<V>::toVariant(v.value())
               : variant::null(UdfToType<V>::veloxType()->kind());
         });
@@ -376,8 +375,8 @@ struct DynamicResolver<Array<V>, void> {
     using childType = typename DynamicResolver<V>::out_type;
     std::vector<variant> v(t.size());
     std::transform(
-        t.begin(), t.end(), v.begin(), [](const folly::Optional<childType>& v) {
-          return v.hasValue()
+        t.begin(), t.end(), v.begin(), [](const std::optional<childType>& v) {
+          return v.has_value()
               ? DynamicResolver<V>::toVariant(v.value())
               : variant::null(UdfToType<V>::veloxType()->kind());
         });
@@ -393,8 +392,8 @@ struct DynamicResolver<Array<V>, void> {
     in_type retVal;
     for (auto& v : values) {
       auto convertedVal = v.isNull()
-          ? folly::Optional<childType>{}
-          : folly::Optional<childType>{DynamicResolver<V>::fromVariant(v)};
+          ? std::optional<childType>{}
+          : std::optional<childType>{DynamicResolver<V>::fromVariant(v)};
       retVal.append(std::move(convertedVal));
     }
     return retVal;

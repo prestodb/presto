@@ -14,10 +14,8 @@
  * limitations under the License.
  */
 
-#include <folly/Optional.h>
-
-#include "velox/core/Expressions.h"
 #include "velox/expression/ControlExpr.h"
+#include "velox/core/Expressions.h"
 #include "velox/expression/VarSetter.h"
 #include "velox/functions/lib/string/StringCore.h"
 

@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include <folly/Optional.h>
 #include <vector>
 #include "velox/expression/EvalCtx.h"
 #include "velox/expression/FunctionSignature.h"
