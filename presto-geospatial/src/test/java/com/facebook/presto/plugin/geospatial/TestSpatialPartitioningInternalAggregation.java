@@ -82,7 +82,7 @@ public class TestSpatialPartitioningInternalAggregation
 
         String expectedValue = getSpatialPartitioning(geometries, partitionCount);
 
-        AccumulatorFactory accumulatorFactory = function.bind(Ints.asList(0, 1, 2), Optional.empty());
+        AccumulatorFactory accumulatorFactory = function.bind(Ints.asList(0, 1), Optional.empty());
         Page page = new Page(geometryBlock, partitionCountBlock);
 
         Accumulator accumulator = accumulatorFactory.createAccumulator(UpdateMemory.NOOP);
