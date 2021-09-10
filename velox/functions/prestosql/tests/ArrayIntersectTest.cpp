@@ -30,6 +30,25 @@ class ArrayIntersectTest : public FunctionBaseTest {
       const std::vector<VectorPtr>& input) {
     auto result = evaluate<ArrayVector>(expression, makeRowVector(input));
     assertEqualVectors(expected, result);
+
+    // Also test using dictionary encodings.
+    if (input.size() == 2) {
+      // Wrap first column in a dictionary: repeat each row twice. Wrap second
+      // column in the same dictionary, then flatten to prevent peeling of
+      // encodings. Wrap the expected result in the same dictionary.
+      // The expression evaluation on both dictionary inputs should result in
+      // the dictionary of the expected result vector.
+      auto newSize = input[0]->size() * 2;
+      auto indices = makeIndices(
+          newSize, [](auto row) { return row / 2; }, execCtx_.pool());
+      auto firstDict = wrapInDictionary(indices, newSize, input[0]);
+      auto secondFlat = flatten(wrapInDictionary(indices, newSize, input[1]));
+
+      auto dictResult = evaluate<ArrayVector>(
+          expression, makeRowVector({firstDict, secondFlat}));
+      auto dictExpected = wrapInDictionary(indices, newSize, expected);
+      assertEqualVectors(dictExpected, dictResult);
+    }
   }
 
   template <typename T>

@@ -126,20 +126,24 @@ class ArrayIntersectFunction : public exec::VectorFunction {
 
     // Decode and acquire array elements vector.
     auto leftElementsVector = baseLeftArray->elements();
-    auto leftElementsRows =
-        toElementRows(leftElementsVector->size(), rows, baseLeftArray);
+    auto leftElementsRows = toElementRows(
+        leftElementsVector->size(),
+        rows,
+        baseLeftArray,
+        decodedLeftArray->indices());
     exec::LocalDecodedVector leftElementsHolder(
         context, *leftElementsVector, leftElementsRows);
     auto decodedLeftElements = leftElementsHolder.get();
 
-    vector_size_t arrayElementsCount = decodedLeftElements->size();
+    auto leftElementsCount =
+        countElements<ArrayVector>(rows, *decodedLeftArray);
     vector_size_t rowCount = left->size();
 
     // Allocate new vectors for indices, nulls, length and offsets.
     BufferPtr newIndices =
-        AlignedBuffer::allocate<vector_size_t>(arrayElementsCount, pool);
+        AlignedBuffer::allocate<vector_size_t>(leftElementsCount, pool);
     BufferPtr newElementNulls =
-        AlignedBuffer::allocate<bool>(arrayElementsCount, pool, bits::kNotNull);
+        AlignedBuffer::allocate<bool>(leftElementsCount, pool, bits::kNotNull);
     BufferPtr newLengths =
         AlignedBuffer::allocate<vector_size_t>(rowCount, pool);
     BufferPtr newOffsets =
@@ -209,8 +213,11 @@ class ArrayIntersectFunction : public exec::VectorFunction {
 
       // Decode and acquire array elements vector.
       auto rightElementsVector = baseRightArray->elements();
-      auto rightElementsRows =
-          toElementRows(rightElementsVector->size(), rows, baseRightArray);
+      auto rightElementsRows = toElementRows(
+          rightElementsVector->size(),
+          rows,
+          baseRightArray,
+          decodedRightArray->indices());
       exec::LocalDecodedVector rightElementsHolder(
           context, *rightElementsVector, rightElementsRows);
       auto decodedRightElements = rightElementsHolder.get();

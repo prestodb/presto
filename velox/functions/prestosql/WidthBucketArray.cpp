@@ -41,7 +41,8 @@ class WidthBucketArrayFunction : public exec::VectorFunction {
     auto rawSizes = binsArray->rawSizes();
     auto rawOffsets = binsArray->rawOffsets();
     auto elementsVector = binsArray->elements();
-    auto elementsRows = toElementRows(elementsVector->size(), rows, binsArray);
+    auto elementsRows =
+        toElementRows(elementsVector->size(), rows, binsArray, bins->indices());
     exec::LocalDecodedVector elementsHolder(
         context, *elementsVector, elementsRows);
 
