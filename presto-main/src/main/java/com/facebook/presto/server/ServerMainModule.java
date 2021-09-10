@@ -683,12 +683,12 @@ public class ServerMainModule
         configBinder(binder).bindConfig(TracingConfig.class);
         install(installModuleIf(
                 TracingConfig.class,
-                config -> NOOP.equalsIgnoreCase(config.getTracerType()),
+                config -> !config.getEnableDistributedTracing() || NOOP.equalsIgnoreCase(config.getTracerType()),
                 moduleBinder -> moduleBinder.bind(TracerProvider.class).to(NoopTracerProvider.class).in(Scopes.SINGLETON)));
 
         install(installModuleIf(
                 TracingConfig.class,
-                config -> SIMPLE.equalsIgnoreCase(config.getTracerType()),
+                config -> config.getEnableDistributedTracing() && SIMPLE.equalsIgnoreCase(config.getTracerType()),
                 moduleBinder -> moduleBinder.bind(TracerProvider.class).to(SimpleTracerProvider.class).in(Scopes.SINGLETON)));
 
         //Optional Status Detector
