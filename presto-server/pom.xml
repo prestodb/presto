@@ -78,6 +78,22 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-node-ttl-fetchers</artifactId>
+            <version>${project.version}</version>
+            <type>zip</type>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-cluster-ttl-providers</artifactId>
+            <version>${project.version}</version>
+            <type>zip</type>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
             <artifactId>presto-jmx</artifactId>
             <version>${project.version}</version>
             <type>zip</type>
