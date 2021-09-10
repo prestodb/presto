@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.io.DataOutput;
 import com.facebook.presto.common.io.DataSink;
@@ -101,7 +100,6 @@ public class OrcWriter
         implements Closeable
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcWriter.class).instanceSize();
-    private static final Logger log = Logger.get(OrcWriter.class);
 
     static final String PRESTO_ORC_WRITER_VERSION_METADATA_KEY = "presto.writer.version";
     static final String PRESTO_ORC_WRITER_VERSION;
@@ -162,7 +160,6 @@ public class OrcWriter
             Optional<DwrfWriterEncryption> encryption,
             DwrfEncryptionProvider dwrfEncryptionProvider,
             OrcWriterOptions options,
-            Optional<DwrfWriterOptions> dwrfOptions,
             Map<String, String> userMetadata,
             DateTimeZone hiveStorageTimeZone,
             boolean validate,
@@ -179,7 +176,6 @@ public class OrcWriter
                 encryption,
                 dwrfEncryptionProvider,
                 options,
-                dwrfOptions,
                 userMetadata,
                 hiveStorageTimeZone,
                 validate,
@@ -197,7 +193,6 @@ public class OrcWriter
             Optional<DwrfWriterEncryption> encryption,
             DwrfEncryptionProvider dwrfEncryptionProvider,
             OrcWriterOptions options,
-            Optional<DwrfWriterOptions> dwrfOptions,
             Map<String, String> userMetadata,
             DateTimeZone hiveStorageTimeZone,
             boolean validate,
@@ -280,8 +275,7 @@ public class OrcWriter
 
         // set DwrfStripeCacheWriter for DWRF files if it's enabled through the options
         if (orcEncoding == DWRF) {
-            this.dwrfStripeCacheWriter = dwrfOptions
-                    .filter(DwrfWriterOptions::isStripeCacheEnabled)
+            this.dwrfStripeCacheWriter = options.getDwrfWriterOptions()
                     .map(dwrfWriterOptions -> new DwrfStripeCacheWriter(
                             dwrfWriterOptions.getStripeCacheMode(),
                             dwrfWriterOptions.getStripeCacheMaxSize()));

@@ -16,32 +16,20 @@ package com.facebook.presto.orc;
 import com.facebook.presto.orc.metadata.DwrfStripeCacheMode;
 import io.airlift.units.DataSize;
 
-import static com.facebook.presto.orc.metadata.DwrfStripeCacheMode.INDEX_AND_FOOTER;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
 
 public class DwrfWriterOptions
 {
-    public static final DataSize DEFAULT_STRIPE_CACHE_MAX_SIZE = new DataSize(8, MEGABYTE);
-    public static final DwrfStripeCacheMode DEFAULT_STRIPE_CACHE_MODE = INDEX_AND_FOOTER;
-    private final boolean stripeCacheEnabled;
     private final DwrfStripeCacheMode stripeCacheMode;
     private final DataSize stripeCacheMaxSize;
 
-    private DwrfWriterOptions(
-            boolean stripeCacheEnabled,
+    public DwrfWriterOptions(
             DwrfStripeCacheMode stripeCacheMode,
             DataSize stripeCacheMaxSize)
     {
-        this.stripeCacheEnabled = stripeCacheEnabled;
         this.stripeCacheMode = requireNonNull(stripeCacheMode, "stripeCacheMode is null");
         this.stripeCacheMaxSize = requireNonNull(stripeCacheMaxSize, "stripeCacheMaxSize is null");
-    }
-
-    public boolean isStripeCacheEnabled()
-    {
-        return stripeCacheEnabled;
     }
 
     public DwrfStripeCacheMode getStripeCacheMode()
@@ -58,47 +46,8 @@ public class DwrfWriterOptions
     public String toString()
     {
         return toStringHelper(this)
-                .add("stripeCacheEnabled", stripeCacheEnabled)
                 .add("stripeCacheMode", stripeCacheMode)
                 .add("stripeCacheMaxSize", stripeCacheMaxSize)
                 .toString();
-    }
-
-    public static Builder builder()
-    {
-        return new Builder();
-    }
-
-    public static class Builder
-    {
-        private boolean stripeCacheEnabled;
-        private DwrfStripeCacheMode stripeCacheMode = DEFAULT_STRIPE_CACHE_MODE;
-        private DataSize stripeCacheMaxSize = DEFAULT_STRIPE_CACHE_MAX_SIZE;
-
-        public Builder withStripeCacheEnabled(boolean stripeCacheEnabled)
-        {
-            this.stripeCacheEnabled = stripeCacheEnabled;
-            return this;
-        }
-
-        public Builder withStripeCacheMode(DwrfStripeCacheMode stripeCacheMode)
-        {
-            this.stripeCacheMode = requireNonNull(stripeCacheMode, "stripeCacheMode is null");
-            return this;
-        }
-
-        public Builder withStripeCacheMaxSize(DataSize stripeCacheMaxSize)
-        {
-            this.stripeCacheMaxSize = requireNonNull(stripeCacheMaxSize, "stripeCacheMaxSize is null");
-            return this;
-        }
-
-        public DwrfWriterOptions build()
-        {
-            return new DwrfWriterOptions(
-                    stripeCacheEnabled,
-                    stripeCacheMode,
-                    stripeCacheMaxSize);
-        }
     }
 }

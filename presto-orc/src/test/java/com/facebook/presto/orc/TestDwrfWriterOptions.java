@@ -13,45 +13,27 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.orc.metadata.DwrfStripeCacheMode;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.orc.metadata.DwrfStripeCacheMode.INDEX_AND_FOOTER;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestDwrfWriterOptions
 {
-    private static final DwrfStripeCacheMode STRIPE_CACHE_MODE = INDEX_AND_FOOTER;
-    private static final DataSize STRIPE_CACHE_MAX_SIZE = new DataSize(27, MEGABYTE);
-
-    @Test
-    public void testProperties()
-    {
-        DwrfWriterOptions options = DwrfWriterOptions.builder()
-                .withStripeCacheEnabled(true)
-                .withStripeCacheMode(STRIPE_CACHE_MODE)
-                .withStripeCacheMaxSize(STRIPE_CACHE_MAX_SIZE)
-                .build();
-
-        assertTrue(options.isStripeCacheEnabled());
-        assertEquals(options.getStripeCacheMode(), STRIPE_CACHE_MODE);
-        assertEquals(options.getStripeCacheMaxSize(), STRIPE_CACHE_MAX_SIZE);
-    }
-
     @Test
     public void testToString()
     {
-        DwrfWriterOptions options = DwrfWriterOptions.builder()
-                .withStripeCacheEnabled(true)
-                .withStripeCacheMode(STRIPE_CACHE_MODE)
-                .withStripeCacheMaxSize(STRIPE_CACHE_MAX_SIZE)
+        OrcWriterOptions options = OrcWriterOptions.builder()
+                .withDwrfStripeCacheEnabled(true)
+                .withDwrfStripeCacheMode(INDEX_AND_FOOTER)
+                .withDwrfStripeCacheMaxSize(new DataSize(27, MEGABYTE))
                 .build();
 
-        String expectedString = "DwrfWriterOptions{stripeCacheEnabled=true, " +
-                "stripeCacheMode=INDEX_AND_FOOTER, stripeCacheMaxSize=27MB}";
-        assertEquals(options.toString(), expectedString);
+        DwrfWriterOptions dwrfWriterOptions = options.getDwrfWriterOptions().get();
+
+        String expectedString = "DwrfWriterOptions{stripeCacheMode=INDEX_AND_FOOTER, stripeCacheMaxSize=27MB}";
+        assertEquals(dwrfWriterOptions.toString(), expectedString);
     }
 }
