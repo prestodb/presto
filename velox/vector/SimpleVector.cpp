@@ -22,8 +22,6 @@
 
 namespace facebook {
 namespace velox {
-using functions::stringCore::isAscii;
-using functions::stringCore::StringEncodingMode;
 
 template <>
 void SimpleVector<StringView>::setMinMax(

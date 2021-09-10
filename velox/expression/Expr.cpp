@@ -29,9 +29,6 @@ DEFINE_bool(
 
 namespace facebook::velox::exec {
 
-using functions::stringCore::maxEncoding;
-using functions::stringCore::StringEncodingMode;
-
 namespace {
 
 bool isMember(

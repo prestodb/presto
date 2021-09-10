@@ -69,11 +69,11 @@ TEST_F(StringImplTest, upperAscii) {
     auto& expectedUpper = std::get<1>(testCase);
 
     std::string upperOutput;
-    upper<StringEncodingMode::ASCII>(upperOutput, input);
+    upper</*ascii*/ true>(upperOutput, input);
     ASSERT_EQ(upperOutput, expectedUpper);
 
     upperOutput.clear();
-    upper<StringEncodingMode::MOSTLY_ASCII>(upperOutput, input);
+    upper</*ascii*/ false>(upperOutput, input);
     ASSERT_EQ(upperOutput, expectedUpper);
   }
 }
@@ -84,11 +84,11 @@ TEST_F(StringImplTest, lowerAscii) {
     auto& expectedLower = std::get<1>(testCase);
 
     std::string lowerOutput;
-    lower<StringEncodingMode::ASCII>(lowerOutput, input);
+    lower</*ascii*/ true>(lowerOutput, input);
     ASSERT_EQ(lowerOutput, expectedLower);
 
     lowerOutput.clear();
-    lower<StringEncodingMode::MOSTLY_ASCII>(lowerOutput, input);
+    lower</*ascii*/ false>(lowerOutput, input);
     ASSERT_EQ(lowerOutput, expectedLower);
   }
 }
@@ -99,11 +99,11 @@ TEST_F(StringImplTest, upperUnicode) {
     auto& expectedUpper = std::get<1>(testCase);
 
     std::string upperOutput;
-    upper<StringEncodingMode::UTF8>(upperOutput, input);
+    upper</*ascii*/ false>(upperOutput, input);
     ASSERT_EQ(upperOutput, expectedUpper);
 
     upperOutput.clear();
-    upper<StringEncodingMode::MOSTLY_ASCII>(upperOutput, input);
+    upper</*ascii*/ false>(upperOutput, input);
     ASSERT_EQ(upperOutput, expectedUpper);
   }
 }
@@ -114,11 +114,11 @@ TEST_F(StringImplTest, lowerUnicode) {
     auto& expectedLower = std::get<1>(testCase);
 
     std::string lowerOutput;
-    lower<StringEncodingMode::UTF8>(lowerOutput, input);
+    lower</*ascii*/ false>(lowerOutput, input);
     ASSERT_EQ(lowerOutput, expectedLower);
 
     lowerOutput.clear();
-    lower<StringEncodingMode::MOSTLY_ASCII>(lowerOutput, input);
+    lower</*ascii*/ false>(lowerOutput, input);
     ASSERT_EQ(lowerOutput, expectedLower);
   }
 }
@@ -183,13 +183,9 @@ TEST_F(StringImplTest, length) {
   for (const auto& test : getUpperAsciiTestData()) {
     auto& inputString = std::get<0>(test);
 
-    ASSERT_EQ(
-        length<StringEncodingMode::ASCII>(inputString), inputString.size());
-    ASSERT_EQ(
-        length<StringEncodingMode::UTF8>(inputString), inputString.size());
-    ASSERT_EQ(
-        length<StringEncodingMode::MOSTLY_ASCII>(inputString),
-        inputString.size());
+    ASSERT_EQ(length</*isAscii*/ true>(inputString), inputString.size());
+    ASSERT_EQ(length</*isAscii*/ false>(inputString), inputString.size());
+    ASSERT_EQ(length</*isAscii*/ false>(inputString), inputString.size());
   }
 
   // Test unicode inputs
@@ -197,10 +193,10 @@ TEST_F(StringImplTest, length) {
     auto& inputString = std::get<0>(test);
 
     ASSERT_EQ(
-        length<StringEncodingMode::UTF8>(inputString),
+        length</*isAscii*/ false>(inputString),
         lengthUtf8Ref(inputString.data(), inputString.size()));
     ASSERT_EQ(
-        length<StringEncodingMode::MOSTLY_ASCII>(inputString),
+        length</*isAscii*/ false>(inputString),
         lengthUtf8Ref(inputString.data(), inputString.size()));
   }
 }
@@ -263,11 +259,11 @@ TEST_F(StringImplTest, stringPosition) {
                                 const int64_t instance,
                                 const int64_t expectedPosition) {
     ASSERT_EQ(
-        stringPosition<StringEncodingMode::ASCII>(
+        stringPosition</*isAscii*/ true>(
             StringView(string), StringView(substr), instance),
         expectedPosition);
     ASSERT_EQ(
-        stringPosition<StringEncodingMode::MOSTLY_ASCII>(
+        stringPosition</*isAscii*/ false>(
             StringView(string), StringView(substr), instance),
         expectedPosition);
   };
@@ -277,11 +273,11 @@ TEST_F(StringImplTest, stringPosition) {
                                   const int64_t instance,
                                   const int64_t expectedPosition) {
     ASSERT_EQ(
-        stringPosition<StringEncodingMode::UTF8>(
+        stringPosition</*isAscii*/ false>(
             StringView(string), StringView(substr), instance),
         expectedPosition);
     ASSERT_EQ(
-        stringPosition<StringEncodingMode::MOSTLY_ASCII>(
+        stringPosition</*isAscii*/ false>(
             StringView(string), StringView(substr), instance),
         expectedPosition);
   };
@@ -307,7 +303,7 @@ TEST_F(StringImplTest, stringPosition) {
   testValidInputUnicode("abc/xyz/foo/bar", "/", 4, 0L);
 
   EXPECT_THROW(
-      stringPosition<StringEncodingMode::MOSTLY_ASCII>(
+      stringPosition</*isAscii*/ false>(
           StringView("foobar"), StringView("foobar"), 0),
       VeloxUserError);
 }
@@ -396,14 +392,12 @@ TEST_F(StringImplTest, getByteRange) {
     auto expectedEndByteIndex = strlen(unicodeString);
 
     // Find the byte range of unicodeString[i, end]
-    auto range =
-        getByteRange<StringEncodingMode::UTF8>(unicodeString, i, 6 - i + 1);
+    auto range = getByteRange</*isAscii*/ false>(unicodeString, i, 6 - i + 1);
 
     EXPECT_EQ(expectedStartByteIndex, range.first);
     EXPECT_EQ(expectedEndByteIndex, range.second);
 
-    range = getByteRange<StringEncodingMode::MOSTLY_ASCII>(
-        unicodeString, i, 6 - i + 1);
+    range = getByteRange</*isAscii*/ false>(unicodeString, i, 6 - i + 1);
 
     EXPECT_EQ(expectedStartByteIndex, range.first);
     EXPECT_EQ(expectedEndByteIndex, range.second);

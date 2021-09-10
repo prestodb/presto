@@ -44,13 +44,9 @@ namespace stringImpl {
 using namespace stringCore;
 
 /// Perform upper for a UTF8 string
-template <
-    StringEncodingMode stringEncoding,
-    typename TOutString,
-    typename TInString>
+template <bool ascii, typename TOutString, typename TInString>
 FOLLY_ALWAYS_INLINE bool upper(TOutString& output, const TInString& input) {
-  bool isAsciiInput = isAscii<stringEncoding>(input.data(), input.size());
-  if (isAsciiInput) {
+  if constexpr (ascii) {
     output.resize(input.size());
     upperAscii(output.data(), input.data(), input.size());
   } else {
@@ -63,13 +59,9 @@ FOLLY_ALWAYS_INLINE bool upper(TOutString& output, const TInString& input) {
 }
 
 /// Perform lower for a UTF8 string
-template <
-    StringEncodingMode stringEncoding,
-    typename TOutString,
-    typename TInString>
+template <bool ascii, typename TOutString, typename TInString>
 FOLLY_ALWAYS_INLINE bool lower(TOutString& output, const TInString& input) {
-  bool isAsciiInput = isAscii<stringEncoding>(input.data(), input.size());
-  if (isAsciiInput) {
+  if constexpr (ascii) {
     output.resize(input.size());
     lowerAscii(output.data(), input.data(), input.size());
   } else {
@@ -133,9 +125,9 @@ void concatDynamic(TOutString& output, const std::vector<TInString>& inputs) {
 }
 
 /// Return length of the input string in chars
-template <StringEncodingMode stringEncoding, typename T>
+template <bool isAscii, typename T>
 FOLLY_ALWAYS_INLINE int64_t length(const T& input) {
-  if constexpr (stringEncoding == StringEncodingMode::ASCII) {
+  if constexpr (isAscii) {
     return input.size();
   } else {
     return lengthUnicode(input.data(), input.size());
@@ -165,7 +157,7 @@ FOLLY_ALWAYS_INLINE void codePointToString(
 /// string. Implements the logic of presto codepoint function.
 template <typename T>
 FOLLY_ALWAYS_INLINE int32_t charToCodePoint(const T& inputString) {
-  auto length = stringImpl::length<StringEncodingMode::UTF8>(inputString);
+  auto length = stringImpl::length</*isAscii*/ false>(inputString);
   VELOX_USER_CHECK_EQ(
       length,
       1,
@@ -180,7 +172,7 @@ FOLLY_ALWAYS_INLINE int32_t charToCodePoint(const T& inputString) {
 /// Returns the starting position in characters of the Nth instance of the
 /// substring in string. Positions start with 1. If not found, 0 is returned. If
 /// subString is empty result is 1.
-template <StringEncodingMode stringEncoding, typename T>
+template <bool isAscii, typename T>
 FOLLY_ALWAYS_INLINE int64_t
 stringPosition(const T& string, const T& subString, int64_t instance = 0) {
   if (subString.size() == 0) {
@@ -200,7 +192,7 @@ stringPosition(const T& string, const T& subString, int64_t instance = 0) {
 
   // Return the number of characters from the beginning of the string to
   // byteIndex.
-  return length<stringEncoding>(std::string_view(string.data(), byteIndex)) + 1;
+  return length<isAscii>(std::string_view(string.data(), byteIndex)) + 1;
 }
 
 /// Replace replaced with replacement in inputString and write results to

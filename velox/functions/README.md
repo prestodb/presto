@@ -41,18 +41,15 @@ Note the symbol udf_round is automatically generated from the symbol round in th
 For functions dealing with string inputs and outputs, please use the mechanisms provided for optimizing for ASCII and
 Unicode cases. For example here's how upper function is implemented `functions/lib/string/StringImpl.h`
 
-By checking `isAscii<stringEncoding>` we know the string is ascii and so run the extremely simpler version of the
-function compared to unicode (utf8) implementation using `utf8proc` library.
+By passing asciiness via the template variable we know the string is ascii and so run the extremely simpler version of the
+function compared to unicode (utf8) implementation using `utf8proc` library. Note that the template variabe `ascii` having
+value `true` indicates that the vector has no unicode character in it.
 
 ```c++
 /// Perform upper for a UTF8 string
-template <
-    StringEncodingMode stringEncoding,
-    typename TOutString,
-    typename TInString>
+template <bool ascii, typename TOutString, typename TInString>
 FOLLY_ALWAYS_INLINE bool upper(TOutString& output, const TInString& input) {
-  bool isAsciiInput = isAscii<stringEncoding>(input.data(), input.size());
-  if (isAsciiInput) {
+  if constexpr (ascii) {
     output.resize(input.size());
     upperAscii(output.data(), input.data(), input.size());
   } else {

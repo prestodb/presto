@@ -21,9 +21,6 @@
 
 namespace facebook::velox::exec {
 
-using functions::stringCore::maxEncoding;
-using functions::stringCore::StringEncodingMode;
-
 void ConstantExpr::evalSpecialForm(
     const SelectivityVector& rows,
     EvalCtx* context,

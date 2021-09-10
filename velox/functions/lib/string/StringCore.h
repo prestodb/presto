@@ -43,55 +43,15 @@
 namespace facebook::velox::functions {
 namespace stringCore {
 
-/// Encoding of input string
-enum class StringEncodingMode {
-  UTF8 = 0,
-  ASCII = 1,
-  MOSTLY_ASCII = 2,
-};
-
-// Define ordering on string encodings UTF8 > MOSTLY_ASCII > ASCII
-FOLLY_ALWAYS_INLINE StringEncodingMode
-maxEncoding(const StringEncodingMode& lhs, const StringEncodingMode& rhs) {
-  if (lhs == StringEncodingMode::UTF8 || rhs == StringEncodingMode::UTF8) {
-    return StringEncodingMode::UTF8;
-  }
-
-  if (lhs == StringEncodingMode::MOSTLY_ASCII ||
-      rhs == StringEncodingMode::MOSTLY_ASCII) {
-    return StringEncodingMode::MOSTLY_ASCII;
-  }
-
-  return StringEncodingMode::ASCII;
-};
-
 /// Check if a given string is ascii
-template <StringEncodingMode mode = StringEncodingMode::MOSTLY_ASCII>
 static bool isAscii(const char* str, size_t length);
 
-template <>
-FOLLY_ALWAYS_INLINE bool isAscii<StringEncodingMode::MOSTLY_ASCII>(
-    const char* str,
-    size_t length) {
+FOLLY_ALWAYS_INLINE bool isAscii(const char* str, size_t length) {
   for (auto i = 0; i < length; i++) {
     if (str[i] & 0x80) {
       return false;
     }
   }
-  return true;
-}
-
-template <>
-FOLLY_ALWAYS_INLINE bool isAscii<StringEncodingMode::UTF8>(
-    const char* str,
-    size_t length) {
-  return false;
-}
-
-template <>
-FOLLY_ALWAYS_INLINE bool isAscii<StringEncodingMode::ASCII>(
-    const char* str,
-    size_t length) {
   return true;
 }
 
@@ -369,14 +329,14 @@ inline static size_t replace(
 /// Given a utf8 string, a starting position and length returns the
 /// corresponding underlying byte range [startByteIndex, endByteIndex).
 /// Byte indicies starts from 0, UTF8 character positions starts from 1.
-template <StringEncodingMode mode>
+template <bool isAscii>
 static inline std::pair<size_t, size_t>
 getByteRange(const char* str, size_t startCharPosition, size_t length) {
   if (startCharPosition < 1 && length > 0) {
     throw std::invalid_argument(
         "start position must be >= 1 and length must be > 0");
   }
-  if constexpr (mode == StringEncodingMode::ASCII) {
+  if constexpr (isAscii) {
     return std::make_pair(
         startCharPosition - 1, startCharPosition + length - 1);
   } else {
