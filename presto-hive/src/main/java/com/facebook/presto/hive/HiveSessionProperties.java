@@ -123,6 +123,7 @@ public final class HiveSessionProperties
     public static final String OPTIMIZED_PARTITION_UPDATE_SERIALIZATION_ENABLED = "optimized_partition_update_serialization_enabled";
     public static final String PARTITION_LEASE_DURATION = "partition_lease_duration";
     public static final String CACHE_ENABLED = "cache_enabled";
+    public static final String ENABLE_LOOSE_MEMORY_BASED_ACCOUNTING = "enable_loose_memory_based_accounting";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -581,6 +582,11 @@ public final class HiveSessionProperties
                         CACHE_ENABLED,
                         "Enable cache for hive",
                         cacheConfig.isCachingEnabled(),
+                        false),
+                booleanProperty(
+                        ENABLE_LOOSE_MEMORY_BASED_ACCOUNTING,
+                        "Enable loose memory accounting to avoid OOMing existing queries",
+                        hiveClientConfig.isLooseMemoryAccountingEnabled(),
                         false));
     }
 
@@ -1015,5 +1021,10 @@ public final class HiveSessionProperties
     public static boolean isCacheEnabled(ConnectorSession session)
     {
         return session.getProperty(CACHE_ENABLED, Boolean.class);
+    }
+
+    public static boolean isExecutionBasedMemoryAccountingEnabled(ConnectorSession session)
+    {
+        return session.getProperty(ENABLE_LOOSE_MEMORY_BASED_ACCOUNTING, Boolean.class);
     }
 }
