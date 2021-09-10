@@ -15,15 +15,18 @@ package com.facebook.presto.server;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session.ResourceEstimateBuilder;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.spi.session.ResourceEstimates;
+import com.facebook.presto.spi.tracing.Tracer;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
+import com.facebook.presto.tracing.NoopTracerProvider;
 import com.facebook.presto.transaction.TransactionId;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
@@ -75,6 +78,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_FOR;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public final class HttpRequestSessionContext
         implements SessionContext
@@ -107,7 +111,20 @@ public final class HttpRequestSessionContext
     private final String clientInfo;
     private final Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions;
 
+    private final Optional<Tracer> tracer;
+
     public HttpRequestSessionContext(HttpServletRequest servletRequest, SqlParserOptions sqlParserOptions)
+    {
+        this(servletRequest, sqlParserOptions, NoopTracerProvider.NOOP_TRACER);
+    }
+
+    /**
+     * @param servletRequest
+     * @param sqlParserOptions
+     * @param tracer This passed-in {@link Tracer} will only be used when isTracingEabled() returns true.
+     * @throws WebApplicationException
+     */
+    public HttpRequestSessionContext(HttpServletRequest servletRequest, SqlParserOptions sqlParserOptions, Tracer tracer)
             throws WebApplicationException
     {
         catalog = trimEmptyToNull(servletRequest.getHeader(PRESTO_CATALOG));
@@ -173,6 +190,12 @@ public final class HttpRequestSessionContext
         transactionId = parseTransactionId(transactionIdHeader);
 
         this.sessionFunctions = parseSessionFunctionHeader(servletRequest);
+        if (isTracingEnabled()) {
+            this.tracer = Optional.of(requireNonNull(tracer, "tracer is null"));
+        }
+        else {
+            this.tracer = Optional.of(NoopTracerProvider.NOOP_TRACER);
+        }
     }
 
     public static List<String> splitSessionHeader(Enumeration<String> headers)
@@ -430,6 +453,18 @@ public final class HttpRequestSessionContext
     public Optional<String> getTraceToken()
     {
         return traceToken;
+    }
+
+    @Override
+    public Optional<Tracer> getTracer()
+    {
+        return tracer;
+    }
+
+    private boolean isTracingEnabled()
+    {
+        return systemProperties.getOrDefault(SystemSessionProperties.ENABLE_DISTRIBUTED_TRACING, "")
+                .equalsIgnoreCase("true");
     }
 
     private Set<String> parseClientTags(HttpServletRequest servletRequest)
