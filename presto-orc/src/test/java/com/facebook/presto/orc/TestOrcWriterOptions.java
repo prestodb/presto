@@ -135,7 +135,8 @@ public class TestOrcWriterOptions
                 + "rowGroupMaxRowCount=15000, dictionaryMaxMemory=13000kB, maxStringStatisticsLimit=128B, "
                 + "maxCompressionBufferSize=512kB, compressionLevel=OptionalInt[5], streamLayout=ByColumnSize{}, "
                 + "integerDictionaryEncodingEnabled=false, stringDictionarySortingEnabled=true, "
-                + "dwrfWriterOptions=Optional[DwrfStripeCacheOptions{stripeCacheMode=INDEX_AND_FOOTER, stripeCacheMaxSize=4MB}]}";
+                + "dwrfWriterOptions=Optional[DwrfStripeCacheOptions{stripeCacheMode=INDEX_AND_FOOTER, stripeCacheMaxSize=4MB}], "
+                + "ignoreDictionaryRowGroupSizes=false}";
         assertEquals(expectedString, writerOptions.toString());
     }
 }
