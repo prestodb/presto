@@ -80,6 +80,8 @@ import com.facebook.presto.testing.TestingEventListenerManager;
 import com.facebook.presto.testing.TestingTempStorageManager;
 import com.facebook.presto.testing.TestingWarningCollectorModule;
 import com.facebook.presto.transaction.TransactionManager;
+import com.facebook.presto.ttl.clusterttlprovidermanagers.ClusterTtlProviderManagerModule;
+import com.facebook.presto.ttl.nodettlfetchermanagers.NodeTtlFetcherManagerModule;
 import com.fasterxml.jackson.module.afterburner.AfterburnerModule;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
@@ -276,6 +278,8 @@ public class TestingPrestoServer
                 .add(new ServerMainModule(parserOptions))
                 .add(new TestingWarningCollectorModule())
                 .add(new QueryPrerequisitesManagerModule())
+                .add(new NodeTtlFetcherManagerModule())
+                .add(new ClusterTtlProviderManagerModule())
                 .add(binder -> {
                     binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);
                     binder.bind(TestingEventListenerManager.class).in(Scopes.SINGLETON);
