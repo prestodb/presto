@@ -17,6 +17,7 @@ import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.presto.server.ForStatementResource;
 import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.tracing.Tracer;
 import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
@@ -100,7 +101,15 @@ public class ExecutingStatementResource
         Query query = queryProvider.getQuery(queryId, slug);
         ListenableFuture<Response> queryResultsFuture = transform(
                 query.waitForResults(token, uriInfo, proto, wait, targetResultSize),
-                results -> toResponse(query, results, compressionEnabled),
+                (results) -> {
+                    Tracer tracer = query.getTracer();
+                    tracer.addPoint("Sending result data.");
+                    Response response = toResponse(query, results, compressionEnabled);
+                    if (results.getNextUri() == null) {
+                        tracer.endTrace("All results sent, query finished.");
+                    }
+                    return response;
+                },
                 directExecutor());
         bindAsyncResponse(asyncResponse, queryResultsFuture, responseExecutor);
     }

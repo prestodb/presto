@@ -28,6 +28,7 @@ import com.facebook.presto.server.SessionContext;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.tracing.TracerProvider;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -118,6 +119,7 @@ public class QueuedStatementResource
     private final boolean compressionEnabled;
 
     private final SqlParserOptions sqlParserOptions;
+    private final TracerProvider tracerProvider;
 
     @Inject
     public QueuedStatementResource(
@@ -125,7 +127,8 @@ public class QueuedStatementResource
             DispatchExecutor executor,
             LocalQueryProvider queryResultsProvider,
             SqlParserOptions sqlParserOptions,
-            ServerConfig serverConfig)
+            ServerConfig serverConfig,
+            TracerProvider tracerProvider)
     {
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
         this.queryResultsProvider = queryResultsProvider;
@@ -134,6 +137,7 @@ public class QueuedStatementResource
 
         this.responseExecutor = requireNonNull(executor, "responseExecutor is null").getExecutor();
         this.timeoutExecutor = requireNonNull(executor, "timeoutExecutor is null").getScheduledExecutor();
+        this.tracerProvider = tracerProvider;
 
         queryPurger.scheduleWithFixedDelay(
                 () -> {
@@ -171,6 +175,7 @@ public class QueuedStatementResource
         }
 
         SessionContext sessionContext = new HttpRequestSessionContext(servletRequest, sqlParserOptions);
+        sessionContext.setTracerIfEnabled(tracerProvider.getNewTracer());
         Query query = new Query(statement, sessionContext, dispatchManager, queryResultsProvider, 0);
         queries.put(query.getQueryId(), query);
 
@@ -484,7 +489,10 @@ public class QueuedStatementResource
             // Hence it is safe to hardcode the token to be 0.
             return transform(
                     query.waitForResults(0, uriInfo, getScheme(xForwardedProto, uriInfo), maxWait, TARGET_RESULT_SIZE),
-                    results -> QueryResourceUtil.toResponse(query, results, compressionEnabled),
+                    results -> {
+                        query.getTracer().addPoint("Result is ready, redirecting to execution endpoint to fetch result data");
+                        return QueryResourceUtil.toResponse(query, results, compressionEnabled);
+                    },
                     directExecutor());
         }
 

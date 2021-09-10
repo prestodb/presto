@@ -29,6 +29,7 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.tracing.QueryStateTracingListener;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -112,6 +113,7 @@ public class LocalDispatchQueryFactory
                 metadata,
                 warningCollector);
 
+        stateMachine.addStateChangeListener(new QueryStateTracingListener(stateMachine.getSession().getTracer().get()));
         queryMonitor.queryCreatedEvent(stateMachine.getBasicQueryInfo(Optional.empty()));
 
         ListenableFuture<QueryExecution> queryExecutionFuture = executor.submit(() -> {
