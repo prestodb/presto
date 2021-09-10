@@ -26,6 +26,7 @@ import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.StandardWarningCode;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spiller.NodeSpillConfig;
+import com.facebook.presto.tracing.TracingConfig;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -162,7 +163,8 @@ public class TestAnalyzer
                 new NodeMemoryConfig(),
                 new WarningCollectorConfig(),
                 new NodeSchedulerConfig(),
-                new NodeSpillConfig()))).build();
+                new NodeSpillConfig(),
+                new TracingConfig()))).build();
         assertFails(session, WINDOW_FUNCTION_ORDERBY_LITERAL,
                 "SELECT SUM(x) OVER (PARTITION BY y ORDER BY 1) AS s\n" +
                         "FROM (values (1,10), (2, 10)) AS T(x, y)");
@@ -554,7 +556,8 @@ public class TestAnalyzer
                 new NodeMemoryConfig(),
                 new WarningCollectorConfig(),
                 new NodeSchedulerConfig(),
-                new NodeSpillConfig()))).build();
+                new NodeSpillConfig(),
+                new TracingConfig()))).build();
         analyze(session, "SELECT a, b, c, d, e, f, g, h, i, j, k, SUM(l)" +
                 "FROM (VALUES (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12))\n" +
                 "t (a, b, c, d, e, f, g, h, i, j, k, l)\n" +
