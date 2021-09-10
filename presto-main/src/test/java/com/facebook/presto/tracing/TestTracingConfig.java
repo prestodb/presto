@@ -27,16 +27,22 @@ public class TestTracingConfig
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(ConfigAssertions.recordDefaults(TracingConfig.class).setTracerType("noop"));
+        assertRecordedDefaults(ConfigAssertions.recordDefaults(TracingConfig.class)
+                .setTracerType("noop")
+                .setEnableDistributedTracing(false));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("tracing.tracer-type", "testing").build();
+                .put("tracing.tracer-type", "simple")
+                .put("tracing.enable-distributed-tracing", "true")
+                .build();
 
-        TracingConfig expected = new TracingConfig().setTracerType("testing");
+        TracingConfig expected = new TracingConfig()
+                .setTracerType("simple")
+                .setEnableDistributedTracing(true);
         assertFullMapping(properties, expected);
     }
 }
