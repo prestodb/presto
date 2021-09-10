@@ -31,6 +31,7 @@ public class ColumnWriterOptions
     private final DataSize stringStatisticsLimit;
     private final boolean integerDictionaryEncodingEnabled;
     private final boolean stringDictionarySortingEnabled;
+    private final boolean ignoreDictionaryRowGroupSizes;
 
     public ColumnWriterOptions(
             CompressionKind compressionKind,
@@ -38,7 +39,8 @@ public class ColumnWriterOptions
             DataSize compressionMaxBufferSize,
             DataSize stringStatisticsLimit,
             boolean integerDictionaryEncodingEnabled,
-            boolean stringDictionarySortingEnabled)
+            boolean stringDictionarySortingEnabled,
+            boolean ignoreDictionaryRowGroupSizes)
     {
         this.compressionKind = requireNonNull(compressionKind, "compressionKind is null");
         this.compressionLevel = requireNonNull(compressionLevel, "compressionLevel is null");
@@ -47,6 +49,7 @@ public class ColumnWriterOptions
         this.stringStatisticsLimit = requireNonNull(stringStatisticsLimit, "stringStatisticsLimit is null");
         this.integerDictionaryEncodingEnabled = integerDictionaryEncodingEnabled;
         this.stringDictionarySortingEnabled = stringDictionarySortingEnabled;
+        this.ignoreDictionaryRowGroupSizes = ignoreDictionaryRowGroupSizes;
     }
 
     public CompressionKind getCompressionKind()
@@ -79,6 +82,11 @@ public class ColumnWriterOptions
         return stringDictionarySortingEnabled;
     }
 
+    public boolean isIgnoreDictionaryRowGroupSizes()
+    {
+        return ignoreDictionaryRowGroupSizes;
+    }
+
     public static Builder builder()
     {
         return new Builder();
@@ -92,6 +100,7 @@ public class ColumnWriterOptions
         private DataSize stringStatisticsLimit = DEFAULT_MAX_STRING_STATISTICS_LIMIT;
         private boolean integerDictionaryEncodingEnabled;
         private boolean stringDictionarySortingEnabled = true;
+        private boolean ignoreDictionaryRowGroupSizes;
 
         private Builder() {}
 
@@ -131,6 +140,12 @@ public class ColumnWriterOptions
             return this;
         }
 
+        public Builder setIgnoreDictionaryRowGroupSizes(boolean ignoreDictionaryRowGroupSizes)
+        {
+            this.ignoreDictionaryRowGroupSizes = ignoreDictionaryRowGroupSizes;
+            return this;
+        }
+
         public ColumnWriterOptions build()
         {
             return new ColumnWriterOptions(
@@ -139,7 +154,8 @@ public class ColumnWriterOptions
                     compressionMaxBufferSize,
                     stringStatisticsLimit,
                     integerDictionaryEncodingEnabled,
-                    stringDictionarySortingEnabled);
+                    stringDictionarySortingEnabled,
+                    ignoreDictionaryRowGroupSizes);
         }
     }
 }

@@ -213,6 +213,7 @@ public class OrcWriter
                 .setStringStatisticsLimit(options.getMaxStringStatisticsLimit())
                 .setIntegerDictionaryEncodingEnabled(options.isIntegerDictionaryEncodingEnabled())
                 .setStringDictionarySortingEnabled(options.isStringDictionarySortingEnabled())
+                .setIgnoreDictionaryRowGroupSizes(options.isIgnoreDictionaryRowGroupSizes())
                 .build();
         recordValidation(validation -> validation.setCompression(compressionKind));
 
@@ -402,7 +403,6 @@ public class OrcWriter
             else {
                 page = null;
             }
-
             writeChunk(chunk);
         }
 

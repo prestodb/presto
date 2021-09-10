@@ -51,6 +51,11 @@ public class OrcWriterOptions
     private final StreamLayout streamLayout;
     private final boolean integerDictionaryEncodingEnabled;
     private final boolean stringDictionarySortingEnabled;
+    // TODO: Originally the dictionary row group sizes were not included in memory accounting due
+    //  to a bug. Fixing the bug causes certain queries to OOM. When enabled this flag maintains the
+    //  previous behavior so previously working queries will not OOM. The OOMs caused due to the
+    //  additional memory accounting need to be fixed as well as the flag removed.
+    private final boolean ignoreDictionaryRowGroupSizes;
     private final Optional<DwrfStripeCacheOptions> dwrfWriterOptions;
 
     private OrcWriterOptions(
@@ -65,7 +70,8 @@ public class OrcWriterOptions
             StreamLayout streamLayout,
             boolean integerDictionaryEncodingEnabled,
             boolean stringDictionarySortingEnabled,
-            Optional<DwrfStripeCacheOptions> dwrfWriterOptions)
+            Optional<DwrfStripeCacheOptions> dwrfWriterOptions,
+            boolean ignoreDictionaryRowGroupSizes)
     {
         requireNonNull(stripeMinSize, "stripeMinSize is null");
         requireNonNull(stripeMaxSize, "stripeMaxSize is null");
@@ -90,6 +96,7 @@ public class OrcWriterOptions
         this.integerDictionaryEncodingEnabled = integerDictionaryEncodingEnabled;
         this.stringDictionarySortingEnabled = stringDictionarySortingEnabled;
         this.dwrfWriterOptions = dwrfWriterOptions;
+        this.ignoreDictionaryRowGroupSizes = ignoreDictionaryRowGroupSizes;
     }
 
     public DataSize getStripeMinSize()
@@ -152,6 +159,11 @@ public class OrcWriterOptions
         return dwrfWriterOptions;
     }
 
+    public boolean isIgnoreDictionaryRowGroupSizes()
+    {
+        return ignoreDictionaryRowGroupSizes;
+    }
+
     @Override
     public String toString()
     {
@@ -168,6 +180,7 @@ public class OrcWriterOptions
                 .add("integerDictionaryEncodingEnabled", integerDictionaryEncodingEnabled)
                 .add("stringDictionarySortingEnabled", stringDictionarySortingEnabled)
                 .add("dwrfWriterOptions", dwrfWriterOptions)
+                .add("ignoreDictionaryRowGroupSizes", ignoreDictionaryRowGroupSizes)
                 .toString();
     }
 
@@ -192,6 +205,7 @@ public class OrcWriterOptions
         private boolean dwrfStripeCacheEnabled;
         private DwrfStripeCacheMode dwrfStripeCacheMode = DEFAULT_DWRF_STRIPE_CACHE_MODE;
         private DataSize dwrfStripeCacheMaxSize = DEFAULT_DWRF_STRIPE_CACHE_MAX_SIZE;
+        private boolean ignoreDictionaryRowGroupSizes;
 
         public Builder withStripeMinSize(DataSize stripeMinSize)
         {
@@ -279,6 +293,12 @@ public class OrcWriterOptions
             return this;
         }
 
+        public Builder setIgnoreDictionaryRowGroupSizes(boolean ignoreDictionaryRowGroupSizes)
+        {
+            this.ignoreDictionaryRowGroupSizes = ignoreDictionaryRowGroupSizes;
+            return this;
+        }
+
         public OrcWriterOptions build()
         {
             Optional<DwrfStripeCacheOptions> dwrfWriterOptions;
@@ -301,7 +321,8 @@ public class OrcWriterOptions
                     streamLayout,
                     integerDictionaryEncodingEnabled,
                     stringDictionarySortingEnabled,
-                    dwrfWriterOptions);
+                    dwrfWriterOptions,
+                    ignoreDictionaryRowGroupSizes);
         }
     }
 }
