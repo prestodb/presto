@@ -330,6 +330,7 @@ public final class SessionRepresentation
                 unprocessedCatalogProperties,
                 sessionPropertyManager,
                 preparedStatements,
-                sessionFunctions);
+                sessionFunctions,
+                Optional.empty());
     }
 }
