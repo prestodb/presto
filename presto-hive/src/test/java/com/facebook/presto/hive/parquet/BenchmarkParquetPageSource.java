@@ -15,6 +15,7 @@ package com.facebook.presto.hive.parquet;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
@@ -291,7 +292,7 @@ public class BenchmarkParquetPageSource
 
             ParquetReader parquetReader = new ParquetReader(messageColumnIO, parquetMetadata.getBlocks(), dataSource, newSimpleAggregatedMemoryContext(), new DataSize(16, MEGABYTE), batchReadEnabled, enableVerification);
 
-            return new ParquetPageSource(parquetReader, Collections.nCopies(channelCount, type), fields, columnNames);
+            return new ParquetPageSource(parquetReader, Collections.nCopies(channelCount, type), fields, columnNames, new RuntimeStats());
         }
 
         private Optional<RowExpression> filterConjunction()
