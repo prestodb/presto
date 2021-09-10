@@ -20,15 +20,11 @@ public class TracingConfig
     public static class TracerType
     {
         public static final String NOOP = "noop";
-        public static final String TESTING = "testing";
+        public static final String SIMPLE = "simple";
     }
 
-    private String tracerType;
-
-    public TracingConfig()
-    {
-        this.tracerType = TracerType.NOOP;
-    }
+    private String tracerType = TracerType.NOOP;
+    private boolean enableDistributedTracing;
 
     public String getTracerType()
     {
@@ -39,6 +35,18 @@ public class TracingConfig
     public TracingConfig setTracerType(String tracerType)
     {
         this.tracerType = tracerType;
+        return this;
+    }
+
+    public boolean getEnableDistributedTracing()
+    {
+        return enableDistributedTracing;
+    }
+
+    @Config("tracing.enable-distributed-tracing")
+    public TracingConfig setEnableDistributedTracing(boolean enableDistributedTracing)
+    {
+        this.enableDistributedTracing = enableDistributedTracing;
         return this;
     }
 }
