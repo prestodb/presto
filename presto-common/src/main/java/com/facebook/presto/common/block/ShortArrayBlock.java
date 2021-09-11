@@ -21,12 +21,12 @@ import javax.annotation.Nullable;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 
+import static com.facebook.presto.common.array.Arrays.ensureCapacity;
 import static com.facebook.presto.common.block.BlockUtil.appendNullToIsNullArray;
 import static com.facebook.presto.common.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.common.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.common.block.BlockUtil.compactArray;
 import static com.facebook.presto.common.block.BlockUtil.countUsedPositions;
-import static com.facebook.presto.common.block.BlockUtil.ensureCapacity;
 import static com.facebook.presto.common.block.BlockUtil.internalPositionInRange;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.String.format;
