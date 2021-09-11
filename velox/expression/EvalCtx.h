@@ -118,12 +118,12 @@ class EvalCtx {
     return &throwOnError_;
   }
 
-  bool mayHaveNulls() const {
-    return mayHaveNulls_;
+  bool nullsPruned() const {
+    return nullsPruned_;
   }
 
-  bool* mutableMayHaveNulls() {
-    return &mayHaveNulls_;
+  bool* mutableNullsPruned() {
+    return &nullsPruned_;
   }
 
   // Returns true if the set of rows the expressions are evaluated on are
@@ -201,7 +201,10 @@ class EvalCtx {
   VectorEncoding::Simple wrapEncoding_ = VectorEncoding::Simple::FLAT;
   vector_size_t constantWrapIndex_;
 
-  bool mayHaveNulls_{false};
+  // True if nulls in the input vectors were pruned (removed from the current
+  // selectivity vector). Only possible is all expressions have default null
+  // behavior.
+  bool nullsPruned_{false};
   bool throwOnError_{true};
 
   // True if the current set of rows will not grow, e.g. not under and IF or OR.
@@ -225,7 +228,7 @@ struct ContextSaver {
   BufferPtr wrap;
   BufferPtr wrapNulls;
   VectorEncoding::Simple wrapEncoding;
-  bool mayHaveNulls = false;
+  bool nullsPruned = false;
   // The selection of the context being saved.
   const SelectivityVector* rows;
   const SelectivityVector* finalSelection;

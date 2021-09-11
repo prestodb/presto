@@ -119,8 +119,8 @@ void EvalCtx::saveAndReset(ContextSaver* saver, const SelectivityVector& rows) {
   saver->wrapNulls = std::move(wrapNulls_);
   saver->wrapEncoding = wrapEncoding_;
   wrapEncoding_ = VectorEncoding::Simple::FLAT;
-  saver->mayHaveNulls = mayHaveNulls_;
-  mayHaveNulls_ = false;
+  saver->nullsPruned = nullsPruned_;
+  nullsPruned_ = false;
   if (errors_) {
     saver->errors = std::move(errors_);
   }
@@ -162,7 +162,7 @@ void EvalCtx::addError(
 
 void EvalCtx::restore(ContextSaver* saver) {
   peeledFields_ = std::move(saver->peeled);
-  mayHaveNulls_ = saver->mayHaveNulls;
+  nullsPruned_ = saver->nullsPruned;
   if (errors_) {
     int32_t errorSize = errors_->size();
     // A constant wrap has no indices.

@@ -287,4 +287,55 @@ TEST_F(SimpleFunctionTest, rowOpaqueReader) {
   assertEqualVectors(expected, result);
 }
 
+// Nullability tests:
+
+// Test that function with default null behavior won't get called when inputs
+// are all null.
+VELOX_UDF_BEGIN(default_null_behavior)
+FOLLY_ALWAYS_INLINE bool call(out_type<bool>&, int64_t) {
+  throw std::runtime_error(
+      "Function not supposed to be called on null inputs.");
+  return true;
+}
+VELOX_UDF_END();
+
+TEST_F(SimpleFunctionTest, defaultNullBehavior) {
+  registerFunction<udf_default_null_behavior, bool, int64_t>();
+
+  // Make a vector filled with nulls.
+  auto flatVector = makeFlatVector<int64_t>(
+      10, [](auto row) { return row; }, [](auto) { return true; });
+
+  // Check that default null behavior functions don't get called on a null
+  // input.
+  EXPECT_NO_THROW(evaluate<SimpleVector<bool>>(
+      "default_null_behavior(c0)", makeRowVector({flatVector})));
+}
+
+// Test that function with non-default null behavior receives parameters as
+// nulls. Returns whether the received parameter was null.
+VELOX_UDF_BEGIN(non_default_null_behavior)
+FOLLY_ALWAYS_INLINE bool callNullable(
+    out_type<bool>& out,
+    const int64_t* input) {
+  out = (input == nullptr);
+  return true;
+}
+VELOX_UDF_END();
+
+TEST_F(SimpleFunctionTest, nonDefaultNullBehavior) {
+  registerFunction<udf_non_default_null_behavior, bool, int64_t>();
+
+  // Make a vector filled with nulls.
+  const size_t rows = 10;
+  auto flatVector = makeFlatVector<int64_t>(
+      rows, [](auto row) { return row; }, [](auto) { return true; });
+
+  // Check that nullable function is returning the right results.
+  auto result = evaluate<FlatVector<bool>>(
+      "non_default_null_behavior(c0)", makeRowVector({flatVector}));
+  auto expected = makeFlatVector<bool>(rows, [](auto) { return true; });
+  assertEqualVectors(expected, result);
+}
+
 } // namespace

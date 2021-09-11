@@ -91,9 +91,10 @@ class VectorAdapter : public VectorFunction {
               TReader&... readers) const {
     auto oneUnpacked = packed.at(POSITION)->as<exec_arg_at<POSITION>>();
     auto oneReader = VectorReader<arg_at<POSITION>>(oneUnpacked);
-    // context->mayHaveNulls() is false after rows with nulls have been
-    // pruned out of the 'rows_'.
-    bool nextNonNull = !applyContext.context->mayHaveNulls() ||
+
+    // context->nullPruned() is true after rows with nulls have been
+    // pruned out of 'rows', so we won't be seeing any more nulls here.
+    bool nextNonNull = applyContext.context->nullsPruned() ||
         (allNotNull && !oneUnpacked.mayHaveNulls());
     unpack<POSITION + 1>(
         applyContext, nextNonNull, packed, readers..., oneReader);
@@ -214,7 +215,7 @@ class VectorAdapter : public VectorFunction {
     }
   }
 
-  // For NOT default null behavior get pointers
+  // For NOT default null behavior get pointers.
   template <
       size_t POSITION,
       typename R0,
@@ -272,9 +273,13 @@ class VectorAdapter : public VectorFunction {
 
   // == NOT-NULL VARIANT ==
 
-  // For default null behavior, assume everything is not null.
-  // If anything is, return false.
-  // Otherwise pass all arguments as references or copies.
+  // If we're guaranteed not to have any nulls, pass all parameters as
+  // references.
+  //
+  // Note that (*fn_).call() will internally dispatch the call to either call()
+  // or callNullable() (whichever is implemented by the user function). Default
+  // null behavior or not does not matter in this path since we don't have any
+  // nulls.
   template <
       size_t POSITION,
       typename R0,
