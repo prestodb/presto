@@ -5806,4 +5806,11 @@ public abstract class AbstractTestQueries
                 .build();
         assertQuerySucceeds(sessionWithIntermediateAggEnabled, "select reduce_agg(x, map(), (s,x)->map_zip_with( s, x, (k1,v1,v2)->if(v1>v2,v1,v2)), (s,x)->map_zip_with( s, x, (k1,v1,v2)->if(v1>v2,v1,v2))) from (select map(array['k1', 'k2'], array[1e-2, 0.06]) x union all select map(array['k1', 'k2'], array[2e-05, 1e-2]) x)");
     }
+
+    @Test
+    public void testReduceAggWithArrayConcat()
+    {
+        assertQuerySucceeds("select sum(cardinality(s)) from (SELECT REDUCE_AGG(x, cast(array[] as array<bigint>), (x,y)->x||sequence(1, y), (x,y)->x||y) s FROM (SELECT x FROM (SELECT 1) CROSS JOIN UNNEST(SEQUENCE(1, 7000)) T(x)) group by random(100))");
+        assertQuerySucceeds("select sum(cardinality(s)) from (SELECT REDUCE_AGG(x, cast(map() as map<bigint, bigint>), (x,y) -> map_concat(x, map(sequence(1, y), repeat(1, cast(y as int)))), (x,y)->map_concat(x,y)) s FROM (SELECT x FROM (SELECT 1) CROSS JOIN UNNEST(SEQUENCE(1, 7000)) T(x)) group by random(100))");
+    }
 }
