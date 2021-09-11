@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.function.SqlFunctionProperties;
@@ -36,14 +35,9 @@ import static java.lang.String.format;
 @Description("construct a map from an array of entries")
 public final class MapFromEntriesFunction
 {
-    private final PageBuilder pageBuilder;
-
     @TypeParameter("K")
     @TypeParameter("V")
-    public MapFromEntriesFunction(@TypeParameter("map(K,V)") Type mapType)
-    {
-        pageBuilder = new PageBuilder(ImmutableList.of(mapType));
-    }
+    public MapFromEntriesFunction(@TypeParameter("map(K,V)") Type mapType) {}
 
     @TypeParameter("K")
     @TypeParameter("V")
@@ -57,34 +51,26 @@ public final class MapFromEntriesFunction
         Type keyType = mapType.getKeyType();
         Type valueType = mapType.getValueType();
         RowType rowType = RowType.anonymous(ImmutableList.of(keyType, valueType));
-
-        if (pageBuilder.isFull()) {
-            pageBuilder.reset();
-        }
-
         int entryCount = block.getPositionCount();
 
-        BlockBuilder mapBlockBuilder = pageBuilder.getBlockBuilder(0);
+        BlockBuilder mapBlockBuilder = mapType.createBlockBuilder(null, block.getPositionCount());
         BlockBuilder resultBuilder = mapBlockBuilder.beginBlockEntry();
         TypedSet uniqueKeys = new TypedSet(keyType, entryCount, "map_from_entries");
 
         for (int i = 0; i < entryCount; i++) {
             if (block.isNull(i)) {
                 mapBlockBuilder.closeEntry();
-                pageBuilder.declarePosition();
                 throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "map entry cannot be null");
             }
             Block rowBlock = rowType.getObject(block, i);
 
             if (rowBlock.isNull(0)) {
                 mapBlockBuilder.closeEntry();
-                pageBuilder.declarePosition();
                 throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be null");
             }
 
             if (uniqueKeys.contains(rowBlock, 0)) {
                 mapBlockBuilder.closeEntry();
-                pageBuilder.declarePosition();
                 throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Duplicate keys (%s) are not allowed", keyType.getObjectValue(properties, rowBlock, 0)));
             }
             uniqueKeys.add(rowBlock, 0);
@@ -94,7 +80,6 @@ public final class MapFromEntriesFunction
         }
 
         mapBlockBuilder.closeEntry();
-        pageBuilder.declarePosition();
         return mapType.getObject(mapBlockBuilder, mapBlockBuilder.getPositionCount() - 1);
     }
 }
