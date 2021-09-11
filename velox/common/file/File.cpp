@@ -267,6 +267,13 @@ void LocalWriteFile::append(std::string_view data) {
   }
 }
 
+void LocalWriteFile::flush() {
+  auto ret = fflush(file_);
+  if (ret != 0) {
+    throw std::runtime_error("fflush failed in LocalWriteFile::flush.");
+  }
+}
+
 uint64_t LocalWriteFile::size() const {
   return ftell(file_);
 }

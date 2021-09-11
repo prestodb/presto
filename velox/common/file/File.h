@@ -93,6 +93,10 @@ class ReadFile {
     return false;
   }
 
+  // Whether preads should be coalesced where possible. E.g. remote disk would
+  // set to true, in-memory to false.
+  virtual bool shouldCoalesce() const = 0;
+
   // Number of bytes in the file.
   virtual uint64_t size() const = 0;
 
@@ -123,6 +127,10 @@ class WriteFile {
 
   // Appends data to the end of the file.
   virtual void append(std::string_view data) = 0;
+
+  // Flushes any local buffers, i.e. ensures the backing medium received
+  // all data that has been appended.
+  virtual void flush() = 0;
 
   // Current file size, i.e. the sum of all previous Appends.
   virtual uint64_t size() const = 0;
@@ -164,6 +172,9 @@ class InMemoryReadFile final : public ReadFile {
  public:
   explicit InMemoryReadFile(std::string_view file) : file_(file) {}
 
+  explicit InMemoryReadFile(std::string file)
+      : ownedFile_(std::move(file)), file_(ownedFile_) {}
+
   std::string_view pread(uint64_t offset, uint64_t length, Arena* arena)
       const final;
   std::string_view pread(uint64_t offset, uint64_t length, void* buf)
@@ -179,8 +190,18 @@ class InMemoryReadFile final : public ReadFile {
     return size();
   }
 
+  // Mainly for testing. Coalescing isn't helpful for in memory data.
+  void setShouldCoalesce(bool shouldCoalesce) {
+    shouldCoalesce_ = shouldCoalesce;
+  }
+  bool shouldCoalesce() const final {
+    return shouldCoalesce_;
+  }
+
  private:
+  const std::string ownedFile_;
   const std::string_view file_;
+  bool shouldCoalesce_ = false;
 };
 
 class InMemoryWriteFile final : public WriteFile {
@@ -188,6 +209,7 @@ class InMemoryWriteFile final : public WriteFile {
   explicit InMemoryWriteFile(std::string* file) : file_(file) {}
 
   void append(std::string_view data) final;
+  void flush() final {}
   uint64_t size() const final;
 
  private:
@@ -212,6 +234,9 @@ class LocalReadFile final : public ReadFile {
       uint64_t offset,
       const std::vector<folly::Range<char*>>& buffers) final;
   uint64_t memoryUsage() const final;
+  bool shouldCoalesce() const final {
+    return false;
+  }
 
  private:
   void preadInternal(uint64_t offset, uint64_t length, char* pos) const;
@@ -227,6 +252,7 @@ class LocalWriteFile final : public WriteFile {
   ~LocalWriteFile();
 
   void append(std::string_view data) final;
+  void flush() final;
   uint64_t size() const final;
 
  private:
