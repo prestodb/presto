@@ -37,11 +37,7 @@ public class Arrays
 
     public static byte[] ensureCapacity(byte[] buffer, int capacity)
     {
-        if (buffer == null || buffer.length < capacity) {
-            return new byte[(int) (capacity * SMALL.expansionFactor)];
-        }
-
-        return buffer;
+        return ensureCapacity(buffer, capacity, SMALL, NONE);
     }
 
     public static byte[] ensureCapacity(byte[] buffer, int capacity, ExpansionFactor expansionFactor, ExpansionOption expansionOption)
@@ -90,6 +86,18 @@ public class Arrays
         }
 
         return newBuffer;
+    }
+
+    public static short[] ensureCapacity(short[] buffer, int capacity)
+    {
+        if (buffer == null) {
+            buffer = new short[capacity];
+        }
+        else if (buffer.length < capacity) {
+            buffer = java.util.Arrays.copyOf(buffer, capacity);
+        }
+
+        return buffer;
     }
 
     public static int[] ensureCapacity(int[] buffer, int capacity)
@@ -147,8 +155,26 @@ public class Arrays
 
     public static long[] ensureCapacity(long[] buffer, int capacity)
     {
-        if (buffer == null || buffer.length < capacity) {
-            return new long[(int) (capacity * SMALL.expansionFactor)];
+        return ensureCapacity(buffer, capacity, SMALL, NONE);
+    }
+
+    public static long[] ensureCapacity(long[] buffer, int capacity, ExpansionFactor expansionFactor, ExpansionOption expansionOption)
+    {
+        int newCapacity = (int) (capacity * expansionFactor.expansionFactor);
+
+        if (buffer == null) {
+            buffer = new long[newCapacity];
+        }
+        else if (buffer.length < capacity) {
+            if (expansionOption == PRESERVE) {
+                buffer = java.util.Arrays.copyOf(buffer, newCapacity);
+            }
+            else {
+                buffer = new long[newCapacity];
+            }
+        }
+        else if (expansionOption == INITIALIZE) {
+            java.util.Arrays.fill(buffer, 0L);
         }
 
         return buffer;
