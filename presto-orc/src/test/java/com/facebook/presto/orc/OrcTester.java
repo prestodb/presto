@@ -20,6 +20,7 @@ import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.io.OutputStreamDataSink;
+import com.facebook.presto.common.predicate.FilterFunction;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;

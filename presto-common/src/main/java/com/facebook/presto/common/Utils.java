@@ -41,4 +41,11 @@ public final class Utils
     {
         return readNativeValue(type, block, 0);
     }
+
+    public static void checkArgument(boolean expression)
+    {
+        if (!expression) {
+            throw new IllegalArgumentException();
+        }
+    }
 }

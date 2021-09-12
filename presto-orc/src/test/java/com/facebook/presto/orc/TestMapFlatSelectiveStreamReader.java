@@ -18,6 +18,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.predicate.FilterFunction;
 import com.facebook.presto.common.relation.Predicate;
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.DoubleType;
