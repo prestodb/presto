@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.orc;
+package com.facebook.presto.common.predicate;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
@@ -19,9 +19,8 @@ import com.facebook.presto.common.block.DictionaryBlock;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.relation.Predicate;
 
+import static com.facebook.presto.common.Utils.checkArgument;
 import static com.facebook.presto.common.array.Arrays.ensureCapacity;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Verify.verify;
 import static java.util.Arrays.fill;
 import static java.util.Objects.requireNonNull;
 
@@ -150,5 +149,12 @@ public class FilterFunction
     public boolean isDeterministic()
     {
         return deterministic;
+    }
+
+    private static void verify(boolean expression, String message)
+    {
+        if (!expression) {
+            throw new RuntimeException(message);
+        }
     }
 }
