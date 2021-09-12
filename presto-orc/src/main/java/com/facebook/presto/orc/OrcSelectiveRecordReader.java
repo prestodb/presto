@@ -21,6 +21,7 @@ import com.facebook.presto.common.block.BlockLease;
 import com.facebook.presto.common.block.LazyBlock;
 import com.facebook.presto.common.block.LazyBlockLoader;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
+import com.facebook.presto.common.predicate.FilterFunction;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Type;
