@@ -497,6 +497,35 @@ public class TestRewriteAggregationIfToFilter
                                                             .build(),
                                                     values("a", "b")))));
         }
+
+        // The condition expression doesn't reference the variables in the true branch. The IF can be unwrapped.
+        tester().assertThat(new RewriteAggregationIfToFilter(getFunctionManager()))
+                .setSystemProperty(AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY, "unwrap_if")
+                .on(p -> {
+                    VariableReferenceExpression a = p.variable("a", BIGINT);
+                    VariableReferenceExpression b = p.variable("b", BIGINT);
+                    VariableReferenceExpression ds = p.variable("ds", VARCHAR);
+                    VariableReferenceExpression result = p.variable("result", BIGINT);
+                    return p.aggregation(aggregationBuilder -> aggregationBuilder.globalGrouping().step(AggregationNode.Step.FINAL)
+                            .addAggregation(p.variable("expr0"), p.rowExpression("SUM(result)"))
+                            .source(p.project(
+                                    assignment(result, p.rowExpression("IF(ds > '2021-07-01', a / b)")),
+                                    p.values(ds, a, b))));
+                })
+                .matches(
+                        aggregation(
+                                globalAggregation(),
+                                ImmutableMap.of(Optional.of("expr0"), functionCall("SUM", ImmutableList.of("result"))),
+                                ImmutableMap.of(new Symbol("expr0"), new Symbol("greater_than")),
+                                Optional.empty(),
+                                AggregationNode.Step.FINAL,
+                                filter(
+                                        "greater_than",
+                                        project(new ImmutableMap.Builder<String, ExpressionMatcher>()
+                                                        .put("result", expression("a / b"))
+                                                        .put("greater_than", expression("ds > '2021-07-01'"))
+                                                        .build(),
+                                                values("ds", "a", "b")))));
     }
 
     @Test
