@@ -31,6 +31,7 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationIfToFilterRewriteStrategy;
+import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.relational.Expressions;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
@@ -232,6 +233,15 @@ public class RewriteAggregationIfToFilter
 
     private boolean canUnwrapIf(SpecialFormExpression ifExpression)
     {
+        // Some use cases use IF expression to avoid returning errors when evaluating the true branch. For example, IF(CARDINALITY(array) > 0, array[1])).
+        // We shouldn't unwrap the IF for those cases.
+        // But if the condition expression doesn't reference any variables referenced in the true branch, unwrapping the if should not cause exceptions for the true branch.
+        Set<VariableReferenceExpression> ifConditionReferences = VariablesExtractor.extractUnique(ifExpression.getArguments().get(0));
+        Set<VariableReferenceExpression> ifResultReferences = VariablesExtractor.extractUnique(ifExpression.getArguments().get(1));
+        if (ifConditionReferences.stream().noneMatch(ifResultReferences::contains)) {
+            return true;
+        }
+
         AtomicBoolean result = new AtomicBoolean(true);
         ifExpression.getArguments().get(1).accept(new DefaultRowExpressionTraversalVisitor<AtomicBoolean>()
         {
