@@ -13,4 +13,5 @@ Presto Functions
     functions/map
     functions/regexp
     functions/binary
+    functions/url
     functions/aggregate

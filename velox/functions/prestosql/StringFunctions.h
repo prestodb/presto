@@ -132,4 +132,20 @@ FOLLY_ALWAYS_INLINE bool call(
 }
 VELOX_UDF_END();
 
+VELOX_UDF_BEGIN(url_encode)
+FOLLY_ALWAYS_INLINE bool call(
+    out_type<Varchar>& result,
+    const arg_type<Varbinary>& input) {
+  return stringImpl::urlEscape(result, input);
+}
+VELOX_UDF_END();
+
+VELOX_UDF_BEGIN(url_decode)
+FOLLY_ALWAYS_INLINE bool call(
+    out_type<Varchar>& result,
+    const arg_type<Varbinary>& input) {
+  return stringImpl::urlUnescape(result, input);
+}
+VELOX_UDF_END();
+
 } // namespace facebook::velox::functions
