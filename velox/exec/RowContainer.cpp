@@ -464,6 +464,7 @@ void RowContainer::hash(
 void RowContainer::clear() {
   rows_.clear();
   stringAllocator_.clear();
+  numRows_ = 0;
   numRowsWithNormalizedKey_ = 0;
   if (hasNormalizedKeys_) {
     normalizedKeySize_ = sizeof(normalized_key_t);
