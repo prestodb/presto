@@ -200,3 +200,38 @@ TEST_F(HashStringAllocatorTest, stlAllocator) {
   // We allow for some overhead for free lists after all is freed.
   EXPECT_LE(instance_->retainedSize() - instance_->freeSpace(), 100);
 }
+
+TEST_F(HashStringAllocatorTest, stlAllocatorWithSet) {
+  {
+    std::unordered_set<
+        double,
+        std::hash<double>,
+        std::equal_to<double>,
+        StlAllocator<double>>
+        set(StlAllocator<double>(instance_.get()));
+
+    for (auto i = 0; i < 10'000; i++) {
+      set.insert(i);
+    }
+    for (auto i = 0; i < 10'000; i++) {
+      ASSERT_EQ(1, set.count(i));
+    }
+
+    set.clear();
+    for (auto i = 0; i < 10'000; i++) {
+      ASSERT_EQ(0, set.count(i));
+    }
+
+    for (auto i = 10'000; i < 20'000; i++) {
+      set.insert(i);
+    }
+    for (auto i = 10'000; i < 20'000; i++) {
+      ASSERT_EQ(1, set.count(i));
+    }
+  }
+
+  instance_->checkConsistency();
+
+  // We allow for some overhead for free lists after all is freed.
+  EXPECT_LE(instance_->retainedSize() - instance_->freeSpace(), 100);
+}

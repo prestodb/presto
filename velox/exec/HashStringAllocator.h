@@ -320,12 +320,22 @@ struct StlAllocator {
     VELOX_CHECK(allocator);
   }
 
+  template <class U>
+  explicit StlAllocator(const StlAllocator<U>& allocator)
+      : allocator_{allocator.allocator()} {
+    VELOX_CHECK(allocator_);
+  }
+
   T* FOLLY_NONNULL allocate(std::size_t n) {
     return reinterpret_cast<T*>(allocator_->allocate(n * sizeof(T))->begin());
   }
 
   void deallocate(T* FOLLY_NONNULL p, std::size_t /*n*/) noexcept {
     allocator_->free(HashStringAllocator::headerOf(p));
+  }
+
+  exec::HashStringAllocator* FOLLY_NONNULL allocator() const {
+    return allocator_;
   }
 
  private:
