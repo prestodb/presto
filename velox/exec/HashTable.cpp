@@ -474,10 +474,12 @@ void HashTable<ignoreNullKeys>::allocateTables(uint64_t size) {
 template <bool ignoreNullKeys>
 void HashTable<ignoreNullKeys>::clear() {
   rows_->clear();
-  if (hashMode_ != HashMode::kArray) {
+  if (hashMode_ != HashMode::kArray && tags_) {
     memset(tags_, 0, size_);
   }
-  memset(table_, 0, sizeof(char*) * size_);
+  if (table_) {
+    memset(table_, 0, sizeof(char*) * size_);
+  }
   numDistinct_ = 0;
 }
 

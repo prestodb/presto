@@ -16,9 +16,11 @@
 
 #include "velox/exec/HashTable.h"
 #include "velox/common/base/SelectivityInfo.h"
+#include "velox/exec/VectorHasher.h"
 #include "velox/vector/tests/VectorMaker.h"
 
 #include <gtest/gtest.h>
+#include <memory>
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
@@ -378,4 +380,19 @@ TEST_F(HashTableTest, mixed6Sparse) {
           {BIGINT(), BIGINT(), BIGINT(), BIGINT(), BIGINT(), VARCHAR()});
   keySpacing_ = 1000;
   testCycle(BaseHashTable::HashMode::kHash, 1000000, 2, type, 6);
+}
+
+// It should be safe to call clear() before we insert any data into HashTable
+TEST_F(HashTableTest, clear) {
+  std::vector<std::unique_ptr<VectorHasher>> keyHashers;
+  keyHashers.push_back(std::make_unique<VectorHasher>(BIGINT(), 0 /*channel*/));
+  std::vector<std::unique_ptr<Aggregate>> aggregates;
+  aggregates.push_back(Aggregate::create(
+      "sum",
+      facebook::velox::core::AggregationNode::Step::kPartial,
+      std::vector<TypePtr>{BIGINT()},
+      BIGINT()));
+  auto table = HashTable<true>::createForAggregation(
+      std::move(keyHashers), aggregates, mappedMemory_);
+  table->clear();
 }
