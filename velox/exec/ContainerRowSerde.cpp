@@ -69,7 +69,7 @@ void serializeOne<TypeKind::ROW>(
     ByteStream& out) {
   auto row = vector.wrappedVector()->asUnchecked<RowVector>();
   auto wrappedIndex = vector.wrappedIndex(index);
-  auto type = row->type()->as<TypeKind::ROW>();
+  const auto& type = row->type()->as<TypeKind::ROW>();
   // The layout is given by the type, not the instance. This will work
   // in the case of missing elements which will come out as null in
   // deserialization.
@@ -216,7 +216,7 @@ void deserializeOne<TypeKind::ROW>(
     ByteStream& in,
     vector_size_t index,
     BaseVector& result) {
-  auto type = result.type()->as<TypeKind::ROW>();
+  const auto& type = result.type()->as<TypeKind::ROW>();
   VELOX_CHECK(result.encoding() == VectorEncoding::Simple::ROW);
   auto row = result.asUnchecked<RowVector>();
   auto childrenSize = type.size();
@@ -371,7 +371,7 @@ int compare<TypeKind::ROW>(
   auto row = right.wrappedVector()->asUnchecked<RowVector>();
   auto wrappedIndex = right.wrappedIndex(index);
   VELOX_CHECK(row->encoding() == VectorEncoding::Simple::ROW);
-  auto type = row->type()->as<TypeKind::ROW>();
+  const auto& type = row->type()->as<TypeKind::ROW>();
   auto childrenSize = type.size();
   VELOX_CHECK(childrenSize == row->childrenSize());
   auto nulls = readNulls(left, childrenSize);
@@ -576,7 +576,7 @@ int32_t compare<TypeKind::ROW>(
     ByteStream& right,
     const Type* type,
     CompareFlags flags) {
-  auto rowType = type->as<TypeKind::ROW>();
+  const auto& rowType = type->as<TypeKind::ROW>();
   int size = rowType.size();
   auto leftNulls = readNulls(left, size);
   auto rightNulls = readNulls(right, size);
