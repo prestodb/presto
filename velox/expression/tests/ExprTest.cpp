@@ -82,7 +82,7 @@ struct EncodingOptions {
 template <typename T>
 struct VectorAndReference {
   std::shared_ptr<SimpleVector<T>> vector;
-  std::vector<folly::Optional<T>> reference;
+  std::vector<std::optional<T>> reference;
 };
 
 struct TestData {
@@ -238,7 +238,7 @@ class ExprTest : public testing::Test {
   template <typename T>
   void fillVectorAndReference(
       const std::vector<EncodingOptions>& options,
-      std::function<folly::Optional<T>(vector_size_t)> generator,
+      std::function<std::optional<T>(vector_size_t)> generator,
       VectorAndReference<T>* result,
       bool makeLazyVector = false) {
     auto& reference = result->reference;
@@ -255,7 +255,7 @@ class ExprTest : public testing::Test {
           reference.resize(cardinality);
           for (int32_t index = 0; index < cardinality; ++index) {
             reference[index] = generator(index);
-            if (reference[index].hasValue()) {
+            if (reference[index].has_value()) {
               flatVector->set(index, reference[index].value());
             } else {
               flatVector->setNull(index, true);
@@ -278,7 +278,7 @@ class ExprTest : public testing::Test {
           VELOX_CHECK(current, "Dictionary must be non-leaf");
           BufferPtr indices;
           BufferPtr nulls;
-          std::vector<folly::Optional<T>> newReference(cardinality);
+          std::vector<std::optional<T>> newReference(cardinality);
           if (option.indices) {
             indices = option.indices;
             auto rawIndices = indices->as<vector_size_t>();
@@ -304,7 +304,7 @@ class ExprTest : public testing::Test {
                 // adds a null to be out of range.
                 rawIndices[index] =
                     static_cast<vector_size_t>(80'000'000L * index);
-                newReference[index] = folly::none;
+                newReference[index] = std::nullopt;
               } else {
                 newReference[index] = reference[rawIndices[index]];
               }
@@ -320,7 +320,7 @@ class ExprTest : public testing::Test {
           auto constantIndex = option.constantIndex;
           current =
               BaseVector::wrapInConstant(cardinality, constantIndex, current);
-          std::vector<folly::Optional<T>> newReference(cardinality);
+          std::vector<std::optional<T>> newReference(cardinality);
           for (int32_t i = 0; i < cardinality; ++i) {
             newReference[i] = reference[constantIndex];
           }
@@ -332,7 +332,7 @@ class ExprTest : public testing::Test {
           BufferPtr sizes;
           int runLength = cardinality;
           int currentSize = current->size();
-          std::vector<folly::Optional<T>> newReference(runLength * currentSize);
+          std::vector<std::optional<T>> newReference(runLength * currentSize);
           sizes = AlignedBuffer::allocate<vector_size_t>(
               currentSize, execCtx_->pool());
           auto rawSizes = sizes->asMutable<vector_size_t>();
@@ -366,7 +366,7 @@ class ExprTest : public testing::Test {
   void compare(
       const SelectivityVector& rows,
       DecodedVector& decoded,
-      std::function<folly::Optional<T>(int32_t)> reference,
+      std::function<std::optional<T>(int32_t)> reference,
       const std::string& errorPrefix) {
     auto base = decoded.base()->as<SimpleVector<T>>();
     auto indices = decoded.indices();
@@ -376,7 +376,7 @@ class ExprTest : public testing::Test {
       auto value = reference(row);
       auto baseRow = indices[row];
       auto nullRow = nullIndices ? nullIndices[row] : row;
-      if (value.hasValue()) {
+      if (value.has_value()) {
         if (nulls && bits::isBitNull(nulls, nullRow)) {
           EXPECT_TRUE(false) << errorPrefix << ": expected non-null at " << row;
           return false;
@@ -477,7 +477,7 @@ class ExprTest : public testing::Test {
   template <typename T>
   void runAll(
       const std::string& text,
-      std::function<folly::Optional<T>(int32_t)> reference) {
+      std::function<std::optional<T>(int32_t)> reference) {
     auto source = {parseExpression(text)};
     exprs_ = std::make_unique<exec::ExprSet>(std::move(source), execCtx_.get());
     auto row = testDataRow();
@@ -497,7 +497,7 @@ class ExprTest : public testing::Test {
   template <typename T>
   void run(
       const std::string& text,
-      std::function<folly::Optional<T>(int32_t)> reference) {
+      std::function<std::optional<T>(int32_t)> reference) {
     auto source = {parseExpression(text)};
     exprs_ = std::make_unique<exec::ExprSet>(source, execCtx_.get());
     auto row = testDataRow();
@@ -717,12 +717,12 @@ class ExprTest : public testing::Test {
   std::unique_ptr<test::VectorMaker> vectorMaker_;
 };
 
-#define IS_BIGINT1 testData_.bigint1.reference[row].hasValue()
-#define IS_BIGINT2 testData_.bigint2.reference[row].hasValue()
+#define IS_BIGINT1 testData_.bigint1.reference[row].has_value()
+#define IS_BIGINT2 testData_.bigint2.reference[row].has_value()
 #define BIGINT1 testData_.bigint1.reference[row].value()
 #define BIGINT2 testData_.bigint2.reference[row].value()
-#define INT64V(v) folly::Optional<int64_t>(v)
-#define INT64N folly::Optional<int64_t>()
+#define INT64V(v) std::optional<int64_t>(v)
+#define INT64N std::optional<int64_t>()
 
 TEST_F(ExprTest, encodings) {
   // This test throws a lot of exceptions, so turn off stack trace capturing.
@@ -732,16 +732,16 @@ TEST_F(ExprTest, encodings) {
     fillVectorAndReference<int64_t>(
         encoding1,
         [](int32_t row) {
-          return row % 7 == 0 ? folly::none
-                              : folly::Optional(static_cast<int64_t>(row));
+          return row % 7 == 0 ? std::nullopt
+                              : std::optional(static_cast<int64_t>(row));
         },
         &testData_.bigint1);
     for (auto& encoding2 : testEncodings_) {
       fillVectorAndReference<int64_t>(
           encoding2,
           [](int32_t row) {
-            return (row % 11 == 0) ? folly::none
-                                   : folly::Optional(static_cast<int64_t>(row));
+            return (row % 11 == 0) ? std::nullopt
+                                   : std::optional(static_cast<int64_t>(row));
           },
           &testData_.bigint2);
       ++counter;
@@ -759,7 +759,7 @@ TEST_F(ExprTest, encodings) {
                 ? INT64V(2 * BIGINT1 + 10)
                 : IS_BIGINT2 ? INT64V(3 * BIGINT2)
                              : INT64N;
-            return temp.hasValue() ? INT64V(temp.value() + 11) : temp;
+            return temp.has_value() ? INT64V(temp.value() + 11) : temp;
           });
 
       run<int64_t>(
@@ -796,9 +796,9 @@ TEST_F(ExprTest, encodings) {
           "if(bigint1 % 2 = 0, 2 * (bigint1 + bigint2),"
           "   3 * (bigint1 + bigint2)) + "
           "4 * (bigint1 + bigint2)",
-          [&](int32_t row) -> folly::Optional<int64_t> {
+          [&](int32_t row) -> std::optional<int64_t> {
             if (!IS_BIGINT1 || !IS_BIGINT2) {
-              return folly::none;
+              return std::nullopt;
             } else {
               auto sum = BIGINT1 + BIGINT2;
               return (BIGINT1 % 2 == 0 ? 2 * sum : 3 * sum) + 4 * sum;
@@ -816,8 +816,8 @@ TEST_F(ExprTest, encodingsOverLazy) {
     fillVectorAndReference<int64_t>(
         encoding1,
         [](int32_t row) {
-          return row % 7 == 0 ? folly::none
-                              : folly::Optional(static_cast<int64_t>(row));
+          return row % 7 == 0 ? std::nullopt
+                              : std::optional(static_cast<int64_t>(row));
         },
         &testData_.bigint1,
         true);
@@ -825,8 +825,8 @@ TEST_F(ExprTest, encodingsOverLazy) {
       fillVectorAndReference<int64_t>(
           encoding2,
           [](int32_t row) {
-            return (row % 11 == 0) ? folly::none
-                                   : folly::Optional(static_cast<int64_t>(row));
+            return (row % 11 == 0) ? std::nullopt
+                                   : std::optional(static_cast<int64_t>(row));
           },
           &testData_.bigint2,
           true);
@@ -845,7 +845,7 @@ TEST_F(ExprTest, encodingsOverLazy) {
                 ? INT64V(2 * BIGINT1 + 10)
                 : IS_BIGINT2 ? INT64V(3 * BIGINT2)
                              : INT64N;
-            return temp.hasValue() ? INT64V(temp.value() + 11) : temp;
+            return temp.has_value() ? INT64V(temp.value() + 11) : temp;
           });
 
       run<int64_t>(
@@ -882,9 +882,9 @@ TEST_F(ExprTest, encodingsOverLazy) {
           "if(bigint1 % 2 = 0, 2 * (bigint1 + bigint2),"
           "   3 * (bigint1 + bigint2)) + "
           "4 * (bigint1 + bigint2)",
-          [&](int32_t row) -> folly::Optional<int64_t> {
+          [&](int32_t row) -> std::optional<int64_t> {
             if (!IS_BIGINT1 || !IS_BIGINT2) {
-              return folly::none;
+              return std::nullopt;
             } else {
               auto sum = BIGINT1 + BIGINT2;
               return (BIGINT1 % 2 == 0 ? 2 * sum : 3 * sum) + 4 * sum;
@@ -927,7 +927,7 @@ TEST_F(ExprTest, reorder) {
   std::vector<EncodingOptions> encoding = {EncodingOptions::flat(kTestSize, 2)};
   fillVectorAndReference<int64_t>(
       encoding,
-      [](int32_t row) { return folly::Optional(static_cast<int64_t>(row)); },
+      [](int32_t row) { return std::optional(static_cast<int64_t>(row)); },
       &testData_.bigint1);
   run<int64_t>(
       "if (bigint1 % 409 < 300 and bigint1 %103 < 30, 1, 2)", [&](int32_t row) {
@@ -1721,15 +1721,15 @@ TEST_F(ExprTest, opaque) {
   fillVectorAndReference<int64_t>(
       {EncodingOptions::flat(kRows, 2)},
       [](int32_t row) {
-        return row % 7 == 0 ? folly::none
-                            : folly::Optional(static_cast<int64_t>(row));
+        return row % 7 == 0 ? std::nullopt
+                            : std::optional(static_cast<int64_t>(row));
       },
       &testData_.bigint1);
   fillVectorAndReference<int64_t>(
       {EncodingOptions::flat(kRows, 2)},
       [](int32_t row) {
-        return (row % 11 == 0) ? folly::none
-                               : folly::Optional(static_cast<int64_t>(row * 2));
+        return (row % 11 == 0) ? std::nullopt
+                               : std::optional(static_cast<int64_t>(row * 2));
       },
       &testData_.bigint2);
   fillVectorAndReference<std::shared_ptr<void>>(
@@ -1743,8 +1743,8 @@ TEST_F(ExprTest, opaque) {
 
   int nonNulls = 0;
   for (int i = 0; i < kRows; ++i) {
-    nonNulls += testData_.bigint1.reference[i].hasValue() &&
-            testData_.bigint2.reference[i].hasValue()
+    nonNulls += testData_.bigint1.reference[i].has_value() &&
+            testData_.bigint2.reference[i].has_value()
         ? 1
         : 0;
   }
