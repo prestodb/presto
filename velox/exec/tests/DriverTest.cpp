@@ -34,6 +34,11 @@ class TestingPauserNode : public core::PlanNode {
   explicit TestingPauserNode(std::shared_ptr<const core::PlanNode> input)
       : PlanNode("Pauser"), sources_{input} {}
 
+  TestingPauserNode(
+      const core::PlanNodeId& id,
+      std::shared_ptr<const core::PlanNode> input)
+      : PlanNode(id), sources_{input} {}
+
   const std::shared_ptr<const RowType>& outputType() const override {
     return sources_[0]->outputType();
   }
@@ -128,9 +133,10 @@ class DriverTest : public OperatorTestBase {
       planBuilder.project(expressions, projectNames);
     }
     if (addTestingPauser) {
-      planBuilder.addNode([](std::shared_ptr<const core::PlanNode> input) {
-        return std::make_shared<TestingPauserNode>(input);
-      });
+      planBuilder.addNode(
+          [](std::string id, std::shared_ptr<const core::PlanNode> input) {
+            return std::make_shared<TestingPauserNode>(id, input);
+          });
     }
 
     return planBuilder.planNode();
