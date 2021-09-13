@@ -104,6 +104,13 @@ class HashJoinTest : public HiveConnectorTestBase {
     return stats[operatorIndex].runtimeStats["dynamicFiltersAccepted"];
   }
 
+  static RuntimeMetric getReplacedWithFilterRows(
+      const std::shared_ptr<Task>& task,
+      int operatorIndex) {
+    auto stats = task->taskStats().pipelineStats.front().operatorStats;
+    return stats[operatorIndex].runtimeStats["replacedWithDynamicFilterRows"];
+  }
+
   static uint64_t getInputPositions(
       const std::shared_ptr<Task>& task,
       int operatorIndex) {
@@ -476,31 +483,42 @@ TEST_F(HashJoinTest, dynamicFilters) {
   }
 
   // 100 key values in [35, 233] range.
-  auto rightVectors = {makeRowVector(
-      {makeFlatVector<int32_t>(100, [](auto row) { return 35 + row * 2; })})};
+  auto rightKey =
+      makeFlatVector<int32_t>(100, [](auto row) { return 35 + row * 2; });
+  auto rightVectors = {makeRowVector({
+      rightKey,
+      makeFlatVector<int64_t>(100, [](auto row) { return row; }),
+  })};
 
   createDuckDbTable("t", {leftVectors});
   createDuckDbTable("u", {rightVectors});
 
   auto probeType = ROW({"c0", "c1"}, {INTEGER(), BIGINT()});
 
+  auto buildSide = PlanBuilder(0)
+                       .values(rightVectors)
+                       .project({"c0", "c1"}, {"u_c0", "u_c1"})
+                       .planNode();
+  auto keyOnlyBuildSide = PlanBuilder(0)
+                              .values({makeRowVector({rightKey})})
+                              .project({"c0"}, {"u_c0"})
+                              .planNode();
+
   // Basic push-down.
   {
     auto op = PlanBuilder(10)
                   .tableScan(probeType)
-                  .hashJoin(
-                      {0},
-                      {0},
-                      PlanBuilder(0).values(rightVectors).planNode(),
-                      "",
-                      {1})
-                  .project({"c1 + 1"})
+                  .hashJoin({0}, {0}, buildSide, "", {0, 1, 3})
+                  .project({"c0", "c1 + 1", "c1 + u_c1"})
                   .planNode();
 
     auto task = assertQuery(
-        op, {{10, leftFiles}}, "SELECT t.c1 + 1 FROM t, u WHERE t.c0 = u.c0");
+        op,
+        {{10, leftFiles}},
+        "SELECT t.c0, t.c1 + 1, t.c1 + u.c1 FROM t, u WHERE t.c0 = u.c0");
     EXPECT_EQ(1, getFiltersProduced(task, 1).sum);
     EXPECT_EQ(1, getFiltersAccepted(task, 0).sum);
+    EXPECT_EQ(0, getReplacedWithFilterRows(task, 1).sum);
     EXPECT_LT(getInputPositions(task, 1), 1024 * 20);
   }
 
@@ -518,19 +536,17 @@ TEST_F(HashJoinTest, dynamicFilters) {
                 scanOutputType,
                 makeTableHandle(common::test::SubfieldFiltersBuilder().build()),
                 assignments)
-            .hashJoin(
-                {0},
-                {0},
-                PlanBuilder(0).values(rightVectors).planNode(),
-                "",
-                {1})
-            .project({"b + 1"})
+            .hashJoin({0}, {0}, buildSide, "", {0, 1, 3})
+            .project({"a", "b + 1", "b + u_c1"})
             .planNode();
 
     auto task = assertQuery(
-        op, {{10, leftFiles}}, "SELECT t.c1 + 1 FROM t, u WHERE t.c0 = u.c0");
+        op,
+        {{10, leftFiles}},
+        "SELECT t.c0, t.c1 + 1, t.c1 + u.c1 FROM t, u WHERE t.c0 = u.c0");
     EXPECT_EQ(1, getFiltersProduced(task, 1).sum);
     EXPECT_EQ(1, getFiltersAccepted(task, 0).sum);
+    EXPECT_EQ(0, getReplacedWithFilterRows(task, 1).sum);
     EXPECT_LT(getInputPositions(task, 1), 1024 * 20);
   }
 
@@ -543,12 +559,47 @@ TEST_F(HashJoinTest, dynamicFilters) {
                       probeType,
                       makeTableHandle(std::move(filters)),
                       allRegularColumns(probeType))
-                  .hashJoin(
-                      {0},
-                      {0},
-                      PlanBuilder(0).values(rightVectors).planNode(),
-                      "",
-                      {1})
+                  .hashJoin({0}, {0}, buildSide, "", {1, 3})
+                  .project({"c1 + u_c1"})
+                  .planNode();
+
+    auto task = assertQuery(
+        op,
+        {{10, leftFiles}},
+        "SELECT t.c1 + u.c1 FROM t, u WHERE t.c0 = u.c0 AND t.c0 < 500");
+    EXPECT_EQ(1, getFiltersProduced(task, 1).sum);
+    EXPECT_EQ(1, getFiltersAccepted(task, 0).sum);
+    EXPECT_EQ(0, getReplacedWithFilterRows(task, 1).sum);
+  }
+
+  // Push-down that turns join into a no-op.
+  {
+    auto op = PlanBuilder(10)
+                  .tableScan(probeType)
+                  .hashJoin({0}, {0}, keyOnlyBuildSide, "", {0, 1})
+                  .project({"c0", "c1 + 1"})
+                  .planNode();
+
+    auto task = assertQuery(
+        op,
+        {{10, leftFiles}},
+        "SELECT t.c0, t.c1 + 1 FROM t, u WHERE t.c0 = u.c0");
+    EXPECT_EQ(1, getFiltersProduced(task, 1).sum);
+    EXPECT_EQ(1, getFiltersAccepted(task, 0).sum);
+    EXPECT_GT(getReplacedWithFilterRows(task, 1).sum, 0);
+    EXPECT_LT(getInputPositions(task, 1), 1024 * 20);
+  }
+
+  // Push-down that requires merging filters and turns join into a no-op.
+  {
+    auto filters =
+        common::test::singleSubfieldFilter("c0", common::test::lessThan(500));
+    auto op = PlanBuilder(10)
+                  .tableScan(
+                      probeType,
+                      makeTableHandle(std::move(filters)),
+                      allRegularColumns(probeType))
+                  .hashJoin({0}, {0}, keyOnlyBuildSide, "", {1})
                   .project({"c1 + 1"})
                   .planNode();
 
@@ -558,6 +609,7 @@ TEST_F(HashJoinTest, dynamicFilters) {
         "SELECT t.c1 + 1 FROM t, u WHERE t.c0 = u.c0 AND t.c0 < 500");
     EXPECT_EQ(1, getFiltersProduced(task, 1).sum);
     EXPECT_EQ(1, getFiltersAccepted(task, 0).sum);
+    EXPECT_GT(getReplacedWithFilterRows(task, 1).sum, 0);
   }
 
   // Disable filter push-down by using highly selective filter in the scan.
@@ -569,12 +621,7 @@ TEST_F(HashJoinTest, dynamicFilters) {
                       probeType,
                       makeTableHandle(std::move(filters)),
                       allRegularColumns(probeType))
-                  .hashJoin(
-                      {0},
-                      {0},
-                      PlanBuilder(0).values(rightVectors).planNode(),
-                      "",
-                      {1})
+                  .hashJoin({0}, {0}, buildSide, "", {1})
                   .project({"c1 + 1"})
                   .planNode();
 
@@ -584,18 +631,14 @@ TEST_F(HashJoinTest, dynamicFilters) {
         "SELECT t.c1 + 1 FROM t, u WHERE t.c0 = u.c0 AND t.c0 < 200");
     EXPECT_EQ(0, getFiltersProduced(task, 1).sum);
     EXPECT_EQ(0, getFiltersAccepted(task, 0).sum);
+    EXPECT_EQ(0, getReplacedWithFilterRows(task, 1).sum);
   }
 
   // Disable filter push-down by using values in place of scan.
   {
     auto op = PlanBuilder(10)
                   .values(leftVectors)
-                  .hashJoin(
-                      {0},
-                      {0},
-                      PlanBuilder(0).values(rightVectors).planNode(),
-                      "",
-                      {1})
+                  .hashJoin({0}, {0}, buildSide, "", {1})
                   .project({"c1 + 1"})
                   .planNode();
 
@@ -611,12 +654,7 @@ TEST_F(HashJoinTest, dynamicFilters) {
     auto op = PlanBuilder(10)
                   .tableScan(probeType)
                   .project({"c0 + 1", "c1"})
-                  .hashJoin(
-                      {0},
-                      {0},
-                      PlanBuilder(0).values(rightVectors).planNode(),
-                      "",
-                      {1})
+                  .hashJoin({0}, {0}, buildSide, "", {1})
                   .project({"p1 + 1"})
                   .planNode();
 

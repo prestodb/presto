@@ -40,6 +40,8 @@ class HashProbe : public Operator {
 
   BlockingReason isBlocked(ContinueFuture* future) override;
 
+  void clearDynamicFilters() override;
+
   void close() override {}
 
  private:
@@ -110,6 +112,12 @@ class HashProbe : public Operator {
   // List of DynamicFilterBuilders aligned with keyChannels_. Contains a valid
   // entry if the driver can push down a filter on the corresponding join key.
   std::vector<std::optional<DynamicFilterBuilder>> dynamicFilterBuilders_;
+
+  // True if the join can become a no-op starting with the next batch of input.
+  bool canReplaceWithDynamicFilter_{false};
+
+  // True if the join became a no-op after pushing down the filter.
+  bool replacedWithDynamicFilter_{false};
 
   std::vector<std::unique_ptr<VectorHasher>> hashers_;
 

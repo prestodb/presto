@@ -119,6 +119,9 @@ class BaseHashTable {
   /// side. This is used for sizing the internal hash table.
   virtual uint64_t numDistinct() const = 0;
 
+  /// Returns true if the hash table contains rows with duplicate keys.
+  virtual bool hasDuplicateKeys() const = 0;
+
   /// Returns the hash mode. This is needed for the caller to calculate
   /// the hash numbers using the appropriate method of the
   /// VectorHashers of 'this'.
@@ -255,6 +258,10 @@ class HashTable : public BaseHashTable {
 
   uint64_t numDistinct() const override {
     return numDistinct_;
+  }
+
+  bool hasDuplicateKeys() const override {
+    return hasDuplicates_;
   }
 
   HashMode hashMode() const override {

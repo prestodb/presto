@@ -113,4 +113,59 @@ UnnestNode::UnnestNode(
   outputType_ = ROW(std::move(names), std::move(types));
 }
 
+HashJoinNode::HashJoinNode(
+    const PlanNodeId& id,
+    JoinType joinType,
+    const std::vector<std::shared_ptr<const FieldAccessTypedExpr>>& leftKeys,
+    const std::vector<std::shared_ptr<const FieldAccessTypedExpr>>& rightKeys,
+    std::shared_ptr<const ITypedExpr> filter,
+    std::shared_ptr<const PlanNode> left,
+    std::shared_ptr<const PlanNode> right,
+    const RowTypePtr outputType)
+    : PlanNode(id),
+      joinType_(joinType),
+      leftKeys_(leftKeys),
+      rightKeys_(rightKeys),
+      filter_(std::move(filter)),
+      sources_({std::move(left), std::move(right)}),
+      outputType_(outputType) {
+  VELOX_CHECK(
+      !leftKeys_.empty(), "HashJoinNode requires at least one join key");
+  VELOX_CHECK_EQ(
+      leftKeys_.size(),
+      rightKeys_.size(),
+      "HashJoinNode requires same number of join keys on probe and build sides");
+  auto leftType = sources_[0]->outputType();
+  for (auto key : leftKeys_) {
+    VELOX_CHECK(
+        leftType->containsChild(key->name()),
+        "Probe side join key not found in probe side output: {}",
+        key->name());
+  }
+  auto rightType = sources_[1]->outputType();
+  for (auto key : rightKeys_) {
+    VELOX_CHECK(
+        rightType->containsChild(key->name()),
+        "Build side join key not found in build side output: {}",
+        key->name());
+  }
+  for (auto i = 0; i < outputType_->size(); ++i) {
+    auto name = outputType_->nameOf(i);
+    if (leftType->containsChild(name)) {
+      VELOX_CHECK(
+          !rightType->containsChild(name),
+          "Duplicate column name found on join's build and probe sides: {}",
+          name);
+    } else if (rightType->containsChild(name)) {
+      VELOX_CHECK(
+          !leftType->containsChild(name),
+          "Duplicate column name found on join's build and probe sides: {}",
+          name);
+    } else {
+      VELOX_FAIL(
+          "Join's output column not found in either probe or build sides: {}",
+          name);
+    }
+  }
+}
 } // namespace facebook::velox::core

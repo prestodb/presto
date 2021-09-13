@@ -734,7 +734,7 @@ class PartitionedOutputNode : public PlanNode {
 
 enum class JoinType { kInner, kLeft, kRight, kFull, kSemi, kAnti };
 
-// Represents inner/outer/semi/antijoin hash
+// Represents inner/outer/semi/anti join hash
 // joins. Translates to an exec::HashBuild and exec::HashProbe. A
 // separate pipeline is produced for the build side when generating
 // exec::Operators.
@@ -748,30 +748,7 @@ class HashJoinNode : public PlanNode {
       std::shared_ptr<const ITypedExpr> filter,
       std::shared_ptr<const PlanNode> left,
       std::shared_ptr<const PlanNode> right,
-      const RowTypePtr outputType)
-      : PlanNode(id),
-        joinType_(joinType),
-        leftKeys_(leftKeys),
-        rightKeys_(rightKeys),
-        filter_(std::move(filter)),
-        sources_({std::move(left), std::move(right)}),
-        outputType_(outputType) {
-    VELOX_CHECK(!leftKeys_.empty());
-    VELOX_CHECK_EQ(leftKeys_.size(), rightKeys_.size());
-    auto leftType = sources_[0]->outputType();
-    for (auto key : leftKeys_) {
-      VELOX_CHECK(leftType->containsChild(key->name()));
-    }
-    auto rightType = sources_[1]->outputType();
-    for (auto key : rightKeys_) {
-      VELOX_CHECK(rightType->containsChild(key->name()));
-    }
-    for (auto i = 0; i < outputType_->size(); ++i) {
-      auto name = outputType_->nameOf(i);
-      VELOX_CHECK(
-          leftType->containsChild(name) || rightType->containsChild(name));
-    }
-  }
+      const RowTypePtr outputType);
 
   const std::vector<std::shared_ptr<const PlanNode>>& sources() const override {
     return sources_;

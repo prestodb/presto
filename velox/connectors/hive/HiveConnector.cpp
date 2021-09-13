@@ -241,7 +241,7 @@ void HiveDataSource::addDynamicFilter(
     const std::shared_ptr<common::Filter>& filter) {
   auto& fieldSpec = scanSpec_->getChildByChannel(outputChannel);
   if (fieldSpec.filter()) {
-    fieldSpec.filter()->mergeWith(filter.get());
+    fieldSpec.setFilter(fieldSpec.filter()->mergeWith(filter.get()));
   } else {
     fieldSpec.setFilter(filter->clone());
   }
