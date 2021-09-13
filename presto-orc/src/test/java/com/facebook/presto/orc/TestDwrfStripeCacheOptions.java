@@ -20,7 +20,7 @@ import static com.facebook.presto.orc.metadata.DwrfStripeCacheMode.INDEX_AND_FOO
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static org.testng.Assert.assertEquals;
 
-public class TestDwrfWriterOptions
+public class TestDwrfStripeCacheOptions
 {
     @Test
     public void testToString()
@@ -31,9 +31,9 @@ public class TestDwrfWriterOptions
                 .withDwrfStripeCacheMaxSize(new DataSize(27, MEGABYTE))
                 .build();
 
-        DwrfWriterOptions dwrfWriterOptions = options.getDwrfWriterOptions().get();
+        DwrfStripeCacheOptions dwrfStripeCacheOptions = options.getDwrfWriterOptions().get();
 
-        String expectedString = "DwrfWriterOptions{stripeCacheMode=INDEX_AND_FOOTER, stripeCacheMaxSize=27MB}";
-        assertEquals(dwrfWriterOptions.toString(), expectedString);
+        String expectedString = "DwrfStripeCacheOptions{stripeCacheMode=INDEX_AND_FOOTER, stripeCacheMaxSize=27MB}";
+        assertEquals(dwrfStripeCacheOptions.toString(), expectedString);
     }
 }

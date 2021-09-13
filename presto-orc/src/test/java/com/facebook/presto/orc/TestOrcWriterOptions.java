@@ -43,9 +43,9 @@ public class TestOrcWriterOptions
                     .build();
 
             if (value) {
-                DwrfWriterOptions dwrfWriterOptions = options.getDwrfWriterOptions().get();
-                assertEquals(dwrfWriterOptions.getStripeCacheMode(), DWRF_STRIPE_CACHE_MODE);
-                assertEquals(dwrfWriterOptions.getStripeCacheMaxSize(), DWRF_STRIPE_CACHE_MAX_SIZE);
+                DwrfStripeCacheOptions dwrfStripeCacheOptions = options.getDwrfWriterOptions().get();
+                assertEquals(dwrfStripeCacheOptions.getStripeCacheMode(), DWRF_STRIPE_CACHE_MODE);
+                assertEquals(dwrfStripeCacheOptions.getStripeCacheMaxSize(), DWRF_STRIPE_CACHE_MAX_SIZE);
             }
             else {
                 assertEquals(Optional.empty(), options.getDwrfWriterOptions());
@@ -135,7 +135,7 @@ public class TestOrcWriterOptions
                 + "rowGroupMaxRowCount=15000, dictionaryMaxMemory=13000kB, maxStringStatisticsLimit=128B, "
                 + "maxCompressionBufferSize=512kB, compressionLevel=OptionalInt[5], streamLayout=ByColumnSize{}, "
                 + "integerDictionaryEncodingEnabled=false, stringDictionarySortingEnabled=true, "
-                + "dwrfWriterOptions=Optional[DwrfWriterOptions{stripeCacheMode=INDEX_AND_FOOTER, stripeCacheMaxSize=4MB}]}";
+                + "dwrfWriterOptions=Optional[DwrfStripeCacheOptions{stripeCacheMode=INDEX_AND_FOOTER, stripeCacheMaxSize=4MB}]}";
         assertEquals(expectedString, writerOptions.toString());
     }
 }

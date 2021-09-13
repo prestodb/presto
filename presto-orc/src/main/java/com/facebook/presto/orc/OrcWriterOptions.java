@@ -51,7 +51,7 @@ public class OrcWriterOptions
     private final StreamLayout streamLayout;
     private final boolean integerDictionaryEncodingEnabled;
     private final boolean stringDictionarySortingEnabled;
-    private final Optional<DwrfWriterOptions> dwrfWriterOptions;
+    private final Optional<DwrfStripeCacheOptions> dwrfWriterOptions;
 
     private OrcWriterOptions(
             DataSize stripeMinSize,
@@ -65,7 +65,7 @@ public class OrcWriterOptions
             StreamLayout streamLayout,
             boolean integerDictionaryEncodingEnabled,
             boolean stringDictionarySortingEnabled,
-            Optional<DwrfWriterOptions> dwrfWriterOptions)
+            Optional<DwrfStripeCacheOptions> dwrfWriterOptions)
     {
         requireNonNull(stripeMinSize, "stripeMinSize is null");
         requireNonNull(stripeMaxSize, "stripeMaxSize is null");
@@ -147,7 +147,7 @@ public class OrcWriterOptions
         return stringDictionarySortingEnabled;
     }
 
-    public Optional<DwrfWriterOptions> getDwrfWriterOptions()
+    public Optional<DwrfStripeCacheOptions> getDwrfWriterOptions()
     {
         return dwrfWriterOptions;
     }
@@ -281,9 +281,9 @@ public class OrcWriterOptions
 
         public OrcWriterOptions build()
         {
-            Optional<DwrfWriterOptions> dwrfWriterOptions;
+            Optional<DwrfStripeCacheOptions> dwrfWriterOptions;
             if (dwrfStripeCacheEnabled) {
-                dwrfWriterOptions = Optional.of(new DwrfWriterOptions(dwrfStripeCacheMode, dwrfStripeCacheMaxSize));
+                dwrfWriterOptions = Optional.of(new DwrfStripeCacheOptions(dwrfStripeCacheMode, dwrfStripeCacheMaxSize));
             }
             else {
                 dwrfWriterOptions = Optional.empty();

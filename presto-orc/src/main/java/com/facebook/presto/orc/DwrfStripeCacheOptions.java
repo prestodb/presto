@@ -19,12 +19,12 @@ import io.airlift.units.DataSize;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class DwrfWriterOptions
+public class DwrfStripeCacheOptions
 {
     private final DwrfStripeCacheMode stripeCacheMode;
     private final DataSize stripeCacheMaxSize;
 
-    public DwrfWriterOptions(
+    public DwrfStripeCacheOptions(
             DwrfStripeCacheMode stripeCacheMode,
             DataSize stripeCacheMaxSize)
     {
