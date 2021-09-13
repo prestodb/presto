@@ -54,6 +54,7 @@ public class OrcFileWriterConfig
                 .withStreamLayout(getStreamLayout(streamLayoutType));
     }
 
+    @NotNull
     public DataSize getStripeMinSize()
     {
         return stripeMinSize;
@@ -66,6 +67,7 @@ public class OrcFileWriterConfig
         return this;
     }
 
+    @NotNull
     public DataSize getStripeMaxSize()
     {
         return this.stripeMaxSize;
@@ -102,6 +104,7 @@ public class OrcFileWriterConfig
         return this;
     }
 
+    @NotNull
     public DataSize getDictionaryMaxMemory()
     {
         return dictionaryMaxMemory;
@@ -114,6 +117,7 @@ public class OrcFileWriterConfig
         return this;
     }
 
+    @NotNull
     public DataSize getStringStatisticsLimit()
     {
         return stringStatisticsLimit;
@@ -126,6 +130,7 @@ public class OrcFileWriterConfig
         return this;
     }
 
+    @NotNull
     public DataSize getMaxCompressionBufferSize()
     {
         return maxCompressionBufferSize;
