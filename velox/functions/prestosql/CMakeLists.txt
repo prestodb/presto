@@ -38,6 +38,7 @@ add_library(
   ArrayIntersect.cpp
   ArrayMinMax.cpp
   FilterFunctions.cpp
+  ToUtf8.cpp
   Transform.cpp
   ElementAt.cpp
   Subscript.cpp

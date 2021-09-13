@@ -1325,6 +1325,21 @@ TEST_F(StringFunctionsTest, urlDecode) {
   EXPECT_THROW(urlDecode("http%3A%2F%2H"), VeloxUserError);
 }
 
+TEST_F(StringFunctionsTest, toUtf8) {
+  const auto toUtf8 = [&](std::optional<std::string> value) {
+    return evaluateOnce<std::string>("to_utf8(c0)", value);
+  };
+
+  EXPECT_EQ(std::nullopt, toUtf8(std::nullopt));
+  EXPECT_EQ("", toUtf8(""));
+  EXPECT_EQ("test", toUtf8("test"));
+
+  EXPECT_EQ(
+      "abc",
+      evaluateOnce<std::string>(
+          "from_hex(to_hex(to_utf8(c0)))", std::optional<std::string>("abc")));
+}
+
 namespace {
 
 class MultiStringFunction : public exec::VectorFunction {

@@ -61,6 +61,8 @@ void registerVectorFunctions() {
   exec::registerStatefulVectorFunction(
       "regexp_like", re2SearchSignatures(), makeRe2Search);
 
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_to_utf8, "to_utf8");
+
   // TODO Fix Koski parser and clean this up.
   VELOX_REGISTER_VECTOR_FUNCTION(udf_concat_row, "ROW");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_concat_row, "concatRow");
