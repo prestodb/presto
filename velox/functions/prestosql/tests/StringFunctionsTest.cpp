@@ -1255,6 +1255,38 @@ TEST_F(StringFunctionsTest, fromHex) {
   EXPECT_THROW(fromHex("fff"), VeloxUserError);
 }
 
+TEST_F(StringFunctionsTest, toBase64) {
+  const auto toBase64 = [&](std::optional<std::string> value) {
+    return evaluateOnce<std::string>("to_base64(cast(c0 as varbinary))", value);
+  };
+
+  EXPECT_EQ(std::nullopt, toBase64(std::nullopt));
+  EXPECT_EQ("", toBase64(""));
+  EXPECT_EQ("YQ==", toBase64("a"));
+  EXPECT_EQ("YWJj", toBase64("abc"));
+  EXPECT_EQ("aGVsbG8gd29ybGQ=", toBase64("hello world"));
+  EXPECT_EQ(
+      "SGVsbG8gV29ybGQgZnJvbSBWZWxveCE=", toBase64("Hello World from Velox!"));
+}
+
+TEST_F(StringFunctionsTest, fromBase64) {
+  const auto fromBase64 = [&](std::optional<std::string> value) {
+    return evaluateOnce<std::string>("from_base64(c0)", value);
+  };
+
+  EXPECT_EQ(std::nullopt, fromBase64(std::nullopt));
+  EXPECT_EQ("", fromBase64(""));
+  EXPECT_EQ("a", fromBase64("YQ=="));
+  EXPECT_EQ("abc", fromBase64("YWJj"));
+  EXPECT_EQ("hello world", fromBase64("aGVsbG8gd29ybGQ="));
+  EXPECT_EQ(
+      "Hello World from Velox!",
+      fromBase64("SGVsbG8gV29ybGQgZnJvbSBWZWxveCE="));
+
+  EXPECT_THROW(fromBase64("YQ="), VeloxUserError);
+  EXPECT_THROW(fromBase64("YQ==="), VeloxUserError);
+}
+
 namespace {
 
 class MultiStringFunction : public exec::VectorFunction {

@@ -19,9 +19,6 @@
 #include <folly/container/Foreach.h>
 #include <folly/io/Cursor.h>
 #include <stdint.h>
-#include <string.h>
-// #include <thrift/lib/cpp/protocol/TBase64Utils.h>
-// #include "common/base/InitRegistry.h"
 
 using namespace std;
 
@@ -144,9 +141,33 @@ static_assert(
 template <class T>
 /*  static */ std::string
 Base64::encodeImpl(const T& data, const Charset& charset, bool include_pad) {
+  size_t outlen = calculateEncodedSize(data.size(), include_pad);
+
   std::string out;
-  encodeImpl(data, charset, include_pad, out);
+  out.resize(outlen);
+
+  encodeImpl(data, charset, include_pad, out.data());
   return out;
+}
+
+// static
+size_t Base64::calculateEncodedSize(size_t size, bool withPadding) {
+  if (size == 0) {
+    return 0;
+  }
+
+  // Calculate the output size assuming that we are including padding.
+  size_t encodedSize = ((size + 2) / 3) * 4;
+  if (!withPadding) {
+    // If the padding was not requested, subtract the padding bytes.
+    encodedSize -= (3 - (size % 3)) % 3;
+  }
+  return encodedSize;
+}
+
+// static
+void Base64::encode(const char* data, size_t len, char* output) {
+  encodeImpl(folly::StringPiece(data, len), kBase64Charset, true, output);
 }
 
 template <class T>
@@ -154,22 +175,13 @@ template <class T>
     const T& data,
     const Charset& charset,
     bool include_pad,
-    std::string& out) {
+    char* out) {
   auto len = data.size();
   if (len == 0) {
     return;
   }
 
-  // Calculate the output size assuming that we are including padding.
-  size_t outlen = ((len + 2) / 3) * 4;
-  if (!include_pad) {
-    // If the padding was not requested, subtract the padding bytes
-    outlen -= (3 - (len % 3)) % 3;
-  }
-
-  size_t initialLen = out.size();
-  out.resize(initialLen + outlen);
-  auto wp = &out[initialLen];
+  auto wp = out;
   auto it = data.begin();
 
   // For each group of 3 bytes (24 bits) in the input, split that into
@@ -267,7 +279,11 @@ string Base64::encode(const folly::IOBuf* data) {
 }
 
 void Base64::encodeAppend(folly::StringPiece text, string& out) {
-  encodeImpl(text, kBase64Charset, true, out);
+  size_t outlen = calculateEncodedSize(text.size(), true);
+
+  size_t initialLen = out.size();
+  out.resize(initialLen + outlen);
+  encodeImpl(text, kBase64Charset, true, out.data() + initialLen);
 }
 
 string Base64::decode(folly::StringPiece encoded) {
@@ -281,6 +297,12 @@ void Base64::decode(const pair<const char*, int32_t>& payload, string& output) {
   output.resize(out_len, '\0');
   out_len = Base64::decode(payload.first, payload.second, &output[0], out_len);
   output.resize(out_len);
+}
+
+// static
+void Base64::decode(const char* data, size_t size, char* output) {
+  size_t out_len = size / 4 * 3;
+  Base64::decode(data, size, output, out_len);
 }
 
 uint8_t Base64::Base64ReverseLookup(
@@ -300,21 +322,26 @@ Base64::decode(const char* src, size_t src_len, char* dst, size_t dst_len) {
   return decodeImpl(src, src_len, dst, dst_len, kBase64ReverseIndexTable, true);
 }
 
+// static
 size_t
-Base64::calcDecodedSize(const char* src, size_t& src_len, bool include_pad) {
-  auto needed = (src_len / 4) * 3;
-  if (include_pad) {
+Base64::calculateDecodedSize(const char* data, size_t& size, bool withPadding) {
+  if (size == 0) {
+    return 0;
+  }
+
+  auto needed = (size / 4) * 3;
+  if (withPadding) {
     // If the pad characters are included then the source string must be a
     // multiple of 4 and we can query the end of the string to see how much
     // padding exists.
-    if (src_len % 4 != 0) {
+    if (size % 4 != 0) {
       throw Base64Exception(
           "Base64::decode() - invalid input string: "
           "string length is not multiple of 4.");
     }
 
-    auto padding = countPadding(src, src_len);
-    src_len -= padding;
+    auto padding = countPadding(data, size);
+    size -= padding;
     return needed - padding;
   }
 
@@ -322,7 +349,7 @@ Base64::calcDecodedSize(const char* src, size_t& src_len, bool include_pad) {
   // size % 4 is 0 then we have an even multiple 3 byte chunks in the result
   // if it is 2 then we need 1 more byte in the output.  If it is 3 then we
   // need 2 more bytes in the output.  It should never be 1.
-  auto extra = src_len % 4;
+  auto extra = size % 4;
   if (extra) {
     if (extra == 1) {
       throw Base64Exception(
@@ -334,8 +361,8 @@ Base64::calcDecodedSize(const char* src, size_t& src_len, bool include_pad) {
 
   // Just because we don't need the pad, doesn't mean it is not there.  The
   // URL decoder should be able to handle the original encoding.
-  auto padding = countPadding(src, src_len);
-  src_len -= padding;
+  auto padding = countPadding(data, size);
+  size -= padding;
   return needed - padding;
 }
 
@@ -350,7 +377,7 @@ size_t Base64::decodeImpl(
     return 0;
   }
 
-  auto needed = calcDecodedSize(src, src_len, include_pad);
+  auto needed = calculateDecodedSize(src, src_len, include_pad);
   if (dst_len < needed) {
     throw Base64Exception(
         "Base64::decode() - invalid output string: "

@@ -13,8 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef FACEBOOK_COMMON_ENCODE_BASE64_H_
-#define FACEBOOK_COMMON_ENCODE_BASE64_H_
+#pragma once
 
 #include <exception>
 #include <map>
@@ -44,10 +43,29 @@ class Base64 {
   static std::string encode(const char* data, size_t len);
   static std::string encode(folly::StringPiece text);
   static std::string encode(const folly::IOBuf* text);
-  static std::string decode(folly::StringPiece encoded);
+
+  /// Returns encoded size for the input of the specified size.
+  static size_t calculateEncodedSize(size_t size, bool withPadding = true);
+
+  /// Encodes the specified number of characters from the 'data' and writes the
+  /// result to the 'output'. The output must have enough space, e.g. as
+  /// returned by the calculateEncodedSize().
+  static void encode(const char* data, size_t size, char* output);
 
   // Appends the encoded text to out.
   static void encodeAppend(folly::StringPiece text, std::string& out);
+
+  static std::string decode(folly::StringPiece encoded);
+
+  /// Returns decoded size for the specified input. Adjusts the 'size' to
+  /// subtract the length of the padding, if exists.
+  static size_t
+  calculateDecodedSize(const char* data, size_t& size, bool withPadding = true);
+
+  /// Decodes the specified number of characters from the 'data' and writes the
+  /// result to the 'output'. The output must have enough space, e.g. as
+  /// returned by the calculateDecodedSize().
+  static void decode(const char* data, size_t size, char* output);
 
   static void decode(
       const std::pair<const char*, int32_t>& payload,
@@ -84,8 +102,6 @@ class Base64 {
     return src[len - 1] != kBase64Pad ? 0 : src[len - 2] != kBase64Pad ? 1 : 2;
   }
 
-  static size_t
-  calcDecodedSize(const char* src, size_t& src_len, bool include_pad);
   static uint8_t Base64ReverseLookup(char p, const ReverseIndex& table);
 
   template <class T>
@@ -97,7 +113,7 @@ class Base64 {
       const T& data,
       const Charset& charset,
       bool include_pad,
-      std::string& out);
+      char* out);
 
   static size_t decodeImpl(
       const char* src,
@@ -109,5 +125,3 @@ class Base64 {
 };
 
 } // namespace facebook::velox::encoding
-
-#endif // FACEBOOK_COMMON_ENCODE_BASE64_H_

@@ -33,14 +33,12 @@
 #include <vector>
 #include "folly/CPortability.h"
 #include "velox/common/base/Exceptions.h"
+#include "velox/common/encode/Base64.h"
 #include "velox/external/md5/md5.h"
 #include "velox/external/xxhash.h"
 #include "velox/functions/lib/string/StringCore.h"
 
-namespace facebook {
-namespace velox {
-namespace functions {
-namespace stringImpl {
+namespace facebook::velox::functions::stringImpl {
 using namespace stringCore;
 
 /// Perform upper for a UTF8 string
@@ -373,7 +371,26 @@ FOLLY_ALWAYS_INLINE bool fromHex(TOutString& output, const TInString& input) {
 
   return true;
 }
-} // namespace stringImpl
-} // namespace functions
-} // namespace velox
-} // namespace facebook
+
+template <typename TOutString, typename TInString>
+FOLLY_ALWAYS_INLINE bool toBase64(TOutString& output, const TInString& input) {
+  output.resize(encoding::Base64::calculateEncodedSize(input.size()));
+  encoding::Base64::encode(input.data(), input.size(), output.data());
+  return true;
+}
+
+template <typename TOutString, typename TInString>
+FOLLY_ALWAYS_INLINE bool fromBase64(
+    TOutString& output,
+    const TInString& input) {
+  try {
+    auto inputSize = input.size();
+    output.resize(
+        encoding::Base64::calculateDecodedSize(input.data(), inputSize));
+    encoding::Base64::decode(input.data(), input.size(), output.data());
+  } catch (const encoding::Base64Exception& e) {
+    VELOX_USER_FAIL(e.what());
+  }
+  return true;
+}
+} // namespace facebook::velox::functions::stringImpl

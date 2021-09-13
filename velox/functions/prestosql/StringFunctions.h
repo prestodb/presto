@@ -115,4 +115,21 @@ FOLLY_ALWAYS_INLINE bool call(
   return stringImpl::fromHex(result, input);
 }
 VELOX_UDF_END();
+
+VELOX_UDF_BEGIN(to_base64)
+FOLLY_ALWAYS_INLINE bool call(
+    out_type<Varchar>& result,
+    const arg_type<Varbinary>& input) {
+  return stringImpl::toBase64(result, input);
+}
+VELOX_UDF_END();
+
+VELOX_UDF_BEGIN(from_base64)
+FOLLY_ALWAYS_INLINE bool call(
+    out_type<Varbinary>& result,
+    const arg_type<Varchar>& input) {
+  return stringImpl::fromBase64(result, input);
+}
+VELOX_UDF_END();
+
 } // namespace facebook::velox::functions
