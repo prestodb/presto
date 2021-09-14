@@ -144,12 +144,10 @@ TEST(DuckParserTest, expressions) {
 }
 
 TEST(DuckParserTest, between) {
-  EXPECT_EQ(
-      "and(gte(\"c0\",0),lte(\"c0\",1))",
-      parseExpr("c0 between 0 and 1")->toString());
+  EXPECT_EQ("between(\"c0\",0,1)", parseExpr("c0 between 0 and 1")->toString());
 
   EXPECT_EQ(
-      "and(and(gte(\"c0\",0),lte(\"c0\",1)),gt(\"c0\",10))",
+      "and(between(\"c0\",0,1),gt(\"c0\",10))",
       parseExpr("c0 between 0 and 1 and c0 > 10")->toString());
 }
 

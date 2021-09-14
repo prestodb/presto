@@ -31,3 +31,24 @@ TEST_F(ComparisonsTest, between) {
     EXPECT_EQ(result->valueAt(i), std::get<1>(testData[i])) << "at " << i;
   }
 }
+
+TEST_F(ComparisonsTest, betweenVarchar) {
+  using S = StringView;
+
+  const auto between = [&](std::optional<std::string> s) {
+    auto expr = "c0 between 'mango' and 'pear'";
+    if (s.has_value()) {
+      return evaluateOnce<bool>(expr, std::optional(S(s.value())));
+    } else {
+      return evaluateOnce<bool>(expr, std::optional<S>());
+    }
+  };
+
+  EXPECT_EQ(std::nullopt, between(std::nullopt));
+  EXPECT_EQ(false, between(""));
+  EXPECT_EQ(false, between("apple"));
+  EXPECT_EQ(false, between("pineapple"));
+  EXPECT_EQ(true, between("mango"));
+  EXPECT_EQ(true, between("orange"));
+  EXPECT_EQ(true, between("pear"));
+}

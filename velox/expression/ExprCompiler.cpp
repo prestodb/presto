@@ -348,7 +348,9 @@ ExprPtr compileExpression(
       result = std::make_shared<Expr>(
           resultType, std::move(compiledInputs), func, call->name());
     } else {
-      VELOX_FAIL("Function not registered: {}", call->name());
+      VELOX_FAIL(
+          "Function not registered: {}",
+          core::FunctionKey(call->name(), inputTypes).toString());
     }
   } else if (
       auto access =

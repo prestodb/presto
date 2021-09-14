@@ -156,15 +156,10 @@ std::shared_ptr<const core::IExpr> parseComparisonExpr(ParsedExpression& expr) {
 std::shared_ptr<const core::IExpr> parseBetweenExpr(ParsedExpression& expr) {
   const auto& betweenExpr = dynamic_cast<BetweenExpression&>(expr);
   return callExpr(
-      "and",
-      {
-          callExpr(
-              "gte",
-              {parseExpr(*betweenExpr.input), parseExpr(*betweenExpr.lower)}),
-          callExpr(
-              "lte",
-              {parseExpr(*betweenExpr.input), parseExpr(*betweenExpr.upper)}),
-      });
+      "between",
+      {parseExpr(*betweenExpr.input),
+       parseExpr(*betweenExpr.lower),
+       parseExpr(*betweenExpr.upper)});
 }
 
 // Parse a conjunction (AND or OR).
