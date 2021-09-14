@@ -13,9 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
+
 #include "velox/expression/VectorFunction.h"
 #include "velox/functions/Macros.h"
 #include "velox/functions/UDFOutputString.h"
+#include "velox/functions/lib/string/StringImpl.h"
 
 namespace facebook::velox::functions::sparksql {
 
@@ -34,6 +37,15 @@ FOLLY_ALWAYS_INLINE bool call(out_type<Varchar>& result, int64_t ord) {
     result.resize(1);
     *result.data() = ord;
   }
+  return true;
+}
+VELOX_UDF_END();
+
+template <typename To, typename From>
+VELOX_UDF_BEGIN(md5)
+FOLLY_ALWAYS_INLINE
+    bool call(out_type<To>& result, const arg_type<From>& input) {
+  stringImpl::md5_radix(result, input, 16);
   return true;
 }
 VELOX_UDF_END();

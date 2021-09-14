@@ -47,12 +47,12 @@ class StringTest : public SparkFunctionBaseTest {
 
   std::optional<int32_t> length_bytes(std::optional<std::string> arg) {
     return evaluateOnce<int32_t, std::string>(
-        "length(c0)", {arg}, {VarbinaryType::create()});
+        "length(c0)", {arg}, {VARBINARY()});
   }
 
   std::optional<std::string> md5(std::optional<std::string> arg) {
     return evaluateOnce<std::string, std::string>(
-        "md5(c0)", {arg}, {VarbinaryType::create()});
+        "md5(c0)", {arg}, {VARBINARY()});
   }
 };
 

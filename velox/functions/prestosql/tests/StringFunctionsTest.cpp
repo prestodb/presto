@@ -968,47 +968,16 @@ TEST_F(StringFunctionsTest, codePoint) {
 }
 
 TEST_F(StringFunctionsTest, md5) {
-  {
-    const auto md5 = [&](std::optional<std::string> key,
-                         std::optional<int32_t> radix) {
-      return evaluateOnce<std::string>("md5(c0, c1)", key, radix);
-    };
-    EXPECT_EQ("533f6357e0210e67d91f651bc49e1278", md5("hashme", 16));
-    EXPECT_EQ("110655053273001216628802061412889137784", md5("hashme", 10));
-    EXPECT_EQ("d41d8cd98f00b204e9800998ecf8427e", md5("", 16));
-    EXPECT_EQ("281949768489412648962353822266799178366", md5("", 10));
+  const auto md5 = [&](std::optional<std::string> arg) {
+    return evaluateOnce<std::string, std::string>(
+        "md5(c0)", {arg}, {VARBINARY()});
+  };
 
-    EXPECT_THROW(
-        try {
-          md5("hashme", 2);
-        } catch (const facebook::velox::VeloxUserError& err) {
-          EXPECT_NE(
-              err.message().find(
-                  "Not a valid radix for md5: 2. Supported values are 10 or 16"),
-              std::string::npos);
-          throw;
-        },
-        facebook::velox::VeloxUserError);
-  }
+  EXPECT_EQ(hexToDec("533f6357e0210e67d91f651bc49e1278"), md5("hashme"));
+  EXPECT_EQ(hexToDec("eb2ac5b04180d8d6011a016aeb8f75b3"), md5("Infinity"));
+  EXPECT_EQ(hexToDec("d41d8cd98f00b204e9800998ecf8427e"), md5(""));
 
-  {
-    const auto md5 = [&](const std::string& key) {
-      return evaluateOnce<std::string>(
-          "md5(c0)",
-          std::vector<std::optional<StringView>>{StringView(key)},
-          {VARBINARY()});
-    };
-
-    EXPECT_EQ(hexToDec("533f6357e0210e67d91f651bc49e1278"), md5("hashme"));
-    EXPECT_EQ(hexToDec("D41D8CD98F00B204E9800998ECF8427E"), md5(""));
-  }
-
-  // Test null input
-  {
-    auto result = evaluateOnce<std::string>(
-        "md5(c0)", std::optional<std::string>(std::nullopt));
-    ASSERT_EQ(result, std::nullopt);
-  }
+  EXPECT_EQ(std::nullopt, md5(std::nullopt));
 }
 
 void StringFunctionsTest::testReplaceInPlace(
@@ -1139,80 +1108,22 @@ TEST_F(StringFunctionsTest, controlExprEncodingPropagation) {
   test("if(1!=1, lower(C1), lower(C2))", false);
 }
 
-void StringFunctionsTest::testXXHash64(
-    const std::vector<std::tuple<std::string, int64_t, int64_t>>& tests) {
-  // Creating vectors for input strings and seed values
-  auto inputString = makeFlatVector<StringView>(tests.size());
-  auto inputSeed = makeFlatVector<int64_t>(tests.size());
-  for (int i = 0; i < tests.size(); i++) {
-    inputString->set(i, StringView(std::get<0>(tests[i])));
-    inputSeed->set(i, std::get<1>(tests[i]));
-  }
-  auto rowVector = makeRowVector({inputString, inputSeed});
-
-  // Evaluating the function for each input and seed
-  auto result = evaluate<FlatVector<int64_t>>("xxhash64(c0, c1)", rowVector);
-
-  // Checking the results
-  for (int32_t i = 0; i < tests.size(); ++i) {
-    ASSERT_EQ(result->valueAt(i), std::get<2>(tests[i]));
-  }
-}
-
-void StringFunctionsTest::testXXHash64(
-    const std::vector<std::pair<std::string, int64_t>>& tests,
-    bool stringVariant) {
-  auto type = stringVariant ? std::dynamic_pointer_cast<const Type>(VARCHAR())
-                            : VARBINARY();
-  // Creating vectors for input strings
-  auto inputString = makeFlatVector<StringView>(tests.size(), type);
-  for (int i = 0; i < tests.size(); i++) {
-    inputString->set(i, StringView(tests[i].first));
-  }
-  auto rowVector = makeRowVector({inputString});
-
-  // Evaluate and compare results
-  if (stringVariant) {
-    auto result = evaluate<FlatVector<int64_t>>("xxhash64(c0)", rowVector);
-    for (int32_t i = 0; i < tests.size(); ++i) {
-      ASSERT_EQ(result->valueAt(i), tests[i].second);
-    }
-  } else {
-    auto result = evaluate<FlatVector<StringView>>("xxhash64(c0)", rowVector);
-    for (int32_t i = 0; i < tests.size(); ++i) {
-      ASSERT_EQ(
-          std::memcmp(
-              result->valueAt(i).data(),
-              &tests[i].second,
-              sizeof(tests[i].second)),
-          0);
-    }
-  }
-}
-
 TEST_F(StringFunctionsTest, xxhash64) {
-  // The first two cases are borrowed from the original HIVE implementation
-  // unittests and the last two are corner cases
-  // fbcode/fbjava/hive-udfs/core-udfs/src/main/java/com/facebook/hive/udf/UDFXxhash64.java
-  {
-    std::vector<std::tuple<std::string, int64_t, int64_t>> validInputTest = {
-        {"hashmes", 0, 4920146668586838293},
-        {"hashme", 1, 1571629256661355178},
-        {"", 0, 0xEF46DB3751D8E999}};
+  const auto xxhash64 = [&](std::optional<std::string> value) {
+    return evaluateOnce<std::string, std::string>(
+        "xxhash64(c0)", {value}, {VARBINARY()});
+  };
 
-    testXXHash64(validInputTest);
-  }
+  const auto toVarbinary = [](const int64_t input) {
+    std::string out;
+    out.resize(sizeof(input));
+    std::memcpy(out.data(), &input, sizeof(input));
+    return out;
+  };
 
-  // Similar tests for the Presto variant
-  {
-    std::vector<std::pair<std::string, int64_t>> validInputTest = {
-        {"hashmes", 4920146668586838293}, {"", 0xEF46DB3751D8E999}};
-
-    testXXHash64(validInputTest, false);
-
-    // Default value seed for string inputs
-    testXXHash64(validInputTest, true);
-  }
+  EXPECT_EQ(std::nullopt, xxhash64(std::nullopt));
+  EXPECT_EQ(toVarbinary(-1205034819632174695L), xxhash64(""));
+  EXPECT_EQ(toVarbinary(-443202081618794350L), xxhash64("hashme"));
 }
 
 TEST_F(StringFunctionsTest, toHex) {

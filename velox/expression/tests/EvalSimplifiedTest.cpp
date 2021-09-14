@@ -152,7 +152,7 @@ TEST_F(EvalSimplifiedTest, constantAndInput) {
 }
 
 TEST_F(EvalSimplifiedTest, strings) {
-  runTest("md5(c0)", ROW({"c0"}, {VARCHAR()}));
+  runTest("lower(upper(c0))", ROW({"c0"}, {VARCHAR()}));
 }
 
 TEST_F(EvalSimplifiedTest, doubles) {

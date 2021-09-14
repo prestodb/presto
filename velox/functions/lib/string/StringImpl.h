@@ -15,12 +15,6 @@
  */
 #pragma once
 
-// The cpp library for xxhash requires one of the few macros to be set in
-// order to get the library to even work (there's no default mode set).
-// This macro forces the hash function to be inlined and is not set by default.
-// We do not want to change the external library to set this default behavior.
-#define XXH_INLINE_ALL
-
 #include <assert.h>
 #include <fmt/format.h>
 #include <stdio.h>
@@ -35,7 +29,6 @@
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/encode/Base64.h"
 #include "velox/external/md5/md5.h"
-#include "velox/external/xxhash.h"
 #include "velox/functions/lib/string/StringCore.h"
 
 namespace facebook::velox::functions::stringImpl {
@@ -238,34 +231,6 @@ FOLLY_ALWAYS_INLINE void replaceInPlace(
       true);
 
   string.resize(outputSize);
-}
-
-/// Extract the hash for a given string
-/// Following the implementation in HIVE UDF
-/// fbcode/fbjava/hive-udfs/core-udfs/src/main/java/com/facebook/hive/udf/UDFXxhash64.java
-template <typename TInString>
-FOLLY_ALWAYS_INLINE bool
-xxhash64int(int64_t& result, const TInString& input, const int64_t seed = 0) {
-  // Following the implementation in Hive
-  // They use utf8Slice constructor which is not necessary for correctness
-  result = XXH64(input.data(), input.size(), seed);
-  return true;
-}
-
-/// Extract the hash for a given string as string
-/// Following the implementation in Presto
-/// presto/presto-main/src/main/java/com/facebook/presto/operator/scalar/VarbinaryFunctions.java
-template <typename TOutString, typename TInString>
-FOLLY_ALWAYS_INLINE bool xxhash64(TOutString& output, const TInString& input) {
-  // Following the implementation in Presto (seed is set to 0)
-  int64_t hash;
-  xxhash64int(hash, input, 0);
-  static const auto kLen = sizeof(int64_t);
-
-  // Resizing output and copy
-  output.resize(kLen);
-  std::memcpy(output.data(), &hash, kLen);
-  return true;
 }
 
 /// Compute the MD5 Hash.

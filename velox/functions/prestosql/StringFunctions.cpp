@@ -23,6 +23,7 @@
 #include "velox/vector/FlatVector.h"
 
 namespace facebook::velox::functions {
+
 namespace {
 
 /// Check if the input vector's  buffers are single referenced

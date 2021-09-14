@@ -33,29 +33,16 @@ void registerFunctions() {
 
   registerFunction<udf_rand, double>(EMPTY);
 
-  registerUnaryScalar<udf_hash, int64_t>(EMPTY);
-
   registerFunction<udf_json_extract_scalar, Varchar, Varchar, Varchar>();
 
   // Register string functions.
   registerFunction<udf_chr, Varchar, int64_t>();
   registerFunction<udf_codepoint, int32_t, Varchar>();
-  registerFunction<
-      udf_xxhash64int<int64_t, Varchar>,
-      int64_t,
-      Varchar,
-      int64_t>({"xxhash64"});
-  registerFunction<udf_xxhash64int<int64_t, Varchar>, int64_t, Varchar>(
-      {"xxhash64"});
-  registerFunction<udf_xxhash64<Varbinary, Varbinary>, Varbinary, Varbinary>(
-      {"xxhash64"});
+
+  // Register hash functions
+  registerFunction<udf_xxhash64, Varbinary, Varbinary>({"xxhash64"});
   registerFunction<udf_md5<Varbinary, Varbinary>, Varbinary, Varbinary>(
       {"md5"});
-  registerFunction<udf_md5_radix<Varchar, Varchar>, Varchar, Varchar, int32_t>(
-      {"md5"});
-  registerFunction<udf_md5_radix<Varchar, Varchar>, Varchar, Varchar, int64_t>(
-      {"md5"});
-  registerFunction<udf_md5_radix<Varchar, Varchar>, Varchar, Varchar>({"md5"});
 
   registerFunction<udf_to_hex, Varchar, Varbinary>();
   registerFunction<udf_from_hex, Varbinary, Varchar>();

@@ -20,7 +20,6 @@
 #include "velox/functions/prestosql/DateTimeFunctions.h"
 #include "velox/functions/prestosql/JsonExtractScalar.h"
 #include "velox/functions/prestosql/Rand.h"
-#include "velox/functions/prestosql/StringFunctions.h"
 #include "velox/functions/sparksql/Hash.h"
 #include "velox/functions/sparksql/LeastGreatest.h"
 #include "velox/functions/sparksql/RegexFunctions.h"
@@ -67,19 +66,12 @@ void registerFunctions(const std::string& prefix) {
   // Register string functions.
   registerFunction<udf_chr, Varchar, int64_t>();
   registerFunction<udf_ascii, int32_t, Varchar>();
-  registerFunction<
-      udf_xxhash64int<int64_t, Varchar>,
-      int64_t,
-      Varchar,
-      int64_t>({prefix + "xxhash64"});
-  registerFunction<udf_xxhash64int<int64_t, Varchar>, int64_t, Varchar>(
-      {prefix + "xxhash64"});
-  registerFunction<udf_xxhash64<Varbinary, Varbinary>, Varbinary, Varbinary>(
-      {prefix + "xxhash64"});
+
   exec::registerStatefulVectorFunction("instr", instrSignatures(), makeInstr);
   exec::registerStatefulVectorFunction(
       "length", lengthSignatures(), makeLength);
-  registerFunction<udf_md5_radix<Varchar, Varbinary>, Varchar, Varbinary>(
+
+  registerFunction<udf_md5<Varchar, Varbinary>, Varchar, Varbinary>(
       {prefix + "md5"});
 
   exec::registerStatefulVectorFunction(
