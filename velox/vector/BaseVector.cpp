@@ -507,7 +507,7 @@ VectorPtr newConstant(
       pool,
       size,
       value.isNull(),
-      CppToType<T>::create(),
+      Type::create<kind>(),
       std::move(copy),
       cdvi::EMPTY_METADATA,
       sizeof(T) /*representedByteCount*/);

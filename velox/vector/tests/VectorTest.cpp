@@ -1138,6 +1138,7 @@ TEST_F(VectorCreateConstantTest, scalar) {
   testCreateConstant<TypeKind::DOUBLE>(12.345);
 
   testCreateConstant<TypeKind::VARCHAR>(StringView("hello world"));
+  testCreateConstant<TypeKind::VARBINARY>(StringView("my binary buffer"));
 }
 
 TEST_F(VectorCreateConstantTest, scalarNull) {
@@ -1151,6 +1152,9 @@ TEST_F(VectorCreateConstantTest, scalarNull) {
 
   testCreateConstant<TypeKind::REAL>(std::nullopt);
   testCreateConstant<TypeKind::DOUBLE>(std::nullopt);
+
+  testCreateConstant<TypeKind::VARCHAR>(std::nullopt);
+  testCreateConstant<TypeKind::VARBINARY>(std::nullopt);
 }
 
 class TestingHook : public ValueHook {

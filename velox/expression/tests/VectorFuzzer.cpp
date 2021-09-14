@@ -154,7 +154,15 @@ variant randVariantImpl(
   if constexpr (std::is_same_v<TCpp, StringView>) {
     std::wstring_convert<std::codecvt_utf8<char16_t>, char16_t> converter;
     std::string buf;
-    return variant(randString(rng, opts, buf, converter));
+    auto stringView = randString(rng, opts, buf, converter);
+
+    if constexpr (kind == TypeKind::VARCHAR) {
+      return variant(stringView);
+    } else if constexpr (kind == TypeKind::VARBINARY) {
+      return variant::binary(stringView);
+    } else {
+      VELOX_UNREACHABLE();
+    }
   } else {
     return variant(rand<TCpp>(rng));
   }
