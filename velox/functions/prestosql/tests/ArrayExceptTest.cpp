@@ -22,7 +22,7 @@ using namespace facebook::velox::functions::test;
 
 namespace {
 
-class ArrayIntersectTest : public FunctionBaseTest {
+class ArrayExceptTest : public FunctionBaseTest {
  protected:
   void testExpr(
       const VectorPtr& expected,
@@ -65,13 +65,19 @@ class ArrayIntersectTest : public FunctionBaseTest {
         {1, -2, 4},
     });
     auto expected = makeNullableArrayVector<T>({
-        {1, -2, 4},
-        {1, -2},
-        {},
-        {1, -2, 4},
+        {3, std::nullopt, 5, 6},
+        {2},
+        {3, 8, std::nullopt},
+        {8},
     });
-    testExpr(expected, "array_intersect(C0, C1)", {array1, array2});
-    testExpr(expected, "array_intersect(C1, C0)", {array1, array2});
+    testExpr(expected, "array_except(C0, C1)", {array1, array2});
+    expected = makeNullableArrayVector<T>({
+        {},
+        {4},
+        {1, -2, 4},
+        {},
+    });
+    testExpr(expected, "array_except(C1, C0)", {array1, array2});
 
     // Change C1.
     array2 = makeNullableArrayVector<T>({
@@ -81,25 +87,25 @@ class ArrayIntersectTest : public FunctionBaseTest {
         {8, 1, 8, 1},
     });
     expected = makeNullableArrayVector<T>({
-        {},
-        {2, -2},
-        {std::nullopt},
-        {1, 8},
+        {1, -2, 3, std::nullopt, 4, 5, 6},
+        {1},
+        {3, 8},
+        {-2, 4},
     });
-    testExpr(expected, "array_intersect(C0, C1)", {array1, array2});
+    testExpr(expected, "array_except(C0, C1)", {array1, array2});
   }
 };
 
 } // namespace
 
-TEST_F(ArrayIntersectTest, intArrays) {
+TEST_F(ArrayExceptTest, intArrays) {
   testInt<int8_t>();
   testInt<int16_t>();
   testInt<int32_t>();
   testInt<int64_t>();
 }
 
-TEST_F(ArrayIntersectTest, boolArrays) {
+TEST_F(ArrayExceptTest, boolArrays) {
   auto array1 = makeNullableArrayVector<bool>(
       {{true, false},
        {true, true},
@@ -121,21 +127,16 @@ TEST_F(ArrayIntersectTest, boolArrays) {
        {true, false, true}});
 
   auto expected = makeNullableArrayVector<bool>(
-      {{true},
-       {true},
-       {false},
-       {},
-       {true, std::nullopt},
-       {std::nullopt, false},
-       {false, true},
-       {true, false}});
+      {{false}, {}, {}, {}, {false}, {true}, {}, {}});
 
-  testExpr(expected, "array_intersect(C0, C1)", {array1, array2});
-  testExpr(expected, "array_intersect(C1, C0)", {array1, array2});
+  testExpr(expected, "array_except(C0, C1)", {array1, array2});
+
+  expected = makeNullableArrayVector<bool>({{}, {}, {}, {}, {}, {}, {}, {}});
+  testExpr(expected, "array_except(C1, C0)", {array1, array2});
 }
 
 // Test inline strings.
-TEST_F(ArrayIntersectTest, strArrays) {
+TEST_F(ArrayExceptTest, strArrays) {
   using S = StringView;
 
   auto array1 = makeNullableArrayVector<StringView>({
@@ -151,17 +152,23 @@ TEST_F(ArrayIntersectTest, strArrays) {
       {S("abc"), S("a"), S("b")},
   });
   auto expected = makeNullableArrayVector<StringView>({
-      {S("a")},
-      {S("a"), S("b")},
-      {std::nullopt},
-      {S("abc")},
+      {std::nullopt, S("b")},
+      {},
+      {S("b")},
+      {},
   });
-  testExpr(expected, "array_intersect(C0, C1)", {array1, array2});
-  testExpr(expected, "array_intersect(C1, C0)", {array1, array2});
+  testExpr(expected, "array_except(C0, C1)", {array1, array2});
+  expected = makeNullableArrayVector<StringView>({
+      {},
+      {},
+      {},
+      {S("a"), S("b")},
+  });
+  testExpr(expected, "array_except(C1, C0)", {array1, array2});
 }
 
 // Test non-inline (> 12 length) strings.
-TEST_F(ArrayIntersectTest, longStrArrays) {
+TEST_F(ArrayExceptTest, longStrArrays) {
   using S = StringView;
 
   auto array1 = makeNullableArrayVector<StringView>({
@@ -182,17 +189,25 @@ TEST_F(ArrayIntersectTest, longStrArrays) {
       {S("red shiny car ahead"), S("green plants make us happy")},
   });
   auto expected = makeNullableArrayVector<StringView>({
-      {S("red shiny car ahead")},
-      {std::nullopt},
+      {S("blue clear sky above")},
+      {S("blue clear sky above"),
+       S("yellow rose flowers"),
+       S("orange beautiful sunset")},
       {},
-      {S("red shiny car ahead"), S("green plants make us happy")},
+      {S("purple is an elegant color")},
   });
-  testExpr(expected, "array_intersect(C0, C1)", {array1, array2});
-  testExpr(expected, "array_intersect(C1, C0)", {array1, array2});
+  testExpr(expected, "array_except(C0, C1)", {array1, array2});
+  expected = makeNullableArrayVector<StringView>({
+      {},
+      {},
+      {},
+      {},
+  });
+  testExpr(expected, "array_except(C1, C0)", {array1, array2});
 }
 
 // When one of the arrays is constant.
-TEST_F(ArrayIntersectTest, constant) {
+TEST_F(ArrayExceptTest, constant) {
   auto array1 = makeNullableArrayVector<int32_t>({
       {1, -2, 3, std::nullopt, 4, 5, 6, std::nullopt},
       {1, 2, -2, 1},
@@ -200,46 +215,57 @@ TEST_F(ArrayIntersectTest, constant) {
       {1, 1, -2, -2, -2, 4, 8},
   });
   auto expected = makeNullableArrayVector<int32_t>({
-      {1, -2, 4},
-      {1, -2},
-      {},
-      {1, -2, 4},
+      {3, std::nullopt, 5, 6},
+      {2},
+      {3, 8, std::nullopt},
+      {8},
   });
-  testExpr(expected, "array_intersect(C0, ARRAY[1,-2,4])", {array1});
-  testExpr(expected, "array_intersect(ARRAY[1,-2,4], C0)", {array1});
-  testExpr(
-      expected, "array_intersect(ARRAY[1,1,-2,1,-2,4,1,4,4], C0)", {array1});
+  testExpr(expected, "array_except(C0, ARRAY[1,-2,4])", {array1});
+  expected = makeNullableArrayVector<int32_t>({
+      {},
+      {4},
+      {1, -2, 4},
+      {},
+  });
+  testExpr(expected, "array_except(ARRAY[1,-2,4], C0)", {array1});
+  testExpr(expected, "array_except(ARRAY[1,1,-2,1,-2,4,1,4,4], C0)", {array1});
 
   // Array containing NULLs.
   expected = makeNullableArrayVector<int32_t>({
-      {1, std::nullopt, 4},
-      {1},
-      {std::nullopt},
-      {1, 4},
+      {-2, 3, 5, 6},
+      {2, -2},
+      {3, 8},
+      {-2, 8},
   });
-  testExpr(expected, "array_intersect(C0, ARRAY[1,NULL,4])", {array1});
-  testExpr(expected, "array_intersect(ARRAY[1,NULL,4], C0)", {array1});
+  testExpr(expected, "array_except(C0, ARRAY[1,NULL,4])", {array1});
+
+  expected = makeNullableArrayVector<int32_t>({
+      {},
+      {std::nullopt, 4},
+      {1, 4},
+      {std::nullopt},
+  });
+  testExpr(expected, "array_except(ARRAY[1,NULL,4], C0)", {array1});
 }
 
-TEST_F(ArrayIntersectTest, wrongTypes) {
-  auto expected = makeNullableArrayVector<int32_t>({{1}});
+TEST_F(ArrayExceptTest, wrongTypes) {
+  auto expected = makeNullableArrayVector<int32_t>({{}});
   auto array1 = makeNullableArrayVector<int32_t>({{1}});
 
   EXPECT_THROW(
-      testExpr(expected, "array_intersect(1, 1)", {array1}),
+      testExpr(expected, "array_except(1, 1)", {array1}),
       std::invalid_argument);
   EXPECT_THROW(
-      testExpr(expected, "array_intersect(C0, 1)", {array1}),
+      testExpr(expected, "array_except(C0, 1)", {array1}),
       std::invalid_argument);
   EXPECT_THROW(
-      testExpr(expected, "array_intersect(ARRAY[1], 1)", {array1}),
+      testExpr(expected, "array_except(ARRAY[1], 1)", {array1}),
       std::invalid_argument);
   EXPECT_THROW(
-      testExpr(expected, "array_intersect(C0)", {array1}),
-      std::invalid_argument);
+      testExpr(expected, "array_exvcept(C0)", {array1}), std::invalid_argument);
   EXPECT_THROW(
-      testExpr(expected, "array_intersect(C0, C0, C0)", {array1}),
+      testExpr(expected, "array_except(C0, C0, C0)", {array1}),
       std::invalid_argument);
 
-  EXPECT_NO_THROW(testExpr(expected, "array_intersect(C0, C0)", {array1}));
+  EXPECT_NO_THROW(testExpr(expected, "array_except(C0, C0)", {array1}));
 }
