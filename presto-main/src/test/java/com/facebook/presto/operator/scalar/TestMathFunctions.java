@@ -1452,6 +1452,29 @@ public class TestMathFunctions
     }
 
     @Test
+    public void testInverseLogisticCdf()
+    {
+        assertFunction("inverse_logistic_cdf(0, 1, 0.5)", DOUBLE, 0.0);
+        assertFunction("inverse_logistic_cdf(0, 1, 0.0)", DOUBLE, Double.NEGATIVE_INFINITY);
+        assertFunction("inverse_logistic_cdf(0, 1, 1.0)", DOUBLE, Double.POSITIVE_INFINITY);
+
+        assertInvalidFunction("inverse_logistic_cdf(0, -1, 0.5)", "s must be greater than 0");
+        assertInvalidFunction("inverse_logistic_cdf(0, 1, -0.1)", "p must be in the interval [0, 1]");
+        assertInvalidFunction("inverse_logistic_cdf(0, 1, 1.1)", "p must be in the interval [0, 1]");
+    }
+
+    @Test
+    public void testLogisticCdf()
+            throws Exception
+    {
+        assertFunction("logistic_cdf(0, 1, 0.0)", DOUBLE, 0.5);
+        assertFunction("logistic_cdf(1, 1, 1.0)", DOUBLE, 0.5);
+        assertFunction("logistic_cdf(1, 1, infinity())", DOUBLE, 1.0);
+
+        assertInvalidFunction("logistic_cdf(0, -1, 0.5)", "s must be greater than 0");
+    }
+
+    @Test
     public void testInversePoissonCdf()
     {
         assertFunction("inverse_poisson_cdf(3, 0.0)", INTEGER, 0);
