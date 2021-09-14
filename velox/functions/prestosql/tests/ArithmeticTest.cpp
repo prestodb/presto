@@ -79,6 +79,44 @@ __attribute__((__no_sanitize__("float-divide-by-zero")))
       "c0 / c1", {10.5, 9.2, 0.0}, {2, 0, 0}, {5.25, inf, nan});
 }
 
+TEST_F(ArithmeticTest, modulus) {
+  // Doubles as input.
+  std::vector<double> numerDouble = {0, 6, 0, -7, -1, -9, 9, 10.1};
+  std::vector<double> denomDouble = {1, 2, -1, 3, -1, -3, -3, -99.9};
+  std::vector<double> expectedDouble;
+
+  expectedDouble.reserve(numerDouble.size());
+  for (size_t i = 0; i < numerDouble.size(); i++) {
+    expectedDouble.emplace_back(std::fmod(numerDouble[i], denomDouble[i]));
+  }
+
+  double nan = std::nan("");
+  double inf = std::numeric_limits<double>::infinity();
+
+  // Check using function name and alias.
+  assertExpression<double>(
+      "modulus(c0, c1)", numerDouble, denomDouble, expectedDouble);
+  assertExpression<double>(
+      "modulus(c0, c1)",
+      {5.1, nan, 5.1, inf, 5.1},
+      {0.0, 5.1, nan, 5.1, inf},
+      {nan, nan, nan, nan, 5.1});
+
+  // Integers as input.
+  std::vector<int64_t> numerInt = {9, 10, 0, -9, -10, -11};
+  std::vector<int64_t> denomInt = {3, -3, 11, -1, 199999, 77};
+  std::vector<int64_t> expectedInt;
+  expectedInt.reserve(numerInt.size());
+
+  for (size_t i = 0; i < numerInt.size(); i++) {
+    expectedInt.emplace_back(numerInt[i] % denomInt[i]);
+  }
+
+  assertExpression<int64_t, int64_t>(
+      "modulus(c0, c1)", numerInt, denomInt, expectedInt);
+  assertError<int64_t>("modulus(c0, c1)", {10}, {0}, "Cannot divide by 0");
+}
+
 TEST_F(ArithmeticTest, power) {
   float inf = std::numeric_limits<float>::infinity();
 

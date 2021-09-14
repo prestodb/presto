@@ -43,6 +43,7 @@ void registerArithmeticFunctions() {
   registerBinaryFloatingPoint<udf_minus>({});
   registerBinaryFloatingPoint<udf_multiply>({});
   registerBinaryFloatingPoint<udf_divide>({});
+  registerBinaryFloatingPoint<udf_modulus>({});
   registerUnaryNumeric<udf_ceil>({"ceil", "ceiling"});
   registerUnaryNumeric<udf_floor>({});
   registerUnaryNumeric<udf_abs>({});

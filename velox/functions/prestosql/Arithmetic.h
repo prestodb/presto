@@ -67,6 +67,14 @@ FOLLY_ALWAYS_INLINE bool call(T& result, const T& a, const T& b)
 VELOX_UDF_END();
 
 template <typename T>
+VELOX_UDF_BEGIN(modulus)
+FOLLY_ALWAYS_INLINE bool call(T& result, const T& a, const T& b) {
+  result = modulus(a, b);
+  return true;
+}
+VELOX_UDF_END();
+
+template <typename T>
 VELOX_UDF_BEGIN(ceil)
 FOLLY_ALWAYS_INLINE bool call(T& result, const T& a) {
   result = ceil(a);

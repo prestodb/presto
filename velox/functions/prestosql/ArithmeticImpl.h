@@ -81,6 +81,16 @@ T divide(const T& a, const T& b)
   return result;
 }
 
+// This is used by Velox for floating points modulus.
+template <typename T>
+T modulus(const T a, const T b) {
+  if (b == 0) {
+    // Match Presto semantics
+    return std::numeric_limits<T>::quiet_NaN();
+  }
+  return std::fmod(a, b);
+}
+
 template <typename T>
 T negate(const T& arg) {
   T results = std::negate<std::remove_cv_t<T>>()(arg);
