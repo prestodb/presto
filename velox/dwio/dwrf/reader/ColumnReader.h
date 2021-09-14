@@ -120,7 +120,8 @@ static inline void ensureCapacity(
     BufferPtr& data,
     size_t capacity,
     velox::memory::MemoryPool* pool) {
-  if (!data || data->capacity() < BaseVector::byteSize<T>(capacity)) {
+  if (!data || !data->unique() ||
+      data->capacity() < BaseVector::byteSize<T>(capacity)) {
     data = AlignedBuffer::allocate<T>(capacity, pool);
   }
 }
