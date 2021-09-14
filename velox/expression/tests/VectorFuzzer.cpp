@@ -15,6 +15,8 @@
  */
 
 #include "velox/expression/tests/VectorFuzzer.h"
+#include <codecvt>
+#include <locale>
 #include "velox/type/Timestamp.h"
 #include "velox/vector/FlatVector.h"
 #include "velox/vector/VectorTypeUtils.h"
@@ -69,29 +71,78 @@ Timestamp rand(folly::Random::DefaultGenerator& rng) {
   return Timestamp(folly::Random::rand32(rng), folly::Random::rand32(rng));
 }
 
-constexpr folly::StringPiece kAsciiChars{
-    "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"};
+template <>
+uint32_t rand(folly::Random::DefaultGenerator& rng) {
+  return folly::Random::rand32(rng);
+}
 
-// TODO: Improve the random utf8 char generation.
-constexpr folly::StringPiece kUtf8Chars{
-    u8"0123456789\u0041\u0042\u0043\u0044\u0045\u0046\u0047\u0048"
-    "\u0049\u0050\u0051\u0052\u0053\u0054\u0056\u0057"};
+/// Unicode character ranges.
+/// Source: https://jrgraphix.net/research/unicode_blocks.php
+const std::map<UTF8CharList, std::vector<std::pair<char16_t, char16_t>>>
+    kUTFChatSetMap{
+        {UTF8CharList::ASCII,
+         {
+             /*Numbers*/ {'0', '9'},
+             /*Upper*/ {'A', 'Z'},
+             /*Lower*/ {'a', 'z'},
+         }},
+        {UTF8CharList::UNICODE_CASE_SENSITIVE,
+         {
+             /*Basic Latin*/ {u'\u0020', u'\u007F'},
+             /*Cyrillic*/ {u'\u0400', u'\u04FF'},
+         }},
+        {UTF8CharList::EXTENDED_UNICODE,
+         {
+             /*Greek*/ {u'\u03F0', u'\u03FF'},
+             /*Latin Extended A*/ {u'\u0100', u'\u017F'},
+             /*Arabic*/ {u'\u0600', u'\u06FF'},
+             /*Devanagari*/ {u'\u0900', u'\u097F'},
+             /*Hebrew*/ {u'\u0600', u'\u06FF'},
+             /*Hiragana*/ {u'\u3040', u'\u309F'},
+             /*Punctuation*/ {u'\u2000', u'\u206F'},
+             /*Sub/Super Script*/ {u'\u2070', u'\u209F'},
+             /*Currency*/ {u'\u20A0', u'\u20CF'},
+         }},
+        {UTF8CharList::MATHEMATICAL_SYMBOLS,
+         {
+             /*Math Operators*/ {u'\u2200', u'\u22FF'},
+             /*Number Forms*/ {u'\u2150', u'\u218F'},
+             /*Geometric Shapes*/ {u'\u25A0', u'\u25FF'},
+             /*Math Symbols*/ {u'\u27C0', u'\u27EF'},
+             /*Supplemental*/ {u'\u2A00', u'\u2AFF'},
+         }}};
+
+FOLLY_ALWAYS_INLINE char16_t getRandomChar(
+    folly::Random::DefaultGenerator& rng,
+    const std::vector<std::pair<char16_t, char16_t>>& charSet) {
+  const auto& chars = charSet[rand<uint32_t>(rng) % charSet.size()];
+  auto size = chars.second - chars.first;
+  auto inc = (rand<uint32_t>(rng) % size);
+  char16_t res = chars.first + inc;
+  return res;
+}
 
 /// Generates a random string (string size and encoding are passed through
 /// Options). Returns a StringView which uses `buf` as the underlying buffer.
 StringView randString(
     folly::Random::DefaultGenerator& rng,
     const VectorFuzzer::Options& opts,
-    std::string& buf) {
+    std::string& buf,
+    std::wstring_convert<std::codecvt_utf8<char16_t>, char16_t>& converter) {
+  buf.clear();
+  std::u16string wbuf;
   const size_t stringLength = opts.stringVariableLength
       ? folly::Random::rand32(rng) % opts.stringLength
       : opts.stringLength;
-  buf.resize(stringLength);
-  auto chars = opts.stringUtf8 ? kUtf8Chars : kAsciiChars;
+  wbuf.resize(stringLength);
 
   for (size_t i = 0; i < stringLength; ++i) {
-    buf[i] = chars[folly::Random::rand32(rng) % chars.size()];
+    auto encoding =
+        opts.charEncodings[rand<uint32_t>(rng) % opts.charEncodings.size()];
+    wbuf[i] = getRandomChar(rng, kUTFChatSetMap.at(encoding));
   }
+
+  buf.append(converter.to_bytes(wbuf));
   return StringView(buf);
 }
 
@@ -101,8 +152,9 @@ variant randVariantImpl(
     const VectorFuzzer::Options& opts) {
   using TCpp = typename TypeTraits<kind>::NativeType;
   if constexpr (std::is_same_v<TCpp, StringView>) {
+    std::wstring_convert<std::codecvt_utf8<char16_t>, char16_t> converter;
     std::string buf;
-    return variant(randString(rng, opts, buf));
+    return variant(randString(rng, opts, buf, converter));
   } else {
     return variant(rand<TCpp>(rng));
   }
@@ -117,12 +169,12 @@ void fuzzFlatImpl(
   using TCpp = typename TypeTraits<kind>::NativeType;
 
   auto flatVector = vector->as<TFlat>();
-  auto* rawValues = flatVector->mutableRawValues();
   std::string strBuf;
 
+  std::wstring_convert<std::codecvt_utf8<char16_t>, char16_t> converter;
   for (size_t i = 0; i < vector->size(); ++i) {
     if constexpr (std::is_same_v<TCpp, StringView>) {
-      flatVector->set(i, randString(rng, opts, strBuf));
+      flatVector->set(i, randString(rng, opts, strBuf, converter));
     } else {
       flatVector->set(i, rand<TCpp>(rng));
     }

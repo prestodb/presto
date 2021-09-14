@@ -32,11 +32,17 @@ class StringAsciiUTFFunctionBenchmark
     functions::registerVectorFunctions();
   }
 
-  void runStringFunction(const std::string& fnName, bool utf) {
+  void runUpperLower(const std::string& fnName, bool utf) {
     folly::BenchmarkSuspender suspender;
 
     VectorFuzzer::Options opts;
-    opts.vectorSize = 10'000;
+    if (utf) {
+      opts.charEncodings.clear();
+      opts.charEncodings = {UTF8CharList::UNICODE_CASE_SENSITIVE};
+    }
+
+    opts.stringLength = 100;
+    opts.vectorSize = 100'000;
     VectorFuzzer fuzzer(opts, execCtx_.pool());
     auto vector = fuzzer.fuzzFlat(VARCHAR());
 
@@ -46,6 +52,34 @@ class StringAsciiUTFFunctionBenchmark
 
     suspender.dismiss();
 
+    doRun(exprSet, rowVector);
+  }
+
+  void runSubStr(bool utf) {
+    folly::BenchmarkSuspender suspender;
+
+    VectorFuzzer::Options opts;
+    if (utf) {
+      opts.charEncodings.clear();
+      opts.charEncodings = {
+          UTF8CharList::UNICODE_CASE_SENSITIVE,
+          UTF8CharList::EXTENDED_UNICODE,
+          UTF8CharList::MATHEMATICAL_SYMBOLS};
+    }
+
+    opts.stringLength = 100;
+    opts.vectorSize = 10'000;
+    VectorFuzzer fuzzer(opts, execCtx_.pool());
+    auto vector = fuzzer.fuzzFlat(VARCHAR());
+
+    auto positionVector =
+        BaseVector::createConstant(25, opts.vectorSize, execCtx_.pool());
+
+    auto rowVector = vectorMaker_.rowVector({vector, positionVector});
+
+    auto exprSet = compileExpression("substr(c0, c1)", rowVector->type());
+
+    suspender.dismiss();
     doRun(exprSet, rowVector);
   }
 
@@ -60,22 +94,32 @@ class StringAsciiUTFFunctionBenchmark
 
 BENCHMARK(utfLower) {
   StringAsciiUTFFunctionBenchmark benchmark;
-  benchmark.runStringFunction("lower", true);
+  benchmark.runUpperLower("lower", true);
 }
 
 BENCHMARK_RELATIVE(asciiLower) {
   StringAsciiUTFFunctionBenchmark benchmark;
-  benchmark.runStringFunction("lower", false);
+  benchmark.runUpperLower("lower", false);
 }
 
 BENCHMARK(utfUpper) {
   StringAsciiUTFFunctionBenchmark benchmark;
-  benchmark.runStringFunction("upper", true);
+  benchmark.runUpperLower("upper", true);
 }
 
 BENCHMARK_RELATIVE(asciiUpper) {
   StringAsciiUTFFunctionBenchmark benchmark;
-  benchmark.runStringFunction("upper", false);
+  benchmark.runUpperLower("upper", false);
+}
+
+BENCHMARK(utfSubStr) {
+  StringAsciiUTFFunctionBenchmark benchmark;
+  benchmark.runSubStr(true);
+}
+
+BENCHMARK_RELATIVE(asciiSubStr) {
+  StringAsciiUTFFunctionBenchmark benchmark;
+  benchmark.runSubStr(false);
 }
 
 } // namespace
