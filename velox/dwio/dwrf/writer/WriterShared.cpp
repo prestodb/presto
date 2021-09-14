@@ -134,6 +134,8 @@ void WriterShared::flushStripe(bool close) {
   }
 
   dwio::common::MetricsLog::StripeFlushMetrics metrics;
+  metrics.writerVersion =
+      writerVersionToString(context.getConfig(Config::WRITER_VERSION));
   metrics.outputStreamMemoryEstimate = context.getEstimatedOutputStreamSize();
   metrics.stripeSizeEstimate =
       context.getEstimatedStripeSize(context.stripeRawSize);
@@ -396,6 +398,7 @@ void WriterShared::flush(bool close) {
 
   if (close) {
     context.metricLogger->logFileClose(
+        writerVersionToString(context.getConfig(Config::WRITER_VERSION)),
         footer.contentlength(),
         sink.size(),
         sink.getCacheSize(),

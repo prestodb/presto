@@ -25,7 +25,7 @@ namespace common {
 
 class MetricsLog {
  public:
-  static constexpr std::string_view VERSION_STRING{"1.1"};
+  static constexpr std::string_view LIB_VERSION_STRING{"1.1"};
   static constexpr folly::StringPiece WRITE_OPERATION{"WRITE"};
 
   enum class MetricsType {
@@ -90,6 +90,7 @@ class MetricsLog {
   logWrite(const std::string& operation, size_t size, size_t duration) const {}
 
   struct StripeFlushMetrics {
+    std::string writerVersion;
     uint32_t stripeIndex;
     uint64_t rawStripeSize;
     uint64_t rowsInStripe;
@@ -111,6 +112,7 @@ class MetricsLog {
   virtual void logStripeFlush(const StripeFlushMetrics& metrics) const {};
 
   struct FileCloseMetrics {
+    std::string writerVersion;
     uint64_t footerLength;
     uint64_t fileSize;
     uint64_t cacheSize;
@@ -129,6 +131,7 @@ class MetricsLog {
       std::function<uint64_t()> memoryEstimate) const {};
 
   virtual void logFileClose(
+      const std::string& writerVersion,
       size_t footerLength,
       size_t fileSize,
       size_t cacheSize,

@@ -51,10 +51,11 @@ enum WriterVersion {
   DWRF_4_9 = 1, // string stats collection uses text rather than string
   DWRF_5_0 = 2, // string stats saved/read as raw bytes,
   DWRF_6_0 = 3, // adding sequence to each stream
+  DWRF_7_0 = 4, // flatmap integer dictionary sharing
   FUTURE = INT64_MAX
 };
 
-constexpr WriterVersion WriterVersion_CURRENT = WriterVersion::DWRF_6_0;
+constexpr WriterVersion WriterVersion_CURRENT = WriterVersion::DWRF_7_0;
 
 /**
  * Get the name of the WriterVersion.

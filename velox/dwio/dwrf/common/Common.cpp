@@ -48,6 +48,8 @@ std::string writerVersionToString(WriterVersion version) {
       return "dwrf-5.0";
     case DWRF_6_0:
       return "dwrf-6.0";
+    case DWRF_7_0:
+      return "dwrf-7.0";
   }
   return folly::to<std::string>("future - ", version);
 }
