@@ -195,6 +195,11 @@ Probability Functions: cdf
     Compute the Poisson cdf with given lambda (mean) parameter:  P(N <= value; lambda).
     The lambda parameter must be a positive real number (of type DOUBLE) and value must be a non-negative integer.
 
+.. function:: t_cdf(df, value) -> double
+
+    Compute the Student's t cdf with given degrees of freedom:  P(N < value; df).
+    The degrees of freedom must be a positive real number and value v must be a real value.
+
 .. function:: weibull_cdf(a, b, value) -> double
 
     Compute the Weibull cdf with given parameters a, b: P(N <= value). The ``a``
@@ -241,6 +246,12 @@ Probability Functions: inverse_cdf
     probability (p). It returns the value of n so that: P(N <= n; lambda) = p.
     The lambda parameter must be a positive real number (of type DOUBLE).
     The probability p must lie on the interval [0, 1).
+
+.. function:: inverse_t_cdf(df, p) -> double
+
+    Compute the inverse of the Student's t cdf with given degrees of freedom for the cumulative
+    probability (p): P(N < n). The degrees of freedom must be a positive real value.
+    The probability p must lie on the interval [0, 1].
 
 .. function:: inverse_weibull_cdf(a, b, p) -> double
 
