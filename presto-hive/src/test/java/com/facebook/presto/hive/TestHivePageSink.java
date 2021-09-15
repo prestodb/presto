@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.GroupByHashPageIndexerFactory;
+import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.BlockBuilder;
@@ -316,7 +317,7 @@ public class TestHivePageSink
                 HiveTestUtils.PARTITION_UPDATE_SMILE_CODEC,
                 new TestingNodeManager("fake-environment"),
                 new HiveEventClient(),
-                new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig()),
+                new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig(), new CacheConfig()),
                 stats,
                 getDefaultOrcFileWriterFactory(config, metastoreClientConfig));
         return provider.createPageSink(transaction, getSession(config), handle, TEST_HIVE_PAGE_SINK_CONTEXT);
@@ -324,7 +325,7 @@ public class TestHivePageSink
 
     private static TestingConnectorSession getSession(HiveClientConfig config)
     {
-        return new TestingConnectorSession(new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
+        return new TestingConnectorSession(new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig(), new CacheConfig()).getSessionProperties());
     }
 
     public static List<HiveColumnHandle> getColumnHandles()

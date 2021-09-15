@@ -39,16 +39,23 @@ public class PeriodicTaskExecutor
 
     public PeriodicTaskExecutor(long delayTargetMillis, ScheduledExecutorService executor, Runnable runnable)
     {
-        this(delayTargetMillis, executor, runnable, PeriodicTaskExecutor::nextDelayWithJitterMillis);
+        this(delayTargetMillis, 0, executor, runnable, PeriodicTaskExecutor::nextDelayWithJitterMillis);
     }
 
-    public PeriodicTaskExecutor(long delayTargetMillis, ScheduledExecutorService executor, Runnable runnable, LongUnaryOperator nextDelayFunction)
+    public PeriodicTaskExecutor(long delayTargetMillis, long initDelayMillis, ScheduledExecutorService executor, Runnable runnable)
+    {
+        this(delayTargetMillis, initDelayMillis, executor, runnable, PeriodicTaskExecutor::nextDelayWithJitterMillis);
+    }
+
+    public PeriodicTaskExecutor(long delayTargetMillis, long initDelayMillis, ScheduledExecutorService executor, Runnable runnable, LongUnaryOperator nextDelayFunction)
     {
         checkArgument(delayTargetMillis > 0, "delayTargetMillis must be > 0");
+        checkArgument(initDelayMillis >= 0, "initDelayMillis must be > 0");
         this.delayTargetMillis = delayTargetMillis;
         this.executor = requireNonNull(executor, "executor is null");
         this.runnable = requireNonNull(runnable, "runnable is null");
         this.nextDelayFunction = requireNonNull(nextDelayFunction, "nextDelayFunction is null");
+        this.delayMillis = initDelayMillis;
     }
 
     public void start()

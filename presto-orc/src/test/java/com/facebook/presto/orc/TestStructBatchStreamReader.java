@@ -237,7 +237,6 @@ public class TestStructBatchStreamReader
                         .withRowGroupMaxRowCount(ORC_ROW_GROUP_SIZE)
                         .withDictionaryMaxMemory(new DataSize(32, MEGABYTE))
                         .build(),
-                Optional.empty(),
                 ImmutableMap.of(),
                 HIVE_STORAGE_TIME_ZONE,
                 true,

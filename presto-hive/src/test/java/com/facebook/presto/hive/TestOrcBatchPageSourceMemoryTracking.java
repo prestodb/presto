@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.stats.Distribution;
+import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.predicate.TupleDomain;
@@ -248,7 +249,12 @@ public class TestOrcBatchPageSourceMemoryTracking
         int maxReadBytes = 1_000;
         HiveClientConfig config = new HiveClientConfig();
         config.setOrcMaxReadBlockSize(new DataSize(maxReadBytes, BYTE));
-        ConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
+        ConnectorSession session = new TestingConnectorSession(
+                new HiveSessionProperties(
+                        config,
+                        new OrcFileWriterConfig(),
+                        new ParquetFileWriterConfig(),
+                        new CacheConfig()).getSessionProperties());
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
 
         // Build a table where every row gets larger, so we can test that the "batchSize" reduces

@@ -138,7 +138,7 @@ public class TestOrcMapNullKey
         return actual;
     }
 
-    private static MapType createMapType(Type keyType, Type valueType)
+    public static MapType createMapType(Type keyType, Type valueType)
     {
         MethodHandle keyNativeEquals = getOperatorMethodHandle(OperatorType.EQUAL, keyType, keyType);
         MethodHandle keyBlockEquals = compose(keyNativeEquals, nativeValueGetter(keyType), nativeValueGetter(keyType));

@@ -78,7 +78,7 @@ public class RetryDriver<E extends RuntimeException>
                 attempt++;
                 int delayMillis = (int) min(minBackoffDelay.toMillis() * pow(scaleFactor, attempt - 1), maxBackoffDelay.toMillis());
                 int jitterMillis = ThreadLocalRandom.current().nextInt(max(1, (int) (delayMillis * 0.1)));
-                log.debug(
+                log.info(
                         "Failed on executing %s with attempt %d. Retry after %sms. Cause: %s",
                         callableName,
                         attempt - 1,

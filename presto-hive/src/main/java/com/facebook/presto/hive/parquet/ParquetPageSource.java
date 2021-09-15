@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.parquet;
 
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.LazyBlock;
 import com.facebook.presto.common.block.LazyBlockLoader;
@@ -49,16 +50,26 @@ public class ParquetPageSource
     private long completedPositions;
     private boolean closed;
 
+    private final RuntimeStats runtimeStats;
+
     public ParquetPageSource(
             ParquetReader parquetReader,
             List<Type> types,
             List<Optional<Field>> fields,
-            List<String> columnNames)
+            List<String> columnNames,
+            RuntimeStats runtimeStats)
     {
         this.parquetReader = requireNonNull(parquetReader, "parquetReader is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.fields = ImmutableList.copyOf(requireNonNull(fields, "fields is null"));
         this.columnNames = ImmutableList.copyOf(requireNonNull(columnNames, "columnNames is null"));
+        this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
+    }
+
+    @Override
+    public RuntimeStats getRuntimeStats()
+    {
+        return runtimeStats;
     }
 
     @Override

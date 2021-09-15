@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
@@ -121,6 +122,7 @@ public final class HiveSessionProperties
     public static final String NEW_PARTITION_USER_SUPPLIED_PARAMETER = "new_partition_user_supplied_parameter";
     public static final String OPTIMIZED_PARTITION_UPDATE_SERIALIZATION_ENABLED = "optimized_partition_update_serialization_enabled";
     public static final String PARTITION_LEASE_DURATION = "partition_lease_duration";
+    public static final String CACHE_ENABLED = "cache_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -143,7 +145,7 @@ public final class HiveSessionProperties
     }
 
     @Inject
-    public HiveSessionProperties(HiveClientConfig hiveClientConfig, OrcFileWriterConfig orcFileWriterConfig, ParquetFileWriterConfig parquetFileWriterConfig)
+    public HiveSessionProperties(HiveClientConfig hiveClientConfig, OrcFileWriterConfig orcFileWriterConfig, ParquetFileWriterConfig parquetFileWriterConfig, CacheConfig cacheConfig)
     {
         sessionProperties = ImmutableList.of(
                 booleanProperty(
@@ -574,7 +576,12 @@ public final class HiveSessionProperties
                         hiveClientConfig.getPartitionLeaseDuration(),
                         false,
                         value -> Duration.valueOf((String) value),
-                        Duration::toString));
+                        Duration::toString),
+                booleanProperty(
+                        CACHE_ENABLED,
+                        "Enable cache for hive",
+                        cacheConfig.isCachingEnabled(),
+                        false));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -1003,5 +1010,10 @@ public final class HiveSessionProperties
     public static Duration getLeaseDuration(ConnectorSession session)
     {
         return session.getProperty(PARTITION_LEASE_DURATION, Duration.class);
+    }
+
+    public static boolean isCacheEnabled(ConnectorSession session)
+    {
+        return session.getProperty(CACHE_ENABLED, Boolean.class);
     }
 }

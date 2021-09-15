@@ -103,7 +103,6 @@ public final class InternalResourceGroupManager<C>
     private final AtomicLong lastUpdatedResourceGroupRuntimeInfo = new AtomicLong(0L);
     private final double concurrencyThreshold;
     private final Duration resourceGroupRuntimeInfoRefreshInterval;
-    private final Duration resourceGroupRuntimeInfoMinFreshness;
     private final boolean isResourceManagerEnabled;
 
     @Inject
@@ -125,7 +124,6 @@ public final class InternalResourceGroupManager<C>
         this.resourceGroupService = requireNonNull(resourceGroupService, "resourceGroupService is null");
         this.concurrencyThreshold = queryManagerConfig.getConcurrencyThresholdToEnableResourceGroupRefresh();
         this.resourceGroupRuntimeInfoRefreshInterval = queryManagerConfig.getResourceGroupRunTimeInfoRefreshInterval();
-        this.resourceGroupRuntimeInfoMinFreshness = queryManagerConfig.getResourceGroupRunTimeInfoMinFreshness();
         this.isResourceManagerEnabled = requireNonNull(serverConfig, "serverConfig is null").isResourceManagerEnabled();
         this.resourceGroupRuntimeExecutor = new PeriodicTaskExecutor(resourceGroupRuntimeInfoRefreshInterval.toMillis(), refreshExecutor, this::refreshResourceGroupRuntimeInfo);
     }
@@ -241,6 +239,10 @@ public final class InternalResourceGroupManager<C>
             List<ResourceGroupRuntimeInfo> resourceGroupInfos = resourceGroupService.getResourceGroupInfo();
             resourceGroupRuntimeInfos.set(resourceGroupInfos.stream().collect(toImmutableMap(ResourceGroupRuntimeInfo::getResourceGroupId, i -> i)));
             lastUpdatedResourceGroupRuntimeInfo.set(currentTimeMillis());
+            boolean updatedSnapshot = updateResourceGroupsSnapshot();
+            if (updatedSnapshot) {
+                rootGroups.forEach(group -> group.setDirty());
+            }
         }
         catch (Throwable t) {
             log.error(t, "Error while executing refreshAndStartQueries");
@@ -264,11 +266,7 @@ public final class InternalResourceGroupManager<C>
             taskLimitExceeded.set(getTotalRunningTaskCount() > maxTotalRunningTaskCountToNotExecuteNewQuery);
         }
 
-        boolean updatedSnapshot = updateResourceGroupsSnapshot();
         for (RootInternalResourceGroup group : rootGroups) {
-            if (updatedSnapshot) {
-                group.setDirty();
-            }
             try {
                 if (elapsedSeconds > 0) {
                     group.generateCpuQuota(elapsedSeconds);
@@ -302,6 +300,12 @@ public final class InternalResourceGroupManager<C>
         return false;
     }
 
+    @VisibleForTesting
+    public Map<ResourceGroupId, ResourceGroupRuntimeInfo> getResourceGroupRuntimeInfosSnapshot()
+    {
+        return resourceGroupRuntimeInfosSnapshot.get();
+    }
+
     private synchronized void createGroupIfNecessary(SelectionContext<C> context, Executor executor)
     {
         ResourceGroupId id = context.getResourceGroupId();
@@ -330,8 +334,7 @@ public final class InternalResourceGroupManager<C>
                                     rg,
                                     resourceGroupRuntimeInfosSnapshot::get,
                                     lastUpdatedResourceGroupRuntimeInfo::get,
-                                    concurrencyThreshold,
-                                    resourceGroupRuntimeInfoMinFreshness));
+                                    concurrencyThreshold));
                 }
                 group = root;
                 rootGroups.add(root);
@@ -361,17 +364,13 @@ public final class InternalResourceGroupManager<C>
             InternalResourceGroup resourceGroup,
             Supplier<Map<ResourceGroupId, ResourceGroupRuntimeInfo>> resourceGroupRuntimeInfos,
             LongSupplier lastUpdatedResourceGroupRuntimeInfo,
-            double concurrencyThreshold,
-            Duration resourceGroupRuntimeInfoMinFreshness)
+            double concurrencyThreshold)
     {
         int hardConcurrencyLimit = resourceGroup.getHardConcurrencyLimitBasedOnCpuUsage();
         int totalRunningQueries = resourceGroup.getRunningQueries();
         ResourceGroupRuntimeInfo resourceGroupRuntimeInfo = resourceGroupRuntimeInfos.get().get(resourceGroup.getId());
         if (resourceGroupRuntimeInfo != null) {
             totalRunningQueries += resourceGroupRuntimeInfo.getRunningQueries() + resourceGroupRuntimeInfo.getDescendantRunningQueries();
-        }
-        if (currentTimeMillis() - lastUpdatedResourceGroupRuntimeInfo.getAsLong() > resourceGroupRuntimeInfoMinFreshness.toMillis()) {
-            return true;
         }
         return totalRunningQueries >= (hardConcurrencyLimit * concurrencyThreshold) && lastUpdatedResourceGroupRuntimeInfo.getAsLong() <= resourceGroup.getLastRunningQueryStartTime();
     }

@@ -101,6 +101,7 @@ import javax.inject.Inject;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -117,9 +118,11 @@ import java.util.zip.CRC32;
 
 import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalTotalMemoryLimit;
 import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
+import static com.facebook.presto.SystemSessionProperties.getHeapDumpFileDirectory;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxBroadcastMemory;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxMemoryPerNode;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxTotalMemoryPerNode;
+import static com.facebook.presto.SystemSessionProperties.isHeapDumpOnExceededMemoryLimitEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
 import static com.facebook.presto.SystemSessionProperties.isVerboseExceededMemoryLimitErrorsEnabled;
 import static com.facebook.presto.execution.TaskState.FAILED;
@@ -396,6 +399,11 @@ public class PrestoSparkTaskExecutorFactory
                 spillSpaceTracker,
                 memoryReservationSummaryJsonCodec);
         queryContext.setVerboseExceededMemoryLimitErrorsEnabled(isVerboseExceededMemoryLimitErrorsEnabled(session));
+        queryContext.setHeapDumpOnExceededMemoryLimitEnabled(isHeapDumpOnExceededMemoryLimitEnabled(session));
+        String heapDumpFilePath = Paths.get(
+                getHeapDumpFileDirectory(session),
+                format("%s_%s.hprof", session.getQueryId().getId(), stageId.getId())).toString();
+        queryContext.setHeapDumpFilePath(heapDumpFilePath);
 
         TaskStateMachine taskStateMachine = new TaskStateMachine(taskId, notificationExecutor);
         TaskContext taskContext = queryContext.addTaskContext(
@@ -421,7 +429,9 @@ public class PrestoSparkTaskExecutorFactory
                             queryContext.getAdditionalFailureInfo(totalMemoryReservationBytes, 0) +
                                     format("Total reserved memory: %s, Total revocable memory: %s",
                                             succinctBytes(pool.getQueryMemoryReservation(queryId)),
-                                            succinctBytes(pool.getQueryRevocableMemoryReservation(queryId))));
+                                            succinctBytes(pool.getQueryRevocableMemoryReservation(queryId))),
+                            isHeapDumpOnExceededMemoryLimitEnabled(session),
+                            Optional.ofNullable(heapDumpFilePath));
                 }
                 if (totalMemoryReservationBytes > pool.getMaxBytes() * memoryRevokingThreshold && memoryRevokePending.compareAndSet(false, true)) {
                     memoryUpdateExecutor.execute(() -> {

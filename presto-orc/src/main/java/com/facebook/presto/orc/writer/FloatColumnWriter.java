@@ -96,7 +96,7 @@ public class FloatColumnWriter
     }
 
     @Override
-    public void writeBlock(Block block)
+    public long writeBlock(Block block)
     {
         checkState(!closed);
         checkArgument(block.getPositionCount() > 0, "Block is empty");
@@ -107,14 +107,17 @@ public class FloatColumnWriter
         }
 
         // record values
+        int nonNullValueCount = 0;
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (!block.isNull(position)) {
                 int intBits = (int) type.getLong(block, position);
                 float value = intBitsToFloat(intBits);
                 dataStream.writeFloat(value);
                 statisticsBuilder.addValue(value);
+                nonNullValueCount++;
             }
         }
+        return nonNullValueCount * Float.BYTES + (block.getPositionCount() - nonNullValueCount) * NULL_SIZE;
     }
 
     @Override

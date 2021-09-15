@@ -36,7 +36,12 @@ public final class TestQueryRunnerUtil
 
     public static QueryId createQuery(DistributedQueryRunner queryRunner, Session session, String sql)
     {
-        DispatchManager dispatchManager = queryRunner.getCoordinator().getDispatchManager();
+        return createQuery(queryRunner, 0, session, sql);
+    }
+
+    public static QueryId createQuery(DistributedQueryRunner queryRunner, int coordinator, Session session, String sql)
+    {
+        DispatchManager dispatchManager = queryRunner.getCoordinator(coordinator).getDispatchManager();
         getFutureValue(dispatchManager.createQuery(session.getQueryId(), "slug", 0, new TestingSessionContext(session), sql));
         return session.getQueryId();
     }
@@ -46,16 +51,39 @@ public final class TestQueryRunnerUtil
         queryRunner.getCoordinator().getDispatchManager().cancelQuery(queryId);
     }
 
+    public static void cancelQuery(DistributedQueryRunner queryRunner, int coordinator, QueryId queryId)
+    {
+        queryRunner.getCoordinator(coordinator).getDispatchManager().cancelQuery(queryId);
+    }
+
     public static void waitForQueryState(DistributedQueryRunner queryRunner, QueryId queryId, QueryState expectedQueryState)
             throws InterruptedException
     {
-        waitForQueryState(queryRunner, queryId, ImmutableSet.of(expectedQueryState));
+        waitForQueryState(queryRunner, 0, queryId, ImmutableSet.of(expectedQueryState));
+    }
+
+    public static void waitForQueryState(DistributedQueryRunner queryRunner, int coordinator, QueryId queryId, QueryState expectedQueryState)
+            throws InterruptedException
+    {
+        waitForQueryState(queryRunner, coordinator, queryId, ImmutableSet.of(expectedQueryState));
     }
 
     public static void waitForQueryState(DistributedQueryRunner queryRunner, QueryId queryId, Set<QueryState> expectedQueryStates)
             throws InterruptedException
     {
-        DispatchManager dispatchManager = queryRunner.getCoordinator().getDispatchManager();
+        waitForQueryState(queryRunner, 0, queryId, expectedQueryStates);
+    }
+
+    public static void waitForQueryState(DistributedQueryRunner queryRunner, int coordinator, QueryId queryId, Set<QueryState> expectedQueryStates)
+            throws InterruptedException
+    {
+        DispatchManager dispatchManager = queryRunner.getCoordinator(coordinator).getDispatchManager();
+        waitForQueryState(dispatchManager, queryId, expectedQueryStates);
+    }
+
+    public static void waitForQueryState(DispatchManager dispatchManager, QueryId queryId, Set<QueryState> expectedQueryStates)
+            throws InterruptedException
+    {
         do {
             // Heartbeat all the running queries, so they don't die while we're waiting
             for (BasicQueryInfo queryInfo : dispatchManager.getQueries()) {
@@ -64,8 +92,7 @@ public final class TestQueryRunnerUtil
                 }
             }
             MILLISECONDS.sleep(500);
-        }
-        while (!expectedQueryStates.contains(dispatchManager.getQueryInfo(queryId).getState()));
+        } while (!expectedQueryStates.contains(dispatchManager.getQueryInfo(queryId).getState()));
     }
 
     public static DistributedQueryRunner createQueryRunner()
