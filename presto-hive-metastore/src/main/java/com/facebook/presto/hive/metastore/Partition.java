@@ -43,6 +43,7 @@ public class Partition
     private final Optional<Long> partitionVersion;
     private final boolean eligibleToIgnore;
     private final boolean sealedPartition;
+    private final int createTime;
 
     @JsonCreator
     public Partition(
@@ -54,7 +55,8 @@ public class Partition
             @JsonProperty("parameters") Map<String, String> parameters,
             @JsonProperty("partitionVersion") Optional<Long> partitionVersion,
             @JsonProperty("eligibleToIgnore") boolean eligibleToIgnore,
-            @JsonProperty("sealedPartition") boolean sealedPartition)
+            @JsonProperty("sealedPartition") boolean sealedPartition,
+            @JsonProperty("createTime") int createTime)
     {
         this.databaseName = requireNonNull(databaseName, "databaseName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -65,6 +67,7 @@ public class Partition
         this.partitionVersion = requireNonNull(partitionVersion, "partitionVersion is null");
         this.eligibleToIgnore = eligibleToIgnore;
         this.sealedPartition = sealedPartition;
+        this.createTime = createTime;
     }
 
     @JsonProperty
@@ -127,6 +130,12 @@ public class Partition
         return sealedPartition;
     }
 
+    @JsonProperty
+    public int getCreateTime()
+    {
+        return createTime;
+    }
+
     @Override
     public String toString()
     {
@@ -156,13 +165,14 @@ public class Partition
                 Objects.equals(parameters, partition.parameters) &&
                 Objects.equals(partitionVersion, partition.partitionVersion) &&
                 Objects.equals(eligibleToIgnore, partition.eligibleToIgnore) &&
-                Objects.equals(sealedPartition, partition.sealedPartition);
+                Objects.equals(sealedPartition, partition.sealedPartition) &&
+                Objects.equals(createTime, partition.getCreateTime());
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(databaseName, tableName, values, storage, columns, parameters, partitionVersion, eligibleToIgnore, sealedPartition);
+        return Objects.hash(databaseName, tableName, values, storage, columns, parameters, partitionVersion, eligibleToIgnore, sealedPartition, createTime);
     }
 
     public static Builder builder()
@@ -186,6 +196,7 @@ public class Partition
         private Optional<Long> partitionVersion = Optional.empty();
         private boolean isEligibleToIgnore;
         private boolean isSealedPartition = true;
+        private int createTime;
 
         private Builder()
         {
@@ -202,6 +213,7 @@ public class Partition
             this.parameters = partition.getParameters();
             this.partitionVersion = partition.getPartitionVersion();
             this.isEligibleToIgnore = partition.isEligibleToIgnore();
+            this.createTime = partition.getCreateTime();
         }
 
         public Builder setDatabaseName(String databaseName)
@@ -263,9 +275,15 @@ public class Partition
             return this;
         }
 
+        public Builder setCreateTime(int createTime)
+        {
+            this.createTime = createTime;
+            return this;
+        }
+
         public Partition build()
         {
-            return new Partition(databaseName, tableName, values, storageBuilder.build(), columns, parameters, partitionVersion, isEligibleToIgnore, isSealedPartition);
+            return new Partition(databaseName, tableName, values, storageBuilder.build(), columns, parameters, partitionVersion, isEligibleToIgnore, isSealedPartition, createTime);
         }
     }
 }

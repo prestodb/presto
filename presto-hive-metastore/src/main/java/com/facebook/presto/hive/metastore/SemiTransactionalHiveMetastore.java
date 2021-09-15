@@ -1245,6 +1245,9 @@ public class SemiTransactionalHiveMetastore
                         TRANSACTION_CONFLICT,
                         format("The partition that this transaction modified was deleted in another transaction. %s %s", partition.getTableName(), partition.getValues()));
             }
+            partition = Partition.builder(partition)
+                    .setCreateTime(oldPartition.get().getCreateTime())
+                    .build();
             String partitionName = getPartitionName(metastoreContext, partition.getDatabaseName(), partition.getTableName(), partition.getValues());
             PartitionStatistics oldPartitionStatistics = getExistingPartitionStatistics(metastoreContext, partition, partitionName);
             String oldPartitionLocation = oldPartition.get().getStorage().getLocation();
