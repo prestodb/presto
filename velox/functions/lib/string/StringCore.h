@@ -186,7 +186,9 @@ lengthUnicode(const char* inputBuffer, size_t bufferLength) {
   auto currentChar = inputBuffer;
   int64_t size = 0;
   while (currentChar < buffEndAddress) {
-    currentChar += utf8proc_char_length(currentChar);
+    auto chrOffset = utf8proc_char_length(currentChar);
+    // Skip bad byte if we get utf length < 0.
+    currentChar += UNLIKELY(chrOffset < 0) ? 1 : chrOffset;
     size++;
   }
   return size;

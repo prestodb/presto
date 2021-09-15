@@ -20,8 +20,6 @@
 
 #include <gtest/gtest.h>
 #include <memory>
-#include <string>
-#include <unordered_set>
 #include <vector>
 
 using namespace facebook::velox;
@@ -199,6 +197,26 @@ TEST_F(StringImplTest, length) {
         length</*isAscii*/ false>(inputString),
         lengthUtf8Ref(inputString.data(), inputString.size()));
   }
+}
+
+TEST_F(StringImplTest, badUnicodeLength) {
+  ASSERT_EQ(0, length</*isAscii*/ false>(std::string("")));
+  ASSERT_EQ(2, length</*isAscii*/ false>(std::string("ab")));
+  // Try a bunch of special case unicode chars
+  ASSERT_EQ(1, length</*isAscii*/ false>(std::string("\u04FF")));
+  ASSERT_EQ(1, length</*isAscii*/ false>(std::string("\U000E002F")));
+  ASSERT_EQ(1, length</*isAscii*/ false>(std::string("\U0001D437")));
+  ASSERT_EQ(1, length</*isAscii*/ false>(std::string("\U00002799")));
+
+  std::string str;
+  str.resize(2);
+  // Create corrupt data below.
+  char16_t c = u'\u04FF';
+  str[0] = (char)c;
+  str[1] = (char)c;
+
+  auto len = length</*isAscii*/ false>(str);
+  ASSERT_EQ(2, len);
 }
 
 TEST_F(StringImplTest, codePointToString) {
