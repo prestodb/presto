@@ -634,6 +634,22 @@ public class TestPrestoS3FileSystem
         }
     }
 
+    @Test
+    public void testSkipHadoopFolderMarkerObjectsEnabled()
+            throws Exception
+    {
+        Configuration config = new Configuration(false);
+
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            MockAmazonS3 s3 = new MockAmazonS3();
+            s3.setHasHadoopFolderMarkerObjects(true);
+            fs.initialize(new URI("s3n://test-bucket/"), config);
+            fs.setS3Client(s3);
+            FileStatus[] statuses = fs.listStatus(new Path("s3n://test-bucket/test"));
+            assertEquals(statuses.length, 1);
+        }
+    }
+
     private void testEmptyDirectoryWithContentType(String s3ObjectContentType)
             throws Exception
     {

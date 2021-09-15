@@ -602,6 +602,7 @@ public class PrestoS3FileSystem
         return objects.stream()
                 .filter(object -> !object.getKey().endsWith(PATH_SEPARATOR))
                 .filter(object -> !skipGlacierObjects || !isGlacierObject(object))
+                .filter(object -> !isHadoopFolderMarker(object))
                 .map(object -> new FileStatus(
                         object.getSize(),
                         false,
@@ -616,6 +617,11 @@ public class PrestoS3FileSystem
     private boolean isGlacierObject(S3ObjectSummary object)
     {
         return Glacier.toString().equals(object.getStorageClass());
+    }
+
+    private boolean isHadoopFolderMarker(S3ObjectSummary object)
+    {
+        return (object.getKey().endsWith(DIRECTORY_SUFFIX) && (object.getSize() == 0));
     }
 
     /**
