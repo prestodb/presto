@@ -77,6 +77,7 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcTester.Format.DWRF;
 import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
+import static com.facebook.presto.orc.OrcTester.MAX_BLOCK_SIZE;
 import static com.facebook.presto.orc.OrcTester.arrayType;
 import static com.facebook.presto.orc.OrcTester.createCustomOrcSelectiveRecordReader;
 import static com.facebook.presto.orc.OrcTester.mapType;
@@ -102,6 +103,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
@@ -1059,6 +1061,61 @@ public class TestSelectiveOrcReader
                 rowsProcessed += positionCount;
             }
             assertEquals(rowsProcessed, NUM_ROWS);
+        }
+    }
+
+    @Test
+    public void testAdaptiveBatchSizes()
+            throws Exception
+    {
+        Type type = VARCHAR;
+        List<Type> types = ImmutableList.of(type);
+
+        TempFile tempFile = new TempFile();
+        List<String> values = new ArrayList<>();
+        int rowCount = 10000;
+        int longStringLength = 5000;
+        Random random = new Random();
+        long start = System.currentTimeMillis();
+        for (int i = 0; i < rowCount; ++i) {
+            if (i < MAX_BATCH_SIZE) {
+                StringBuilder builder = new StringBuilder();
+                for (int j = 0; j < longStringLength; ++j) {
+                    builder.append(random.nextInt(10));
+                }
+                values.add(builder.toString());
+            }
+            else {
+                values.add("");
+            }
+        }
+        System.out.println(System.currentTimeMillis() - start);
+        writeOrcColumnsPresto(tempFile.getFile(), DWRF, NONE, Optional.empty(), types, ImmutableList.of(values), new OrcWriterStats());
+
+        try (OrcSelectiveRecordReader recordReader = createCustomOrcSelectiveRecordReader(tempFile, OrcEncoding.DWRF, OrcPredicate.TRUE, type, MAX_BATCH_SIZE, false)) {
+            assertEquals(recordReader.getFileRowCount(), rowCount);
+            assertEquals(recordReader.getReaderRowCount(), rowCount);
+            assertEquals(recordReader.getFilePosition(), 0);
+            assertEquals(recordReader.getReaderPosition(), 0);
+
+            // Size of the first batch should equal to the initial batch size (set to MAX_BATCH_SIZE)
+            Page page = recordReader.getNextPage();
+            assertNotNull(page);
+            page = page.getLoadedPage();
+            assertEquals(page.getPositionCount(), MAX_BATCH_SIZE);
+
+            // Later batches should be adjusted based on maxCombinedBytesPerRow collected during the first batch read
+            while (true) {
+                page = recordReader.getNextPage();
+                assertNotNull(page);
+                page = page.getLoadedPage();
+                if (recordReader.getReadPositions() < rowCount) {
+                    assertEquals(page.getPositionCount(), MAX_BLOCK_SIZE.toBytes() / (longStringLength + Integer.BYTES + Byte.BYTES));
+                }
+                else {
+                    break;
+                }
+            }
         }
     }
 
