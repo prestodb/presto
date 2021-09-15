@@ -51,7 +51,12 @@ Some good practices about code comments:
   * Every member variable
     * Do not simply restate the variable name. Either add a comment explaining
       the semantic meaning of that variable or do not add a comment at all.
-      This is an anti-pattern: ``` // A simple counter.  size_t count_{0}; ```
+      This is an anti-pattern:
+
+    `// A simple counter.
+    size_t count_{0};
+    `
+
   * For functions with large bodies, a good practice is to group blocks of
     related code, and precede them with a blank line and a high-level comment
     on what the block does.
@@ -67,10 +72,14 @@ About comment style:
   comment).
 * Comments should be full english sentences, starting with a capital letter and
   ending with a period (.).
-  * Use: ``` // True if this node only sorts a portion of the final result.
-    ```
-  * Instead of: ``` // true if this node only sorts a portion of the final
-    result ```
+  * Use:
+
+    `// True if this node only sorts a portion of the final result.`
+
+  * Instead of:
+
+    `// true if this node only sorts a portion of the final result`
+
 * For multi-line comments:
   * Velox will follow the doxygen comment style. 
   * For multi-line comments within actual code blocks (the ones which are not
@@ -82,8 +91,10 @@ About comment style:
     comments. It adds two additional lines and makes headers more verbose than
     they need to be.
 * Special comments:
-  * Use this format when something needs to be fixed in the future: ``` //
-    TODO: Description of what needs to be fixed.  ```
+  * Use this format when something needs to be fixed in the future:
+
+    `// TODO: Description of what needs to be fixed.`
+
   * Include enough context in the comment itself to make clear what will be
     done, without requiring any references from outside the code.
   * Do not include the author’s username. If required, this can always be
@@ -94,6 +105,12 @@ About comment style:
 * For assertions and other types of validation, use `VELOX_CHECK_*` macros
   * `VELOX_CHECK_*` will categorize the error to be an internal runtime error.
   * `VELOX_USER_CHECK_*` will categorize the error to be a user error.
+* Use `VELOX_FAIL()` or `VELOX_USER_FAIL()` to inadvertently throw an
+  exception:
+  * `VELOX_FAIL("Illegal state");`
+* Use `VELOX_UNREACHABLE()` when a particular branch/block should never be
+  executed, such as in a switch statement with an invalid `default:` block.
+* Use `VELOX_NYI()` for features or code paths that are not implemented yet.
 * When comparing two values/expressions, prefer to use:
   * `VELOX_CHECK_LT(idx, children_.size());`
 * Rather than:
@@ -109,7 +126,7 @@ About comment style:
     * `VELOX_CHECK_EQ(v1, v2, “Some error message”)`
     * `VELOX_USER_CHECK_EQ(v1, v2, “Some error message”)`
   * Error message formatting via fmt:
-    * `VELOX_USER_CHECK_EQ( v1, v2, “My complex error message {} and {}”, str,
+    * `VELOX_USER_CHECK_EQ(v1, v2, “My complex error message {} and {}”, str,
       i)`
     * Note that the values of v1 and v2 are already included in the exception
       message by default.
@@ -129,9 +146,9 @@ About comment style:
 * Don't group all your variables at the top of the scope -- this makes the code
   much harder to follow.
 * If the variable or function parameter is a pointer or reference type, group
-  the `*` or &` with the type -- pointer-ness or reference-ness is an attribute
+  the `*` or `&` with the type -- pointer-ness or reference-ness is an attribute
   of the type, not the name.
-  * `int* foo;` `const Bar& bar;` NOT `int *foo; `const Bar &bar`;
+  * `int* foo;` `const Bar& bar;` NOT `int *foo;` `const Bar &bar`;
   * Beware that `int* foo, bar;` will be parsed as declaring `foo` as an `int*`
     and `bar` as an `int`. Note that multiple declaration is discouraged.
 * For member variables:
@@ -143,10 +160,13 @@ About comment style:
   * Refrain from using public member variables whenever possible, in order to
     promote encapsulation.
     * Leverage getter/setter methods when appropriate.
+    * Name getter methods after the variable, e.g: `foo()`, and setter methods
+      using the "set" prefix, e.g: `setFoo()`
+    * Always mark getter methods as const.
 * Prefer to use value-types, `std::optional`, and `std::unique_ptr` in that
   order.
   * Value-types are conceptually the simplest and cheapest.
-  * std::optional allows you to express “may be null” without the additional
+  * `std::optional` allows you to express “may be null” without the additional
     complexity of manual storage duration.
   * `std::unique_ptr<>` should be used for types that are not cheaply movable
     but need to transfer ownership, or which are too large to store on the
@@ -272,10 +292,29 @@ macro names are always upper-snake-case. Also:
 
 ## Namespaces
 
-* All Velox code should be placed inside the facebook::velox namespace
+* All Velox code should be placed inside the `facebook::velox` namespace
 * Always use nested namespace definition:
-  * `namespace facebook::velox::core {` Rather than
+  * `namespace facebook::velox::core {` and not
   * `namespace facebook { namespace velox { namespace core {`
+* Always add an inline comment at the end of the namespace definition, and surround
+  it by empty lines:
+
+```
+namespace facebook::velox::exec {
+
+myFunc();
+
+} // namespace facebook::velox::exec
+```
+
+  * not:
+
+```
+namespace facebook::velox::exec {
+myFunc();
+}
+```
+
 * Use sub namespaces (e.g: facebook::velox::core) to logically group large
   chunks of related code and prevent identifier clashes.
   * Namespaces should make it easier to code, not harder. Refrain from creating
