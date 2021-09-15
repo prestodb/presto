@@ -93,13 +93,15 @@ class PlanBuilder {
 
   PlanBuilder& intermediateAggregation(
       const std::vector<ChannelIndex>& groupingKeys,
-      const std::vector<std::string>& aggregates) {
+      const std::vector<std::string>& aggregates,
+      const std::vector<TypePtr>& resultTypes = {}) {
     return aggregation(
         groupingKeys,
         aggregates,
         {},
         core::AggregationNode::Step::kIntermediate,
-        false);
+        false,
+        resultTypes);
   }
 
   PlanBuilder& singleAggregation(

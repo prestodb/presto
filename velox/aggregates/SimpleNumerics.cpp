@@ -22,16 +22,18 @@ namespace facebook::velox::aggregate {
 
 namespace {
 
-template <typename T, typename ResultType>
-class SumAggregate : public SimpleNumericAggregate<T, ResultType, ResultType> {
-  using BaseAggregate = SimpleNumericAggregate<T, ResultType, ResultType>;
+template <typename TInput, typename TAccumulator, typename ResultType>
+class SumAggregate
+    : public SimpleNumericAggregate<TInput, TAccumulator, ResultType> {
+  using BaseAggregate =
+      SimpleNumericAggregate<TInput, TAccumulator, ResultType>;
 
  public:
   explicit SumAggregate(core::AggregationNode::Step step, TypePtr resultType)
       : BaseAggregate(step, resultType) {}
 
   int32_t accumulatorFixedWidthSize() const override {
-    return sizeof(ResultType);
+    return sizeof(TAccumulator);
   }
 
   void initializeNewGroups(
@@ -45,9 +47,18 @@ class SumAggregate : public SimpleNumericAggregate<T, ResultType, ResultType> {
 
   void extractValues(char** groups, int32_t numGroups, VectorPtr* result)
       override {
-    BaseAggregate::doExtractValues(groups, numGroups, result, [&](char* group) {
-      return *BaseAggregate::Aggregate::template value<ResultType>(group);
-    });
+    BaseAggregate::template doExtractValues<ResultType>(
+        groups, numGroups, result, [&](char* group) {
+          return *BaseAggregate::Aggregate::template value<ResultType>(group);
+        });
+  }
+
+  void extractAccumulators(char** groups, int32_t numGroups, VectorPtr* result)
+      override {
+    BaseAggregate::template doExtractValues<TAccumulator>(
+        groups, numGroups, result, [&](char* group) {
+          return *BaseAggregate::Aggregate::template value<TAccumulator>(group);
+        });
   }
 
   void updatePartial(
@@ -55,29 +66,7 @@ class SumAggregate : public SimpleNumericAggregate<T, ResultType, ResultType> {
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    auto& arg = args[0];
-
-    if (mayPushdown) {
-      BaseAggregate::template pushdown<SumHook<T, ResultType>>(
-          groups, rows, arg);
-      return;
-    }
-
-    if (exec::Aggregate::numNulls_) {
-      BaseAggregate::template updateGroups<true>(
-          groups,
-          rows,
-          arg,
-          [](ResultType& result, T value) { result += value; },
-          false);
-    } else {
-      BaseAggregate::template updateGroups<false>(
-          groups,
-          rows,
-          arg,
-          [](ResultType& result, T value) { result += value; },
-          false);
-    }
+    updateInternal<TAccumulator>(groups, rows, args, mayPushdown);
   }
 
   void updateFinal(
@@ -85,7 +74,7 @@ class SumAggregate : public SimpleNumericAggregate<T, ResultType, ResultType> {
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    updatePartial(groups, rows, args, mayPushdown);
+    updateInternal<ResultType>(groups, rows, args, mayPushdown);
   }
 
   void updateSingleGroupPartial(
@@ -93,12 +82,12 @@ class SumAggregate : public SimpleNumericAggregate<T, ResultType, ResultType> {
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    BaseAggregate::updateOneGroup(
+    BaseAggregate::template updateOneGroup<TAccumulator>(
         group,
         rows,
         args[0],
-        [](ResultType& result, T value) { result += value; },
-        [](ResultType& result, T value, int n) { result += n * value; },
+        [](TAccumulator& result, TInput value) { result += value; },
+        [](TAccumulator& result, TInput value, int n) { result += n * value; },
         mayPushdown,
         0);
   }
@@ -108,7 +97,48 @@ class SumAggregate : public SimpleNumericAggregate<T, ResultType, ResultType> {
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    updateSingleGroupPartial(group, rows, args, mayPushdown);
+    BaseAggregate::template updateOneGroup<ResultType>(
+        group,
+        rows,
+        args[0],
+        [](ResultType& result, TInput value) { result += value; },
+        [](ResultType& result, TInput value, int n) { result += n * value; },
+        mayPushdown,
+        0);
+  }
+
+ protected:
+  // TData is either TAccumulator or TResult, which in most cases are the same,
+  // but for sum(real) can differ.
+  template <typename TData>
+  void updateInternal(
+      char** groups,
+      const SelectivityVector& rows,
+      const std::vector<VectorPtr>& args,
+      bool mayPushdown) {
+    const auto& arg = args[0];
+
+    if (mayPushdown) {
+      BaseAggregate::template pushdown<SumHook<TInput, TData>>(
+          groups, rows, arg);
+      return;
+    }
+
+    if (exec::Aggregate::numNulls_) {
+      BaseAggregate::template updateGroups<true, TData>(
+          groups,
+          rows,
+          arg,
+          [](TData& result, TInput value) { result += value; },
+          false);
+    } else {
+      BaseAggregate::template updateGroups<false, TData>(
+          groups,
+          rows,
+          arg,
+          [](TData& result, TInput value) { result += value; },
+          false);
+    }
   }
 };
 
@@ -230,37 +260,48 @@ bool registerCountAggregate(const std::string& name) {
         if (exec::isRawInput(step)) {
           return std::make_unique<CountAggregate>(step);
         } else {
-          return std::make_unique<SumAggregate<int64_t, int64_t>>(
+          return std::make_unique<SumAggregate<int64_t, int64_t, int64_t>>(
               step, BIGINT());
         }
       });
   return true;
 }
 
-template <template <typename U, typename V> class T>
+template <template <typename U, typename V, typename W> class T>
 bool registerSumAggregate(const std::string& name) {
   exec::AggregateFunctions().Register(
       name,
       [name](
           core::AggregationNode::Step step,
           const std::vector<TypePtr>& argTypes,
-          const TypePtr&
-          /*resultType*/) -> std::unique_ptr<exec::Aggregate> {
+          const TypePtr& resultType) -> std::unique_ptr<exec::Aggregate> {
         VELOX_CHECK_EQ(argTypes.size(), 1, "{} takes only one argument", name);
         auto inputType = argTypes[0];
         switch (inputType->kind()) {
           case TypeKind::TINYINT:
-            return std::make_unique<T<int8_t, int64_t>>(step, BIGINT());
+            return std::make_unique<T<int8_t, int64_t, int64_t>>(
+                step, BIGINT());
           case TypeKind::SMALLINT:
-            return std::make_unique<T<int16_t, int64_t>>(step, BIGINT());
+            return std::make_unique<T<int16_t, int64_t, int64_t>>(
+                step, BIGINT());
           case TypeKind::INTEGER:
-            return std::make_unique<T<int32_t, int64_t>>(step, BIGINT());
+            return std::make_unique<T<int32_t, int64_t, int64_t>>(
+                step, BIGINT());
           case TypeKind::BIGINT:
-            return std::make_unique<T<int64_t, int64_t>>(step, BIGINT());
+            return std::make_unique<T<int64_t, int64_t, int64_t>>(
+                step, BIGINT());
           case TypeKind::REAL:
-            return std::make_unique<T<float, double>>(step, DOUBLE());
+            if (resultType->kind() == TypeKind::REAL) {
+              return std::make_unique<T<float, double, float>>(
+                  step, resultType);
+            }
+            return std::make_unique<T<float, double, double>>(step, DOUBLE());
           case TypeKind::DOUBLE:
-            return std::make_unique<T<double, double>>(step, DOUBLE());
+            if (resultType->kind() == TypeKind::REAL) {
+              return std::make_unique<T<double, double, float>>(
+                  step, resultType);
+            }
+            return std::make_unique<T<double, double, double>>(step, DOUBLE());
           default:
             VELOX_CHECK(
                 false,

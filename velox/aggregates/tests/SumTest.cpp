@@ -80,6 +80,24 @@ TEST_F(SumTest, sumTinyint) {
   assertQuery(agg, "SELECT sum(c1) FROM tmp WHERE c0 % 2 = 0");
 }
 
+TEST_F(SumTest, sumDouble) {
+  auto rowType = ROW({"c0", "c1"}, {REAL(), DOUBLE()});
+  auto vectors = makeVectors(rowType, 1000, 10);
+  createDuckDbTable(vectors);
+
+  // Global final aggregation.
+  auto agg =
+      PlanBuilder()
+          .values(vectors)
+          .partialAggregation(
+              {}, {"sum(c0)", "sum(c1)"}, {}, {DOUBLE(), DOUBLE()})
+          .intermediateAggregation(
+              {}, {"sum(a0)", "sum(a1)"}, {DOUBLE(), DOUBLE()})
+          .finalAggregation({}, {"sum(a0)", "sum(a1)"}, {REAL(), DOUBLE()})
+          .planNode();
+  assertQuery(agg, "SELECT sum(c0), sum(c1) FROM tmp");
+}
+
 TEST_F(SumTest, sumWithMask) {
   auto rowType =
       ROW({"c0", "c1", "c2", "c3", "c4"},

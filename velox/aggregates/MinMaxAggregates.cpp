@@ -64,10 +64,11 @@ void MinMaxAggregate<int64_t, Timestamp>::extractValues(
     char** groups,
     int32_t numGroups,
     VectorPtr* result) {
-  BaseAggregate::doExtractValues(groups, numGroups, result, [&](char* group) {
-    auto millis = *BaseAggregate::Aggregate::template value<int64_t>(group);
-    return Timestamp::fromMillis(millis);
-  });
+  BaseAggregate::template doExtractValues<Timestamp>(
+      groups, numGroups, result, [&](char* group) {
+        auto millis = *BaseAggregate::Aggregate::template value<int64_t>(group);
+        return Timestamp::fromMillis(millis);
+      });
 }
 
 template <>
@@ -75,10 +76,11 @@ void MinMaxAggregate<Timestamp, int64_t>::extractValues(
     char** groups,
     int32_t numGroups,
     VectorPtr* result) {
-  BaseAggregate::doExtractValues(groups, numGroups, result, [&](char* group) {
-    auto ts = *BaseAggregate::Aggregate::template value<Timestamp>(group);
-    return ts.toMillis();
-  });
+  BaseAggregate::template doExtractValues<int64_t>(
+      groups, numGroups, result, [&](char* group) {
+        auto ts = *BaseAggregate::Aggregate::template value<Timestamp>(group);
+        return ts.toMillis();
+      });
 }
 
 template <typename T, typename ResultType>
@@ -108,7 +110,7 @@ class MaxAggregate : public MinMaxAggregate<T, ResultType> {
           groups, rows, args[0]);
       return;
     }
-    BaseAggregate::template updateGroups<true>(
+    BaseAggregate::template updateGroups<true, T>(
         groups,
         rows,
         args[0],
@@ -182,7 +184,7 @@ class MinAggregate : public MinMaxAggregate<T, ResultType> {
           groups, rows, args[0]);
       return;
     }
-    BaseAggregate::template updateGroups<true>(
+    BaseAggregate::template updateGroups<true, T>(
         groups,
         rows,
         args[0],
