@@ -17,6 +17,7 @@ import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.execution.scheduler.NodeSchedulerConfig.ResourceAwareSchedulingStrategy;
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.execution.warnings.WarningHandlingLevel;
 import com.facebook.presto.memory.MemoryManagerConfig;
@@ -205,6 +206,12 @@ public final class SystemSessionProperties
     public static final String MATERIALIZED_VIEW_DATA_CONSISTENCY_ENABLED = "materialized_view_data_consistency_enabled";
     public static final String QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED = "query_optimization_with_materialized_view_enabled";
     public static final String AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY = "aggregation_if_to_filter_rewrite_strategy";
+    public static final String RESOURCE_AWARE_SCHEDULING_STRATEGY = "resource_aware_scheduling_strategy";
+    public static final String HEAP_DUMP_ON_EXCEEDED_MEMORY_LIMIT_ENABLED = "heap_dump_on_exceeded_memory_limit_enabled";
+    public static final String EXCEEDED_MEMORY_LIMIT_HEAP_DUMP_FILE_DIRECTORY = "exceeded_memory_limit_heap_dump_file_directory";
+
+    //TODO: Prestissimo related session properties that are temporarily put here. They will be relocated in the future
+    public static final String PRESTISSIMO_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "simplified_expression_evaluation_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1108,7 +1115,34 @@ public final class SystemSessionProperties
                         featuresConfig.getAggregationIfToFilterRewriteStrategy(),
                         false,
                         value -> AggregationIfToFilterRewriteStrategy.valueOf(((String) value).toUpperCase()),
-                        AggregationIfToFilterRewriteStrategy::name));
+                        AggregationIfToFilterRewriteStrategy::name),
+                booleanProperty(
+                        PRESTISSIMO_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED,
+                        "Enable simplified path in expression evaluation",
+                        false,
+                        false),
+                new PropertyMetadata<>(
+                        RESOURCE_AWARE_SCHEDULING_STRATEGY,
+                        format("Task assignment strategy to use. Options are %s",
+                                Stream.of(ResourceAwareSchedulingStrategy.values())
+                                        .map(ResourceAwareSchedulingStrategy::name)
+                                        .collect(joining(","))),
+                        VARCHAR,
+                        ResourceAwareSchedulingStrategy.class,
+                        nodeSchedulerConfig.getResourceAwareSchedulingStrategy(),
+                        false,
+                        value -> ResourceAwareSchedulingStrategy.valueOf(((String) value).toUpperCase()),
+                        ResourceAwareSchedulingStrategy::name),
+                booleanProperty(
+                        HEAP_DUMP_ON_EXCEEDED_MEMORY_LIMIT_ENABLED,
+                        "Trigger heap dump to `EXCEEDED_MEMORY_LIMIT_HEAP_DUMP_FILE_PATH` on exceeded memory limit exceptions",
+                        false, // This is intended to be used for debugging purposes only and thus we does not need an associated config property
+                        true),
+                stringProperty(
+                        EXCEEDED_MEMORY_LIMIT_HEAP_DUMP_FILE_DIRECTORY,
+                        "Directory to which heap snapshot will be dumped, if heap_dump_on_exceeded_memory_limit_enabled",
+                        System.getProperty("java.io.tmpdir"),   // This is intended to be used for debugging purposes only and thus we does not need an associated config property
+                        true));
     }
 
     public static boolean isEmptyJoinOptimization(Session session)
@@ -1867,5 +1901,20 @@ public final class SystemSessionProperties
     public static AggregationIfToFilterRewriteStrategy getAggregationIfToFilterRewriteStrategy(Session session)
     {
         return session.getSystemProperty(AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY, AggregationIfToFilterRewriteStrategy.class);
+    }
+
+    public static ResourceAwareSchedulingStrategy getResourceAwareSchedulingStrategy(Session session)
+    {
+        return session.getSystemProperty(RESOURCE_AWARE_SCHEDULING_STRATEGY, ResourceAwareSchedulingStrategy.class);
+    }
+
+    public static Boolean isHeapDumpOnExceededMemoryLimitEnabled(Session session)
+    {
+        return session.getSystemProperty(HEAP_DUMP_ON_EXCEEDED_MEMORY_LIMIT_ENABLED, Boolean.class);
+    }
+
+    public static String getHeapDumpFileDirectory(Session session)
+    {
+        return session.getSystemProperty(EXCEEDED_MEMORY_LIMIT_HEAP_DUMP_FILE_DIRECTORY, String.class);
     }
 }

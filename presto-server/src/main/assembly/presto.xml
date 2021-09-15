@@ -65,6 +65,14 @@
             <outputDirectory>plugin/session-property-managers</outputDirectory>
         </fileSet>
         <fileSet>
+            <directory>${project.build.directory}/dependency/presto-node-ttl-fetchers-${project.version}</directory>
+            <outputDirectory>plugin/ttl-fetchers</outputDirectory>
+        </fileSet>
+        <fileSet>
+            <directory>${project.build.directory}/dependency/presto-cluster-ttl-providers-${project.version}</directory>
+            <outputDirectory>plugin/cluster-ttl-providers</outputDirectory>
+        </fileSet>
+        <fileSet>
             <directory>${project.build.directory}/dependency/presto-function-namespace-managers-${project.version}</directory>
             <outputDirectory>plugin/function-namespace-managers</outputDirectory>
         </fileSet>
