@@ -471,7 +471,8 @@ public class TestHiveSplitManager
                         ImmutableMap.of(),
                         Optional.empty(),
                         false,
-                        true),
+                        true,
+                        0),
                 PARTITION_NAME,
                 partitionStatistics);
 

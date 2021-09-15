@@ -109,8 +109,8 @@ public class TestAbstractDwrfEncryptionInformationSource
                                 ImmutableList.of(new Subfield("col_struct.a"), new Subfield("col_struct.b.b2")),
                                 Optional.empty()))),
                 ImmutableMap.of(
-                        "ds=2020-01-01", new Partition("dbName", "tableName", ImmutableList.of("2020-01-01"), table.getStorage(), table.getDataColumns(), ImmutableMap.of(), Optional.empty(), false, true),
-                        "ds=2020-01-02", new Partition("dbName", "tableName", ImmutableList.of("2020-01-02"), table.getStorage(), table.getDataColumns(), ImmutableMap.of(), Optional.empty(), false, true)));
+                        "ds=2020-01-01", new Partition("dbName", "tableName", ImmutableList.of("2020-01-01"), table.getStorage(), table.getDataColumns(), ImmutableMap.of(), Optional.empty(), false, true, 0),
+                        "ds=2020-01-02", new Partition("dbName", "tableName", ImmutableList.of("2020-01-02"), table.getStorage(), table.getDataColumns(), ImmutableMap.of(), Optional.empty(), false, true, 0)));
 
         assertTrue(encryptionInformation.isPresent());
         assertEquals(
@@ -129,8 +129,8 @@ public class TestAbstractDwrfEncryptionInformationSource
                 table,
                 Optional.of(ImmutableSet.of()),
                 ImmutableMap.of(
-                        "ds=2020-01-01", new Partition("dbName", "tableName", ImmutableList.of("2020-01-01"), table.getStorage(), table.getDataColumns(), ImmutableMap.of(), Optional.empty(), false, true),
-                        "ds=2020-01-02", new Partition("dbName", "tableName", ImmutableList.of("2020-01-02"), table.getStorage(), table.getDataColumns(), ImmutableMap.of(), Optional.empty(), false, true)));
+                        "ds=2020-01-01", new Partition("dbName", "tableName", ImmutableList.of("2020-01-01"), table.getStorage(), table.getDataColumns(), ImmutableMap.of(), Optional.empty(), false, true, 0),
+                        "ds=2020-01-02", new Partition("dbName", "tableName", ImmutableList.of("2020-01-02"), table.getStorage(), table.getDataColumns(), ImmutableMap.of(), Optional.empty(), false, true, 0)));
 
         assertTrue(encryptionInformation.isPresent());
         assertEquals(
@@ -161,8 +161,8 @@ public class TestAbstractDwrfEncryptionInformationSource
                                 ImmutableList.of(new Subfield("col_struct.a"), new Subfield("col_struct.b.b2")),
                                 Optional.empty()))),
                 ImmutableMap.of(
-                        "ds=2020-01-01", new Partition("dbName", "tableName", ImmutableList.of("2020-01-01"), table.getStorage(), table.getDataColumns(), ImmutableMap.of(), Optional.empty(), false, true),
-                        "ds=2020-01-02", new Partition("dbName", "tableName", ImmutableList.of("2020-01-02"), table.getStorage(), table.getDataColumns(), ImmutableMap.of(), Optional.empty(), false, true)));
+                        "ds=2020-01-01", new Partition("dbName", "tableName", ImmutableList.of("2020-01-01"), table.getStorage(), table.getDataColumns(), ImmutableMap.of(), Optional.empty(), false, true, 0),
+                        "ds=2020-01-02", new Partition("dbName", "tableName", ImmutableList.of("2020-01-02"), table.getStorage(), table.getDataColumns(), ImmutableMap.of(), Optional.empty(), false, true, 0)));
 
         Map<String, byte[]> expectedFieldToKeyData = ImmutableMap.of("col_bigint", "key2".getBytes(), "col_struct.a", "key2".getBytes(), "col_struct.b.b2", "key1".getBytes());
         assertTrue(encryptionInformation.isPresent());
