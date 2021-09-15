@@ -288,7 +288,8 @@ FOLLY_ALWAYS_INLINE bool toHex(TOutString& output, const TInString& input) {
   const auto inputSize = input.size();
   output.resize(inputSize * 2);
 
-  const char* inputBuffer = input.data();
+  const unsigned char* inputBuffer =
+      reinterpret_cast<const unsigned char*>(input.data());
   char* resultBuffer = output.data();
 
   for (auto i = 0; i < inputSize; ++i) {

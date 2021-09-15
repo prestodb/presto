@@ -1139,6 +1139,14 @@ TEST_F(StringFunctionsTest, toHex) {
   EXPECT_EQ(
       "48656C6C6F20576F726C642066726F6D2056656C6F7821",
       toHex("Hello World from Velox!"));
+
+  const auto toHexFromBase64 = [&](std::optional<std::string> value) {
+    return evaluateOnce<std::string>("to_hex(from_base64(c0))", value);
+  };
+
+  EXPECT_EQ(
+      "D763DAB175DA5814349354FCF23885",
+      toHexFromBase64("12PasXXaWBQ0k1T88jiF"));
 }
 
 TEST_F(StringFunctionsTest, fromHex) {
@@ -1164,6 +1172,13 @@ TEST_F(StringFunctionsTest, fromHex) {
   EXPECT_THROW(fromHex("f`"), VeloxUserError);
   EXPECT_THROW(fromHex("fg"), VeloxUserError);
   EXPECT_THROW(fromHex("fff"), VeloxUserError);
+
+  const auto fromHexToBase64 = [&](std::optional<std::string> value) {
+    return evaluateOnce<std::string>("to_base64(from_hex(c0))", value);
+  };
+  EXPECT_EQ(
+      "12PasXXaWBQ0k1T88jiF",
+      fromHexToBase64("D763DAB175DA5814349354FCF23885"));
 }
 
 TEST_F(StringFunctionsTest, toBase64) {
