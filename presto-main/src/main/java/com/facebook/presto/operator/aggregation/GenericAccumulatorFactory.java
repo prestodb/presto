@@ -265,7 +265,7 @@ public class GenericAccumulatorFactory
     {
         private final Accumulator accumulator;
         private final MarkDistinctHash hash;
-        private final Optional<Integer> maskChannel;
+        private final int maskChannel;
 
         private DistinctingAccumulator(
                 Accumulator accumulator,
@@ -277,7 +277,7 @@ public class GenericAccumulatorFactory
                 UpdateMemory updateMemory)
         {
             this.accumulator = requireNonNull(accumulator, "accumulator is null");
-            this.maskChannel = requireNonNull(maskChannel, "maskChannel is null");
+            this.maskChannel = requireNonNull(maskChannel, "maskChannel is null").orElse(-1);
 
             hash = new MarkDistinctHash(
                     session,
@@ -315,9 +315,13 @@ public class GenericAccumulatorFactory
         public void addInput(Page page)
         {
             // 1. filter out positions based on mask, if present
-            Page filtered = maskChannel
-                    .map(channel -> filter(page, page.getBlock(channel)))
-                    .orElse(page);
+            Page filtered;
+            if (maskChannel >= 0) {
+                filtered = filter(page, page.getBlock(maskChannel));
+            }
+            else {
+                filtered = page;
+            }
 
             if (filtered.getPositionCount() == 0) {
                 return;
@@ -359,10 +363,21 @@ public class GenericAccumulatorFactory
 
     private static Page filter(Page page, Block mask)
     {
+        int positions = mask.getPositionCount();
+        if (positions > 0 && mask instanceof RunLengthEncodedBlock) {
+            // must have at least 1 position to be able to check the value at position 0
+            boolean isNull = mask.mayHaveNull() && mask.isNull(0);
+            if (!isNull && BOOLEAN.getBoolean(mask, 0)) {
+                return page;
+            }
+            else {
+                return page.getPositions(new int[0], 0, 0);
+            }
+        }
         boolean mayHaveNull = mask.mayHaveNull();
-        int[] ids = new int[mask.getPositionCount()];
+        int[] ids = new int[positions];
         int next = 0;
-        for (int i = 0; i < page.getPositionCount(); ++i) {
+        for (int i = 0; i < ids.length; ++i) {
             boolean isNull = mayHaveNull && mask.isNull(i);
             if (!isNull && BOOLEAN.getBoolean(mask, i)) {
                 ids[next++] = i;
@@ -380,7 +395,7 @@ public class GenericAccumulatorFactory
     {
         private final GroupedAccumulator accumulator;
         private final MarkDistinctHash hash;
-        private final Optional<Integer> maskChannel;
+        private final int maskChannel;
 
         private DistinctingGroupedAccumulator(
                 GroupedAccumulator accumulator,
@@ -392,7 +407,7 @@ public class GenericAccumulatorFactory
                 UpdateMemory updateMemory)
         {
             this.accumulator = requireNonNull(accumulator, "accumulator is null");
-            this.maskChannel = requireNonNull(maskChannel, "maskChannel is null");
+            this.maskChannel = requireNonNull(maskChannel, "maskChannel is null").orElse(-1);
 
             List<Type> types = ImmutableList.<Type>builder()
                     .add(BIGINT) // group id column
@@ -437,9 +452,13 @@ public class GenericAccumulatorFactory
             Page withGroup = page.prependColumn(groupIdsBlock);
 
             // 1. filter out positions based on mask, if present
-            Page filtered = maskChannel
-                    .map(channel -> filter(withGroup, withGroup.getBlock(channel + 1))) // offset by one because of group id in column 0
-                    .orElse(withGroup);
+            Page filtered;
+            if (maskChannel >= 0) {
+                filtered = filter(withGroup, withGroup.getBlock(maskChannel + 1)); // offset by one because of group id in column 0
+            }
+            else {
+                filtered = withGroup;
+            }
 
             // 2. compute a mask for the distinct rows (including the group id)
             Work<Block> work = hash.markDistinctRows(filtered);
