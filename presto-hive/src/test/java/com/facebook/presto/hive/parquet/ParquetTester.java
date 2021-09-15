@@ -392,7 +392,7 @@ public class ParquetTester
                 try (TempFile tempFile = new TempFile("test", "parquet")) {
                     OptionalInt min = stream(writeValues).mapToInt(Iterables::size).min();
                     checkState(min.isPresent());
-                    writeParquetColumnPresto(tempFile.getFile(), columnTypes, columnNames, getIterators(readValues), min.getAsInt(), compressionCodecName);
+                    writeParquetFileFromPresto(tempFile.getFile(), columnTypes, columnNames, getIterators(readValues), min.getAsInt(), compressionCodecName);
                     assertFileContents(
                             session,
                             tempFile.getFile(),
@@ -823,7 +823,7 @@ public class ParquetTester
         return type.getObjectValue(SESSION.getSqlFunctionProperties(), block, position);
     }
 
-    public static void writeParquetColumnPresto(File outputFile, List<Type> types, List<String> columnNames, Iterator<?>[] values, int size, CompressionCodecName compressionCodecName)
+    public static void writeParquetFileFromPresto(File outputFile, List<Type> types, List<String> columnNames, Iterator<?>[] values, int size, CompressionCodecName compressionCodecName)
             throws Exception
     {
         checkArgument(types.size() == columnNames.size() && types.size() == values.length);

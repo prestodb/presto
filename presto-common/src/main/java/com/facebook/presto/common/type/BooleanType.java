@@ -16,10 +16,13 @@ package com.facebook.presto.common.type;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.BlockBuilderStatus;
+import com.facebook.presto.common.block.ByteArrayBlock;
 import com.facebook.presto.common.block.ByteArrayBlockBuilder;
 import com.facebook.presto.common.block.PageBuilderStatus;
 import com.facebook.presto.common.block.UncheckedBlock;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+
+import java.util.Optional;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 
@@ -32,6 +35,23 @@ public final class BooleanType
     private BooleanType()
     {
         super(parseTypeSignature(StandardTypes.BOOLEAN), boolean.class);
+    }
+
+    /**
+     * This method signifies a contract to callers that as an optimization, they can encode BooleanType blocks as a byte[] directly
+     * and potentially bypass the BlockBuilder / BooleanType abstraction in the name of efficiency. If in the future BooleanType
+     * encoding changes such that {@link ByteArrayBlock} is not always a valid or efficient representation, then this method must be
+     * removed and any usages changed
+     */
+    public static Block wrapByteArrayAsBooleanBlockWithoutNulls(byte[] booleansAsBytes)
+    {
+        return new ByteArrayBlock(booleansAsBytes.length, Optional.empty(), booleansAsBytes);
+    }
+
+    public static Block createBlockForSingleNonNullValue(boolean value)
+    {
+        byte byteValue = value ? (byte) 1 : 0;
+        return new ByteArrayBlock(1, Optional.empty(), new byte[]{byteValue});
     }
 
     @Override

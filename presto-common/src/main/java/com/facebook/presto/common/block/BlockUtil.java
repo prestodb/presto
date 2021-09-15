@@ -326,4 +326,25 @@ public final class BlockUtil
         }
         return num128Integers;
     }
+
+    /**
+     * Returns the input blocks array if all blocks are already loaded, otherwise returns a new blocks array with all blocks loaded
+     */
+    static Block[] ensureBlocksAreLoaded(Block[] blocks)
+    {
+        for (int i = 0; i < blocks.length; i++) {
+            Block loaded = blocks[i].getLoadedBlock();
+            if (loaded != blocks[i]) {
+                // Transition to new block creation mode after the first newly loaded block is encountered
+                Block[] loadedBlocks = blocks.clone();
+                loadedBlocks[i++] = loaded;
+                for (; i < blocks.length; i++) {
+                    loadedBlocks[i] = blocks[i].getLoadedBlock();
+                }
+                return loadedBlocks;
+            }
+        }
+        // No newly loaded blocks
+        return blocks;
+    }
 }

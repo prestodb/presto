@@ -53,6 +53,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.OptionalLong;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.orc.metadata.CompressionKind.LZ4;
@@ -163,6 +164,7 @@ public class OrcMetadataReader
         return new Footer(
                 footer.getNumberOfRows(),
                 footer.getRowIndexStride(),
+                OptionalLong.empty(),
                 toStripeInformation(footer.getStripesList()),
                 toType(footer.getTypesList()),
                 toColumnStatistics(hiveWriterVersion, footer.getStatisticsList(), false),
@@ -186,6 +188,7 @@ public class OrcMetadataReader
                 stripeInformation.getIndexLength(),
                 stripeInformation.getDataLength(),
                 stripeInformation.getFooterLength(),
+                OptionalLong.empty(),
                 ImmutableList.of());
     }
 

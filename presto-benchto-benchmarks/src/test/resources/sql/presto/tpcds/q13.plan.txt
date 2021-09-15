@@ -5,15 +5,16 @@ final aggregation over ()
                 join (INNER, REPLICATED):
                     join (INNER, REPLICATED):
                         join (INNER, REPLICATED):
-                            join (INNER, REPLICATED):
-                                join (INNER, REPLICATED):
-                                    scan store_sales
-                                    local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPLICATE, BROADCAST, [])
-                                            scan customer_address
+                            join (INNER, PARTITIONED):
+                                remote exchange (REPARTITION, HASH, [ss_addr_sk])
+                                    join (INNER, REPLICATED):
+                                        scan store_sales
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                scan date_dim
                                 local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPLICATE, BROADCAST, [])
-                                        scan date_dim
+                                    remote exchange (REPARTITION, HASH, [ca_address_sk])
+                                        scan customer_address
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPLICATE, BROADCAST, [])
                                     scan household_demographics

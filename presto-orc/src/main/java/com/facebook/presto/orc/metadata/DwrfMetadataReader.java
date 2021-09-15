@@ -56,6 +56,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.OptionalLong;
 import java.util.SortedMap;
 
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
@@ -153,9 +154,11 @@ public class DwrfMetadataReader
         }
         runtimeStats.addMetricValue("DwrfReadFooterTimeNanos", THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
 
+        OptionalLong rawSize = footer.hasRawDataSize() ? OptionalLong.of(footer.getRawDataSize()) : OptionalLong.empty();
         return new Footer(
                 footer.getNumberOfRows(),
                 footer.getRowIndexStride(),
+                rawSize,
                 fileStripes,
                 types,
                 fileStats,
@@ -301,12 +304,14 @@ public class DwrfMetadataReader
         if (keyMetadata.isEmpty()) {
             keyMetadata = previousKeyMetadata;
         }
+        OptionalLong rawDataSize = stripeInformation.hasRawDataSize() ? OptionalLong.of(stripeInformation.getRawDataSize()) : OptionalLong.empty();
         return new StripeInformation(
                 stripeInformation.getNumberOfRows(),
                 stripeInformation.getOffset(),
                 stripeInformation.getIndexLength(),
                 stripeInformation.getDataLength(),
                 stripeInformation.getFooterLength(),
+                rawDataSize,
                 keyMetadata);
     }
 

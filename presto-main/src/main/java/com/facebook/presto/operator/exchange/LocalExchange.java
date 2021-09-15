@@ -45,7 +45,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
@@ -165,7 +164,7 @@ public class LocalExchange
                 hashGenerator = new PrecomputedHashGenerator(0);
             }
             else {
-                hashGenerator = new InterpretedHashGenerator(partitioningChannelTypes, IntStream.range(0, partitioningChannelTypes.size()).toArray());
+                hashGenerator = InterpretedHashGenerator.createPositionalWithTypes(partitioningChannelTypes);
             }
             return new LocalPartitionGenerator(hashGenerator, partitionCount);
         }
