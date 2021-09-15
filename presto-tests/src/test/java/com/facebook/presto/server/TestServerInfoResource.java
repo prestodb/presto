@@ -61,7 +61,7 @@ public class TestServerInfoResource
                 ImmutableMap.of(),
                 ImmutableMap.of("cluster.required-resource-managers-active", "1", "cluster.required-coordinators-active", "1"),
                 ImmutableMap.of("query.client.timeout", "10s"), 2);
-        TestingPrestoServer server = queryRunner.getCoordinators().get(0);
+        TestingPrestoServer server = queryRunner.getCoordinator(0);
         URI uri = uriBuilderFrom(server.getBaseUrl().resolve("/v1/info/state")).build();
         Request request = prepareGet()
                 .setHeader(PRESTO_USER, "user")
@@ -81,7 +81,7 @@ public class TestServerInfoResource
                 ImmutableMap.of(),
                 ImmutableMap.of("cluster.required-resource-managers-active", "2", "cluster.required-coordinators-active", "1"),
                 ImmutableMap.of("query.client.timeout", "10s"), 2);
-        TestingPrestoServer server = queryRunner.getCoordinators().get(0);
+        TestingPrestoServer server = queryRunner.getCoordinator(0);
         URI uri = uriBuilderFrom(server.getBaseUrl().resolve("/v1/info/state")).build();
         Request request = prepareGet()
                 .setHeader(PRESTO_USER, "user")
@@ -101,7 +101,7 @@ public class TestServerInfoResource
                 ImmutableMap.of(),
                 ImmutableMap.of("cluster.required-resource-managers-active", "1", "cluster.required-coordinators-active", "3"),
                 ImmutableMap.of("query.client.timeout", "10s"), 2);
-        TestingPrestoServer server = queryRunner.getCoordinators().get(0);
+        TestingPrestoServer server = queryRunner.getCoordinator(0);
         URI uri = uriBuilderFrom(server.getBaseUrl().resolve("/v1/info/state")).build();
         Request request = prepareGet()
                 .setHeader(PRESTO_USER, "user")

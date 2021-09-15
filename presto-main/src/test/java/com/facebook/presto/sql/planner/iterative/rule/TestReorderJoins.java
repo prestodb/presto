@@ -120,6 +120,7 @@ public class TestReorderJoins
     public void testReplicatesAndFlipsWhenOneTableMuchSmaller()
     {
         assertReorderJoins()
+                .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "1PB")
                 .on(p ->
                         p.join(
                                 INNER,

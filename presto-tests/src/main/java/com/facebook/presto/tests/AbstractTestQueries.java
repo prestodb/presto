@@ -49,6 +49,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.SystemSessionProperties.ENABLE_INTERMEDIATE_AGGREGATIONS;
 import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_JOINS_WITH_EMPTY_SOURCES;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -5783,5 +5784,26 @@ public abstract class AbstractTestQueries
         assertQuery("select concat('a', '','','', 'b', '', '', 'c', 'd', '', '', '', '')", "select 'abcd'");
         assertQuery("select concat('', '','','', '', '', '', '', '', '', '')", "select ''");
         assertQuery("select concat('', '','','', 'x', '', '', '', '', '', '')", "select 'x'");
+    }
+
+    @Test
+    public void testReduceAggWithNulls()
+    {
+        assertQueryFails("select reduce_agg(x, null, (x,y)->try(x+y), (x,y)->try(x+y)) from (select 1 union all select 10) T(x)", ".*REDUCE_AGG only supports non-NULL literal as the initial value.*");
+        assertQueryFails("select reduce_agg(x, cast(null as bigint), (x,y)->coalesce(x, 0)+coalesce(y, 0), (x,y)->coalesce(x, 0)+coalesce(y, 0)) from (values cast(10 as bigint),10)T(x)", ".*REDUCE_AGG only supports non-NULL literal as the initial value.*");
+
+        // here some reduce_aggs coalesce overflow/zero-divide errors to null in the input/combine functions
+        assertQuery("select reduce_agg(x, 0, (x,y)->try(1/x+1/y), (x,y)->try(1/x+1/y)) from ((select 0) union all select 10.) T(x)", "select null");
+        assertQuery("select reduce_agg(x, 0, (x, y)->try(x+y), (x, y)->try(x+y)) from (values 2817, 9223372036854775807) AS T(x)", "select null");
+        assertQuery("select reduce_agg(x, array[], (x, y)->array[element_at(x, 2)],  (x, y)->array[element_at(x, 2)]) from (select array[array[1]]) T(x)", "select array[null]");
+    }
+
+    @Test
+    public void testReduceAggWithMapZip()
+    {
+        Session sessionWithIntermediateAggEnabled = Session.builder(getSession())
+                .setSystemProperty(ENABLE_INTERMEDIATE_AGGREGATIONS, "true")
+                .build();
+        assertQuerySucceeds(sessionWithIntermediateAggEnabled, "select reduce_agg(x, map(), (s,x)->map_zip_with( s, x, (k1,v1,v2)->if(v1>v2,v1,v2)), (s,x)->map_zip_with( s, x, (k1,v1,v2)->if(v1>v2,v1,v2))) from (select map(array['k1', 'k2'], array[1e-2, 0.06]) x union all select map(array['k1', 'k2'], array[2e-05, 1e-2]) x)");
     }
 }

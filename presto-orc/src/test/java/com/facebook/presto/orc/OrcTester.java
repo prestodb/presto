@@ -1544,6 +1544,11 @@ public class OrcTester
     public static List<StripeFooter> getStripes(File inputFile, OrcEncoding encoding)
             throws IOException
     {
+        return getFileMetadata(inputFile, encoding).getStripeFooters();
+    }
+    public static FileMetadata getFileMetadata(File inputFile, OrcEncoding encoding)
+            throws IOException
+    {
         boolean zstdJniDecompressionEnabled = true;
         DataSize dataSize = new DataSize(1, MEGABYTE);
         OrcDataSource orcDataSource = new FileOrcDataSource(inputFile, dataSize, dataSize, dataSize, true);
@@ -1584,7 +1589,7 @@ public class OrcTester
                 stripes.add(stripeFooter);
             }
         }
-        return stripes.build();
+        return new FileMetadata(footer, stripes.build());
     }
 
     public static OrcWriter createOrcWriter(File outputFile, OrcEncoding encoding, CompressionKind compression, Optional<DwrfWriterEncryption> dwrfWriterEncryption, List<Type> types, OrcWriterOptions writerOptions, WriterStats stats)
@@ -1605,7 +1610,6 @@ public class OrcTester
                 dwrfWriterEncryption,
                 new DwrfEncryptionProvider(new UnsupportedEncryptionLibrary(), new TestingEncryptionLibrary()),
                 writerOptions,
-                Optional.empty(),
                 ImmutableMap.of(),
                 HIVE_STORAGE_TIME_ZONE,
                 true,
@@ -2430,5 +2434,27 @@ public class OrcTester
             typeSignatureParameters.add(TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName(filedName, false)), fieldType.getTypeSignature())));
         }
         return FUNCTION_AND_TYPE_MANAGER.getParameterizedType(StandardTypes.ROW, typeSignatureParameters.build());
+    }
+
+    public static class FileMetadata
+    {
+        Footer footer;
+        List<StripeFooter> stripeFooters;
+
+        public FileMetadata(Footer footer, List<StripeFooter> stripeFooters)
+        {
+            this.footer = requireNonNull(footer, "footer is null");
+            this.stripeFooters = requireNonNull(stripeFooters, "stripeFooters is null");
+        }
+
+        public Footer getFooter()
+        {
+            return footer;
+        }
+
+        public List<StripeFooter> getStripeFooters()
+        {
+            return stripeFooters;
+        }
     }
 }

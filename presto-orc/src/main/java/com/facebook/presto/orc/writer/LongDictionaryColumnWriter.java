@@ -154,7 +154,8 @@ public class LongDictionaryColumnWriter
             rowGroupIndexes[rowGroupValueCount] = index;
             rowGroupValueCount++;
         }
-        return new BlockStatistics(nonNullValueCount, rawBytes);
+        long rawBytesIncludingNulls = rawBytes + (block.getPositionCount() - nonNullValueCount) * NULL_SIZE;
+        return new BlockStatistics(nonNullValueCount, rawBytes, rawBytesIncludingNulls);
     }
 
     @Override

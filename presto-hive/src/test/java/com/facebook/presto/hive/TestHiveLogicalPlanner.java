@@ -362,12 +362,16 @@ public class TestHiveLogicalPlanner
             assertPlan(
                     optimizeMetadataQueries,
                     "SELECT DISTINCT ds FROM test_optimize_metadata_queries WHERE ds > '2020-10-04'",
-                    anyTree(values(
+                    anyTree(filter("ds > '2020-10-04'", anyTree(values(
                             ImmutableList.of("ds"),
                             ImmutableList.of(
+                                    ImmutableList.of(new StringLiteral("2020-10-01")),
+                                    ImmutableList.of(new StringLiteral("2020-10-02")),
+                                    ImmutableList.of(new StringLiteral("2020-10-03")),
+                                    ImmutableList.of(new StringLiteral("2020-10-04")),
                                     ImmutableList.of(new StringLiteral("2020-10-05")),
                                     ImmutableList.of(new StringLiteral("2020-10-06")),
-                                    ImmutableList.of(new StringLiteral("2020-10-07"))))));
+                                    ImmutableList.of(new StringLiteral("2020-10-07"))))))));
             assertPlan(
                     optimizeMetadataQueries,
                     "SELECT DISTINCT ds FROM test_optimize_metadata_queries WHERE ds = '2020-10-04' AND orderkey > 200",
@@ -401,12 +405,16 @@ public class TestHiveLogicalPlanner
             assertPlan(
                     optimizeMetadataQueries,
                     "SELECT DISTINCT ds FROM test_optimize_metadata_queries_multiple_partition_columns WHERE ds > '2020-10-04'",
-                    anyTree(values(
+                    anyTree(filter("ds > '2020-10-04'", anyTree(values(
                             ImmutableList.of("ds"),
                             ImmutableList.of(
+                                    ImmutableList.of(new StringLiteral("2020-10-01")),
+                                    ImmutableList.of(new StringLiteral("2020-10-02")),
+                                    ImmutableList.of(new StringLiteral("2020-10-03")),
+                                    ImmutableList.of(new StringLiteral("2020-10-04")),
                                     ImmutableList.of(new StringLiteral("2020-10-05")),
                                     ImmutableList.of(new StringLiteral("2020-10-06")),
-                                    ImmutableList.of(new StringLiteral("2020-10-07"))))));
+                                    ImmutableList.of(new StringLiteral("2020-10-07"))))))));
             assertPlan(
                     optimizeMetadataQueries,
                     "SELECT DISTINCT ds FROM test_optimize_metadata_queries_multiple_partition_columns WHERE ds = '2020-10-04' AND orderkey > 200",
@@ -418,30 +426,29 @@ public class TestHiveLogicalPlanner
             assertPlan(
                     optimizeMetadataQueries,
                     "SELECT ds, MAX(value) FROM test_optimize_metadata_queries_multiple_partition_columns WHERE ds > '2020-10-04' GROUP BY ds",
-                    anyTree(values(
+                    anyTree(filter("ds > '2020-10-04'", anyTree(values(
                             ImmutableList.of("ds", "value"),
                             ImmutableList.of(
+                                    ImmutableList.of(new StringLiteral("2020-10-01"), new LongLiteral("1")),
+                                    ImmutableList.of(new StringLiteral("2020-10-02"), new LongLiteral("1")),
+                                    ImmutableList.of(new StringLiteral("2020-10-03"), new LongLiteral("1")),
+                                    ImmutableList.of(new StringLiteral("2020-10-04"), new LongLiteral("1")),
                                     ImmutableList.of(new StringLiteral("2020-10-05"), new LongLiteral("1")),
                                     ImmutableList.of(new StringLiteral("2020-10-06"), new LongLiteral("1")),
-                                    ImmutableList.of(new StringLiteral("2020-10-07"), new LongLiteral("1"))))));
+                                    ImmutableList.of(new StringLiteral("2020-10-07"), new LongLiteral("1"))))))));
             assertPlan(
                     optimizeMetadataQueries,
                     "SELECT MAX(ds), MAX(value) FROM test_optimize_metadata_queries_multiple_partition_columns WHERE ds > '2020-10-04'",
-                    anyTree(
-                            project(
-                                    ImmutableMap.of(
-                                            "max", expression("'2020-10-07'"),
-                                            "max_2", expression("1")),
-                                    any(values()))));
-            assertPlan(
-                    optimizeMetadataQueries,
-                    "SELECT MAX(value), MAX(ds) FROM test_optimize_metadata_queries_multiple_partition_columns WHERE ds > '2020-10-04'",
-                    anyTree(
-                            project(
-                                    ImmutableMap.of(
-                                            "max", expression("1"),
-                                            "max_2", expression("'2020-10-07'")),
-                                    any(values()))));
+                    anyTree(filter("ds > '2020-10-04'", anyTree(values(
+                            ImmutableList.of("ds", "value"),
+                            ImmutableList.of(
+                                    ImmutableList.of(new StringLiteral("2020-10-01"), new LongLiteral("1")),
+                                    ImmutableList.of(new StringLiteral("2020-10-02"), new LongLiteral("1")),
+                                    ImmutableList.of(new StringLiteral("2020-10-03"), new LongLiteral("1")),
+                                    ImmutableList.of(new StringLiteral("2020-10-04"), new LongLiteral("1")),
+                                    ImmutableList.of(new StringLiteral("2020-10-05"), new LongLiteral("1")),
+                                    ImmutableList.of(new StringLiteral("2020-10-06"), new LongLiteral("1")),
+                                    ImmutableList.of(new StringLiteral("2020-10-07"), new LongLiteral("1"))))))));
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS test_optimize_metadata_queries");
@@ -718,6 +725,38 @@ public class TestHiveLogicalPlanner
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS test_metadata_aggregation_folding_with_two_partitions_columns");
+        }
+    }
+
+    @Test
+    public void testMetadataAggregationFoldingWithFilters()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        Session optimizeMetadataQueries = Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(OPTIMIZE_METADATA_QUERIES, Boolean.toString(true))
+                .setCatalogSessionProperty(HIVE_CATALOG, PUSHDOWN_FILTER_ENABLED, Boolean.toString(true))
+                .build();
+        Session shufflePartitionColumns = Session.builder(this.getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty(HIVE_CATALOG, SHUFFLE_PARTITIONED_COLUMNS_FOR_TABLE_WRITE, Boolean.toString(true))
+                .build();
+
+        queryRunner.execute(
+                shufflePartitionColumns,
+                "CREATE TABLE test_metadata_aggregation_folding_with_filters WITH (partitioned_by = ARRAY['ds']) AS " +
+                        "SELECT orderkey, ARRAY[orderstatus] AS orderstatus, CAST(to_iso8601(date_add('DAY', orderkey % 2, date('2020-07-01'))) AS VARCHAR) AS ds FROM orders WHERE orderkey < 1000");
+
+        try {
+            // There is a filter on non-partition column. Enable the rewrite even if it can fully pushed down to the connector.
+            assertPlan(
+                    optimizeMetadataQueries,
+                    "SELECT max(ds) from test_metadata_aggregation_folding_with_filters WHERE contains(orderstatus, 'F')",
+                    anyTree(
+                            tableScanWithConstraint(
+                                    "test_metadata_aggregation_folding_with_filters",
+                                    ImmutableMap.of("ds", multipleValues(VARCHAR, utf8Slices("2020-07-01", "2020-07-02"))))));
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS test_metadata_aggregation_folding_with_filters");
         }
     }
 
@@ -1289,8 +1328,8 @@ public class TestHiveLogicalPlanner
 
             assertPlan(getSession(), viewQuery, anyTree(
                     filter("orderkey < BIGINT'10000'", PlanMatchPattern.constrainedTableScan(table,
-                                    ImmutableMap.of("ds", singleValue(createVarcharType(10), utf8Slice("2019-01-02"))),
-                                    ImmutableMap.of("orderkey", "orderkey"))),
+                            ImmutableMap.of("ds", singleValue(createVarcharType(10), utf8Slice("2019-01-02"))),
+                            ImmutableMap.of("orderkey", "orderkey"))),
                     filter("orderkey_17 < BIGINT'10000'", PlanMatchPattern.constrainedTableScan(view, ImmutableMap.of(), ImmutableMap.of("orderkey_17", "orderkey")))));
         }
         finally {
@@ -1331,8 +1370,8 @@ public class TestHiveLogicalPlanner
 
             assertPlan(getSession(), viewQuery, anyTree(
                     filter("orderkey < BIGINT'100'", PlanMatchPattern.constrainedTableScan(table,
-                                    ImmutableMap.of("ds", singleValue(createVarcharType(10), utf8Slice("2019-01-02"))),
-                                    ImmutableMap.of("orderkey", "orderkey"))),
+                            ImmutableMap.of("ds", singleValue(createVarcharType(10), utf8Slice("2019-01-02"))),
+                            ImmutableMap.of("orderkey", "orderkey"))),
                     filter("orderkey_62 < BIGINT'100'", PlanMatchPattern.constrainedTableScan(view, ImmutableMap.of(), ImmutableMap.of("orderkey_62", "orderkey")))));
         }
         finally {
@@ -1437,8 +1476,8 @@ public class TestHiveLogicalPlanner
 
             assertPlan(getSession(), viewQuery, anyTree(
                     filter("orderkey < BIGINT'10000'", PlanMatchPattern.constrainedTableScan(table,
-                                    ImmutableMap.of("ds", create(ValueSet.of(createVarcharType(10), utf8Slice("2019-01-02")), true)),
-                                    ImmutableMap.of("orderkey", "orderkey"))),
+                            ImmutableMap.of("ds", create(ValueSet.of(createVarcharType(10), utf8Slice("2019-01-02")), true)),
+                            ImmutableMap.of("orderkey", "orderkey"))),
                     filter("orderkey_17 < BIGINT'10000'", PlanMatchPattern.constrainedTableScan(view, ImmutableMap.of(), ImmutableMap.of("orderkey_17", "orderkey")))));
         }
         finally {
@@ -1476,10 +1515,10 @@ public class TestHiveLogicalPlanner
 
             assertPlan(getSession(), viewQuery, anyTree(
                     filter("orderkey < BIGINT'10000'", PlanMatchPattern.constrainedTableScan(table,
-                                    ImmutableMap.of(
-                                            "ds", singleValue(createVarcharType(10), utf8Slice("2019-01-02")),
-                                            "orderpriority", multipleValues(createVarcharType(15), utf8Slices("1-URGENT", "2-HIGH", "3-MEDIUM", "4-NOT SPECIFIED", "5-LOW"))),
-                                    ImmutableMap.of("orderkey", "orderkey"))),
+                            ImmutableMap.of(
+                                    "ds", singleValue(createVarcharType(10), utf8Slice("2019-01-02")),
+                                    "orderpriority", multipleValues(createVarcharType(15), utf8Slices("1-URGENT", "2-HIGH", "3-MEDIUM", "4-NOT SPECIFIED", "5-LOW"))),
+                            ImmutableMap.of("orderkey", "orderkey"))),
                     filter("orderkey_17 < BIGINT'10000'", PlanMatchPattern.constrainedTableScan(view, ImmutableMap.of(), ImmutableMap.of("orderkey_17", "orderkey")))));
         }
         finally {
@@ -1516,8 +1555,8 @@ public class TestHiveLogicalPlanner
 
             assertPlan(getSession(), viewQuery, anyTree(
                     filter("custkey < BIGINT'1000'", PlanMatchPattern.constrainedTableScan(table,
-                                    ImmutableMap.of("nationkey", multipleValues(BIGINT, ImmutableList.of(10L, 11L, 12L, 13L, 14L, 15L, 16L, 17L, 18L, 19L, 20L, 21L, 22L, 23L, 24L))),
-                                    ImmutableMap.of("custkey", "custkey"))),
+                            ImmutableMap.of("nationkey", multipleValues(BIGINT, ImmutableList.of(10L, 11L, 12L, 13L, 14L, 15L, 16L, 17L, 18L, 19L, 20L, 21L, 22L, 23L, 24L))),
+                            ImmutableMap.of("custkey", "custkey"))),
                     filter("custkey_21 >= BIGINT'1000'", PlanMatchPattern.constrainedTableScan(table,
                             ImmutableMap.of("nationkey", multipleValues(BIGINT, ImmutableList.of(10L, 11L, 12L, 13L, 14L, 15L, 16L, 17L, 18L, 19L, 20L, 21L, 22L, 23L, 24L))),
                             ImmutableMap.of("custkey_21", "custkey"))),
@@ -1687,10 +1726,10 @@ public class TestHiveLogicalPlanner
             assertEquals(viewTable, baseTable);
 
             assertPlan(getSession(), viewQuery, anyTree(
-                            anyTree(PlanMatchPattern.constrainedTableScan(table, ImmutableMap.of(
-                                    "shipmode", multipleValues(createVarcharType(10), utf8Slices("AIR", "FOB", "MAIL", "RAIL", "REG AIR", "SHIP", "TRUCK")),
-                                    "ds", singleValue(createVarcharType(10), utf8Slice("2020-01-02"))))),
-                            anyTree(PlanMatchPattern.constrainedTableScan(view, ImmutableMap.of()))));
+                    anyTree(PlanMatchPattern.constrainedTableScan(table, ImmutableMap.of(
+                            "shipmode", multipleValues(createVarcharType(10), utf8Slices("AIR", "FOB", "MAIL", "RAIL", "REG AIR", "SHIP", "TRUCK")),
+                            "ds", singleValue(createVarcharType(10), utf8Slice("2020-01-02"))))),
+                    anyTree(PlanMatchPattern.constrainedTableScan(view, ImmutableMap.of()))));
         }
         finally {
             queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
@@ -1750,9 +1789,9 @@ public class TestHiveLogicalPlanner
         try {
             queryRunner.execute(format(
                     "CREATE TABLE %s WITH (partitioned_by = ARRAY['ds', 'shipmode']) AS " +
-                    "SELECT discount, extendedprice, '2020-01-01' as ds, shipmode FROM lineitem WHERE orderkey < 1000 " +
-                    "UNION ALL " +
-                    "SELECT discount, extendedprice, '2020-01-02' as ds, shipmode FROM lineitem WHERE orderkey > 1000",
+                            "SELECT discount, extendedprice, '2020-01-01' as ds, shipmode FROM lineitem WHERE orderkey < 1000 " +
+                            "UNION ALL " +
+                            "SELECT discount, extendedprice, '2020-01-02' as ds, shipmode FROM lineitem WHERE orderkey > 1000",
                     table));
             assertUpdate(format(
                     "CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['mvds', 'shipmode']) AS " +

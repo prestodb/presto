@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.io.DataOutput;
 import com.facebook.presto.common.io.DataSink;
@@ -64,6 +63,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.TreeSet;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -100,7 +100,6 @@ public class OrcWriter
         implements Closeable
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcWriter.class).instanceSize();
-    private static final Logger log = Logger.get(OrcWriter.class);
 
     static final String PRESTO_ORC_WRITER_VERSION_METADATA_KEY = "presto.writer.version";
     static final String PRESTO_ORC_WRITER_VERSION;
@@ -145,6 +144,8 @@ public class OrcWriter
     private boolean closed;
 
     private long numberOfRows;
+    private long stripeRawSize;
+    private long rawSize;
     private List<ColumnStatistics> unencryptedStats;
 
     @Nullable
@@ -159,7 +160,6 @@ public class OrcWriter
             Optional<DwrfWriterEncryption> encryption,
             DwrfEncryptionProvider dwrfEncryptionProvider,
             OrcWriterOptions options,
-            Optional<DwrfWriterOptions> dwrfOptions,
             Map<String, String> userMetadata,
             DateTimeZone hiveStorageTimeZone,
             boolean validate,
@@ -176,7 +176,6 @@ public class OrcWriter
                 encryption,
                 dwrfEncryptionProvider,
                 options,
-                dwrfOptions,
                 userMetadata,
                 hiveStorageTimeZone,
                 validate,
@@ -194,7 +193,6 @@ public class OrcWriter
             Optional<DwrfWriterEncryption> encryption,
             DwrfEncryptionProvider dwrfEncryptionProvider,
             OrcWriterOptions options,
-            Optional<DwrfWriterOptions> dwrfOptions,
             Map<String, String> userMetadata,
             DateTimeZone hiveStorageTimeZone,
             boolean validate,
@@ -277,8 +275,7 @@ public class OrcWriter
 
         // set DwrfStripeCacheWriter for DWRF files if it's enabled through the options
         if (orcEncoding == DWRF) {
-            this.dwrfStripeCacheWriter = dwrfOptions
-                    .filter(DwrfWriterOptions::isStripeCacheEnabled)
+            this.dwrfStripeCacheWriter = options.getDwrfWriterOptions()
                     .map(dwrfWriterOptions -> new DwrfStripeCacheWriter(
                             dwrfWriterOptions.getStripeCacheMode(),
                             dwrfWriterOptions.getStripeCacheMaxSize()));
@@ -425,7 +422,7 @@ public class OrcWriter
         bufferedBytes = 0;
         for (int channel = 0; channel < chunk.getChannelCount(); channel++) {
             ColumnWriter writer = columnWriters.get(channel);
-            writer.writeBlock(chunk.getBlock(channel));
+            stripeRawSize += writer.writeBlock(chunk.getBlock(channel));
             bufferedBytes += writer.getBufferedBytes();
         }
 
@@ -494,6 +491,8 @@ public class OrcWriter
             dictionaryCompressionOptimizer.reset();
             rowGroupRowCount = 0;
             stripeRowCount = 0;
+            rawSize += stripeRawSize;
+            stripeRawSize = 0;
             bufferedBytes = toIntExact(columnWriters.stream().mapToLong(ColumnWriter::getBufferedBytes).sum());
         }
     }
@@ -619,7 +618,7 @@ public class OrcWriter
 
         recordValidation(validation -> validation.addStripeStatistics(stripeStartOffset, statistics));
 
-        StripeInformation stripeInformation = new StripeInformation(stripeRowCount, stripeStartOffset, indexLength, dataLength, footer.length(), dwrfEncryptionInfo.getEncryptedKeyMetadatas());
+        StripeInformation stripeInformation = new StripeInformation(stripeRowCount, stripeStartOffset, indexLength, dataLength, footer.length(), OptionalLong.of(stripeRawSize), dwrfEncryptionInfo.getEncryptedKeyMetadatas());
         ClosedStripe closedStripe = new ClosedStripe(stripeInformation, statistics);
         closedStripes.add(closedStripe);
         closedStripesRetainedBytes += closedStripe.getRetainedSizeInBytes();
@@ -734,6 +733,7 @@ public class OrcWriter
         Footer footer = new Footer(
                 numberOfRows,
                 rowGroupMaxRowCount,
+                OptionalLong.of(rawSize),
                 closedStripes.stream()
                         .map(ClosedStripe::getStripeInformation)
                         .collect(toList()),

@@ -10,7 +10,7 @@
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.262-SNAPSHOT</version>
+    <version>0.263-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -172,6 +172,8 @@
         <module>presto-thrift-testing-udf-server</module>
         <module>presto-thrift-spec</module>
         <module>presto-testng-services</module>
+        <module>presto-node-ttl-fetchers</module>
+        <module>presto-cluster-ttl-providers</module>
     </modules>
 
     <dependencyManagement>
@@ -230,6 +232,18 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-session-property-managers</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-node-ttl-fetchers</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-cluster-ttl-providers</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

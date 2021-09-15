@@ -54,7 +54,7 @@ public class TestDistributedClusterStatsResource
     {
         client = new JettyHttpClient();
         DistributedQueryRunner runner = createQueryRunner(ImmutableMap.of("query.client.timeout", "10s"), 2);
-        coordinator = runner.getCoordinators().get(0);
+        coordinator = runner.getCoordinator(0);
         Optional<TestingPrestoServer> resourceManager = runner.getResourceManager();
         checkState(resourceManager.isPresent(), "resource manager not present");
         this.resourceManager = resourceManager.get();

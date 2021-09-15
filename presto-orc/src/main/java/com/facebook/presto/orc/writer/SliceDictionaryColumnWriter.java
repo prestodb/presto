@@ -149,7 +149,8 @@ public class SliceDictionaryColumnWriter
             }
             rowGroupIndexes[rowGroupValueCount++] = index;
         }
-        return new BlockStatistics(nonNullValueCount, rawBytes);
+        long rawBytesIncludingNulls = rawBytes + (block.getPositionCount() - nonNullValueCount) * NULL_SIZE;
+        return new BlockStatistics(nonNullValueCount, rawBytes, rawBytesIncludingNulls);
     }
 
     @Override

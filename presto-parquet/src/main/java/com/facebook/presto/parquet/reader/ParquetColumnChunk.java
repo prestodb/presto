@@ -29,7 +29,7 @@ import org.apache.parquet.format.Util;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 
 import static com.facebook.presto.parquet.ParquetTypeUtils.getParquetEncoding;
@@ -64,7 +64,7 @@ public class ParquetColumnChunk
     public PageReader readAllPages()
             throws IOException
     {
-        List<DataPage> pages = new ArrayList<>();
+        LinkedList<DataPage> pages = new LinkedList<>();
         DictionaryPage dictionaryPage = null;
         long valueCount = 0;
         while (valueCount < descriptor.getColumnChunkMetaData().getValueCount()) {
@@ -89,7 +89,7 @@ public class ParquetColumnChunk
                     break;
             }
         }
-        return new PageReader(descriptor.getColumnChunkMetaData().getCodec(), pages, dictionaryPage);
+        return new PageReader(descriptor.getColumnChunkMetaData().getCodec(), pages, dictionaryPage, valueCount);
     }
 
     public int getPosition()

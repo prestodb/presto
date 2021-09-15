@@ -15,12 +15,14 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.execution.QueryState;
+import com.facebook.presto.execution.resourceGroups.InternalResourceGroupManager;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.resourcemanager.ResourceManagerProxy;
 import com.facebook.presto.spi.NodeState;
+import com.facebook.presto.ttl.clusterttlprovidermanagers.ClusterTtlProviderManager;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -60,8 +62,9 @@ public class ClusterStatsResource
     private final boolean isIncludeCoordinator;
     private final boolean resourceManagerEnabled;
     private final ClusterMemoryManager clusterMemoryManager;
-    private final InternalNodeManager internalNodeManager;
     private final Optional<ResourceManagerProxy> proxyHelper;
+    private final InternalResourceGroupManager internalResourceGroupManager;
+    private final ClusterTtlProviderManager clusterTtlProviderManager;
 
     @Inject
     public ClusterStatsResource(
@@ -70,16 +73,18 @@ public class ClusterStatsResource
             InternalNodeManager nodeManager,
             DispatchManager dispatchManager,
             ClusterMemoryManager clusterMemoryManager,
-            InternalNodeManager internalNodeManager,
-            Optional<ResourceManagerProxy> proxyHelper)
+            Optional<ResourceManagerProxy> proxyHelper,
+            InternalResourceGroupManager internalResourceGroupManager,
+            ClusterTtlProviderManager clusterTtlProviderManager)
     {
         this.isIncludeCoordinator = requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null").isIncludeCoordinator();
         this.resourceManagerEnabled = requireNonNull(serverConfig, "serverConfig is null").isResourceManagerEnabled();
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
         this.clusterMemoryManager = requireNonNull(clusterMemoryManager, "clusterMemoryManager is null");
-        this.internalNodeManager = requireNonNull(internalNodeManager, "internalNodeManager is null");
         this.proxyHelper = requireNonNull(proxyHelper, "internalNodeManager is null");
+        this.internalResourceGroupManager = requireNonNull(internalResourceGroupManager, "internalResourceGroupManager is null");
+        this.clusterTtlProviderManager = requireNonNull(clusterTtlProviderManager, "clusterTtlProvider is null");
     }
 
     @GET
@@ -143,7 +148,8 @@ public class ClusterStatsResource
                 memoryReservation,
                 totalInputRows,
                 totalInputBytes,
-                totalCpuTimeSecs)).build());
+                totalCpuTimeSecs,
+                internalResourceGroupManager.getQueriesQueuedOnInternal())).build());
     }
 
     @GET
@@ -164,11 +170,18 @@ public class ClusterStatsResource
                 .build();
     }
 
+    @GET
+    @Path("ttl")
+    public Response getClusterTtl()
+    {
+        return Response.ok().entity(clusterTtlProviderManager.getClusterTtl()).build();
+    }
+
     private void proxyClusterStats(HttpServletRequest servletRequest, AsyncResponse asyncResponse, String xForwardedProto, UriInfo uriInfo)
     {
         try {
             checkState(proxyHelper.isPresent());
-            Iterator<InternalNode> resourceManagers = internalNodeManager.getResourceManagers().iterator();
+            Iterator<InternalNode> resourceManagers = nodeManager.getResourceManagers().iterator();
             if (!resourceManagers.hasNext()) {
                 asyncResponse.resume(Response.status(SERVICE_UNAVAILABLE).build());
                 return;
@@ -201,6 +214,7 @@ public class ClusterStatsResource
         private final long totalInputRows;
         private final long totalInputBytes;
         private final long totalCpuTimeSecs;
+        private final long adjustedQueueSize;
 
         @JsonCreator
         public ClusterStats(
@@ -212,7 +226,8 @@ public class ClusterStatsResource
                 @JsonProperty("reservedMemory") double reservedMemory,
                 @JsonProperty("totalInputRows") long totalInputRows,
                 @JsonProperty("totalInputBytes") long totalInputBytes,
-                @JsonProperty("totalCpuTimeSecs") long totalCpuTimeSecs)
+                @JsonProperty("totalCpuTimeSecs") long totalCpuTimeSecs,
+                @JsonProperty("adjustedQueueSize") long adjustedQueueSize)
         {
             this.runningQueries = runningQueries;
             this.blockedQueries = blockedQueries;
@@ -223,6 +238,7 @@ public class ClusterStatsResource
             this.totalInputRows = totalInputRows;
             this.totalInputBytes = totalInputBytes;
             this.totalCpuTimeSecs = totalCpuTimeSecs;
+            this.adjustedQueueSize = adjustedQueueSize;
         }
 
         @JsonProperty
@@ -277,6 +293,12 @@ public class ClusterStatsResource
         public long getTotalCpuTimeSecs()
         {
             return totalCpuTimeSecs;
+        }
+
+        @JsonProperty
+        public long getAdjustedQueueSize()
+        {
+            return adjustedQueueSize;
         }
     }
 }

@@ -16,15 +16,15 @@ package com.facebook.presto.benchmark;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableMap;
 
-import static com.facebook.presto.SystemSessionProperties.AGGREGATION_IF_TO_FILTER_REWRITE_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY;
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 
 public abstract class AggregateIfBenchmark
 {
     public static void main(String... args)
     {
-        LocalQueryRunner localQueryRunnerWithRewrite = createLocalQueryRunner(ImmutableMap.of(AGGREGATION_IF_TO_FILTER_REWRITE_ENABLED, "true"));
-        LocalQueryRunner localQueryRunnerWithoutRewrite = createLocalQueryRunner(ImmutableMap.of(AGGREGATION_IF_TO_FILTER_REWRITE_ENABLED, "false"));
+        LocalQueryRunner localQueryRunnerWithRewrite = createLocalQueryRunner(ImmutableMap.of(AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY, "filter_with_if"));
+        LocalQueryRunner localQueryRunnerWithoutRewrite = createLocalQueryRunner(ImmutableMap.of(AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY, "disabled"));
         new SumIfBenchmark(localQueryRunnerWithoutRewrite, false).runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
         new SumIfBenchmark(localQueryRunnerWithRewrite, true).runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
         new SumFilterBenchmark(localQueryRunnerWithRewrite).runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));

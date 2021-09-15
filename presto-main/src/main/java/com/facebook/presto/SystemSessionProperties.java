@@ -17,6 +17,7 @@ import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.execution.scheduler.NodeSchedulerConfig.ResourceAwareSchedulingStrategy;
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.execution.warnings.WarningHandlingLevel;
 import com.facebook.presto.memory.MemoryManagerConfig;
@@ -25,6 +26,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationIfToFilterRewriteStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMergingStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
@@ -203,7 +205,13 @@ public final class SystemSessionProperties
     public static final String VERBOSE_EXCEEDED_MEMORY_LIMIT_ERRORS_ENABLED = "verbose_exceeded_memory_limit_errors_enabled";
     public static final String MATERIALIZED_VIEW_DATA_CONSISTENCY_ENABLED = "materialized_view_data_consistency_enabled";
     public static final String QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED = "query_optimization_with_materialized_view_enabled";
-    public static final String AGGREGATION_IF_TO_FILTER_REWRITE_ENABLED = "aggregation_if_to_filter_rewrite_enabled";
+    public static final String AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY = "aggregation_if_to_filter_rewrite_strategy";
+    public static final String RESOURCE_AWARE_SCHEDULING_STRATEGY = "resource_aware_scheduling_strategy";
+    public static final String HEAP_DUMP_ON_EXCEEDED_MEMORY_LIMIT_ENABLED = "heap_dump_on_exceeded_memory_limit_enabled";
+    public static final String EXCEEDED_MEMORY_LIMIT_HEAP_DUMP_FILE_DIRECTORY = "exceeded_memory_limit_heap_dump_file_directory";
+
+    //TODO: Prestissimo related session properties that are temporarily put here. They will be relocated in the future
+    public static final String PRESTISSIMO_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "simplified_expression_evaluation_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1096,11 +1104,45 @@ public final class SystemSessionProperties
                         "Enable query optimization with materialized view",
                         featuresConfig.isQueryOptimizationWithMaterializedViewEnabled(),
                         true),
+                new PropertyMetadata<>(
+                        AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY,
+                        format("Set the strategy used to rewrite AGG IF to AGG FILTER. Options are %s",
+                                Stream.of(AggregationIfToFilterRewriteStrategy.values())
+                                        .map(AggregationIfToFilterRewriteStrategy::name)
+                                        .collect(joining(","))),
+                        VARCHAR,
+                        AggregationIfToFilterRewriteStrategy.class,
+                        featuresConfig.getAggregationIfToFilterRewriteStrategy(),
+                        false,
+                        value -> AggregationIfToFilterRewriteStrategy.valueOf(((String) value).toUpperCase()),
+                        AggregationIfToFilterRewriteStrategy::name),
                 booleanProperty(
-                        AGGREGATION_IF_TO_FILTER_REWRITE_ENABLED,
-                        "Enable rewriting the IF expression inside an aggregation function to a filter clause outside the aggregation",
-                        featuresConfig.isAggregationIfToFilterRewriteEnabled(),
-                        false));
+                        PRESTISSIMO_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED,
+                        "Enable simplified path in expression evaluation",
+                        false,
+                        false),
+                new PropertyMetadata<>(
+                        RESOURCE_AWARE_SCHEDULING_STRATEGY,
+                        format("Task assignment strategy to use. Options are %s",
+                                Stream.of(ResourceAwareSchedulingStrategy.values())
+                                        .map(ResourceAwareSchedulingStrategy::name)
+                                        .collect(joining(","))),
+                        VARCHAR,
+                        ResourceAwareSchedulingStrategy.class,
+                        nodeSchedulerConfig.getResourceAwareSchedulingStrategy(),
+                        false,
+                        value -> ResourceAwareSchedulingStrategy.valueOf(((String) value).toUpperCase()),
+                        ResourceAwareSchedulingStrategy::name),
+                booleanProperty(
+                        HEAP_DUMP_ON_EXCEEDED_MEMORY_LIMIT_ENABLED,
+                        "Trigger heap dump to `EXCEEDED_MEMORY_LIMIT_HEAP_DUMP_FILE_PATH` on exceeded memory limit exceptions",
+                        false, // This is intended to be used for debugging purposes only and thus we does not need an associated config property
+                        true),
+                stringProperty(
+                        EXCEEDED_MEMORY_LIMIT_HEAP_DUMP_FILE_DIRECTORY,
+                        "Directory to which heap snapshot will be dumped, if heap_dump_on_exceeded_memory_limit_enabled",
+                        System.getProperty("java.io.tmpdir"),   // This is intended to be used for debugging purposes only and thus we does not need an associated config property
+                        true));
     }
 
     public static boolean isEmptyJoinOptimization(Session session)
@@ -1152,9 +1194,9 @@ public final class SystemSessionProperties
         return session.getSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.class);
     }
 
-    public static Optional<DataSize> getJoinMaxBroadcastTableSize(Session session)
+    public static DataSize getJoinMaxBroadcastTableSize(Session session)
     {
-        return Optional.ofNullable(session.getSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, DataSize.class));
+        return session.getSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, DataSize.class);
     }
 
     public static boolean isDistributedIndexJoinEnabled(Session session)
@@ -1856,8 +1898,23 @@ public final class SystemSessionProperties
         return session.getSystemProperty(QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED, Boolean.class);
     }
 
-    public static boolean isAggregationIfToFilterRewriteEnabled(Session session)
+    public static AggregationIfToFilterRewriteStrategy getAggregationIfToFilterRewriteStrategy(Session session)
     {
-        return session.getSystemProperty(AGGREGATION_IF_TO_FILTER_REWRITE_ENABLED, Boolean.class);
+        return session.getSystemProperty(AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY, AggregationIfToFilterRewriteStrategy.class);
+    }
+
+    public static ResourceAwareSchedulingStrategy getResourceAwareSchedulingStrategy(Session session)
+    {
+        return session.getSystemProperty(RESOURCE_AWARE_SCHEDULING_STRATEGY, ResourceAwareSchedulingStrategy.class);
+    }
+
+    public static Boolean isHeapDumpOnExceededMemoryLimitEnabled(Session session)
+    {
+        return session.getSystemProperty(HEAP_DUMP_ON_EXCEEDED_MEMORY_LIMIT_ENABLED, Boolean.class);
+    }
+
+    public static String getHeapDumpFileDirectory(Session session)
+    {
+        return session.getSystemProperty(EXCEEDED_MEMORY_LIMIT_HEAP_DUMP_FILE_DIRECTORY, String.class);
     }
 }
