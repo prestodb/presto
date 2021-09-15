@@ -721,7 +721,7 @@ public class OrcSelectiveRecordReader
                 blocks[i] = RunLengthEncodedBlock.create(columnTypes.get(columnIndex), constantValues[columnIndex] == NULL_MARKER ? null : constantValues[columnIndex], positionCount);
             }
             else if (!hasAnyFilter(columnIndex)) {
-                blocks[i] = new LazyBlock(positionCount, new OrcBlockLoader(getStreamReader(columnIndex), coercers[columnIndex], offset, positionsToRead, positionCount));
+                blocks[i] = new LazyBlock(positionCount, new OrcBlockLoader(columnIndex, offset, positionsToRead, positionCount));
             }
             else {
                 Block block = getStreamReader(columnIndex).getBlock(positionsToRead, positionCount);
@@ -887,21 +887,23 @@ public class OrcSelectiveRecordReader
         super.close();
     }
 
-    private static final class OrcBlockLoader
+    private final class OrcBlockLoader
             implements LazyBlockLoader<LazyBlock>
     {
         private final SelectiveStreamReader reader;
         @Nullable
         private final Function<Block, Block> coercer;
+        private final int columnIndex;
         private final int offset;
         private final int[] positions;
         private final int positionCount;
         private boolean loaded;
 
-        public OrcBlockLoader(SelectiveStreamReader reader, @Nullable Function<Block, Block> coercer, int offset, int[] positions, int positionCount)
+        public OrcBlockLoader(int columnIndex, int offset, int[] positions, int positionCount)
         {
-            this.reader = requireNonNull(reader, "reader is null");
-            this.coercer = coercer; // can be null
+            this.reader = requireNonNull(getStreamReader(columnIndex), "reader is null");
+            this.coercer = coercers[columnIndex]; // can be null
+            this.columnIndex = columnIndex;
             this.offset = offset;
             this.positions = requireNonNull(positions, "positions is null");
             this.positionCount = positionCount;
@@ -926,6 +928,8 @@ public class OrcSelectiveRecordReader
                 block = coercer.apply(block);
             }
             lazyBlock.setBlock(block);
+
+            updateMaxCombinedBytesPerRow(hiveColumnIndices[columnIndex], block);
 
             loaded = true;
         }
