@@ -371,6 +371,7 @@ public final class ThriftMetastoreUtil
         result.setValues(partition.getValues());
         result.setSd(makeStorageDescriptor(partition.getTableName(), partition.getColumns(), partition.getStorage()));
         result.setParameters(partition.getParameters());
+        result.setCreateTime(partition.getCreateTime());
         return result;
     }
 
@@ -489,7 +490,8 @@ public final class ThriftMetastoreUtil
                 .setColumns(storageDescriptor.getCols().stream()
                         .map(ThriftMetastoreUtil::fromMetastoreApiFieldSchema)
                         .collect(toList()))
-                .setParameters(partition.getParameters());
+                .setParameters(partition.getParameters())
+                .setCreateTime(partition.getCreateTime());
 
         // mutate apache partition to Presto partition
         partitionMutator.mutate(partitionBuilder, partition);

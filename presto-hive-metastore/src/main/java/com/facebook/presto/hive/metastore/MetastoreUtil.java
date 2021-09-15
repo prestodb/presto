@@ -145,7 +145,13 @@ public class MetastoreUtil
     private static final String NUM_ROWS = "numRows";
     private static final String RAW_DATA_SIZE = "rawDataSize";
     private static final String TOTAL_SIZE = "totalSize";
-    private static final Set<String> STATS_PROPERTIES = ImmutableSet.of(NUM_FILES, NUM_ROWS, RAW_DATA_SIZE, TOTAL_SIZE);
+    // transient_lastDdlTime is the parameter recording the latest ddl time.
+    // It should be added in STATS_PROPERTIES so that it can be skipped when
+    // updating StatisticsParameters, which allows hive find this dismiss
+    // parameter and create a new transient_lastDdlTime with present time
+    // rather than copying the old transient_lastDdlTime to hive partition.
+    private static final String TRANSIENT_LAST_DDL_TIME = "transient_lastDdlTime";
+    private static final Set<String> STATS_PROPERTIES = ImmutableSet.of(NUM_FILES, NUM_ROWS, RAW_DATA_SIZE, TOTAL_SIZE, TRANSIENT_LAST_DDL_TIME);
 
     private MetastoreUtil()
     {

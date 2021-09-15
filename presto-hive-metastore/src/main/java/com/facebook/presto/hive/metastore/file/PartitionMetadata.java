@@ -197,6 +197,7 @@ public class PartitionMetadata
                 parameters,
                 Optional.empty(),
                 eligibleToIgnore,
-                sealedPartition);
+                sealedPartition,
+                0);
     }
 }
