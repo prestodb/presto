@@ -56,6 +56,11 @@ class ArithmeticTest : public functions::test::FunctionBaseTest {
           std::string(e.what()).find(errorMessage) != std::string::npos);
     }
   }
+
+  const double kInf = std::numeric_limits<double>::infinity();
+  const double kNan = std::numeric_limits<double>::quiet_NaN();
+  const float kInfF = std::numeric_limits<float>::infinity();
+  const float kNanF = std::numeric_limits<float>::quiet_NaN();
 };
 
 TEST_F(ArithmeticTest, divide)
@@ -71,46 +76,31 @@ __attribute__((__no_sanitize__("float-divide-by-zero")))
   assertError<int32_t>("c0 / c1", {10}, {0}, "division by zero");
   assertError<int32_t>("c0 / c1", {0}, {0}, "division by zero");
 
-  float nan = std::nanf("");
-  float inf = std::numeric_limits<float>::infinity();
   assertExpression<float>(
-      "c0 / c1", {10.5, 9.2, 0.0}, {2, 0, 0}, {5.25, inf, nan});
+      "c0 / c1", {10.5, 9.2, 0.0}, {2, 0, 0}, {5.25, kInfF, kNanF});
   assertExpression<double>(
-      "c0 / c1", {10.5, 9.2, 0.0}, {2, 0, 0}, {5.25, inf, nan});
+      "c0 / c1", {10.5, 9.2, 0.0}, {2, 0, 0}, {5.25, kInf, kNan});
 }
 
 TEST_F(ArithmeticTest, modulus) {
-  // Doubles as input.
   std::vector<double> numerDouble = {0, 6, 0, -7, -1, -9, 9, 10.1};
   std::vector<double> denomDouble = {1, 2, -1, 3, -1, -3, -3, -99.9};
-  std::vector<double> expectedDouble;
-
-  expectedDouble.reserve(numerDouble.size());
-  for (size_t i = 0; i < numerDouble.size(); i++) {
-    expectedDouble.emplace_back(std::fmod(numerDouble[i], denomDouble[i]));
-  }
-
-  double nan = std::nan("");
-  double inf = std::numeric_limits<double>::infinity();
+  std::vector<double> expectedDouble = {0, 0, 0, -1, 0, 0, 0, 10.1};
 
   // Check using function name and alias.
   assertExpression<double>(
       "modulus(c0, c1)", numerDouble, denomDouble, expectedDouble);
   assertExpression<double>(
       "modulus(c0, c1)",
-      {5.1, nan, 5.1, inf, 5.1},
-      {0.0, 5.1, nan, 5.1, inf},
-      {nan, nan, nan, nan, 5.1});
+      {5.1, kNan, 5.1, kInf, 5.1},
+      {0.0, 5.1, kNan, 5.1, kInf},
+      {kNan, kNan, kNan, kNan, 5.1});
+}
 
-  // Integers as input.
+TEST_F(ArithmeticTest, modulusInt) {
   std::vector<int64_t> numerInt = {9, 10, 0, -9, -10, -11};
   std::vector<int64_t> denomInt = {3, -3, 11, -1, 199999, 77};
-  std::vector<int64_t> expectedInt;
-  expectedInt.reserve(numerInt.size());
-
-  for (size_t i = 0; i < numerInt.size(); i++) {
-    expectedInt.emplace_back(numerInt[i] % denomInt[i]);
-  }
+  std::vector<int64_t> expectedInt = {0, 1, 0, 0, -10, -11};
 
   assertExpression<int64_t, int64_t>(
       "modulus(c0, c1)", numerInt, denomInt, expectedInt);
@@ -118,13 +108,10 @@ TEST_F(ArithmeticTest, modulus) {
 }
 
 TEST_F(ArithmeticTest, power) {
-  float inf = std::numeric_limits<float>::infinity();
-
-  // Doubles as input.
   std::vector<double> baseDouble = {
-      0, 0, 0, -1, -1, -1, -9, 9.1, 10.1, 11.1, -11.1, 0, inf, inf};
+      0, 0, 0, -1, -1, -1, -9, 9.1, 10.1, 11.1, -11.1, 0, kInf, kInf};
   std::vector<double> exponentDouble = {
-      0, 1, -1, 0, 1, -1, -3.3, 123456.432, -99.9, 0, 100000, inf, 0, inf};
+      0, 1, -1, 0, 1, -1, -3.3, 123456.432, -99.9, 0, 100000, kInf, 0, kInf};
   std::vector<double> expectedDouble;
   expectedDouble.reserve(baseDouble.size());
 
@@ -137,12 +124,13 @@ TEST_F(ArithmeticTest, power) {
       "power(c0, c1)", baseDouble, exponentDouble, expectedDouble);
   assertExpression<double>(
       "pow(c0, c1)", baseDouble, exponentDouble, expectedDouble);
+}
 
-  // Integers as input.
+TEST_F(ArithmeticTest, powerInt) {
   std::vector<int64_t> baseInt = {9, 10, 11, -9, -10, -11, 0};
   std::vector<int64_t> exponentInt = {3, -3, 0, -1, 199999, 77, 0};
   std::vector<double> expectedInt;
-  expectedInt.reserve(baseDouble.size());
+  expectedInt.reserve(baseInt.size());
 
   for (size_t i = 0; i < baseInt.size(); i++) {
     expectedInt.emplace_back(pow(baseInt[i], exponentInt[i]));
@@ -155,8 +143,6 @@ TEST_F(ArithmeticTest, power) {
 }
 
 TEST_F(ArithmeticTest, exp) {
-  constexpr double kInf = std::numeric_limits<double>::infinity();
-  constexpr double kNan = std::numeric_limits<double>::quiet_NaN();
   const double kE = std::exp(1);
 
   const auto exp = [&](std::optional<double> a) {
@@ -173,8 +159,6 @@ TEST_F(ArithmeticTest, exp) {
 }
 
 TEST_F(ArithmeticTest, ln) {
-  constexpr double kInf = std::numeric_limits<double>::infinity();
-  constexpr double kNan = std::numeric_limits<double>::quiet_NaN();
   const double kE = std::exp(1);
 
   const auto ln = [&](std::optional<double> a) {
@@ -192,7 +176,6 @@ TEST_F(ArithmeticTest, ln) {
 
 TEST_F(ArithmeticTest, sqrt) {
   constexpr double kDoubleMax = std::numeric_limits<double>::max();
-  const double kNan = std::numeric_limits<double>::quiet_NaN();
 
   const auto sqrt = [&](std::optional<double> a) {
     return evaluateOnce<double>("sqrt(c0)", a);
@@ -211,7 +194,6 @@ TEST_F(ArithmeticTest, sqrt) {
 
 TEST_F(ArithmeticTest, cbrt) {
   constexpr double kDoubleMax = std::numeric_limits<double>::max();
-  const double kNan = std::numeric_limits<double>::quiet_NaN();
 
   const auto cbrt = [&](std::optional<double> a) {
     return evaluateOnce<double>("cbrt(c0)", a);
@@ -229,8 +211,6 @@ TEST_F(ArithmeticTest, cbrt) {
 }
 
 TEST_F(ArithmeticTest, widthBucket) {
-  constexpr double kInf = std::numeric_limits<double>::infinity();
-  constexpr double kNan = std::numeric_limits<double>::quiet_NaN();
   constexpr int64_t kMaxInt64 = std::numeric_limits<int64_t>::max();
 
   const auto widthBucket = [&](std::optional<double> operand,
