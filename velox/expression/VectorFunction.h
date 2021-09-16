@@ -162,6 +162,17 @@ using VectorFunctionFactory = std::function<std::shared_ptr<VectorFunction>(
     const std::string& name,
     const std::vector<VectorFunctionArg>& inputArgs)>;
 
+struct VectorFunctionEntry {
+  std::vector<std::shared_ptr<FunctionSignature>> signatures;
+  VectorFunctionFactory factory;
+};
+
+// TODO: Use folly::Singleton here
+using VectorFunctionMap =
+    folly::Synchronized<std::unordered_map<std::string, VectorFunctionEntry>>;
+
+VectorFunctionMap& vectorFunctionFactories();
+
 // A template to simplify making VectorFunctionFactory for a function that has a
 // constructor that takes inputTypes and constantInputs
 //

@@ -21,23 +21,10 @@
 
 namespace facebook::velox::exec {
 
-namespace {
-
-struct VectorFunctionEntry {
-  std::vector<std::shared_ptr<FunctionSignature>> signatures;
-  VectorFunctionFactory factory;
-};
-
-// TODO: Use folly::Singleton here
-using VectorFunctionMap =
-    folly::Synchronized<std::unordered_map<std::string, VectorFunctionEntry>>;
-
 VectorFunctionMap& vectorFunctionFactories() {
   static VectorFunctionMap factories;
   return factories;
 }
-
-} // namespace
 
 std::optional<std::vector<std::shared_ptr<FunctionSignature>>>
 getVectorFunctionSignatures(const std::string& name) {
