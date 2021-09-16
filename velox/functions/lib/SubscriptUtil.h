@@ -230,7 +230,7 @@ class SubscriptImpl : public exec::VectorFunction {
     if constexpr (indexStartsAtOne) {
       // If it's zero, throw.
       if (UNLIKELY(index == 0)) {
-        VELOX_USER_THROW("SQL array indices start at 1");
+        VELOX_USER_FAIL("SQL array indices start at 1");
       }
 
       // If larger than zero, adjust it.
@@ -262,7 +262,7 @@ class SubscriptImpl : public exec::VectorFunction {
           index += arraySize;
         }
       } else {
-        VELOX_USER_THROW("Array subscript is negative.");
+        VELOX_USER_FAIL("Array subscript is negative.");
       }
     }
 
@@ -274,7 +274,7 @@ class SubscriptImpl : public exec::VectorFunction {
       }
       // Otherwise, throw.
       else {
-        VELOX_USER_THROW("Array subscript out of bounds.");
+        VELOX_USER_FAIL("Array subscript out of bounds.");
       }
     }
 

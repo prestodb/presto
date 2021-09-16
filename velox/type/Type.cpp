@@ -62,7 +62,7 @@ TypeKind mapNameToTypeKind(const std::string& name) {
   auto found = typeStringMap.find(name);
 
   if (found == typeStringMap.end()) {
-    VELOX_USER_THROW("Specified element is not found : {}", name);
+    VELOX_USER_FAIL("Specified element is not found : {}", name);
   }
 
   return found->second;
@@ -91,7 +91,7 @@ std::string mapTypeKindToName(const TypeKind& typeKind) {
   auto found = typeEnumMap.find(typeKind);
 
   if (found == typeEnumMap.end()) {
-    VELOX_USER_THROW("Specified element is not found : {}", (int32_t)typeKind);
+    VELOX_USER_FAIL("Specified element is not found : {}", (int32_t)typeKind);
   }
 
   return found->second;
@@ -201,7 +201,7 @@ const std::shared_ptr<const Type>& MapType::childAt(uint32_t idx) const {
   } else if (idx == 1) {
     return valueType();
   }
-  VELOX_USER_THROW("Map type should have only two children");
+  VELOX_USER_FAIL("Map type should have only two children");
 }
 
 MapType::MapType(
@@ -249,7 +249,7 @@ const std::shared_ptr<const Type>& RowType::findChild(
       return children_.at(i);
     }
   }
-  VELOX_USER_THROW("Field not found: {}", name);
+  VELOX_USER_FAIL("Field not found: {}", name);
 }
 
 bool RowType::containsChild(std::string_view name) const {
@@ -262,7 +262,7 @@ uint32_t RowType::getChildIdx(const std::string& name) const {
       return i;
     }
   }
-  VELOX_USER_THROW("Field not found: {}", name);
+  VELOX_USER_FAIL("Field not found: {}", name);
 }
 
 bool RowType::operator==(const Type& other) const {
@@ -553,7 +553,7 @@ template <>
 std::shared_ptr<const Type> createType<TypeKind::ROW>(
     std::vector<std::shared_ptr<const Type>>&& /*children*/) {
   std::string name{TypeTraits<TypeKind::ROW>::name};
-  VELOX_USER_THROW("Not supported for kind: {}", name);
+  VELOX_USER_FAIL("Not supported for kind: {}", name);
 }
 
 template <>
@@ -574,7 +574,7 @@ template <>
 std::shared_ptr<const Type> createType<TypeKind::OPAQUE>(
     std::vector<std::shared_ptr<const Type>>&& /*children*/) {
   std::string name{TypeTraits<TypeKind::OPAQUE>::name};
-  VELOX_USER_THROW("Not supported for kind: {}", name);
+  VELOX_USER_FAIL("Not supported for kind: {}", name);
 }
 
 bool Type::containsUnknown() const {

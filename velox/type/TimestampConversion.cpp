@@ -445,7 +445,7 @@ int32_t fromDate(int32_t year, int32_t month, int32_t day) {
   int32_t daysSinceEpoch = 0;
 
   if (!isValidDate(year, month, day)) {
-    VELOX_USER_THROW("Date out of range: {}-{}-{}", year, month, day);
+    VELOX_USER_FAIL("Date out of range: {}-{}-{}", year, month, day);
   }
   while (year < 1970) {
     year += kYearInterval;
@@ -467,7 +467,7 @@ int32_t fromDateString(const char* str, size_t len) {
   size_t pos = 0;
 
   if (!tryParseDateString(str, len, pos, daysSinceEpoch, true)) {
-    VELOX_USER_THROW(
+    VELOX_USER_FAIL(
         "Unable to parse date value: \"{}\", expected format is (YYYY-MM-DD)",
         std::string(str, len));
   }
@@ -489,7 +489,7 @@ int64_t fromTimeString(const char* str, size_t len) {
   size_t pos;
 
   if (!tryParseTimeString(str, len, pos, microsSinceMidnight, true)) {
-    VELOX_USER_THROW(
+    VELOX_USER_FAIL(
         "Unable to parse time value: \"{}\", "
         "expected format is (HH:MM:SS[.MS])",
         std::string(str, len));
@@ -508,7 +508,7 @@ Timestamp fromDatetime(int32_t daysSinceEpoch, int64_t microsSinceMidnight) {
 }
 
 void parserError(const char* str, size_t len) {
-  VELOX_USER_THROW(
+  VELOX_USER_FAIL(
       "Unable to parse timestamp value: \"{}\", "
       "expected format is (YYYY-MM-DD HH:MM:SS[.MS])",
       std::string(str, len));

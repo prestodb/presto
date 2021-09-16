@@ -432,7 +432,7 @@ TEST(ExceptionTests, ExceptionWithErrorCode) {
           "\nFile: ",
           "VeloxUserError",
           "USER",
-          "GENERIC_USER_ERROR",
+          "INVALID_ARGUMENT",
           "False",
           "operator()"));
 }

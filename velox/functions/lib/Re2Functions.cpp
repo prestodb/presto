@@ -61,7 +61,7 @@ std::optional<T> getIfConstant(const BaseVector& v) {
 
 void checkForBadPattern(const RE2& re) {
   if (UNLIKELY(!re.ok())) {
-    VELOX_USER_THROW("invalid regular expression:{}", re.error());
+    VELOX_USER_FAIL("invalid regular expression:{}", re.error());
   }
 }
 
@@ -172,7 +172,7 @@ class Re2Match final : public VectorFunction {
 
 void checkForBadGroupId(int groupId, const RE2& re) {
   if (UNLIKELY(groupId < 0 || groupId > re.NumberOfCapturingGroups())) {
-    VELOX_USER_THROW("No group {} in regex '{}'", groupId, re.pattern());
+    VELOX_USER_FAIL("No group {} in regex '{}'", groupId, re.pattern());
   }
 }
 

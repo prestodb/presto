@@ -28,7 +28,7 @@ void ensureRegexIsCompatible(
     const VectorPtr& patternVector) {
   if (!patternVector ||
       patternVector->encoding() != VectorEncoding::Simple::CONSTANT) {
-    VELOX_USER_THROW("{} requires a constant pattern.", functionName);
+    VELOX_USER_FAIL("{} requires a constant pattern.", functionName);
   }
   if (patternVector->isNullAt(0)) {
     return;
@@ -43,8 +43,9 @@ void ensureRegexIsCompatible(
       ++c;
     } else if (*c == '[') {
       if (charClassStart) {
-        VELOX_USER_THROW(
-            "{} does not support character class union, intersection, or difference ([a[b]], [a&&[b]], [a&&[^b]])",
+        VELOX_USER_FAIL(
+            "{} does not support character class union, intersection, "
+            "or difference ([a[b]], [a&&[b]], [a&&[^b]])",
             functionName);
       }
       charClassStart = c;

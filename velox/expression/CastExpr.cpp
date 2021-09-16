@@ -350,7 +350,7 @@ void CastExpr::applyRow(
 
     if (matchNotFound) {
       if (nullOnFailure_) {
-        VELOX_USER_THROW(
+        VELOX_USER_FAIL(
             "Invalid complex cast the match is not found for the field {}",
             toFieldName)
       }

@@ -314,15 +314,6 @@ DECLARE_CHECK_FAIL_TEMPLATES(::facebook::velox::VeloxRuntimeError);
 
 DECLARE_CHECK_FAIL_TEMPLATES(::facebook::velox::VeloxUserError);
 
-#define VELOX_USER_THROW(...)                                    \
-  _VELOX_THROW_IMPL(                                             \
-      ::facebook::velox::VeloxUserError,                         \
-      "",                                                        \
-      ::facebook::velox::error_source::kErrorSourceUser.c_str(), \
-      ::facebook::velox::error_code::kInvalidArgument.c_str(),   \
-      /* isRetriable */ false,                                   \
-      ##__VA_ARGS__)
-
 // For all below macros, an additional message can be passed using a
 // format string and arguments, as with `fmt::format`.
 #define VELOX_USER_CHECK(expr, ...) \
@@ -373,7 +364,7 @@ DECLARE_CHECK_FAIL_TEMPLATES(::facebook::velox::VeloxUserError);
   _VELOX_THROW(                                                  \
       ::facebook::velox::VeloxUserError,                         \
       ::facebook::velox::error_source::kErrorSourceUser.c_str(), \
-      ::facebook::velox::error_code::kGenericUserError.c_str(),  \
+      ::facebook::velox::error_code::kInvalidArgument.c_str(),   \
       /* isRetriable */ false,                                   \
       ##__VA_ARGS__)
 
