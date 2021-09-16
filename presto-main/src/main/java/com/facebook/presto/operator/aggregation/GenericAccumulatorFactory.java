@@ -353,14 +353,19 @@ public class GenericAccumulatorFactory
 
     private static Page filter(Page page, Block mask)
     {
+        boolean mayHaveNull = mask.mayHaveNull();
         int[] ids = new int[mask.getPositionCount()];
         int next = 0;
         for (int i = 0; i < page.getPositionCount(); ++i) {
-            if (BOOLEAN.getBoolean(mask, i)) {
+            boolean isNull = mayHaveNull && mask.isNull(i);
+            if (!isNull && BOOLEAN.getBoolean(mask, i)) {
                 ids[next++] = i;
             }
         }
 
+        if (next == ids.length) {
+            return page; // no rows were eliminated by the filter
+        }
         return page.getPositions(ids, 0, next);
     }
 
