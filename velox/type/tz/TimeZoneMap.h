@@ -23,4 +23,7 @@ namespace facebook::velox::util {
 // Returns the timezone name associated with timeZoneID.
 std::string getTimeZoneName(int64_t timeZoneID);
 
+// Returns the timeZoneID for the timezone name.
+int64_t getTimeZoneID(std::string_view timeZone);
+
 } // namespace facebook::velox::util

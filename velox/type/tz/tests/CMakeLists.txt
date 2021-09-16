@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(velox_type_tz_test TimeZoneMapTest.cpp)
+add_executable(velox_type_tz_test TimeZoneMapTest.cpp)
 
-target_link_libraries(velox_type_tz_test ${Boost_REGEX_LIBRARIES} ${fmt})
+add_test(velox_type_tz_test velox_type_tz_test)
+
+target_link_libraries(velox_type_tz_test velox_type_tz ${GTEST_BOTH_LIBRARIES})

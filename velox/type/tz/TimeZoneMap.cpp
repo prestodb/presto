@@ -33,4 +33,28 @@ std::string getTimeZoneName(int64_t timeZoneID) {
   return it->second;
 }
 
+namespace {
+std::unordered_map<std::string_view, int64_t> makeReverseMap(
+    const std::unordered_map<int64_t, std::string>& map) {
+  std::unordered_map<std::string_view, int64_t> reversed;
+  reversed.reserve(map.size());
+  for (const auto& entry : map) {
+    reversed.emplace(entry.second, entry.first);
+  }
+  return reversed;
+}
+} // namespace
+
+int64_t getTimeZoneID(std::string_view timeZone) {
+  static std::unordered_map<std::string_view, int64_t> nameToIdMap =
+      makeReverseMap(getTimeZoneDB());
+
+  auto it = nameToIdMap.find(timeZone);
+  if (it == nameToIdMap.end()) {
+    throw std::runtime_error(fmt::format("Unknown time zone: {}", timeZone));
+  }
+
+  return it->second;
+}
+
 } // namespace facebook::velox::util

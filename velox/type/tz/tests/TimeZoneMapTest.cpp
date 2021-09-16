@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "velox/type/tz/TimeZoneMap.h"
@@ -26,11 +25,17 @@ TEST(TimeZoneMapTest, simple) {
   EXPECT_EQ("America/Los_Angeles", getTimeZoneName(1825));
   EXPECT_EQ("Europe/Moscow", getTimeZoneName(2079));
   EXPECT_EQ("-00:01", getTimeZoneName(840));
+
+  EXPECT_EQ(1825, getTimeZoneID("America/Los_Angeles"));
+  EXPECT_EQ(2079, getTimeZoneID("Europe/Moscow"));
+  EXPECT_EQ(840, getTimeZoneID("-00:01"));
 }
 
 TEST(TimeZoneMapTest, invalid) {
   EXPECT_THROW(getTimeZoneName(0), std::runtime_error);
   EXPECT_THROW(getTimeZoneName(99999999), std::runtime_error);
+
+  EXPECT_THROW(getTimeZoneID("This is a test"), std::runtime_error);
 }
 
 } // namespace
