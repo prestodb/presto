@@ -14,13 +14,19 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.ByteArrayBlock;
+import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
+import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.plan.AggregationNode.Step;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterMethod;
@@ -35,7 +41,9 @@ import java.util.concurrent.ScheduledExecutorService;
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -115,6 +123,51 @@ public class TestAggregationOperator
         assertOperatorEquals(operatorFactory, driverContext, input, expected);
         assertEquals(driverContext.getSystemMemoryUsage(), 0);
         assertEquals(driverContext.getMemoryUsage(), 0);
+    }
+
+    @Test
+    public void testDistinctMaskWithNull()
+    {
+        AccumulatorFactory distinctFactory = COUNT.bind(
+                ImmutableList.of(0),
+                Optional.of(1),
+                ImmutableList.of(BIGINT, BOOLEAN),
+                ImmutableList.of(),
+                ImmutableList.of(),
+                null,
+                true, // distinct
+                new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig()),
+                ImmutableList.of(),
+                false,
+                TEST_SESSION);
+
+        OperatorFactory operatorFactory = new AggregationOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                Step.SINGLE,
+                ImmutableList.of(distinctFactory),
+                false);
+
+        DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
+                .addPipelineContext(0, true, true, false)
+                .addDriverContext();
+
+        ByteArrayBlock trueMaskAllNull = new ByteArrayBlock(
+                4,
+                Optional.of(new boolean[] {true, true, true, true}), /* all positions are null */
+                new byte[] {1, 1, 1, 1}); /* non-zero value is true, all masks are true */
+
+        Block trueNullRleMask = new RunLengthEncodedBlock(trueMaskAllNull.getSingleValueBlock(0), 4);
+
+        List<Page> input = ImmutableList.of(
+                new Page(4, createLongsBlock(1, 2, 3, 4), trueMaskAllNull),
+                new Page(4, createLongsBlock(5, 6, 7, 8), trueNullRleMask));
+
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
+                .row(0L) // all rows should be filtered by nulls
+                .build();
+
+        assertOperatorEquals(operatorFactory, driverContext, input, expected);
     }
 
     @Test
