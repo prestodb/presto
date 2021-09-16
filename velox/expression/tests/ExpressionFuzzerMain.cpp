@@ -63,6 +63,7 @@ using namespace facebook::velox;
 
 int main(int argc, char** argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
+  google::InitGoogleLogging(argv[0]);
 
   // TODO: Only simple functions for now.
   functions::registerFunctions();
