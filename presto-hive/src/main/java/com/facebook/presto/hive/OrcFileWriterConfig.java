@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.airlift.configuration.Config;
 import com.facebook.presto.orc.OrcWriterOptions;
 import com.facebook.presto.orc.StreamLayout;
+import com.facebook.presto.orc.metadata.DwrfStripeCacheMode;
 import io.airlift.units.DataSize;
 
 import javax.validation.constraints.NotNull;
@@ -39,6 +40,9 @@ public class OrcFileWriterConfig
     private DataSize stringStatisticsLimit = OrcWriterOptions.DEFAULT_MAX_STRING_STATISTICS_LIMIT;
     private DataSize maxCompressionBufferSize = OrcWriterOptions.DEFAULT_MAX_COMPRESSION_BUFFER_SIZE;
     private StreamLayoutType streamLayoutType = BY_STREAM_SIZE;
+    private boolean isDwrfStripeCacheEnabled;
+    private DataSize dwrfStripeCacheMaxSize = OrcWriterOptions.DEFAULT_DWRF_STRIPE_CACHE_MAX_SIZE;
+    private DwrfStripeCacheMode dwrfStripeCacheMode = OrcWriterOptions.DEFAULT_DWRF_STRIPE_CACHE_MODE;
 
     public OrcWriterOptions.Builder toOrcWriterOptionsBuilder()
     {
@@ -51,7 +55,10 @@ public class OrcFileWriterConfig
                 .withDictionaryMaxMemory(dictionaryMaxMemory)
                 .withMaxStringStatisticsLimit(stringStatisticsLimit)
                 .withMaxCompressionBufferSize(maxCompressionBufferSize)
-                .withStreamLayout(getStreamLayout(streamLayoutType));
+                .withStreamLayout(getStreamLayout(streamLayoutType))
+                .withDwrfStripeCacheEnabled(isDwrfStripeCacheEnabled)
+                .withDwrfStripeCacheMaxSize(dwrfStripeCacheMaxSize)
+                .withDwrfStripeCacheMode(dwrfStripeCacheMode);
     }
 
     @NotNull
@@ -153,6 +160,44 @@ public class OrcFileWriterConfig
     public OrcFileWriterConfig setStreamLayoutType(StreamLayoutType streamLayoutType)
     {
         this.streamLayoutType = streamLayoutType;
+        return this;
+    }
+
+    public boolean getDwrfStripeCacheEnabled()
+    {
+        return isDwrfStripeCacheEnabled;
+    }
+
+    @Config("hive.orc.writer.dwrf-stripe-cache-enabled")
+    public OrcFileWriterConfig setDwrfStripeCacheEnabled(boolean isDwrfStripeCacheEnabled)
+    {
+        this.isDwrfStripeCacheEnabled = isDwrfStripeCacheEnabled;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getDwrfStripeCacheMaxSize()
+    {
+        return dwrfStripeCacheMaxSize;
+    }
+
+    @Config("hive.orc.writer.dwrf-stripe-cache-max-size")
+    public OrcFileWriterConfig setDwrfStripeCacheMaxSize(DataSize dwrfStripeCacheMaxSize)
+    {
+        this.dwrfStripeCacheMaxSize = dwrfStripeCacheMaxSize;
+        return this;
+    }
+
+    @NotNull
+    public DwrfStripeCacheMode getDwrfStripeCacheMode()
+    {
+        return dwrfStripeCacheMode;
+    }
+
+    @Config("hive.orc.writer.dwrf-stripe-cache-mode")
+    public OrcFileWriterConfig setDwrfStripeCacheMode(DwrfStripeCacheMode dwrfStripeCacheMode)
+    {
+        this.dwrfStripeCacheMode = dwrfStripeCacheMode;
         return this;
     }
 
