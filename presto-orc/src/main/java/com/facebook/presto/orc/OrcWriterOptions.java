@@ -147,7 +147,7 @@ public class OrcWriterOptions
         return stringDictionarySortingEnabled;
     }
 
-    public Optional<DwrfStripeCacheOptions> getDwrfWriterOptions()
+    public Optional<DwrfStripeCacheOptions> getDwrfStripeCacheOptions()
     {
         return dwrfWriterOptions;
     }
