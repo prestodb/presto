@@ -88,6 +88,36 @@ class ArrayIntersectTest : public FunctionBaseTest {
     });
     testExpr(expected, "array_intersect(C0, C1)", {array1, array2});
   }
+
+  template <typename T>
+  void testFloatingPoint() {
+    auto array1 = makeNullableArrayVector<T>({
+        {1.0001, -2.0, 3.03, std::nullopt, 4.00004},
+        {std::numeric_limits<T>::min(), 2.02, -2.001, 1},
+        {std::numeric_limits<T>::max(), 8.0001, std::nullopt},
+        {9.0009,
+         std::numeric_limits<T>::infinity(),
+         std::numeric_limits<T>::max()},
+        {std::numeric_limits<T>::quiet_NaN(), 9.0009},
+    });
+    auto array2 = makeNullableArrayVector<T>({
+        {1.0, -2.0, 4.0},
+        {std::numeric_limits<T>::min(), 2.0199, -2.001, 1.000001},
+        {1.0001, -2.02, std::numeric_limits<T>::max(), 8.00099},
+        {9.0009, std::numeric_limits<T>::infinity()},
+        {9.0009, std::numeric_limits<T>::quiet_NaN()},
+    });
+    auto expected = makeNullableArrayVector<T>({
+        {-2.0},
+        {std::numeric_limits<T>::min(), -2.001},
+        {std::numeric_limits<T>::max()},
+        {9.0009, std::numeric_limits<T>::infinity()},
+        {9.0009},
+    });
+
+    testExpr(expected, "array_intersect(C0, C1)", {array1, array2});
+    testExpr(expected, "array_intersect(C1, C0)", {array1, array2});
+  }
 };
 
 } // namespace
@@ -97,6 +127,11 @@ TEST_F(ArrayIntersectTest, intArrays) {
   testInt<int16_t>();
   testInt<int32_t>();
   testInt<int64_t>();
+}
+
+TEST_F(ArrayIntersectTest, floatArrays) {
+  testFloatingPoint<float>();
+  testFloatingPoint<double>();
 }
 
 TEST_F(ArrayIntersectTest, boolArrays) {
