@@ -322,7 +322,11 @@ Floating Point Functions
 .. function:: is_nan(x) -> boolean
 
     Determine if ``x`` is not-a-number.
+    Note that not-a-number is different to ``NULL``.
+    ``is_nan(NULL)`` returns ``NULL``.
 
 .. function:: nan() -> double
 
     Returns the constant representing not-a-number.
+    Note that not-a-number is different to ``NULL``.
+    For example, ``nan() is NULL`` returns ``false``.
