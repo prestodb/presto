@@ -43,12 +43,12 @@ public class TestOrcWriterOptions
                     .build();
 
             if (value) {
-                DwrfStripeCacheOptions dwrfStripeCacheOptions = options.getDwrfWriterOptions().get();
+                DwrfStripeCacheOptions dwrfStripeCacheOptions = options.getDwrfStripeCacheOptions().get();
                 assertEquals(dwrfStripeCacheOptions.getStripeCacheMode(), DWRF_STRIPE_CACHE_MODE);
                 assertEquals(dwrfStripeCacheOptions.getStripeCacheMaxSize(), DWRF_STRIPE_CACHE_MAX_SIZE);
             }
             else {
-                assertEquals(Optional.empty(), options.getDwrfWriterOptions());
+                assertEquals(Optional.empty(), options.getDwrfStripeCacheOptions());
             }
         }
     }
@@ -94,7 +94,7 @@ public class TestOrcWriterOptions
         assertEquals(streamLayout, options.getStreamLayout());
         assertEquals(integerDictionaryEncodingEnabled, options.isIntegerDictionaryEncodingEnabled());
         assertEquals(stringDictionarySortingEnabled, options.isStringDictionarySortingEnabled());
-        assertEquals(Optional.empty(), options.getDwrfWriterOptions());
+        assertEquals(Optional.empty(), options.getDwrfStripeCacheOptions());
     }
 
     @Test
