@@ -43,6 +43,7 @@ enum class FileFormat {
   RC_BINARY = 4, // RC with binary serialization
   TEXT = 5,
   JSON = 6,
+  PARQUET = 7,
 };
 
 FileFormat toFileFormat(std::string s);

@@ -135,7 +135,11 @@ HiveConnectorTestBase::makeHiveConnectorSplit(
     uint64_t start,
     uint64_t length) {
   return std::make_shared<connector::hive::HiveConnectorSplit>(
-      kHiveConnectorId, "file:" + filePath, start, length);
+      kHiveConnectorId,
+      "file:" + filePath,
+      dwio::common::FileFormat::ORC,
+      start,
+      length);
 }
 
 exec::Split HiveConnectorTestBase::makeHiveSplit(
@@ -143,7 +147,11 @@ exec::Split HiveConnectorTestBase::makeHiveSplit(
     uint64_t start,
     uint64_t length) {
   return exec::Split(std::make_shared<connector::hive::HiveConnectorSplit>(
-      kHiveConnectorId, "file:" + filePath, start, length));
+      kHiveConnectorId,
+      "file:" + filePath,
+      dwio::common::FileFormat::ORC,
+      start,
+      length));
 }
 
 std::shared_ptr<connector::hive::HiveColumnHandle>

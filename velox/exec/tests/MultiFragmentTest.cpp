@@ -113,7 +113,9 @@ class MultiFragmentTest : public OperatorTestBase {
     for (auto& filePath : filePaths) {
       auto split = exec::Split(
           std::make_shared<HiveConnectorSplit>(
-              kHiveConnectorId, "file:" + filePath->path),
+              kHiveConnectorId,
+              "file:" + filePath->path,
+              facebook::dwio::common::FileFormat::ORC),
           -1);
       task->addSplit("0", std::move(split));
       VLOG(1) << filePath->path << "\n";

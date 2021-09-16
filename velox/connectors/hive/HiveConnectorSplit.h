@@ -17,6 +17,7 @@
 
 #include <optional>
 #include <unordered_map>
+#include "velox/dwio/common/Options.h"
 #include "velox/exec/Operator.h"
 
 namespace facebook::velox::connector::hive {
@@ -25,6 +26,7 @@ const std::string kHiveConnectorName = "hive";
 
 struct HiveConnectorSplit : public connector::ConnectorSplit {
   const std::string filePath;
+  dwio::common::FileFormat fileFormat;
   const uint64_t start;
   const uint64_t length;
   const std::unordered_map<std::string, std::string> partitionKeys;
@@ -33,12 +35,14 @@ struct HiveConnectorSplit : public connector::ConnectorSplit {
   HiveConnectorSplit(
       const std::string& connectorId,
       const std::string& _filePath,
+      dwio::common::FileFormat _fileFormat,
       uint64_t _start = 0,
       uint64_t _length = std::numeric_limits<uint64_t>::max(),
       const std::unordered_map<std::string, std::string>& _partitionKeys = {},
       std::optional<int32_t> _tableBucketNumber = std::nullopt)
       : ConnectorSplit(connectorId),
         filePath(_filePath),
+        fileFormat(_fileFormat),
         start(_start),
         length(_length),
         partitionKeys(_partitionKeys),
