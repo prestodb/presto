@@ -26,7 +26,6 @@
 
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/SimdUtil.h"
-#include "velox/dwio/common/exception/Exception.h"
 #include "velox/type/StringView.h"
 
 namespace facebook ::velox::common {

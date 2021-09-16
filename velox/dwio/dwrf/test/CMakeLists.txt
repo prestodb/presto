@@ -19,11 +19,11 @@ include_directories(${CMAKE_BINARY_DIR})
 
 set(VELOX_LINK_LIBS
     velox_dwio_common
-    velox_dwio_common_exception
     velox_dwio_dwrf_reader
     velox_dwio_dwrf_common
     velox_dwio_dwrf_utils
     velox_dwio_dwrf_writer
+    velox_dwio_common_exception
     velox_dwio_type_fbhive
     velox_vector
     velox_exception
@@ -474,5 +474,11 @@ target_link_libraries(
 
 add_executable(velox_dwrf_float_column_writer_benchmark
                FloatColumnWriterBenchmark.cpp)
-target_link_libraries(velox_dwrf_float_column_writer_benchmark velox_vector
-                      velox_dwio_dwrf_writer ${FOLLY} ${FOLLY_BENCHMARK} ${FMT})
+target_link_libraries(
+  velox_dwrf_float_column_writer_benchmark
+  velox_vector
+  velox_dwio_common_exception
+  velox_dwio_dwrf_writer
+  ${FOLLY}
+  ${FOLLY_BENCHMARK}
+  ${FMT})

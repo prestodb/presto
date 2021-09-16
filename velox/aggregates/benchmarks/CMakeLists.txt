@@ -21,5 +21,6 @@ target_link_libraries(
   velox_functions_prestosql
   velox_functions_lib
   velox_exec_test_util
+  velox_dwio_common_exception
   ${FOLLY_WITH_DEPENDENCIES}
   ${FOLLY_BENCHMARK})

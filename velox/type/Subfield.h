@@ -17,7 +17,6 @@
 
 #include <boost/algorithm/string/replace.hpp>
 #include "velox/common/base/Exceptions.h"
-#include "velox/dwio/common/exception/Exception.h"
 
 namespace facebook::velox::common {
 

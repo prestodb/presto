@@ -29,7 +29,6 @@ target_link_libraries(
   velox_type
   velox_encode
   velox_exception
-  velox_dwio_common_exception
   velox_serialization
   velox_external_date
   ${Boost_REGEX_LIBRARIES}

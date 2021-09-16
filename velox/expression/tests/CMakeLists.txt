@@ -29,6 +29,7 @@ target_link_libraries(
   velox_aggregates
   velox_hive_connector
   velox_dwio_common
+  velox_dwio_common_exception
   velox_exec_test_util
   velox_expression
   velox_functions_lib
