@@ -17,7 +17,7 @@
 #include <limits>
 #include "velox/aggregates/AggregateNames.h"
 #include "velox/aggregates/AggregationHook.h"
-#include "velox/aggregates/SimpleNumerics.h"
+#include "velox/aggregates/SimpleNumericAggregate.h"
 #include "velox/aggregates/SingleValueAccumulator.h"
 #include "velox/exec/Aggregate.h"
 

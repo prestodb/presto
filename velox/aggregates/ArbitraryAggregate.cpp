@@ -15,7 +15,7 @@
  */
 
 #include "velox/aggregates/AggregateNames.h"
-#include "velox/aggregates/SimpleNumerics.h"
+#include "velox/aggregates/SimpleNumericAggregate.h"
 #include "velox/aggregates/SingleValueAccumulator.h"
 #include "velox/exec/Aggregate.h"
 #include "velox/vector/DecodedVector.h"
@@ -28,11 +28,13 @@ namespace {
 // Arbitrary aggregate returns any arbitrary non-NULL value.
 // We always keep the first (non-NULL) element seen.
 template <typename T>
-class Arbitrary : public SimpleNumericAggregate<T, T, T> {
+class ArbitraryAggregate : public SimpleNumericAggregate<T, T, T> {
   using BaseAggregate = SimpleNumericAggregate<T, T, T>;
 
  public:
-  explicit Arbitrary(core::AggregationNode::Step step, TypePtr resultType)
+  explicit ArbitraryAggregate(
+      core::AggregationNode::Step step,
+      TypePtr resultType)
       : BaseAggregate(step, resultType) {}
 
   int32_t accumulatorFixedWidthSize() const override {
@@ -267,17 +269,22 @@ bool registerArbitraryAggregate(const std::string& name) {
         auto inputType = argTypes[0];
         switch (inputType->kind()) {
           case TypeKind::TINYINT:
-            return std::make_unique<Arbitrary<int8_t>>(step, inputType);
+            return std::make_unique<ArbitraryAggregate<int8_t>>(
+                step, inputType);
           case TypeKind::SMALLINT:
-            return std::make_unique<Arbitrary<int16_t>>(step, inputType);
+            return std::make_unique<ArbitraryAggregate<int16_t>>(
+                step, inputType);
           case TypeKind::INTEGER:
-            return std::make_unique<Arbitrary<int32_t>>(step, inputType);
+            return std::make_unique<ArbitraryAggregate<int32_t>>(
+                step, inputType);
           case TypeKind::BIGINT:
-            return std::make_unique<Arbitrary<int64_t>>(step, inputType);
+            return std::make_unique<ArbitraryAggregate<int64_t>>(
+                step, inputType);
           case TypeKind::REAL:
-            return std::make_unique<Arbitrary<float>>(step, inputType);
+            return std::make_unique<ArbitraryAggregate<float>>(step, inputType);
           case TypeKind::DOUBLE:
-            return std::make_unique<Arbitrary<double>>(step, inputType);
+            return std::make_unique<ArbitraryAggregate<double>>(
+                step, inputType);
           case TypeKind::VARCHAR:
           case TypeKind::ARRAY:
           case TypeKind::MAP:

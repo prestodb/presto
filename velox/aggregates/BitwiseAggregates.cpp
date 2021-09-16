@@ -15,7 +15,7 @@
  */
 
 #include "velox/aggregates/AggregateNames.h"
-#include "velox/aggregates/SimpleNumerics.h"
+#include "velox/aggregates/SimpleNumericAggregate.h"
 #include "velox/exec/Aggregate.h"
 
 namespace facebook::velox::aggregate {
