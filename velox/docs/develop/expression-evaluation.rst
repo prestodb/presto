@@ -139,8 +139,8 @@ special form expressions or functions (vectorized or simple). The lookup is
 performed in the following order and the search stops on the first match:
 
 * Check if name matches one of special forms
+* Check if name and signature (e.g. input types) matches one of simple functions
 * Check if name matches one of vectorized functions
-* Check if name matches one of simple functions
 
 The following diagram shows the expression tree for the **strpos(upper
 (a), 'FOO') > 0 OR strpos(upper(a), 'BAR') > 0** expression. Here, **upper
