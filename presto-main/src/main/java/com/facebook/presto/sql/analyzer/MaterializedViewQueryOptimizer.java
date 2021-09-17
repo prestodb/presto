@@ -42,6 +42,8 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GroupBy;
 import com.facebook.presto.sql.tree.GroupingElement;
 import com.facebook.presto.sql.tree.Identifier;
+import com.facebook.presto.sql.tree.IfExpression;
+import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.OrderBy;
@@ -135,6 +137,24 @@ public class MaterializedViewQueryOptimizer
             logger.warn(ex.getMessage());
             return node;
         }
+    }
+
+    @Override
+    protected Node visitInPredicate(InPredicate node, Void context)
+    {
+        process(node.getValue(), context);
+        return node;
+    }
+
+    @Override
+    protected Node visitIfExpression(IfExpression node, Void context)
+    {
+        process(node.getCondition());
+        process(node.getTrueValue());
+        if (node.getFalseValue().isPresent()) {
+            process((node.getFalseValue().get()));
+        }
+        return node;
     }
 
     @Override
