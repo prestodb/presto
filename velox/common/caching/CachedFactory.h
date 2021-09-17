@@ -17,8 +17,8 @@
 // A cached-backed 'factory'. Basic premise is that a user asks for a key, and
 // is either returned a pointer to an existing object in cache, or we execute
 // the 'Generator' for that object, place the value the generator created into
-// the cache, and then return a pointer to it. From the users perspective
-// whether the Generator actually ran is irrelevant. We handle all of the
+// the cache, and then return a pointer to it. From the user's perspective
+// whether the Generator actually ran is irrelevant. We handle all the
 // lifetime issues/cache pinning/etcetera automatically.
 //
 // See the test file for some basic examples.
@@ -118,11 +118,11 @@ struct DefaultSizer {
   }
 };
 
-// CachedFactory provides a threadsafe way of backing a keyed generator
+// CachedFactory provides a thread-safe way of backing a keyed generator
 // (e.g. the key is filename, and the value is the file data) by a cache.
 //
 // Generator should take a single Key argument and return a unique_ptr<Value>;
-// If it is not threadsafe it must do its own internal locking.
+// If it is not thread-safe it must do its own internal locking.
 // Sizer takes a Value and returns how much cache space it will occupy. The
 // DefaultSizer says each value occupies 1 space.
 template <
@@ -135,7 +135,7 @@ template <
 class CachedFactory {
  public:
   // It is generally expected that most inserts into the cache will succeed,
-  // i.e. the cache is large compard to the size of the elements and the number
+  // i.e. the cache is large compared to the size of the elements and the number
   // of elements that are pinned. Everything should still work if this is not
   // true, but performance will suffer.
   CachedFactory(
@@ -144,7 +144,7 @@ class CachedFactory {
       : cache_(std::move(cache)), generator_(std::move(generator)) {}
 
   // Returns the generator's output on the given key. If the output is
-  // in the cache, returns immediately. Otherwise blocks until the output
+  // in the cache, returns immediately. Otherwise, blocks until the output
   // is ready. For a given key we will only ever be running the Generator
   // function once. E.g., if N threads ask for the same key at once, the
   // generator will be fired once and all N will receive a pointer from
@@ -157,8 +157,8 @@ class CachedFactory {
   // will probably mess with your memory model, so really try to avoid it.
   CachedPtr<Key, Value, Comparator, Hash> generate(const Key& key);
 
-  // Advanced function taking in a group of keys. Seperates those keys into
-  // ones present in the cache (returning CachedPtrs for them) and those not
+  // Advanced function taking in a group of keys. Separates those keys into
+  // one's present in the cache (returning CachedPtrs for them) and those not
   // in the cache. Does NOT call the Generator for any key.
   void retrieveCached(
       const std::vector<Key>& keys,

@@ -40,8 +40,8 @@ struct FileHandle {
   std::unique_ptr<ReadFile> file;
 
   // Each time we make a new FileHandle we assign it a uuid and use that id as
-  // the identifier in downstreamd data caching structures. This saves a lot of
-  // memory compared to using the the filename as the identifier.
+  // the identifier in downstream data caching structures. This saves a lot of
+  // memory compared to using the filename as the identifier.
   StringIdLease uuid;
 
   // We'll want to have a hash map here to record the identifier->byte range
