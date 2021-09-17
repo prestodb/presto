@@ -717,7 +717,7 @@ void Expr::evalWithMemo(
       VarSetter isFinalSelectionMemo(
           context->mutableIsFinalSelection(), false, updateFinalSelection);
 
-      evalAll(*uncached, context, result);
+      evalWithNulls(*uncached, context, result);
       deselectErrors(context, *uncached);
       context->exprSet()->addToMemo(this);
       auto newCacheSize = uncached->end();
@@ -744,7 +744,7 @@ void Expr::evalWithMemo(
     return;
   }
   baseDictionary_ = base;
-  evalAll(rows, context, result);
+  evalWithNulls(rows, context, result);
   dictionaryCache_ = *result;
   if (!cachedDictionaryIndices_) {
     cachedDictionaryIndices_ =
