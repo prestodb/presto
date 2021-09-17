@@ -31,6 +31,7 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
+import org.testng.annotations.Test;
 
 import java.util.List;
 
@@ -60,16 +61,16 @@ public class BenchmarkInequalityJoin
         private MemoryLocalQueryRunner queryRunner;
 
         @Param({"true", "false"})
-        private String fastInequalityJoins;
+        private String fastInequalityJoins = "true";
 
         // number of buckets. The smaller number of buckets, the longer position links chain
         @Param({"100", "1000", "10000", "60000"})
-        private int buckets;
+        private int buckets = 1000;
 
         // How many positions out of 1000 will be actually joined
         // 10 means 1 - 10/1000 = 99/100 positions will be filtered out
         @Param("10")
-        private int filterOutCoefficient;
+        private int filterOutCoefficient = 10;
 
         public MemoryLocalQueryRunner getQueryRunner()
         {
@@ -134,6 +135,19 @@ public class BenchmarkInequalityJoin
     {
         return context.getQueryRunner()
                 .execute("SELECT count(*) FROM t1 JOIN t2 on (t1.bucket = t2.bucket) AND t1.val1 + 1 < t2.val2 AND t2.val2 < t1.val1 + 5 ");
+    }
+
+    @Test
+    public void verifyJoinBenchmark()
+    {
+        Context context = new Context();
+        try {
+            context.setUp();
+            benchmarkJoin(context);
+        }
+        finally {
+            context.tearDown();
+        }
     }
 
     public static void main(String[] args)
