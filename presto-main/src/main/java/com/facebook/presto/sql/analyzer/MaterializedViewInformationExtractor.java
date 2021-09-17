@@ -100,7 +100,7 @@ public class MaterializedViewInformationExtractor
         private final Map<Expression, Identifier> baseToViewColumnMap = new HashMap<>();
         private Optional<Relation> baseTable = Optional.empty();
         private Optional<Expression> whereClause = Optional.empty();
-        private Optional<Set<GroupingElement>> groupBy = Optional.empty();
+        private Optional<Set<Expression>> groupBy = Optional.empty();
         private boolean isDistinct;
         private Optional<Identifier> removablePrefix = Optional.empty();
 
@@ -119,7 +119,7 @@ public class MaterializedViewInformationExtractor
             if (!groupBy.isPresent()) {
                 groupBy = Optional.of(new HashSet<>());
             }
-            groupBy.get().add(removeGroupingElementPrefix(groupingElement, removablePrefix));
+            groupBy.get().addAll(removeGroupingElementPrefix(groupingElement, removablePrefix).getExpressions());
         }
 
         private void setBaseTable(Relation baseTable)
@@ -159,11 +159,6 @@ public class MaterializedViewInformationExtractor
             return ImmutableMap.copyOf(baseToViewColumnMap);
         }
 
-        public Optional<Set<GroupingElement>> getGroupBy()
-        {
-            return groupBy;
-        }
-
         public Optional<Expression> getWhereClause()
         {
             return whereClause;
@@ -172,6 +167,11 @@ public class MaterializedViewInformationExtractor
         public boolean isDistinct()
         {
             return isDistinct;
+        }
+
+        public Optional<Set<Expression>> getGroupBy()
+        {
+            return groupBy;
         }
     }
 }

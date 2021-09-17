@@ -100,6 +100,7 @@ public class MaterializedViewQueryOptimizer
 
     private MaterializedViewInfo materializedViewInfo;
     private Optional<Identifier> removablePrefix = Optional.empty();
+    private Optional<Set<Expression>> expressionsInGroupBy = Optional.empty();
 
     public MaterializedViewQueryOptimizer(
             Metadata metadata,
@@ -192,8 +193,21 @@ public class MaterializedViewQueryOptimizer
         if (!removablePrefix.isPresent()) {
             removablePrefix = Optional.of(new Identifier(baseTable.getName().toString()));
         }
-        if (materializedViewInfo.getGroupBy().isPresent() && !node.getGroupBy().isPresent()) {
-            throw new IllegalStateException("Query with no groupBy clause is not rewritable by materialized view with groupBy clause");
+        if (node.getGroupBy().isPresent()) {
+            ImmutableSet.Builder<Expression> expressionsInGroupByBuilder = ImmutableSet.builder();
+            for (GroupingElement element : node.getGroupBy().get().getGroupingElements()) {
+                element = removeGroupingElementPrefix(element, removablePrefix);
+                Optional<Set<Expression>> groupByOfMaterializedView = materializedViewInfo.getGroupBy();
+                if (groupByOfMaterializedView.isPresent()) {
+                    for (Expression expression : element.getExpressions()) {
+                        if (!groupByOfMaterializedView.get().contains(expression) || !materializedViewInfo.getBaseToViewColumnMap().containsKey(expression)) {
+                            throw new IllegalStateException(format("Grouping element %s is not present in materialized view groupBy field", element));
+                        }
+                    }
+                }
+                expressionsInGroupByBuilder.addAll(element.getExpressions());
+            }
+            expressionsInGroupBy = Optional.of(expressionsInGroupByBuilder.build());
         }
         // TODO: Add HAVING validation to the validator https://github.com/prestodb/presto/issues/16406
         if (node.getHaving().isPresent()) {
@@ -271,10 +285,19 @@ public class MaterializedViewQueryOptimizer
     @Override
     protected Node visitSingleColumn(SingleColumn node, Void context)
     {
+        node = removeSingleColumnPrefix(node, removablePrefix);
+        Expression expression = node.getExpression();
+        Optional<Set<Expression>> groupByOfMaterializedView = materializedViewInfo.getGroupBy();
+        // TODO: Replace this logic with rule-based validation framework.
+        if (groupByOfMaterializedView.isPresent() &&
+                validateExpressionForGroupBy(groupByOfMaterializedView.get(), expression) &&
+                (!expressionsInGroupBy.isPresent() || !expressionsInGroupBy.get().contains(expression))) {
+            throw new IllegalStateException("Query a column presents in materialized view group by: " + expression.toString());
+        }
         // For a single table, without sub-queries, the column prefix is unnecessary. Here It is removed so that it can be mapped to the view column properly.
         // For relations other than single table, it needs to be reserved to differentiate columns from different tables.
         // One way to do so is to process the prefix within `visitDereferenceExpression()` since the prefix information is saved as `base` in `DereferenceExpression` node.
-        return new SingleColumn((Expression) process(removeSingleColumnPrefix(node, removablePrefix).getExpression(), context), node.getAlias());
+        return new SingleColumn((Expression) process(expression, context), node.getAlias());
     }
 
     @Override
@@ -372,11 +395,7 @@ public class MaterializedViewQueryOptimizer
     {
         ImmutableList.Builder<GroupingElement> rewrittenGroupBy = ImmutableList.builder();
         for (GroupingElement element : node.getGroupingElements()) {
-            element = removeGroupingElementPrefix(element, removablePrefix);
-            if (materializedViewInfo.getGroupBy().isPresent() && !materializedViewInfo.getGroupBy().get().contains(element)) {
-                throw new IllegalStateException(format("Grouping element %s is not present in materialized view groupBy field", element));
-            }
-            rewrittenGroupBy.add((GroupingElement) process(element, context));
+            rewrittenGroupBy.add((GroupingElement) process(removeGroupingElementPrefix(element, removablePrefix), context));
         }
         return new GroupBy(node.isDistinct(), rewrittenGroupBy.build());
     }
@@ -409,6 +428,13 @@ public class MaterializedViewQueryOptimizer
             rewrittenSimpleGroupBy.add((Expression) process(removeExpressionPrefix(column, removablePrefix), context));
         }
         return new SimpleGroupBy(rewrittenSimpleGroupBy.build());
+    }
+
+    private boolean validateExpressionForGroupBy(Set<Expression> groupByOfMaterializedView, Expression expression)
+    {
+        // If a selected column is not present in GROUP BY node of the query.
+        // It must be 1) be selected in the materialized view and 2) not present in GROUP BY node of the materialized view
+        return groupByOfMaterializedView.contains(expression) || !materializedViewInfo.getBaseToViewColumnMap().containsKey(expression);
     }
 
     private RowExpression convertToRowExpression(Expression expression, Scope scope)
