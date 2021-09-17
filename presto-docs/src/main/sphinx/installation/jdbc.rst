@@ -92,6 +92,8 @@ Name                              Description
                                   If neither this property nor ``ApplicationName`` are set, the source
                                   for the query will be ``presto-jdbc``.
 ``accessToken``                   Access token for token based authentication.
+``timeZoneId``                    Timezone to be used for timestamp columns in query output.
+                                  Example: ``timeZoneId=UTC``.
 ``SSL``                           Use HTTPS for connections
 ``SSLKeyStorePath``               The location of the Java KeyStore file that contains the certificate
                                   and private key to use for authentication.
