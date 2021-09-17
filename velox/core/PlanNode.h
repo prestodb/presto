@@ -734,6 +734,30 @@ class PartitionedOutputNode : public PlanNode {
 
 enum class JoinType { kInner, kLeft, kRight, kFull, kSemi, kAnti };
 
+inline bool isInnerJoin(JoinType joinType) {
+  return joinType == JoinType::kInner;
+}
+
+inline bool isLeftJoin(JoinType joinType) {
+  return joinType == JoinType::kLeft;
+}
+
+inline bool isRightJoin(JoinType joinType) {
+  return joinType == JoinType::kRight;
+}
+
+inline bool isFullJoin(JoinType joinType) {
+  return joinType == JoinType::kFull;
+}
+
+inline bool isSemiJoin(JoinType joinType) {
+  return joinType == JoinType::kSemi;
+}
+
+inline bool isAntiJoin(JoinType joinType) {
+  return joinType == JoinType::kAnti;
+}
+
 // Represents inner/outer/semi/anti join hash
 // joins. Translates to an exec::HashBuild and exec::HashProbe. A
 // separate pipeline is produced for the build side when generating

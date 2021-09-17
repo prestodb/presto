@@ -103,9 +103,7 @@ join key values on the build side are unique it is possible to replace the join
 completely with the pushed down filter. Velox detects such opportunities and
 turns the join into a no-op after pushing the filter down.
 
-Dynamic filter pushdown optimization applies to both inner and semi joins, but
-is currently enabled only for the inner joins. We’ll enable it for semi joins
-shortly.
+Dynamic filter pushdown optimization is enabled for inner and semi joins.
 
 Broadcast Join
 --------------

@@ -171,19 +171,18 @@ BlockingReason HashProbe::isBlocked(ContinueFuture* future) {
 
   if (hashBuildResult->antiJoinHashNullKeys) {
     // Anti join with null keys on the build side always returns nothing.
-    VELOX_CHECK(joinType_ == core::JoinType::kAnti);
+    VELOX_CHECK(isAntiJoin(joinType_));
     isFinishing_ = true;
   } else {
     table_ = hashBuildResult->table;
     if (table_->numDistinct() == 0) {
       // Build side is empty. Inner and semi joins return nothing in this case,
       // hence, we can terminate the pipeline early.
-      if (joinType_ == core::JoinType::kInner ||
-          joinType_ == core::JoinType::kSemi) {
+      if (isInnerJoin(joinType_) || isSemiJoin(joinType_)) {
         isFinishing_ = true;
       }
     } else if (
-        joinType_ == core::JoinType::kInner &&
+        (isInnerJoin(joinType_) || isSemiJoin(joinType_)) &&
         table_->hashMode() != BaseHashTable::HashMode::kHash) {
       // Find out whether there are any upstream operators that can accept
       // dynamic filters on all or a subset of the join keys. Setup dynamic
@@ -230,7 +229,7 @@ void HashProbe::addInput(RowVectorPtr input) {
   if (table_->numDistinct() == 0) {
     // Build side is empty. This state is valid only for anti join which returns
     // all probe rows.
-    VELOX_CHECK(joinType_ == core::JoinType::kAnti);
+    VELOX_CHECK(isAntiJoin(joinType_));
     return;
   }
 
@@ -344,7 +343,7 @@ RowVectorPtr HashProbe::getOutput() {
   }
 
   const bool isSemiOrAntiJoin =
-      joinType_ == core::JoinType::kSemi || joinType_ == core::JoinType::kAnti;
+      core::isSemiJoin(joinType_) || core::isAntiJoin(joinType_);
 
   // Semi and anti joins are always cardinality reducing, e.g. for a given row
   // of input they produce zero or 1 row of output. Therefore, we can process
@@ -360,7 +359,7 @@ RowVectorPtr HashProbe::getOutput() {
 
   for (;;) {
     int numOut = 0;
-    if (joinType_ == core::JoinType::kAnti) {
+    if (isAntiJoin(joinType_)) {
       if (table_->numDistinct() == 0) {
         // When build side is empty, anti join returns all probe side rows,
         // including ones with null join keys.
