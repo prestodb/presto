@@ -148,6 +148,7 @@ import static io.airlift.tpch.TpchTable.NATION;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -1760,8 +1761,7 @@ public class TestHiveLogicalPlanner
                             "ds as mvds, shipmode FROM %s group by ds, shipmode",
                     view, table));
             assertTrue(getQueryRunner().tableExists(getSession(), view));
-            ExtendedHiveMetastore metastore = replicateHiveMetastore((DistributedQueryRunner) queryRunner);
-            appendTableParameter(metastore, table, REFERENCED_MATERIALIZED_VIEWS, format("%s.%s", getSession().getSchema().orElse(""), view));
+            setReferencedMaterializedViews((DistributedQueryRunner) queryRunner, table, ImmutableList.of(view));
             assertUpdate(format("REFRESH MATERIALIZED VIEW %s where mvds='2020-01-01'", view), 7);
             String baseQuery = format(
                     "SELECT sum(discount * extendedprice) as _discount_multi_extendedprice_ , MAX(discount*extendedprice) as _max_discount_multi_extendedprice_ , " +
@@ -1784,6 +1784,54 @@ public class TestHiveLogicalPlanner
                             "shipmode", multipleValues(createVarcharType(10), utf8Slices("AIR", "FOB", "MAIL", "RAIL", "REG AIR", "SHIP", "TRUCK")),
                             "ds", singleValue(createVarcharType(10), utf8Slice("2020-01-02"))))),
                     anyTree(PlanMatchPattern.constrainedTableScan(view, ImmutableMap.of()))));
+        }
+        finally {
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table);
+        }
+    }
+
+    @Test
+    public void testBaseToViewConversionWithGroupBy()
+    {
+        Session queryOptimizationWithMaterializedView = Session.builder(getSession())
+                .setSystemProperty(QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED, "true")
+                .build();
+        QueryRunner queryRunner = getQueryRunner();
+        String table = "lineitem_partitioned_derived_fields";
+        String view = "lineitem_partitioned_view_derived_fields";
+        try {
+            queryRunner.execute(format(
+                    "CREATE TABLE %s WITH (partitioned_by = ARRAY['ds', 'shipmode']) AS " +
+                            "SELECT discount, extendedprice, '2020-01-01' as ds, shipmode FROM lineitem WHERE orderkey < 1000 " +
+                            "UNION ALL " +
+                            "SELECT discount, extendedprice, '2020-01-02' as ds, shipmode FROM lineitem WHERE orderkey > 1000",
+                    table));
+            assertUpdate(format(
+                    "CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds', 'shipmode']) AS " +
+                            "SELECT SUM(discount * extendedprice) as _discount_multi_extendedprice_ , MAX(discount*extendedprice) as _max_discount_multi_extendedprice_ , " +
+                            "ds, shipmode FROM %s group by ds, shipmode",
+                    view, table));
+            assertTrue(getQueryRunner().tableExists(getSession(), view));
+
+            setReferencedMaterializedViews((DistributedQueryRunner) queryRunner, table, ImmutableList.of(view));
+
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s where ds='2020-01-01'", view), 7);
+            String baseQuery = format(
+                    "SELECT SUM(discount * extendedprice) as _discount_multi_extendedprice_, MAX(discount*extendedprice) as _max_discount_multi_extendedprice_ FROM %s", table);
+            String viewQuery = format(
+                    "SELECT SUM(_discount_multi_extendedprice_), MAX(_max_discount_multi_extendedprice_) FROM %s", view);
+            MaterializedResult optimizedQueryResult = computeActual(queryOptimizationWithMaterializedView, baseQuery);
+            MaterializedResult baseQueryResult = computeActual(baseQuery);
+            assertEquals(optimizedQueryResult, baseQueryResult);
+
+            PlanMatchPattern expectedPattern = anyTree(
+                    anyTree(PlanMatchPattern.constrainedTableScan(table, ImmutableMap.of(
+                            "shipmode", multipleValues(createVarcharType(10), utf8Slices("AIR", "FOB", "MAIL", "RAIL", "REG AIR", "SHIP", "TRUCK")),
+                            "ds", singleValue(createVarcharType(10), utf8Slice("2020-01-02"))))),
+                    anyTree(PlanMatchPattern.constrainedTableScan(view, ImmutableMap.of())));
+            assertPlan(getSession(), viewQuery, expectedPattern);
+            assertPlan(queryOptimizationWithMaterializedView, baseQuery, expectedPattern);
         }
         finally {
             queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
@@ -2628,6 +2676,14 @@ public class TestHiveLogicalPlanner
         Set<String> requestedColumnsSet = ImmutableSet.copyOf(actualRequestedColumns);
         assertEquals(requestedColumnsSet.size(), actualRequestedColumns.size(), "There should be no duplicates in the requested column list");
         assertEquals(requestedColumnsSet, expectedRequestedColumns);
+    }
+
+    private void setReferencedMaterializedViews(DistributedQueryRunner queryRunner, String tableName, List<String> referencedMaterializedViews)
+    {
+        appendTableParameter(replicateHiveMetastore(queryRunner),
+                tableName,
+                REFERENCED_MATERIALIZED_VIEWS,
+                referencedMaterializedViews.stream().map(view -> format("%s.%s", getSession().getSchema().orElse(""), view)).collect(joining(",")));
     }
 
     private ExtendedHiveMetastore replicateHiveMetastore(DistributedQueryRunner queryRunner)
