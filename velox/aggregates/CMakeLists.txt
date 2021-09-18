@@ -33,7 +33,8 @@ add_library(
   SingleValueAccumulator.cpp
   SumAggregate.cpp
   SumAggregate.h
-  ValueList.cpp)
+  ValueList.cpp
+  VarianceAggregates.cpp)
 
 target_link_libraries(velox_aggregates velox_aggregates_hyperloglog velox_exec
                       ${FOLLY_WITH_DEPENDENCIES})

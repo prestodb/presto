@@ -31,7 +31,8 @@ add_executable(
   MinMaxTest.cpp
   SumTest.cpp
   MapAggTest.cpp
-  ValueListTest.cpp)
+  ValueListTest.cpp
+  VarianceAggregationTest.cpp)
 
 add_test(
   NAME velox_aggregates_test

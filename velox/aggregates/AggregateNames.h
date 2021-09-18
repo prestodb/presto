@@ -34,6 +34,12 @@ const char* const kMax = "max";
 const char* const kMaxBy = "max_by";
 const char* const kMin = "min";
 const char* const kMinBy = "min_by";
+const char* const kStdDev = "stddev"; // Alias for stddev_samp.
+const char* const kStdDevPop = "stddev_pop";
+const char* const kStdDevSamp = "stddev_samp";
 const char* const kSum = "sum";
+const char* const kVariance = "variance"; // Alias for var_samp.
+const char* const kVarPop = "var_pop";
+const char* const kVarSamp = "var_samp";
 
 } // namespace facebook::velox::aggregate
