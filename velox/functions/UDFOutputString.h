@@ -67,7 +67,7 @@ class UDFOutputString {
       typename = std::enable_if_t<std::is_base_of_v<UDFOutputString, T>>>
   static void assign(T& output, const std::string_view& input) {
     output.resize(input.size());
-    std::memcpy(output.data(), input.data(), input.size());
+    std::copy(input.begin(), input.end(), output.data());
   }
 
  protected:

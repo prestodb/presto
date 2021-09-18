@@ -32,9 +32,7 @@ FOLLY_ALWAYS_INLINE bool call(
   const folly::StringPiece& jsonPathStringPiece = jsonPath;
   auto extractResult = jsonExtractScalar(jsonStringPiece, jsonPathStringPiece);
   if (extractResult.hasValue()) {
-    auto strValue = extractResult.value();
-    result.resize(strValue.size());
-    std::memcpy(result.data(), strValue.data(), strValue.size());
+    UDFOutputString::assign(result, *extractResult);
     return true;
 
   } else {

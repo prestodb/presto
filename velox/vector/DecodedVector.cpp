@@ -117,7 +117,7 @@ void DecodedVector::copyNulls(vector_size_t size) {
   auto numWords = bits::nwords(size);
   copiedNulls_.resize(numWords);
   if (nulls_) {
-    std::memcpy(copiedNulls_.data(), nulls_, numWords * 8);
+    std::copy(nulls_, nulls_ + numWords, copiedNulls_.data());
   } else {
     std::fill(copiedNulls_.begin(), copiedNulls_.end(), bits::kNotNull64);
   }

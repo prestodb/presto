@@ -98,3 +98,11 @@ TEST_F(JsonExtractScalarTest, jsonParseError) {
   EXPECT_TRUE(result->isNullAt(0)) << "at 0";
   EXPECT_TRUE(result->isNullAt(1)) << "at 1";
 }
+
+TEST_F(JsonExtractScalarTest, emptyString) {
+  const auto json_extract_scalar = [&](std::optional<std::string> json,
+                                       std::optional<std::string> path) {
+    return evaluateOnce<std::string>("json_extract_scalar(c0, c1)", json, path);
+  };
+  EXPECT_EQ(json_extract_scalar(R"({"a": ""})", "$.a"), "");
+}
