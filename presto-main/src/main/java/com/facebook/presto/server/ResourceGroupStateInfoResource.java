@@ -25,7 +25,6 @@ import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.DefaultValue;
 import javax.ws.rs.Encoded;
 import javax.ws.rs.GET;
-import javax.ws.rs.HeaderParam;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
@@ -50,7 +49,6 @@ import static com.facebook.presto.server.security.RoleType.ADMIN;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
@@ -88,13 +86,12 @@ public class ResourceGroupStateInfoResource
             @QueryParam("includeLocalInfoOnly") @DefaultValue("false") boolean includeLocalInfoOnly,
             @QueryParam("summarizeSubgroups") @DefaultValue("true") boolean summarizeSubgroups,
             @QueryParam("includeStaticSubgroupsOnly") @DefaultValue("false") boolean includeStaticSubgroupsOnly,
-            @HeaderParam(X_FORWARDED_PROTO) String xForwardedProto,
             @Context UriInfo uriInfo,
             @Context HttpServletRequest servletRequest,
             @Suspended AsyncResponse asyncResponse)
     {
         if (resourceManagerEnabled && !includeLocalInfoOnly) {
-            proxyResourceGroupInfoResponse(servletRequest, asyncResponse, xForwardedProto, uriInfo);
+            proxyResourceGroupInfoResponse(servletRequest, asyncResponse, uriInfo);
             return;
         }
         if (!isNullOrEmpty(resourceGroupIdString)) {
@@ -126,7 +123,7 @@ public class ResourceGroupStateInfoResource
     }
 
     //TODO move this to a common place and reuse in all resource
-    private void proxyResourceGroupInfoResponse(HttpServletRequest servletRequest, AsyncResponse asyncResponse, String xForwardedProto, UriInfo uriInfo)
+    private void proxyResourceGroupInfoResponse(HttpServletRequest servletRequest, AsyncResponse asyncResponse, UriInfo uriInfo)
     {
         try {
             checkState(proxyHelper.isPresent());
@@ -136,10 +133,9 @@ public class ResourceGroupStateInfoResource
                 return;
             }
             InternalNode resourceManagerNode = resourceManagers.next();
-            String scheme = isNullOrEmpty(xForwardedProto) ? uriInfo.getRequestUri().getScheme() : xForwardedProto;
 
             URI uri = uriInfo.getRequestUriBuilder()
-                    .scheme(scheme)
+                    .scheme(resourceManagerNode.getInternalUri().getScheme())
                     .host(resourceManagerNode.getHostAndPort().toInetAddress().getHostName())
                     .port(resourceManagerNode.getInternalUri().getPort())
                     .build();
