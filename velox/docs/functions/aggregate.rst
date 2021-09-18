@@ -127,3 +127,30 @@ Approximate Aggregate Functions
     an integer value of at least one. It is effectively a replication count for
     the value ``x`` in the percentile set. The value of ``p`` must be between
     zero and one and must be constant for all input rows.
+
+Statistical Aggregate Functions
+-------------------------------
+
+.. function:: stddev(x) -> double
+
+    This is an alias for stddev_samp().
+
+.. function:: stddev_pop(x) -> double
+
+    Returns the population standard deviation of all input values.
+
+.. function:: stddev_samp(x) -> double
+
+    Returns the sample standard deviation of all input values.
+
+.. function:: variance(x) -> double
+
+    This is an alias for var_samp().
+
+.. function:: var_pop(x) -> double
+
+    Returns the population variance of all input values.
+
+.. function:: var_samp(x) -> double
+
+    Returns the sample variance of all input values.
