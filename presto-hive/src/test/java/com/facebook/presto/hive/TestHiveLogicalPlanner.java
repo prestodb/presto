@@ -722,6 +722,38 @@ public class TestHiveLogicalPlanner
         }
     }
 
+    @Test
+    public void testMetadataAggregationFoldingWithFilters()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        Session optimizeMetadataQueries = Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(OPTIMIZE_METADATA_QUERIES, Boolean.toString(true))
+                .setCatalogSessionProperty(HIVE_CATALOG, PUSHDOWN_FILTER_ENABLED, Boolean.toString(true))
+                .build();
+        Session shufflePartitionColumns = Session.builder(this.getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty(HIVE_CATALOG, SHUFFLE_PARTITIONED_COLUMNS_FOR_TABLE_WRITE, Boolean.toString(true))
+                .build();
+
+        queryRunner.execute(
+                shufflePartitionColumns,
+                "CREATE TABLE test_metadata_aggregation_folding_with_filters WITH (partitioned_by = ARRAY['ds']) AS " +
+                        "SELECT orderkey, ARRAY[orderstatus] AS orderstatus, CAST(to_iso8601(date_add('DAY', orderkey % 2, date('2020-07-01'))) AS VARCHAR) AS ds FROM orders WHERE orderkey < 1000");
+
+        try {
+            // There is a filter on non-partition column which can be pushed down to the connector. Disable the rewrite.
+            assertPlan(
+                    optimizeMetadataQueries,
+                    "SELECT max(ds) from test_metadata_aggregation_folding_with_filters WHERE contains(orderstatus, 'F')",
+                    anyTree(
+                            tableScanWithConstraint(
+                                    "test_metadata_aggregation_folding_with_filters",
+                                    ImmutableMap.of("ds", multipleValues(VARCHAR, utf8Slices("2020-07-01", "2020-07-02"))))));
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS test_metadata_aggregation_folding_with_filters");
+        }
+    }
+
     private static Partition createDummyPartition(Table table, String partitionName)
     {
         return Partition.builder()
