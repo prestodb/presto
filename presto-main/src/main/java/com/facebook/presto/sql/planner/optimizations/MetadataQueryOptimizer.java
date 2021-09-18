@@ -47,6 +47,7 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
@@ -176,6 +177,13 @@ public class MetadataQueryOptimizer
                 if (!discretePredicates.getColumns().containsAll(predicateColumns)) {
                     return context.defaultRewrite(node);
                 }
+            }
+
+            // Remaining predicate after tuple domain pushdown in getTableLayout(). This doesn't have overlap with discretePredicates.
+            // So it only references non-partition columns. Disable the optimization in this case.
+            Optional<RowExpression> remainingPredicate = layout.getRemainingPredicate();
+            if (remainingPredicate.isPresent() && !VariablesExtractor.extractAll(remainingPredicate.get()).isEmpty()) {
+                return context.defaultRewrite(node);
             }
 
             // the optimization is only valid if the aggregation node only relies on partition keys
