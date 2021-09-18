@@ -17,6 +17,7 @@ add_library(
   AllocationPool.cpp
   ContainerRowSerde.cpp
   Driver.cpp
+  EnforceSingleRow.cpp
   Exchange.cpp
   FilterProject.cpp
   GroupingSet.cpp

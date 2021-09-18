@@ -316,6 +316,12 @@ PlanBuilder& PlanBuilder::limit(int32_t count, bool isPartial) {
   return *this;
 }
 
+PlanBuilder& PlanBuilder::enforceSingleRow() {
+  planNode_ =
+      std::make_shared<core::EnforceSingleRowNode>(nextPlanNodeId(), planNode_);
+  return *this;
+}
+
 namespace {
 RowTypePtr toRowType(
     RowTypePtr inputType,

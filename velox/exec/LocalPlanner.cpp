@@ -16,6 +16,7 @@
 #include "velox/exec/LocalPlanner.h"
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/CallbackSink.h"
+#include "velox/exec/EnforceSingleRow.h"
 #include "velox/exec/Exchange.h"
 #include "velox/exec/FilterProject.h"
 #include "velox/exec/HashAggregation.h"
@@ -297,6 +298,12 @@ std::shared_ptr<Driver> DriverFactory::createDriver(
         auto unnest =
             std::dynamic_pointer_cast<const core::UnnestNode>(planNode)) {
       operators.push_back(std::make_unique<Unnest>(id, ctx.get(), unnest));
+    } else if (
+        auto enforceSingleRow =
+            std::dynamic_pointer_cast<const core::EnforceSingleRowNode>(
+                planNode)) {
+      operators.push_back(
+          std::make_unique<EnforceSingleRow>(id, ctx.get(), enforceSingleRow));
     } else {
       auto extended = Operator::fromPlanNode(ctx.get(), id, planNode);
       VELOX_CHECK(extended, "Unsupported plan node: {}", planNode->toString());

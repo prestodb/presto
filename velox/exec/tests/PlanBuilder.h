@@ -142,6 +142,8 @@ class PlanBuilder {
 
   PlanBuilder& limit(int32_t count, bool isPartial);
 
+  PlanBuilder& enforceSingleRow();
+
   std::shared_ptr<const core::FieldAccessTypedExpr> field(int index);
 
   std::shared_ptr<const core::FieldAccessTypedExpr> field(
