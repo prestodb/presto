@@ -18,6 +18,7 @@ import com.facebook.presto.orc.CachingStripeMetadataSource;
 import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.StorageStripeMetadataSource;
 import com.facebook.presto.orc.StripeMetadataSource;
+import com.facebook.presto.orc.StripeMetadataSourceFactory;
 import com.facebook.presto.orc.StripeReader.StripeId;
 import com.facebook.presto.orc.StripeReader.StripeStreamId;
 import com.facebook.presto.orc.cache.CachingOrcFileTailSource;
@@ -134,7 +135,7 @@ public class StorageModule
 
     @Singleton
     @Provides
-    public StripeMetadataSource createStripeMetadataSource(OrcCacheConfig orcCacheConfig, MBeanExporter exporter)
+    public StripeMetadataSourceFactory createStripeMetadataSourceFactory(OrcCacheConfig orcCacheConfig, MBeanExporter exporter)
     {
         StripeMetadataSource stripeMetadataSource = new StorageStripeMetadataSource();
         if (orcCacheConfig.isStripeMetadataCacheEnabled()) {
@@ -156,6 +157,6 @@ public class StorageModule
             exporter.export(generatedNameOf(CacheStatsMBean.class, connectorId + "_StripeFooter"), footerCacheStatsMBean);
             exporter.export(generatedNameOf(CacheStatsMBean.class, connectorId + "_StripeStream"), streamCacheStatsMBean);
         }
-        return stripeMetadataSource;
+        return StripeMetadataSourceFactory.of(stripeMetadataSource);
     }
 }
