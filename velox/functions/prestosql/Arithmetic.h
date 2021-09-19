@@ -23,9 +23,7 @@
 #include "velox/functions/Macros.h"
 #include "velox/functions/prestosql/ArithmeticImpl.h"
 
-namespace facebook {
-namespace velox {
-namespace functions {
+namespace facebook::velox::functions {
 
 template <typename T>
 VELOX_UDF_BEGIN(plus)
@@ -152,6 +150,20 @@ FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
 }
 VELOX_UDF_END();
 
+VELOX_UDF_BEGIN(atan)
+FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
+  result = std::atan(a);
+  return true;
+}
+VELOX_UDF_END();
+
+VELOX_UDF_BEGIN(atan2)
+FOLLY_ALWAYS_INLINE bool call(double& result, double y, double x) {
+  result = std::atan2(y, x);
+  return true;
+}
+VELOX_UDF_END();
+
 VELOX_UDF_BEGIN(sqrt)
 FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
   result = std::sqrt(a);
@@ -241,6 +253,4 @@ FOLLY_ALWAYS_INLINE bool call(int64_t& result, T a, T b) {
 }
 VELOX_UDF_END();
 
-} // namespace functions
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox::functions
