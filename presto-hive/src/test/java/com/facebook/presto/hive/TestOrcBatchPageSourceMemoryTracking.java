@@ -32,6 +32,7 @@ import com.facebook.presto.operator.TableScanOperator.TableScanOperatorFactory;
 import com.facebook.presto.operator.project.CursorProcessor;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.orc.StorageStripeMetadataSource;
+import com.facebook.presto.orc.StripeMetadataSourceFactory;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
@@ -456,7 +457,7 @@ public class TestOrcBatchPageSourceMemoryTracking
                     stats,
                     100,
                     new StorageOrcFileTailSource(),
-                    new StorageStripeMetadataSource());
+                    StripeMetadataSourceFactory.of(new StorageStripeMetadataSource()));
             return HivePageSourceProvider.createHivePageSource(
                     ImmutableSet.of(),
                     ImmutableSet.of(orcPageSourceFactory),
