@@ -32,6 +32,7 @@ import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.StorageStripeMetadataSource;
+import com.facebook.presto.orc.StripeMetadataSourceFactory;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.raptor.RaptorOrcAggregatedMemoryContext;
 import com.facebook.presto.raptor.filesystem.LocalOrcDataEnvironment;
@@ -728,7 +729,7 @@ public class TestOrcFileRewriter
                 new LocalOrcDataEnvironment(),
                 ZSTD,
                 new StorageOrcFileTailSource(),
-                new StorageStripeMetadataSource());
+                StripeMetadataSourceFactory.of(new StorageStripeMetadataSource()));
     }
 
     private static Map<String, Type> getColumnTypes(List<Long> columnIds, List<Type> columnTypes)

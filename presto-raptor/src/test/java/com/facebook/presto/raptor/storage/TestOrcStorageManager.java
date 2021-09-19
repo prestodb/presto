@@ -25,6 +25,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.StorageStripeMetadataSource;
+import com.facebook.presto.orc.StripeMetadataSourceFactory;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.backup.BackupManager;
@@ -848,7 +849,7 @@ public class TestOrcStorageManager
                 SNAPPY,
                 ENABLED_AND_VALIDATED,
                 new StorageOrcFileTailSource(),
-                new StorageStripeMetadataSource());
+                StripeMetadataSourceFactory.of(new StorageStripeMetadataSource()));
     }
 
     private static void assertFileEquals(File actual, File expected)
