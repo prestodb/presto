@@ -46,6 +46,13 @@ class BitwiseAndOrAggregate : public SimpleNumericAggregate<T, T, T> {
     }
   }
 
+  void initializeNewGroups(
+      char** /*groups*/,
+      folly::Range<const vector_size_t*> /*indices*/,
+      const VectorPtr& /*initialState*/) override {
+    VELOX_NYI();
+  }
+
   void extractValues(char** groups, int32_t numGroups, VectorPtr* result)
       override {
     BaseAggregate::doExtractValues(groups, numGroups, result, [&](char* group) {

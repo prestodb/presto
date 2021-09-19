@@ -100,6 +100,13 @@ class MaxAggregate : public MinMaxAggregate<T, ResultType> {
     }
   }
 
+  void initializeNewGroups(
+      char** /*groups*/,
+      folly::Range<const vector_size_t*> /*indices*/,
+      const VectorPtr& /*initialState*/) override {
+    VELOX_NYI();
+  }
+
   void updatePartial(
       char** groups,
       const SelectivityVector& rows,
@@ -172,6 +179,13 @@ class MinAggregate : public MinMaxAggregate<T, ResultType> {
     for (auto i : indices) {
       *exec::Aggregate::value<T>(groups[i]) = kInitialValue_;
     }
+  }
+
+  void initializeNewGroups(
+      char** /*groups*/,
+      folly::Range<const vector_size_t*> /*indices*/,
+      const VectorPtr& /*initialState*/) override {
+    VELOX_NYI();
   }
 
   void updatePartial(
@@ -249,6 +263,13 @@ class NonNumericMinMaxAggregateBase : public exec::Aggregate {
     for (auto i : indices) {
       new (groups[i] + offset_) SingleValueAccumulator();
     }
+  }
+
+  void initializeNewGroups(
+      char** /*groups*/,
+      folly::Range<const vector_size_t*> /*indices*/,
+      const VectorPtr& /*initialState*/) override {
+    VELOX_NYI();
   }
 
   void finalize(char** /* groups */, int32_t /* numGroups */) override {

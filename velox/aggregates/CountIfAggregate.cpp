@@ -39,6 +39,13 @@ class CountIfAggregate : public exec::Aggregate {
     }
   }
 
+  void initializeNewGroups(
+      char** /*groups*/,
+      folly::Range<const vector_size_t*> /*indices*/,
+      const VectorPtr& /*initialState*/) override {
+    VELOX_NYI();
+  }
+
   void finalize(char** /* groups */, int32_t /* numGroups */) override {}
 
   void extractAccumulators(char** groups, int32_t numGroups, VectorPtr* result)

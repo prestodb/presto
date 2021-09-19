@@ -50,6 +50,13 @@ class AverageAggregate : public exec::Aggregate {
     }
   }
 
+  void initializeNewGroups(
+      char** /*groups*/,
+      folly::Range<const vector_size_t*> /*indices*/,
+      const VectorPtr& /*initialState*/) override {
+    VELOX_NYI();
+  }
+
   void finalize(char** /* unused */, int32_t /* unused */) override {}
 
   void extractValues(char** groups, int32_t numGroups, VectorPtr* result)
