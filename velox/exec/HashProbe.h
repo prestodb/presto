@@ -28,7 +28,7 @@ class HashProbe : public Operator {
   HashProbe(
       int32_t operatorId,
       DriverCtx* driverCtx,
-      std::shared_ptr<const core::HashJoinNode> hashJoinNode);
+      const std::shared_ptr<const core::HashJoinNode>& hashJoinNode);
 
   void addInput(RowVectorPtr input) override;
 

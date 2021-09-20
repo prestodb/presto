@@ -42,7 +42,7 @@ struct MemoryStats {
   uint64_t peakSystemMemoryReservation = {};
   uint64_t peakTotalMemoryReservation = {};
 
-  void update(std::shared_ptr<memory::MemoryUsageTracker> tracker) {
+  void update(const std::shared_ptr<memory::MemoryUsageTracker>& tracker) {
     if (!tracker) {
       return;
     }
@@ -136,12 +136,12 @@ struct OperatorStats {
   OperatorStats(
       int32_t _operatorId,
       int32_t _pipelineId,
-      const std::string& _planNodeId,
-      const std::string& _operatorType)
+      std::string _planNodeId,
+      std::string _operatorType)
       : operatorId(_operatorId),
         pipelineId(_pipelineId),
-        planNodeId(_planNodeId),
-        operatorType(_operatorType) {}
+        planNodeId(std::move(_planNodeId)),
+        operatorType(std::move(_operatorType)) {}
 
   void addRuntimeStat(const std::string& name, int64_t value) {
     runtimeStats[name].addValue(value);
@@ -220,13 +220,17 @@ class Operator {
       DriverCtx* driverCtx,
       std::shared_ptr<const RowType> outputType,
       int32_t operatorId,
-      const std::string& planNodeId,
-      const std::string& operatorType)
+      std::string planNodeId,
+      std::string operatorType)
       : operatorCtx_(std::make_unique<OperatorCtx>(driverCtx)),
-        stats_(operatorId, driverCtx->pipelineId, planNodeId, operatorType),
-        outputType_(outputType) {}
+        stats_(
+            operatorId,
+            driverCtx->pipelineId,
+            std::move(planNodeId),
+            std::move(operatorType)),
+        outputType_(std::move(outputType)) {}
 
-  virtual ~Operator() {}
+  virtual ~Operator() = default;
 
   // Returns true if can accept input.
   virtual bool needsInput() const = 0;
@@ -332,16 +336,16 @@ class Operator {
   // Registers 'translator' for mapping user defined PlanNode subclass instances
   // to user-defined Operators.
   static void registerOperator(PlanNodeTranslator translator) {
-    translators().push_back(translator);
+    translators().emplace_back(std::move(translator));
   }
 
   // Calls all the registered PlanNodeTranslators on 'planNode' and
-  // returns the the result of the first one that returns non-nullptr
+  // returns the result of the first one that returns non-nullptr
   // or nullptr if all return nullptr.
   static std::unique_ptr<Operator> fromPlanNode(
       DriverCtx* ctx,
       int32_t id,
-      std::shared_ptr<const core::PlanNode> planNode);
+      const std::shared_ptr<const core::PlanNode>& planNode);
 
  protected:
   static std::vector<PlanNodeTranslator>& translators();
@@ -427,7 +431,12 @@ class SourceOperator : public Operator {
       int32_t operatorId,
       const std::string& planNodeId,
       const std::string& operatorType)
-      : Operator(driverCtx, outputType, operatorId, planNodeId, operatorType) {}
+      : Operator(
+            driverCtx,
+            std::move(outputType),
+            operatorId,
+            planNodeId,
+            operatorType) {}
 
   bool needsInput() const override {
     return false;

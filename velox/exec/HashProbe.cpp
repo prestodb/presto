@@ -22,9 +22,9 @@
 namespace facebook::velox::exec {
 
 namespace {
-static constexpr ChannelIndex kNoChannel = ~0;
+constexpr ChannelIndex kNoChannel = ~0;
 
-static ChannelIndex childIndex(const RowType* type, const std::string& name) {
+ChannelIndex childIndex(const RowType* type, const std::string& name) {
   for (auto i = 0; i < type->size(); ++i) {
     if (type->nameOf(i) == name) {
       return i;
@@ -35,7 +35,7 @@ static ChannelIndex childIndex(const RowType* type, const std::string& name) {
 
 // Returns the type for the hash table row. Build side keys first,
 // then dependent build side columns.
-static std::shared_ptr<const RowType> makeTableType(
+std::shared_ptr<const RowType> makeTableType(
     const RowType* type,
     const std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>&
         keys) {
@@ -44,7 +44,7 @@ static std::shared_ptr<const RowType> makeTableType(
   std::unordered_set<ChannelIndex> keyChannels(keys.size());
   names.reserve(type->size());
   types.reserve(type->size());
-  for (auto key : keys) {
+  for (const auto& key : keys) {
     auto channel = type->getChildIdx(key->name());
     names.emplace_back(type->nameOf(channel));
     types.emplace_back(type->childAt(channel));
@@ -63,7 +63,7 @@ static std::shared_ptr<const RowType> makeTableType(
 HashProbe::HashProbe(
     int32_t operatorId,
     DriverCtx* driverCtx,
-    std::shared_ptr<const core::HashJoinNode> joinNode)
+    const std::shared_ptr<const core::HashJoinNode>& joinNode)
     : Operator(
           driverCtx,
           joinNode->outputType(),

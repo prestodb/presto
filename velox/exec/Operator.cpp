@@ -19,11 +19,8 @@
 #include "velox/exec/Task.h"
 
 #include "velox/common/process/ProcessBase.h"
-#include "velox/common/time/CpuWallTimer.h"
 
-namespace facebook {
-namespace velox {
-namespace exec {
+namespace facebook::velox::exec {
 
 std::vector<Operator::PlanNodeTranslator>& Operator::translators() {
   static std::vector<PlanNodeTranslator> translators;
@@ -34,7 +31,7 @@ std::vector<Operator::PlanNodeTranslator>& Operator::translators() {
 std::unique_ptr<Operator> Operator::fromPlanNode(
     DriverCtx* ctx,
     int32_t id,
-    std::shared_ptr<const core::PlanNode> planNode) {
+    const std::shared_ptr<const core::PlanNode>& planNode) {
   for (auto& translator : translators()) {
     auto op = translator(ctx, id, planNode);
     if (op) {
@@ -277,6 +274,4 @@ void OperatorStats::clear() {
   runtimeStats.clear();
 }
 
-} // namespace exec
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox::exec
