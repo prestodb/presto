@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -39,12 +40,12 @@ public final class LikeClause
         this(Optional.empty(), tableName, propertiesOption);
     }
 
-    public LikeClause(NodeLocation location, QualifiedName tableName, Optional<PropertiesOption> propertiesOption)
+    public LikeClause(SourceLocation location, QualifiedName tableName, Optional<PropertiesOption> propertiesOption)
     {
         this(Optional.of(location), tableName, propertiesOption);
     }
 
-    private LikeClause(Optional<NodeLocation> location, QualifiedName tableName, Optional<PropertiesOption> propertiesOption)
+    private LikeClause(Optional<SourceLocation> location, QualifiedName tableName, Optional<PropertiesOption> propertiesOption)
     {
         super(location);
         this.tableName = requireNonNull(tableName, "tableName is null");

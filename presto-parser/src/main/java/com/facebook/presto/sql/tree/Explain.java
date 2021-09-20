@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -35,12 +36,12 @@ public class Explain
         this(Optional.empty(), analyze, verbose, statement, options);
     }
 
-    public Explain(NodeLocation location, boolean analyze, boolean verbose, Statement statement, List<ExplainOption> options)
+    public Explain(SourceLocation location, boolean analyze, boolean verbose, Statement statement, List<ExplainOption> options)
     {
         this(Optional.of(location), analyze, verbose, statement, options);
     }
 
-    private Explain(Optional<NodeLocation> location, boolean analyze, boolean verbose, Statement statement, List<ExplainOption> options)
+    private Explain(Optional<SourceLocation> location, boolean analyze, boolean verbose, Statement statement, List<ExplainOption> options)
     {
         super(location);
         this.statement = requireNonNull(statement, "statement is null");

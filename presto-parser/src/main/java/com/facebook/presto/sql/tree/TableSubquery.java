@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -31,12 +32,12 @@ public class TableSubquery
         this(Optional.empty(), query);
     }
 
-    public TableSubquery(NodeLocation location, Query query)
+    public TableSubquery(SourceLocation location, Query query)
     {
         this(Optional.of(location), query);
     }
 
-    private TableSubquery(Optional<NodeLocation> location, Query query)
+    private TableSubquery(Optional<SourceLocation> location, Query query)
     {
         super(location);
         this.query = query;

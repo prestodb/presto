@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -32,12 +33,12 @@ public class Return
         this(Optional.empty(), expression);
     }
 
-    public Return(NodeLocation location, Expression expression)
+    public Return(SourceLocation location, Expression expression)
     {
         this(Optional.of(location), expression);
     }
 
-    private Return(Optional<NodeLocation> location, Expression expression)
+    private Return(Optional<SourceLocation> location, Expression expression)
     {
         super(location);
         this.expression = requireNonNull(expression, "Expression is null");

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -29,12 +30,12 @@ public class Parameter
         this(Optional.empty(), id);
     }
 
-    public Parameter(NodeLocation location, int id)
+    public Parameter(SourceLocation location, int id)
     {
         this(Optional.of(location), id);
     }
 
-    private Parameter(Optional<NodeLocation> location, int position)
+    private Parameter(Optional<SourceLocation> location, int position)
     {
         super(location);
         this.position = position;

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -34,12 +35,12 @@ public class With
         this(Optional.empty(), recursive, queries);
     }
 
-    public With(NodeLocation location, boolean recursive, List<WithQuery> queries)
+    public With(SourceLocation location, boolean recursive, List<WithQuery> queries)
     {
         this(Optional.of(location), recursive, queries);
     }
 
-    private With(Optional<NodeLocation> location, boolean recursive, List<WithQuery> queries)
+    private With(Optional<SourceLocation> location, boolean recursive, List<WithQuery> queries)
     {
         super(location);
         requireNonNull(queries, "queries is null");

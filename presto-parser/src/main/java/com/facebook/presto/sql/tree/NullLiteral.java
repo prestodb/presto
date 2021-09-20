@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
+
 import java.util.Optional;
 
 public class NullLiteral
@@ -23,7 +25,7 @@ public class NullLiteral
         super(Optional.empty());
     }
 
-    public NullLiteral(NodeLocation location)
+    public NullLiteral(SourceLocation location)
     {
         super(Optional.of(location));
     }

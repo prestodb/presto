@@ -13,12 +13,14 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
+
 import java.util.Optional;
 
 public abstract class Relation
         extends Node
 {
-    protected Relation(Optional<NodeLocation> location)
+    protected Relation(Optional<SourceLocation> location)
     {
         super(location);
     }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.google.common.io.BaseEncoding;
 import io.airlift.slice.Slice;
@@ -38,7 +39,7 @@ public class BinaryLiteral
         this(Optional.empty(), value);
     }
 
-    public BinaryLiteral(Optional<NodeLocation> location, String value)
+    public BinaryLiteral(Optional<SourceLocation> location, String value)
     {
         super(location);
         requireNonNull(value, "value is null");
@@ -52,7 +53,7 @@ public class BinaryLiteral
         this.value = Slices.wrappedBuffer(BaseEncoding.base16().decode(hexString));
     }
 
-    public BinaryLiteral(NodeLocation location, String value)
+    public BinaryLiteral(SourceLocation location, String value)
     {
         this(Optional.of(location), value);
     }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -33,12 +34,12 @@ public final class RenameSchema
         this(Optional.empty(), source, target);
     }
 
-    public RenameSchema(NodeLocation location, QualifiedName source, Identifier target)
+    public RenameSchema(SourceLocation location, QualifiedName source, Identifier target)
     {
         this(Optional.of(location), source, target);
     }
 
-    private RenameSchema(Optional<NodeLocation> location, QualifiedName source, Identifier target)
+    private RenameSchema(Optional<SourceLocation> location, QualifiedName source, Identifier target)
     {
         super(location);
         this.source = requireNonNull(source, "source is null");

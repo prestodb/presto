@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -28,7 +29,7 @@ public class DropMaterializedView
     private final QualifiedName name;
     private final boolean exists;
 
-    public DropMaterializedView(Optional<NodeLocation> location, QualifiedName name, boolean exists)
+    public DropMaterializedView(Optional<SourceLocation> location, QualifiedName name, boolean exists)
     {
         super(location);
         this.name = requireNonNull(name);

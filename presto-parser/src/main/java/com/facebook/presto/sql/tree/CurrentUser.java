@@ -14,6 +14,7 @@ package com.facebook.presto.sql.tree;
  * limitations under the License.
  */
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -28,12 +29,12 @@ public class CurrentUser
         this(Optional.empty());
     }
 
-    public CurrentUser(NodeLocation location)
+    public CurrentUser(SourceLocation location)
     {
         this(Optional.of(location));
     }
 
-    private CurrentUser(Optional<NodeLocation> location)
+    private CurrentUser(Optional<SourceLocation> location)
     {
         super(location);
     }

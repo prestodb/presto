@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -33,12 +34,12 @@ public class ShowCreateFunction
         this(Optional.empty(), name, parameterTypes);
     }
 
-    public ShowCreateFunction(NodeLocation location, QualifiedName name, Optional<List<String>> parameterTypes)
+    public ShowCreateFunction(SourceLocation location, QualifiedName name, Optional<List<String>> parameterTypes)
     {
         this(Optional.of(location), name, parameterTypes);
     }
 
-    private ShowCreateFunction(Optional<NodeLocation> location, QualifiedName name, Optional<List<String>> parameterTypes)
+    private ShowCreateFunction(Optional<SourceLocation> location, QualifiedName name, Optional<List<String>> parameterTypes)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");

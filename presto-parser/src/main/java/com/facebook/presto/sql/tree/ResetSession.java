@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -31,12 +32,12 @@ public class ResetSession
         this(Optional.empty(), name);
     }
 
-    public ResetSession(NodeLocation location, QualifiedName name)
+    public ResetSession(SourceLocation location, QualifiedName name)
     {
         this(Optional.of(location), name);
     }
 
-    private ResetSession(Optional<NodeLocation> location, QualifiedName name)
+    private ResetSession(Optional<SourceLocation> location, QualifiedName name)
     {
         super(location);
         this.name = name;

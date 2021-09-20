@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -33,12 +34,12 @@ public final class Unnest
         this(Optional.empty(), expressions, withOrdinality);
     }
 
-    public Unnest(NodeLocation location, List<Expression> expressions, boolean withOrdinality)
+    public Unnest(SourceLocation location, List<Expression> expressions, boolean withOrdinality)
     {
         this(Optional.of(location), expressions, withOrdinality);
     }
 
-    private Unnest(Optional<NodeLocation> location, List<Expression> expressions, boolean withOrdinality)
+    private Unnest(Optional<SourceLocation> location, List<Expression> expressions, boolean withOrdinality)
     {
         super(location);
         requireNonNull(expressions, "expressions is null");

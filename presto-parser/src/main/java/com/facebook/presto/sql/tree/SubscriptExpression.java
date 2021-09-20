@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -32,12 +33,12 @@ public class SubscriptExpression
         this(Optional.empty(), base, index);
     }
 
-    public SubscriptExpression(NodeLocation location, Expression base, Expression index)
+    public SubscriptExpression(SourceLocation location, Expression base, Expression index)
     {
         this(Optional.of(location), base, index);
     }
 
-    private SubscriptExpression(Optional<NodeLocation> location, Expression base, Expression index)
+    private SubscriptExpression(Optional<SourceLocation> location, Expression base, Expression index)
     {
         super(location);
         this.base = requireNonNull(base, "base is null");

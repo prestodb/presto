@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -26,7 +27,7 @@ public class DescribeInput
 {
     private final Identifier name;
 
-    public DescribeInput(NodeLocation location, Identifier name)
+    public DescribeInput(SourceLocation location, Identifier name)
     {
         this(Optional.of(location), name);
     }
@@ -36,7 +37,7 @@ public class DescribeInput
         this(Optional.empty(), name);
     }
 
-    private DescribeInput(Optional<NodeLocation> location, Identifier name)
+    private DescribeInput(Optional<SourceLocation> location, Identifier name)
     {
         super(location);
         this.name = name;

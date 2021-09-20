@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
@@ -56,12 +57,12 @@ public class Extract
         this(Optional.empty(), expression, field);
     }
 
-    public Extract(NodeLocation location, Expression expression, Field field)
+    public Extract(SourceLocation location, Expression expression, Field field)
     {
         this(Optional.of(location), expression, field);
     }
 
-    private Extract(Optional<NodeLocation> location, Expression expression, Field field)
+    private Extract(Optional<SourceLocation> location, Expression expression, Field field)
     {
         super(location);
         requireNonNull(expression, "expression is null");

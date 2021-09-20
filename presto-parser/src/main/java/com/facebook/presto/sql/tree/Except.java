@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -33,12 +34,12 @@ public class Except
         this(Optional.empty(), left, right, distinct);
     }
 
-    public Except(NodeLocation location, Relation left, Relation right, Optional<Boolean> distinct)
+    public Except(SourceLocation location, Relation left, Relation right, Optional<Boolean> distinct)
     {
         this(Optional.of(location), left, right, distinct);
     }
 
-    private Except(Optional<NodeLocation> location, Relation left, Relation right, Optional<Boolean> distinct)
+    private Except(Optional<SourceLocation> location, Relation left, Relation right, Optional<Boolean> distinct)
     {
         super(location, distinct);
         requireNonNull(left, "left is null");

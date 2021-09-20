@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
+
 import java.util.Objects;
 import java.util.Optional;
 
@@ -28,12 +30,12 @@ public class DecimalLiteral
         this(Optional.empty(), value);
     }
 
-    public DecimalLiteral(NodeLocation location, String value)
+    public DecimalLiteral(SourceLocation location, String value)
     {
         this(Optional.of(location), value);
     }
 
-    public DecimalLiteral(Optional<NodeLocation> location, String value)
+    public DecimalLiteral(Optional<SourceLocation> location, String value)
     {
         super(location);
         this.value = requireNonNull(value, "value is null");

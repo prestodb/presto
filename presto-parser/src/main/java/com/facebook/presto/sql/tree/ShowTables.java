@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -34,12 +35,12 @@ public class ShowTables
         this(Optional.empty(), schema, likePattern, escape);
     }
 
-    public ShowTables(NodeLocation location, Optional<QualifiedName> schema, Optional<String> likePattern, Optional<String> escape)
+    public ShowTables(SourceLocation location, Optional<QualifiedName> schema, Optional<String> likePattern, Optional<String> escape)
     {
         this(Optional.of(location), schema, likePattern, escape);
     }
 
-    private ShowTables(Optional<NodeLocation> location, Optional<QualifiedName> schema, Optional<String> likePattern, Optional<String> escape)
+    private ShowTables(Optional<SourceLocation> location, Optional<QualifiedName> schema, Optional<String> likePattern, Optional<String> escape)
     {
         super(location);
         requireNonNull(schema, "schema is null");

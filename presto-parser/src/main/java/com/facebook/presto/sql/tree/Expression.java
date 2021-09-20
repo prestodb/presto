@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.facebook.presto.sql.ExpressionFormatter;
 
 import java.util.Optional;
@@ -20,7 +21,7 @@ import java.util.Optional;
 public abstract class Expression
         extends Node
 {
-    protected Expression(Optional<NodeLocation> location)
+    protected Expression(Optional<SourceLocation> location)
     {
         super(location);
     }

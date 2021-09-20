@@ -14,6 +14,7 @@
 
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -57,12 +58,12 @@ public class BindExpression
         this(Optional.empty(), values, function);
     }
 
-    public BindExpression(NodeLocation location, List<Expression> values, Expression function)
+    public BindExpression(SourceLocation location, List<Expression> values, Expression function)
     {
         this(Optional.of(location), values, function);
     }
 
-    private BindExpression(Optional<NodeLocation> location, List<Expression> values, Expression function)
+    private BindExpression(Optional<SourceLocation> location, List<Expression> values, Expression function)
     {
         super(location);
         this.values = requireNonNull(values, "value is null");

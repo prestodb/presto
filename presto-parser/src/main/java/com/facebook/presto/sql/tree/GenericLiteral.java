@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.facebook.presto.sql.parser.ParsingException;
 
 import java.util.Objects;
@@ -31,12 +32,12 @@ public final class GenericLiteral
         this(Optional.empty(), type, value);
     }
 
-    public GenericLiteral(NodeLocation location, String type, String value)
+    public GenericLiteral(SourceLocation location, String type, String value)
     {
         this(Optional.of(location), type, value);
     }
 
-    private GenericLiteral(Optional<NodeLocation> location, String type, String value)
+    private GenericLiteral(Optional<SourceLocation> location, String type, String value)
     {
         super(location);
         requireNonNull(type, "type is null");

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
@@ -34,12 +35,12 @@ public class DereferenceExpression
         this(Optional.empty(), base, field);
     }
 
-    public DereferenceExpression(NodeLocation location, Expression base, Identifier field)
+    public DereferenceExpression(SourceLocation location, Expression base, Identifier field)
     {
         this(Optional.of(location), base, field);
     }
 
-    private DereferenceExpression(Optional<NodeLocation> location, Expression base, Identifier field)
+    private DereferenceExpression(Optional<SourceLocation> location, Expression base, Identifier field)
     {
         super(location);
         checkArgument(base != null, "base is null");

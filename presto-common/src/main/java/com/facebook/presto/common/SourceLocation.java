@@ -11,14 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.tree;
+package com.facebook.presto.common;
 
-public final class NodeLocation
+public final class SourceLocation
 {
     private final int line;
     private final int charPositionInLine;
 
-    public NodeLocation(int line, int charPositionInLine)
+    public SourceLocation(int line, int charPositionInLine)
     {
         this.line = line;
         this.charPositionInLine = charPositionInLine;

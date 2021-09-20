@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -32,7 +33,7 @@ public class AllColumns
         prefix = Optional.empty();
     }
 
-    public AllColumns(NodeLocation location)
+    public AllColumns(SourceLocation location)
     {
         super(Optional.of(location));
         prefix = Optional.empty();
@@ -43,12 +44,12 @@ public class AllColumns
         this(Optional.empty(), prefix);
     }
 
-    public AllColumns(NodeLocation location, QualifiedName prefix)
+    public AllColumns(SourceLocation location, QualifiedName prefix)
     {
         this(Optional.of(location), prefix);
     }
 
-    private AllColumns(Optional<NodeLocation> location, QualifiedName prefix)
+    private AllColumns(Optional<SourceLocation> location, QualifiedName prefix)
     {
         super(location);
         requireNonNull(prefix, "prefix is null");

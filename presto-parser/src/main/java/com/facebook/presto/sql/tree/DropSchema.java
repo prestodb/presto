@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -34,12 +35,12 @@ public final class DropSchema
         this(Optional.empty(), schemaName, exists, cascade);
     }
 
-    public DropSchema(NodeLocation location, QualifiedName schemaName, boolean exists, boolean cascade)
+    public DropSchema(SourceLocation location, QualifiedName schemaName, boolean exists, boolean cascade)
     {
         this(Optional.of(location), schemaName, exists, cascade);
     }
 
-    private DropSchema(Optional<NodeLocation> location, QualifiedName schemaName, boolean exists, boolean cascade)
+    private DropSchema(Optional<SourceLocation> location, QualifiedName schemaName, boolean exists, boolean cascade)
     {
         super(location);
         this.schemaName = requireNonNull(schemaName, "schemaName is null");

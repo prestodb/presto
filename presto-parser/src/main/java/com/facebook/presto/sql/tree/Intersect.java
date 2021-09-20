@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -32,12 +33,12 @@ public class Intersect
         this(Optional.empty(), relations, distinct);
     }
 
-    public Intersect(NodeLocation location, List<Relation> relations, Optional<Boolean> distinct)
+    public Intersect(SourceLocation location, List<Relation> relations, Optional<Boolean> distinct)
     {
         this(Optional.of(location), relations, distinct);
     }
 
-    private Intersect(Optional<NodeLocation> location, List<Relation> relations, Optional<Boolean> distinct)
+    private Intersect(Optional<SourceLocation> location, List<Relation> relations, Optional<Boolean> distinct)
     {
         super(location, distinct);
         requireNonNull(relations, "relations is null");

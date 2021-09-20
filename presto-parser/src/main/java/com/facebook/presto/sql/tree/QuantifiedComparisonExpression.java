@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -41,12 +42,12 @@ public class QuantifiedComparisonExpression
         this(Optional.empty(), operator, quantifier, value, subquery);
     }
 
-    public QuantifiedComparisonExpression(NodeLocation location, ComparisonExpression.Operator operator, Quantifier quantifier, Expression value, Expression subquery)
+    public QuantifiedComparisonExpression(SourceLocation location, ComparisonExpression.Operator operator, Quantifier quantifier, Expression value, Expression subquery)
     {
         this(Optional.of(location), operator, quantifier, value, subquery);
     }
 
-    private QuantifiedComparisonExpression(Optional<NodeLocation> location, ComparisonExpression.Operator operator, Quantifier quantifier, Expression value, Expression subquery)
+    private QuantifiedComparisonExpression(Optional<SourceLocation> location, ComparisonExpression.Operator operator, Quantifier quantifier, Expression value, Expression subquery)
     {
         super(location);
         this.operator = requireNonNull(operator, "comparisonType is null");

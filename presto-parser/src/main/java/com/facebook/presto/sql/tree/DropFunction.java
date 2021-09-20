@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -35,12 +36,12 @@ public class DropFunction
         this(Optional.empty(), functionName, parameterTypes, temporary, exists);
     }
 
-    public DropFunction(NodeLocation location, QualifiedName functionName, Optional<List<String>> parameterTypes, boolean temporary, boolean exists)
+    public DropFunction(SourceLocation location, QualifiedName functionName, Optional<List<String>> parameterTypes, boolean temporary, boolean exists)
     {
         this(Optional.of(location), functionName, parameterTypes, temporary, exists);
     }
 
-    private DropFunction(Optional<NodeLocation> location, QualifiedName functionName, Optional<List<String>> parameterTypes, boolean temporary, boolean exists)
+    private DropFunction(Optional<SourceLocation> location, QualifiedName functionName, Optional<List<String>> parameterTypes, boolean temporary, boolean exists)
     {
         super(location);
         this.functionName = requireNonNull(functionName, "functionName is null");

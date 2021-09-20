@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -38,12 +39,12 @@ public class ArithmeticUnaryExpression
         this(Optional.empty(), sign, value);
     }
 
-    public ArithmeticUnaryExpression(NodeLocation location, Sign sign, Expression value)
+    public ArithmeticUnaryExpression(SourceLocation location, Sign sign, Expression value)
     {
         this(Optional.of(location), sign, value);
     }
 
-    private ArithmeticUnaryExpression(Optional<NodeLocation> location, Sign sign, Expression value)
+    private ArithmeticUnaryExpression(Optional<SourceLocation> location, Sign sign, Expression value)
     {
         super(location);
         requireNonNull(value, "value is null");
@@ -53,12 +54,12 @@ public class ArithmeticUnaryExpression
         this.sign = sign;
     }
 
-    public static ArithmeticUnaryExpression positive(NodeLocation location, Expression value)
+    public static ArithmeticUnaryExpression positive(SourceLocation location, Expression value)
     {
         return new ArithmeticUnaryExpression(Optional.of(location), Sign.PLUS, value);
     }
 
-    public static ArithmeticUnaryExpression negative(NodeLocation location, Expression value)
+    public static ArithmeticUnaryExpression negative(SourceLocation location, Expression value)
     {
         return new ArithmeticUnaryExpression(Optional.of(location), Sign.MINUS, value);
     }

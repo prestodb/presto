@@ -14,6 +14,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -33,12 +34,12 @@ public final class StartTransaction
         this(Optional.empty(), transactionModes);
     }
 
-    public StartTransaction(NodeLocation location, List<TransactionMode> transactionModes)
+    public StartTransaction(SourceLocation location, List<TransactionMode> transactionModes)
     {
         this(Optional.of(location), transactionModes);
     }
 
-    private StartTransaction(Optional<NodeLocation> location, List<TransactionMode> transactionModes)
+    private StartTransaction(Optional<SourceLocation> location, List<TransactionMode> transactionModes)
     {
         super(location);
         this.transactionModes = ImmutableList.copyOf(requireNonNull(transactionModes, "transactionModes is null"));

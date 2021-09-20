@@ -15,12 +15,14 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
+
 import java.util.Optional;
 
 public abstract class TransactionMode
         extends Node
 {
-    public TransactionMode(Optional<NodeLocation> location)
+    public TransactionMode(Optional<SourceLocation> location)
     {
         super(location);
     }

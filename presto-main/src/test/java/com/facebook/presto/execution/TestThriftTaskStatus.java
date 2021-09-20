@@ -23,11 +23,11 @@ import com.facebook.drift.protocol.TFacebookCompactProtocol;
 import com.facebook.drift.protocol.TMemoryBuffer;
 import com.facebook.drift.protocol.TProtocol;
 import com.facebook.drift.protocol.TTransport;
+import com.facebook.presto.common.SourceLocation;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoTransportException;
 import com.facebook.presto.sql.parser.ParsingException;
-import com.facebook.presto.sql.tree.NodeLocation;
 import com.facebook.presto.util.Failures;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -213,7 +213,7 @@ public class TestThriftTaskStatus
                 REMOTE_HOST,
                 "Too many requests failed",
                 new PrestoException(REMOTE_TASK_ERROR, "Remote Task Error"));
-        ParsingException parsingException = new ParsingException("Parsing Exception", new NodeLocation(100, 1));
+        ParsingException parsingException = new ParsingException("Parsing Exception", new SourceLocation(100, 1));
         return Failures.toFailures(ImmutableList.of(ioException, prestoTransportException, parsingException));
     }
 }

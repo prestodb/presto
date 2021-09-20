@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -31,7 +32,7 @@ public class CreateMaterializedView
     private final List<Property> properties;
     private final Optional<String> comment;
 
-    public CreateMaterializedView(Optional<NodeLocation> location, QualifiedName name, Query query, boolean notExists, List<Property> properties, Optional<String> comment)
+    public CreateMaterializedView(Optional<SourceLocation> location, QualifiedName name, Query query, boolean notExists, List<Property> properties, Optional<String> comment)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");

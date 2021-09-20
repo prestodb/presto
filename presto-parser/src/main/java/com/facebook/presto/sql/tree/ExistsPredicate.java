@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -31,12 +32,12 @@ public class ExistsPredicate
         this(Optional.empty(), subquery);
     }
 
-    public ExistsPredicate(NodeLocation location, Expression subquery)
+    public ExistsPredicate(SourceLocation location, Expression subquery)
     {
         this(Optional.of(location), subquery);
     }
 
-    private ExistsPredicate(Optional<NodeLocation> location, Expression subquery)
+    private ExistsPredicate(Optional<SourceLocation> location, Expression subquery)
     {
         super(location);
         requireNonNull(subquery, "subquery is null");

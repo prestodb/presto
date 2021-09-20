@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.presto.common.SourceLocation;
 import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.NodeLocation;
 
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -48,8 +48,8 @@ public class SemanticException
     private static String formatMessage(String formatString, Node node, Object[] args)
     {
         if (node.getLocation().isPresent()) {
-            NodeLocation nodeLocation = node.getLocation().get();
-            return format("line %s:%s: %s", nodeLocation.getLineNumber(), nodeLocation.getColumnNumber(), format(formatString, args));
+            SourceLocation sourceLocation = node.getLocation().get();
+            return format("line %s:%s: %s", sourceLocation.getLineNumber(), sourceLocation.getColumnNumber(), format(formatString, args));
         }
         return format(formatString, args);
     }

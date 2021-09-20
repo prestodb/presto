@@ -13,13 +13,15 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
+
 import java.util.List;
 import java.util.Optional;
 
 public abstract class GroupingElement
         extends Node
 {
-    protected GroupingElement(Optional<NodeLocation> location)
+    protected GroupingElement(Optional<SourceLocation> location)
     {
         super(location);
     }

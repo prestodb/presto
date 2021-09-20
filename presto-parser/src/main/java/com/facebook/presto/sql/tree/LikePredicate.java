@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -33,7 +34,7 @@ public class LikePredicate
         this(Optional.empty(), value, pattern, Optional.of(escape));
     }
 
-    public LikePredicate(NodeLocation location, Expression value, Expression pattern, Optional<Expression> escape)
+    public LikePredicate(SourceLocation location, Expression value, Expression pattern, Optional<Expression> escape)
     {
         this(Optional.of(location), value, pattern, escape);
     }
@@ -43,7 +44,7 @@ public class LikePredicate
         this(Optional.empty(), value, pattern, escape);
     }
 
-    private LikePredicate(Optional<NodeLocation> location, Expression value, Expression pattern, Optional<Expression> escape)
+    private LikePredicate(Optional<SourceLocation> location, Expression value, Expression pattern, Optional<Expression> escape)
     {
         super(location);
         requireNonNull(value, "value is null");

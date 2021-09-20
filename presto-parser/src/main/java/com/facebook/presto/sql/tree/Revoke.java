@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -36,12 +37,12 @@ public class Revoke
         this(Optional.empty(), grantOptionFor, privileges, table, tableName, grantee);
     }
 
-    public Revoke(NodeLocation location, boolean grantOptionFor, Optional<List<String>> privileges, boolean table, QualifiedName tableName, PrincipalSpecification grantee)
+    public Revoke(SourceLocation location, boolean grantOptionFor, Optional<List<String>> privileges, boolean table, QualifiedName tableName, PrincipalSpecification grantee)
     {
         this(Optional.of(location), grantOptionFor, privileges, table, tableName, grantee);
     }
 
-    private Revoke(Optional<NodeLocation> location, boolean grantOptionFor, Optional<List<String>> privileges, boolean table, QualifiedName tableName, PrincipalSpecification grantee)
+    private Revoke(Optional<SourceLocation> location, boolean grantOptionFor, Optional<List<String>> privileges, boolean table, QualifiedName tableName, PrincipalSpecification grantee)
     {
         super(location);
         this.grantOptionFor = grantOptionFor;

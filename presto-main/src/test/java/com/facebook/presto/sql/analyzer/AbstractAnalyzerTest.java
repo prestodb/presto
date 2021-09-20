@@ -16,6 +16,7 @@ package com.facebook.presto.sql.analyzer;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.SourceLocation;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.RealType;
 import com.facebook.presto.common.type.RowType;
@@ -51,7 +52,6 @@ import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.tree.NodeLocation;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.testing.TestingMetadata;
 import com.facebook.presto.testing.TestingWarningCollector;
@@ -361,7 +361,7 @@ public class AbstractAnalyzerTest
 
     protected void assertFails(SemanticErrorCode error, int line, int column, @Language("SQL") String query)
     {
-        assertFails(CLIENT_SESSION, error, Optional.of(new NodeLocation(line, column - 1)), query);
+        assertFails(CLIENT_SESSION, error, Optional.of(new SourceLocation(line, column - 1)), query);
     }
 
     protected void assertFails(SemanticErrorCode error, String message, @Language("SQL") String query)
@@ -374,7 +374,7 @@ public class AbstractAnalyzerTest
         assertFails(session, error, Optional.empty(), query);
     }
 
-    private void assertFails(Session session, SemanticErrorCode error, Optional<NodeLocation> location, @Language("SQL") String query)
+    private void assertFails(Session session, SemanticErrorCode error, Optional<SourceLocation> location, @Language("SQL") String query)
     {
         try {
             analyze(session, query);
@@ -386,8 +386,8 @@ public class AbstractAnalyzerTest
             }
 
             if (location.isPresent()) {
-                NodeLocation expected = location.get();
-                NodeLocation actual = e.getNode().getLocation().get();
+                SourceLocation expected = location.get();
+                SourceLocation actual = e.getNode().getLocation().get();
 
                 if (expected.getLineNumber() != actual.getLineNumber() || expected.getColumnNumber() != actual.getColumnNumber()) {
                     fail(format(

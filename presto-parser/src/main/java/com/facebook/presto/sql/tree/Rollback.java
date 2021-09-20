@@ -14,6 +14,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -27,12 +28,12 @@ public final class Rollback
         this(Optional.empty());
     }
 
-    public Rollback(NodeLocation location)
+    public Rollback(SourceLocation location)
     {
         this(Optional.of(location));
     }
 
-    private Rollback(Optional<NodeLocation> location)
+    private Rollback(Optional<SourceLocation> location)
     {
         super(location);
     }

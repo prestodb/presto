@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -53,7 +54,7 @@ public class CurrentTime
         this(Optional.empty(), function, null);
     }
 
-    public CurrentTime(NodeLocation location, Function function)
+    public CurrentTime(SourceLocation location, Function function)
     {
         this(Optional.of(location), function, null);
     }
@@ -63,12 +64,12 @@ public class CurrentTime
         this(Optional.empty(), function, precision);
     }
 
-    public CurrentTime(NodeLocation location, Function function, Integer precision)
+    public CurrentTime(SourceLocation location, Function function, Integer precision)
     {
         this(Optional.of(location), function, precision);
     }
 
-    private CurrentTime(Optional<NodeLocation> location, Function function, Integer precision)
+    private CurrentTime(Optional<SourceLocation> location, Function function, Integer precision)
     {
         super(location);
         requireNonNull(function, "type is null");

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -39,12 +40,12 @@ public class CreateFunction
         this(Optional.empty(), replace, temporary, functionName, parameters, returnType, comment, characteristics, body);
     }
 
-    public CreateFunction(NodeLocation location, boolean replace, boolean temporary, QualifiedName functionName, List<SqlParameterDeclaration> parameters, String returnType, Optional<String> comment, RoutineCharacteristics characteristics, RoutineBody body)
+    public CreateFunction(SourceLocation location, boolean replace, boolean temporary, QualifiedName functionName, List<SqlParameterDeclaration> parameters, String returnType, Optional<String> comment, RoutineCharacteristics characteristics, RoutineBody body)
     {
         this(Optional.of(location), replace, temporary, functionName, parameters, returnType, comment, characteristics, body);
     }
 
-    private CreateFunction(Optional<NodeLocation> location, boolean replace, boolean temporary, QualifiedName functionName, List<SqlParameterDeclaration> parameters, String returnType, Optional<String> comment, RoutineCharacteristics characteristics, RoutineBody body)
+    private CreateFunction(Optional<SourceLocation> location, boolean replace, boolean temporary, QualifiedName functionName, List<SqlParameterDeclaration> parameters, String returnType, Optional<String> comment, RoutineCharacteristics characteristics, RoutineBody body)
     {
         super(location);
         this.functionName = requireNonNull(functionName, "functionName is null");

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -31,12 +32,12 @@ public class Join
         this(Optional.empty(), type, left, right, criteria);
     }
 
-    public Join(NodeLocation location, Type type, Relation left, Relation right, Optional<JoinCriteria> criteria)
+    public Join(SourceLocation location, Type type, Relation left, Relation right, Optional<JoinCriteria> criteria)
     {
         this(Optional.of(location), type, left, right, criteria);
     }
 
-    private Join(Optional<NodeLocation> location, Type type, Relation left, Relation right, Optional<JoinCriteria> criteria)
+    private Join(Optional<SourceLocation> location, Type type, Relation left, Relation right, Optional<JoinCriteria> criteria)
     {
         super(location);
         requireNonNull(left, "left is null");

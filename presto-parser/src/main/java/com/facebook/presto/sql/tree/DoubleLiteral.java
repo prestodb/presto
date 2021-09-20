@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
+
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -27,12 +29,12 @@ public class DoubleLiteral
         this(Optional.empty(), value);
     }
 
-    public DoubleLiteral(NodeLocation location, String value)
+    public DoubleLiteral(SourceLocation location, String value)
     {
         this(Optional.of(location), value);
     }
 
-    private DoubleLiteral(Optional<NodeLocation> location, String value)
+    private DoubleLiteral(Optional<SourceLocation> location, String value)
     {
         super(location);
         requireNonNull(value, "value is null");

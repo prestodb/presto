@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -33,12 +34,12 @@ public class AtTimeZone
         this(Optional.empty(), value, timeZone);
     }
 
-    public AtTimeZone(NodeLocation location, Expression value, Expression timeZone)
+    public AtTimeZone(SourceLocation location, Expression value, Expression timeZone)
     {
         this(Optional.of(location), value, timeZone);
     }
 
-    private AtTimeZone(Optional<NodeLocation> location, Expression value, Expression timeZone)
+    private AtTimeZone(Optional<SourceLocation> location, Expression value, Expression timeZone)
     {
         super(location);
         checkArgument(timeZone instanceof IntervalLiteral || timeZone instanceof StringLiteral, "timeZone must be IntervalLiteral or StringLiteral");

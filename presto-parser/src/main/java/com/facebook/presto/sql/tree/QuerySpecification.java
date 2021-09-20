@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -48,7 +49,7 @@ public class QuerySpecification
     }
 
     public QuerySpecification(
-            NodeLocation location,
+            SourceLocation location,
             Select select,
             Optional<Relation> from,
             Optional<Expression> where,
@@ -62,7 +63,7 @@ public class QuerySpecification
     }
 
     private QuerySpecification(
-            Optional<NodeLocation> location,
+            Optional<SourceLocation> location,
             Select select,
             Optional<Relation> from,
             Optional<Expression> where,

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.parser;
 
-import com.facebook.presto.sql.tree.NodeLocation;
+import com.facebook.presto.common.SourceLocation;
 import org.antlr.v4.runtime.RecognitionException;
 
 import static java.lang.String.format;
@@ -37,11 +37,11 @@ public class ParsingException
         this(message, null, 1, 0);
     }
 
-    public ParsingException(String message, NodeLocation nodeLocation)
+    public ParsingException(String message, SourceLocation sourceLocation)
     {
         // charPositionInLine is 0-based whereas columnNumber is 1-based.
         // We need to decrement the columnNumber by 1 here since we are storing charPositionInLine.
-        this(message, null, nodeLocation.getLineNumber(), nodeLocation.getColumnNumber() - 1);
+        this(message, null, sourceLocation.getLineNumber(), sourceLocation.getColumnNumber() - 1);
     }
 
     public int getLineNumber()

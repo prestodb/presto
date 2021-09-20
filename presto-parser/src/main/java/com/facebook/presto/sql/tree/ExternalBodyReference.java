@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -38,7 +39,7 @@ public class ExternalBodyReference
         this(Optional.empty(), Optional.of(identifier));
     }
 
-    private ExternalBodyReference(Optional<NodeLocation> location, Optional<Identifier> identifier)
+    private ExternalBodyReference(Optional<SourceLocation> location, Optional<Identifier> identifier)
     {
         super(location);
         this.identifier = requireNonNull(identifier, "identifier is null");

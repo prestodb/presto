@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -33,7 +34,7 @@ public class GrantRoles
     private final Optional<GrantorSpecification> grantor;
 
     public GrantRoles(
-            NodeLocation location,
+            SourceLocation location,
             Set<Identifier> roles,
             Set<PrincipalSpecification> grantees,
             boolean withAdminOption,
@@ -52,7 +53,7 @@ public class GrantRoles
     }
 
     private GrantRoles(
-            Optional<NodeLocation> location,
+            Optional<SourceLocation> location,
             Set<Identifier> roles,
             Set<PrincipalSpecification> grantees,
             boolean withAdminOption,

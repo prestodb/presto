@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -43,12 +44,12 @@ public class SortItem
         this(Optional.empty(), sortKey, ordering, nullOrdering);
     }
 
-    public SortItem(NodeLocation location, Expression sortKey, Ordering ordering, NullOrdering nullOrdering)
+    public SortItem(SourceLocation location, Expression sortKey, Ordering ordering, NullOrdering nullOrdering)
     {
         this(Optional.of(location), sortKey, ordering, nullOrdering);
     }
 
-    private SortItem(Optional<NodeLocation> location, Expression sortKey, Ordering ordering, NullOrdering nullOrdering)
+    private SortItem(Optional<SourceLocation> location, Expression sortKey, Ordering ordering, NullOrdering nullOrdering)
     {
         super(location);
         this.ordering = ordering;

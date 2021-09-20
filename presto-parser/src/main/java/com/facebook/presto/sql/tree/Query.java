@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -42,7 +43,7 @@ public class Query
     }
 
     public Query(
-            NodeLocation location,
+            SourceLocation location,
             Optional<With> with,
             QueryBody queryBody,
             Optional<OrderBy> orderBy,
@@ -53,7 +54,7 @@ public class Query
     }
 
     private Query(
-            Optional<NodeLocation> location,
+            Optional<SourceLocation> location,
             Optional<With> with,
             QueryBody queryBody,
             Optional<OrderBy> orderBy,

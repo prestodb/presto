@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -37,7 +38,7 @@ public class FunctionCall
         this(Optional.empty(), name, Optional.empty(), Optional.empty(), Optional.empty(), false, false, arguments);
     }
 
-    public FunctionCall(NodeLocation location, QualifiedName name, List<Expression> arguments)
+    public FunctionCall(SourceLocation location, QualifiedName name, List<Expression> arguments)
     {
         this(Optional.of(location), name, Optional.empty(), Optional.empty(), Optional.empty(), false, false, arguments);
     }
@@ -67,17 +68,17 @@ public class FunctionCall
         this(Optional.empty(), name, window, filter, orderBy, distinct, ignoreNulls, arguments);
     }
 
-    public FunctionCall(NodeLocation location, QualifiedName name, Optional<Window> window, Optional<Expression> filter, Optional<OrderBy> orderBy, boolean distinct, List<Expression> arguments)
+    public FunctionCall(SourceLocation location, QualifiedName name, Optional<Window> window, Optional<Expression> filter, Optional<OrderBy> orderBy, boolean distinct, List<Expression> arguments)
     {
         this(Optional.of(location), name, window, filter, orderBy, distinct, false, arguments);
     }
 
-    public FunctionCall(NodeLocation location, QualifiedName name, Optional<Window> window, Optional<Expression> filter, Optional<OrderBy> orderBy, boolean distinct, boolean ignoreNulls, List<Expression> arguments)
+    public FunctionCall(SourceLocation location, QualifiedName name, Optional<Window> window, Optional<Expression> filter, Optional<OrderBy> orderBy, boolean distinct, boolean ignoreNulls, List<Expression> arguments)
     {
         this(Optional.of(location), name, window, filter, orderBy, distinct, ignoreNulls, arguments);
     }
 
-    private FunctionCall(Optional<NodeLocation> location, QualifiedName name, Optional<Window> window, Optional<Expression> filter, Optional<OrderBy> orderBy, boolean distinct, boolean ignoreNulls, List<Expression> arguments)
+    private FunctionCall(Optional<SourceLocation> location, QualifiedName name, Optional<Window> window, Optional<Expression> filter, Optional<OrderBy> orderBy, boolean distinct, boolean ignoreNulls, List<Expression> arguments)
     {
         super(location);
         requireNonNull(name, "name is null");

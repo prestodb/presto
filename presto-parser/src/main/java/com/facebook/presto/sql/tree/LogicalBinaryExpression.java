@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -50,12 +51,12 @@ public class LogicalBinaryExpression
         this(Optional.empty(), operator, left, right);
     }
 
-    public LogicalBinaryExpression(NodeLocation location, Operator operator, Expression left, Expression right)
+    public LogicalBinaryExpression(SourceLocation location, Operator operator, Expression left, Expression right)
     {
         this(Optional.of(location), operator, left, right);
     }
 
-    private LogicalBinaryExpression(Optional<NodeLocation> location, Operator operator, Expression left, Expression right)
+    private LogicalBinaryExpression(Optional<SourceLocation> location, Operator operator, Expression left, Expression right)
     {
         super(location);
         requireNonNull(operator, "operator is null");

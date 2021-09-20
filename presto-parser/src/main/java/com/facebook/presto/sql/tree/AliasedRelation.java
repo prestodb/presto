@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -34,12 +35,12 @@ public class AliasedRelation
         this(Optional.empty(), relation, alias, columnNames);
     }
 
-    public AliasedRelation(NodeLocation location, Relation relation, Identifier alias, List<Identifier> columnNames)
+    public AliasedRelation(SourceLocation location, Relation relation, Identifier alias, List<Identifier> columnNames)
     {
         this(Optional.of(location), relation, alias, columnNames);
     }
 
-    private AliasedRelation(Optional<NodeLocation> location, Relation relation, Identifier alias, List<Identifier> columnNames)
+    private AliasedRelation(Optional<SourceLocation> location, Relation relation, Identifier alias, List<Identifier> columnNames)
     {
         super(location);
         requireNonNull(relation, "relation is null");

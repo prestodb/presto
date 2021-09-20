@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -32,12 +33,12 @@ public final class Rollup
         this(Optional.empty(), columns);
     }
 
-    public Rollup(NodeLocation location, List<Expression> columns)
+    public Rollup(SourceLocation location, List<Expression> columns)
     {
         this(Optional.of(location), columns);
     }
 
-    private Rollup(Optional<NodeLocation> location, List<Expression> columns)
+    private Rollup(Optional<SourceLocation> location, List<Expression> columns)
     {
         super(location);
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));

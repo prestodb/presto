@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -42,12 +43,12 @@ public class SingleColumn
         this(Optional.empty(), expression, Optional.of(alias));
     }
 
-    public SingleColumn(NodeLocation location, Expression expression, Optional<Identifier> alias)
+    public SingleColumn(SourceLocation location, Expression expression, Optional<Identifier> alias)
     {
         this(Optional.of(location), expression, alias);
     }
 
-    private SingleColumn(Optional<NodeLocation> location, Expression expression, Optional<Identifier> alias)
+    private SingleColumn(Optional<SourceLocation> location, Expression expression, Optional<Identifier> alias)
     {
         super(location);
         requireNonNull(expression, "expression is null");

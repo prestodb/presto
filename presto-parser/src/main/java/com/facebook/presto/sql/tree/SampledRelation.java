@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -40,12 +41,12 @@ public class SampledRelation
         this(Optional.empty(), relation, type, samplePercentage);
     }
 
-    public SampledRelation(NodeLocation location, Relation relation, Type type, Expression samplePercentage)
+    public SampledRelation(SourceLocation location, Relation relation, Type type, Expression samplePercentage)
     {
         this(Optional.of(location), relation, type, samplePercentage);
     }
 
-    private SampledRelation(Optional<NodeLocation> location, Relation relation, Type type, Expression samplePercentage)
+    private SampledRelation(Optional<SourceLocation> location, Relation relation, Type type, Expression samplePercentage)
     {
         super(location);
         this.relation = requireNonNull(relation, "relation is null");

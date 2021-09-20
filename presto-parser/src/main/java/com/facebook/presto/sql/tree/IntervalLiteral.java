@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
+
 import java.util.Objects;
 import java.util.Optional;
 
@@ -61,12 +63,12 @@ public class IntervalLiteral
         this(Optional.empty(), value, sign, startField, endField);
     }
 
-    public IntervalLiteral(NodeLocation location, String value, Sign sign, IntervalField startField, Optional<IntervalField> endField)
+    public IntervalLiteral(SourceLocation location, String value, Sign sign, IntervalField startField, Optional<IntervalField> endField)
     {
         this(Optional.of(location), value, sign, startField, endField);
     }
 
-    private IntervalLiteral(Optional<NodeLocation> location, String value, Sign sign, IntervalField startField, Optional<IntervalField> endField)
+    private IntervalLiteral(Optional<SourceLocation> location, String value, Sign sign, IntervalField startField, Optional<IntervalField> endField)
     {
         super(location);
         requireNonNull(value, "value is null");

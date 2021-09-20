@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -33,12 +34,12 @@ public class SimpleCaseExpression
         this(Optional.empty(), operand, whenClauses, defaultValue);
     }
 
-    public SimpleCaseExpression(NodeLocation location, Expression operand, List<WhenClause> whenClauses, Optional<Expression> defaultValue)
+    public SimpleCaseExpression(SourceLocation location, Expression operand, List<WhenClause> whenClauses, Optional<Expression> defaultValue)
     {
         this(Optional.of(location), operand, whenClauses, defaultValue);
     }
 
-    private SimpleCaseExpression(Optional<NodeLocation> location, Expression operand, List<WhenClause> whenClauses, Optional<Expression> defaultValue)
+    private SimpleCaseExpression(Optional<SourceLocation> location, Expression operand, List<WhenClause> whenClauses, Optional<Expression> defaultValue)
     {
         super(location);
         requireNonNull(operand, "operand is null");

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -36,12 +37,12 @@ public class Grant
         this(Optional.empty(), privileges, table, tableName, grantee, withGrantOption);
     }
 
-    public Grant(NodeLocation location, Optional<List<String>> privileges, boolean table, QualifiedName tableName, PrincipalSpecification grantee, boolean withGrantOption)
+    public Grant(SourceLocation location, Optional<List<String>> privileges, boolean table, QualifiedName tableName, PrincipalSpecification grantee, boolean withGrantOption)
     {
         this(Optional.of(location), privileges, table, tableName, grantee, withGrantOption);
     }
 
-    private Grant(Optional<NodeLocation> location, Optional<List<String>> privileges, boolean table, QualifiedName tableName, PrincipalSpecification grantee, boolean withGrantOption)
+    private Grant(Optional<SourceLocation> location, Optional<List<String>> privileges, boolean table, QualifiedName tableName, PrincipalSpecification grantee, boolean withGrantOption)
     {
         super(location);
         requireNonNull(privileges, "privileges is null");

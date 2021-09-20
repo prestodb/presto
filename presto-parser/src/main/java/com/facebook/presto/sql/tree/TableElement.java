@@ -13,12 +13,14 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
+
 import java.util.Optional;
 
 public abstract class TableElement
         extends Node
 {
-    public TableElement(Optional<NodeLocation> location)
+    public TableElement(Optional<SourceLocation> location)
     {
         super(location);
     }

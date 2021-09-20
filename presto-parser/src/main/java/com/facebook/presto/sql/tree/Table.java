@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -31,12 +32,12 @@ public class Table
         this(Optional.empty(), name);
     }
 
-    public Table(NodeLocation location, QualifiedName name)
+    public Table(SourceLocation location, QualifiedName name)
     {
         this(Optional.of(location), name);
     }
 
-    private Table(Optional<NodeLocation> location, QualifiedName name)
+    private Table(Optional<SourceLocation> location, QualifiedName name)
     {
         super(location);
         this.name = name;

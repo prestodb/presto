@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -30,12 +31,12 @@ public class InPredicate
         this(Optional.empty(), value, valueList);
     }
 
-    public InPredicate(NodeLocation location, Expression value, Expression valueList)
+    public InPredicate(SourceLocation location, Expression value, Expression valueList)
     {
         this(Optional.of(location), value, valueList);
     }
 
-    private InPredicate(Optional<NodeLocation> location, Expression value, Expression valueList)
+    private InPredicate(Optional<SourceLocation> location, Expression value, Expression valueList)
     {
         super(location);
         this.value = value;

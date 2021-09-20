@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -28,12 +29,12 @@ public class ShowSession
         this(Optional.empty());
     }
 
-    public ShowSession(NodeLocation location)
+    public ShowSession(SourceLocation location)
     {
         this(Optional.of(location));
     }
 
-    private ShowSession(Optional<NodeLocation> location)
+    private ShowSession(Optional<SourceLocation> location)
     {
         super(location);
     }

@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
+
 import java.util.Objects;
 import java.util.Optional;
 
@@ -28,12 +30,12 @@ public class TimestampLiteral
         this(Optional.empty(), value);
     }
 
-    public TimestampLiteral(NodeLocation location, String value)
+    public TimestampLiteral(SourceLocation location, String value)
     {
         this(Optional.of(location), value);
     }
 
-    private TimestampLiteral(Optional<NodeLocation> location, String value)
+    private TimestampLiteral(Optional<SourceLocation> location, String value)
     {
         super(location);
         requireNonNull(value, "value is null");

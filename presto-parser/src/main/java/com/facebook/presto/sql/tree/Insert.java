@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -34,7 +35,7 @@ public final class Insert
         this(Optional.empty(), columns, target, query);
     }
 
-    private Insert(Optional<NodeLocation> location, Optional<List<Identifier>> columns, QualifiedName target, Query query)
+    private Insert(Optional<SourceLocation> location, Optional<List<Identifier>> columns, QualifiedName target, Query query)
     {
         super(location);
         this.target = requireNonNull(target, "target is null");

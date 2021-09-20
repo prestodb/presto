@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -38,12 +39,12 @@ public class CreateTableAsSelect
         this(Optional.empty(), name, query, notExists, properties, withData, columnAliases, comment);
     }
 
-    public CreateTableAsSelect(NodeLocation location, QualifiedName name, Query query, boolean notExists, List<Property> properties, boolean withData, Optional<List<Identifier>> columnAliases, Optional<String> comment)
+    public CreateTableAsSelect(SourceLocation location, QualifiedName name, Query query, boolean notExists, List<Property> properties, boolean withData, Optional<List<Identifier>> columnAliases, Optional<String> comment)
     {
         this(Optional.of(location), name, query, notExists, properties, withData, columnAliases, comment);
     }
 
-    private CreateTableAsSelect(Optional<NodeLocation> location, QualifiedName name, Query query, boolean notExists, List<Property> properties, boolean withData, Optional<List<Identifier>> columnAliases, Optional<String> comment)
+    private CreateTableAsSelect(Optional<SourceLocation> location, QualifiedName name, Query query, boolean notExists, List<Property> properties, boolean withData, Optional<List<Identifier>> columnAliases, Optional<String> comment)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");

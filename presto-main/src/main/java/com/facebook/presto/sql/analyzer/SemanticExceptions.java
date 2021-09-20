@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.presto.common.SourceLocation;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.NodeLocation;
 import com.facebook.presto.sql.tree.QualifiedName;
 
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
@@ -58,8 +58,8 @@ public final class SemanticExceptions
     public static String subQueryNotSupportedError(Node node, String notSupportedFeatureDescription)
     {
         if (node.getLocation().isPresent()) {
-            NodeLocation nodeLocation = node.getLocation().get();
-            return format("line %s:%s: %s", nodeLocation.getLineNumber(), nodeLocation.getColumnNumber(), notSupportedFeatureDescription + " is not supported");
+            SourceLocation sourceLocation = node.getLocation().get();
+            return format("line %s:%s: %s", sourceLocation.getLineNumber(), sourceLocation.getColumnNumber(), notSupportedFeatureDescription + " is not supported");
         }
         return notSupportedFeatureDescription + " is not supported";
     }

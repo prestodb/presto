@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -39,12 +40,12 @@ public class CreateView
         this(Optional.empty(), name, query, replace, security);
     }
 
-    public CreateView(NodeLocation location, QualifiedName name, Query query, boolean replace, Optional<Security> security)
+    public CreateView(SourceLocation location, QualifiedName name, Query query, boolean replace, Optional<Security> security)
     {
         this(Optional.of(location), name, query, replace, security);
     }
 
-    private CreateView(Optional<NodeLocation> location, QualifiedName name, Query query, boolean replace, Optional<Security> security)
+    private CreateView(Optional<SourceLocation> location, QualifiedName name, Query query, boolean replace, Optional<Security> security)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");

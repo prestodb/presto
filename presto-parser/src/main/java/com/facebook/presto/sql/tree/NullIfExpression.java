@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -33,12 +34,12 @@ public class NullIfExpression
         this(Optional.empty(), first, second);
     }
 
-    public NullIfExpression(NodeLocation location, Expression first, Expression second)
+    public NullIfExpression(SourceLocation location, Expression first, Expression second)
     {
         this(Optional.of(location), first, second);
     }
 
-    private NullIfExpression(Optional<NodeLocation> location, Expression first, Expression second)
+    private NullIfExpression(Optional<SourceLocation> location, Expression first, Expression second)
     {
         super(location);
         this.first = first;

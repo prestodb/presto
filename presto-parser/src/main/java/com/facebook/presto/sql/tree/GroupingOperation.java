@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -28,7 +29,7 @@ public class GroupingOperation
 {
     private final List<Expression> groupingColumns;
 
-    public GroupingOperation(Optional<NodeLocation> location, List<QualifiedName> groupingColumns)
+    public GroupingOperation(Optional<SourceLocation> location, List<QualifiedName> groupingColumns)
     {
         super(location);
         requireNonNull(groupingColumns);

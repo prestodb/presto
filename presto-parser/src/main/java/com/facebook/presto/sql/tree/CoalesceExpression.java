@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -40,12 +41,12 @@ public class CoalesceExpression
         this(Optional.empty(), operands);
     }
 
-    public CoalesceExpression(NodeLocation location, List<Expression> operands)
+    public CoalesceExpression(SourceLocation location, List<Expression> operands)
     {
         this(Optional.of(location), operands);
     }
 
-    private CoalesceExpression(Optional<NodeLocation> location, List<Expression> operands)
+    private CoalesceExpression(Optional<SourceLocation> location, List<Expression> operands)
     {
         super(location);
         requireNonNull(operands, "operands is null");

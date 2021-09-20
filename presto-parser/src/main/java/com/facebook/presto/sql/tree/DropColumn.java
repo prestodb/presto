@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -35,12 +36,12 @@ public class DropColumn
         this(Optional.empty(), table, column, tableExists, columnExists);
     }
 
-    public DropColumn(NodeLocation location, QualifiedName table, Identifier column, boolean tableExists, boolean columnExists)
+    public DropColumn(SourceLocation location, QualifiedName table, Identifier column, boolean tableExists, boolean columnExists)
     {
         this(Optional.of(location), table, column, tableExists, columnExists);
     }
 
-    private DropColumn(Optional<NodeLocation> location, QualifiedName table, Identifier column, boolean tableExists, boolean columnExists)
+    private DropColumn(Optional<SourceLocation> location, QualifiedName table, Identifier column, boolean tableExists, boolean columnExists)
     {
         super(location);
         this.table = requireNonNull(table, "table is null");

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -34,12 +35,12 @@ public class Window
         this(Optional.empty(), partitionBy, orderBy, frame);
     }
 
-    public Window(NodeLocation location, List<Expression> partitionBy, Optional<OrderBy> orderBy, Optional<WindowFrame> frame)
+    public Window(SourceLocation location, List<Expression> partitionBy, Optional<OrderBy> orderBy, Optional<WindowFrame> frame)
     {
         this(Optional.of(location), partitionBy, orderBy, frame);
     }
 
-    private Window(Optional<NodeLocation> location, List<Expression> partitionBy, Optional<OrderBy> orderBy, Optional<WindowFrame> frame)
+    private Window(Optional<SourceLocation> location, List<Expression> partitionBy, Optional<OrderBy> orderBy, Optional<WindowFrame> frame)
     {
         super(location);
         this.partitionBy = requireNonNull(partitionBy, "partitionBy is null");

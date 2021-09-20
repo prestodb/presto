@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -32,12 +33,12 @@ public class LambdaExpression
         this(Optional.empty(), arguments, body);
     }
 
-    public LambdaExpression(NodeLocation location, List<LambdaArgumentDeclaration> arguments, Expression body)
+    public LambdaExpression(SourceLocation location, List<LambdaArgumentDeclaration> arguments, Expression body)
     {
         this(Optional.of(location), arguments, body);
     }
 
-    private LambdaExpression(Optional<NodeLocation> location, List<LambdaArgumentDeclaration> arguments, Expression body)
+    private LambdaExpression(Optional<SourceLocation> location, List<LambdaArgumentDeclaration> arguments, Expression body)
     {
         super(location);
         this.arguments = requireNonNull(arguments, "arguments is null");

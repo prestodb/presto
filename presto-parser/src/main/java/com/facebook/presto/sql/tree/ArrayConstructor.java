@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -32,12 +33,12 @@ public class ArrayConstructor
         this(Optional.empty(), values);
     }
 
-    public ArrayConstructor(NodeLocation location, List<Expression> values)
+    public ArrayConstructor(SourceLocation location, List<Expression> values)
     {
         this(Optional.of(location), values);
     }
 
-    private ArrayConstructor(Optional<NodeLocation> location, List<Expression> values)
+    private ArrayConstructor(Optional<SourceLocation> location, List<Expression> values)
     {
         super(location);
         requireNonNull(values, "values is null");

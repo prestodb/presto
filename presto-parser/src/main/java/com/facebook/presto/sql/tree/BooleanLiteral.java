@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.base.Preconditions;
 
 import java.util.Objects;
@@ -34,12 +35,12 @@ public class BooleanLiteral
         this(Optional.empty(), value);
     }
 
-    public BooleanLiteral(NodeLocation location, String value)
+    public BooleanLiteral(SourceLocation location, String value)
     {
         this(Optional.of(location), value);
     }
 
-    private BooleanLiteral(Optional<NodeLocation> location, String value)
+    private BooleanLiteral(Optional<SourceLocation> location, String value)
     {
         super(location);
         requireNonNull(value, "value is null");

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -30,12 +31,12 @@ public class WhenClause
         this(Optional.empty(), operand, result);
     }
 
-    public WhenClause(NodeLocation location, Expression operand, Expression result)
+    public WhenClause(SourceLocation location, Expression operand, Expression result)
     {
         this(Optional.of(location), operand, result);
     }
 
-    private WhenClause(Optional<NodeLocation> location, Expression operand, Expression result)
+    private WhenClause(Optional<SourceLocation> location, Expression operand, Expression result)
     {
         super(location);
         this.operand = operand;

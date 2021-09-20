@@ -13,12 +13,14 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
+
 import java.util.Optional;
 
 public abstract class RoutineBody
         extends Node
 {
-    public RoutineBody(Optional<NodeLocation> location)
+    public RoutineBody(Optional<SourceLocation> location)
     {
         super(location);
     }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -34,12 +35,12 @@ public class AlterFunction
         this(Optional.empty(), functionName, parameterTypes, characteristics);
     }
 
-    public AlterFunction(NodeLocation location, QualifiedName functionName, Optional<List<String>> parameterTypes, AlterRoutineCharacteristics characteristics)
+    public AlterFunction(SourceLocation location, QualifiedName functionName, Optional<List<String>> parameterTypes, AlterRoutineCharacteristics characteristics)
     {
         this(Optional.of(location), functionName, parameterTypes, characteristics);
     }
 
-    private AlterFunction(Optional<NodeLocation> location, QualifiedName functionName, Optional<List<String>> parameterTypes, AlterRoutineCharacteristics characteristics)
+    private AlterFunction(Optional<SourceLocation> location, QualifiedName functionName, Optional<List<String>> parameterTypes, AlterRoutineCharacteristics characteristics)
     {
         super(location);
         this.functionName = requireNonNull(functionName, "functionName is null");

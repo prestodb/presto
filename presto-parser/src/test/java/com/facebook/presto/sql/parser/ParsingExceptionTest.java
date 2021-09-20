@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.parser;
 
-import com.facebook.presto.sql.tree.NodeLocation;
+import com.facebook.presto.common.SourceLocation;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -26,7 +26,7 @@ public class ParsingExceptionTest
     @BeforeMethod
     public void setUp()
     {
-        parsingException = new ParsingException("ParsingException", new NodeLocation(100, 1));
+        parsingException = new ParsingException("ParsingException", new SourceLocation(100, 1));
     }
 
     @Test

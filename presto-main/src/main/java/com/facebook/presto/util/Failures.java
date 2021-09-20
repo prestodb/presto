@@ -14,6 +14,7 @@
 package com.facebook.presto.util;
 
 import com.facebook.presto.client.ErrorLocation;
+import com.facebook.presto.common.SourceLocation;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.Failure;
 import com.facebook.presto.spi.ErrorCode;
@@ -24,7 +25,6 @@ import com.facebook.presto.spi.PrestoTransportException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.ParsingException;
-import com.facebook.presto.sql.tree.NodeLocation;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
@@ -135,8 +135,8 @@ public final class Failures
         else if (throwable instanceof SemanticException) {
             SemanticException e = (SemanticException) throwable;
             if (e.getNode().getLocation().isPresent()) {
-                NodeLocation nodeLocation = e.getNode().getLocation().get();
-                return new ErrorLocation(nodeLocation.getLineNumber(), nodeLocation.getColumnNumber());
+                SourceLocation sourceLocation = e.getNode().getLocation().get();
+                return new ErrorLocation(sourceLocation.getLineNumber(), sourceLocation.getColumnNumber());
             }
         }
         return null;

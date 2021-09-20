@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 
@@ -33,7 +34,7 @@ public class ShowStats
         this(Optional.empty(), relation);
     }
 
-    public ShowStats(Optional<NodeLocation> location, Relation relation)
+    public ShowStats(Optional<SourceLocation> location, Relation relation)
     {
         super(location);
         this.relation = relation;

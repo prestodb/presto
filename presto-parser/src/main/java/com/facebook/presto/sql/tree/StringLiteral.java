@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import io.airlift.slice.Slice;
 
 import java.util.Objects;
@@ -32,12 +33,12 @@ public class StringLiteral
         this(Optional.empty(), value);
     }
 
-    public StringLiteral(NodeLocation location, String value)
+    public StringLiteral(SourceLocation location, String value)
     {
         this(Optional.of(location), value);
     }
 
-    private StringLiteral(Optional<NodeLocation> location, String value)
+    private StringLiteral(Optional<SourceLocation> location, String value)
     {
         super(location);
         requireNonNull(value, "value is null");

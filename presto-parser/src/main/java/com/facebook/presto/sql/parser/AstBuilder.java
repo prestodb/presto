@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.parser;
 
+import com.facebook.presto.common.SourceLocation;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
@@ -103,7 +104,6 @@ import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.NodeLocation;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
@@ -2546,22 +2546,22 @@ class AstBuilder
         }
     }
 
-    public static NodeLocation getLocation(TerminalNode terminalNode)
+    public static SourceLocation getLocation(TerminalNode terminalNode)
     {
         requireNonNull(terminalNode, "terminalNode is null");
         return getLocation(terminalNode.getSymbol());
     }
 
-    public static NodeLocation getLocation(ParserRuleContext parserRuleContext)
+    public static SourceLocation getLocation(ParserRuleContext parserRuleContext)
     {
         requireNonNull(parserRuleContext, "parserRuleContext is null");
         return getLocation(parserRuleContext.getStart());
     }
 
-    public static NodeLocation getLocation(Token token)
+    public static SourceLocation getLocation(Token token)
     {
         requireNonNull(token, "token is null");
-        return new NodeLocation(token.getLine(), token.getCharPositionInLine());
+        return new SourceLocation(token.getLine(), token.getCharPositionInLine());
     }
 
     private static ParsingException parseError(String message, ParserRuleContext context)

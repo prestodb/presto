@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
+
 import java.util.List;
 import java.util.Optional;
 
@@ -23,7 +25,7 @@ public abstract class SetOperation
 {
     private final Optional<Boolean> distinct;
 
-    protected SetOperation(Optional<NodeLocation> location, Optional<Boolean> distinct)
+    protected SetOperation(Optional<SourceLocation> location, Optional<Boolean> distinct)
     {
         super(location);
         this.distinct = requireNonNull(distinct, "distinct is null");

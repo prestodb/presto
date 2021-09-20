@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -33,12 +34,12 @@ public class Select
         this(Optional.empty(), distinct, selectItems);
     }
 
-    public Select(NodeLocation location, boolean distinct, List<SelectItem> selectItems)
+    public Select(SourceLocation location, boolean distinct, List<SelectItem> selectItems)
     {
         this(Optional.of(location), distinct, selectItems);
     }
 
-    private Select(Optional<NodeLocation> location, boolean distinct, List<SelectItem> selectItems)
+    private Select(Optional<SourceLocation> location, boolean distinct, List<SelectItem> selectItems)
     {
         super(location);
         this.distinct = distinct;

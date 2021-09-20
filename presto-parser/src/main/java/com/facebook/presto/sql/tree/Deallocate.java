@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -27,7 +28,7 @@ public class Deallocate
 {
     private final Identifier name;
 
-    public Deallocate(NodeLocation location, Identifier name)
+    public Deallocate(SourceLocation location, Identifier name)
     {
         this(Optional.of(location), name);
     }
@@ -37,7 +38,7 @@ public class Deallocate
         this(Optional.empty(), name);
     }
 
-    private Deallocate(Optional<NodeLocation> location, Identifier name)
+    private Deallocate(Optional<SourceLocation> location, Identifier name)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");

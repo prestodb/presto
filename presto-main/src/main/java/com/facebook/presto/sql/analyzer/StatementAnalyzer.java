@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.SourceLocation;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
@@ -109,7 +110,6 @@ import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.NodeLocation;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.Offset;
 import com.facebook.presto.sql.tree.OrderBy;
@@ -1740,8 +1740,8 @@ class StatementAnalyzer
 
         private String createWarningMessage(Node node, String description)
         {
-            NodeLocation nodeLocation = node.getLocation().get();
-            return format("line %s:%s: %s", nodeLocation.getLineNumber(), nodeLocation.getColumnNumber(), description);
+            SourceLocation sourceLocation = node.getLocation().get();
+            return format("line %s:%s: %s", sourceLocation.getLineNumber(), sourceLocation.getColumnNumber(), description);
         }
 
         private Scope analyzeJoinUsing(Join node, List<Identifier> columns, Optional<Scope> scope, Scope left, Scope right)

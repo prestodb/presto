@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -33,12 +34,12 @@ public class BetweenPredicate
         this(Optional.empty(), value, min, max);
     }
 
-    public BetweenPredicate(NodeLocation location, Expression value, Expression min, Expression max)
+    public BetweenPredicate(SourceLocation location, Expression value, Expression min, Expression max)
     {
         this(Optional.of(location), value, min, max);
     }
 
-    private BetweenPredicate(Optional<NodeLocation> location, Expression value, Expression min, Expression max)
+    private BetweenPredicate(Optional<SourceLocation> location, Expression value, Expression min, Expression max)
     {
         super(location);
         requireNonNull(value, "value is null");

@@ -14,6 +14,7 @@
 
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -32,12 +33,12 @@ public final class Lateral
         this(Optional.empty(), query);
     }
 
-    public Lateral(NodeLocation location, Query query)
+    public Lateral(SourceLocation location, Query query)
     {
         this(Optional.of(location), query);
     }
 
-    private Lateral(Optional<NodeLocation> location, Query query)
+    private Lateral(Optional<SourceLocation> location, Query query)
     {
         super(location);
         this.query = requireNonNull(query, "query is null");

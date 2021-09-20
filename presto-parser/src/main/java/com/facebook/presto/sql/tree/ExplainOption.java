@@ -13,12 +13,14 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
+
 import java.util.Optional;
 
 public abstract class ExplainOption
         extends Node
 {
-    protected ExplainOption(Optional<NodeLocation> location)
+    protected ExplainOption(Optional<SourceLocation> location)
     {
         super(location);
     }

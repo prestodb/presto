@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -33,12 +34,12 @@ public class RefreshMaterializedView
         this(Optional.empty(), target, where);
     }
 
-    public RefreshMaterializedView(NodeLocation location, Table target, Expression where)
+    public RefreshMaterializedView(SourceLocation location, Table target, Expression where)
     {
         this(Optional.of(location), target, where);
     }
 
-    private RefreshMaterializedView(Optional<NodeLocation> location, Table target, Expression where)
+    private RefreshMaterializedView(Optional<SourceLocation> location, Table target, Expression where)
     {
         super(location);
         this.target = requireNonNull(target, "target is null");

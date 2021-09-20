@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -28,7 +29,7 @@ public class Execute
     private final Identifier name;
     private final List<Expression> parameters;
 
-    public Execute(NodeLocation location, Identifier name, List<Expression> parameters)
+    public Execute(SourceLocation location, Identifier name, List<Expression> parameters)
     {
         this(Optional.of(location), name, parameters);
     }
@@ -38,7 +39,7 @@ public class Execute
         this(Optional.empty(), name, parameters);
     }
 
-    private Execute(Optional<NodeLocation> location, Identifier name, List<Expression> parameters)
+    private Execute(Optional<SourceLocation> location, Identifier name, List<Expression> parameters)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");

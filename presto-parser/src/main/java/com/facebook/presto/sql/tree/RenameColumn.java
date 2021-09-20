@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -36,12 +37,12 @@ public class RenameColumn
         this(Optional.empty(), table, source, target, tableExists, columnExists);
     }
 
-    public RenameColumn(NodeLocation location, QualifiedName table, Identifier source, Identifier target, boolean tableExists, boolean columnExists)
+    public RenameColumn(SourceLocation location, QualifiedName table, Identifier source, Identifier target, boolean tableExists, boolean columnExists)
     {
         this(Optional.of(location), table, source, target, tableExists, columnExists);
     }
 
-    private RenameColumn(Optional<NodeLocation> location, QualifiedName table, Identifier source, Identifier target, boolean tableExists, boolean columnExists)
+    private RenameColumn(Optional<SourceLocation> location, QualifiedName table, Identifier source, Identifier target, boolean tableExists, boolean columnExists)
     {
         super(location);
         this.table = requireNonNull(table, "table is null");

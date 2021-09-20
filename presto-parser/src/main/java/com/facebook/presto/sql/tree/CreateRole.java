@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -33,12 +34,12 @@ public class CreateRole
         this(Optional.empty(), name, grantor);
     }
 
-    public CreateRole(NodeLocation location, Identifier name, Optional<GrantorSpecification> grantor)
+    public CreateRole(SourceLocation location, Identifier name, Optional<GrantorSpecification> grantor)
     {
         this(Optional.of(location), name, grantor);
     }
 
-    private CreateRole(Optional<NodeLocation> location, Identifier name, Optional<GrantorSpecification> grantor)
+    private CreateRole(Optional<SourceLocation> location, Identifier name, Optional<GrantorSpecification> grantor)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");

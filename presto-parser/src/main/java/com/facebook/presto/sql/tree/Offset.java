@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -31,12 +32,12 @@ public class Offset
         this(Optional.empty(), rowCount);
     }
 
-    public Offset(NodeLocation location, String rowCount)
+    public Offset(SourceLocation location, String rowCount)
     {
         this(Optional.of(location), rowCount);
     }
 
-    public Offset(Optional<NodeLocation> location, String rowCount)
+    public Offset(Optional<SourceLocation> location, String rowCount)
     {
         super(location);
         this.rowCount = rowCount;

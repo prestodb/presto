@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -35,12 +36,12 @@ public final class GroupingSets
         this(Optional.empty(), groupingSets);
     }
 
-    public GroupingSets(NodeLocation location, List<List<Expression>> sets)
+    public GroupingSets(SourceLocation location, List<List<Expression>> sets)
     {
         this(Optional.of(location), sets);
     }
 
-    private GroupingSets(Optional<NodeLocation> location, List<List<Expression>> sets)
+    private GroupingSets(Optional<SourceLocation> location, List<List<Expression>> sets)
     {
         super(location);
         requireNonNull(sets, "sets is null");

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -32,12 +33,12 @@ public final class SimpleGroupBy
         this(Optional.empty(), simpleGroupByExpressions);
     }
 
-    public SimpleGroupBy(NodeLocation location, List<Expression> simpleGroupByExpressions)
+    public SimpleGroupBy(SourceLocation location, List<Expression> simpleGroupByExpressions)
     {
         this(Optional.of(location), simpleGroupByExpressions);
     }
 
-    private SimpleGroupBy(Optional<NodeLocation> location, List<Expression> simpleGroupByExpressions)
+    private SimpleGroupBy(Optional<SourceLocation> location, List<Expression> simpleGroupByExpressions)
     {
         super(location);
         this.columns = ImmutableList.copyOf(requireNonNull(simpleGroupByExpressions, "simpleGroupByExpressions is null"));

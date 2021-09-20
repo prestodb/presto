@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -33,12 +34,12 @@ public class Delete
         this(Optional.empty(), table, where);
     }
 
-    public Delete(NodeLocation location, Table table, Optional<Expression> where)
+    public Delete(SourceLocation location, Table table, Optional<Expression> where)
     {
         this(Optional.of(location), table, where);
     }
 
-    private Delete(Optional<NodeLocation> location, Table table, Optional<Expression> where)
+    private Delete(Optional<SourceLocation> location, Table table, Optional<Expression> where)
     {
         super(location);
         this.table = requireNonNull(table, "table is null");

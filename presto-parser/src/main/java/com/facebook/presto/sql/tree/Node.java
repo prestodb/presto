@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
+
 import java.util.List;
 import java.util.Optional;
 
@@ -20,9 +22,9 @@ import static java.util.Objects.requireNonNull;
 
 public abstract class Node
 {
-    private final Optional<NodeLocation> location;
+    private final Optional<SourceLocation> location;
 
-    protected Node(Optional<NodeLocation> location)
+    protected Node(Optional<SourceLocation> location)
     {
         this.location = requireNonNull(location, "location is null");
     }
@@ -35,7 +37,7 @@ public abstract class Node
         return visitor.visitNode(this, context);
     }
 
-    public Optional<NodeLocation> getLocation()
+    public Optional<SourceLocation> getLocation()
     {
         return location;
     }

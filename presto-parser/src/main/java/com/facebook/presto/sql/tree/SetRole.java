@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -38,12 +39,12 @@ public class SetRole
         this(Optional.empty(), type, role);
     }
 
-    public SetRole(NodeLocation location, Type type, Optional<Identifier> role)
+    public SetRole(SourceLocation location, Type type, Optional<Identifier> role)
     {
         this(Optional.of(location), type, role);
     }
 
-    private SetRole(Optional<NodeLocation> location, Type type, Optional<Identifier> role)
+    private SetRole(Optional<SourceLocation> location, Type type, Optional<Identifier> role)
     {
         super(location);
         this.type = requireNonNull(type, "type is null");

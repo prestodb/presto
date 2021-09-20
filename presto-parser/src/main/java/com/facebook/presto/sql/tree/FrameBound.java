@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -42,7 +43,7 @@ public class FrameBound
         this(Optional.empty(), type);
     }
 
-    public FrameBound(NodeLocation location, Type type)
+    public FrameBound(SourceLocation location, Type type)
     {
         this(Optional.of(location), type);
     }
@@ -52,17 +53,17 @@ public class FrameBound
         this(Optional.empty(), type, value);
     }
 
-    private FrameBound(Optional<NodeLocation> location, Type type)
+    private FrameBound(Optional<SourceLocation> location, Type type)
     {
         this(location, type, null);
     }
 
-    public FrameBound(NodeLocation location, Type type, Expression value)
+    public FrameBound(SourceLocation location, Type type, Expression value)
     {
         this(Optional.of(location), type, value);
     }
 
-    private FrameBound(Optional<NodeLocation> location, Type type, Expression value)
+    private FrameBound(Optional<SourceLocation> location, Type type, Expression value)
     {
         super(location);
         this.type = requireNonNull(type, "type is null");

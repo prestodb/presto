@@ -15,6 +15,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -54,12 +55,12 @@ public final class Isolation
         this(Optional.empty(), level);
     }
 
-    public Isolation(NodeLocation location, Level level)
+    public Isolation(SourceLocation location, Level level)
     {
         this(Optional.of(location), level);
     }
 
-    private Isolation(Optional<NodeLocation> location, Level level)
+    private Isolation(Optional<SourceLocation> location, Level level)
     {
         super(location);
         this.level = requireNonNull(level, "level is null");

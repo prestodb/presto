@@ -15,6 +15,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -28,12 +29,12 @@ public final class Commit
         this(Optional.empty());
     }
 
-    public Commit(NodeLocation location)
+    public Commit(SourceLocation location)
     {
         this(Optional.of(location));
     }
 
-    private Commit(Optional<NodeLocation> location)
+    private Commit(Optional<SourceLocation> location)
     {
         super(location);
     }

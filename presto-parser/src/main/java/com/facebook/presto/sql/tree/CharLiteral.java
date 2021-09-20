@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.base.CharMatcher;
 import io.airlift.slice.Slice;
 
@@ -33,12 +34,12 @@ public class CharLiteral
         this(Optional.empty(), value);
     }
 
-    public CharLiteral(NodeLocation location, String value)
+    public CharLiteral(SourceLocation location, String value)
     {
         this(Optional.of(location), value);
     }
 
-    public CharLiteral(Optional<NodeLocation> location, String value)
+    public CharLiteral(Optional<SourceLocation> location, String value)
     {
         super(location);
         requireNonNull(value, "value is null");

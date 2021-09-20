@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -33,12 +34,12 @@ public class ShowRoles
         this(Optional.empty(), catalog, current);
     }
 
-    public ShowRoles(NodeLocation location, Optional<Identifier> catalog, boolean current)
+    public ShowRoles(SourceLocation location, Optional<Identifier> catalog, boolean current)
     {
         this(Optional.of(location), catalog, current);
     }
 
-    public ShowRoles(Optional<NodeLocation> location, Optional<Identifier> catalog, boolean current)
+    public ShowRoles(Optional<SourceLocation> location, Optional<Identifier> catalog, boolean current)
     {
         super(location);
         this.catalog = requireNonNull(catalog, "catalog is null");

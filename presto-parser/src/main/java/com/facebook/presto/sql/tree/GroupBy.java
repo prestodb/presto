@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -33,12 +34,12 @@ public class GroupBy
         this(Optional.empty(), isDistinct, groupingElements);
     }
 
-    public GroupBy(NodeLocation location, boolean isDistinct, List<GroupingElement> groupingElements)
+    public GroupBy(SourceLocation location, boolean isDistinct, List<GroupingElement> groupingElements)
     {
         this(Optional.of(location), isDistinct, groupingElements);
     }
 
-    private GroupBy(Optional<NodeLocation> location, boolean isDistinct, List<GroupingElement> groupingElements)
+    private GroupBy(Optional<SourceLocation> location, boolean isDistinct, List<GroupingElement> groupingElements)
     {
         super(location);
         this.isDistinct = isDistinct;

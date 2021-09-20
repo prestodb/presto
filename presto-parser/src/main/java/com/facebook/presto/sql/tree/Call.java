@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -33,12 +34,12 @@ public final class Call
         this(Optional.empty(), name, arguments);
     }
 
-    public Call(NodeLocation location, QualifiedName name, List<CallArgument> arguments)
+    public Call(SourceLocation location, QualifiedName name, List<CallArgument> arguments)
     {
         this(Optional.of(location), name, arguments);
     }
 
-    public Call(Optional<NodeLocation> location, QualifiedName name, List<CallArgument> arguments)
+    public Call(Optional<SourceLocation> location, QualifiedName name, List<CallArgument> arguments)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");

@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
+
 import java.util.Objects;
 import java.util.Optional;
 
@@ -29,7 +31,7 @@ public class EnumLiteral
         this(Optional.empty(), type, value);
     }
 
-    private EnumLiteral(Optional<NodeLocation> location, String type, Object value)
+    private EnumLiteral(Optional<SourceLocation> location, String type, Object value)
     {
         super(location);
         this.type = requireNonNull(type, "type is null");

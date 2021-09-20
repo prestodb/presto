@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -45,22 +46,22 @@ public final class Cast
         this(Optional.empty(), expression, type, safe, typeOnly);
     }
 
-    public Cast(NodeLocation location, Expression expression, String type)
+    public Cast(SourceLocation location, Expression expression, String type)
     {
         this(Optional.of(location), expression, type, false, false);
     }
 
-    public Cast(NodeLocation location, Expression expression, String type, boolean safe)
+    public Cast(SourceLocation location, Expression expression, String type, boolean safe)
     {
         this(Optional.of(location), expression, type, safe, false);
     }
 
-    public Cast(NodeLocation location, Expression expression, String type, boolean safe, boolean typeOnly)
+    public Cast(SourceLocation location, Expression expression, String type, boolean safe, boolean typeOnly)
     {
         this(Optional.of(location), expression, type, safe, typeOnly);
     }
 
-    private Cast(Optional<NodeLocation> location, Expression expression, String type, boolean safe, boolean typeOnly)
+    private Cast(Optional<SourceLocation> location, Expression expression, String type, boolean safe, boolean typeOnly)
     {
         super(location);
         requireNonNull(expression, "expression is null");

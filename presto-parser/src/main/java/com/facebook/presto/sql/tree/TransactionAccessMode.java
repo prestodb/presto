@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -31,12 +32,12 @@ public final class TransactionAccessMode
         this(Optional.empty(), readOnly);
     }
 
-    public TransactionAccessMode(NodeLocation location, boolean readOnly)
+    public TransactionAccessMode(SourceLocation location, boolean readOnly)
     {
         this(Optional.of(location), readOnly);
     }
 
-    private TransactionAccessMode(Optional<NodeLocation> location, boolean readOnly)
+    private TransactionAccessMode(Optional<SourceLocation> location, boolean readOnly)
     {
         super(location);
         this.readOnly = readOnly;

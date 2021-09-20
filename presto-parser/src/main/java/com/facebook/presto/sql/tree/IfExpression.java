@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -36,12 +37,12 @@ public class IfExpression
         this(Optional.empty(), condition, trueValue, falseValue);
     }
 
-    public IfExpression(NodeLocation location, Expression condition, Expression trueValue, Expression falseValue)
+    public IfExpression(SourceLocation location, Expression condition, Expression trueValue, Expression falseValue)
     {
         this(Optional.of(location), condition, trueValue, falseValue);
     }
 
-    private IfExpression(Optional<NodeLocation> location, Expression condition, Expression trueValue, Expression falseValue)
+    private IfExpression(Optional<SourceLocation> location, Expression condition, Expression trueValue, Expression falseValue)
     {
         super(location);
         this.condition = requireNonNull(condition, "condition is null");

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -21,7 +22,7 @@ import java.util.Optional;
 public abstract class Literal
         extends Expression
 {
-    protected Literal(Optional<NodeLocation> location)
+    protected Literal(Optional<SourceLocation> location)
     {
         super(location);
     }

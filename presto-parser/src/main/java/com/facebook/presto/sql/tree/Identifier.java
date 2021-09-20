@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.common.SourceLocation;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -30,7 +31,7 @@ public class Identifier
     private final String value;
     private final boolean delimited;
 
-    public Identifier(NodeLocation location, String value, boolean delimited)
+    public Identifier(SourceLocation location, String value, boolean delimited)
     {
         this(Optional.of(location), value, delimited);
     }
@@ -45,7 +46,7 @@ public class Identifier
         this(Optional.empty(), value, !NAME_PATTERN.matcher(value).matches());
     }
 
-    private Identifier(Optional<NodeLocation> location, String value, boolean delimited)
+    private Identifier(Optional<SourceLocation> location, String value, boolean delimited)
     {
         super(location);
         this.value = value;
