@@ -742,7 +742,6 @@ public class InternalResourceGroup
                 }
             }
             parent.get().updateEligibility();
-            isDirty.set(false);
         }
     }
 
@@ -821,8 +820,9 @@ public class InternalResourceGroup
                     if (!subGroup.isDirty()) {
                         iterator.remove();
                     }
-                    if (oldMemoryUsageBytes != subGroup.cachedMemoryUsageBytes || isDirty.get()) {
+                    if (oldMemoryUsageBytes != subGroup.cachedMemoryUsageBytes || subGroup.isDirty.get()) {
                         subGroup.updateEligibility();
+                        subGroup.isDirty.set(false);
                     }
                 }
             }
