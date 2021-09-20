@@ -86,6 +86,14 @@ Mathematical Functions
 Trigonometric Functions
 ====================================
 
+.. function:: acos(x) -> double
+
+    Returns the arc cosine of ``x``.
+
+.. function:: asin(x) -> double
+
+    Returns the arc sine of ``x``.
+
 .. function:: atan(x) -> double
 
     Returns the arc tangent of ``x``.

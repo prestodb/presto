@@ -177,6 +177,42 @@ TEST_F(ArithmeticTest, ln) {
   EXPECT_EQ(std::nullopt, ln(std::nullopt));
 }
 
+TEST_F(ArithmeticTest, acos) {
+  const auto acosEval = [&](std::optional<double> a) {
+    return evaluateOnce<double>("acos(c0)", a);
+  };
+
+  std::vector<double> values = {-1.0, -0.5, 0, 0.5, 1.0};
+  for (double value : values) {
+    EXPECT_EQ(std::acos(value), acosEval(value));
+  }
+
+  values = {123, -123, 123.45, -123.45};
+  for (double value : values) {
+    EXPECT_TRUE(std::isnan(acosEval(value).value()));
+  }
+
+  EXPECT_EQ(std::nullopt, acosEval(std::nullopt));
+}
+
+TEST_F(ArithmeticTest, asin) {
+  const auto asinEval = [&](std::optional<double> a) {
+    return evaluateOnce<double>("asin(c0)", a);
+  };
+
+  std::vector<double> values = {-1.0, -0.5, 0, 0.5, 1.0};
+  for (double value : values) {
+    EXPECT_EQ(std::asin(value), asinEval(value));
+  }
+
+  values = {123, -123, 123.45, -123.45};
+  for (double value : values) {
+    EXPECT_TRUE(std::isnan(asinEval(value).value()));
+  }
+
+  EXPECT_EQ(std::nullopt, asinEval(std::nullopt));
+}
+
 TEST_F(ArithmeticTest, atan) {
   const auto atanEval = [&](std::optional<double> a) {
     return evaluateOnce<double>("atan(c0)", a);

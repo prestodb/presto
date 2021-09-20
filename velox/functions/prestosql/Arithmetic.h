@@ -150,6 +150,20 @@ FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
 }
 VELOX_UDF_END();
 
+VELOX_UDF_BEGIN(acos)
+FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
+  result = std::acos(a);
+  return true;
+}
+VELOX_UDF_END();
+
+VELOX_UDF_BEGIN(asin)
+FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
+  result = std::asin(a);
+  return true;
+}
+VELOX_UDF_END();
+
 VELOX_UDF_BEGIN(atan)
 FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
   result = std::atan(a);
