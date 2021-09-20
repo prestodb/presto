@@ -20,6 +20,7 @@ import io.airlift.units.Duration;
 import io.airlift.units.MinDataSize;
 import io.airlift.units.MinDuration;
 
+import static com.facebook.presto.orc.OrcDataSourceUtils.EXPECTED_FOOTER_SIZE_IN_BYTES;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -34,6 +35,9 @@ public class OrcCacheConfig
     private Duration stripeFooterCacheTtlSinceLastAccess = new Duration(0, SECONDS);
     private DataSize stripeStreamCacheSize = new DataSize(0, BYTE);
     private Duration stripeStreamCacheTtlSinceLastAccess = new Duration(0, SECONDS);
+
+    private boolean dwrfStripeCacheEnabled;
+    private DataSize expectedFileTailSize = new DataSize(EXPECTED_FOOTER_SIZE_IN_BYTES, BYTE);
 
     public boolean isFileTailCacheEnabled()
     {
@@ -142,6 +146,37 @@ public class OrcCacheConfig
     public OrcCacheConfig setStripeStreamCacheTtlSinceLastAccess(Duration stripeStreamCacheTtlSinceLastAccess)
     {
         this.stripeStreamCacheTtlSinceLastAccess = stripeStreamCacheTtlSinceLastAccess;
+        return this;
+    }
+
+    public boolean isDwrfStripeCacheEnabled()
+    {
+        return dwrfStripeCacheEnabled;
+    }
+
+    // DWRF format duplicates the stripe footer and index streams, and stores them before the footer.
+    // DWRF StripeCache will reduce small IO's used to read the stripe footer and index streams.
+    // Note when enabling dwrf stripe cache, increase the tail size so that footer and stripe cache
+    // can be read in the same IO.
+    @Config("orc.dwrf-stripe-cache-enabled")
+    @ConfigDescription("Check DWRF stripe cache to look for stripe footers and index streams")
+    public OrcCacheConfig setDwrfStripeCacheEnabled(boolean dwrfStripeCacheEnabled)
+    {
+        this.dwrfStripeCacheEnabled = dwrfStripeCacheEnabled;
+        return this;
+    }
+
+    @MinDataSize("256B")
+    public DataSize getExpectedFileTailSize()
+    {
+        return expectedFileTailSize;
+    }
+
+    @Config("orc.expected-file-tail-size")
+    @ConfigDescription("Expected size of the file tail. This value should be increased to read StripeCache and footer in one IO")
+    public OrcCacheConfig setExpectedFileTailSize(DataSize expectedFileTailSize)
+    {
+        this.expectedFileTailSize = expectedFileTailSize;
         return this;
     }
 }

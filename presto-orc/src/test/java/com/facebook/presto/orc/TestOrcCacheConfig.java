@@ -22,8 +22,10 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
+import static com.facebook.presto.orc.OrcDataSourceUtils.EXPECTED_FOOTER_SIZE_IN_BYTES;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -40,7 +42,9 @@ public class TestOrcCacheConfig
                 .setStripeFooterCacheSize(new DataSize(0, BYTE))
                 .setStripeFooterCacheTtlSinceLastAccess(new Duration(0, SECONDS))
                 .setStripeStreamCacheSize(new DataSize(0, BYTE))
-                .setStripeStreamCacheTtlSinceLastAccess(new Duration(0, SECONDS)));
+                .setStripeStreamCacheTtlSinceLastAccess(new Duration(0, SECONDS))
+                .setDwrfStripeCacheEnabled(false)
+                .setExpectedFileTailSize(new DataSize(EXPECTED_FOOTER_SIZE_IN_BYTES, BYTE)));
     }
 
     @Test
@@ -55,6 +59,8 @@ public class TestOrcCacheConfig
                 .put("orc.stripe-footer-cache-ttl-since-last-access", "5m")
                 .put("orc.stripe-stream-cache-size", "3GB")
                 .put("orc.stripe-stream-cache-ttl-since-last-access", "10m")
+                .put("orc.dwrf-stripe-cache-enabled", "true")
+                .put("orc.expected-file-tail-size", "8MB")
                 .build();
 
         OrcCacheConfig expected = new OrcCacheConfig()
@@ -65,7 +71,9 @@ public class TestOrcCacheConfig
                 .setStripeFooterCacheSize(new DataSize(2, GIGABYTE))
                 .setStripeFooterCacheTtlSinceLastAccess(new Duration(5, MINUTES))
                 .setStripeStreamCacheSize(new DataSize(3, GIGABYTE))
-                .setStripeStreamCacheTtlSinceLastAccess(new Duration(10, MINUTES));
+                .setStripeStreamCacheTtlSinceLastAccess(new Duration(10, MINUTES))
+                .setDwrfStripeCacheEnabled(true)
+                .setExpectedFileTailSize(new DataSize(8, MEGABYTE));
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
