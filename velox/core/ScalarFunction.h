@@ -36,12 +36,19 @@ class ArgumentsCtx {
   }
 
   bool operator==(const ArgumentsCtx& rhs) const {
+    if (types_.size() != rhs.types_.size()) {
+      return false;
+    }
     return std::equal(
         std::begin(types_),
         std::end(types_),
         std::begin(rhs.types()),
         [](const std::shared_ptr<const Type>& l,
            const std::shared_ptr<const Type>& r) { return l->kindEquals(r); });
+  }
+
+  bool operator!=(const ArgumentsCtx& rhs) const {
+    return !(*this == rhs);
   }
 
  private:

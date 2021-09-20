@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_executable(velox_core_test TestMap.cpp TestMetafunctions.cpp TestString.cpp)
+add_executable(velox_core_test TestMap.cpp TestMetafunctions.cpp TestString.cpp
+                               ScalarFunctionTest.cpp)
 add_test(velox_core_test velox_core_test)
 
 target_link_libraries(velox_core_test velox_core ${GTEST_BOTH_LIBRARIES})
