@@ -46,7 +46,7 @@ import static org.testng.Assert.assertTrue;
 public class TestStorageOrcFileTailSource
 {
     private static final DataSize DEFAULT_SIZE = new DataSize(1, MEGABYTE);
-    private static final int FOOTER_READ_SIZE = (int) DEFAULT_SIZE.toBytes();
+    private static final int FOOTER_READ_SIZE_IN_BYTES = (int) DEFAULT_SIZE.toBytes();
 
     private TempFile file;
     private MetadataReader metadataReader;
@@ -70,7 +70,7 @@ public class TestStorageOrcFileTailSource
     public void testReadExpectedFooterSize()
             throws IOException
     {
-        // beef up the file size to make sure it's larger than the expectedFooterSize = 567 we will use below
+        // beef up the file size to make sure it's larger than the expectedFooterSizeInBytes = 567 we will use below
         FileOutputStream out = new FileOutputStream(file.getFile());
         out.write(new byte[100 * 1000]);
 
@@ -82,15 +82,15 @@ public class TestStorageOrcFileTailSource
         out.close();
 
         // read the OrcFileTail
-        int expectedFooterSize = 567;
-        StorageOrcFileTailSource src = new StorageOrcFileTailSource(expectedFooterSize, false);
+        int expectedFooterSizeInBytes = 567;
+        StorageOrcFileTailSource src = new StorageOrcFileTailSource(expectedFooterSizeInBytes, false);
         TestingOrcDataSource orcDataSource = new TestingOrcDataSource(createFileOrcDataSource());
         src.getOrcFileTail(orcDataSource, metadataReader, Optional.empty(), false);
 
-        // make sure only the configured expectedFooterSize bytes have been read
+        // make sure only the configured expectedFooterSizeInBytes bytes have been read
         assertEquals(orcDataSource.getReadCount(), 1);
         DiskRange lastReadRange = orcDataSource.getLastReadRanges().get(0);
-        assertEquals(lastReadRange.getLength(), expectedFooterSize);
+        assertEquals(lastReadRange.getLength(), expectedFooterSizeInBytes);
     }
 
     @Test
@@ -103,16 +103,17 @@ public class TestStorageOrcFileTailSource
 
         // write the footer and post script
         DwrfProto.Footer.Builder footer = DwrfProto.Footer.newBuilder()
-                .addAllStripeCacheOffsets(ImmutableList.of(1, 2, 3));
+                .addAllStripeCacheOffsets(ImmutableList.of(0, 256, 512));
         DwrfProto.PostScript.Builder postScript = DwrfProto.PostScript.newBuilder()
                 .setCompression(NONE)
                 .setCacheMode(BOTH)
-                .setCacheSize(100);
-        int tailSize = writeTail(footer, postScript, out);
+                .setCacheSize(512);
+        writeTail(footer, postScript, out);
         out.close();
 
+        int tailReadSizeInBytes = 256;
         // read the file tail with the disabled "read dwrf stripe cache" feature
-        StorageOrcFileTailSource src = new StorageOrcFileTailSource(tailSize, false);
+        StorageOrcFileTailSource src = new StorageOrcFileTailSource(tailReadSizeInBytes, false);
         TestingOrcDataSource orcDataSource = new TestingOrcDataSource(createFileOrcDataSource());
         OrcFileTail orcFileTail = src.getOrcFileTail(orcDataSource, metadataReader, Optional.empty(), false);
 
@@ -124,7 +125,7 @@ public class TestStorageOrcFileTailSource
         assertFalse(orcFileTail.getDwrfStripeCacheData().isPresent());
         assertEquals(orcDataSource.getReadCount(), 1);
         DiskRange lastReadRange = orcDataSource.getLastReadRanges().get(0);
-        assertEquals(lastReadRange.getLength(), tailSize);
+        assertEquals(lastReadRange.getLength(), tailReadSizeInBytes);
     }
 
     @Test
@@ -151,7 +152,7 @@ public class TestStorageOrcFileTailSource
         out.close();
 
         // read the file tail with the enabled "read dwrf stripe cache" feature
-        StorageOrcFileTailSource src = new StorageOrcFileTailSource(FOOTER_READ_SIZE, true);
+        StorageOrcFileTailSource src = new StorageOrcFileTailSource(FOOTER_READ_SIZE_IN_BYTES, true);
         OrcDataSource orcDataSource = createFileOrcDataSource();
         OrcFileTail orcFileTail = src.getOrcFileTail(orcDataSource, metadataReader, Optional.empty(), false);
 
@@ -181,7 +182,7 @@ public class TestStorageOrcFileTailSource
         out.close();
 
         // read the file tail with the enabled "read dwrf stripe cache" feature
-        StorageOrcFileTailSource src = new StorageOrcFileTailSource(FOOTER_READ_SIZE, true);
+        StorageOrcFileTailSource src = new StorageOrcFileTailSource(FOOTER_READ_SIZE_IN_BYTES, true);
         OrcDataSource orcDataSource = createFileOrcDataSource();
         OrcFileTail orcFileTail = src.getOrcFileTail(orcDataSource, metadataReader, Optional.empty(), false);
 
