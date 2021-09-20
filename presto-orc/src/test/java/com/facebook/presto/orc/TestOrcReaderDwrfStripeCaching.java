@@ -40,7 +40,7 @@ import static org.testng.Assert.assertTrue;
 public class TestOrcReaderDwrfStripeCaching
         extends AbstractTestDwrfStripeCaching
 {
-    private static final int READ_TAIL_SIZE = 1024 * 1024;
+    private static final int READ_TAIL_SIZE_IN_BYTES = 1024 * 1024;
     private static final OrcDataSourceId TEST_DATA_SOURCE_ID = new OrcDataSourceId("test");
 
     @Test(dataProvider = "Stripe cache for ALL stripes with mode BOTH")
@@ -247,7 +247,7 @@ public class TestOrcReaderDwrfStripeCaching
         new OrcReader(
                 orcDataSource,
                 DWRF,
-                new StorageOrcFileTailSource(READ_TAIL_SIZE, true),
+                new StorageOrcFileTailSource(READ_TAIL_SIZE_IN_BYTES, true),
                 stripeMetadataSourceFactory,
                 NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
                 OrcReaderTestingUtils.createDefaultTestConfig(),

@@ -31,8 +31,10 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.orc.OrcDataSourceUtils.EXPECTED_FOOTER_SIZE_IN_BYTES;
 import static com.facebook.presto.orc.OrcReader.validateWrite;
 import static com.facebook.presto.orc.metadata.PostScript.MAGIC;
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
@@ -42,22 +44,22 @@ public class StorageOrcFileTailSource
 {
     private static final Logger log = Logger.get(StorageOrcFileTailSource.class);
 
-    private static final int EXPECTED_FOOTER_SIZE = 16 * 1024;
-
     private static final int CURRENT_MAJOR_VERSION = 0;
     private static final int CURRENT_MINOR_VERSION = 12;
+    private static final int MINIMUM_TAIL_SIZE_IN_BYTES = 256; // max postscript size(255) + 1 byte post script length
 
     private final boolean dwrfStripeCacheEnabled;
-    private final int expectedFooterSize;
+    private final int expectedFooterSizeInBytes;
 
     public StorageOrcFileTailSource()
     {
-        this(EXPECTED_FOOTER_SIZE, false);
+        this(EXPECTED_FOOTER_SIZE_IN_BYTES, false);
     }
 
-    public StorageOrcFileTailSource(int expectedFooterSize, boolean dwrfStripeCacheEnabled)
+    public StorageOrcFileTailSource(int expectedFooterSizeInBytes, boolean dwrfStripeCacheEnabled)
     {
-        this.expectedFooterSize = expectedFooterSize;
+        checkArgument(expectedFooterSizeInBytes >= MINIMUM_TAIL_SIZE_IN_BYTES, "expectedFooterSize %s is less than minimum supported", expectedFooterSizeInBytes);
+        this.expectedFooterSizeInBytes = expectedFooterSizeInBytes;
         this.dwrfStripeCacheEnabled = dwrfStripeCacheEnabled;
     }
 
@@ -71,7 +73,7 @@ public class StorageOrcFileTailSource
         }
 
         // Read the tail of the file
-        byte[] buffer = new byte[toIntExact(min(size, expectedFooterSize))];
+        byte[] buffer = new byte[toIntExact(min(size, expectedFooterSizeInBytes))];
         orcDataSource.readFully(size - buffer.length, buffer);
 
         // get length of PostScript - last byte of the file
