@@ -53,3 +53,4 @@ set_property(TARGET velox_functions_prestosql PROPERTY JOB_POOL_COMPILE
 
 add_subdirectory(tests)
 add_subdirectory(benchmarks)
+add_subdirectory(coverage)
