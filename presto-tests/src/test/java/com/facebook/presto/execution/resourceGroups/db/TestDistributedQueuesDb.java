@@ -130,4 +130,39 @@ public class TestDistributedQueuesDb
         cancelQuery(queryRunner, 1, firstAdhocQuery);
         waitForQueryState(queryRunner, 0, firstDashboardQuery, RUNNING);
     }
+
+    @Test(timeOut = 60_000)
+    public void testDistributedQueue()
+            throws Exception
+    {
+        QueryId firstAdhocQuery = createQuery(queryRunner, 1, adhocSession(), LONG_LASTING_QUERY);
+
+        QueryId secondAdhocQuery = createQuery(queryRunner, 1, adhocSession(), LONG_LASTING_QUERY);
+
+        QueryId thirdAdhocQuery = createQuery(queryRunner, 0, adhocSession(), LONG_LASTING_QUERY);
+
+        waitForQueryState(queryRunner, 1, firstAdhocQuery, RUNNING);
+        waitForQueryState(queryRunner, 1, secondAdhocQuery, RUNNING);
+        waitForQueryState(queryRunner, 0, thirdAdhocQuery, RUNNING);
+
+        Map<ResourceGroupId, ResourceGroupRuntimeInfo> resourceGroupRuntimeInfoSnapshot;
+        int globalRunningQueries = 0;
+        do {
+            MILLISECONDS.sleep(100);
+            globalRunningQueries = 0;
+            for (int coordinator = 0; coordinator < 2; coordinator++) {
+                resourceGroupRuntimeInfoSnapshot = queryRunner.getCoordinator(coordinator).getResourceGroupManager().get().getResourceGroupRuntimeInfosSnapshot();
+                ResourceGroupRuntimeInfo resourceGroupRuntimeInfo = resourceGroupRuntimeInfoSnapshot.get(new ResourceGroupId("global"));
+                if (resourceGroupRuntimeInfo != null) {
+                    globalRunningQueries += resourceGroupRuntimeInfo.getDescendantRunningQueries();
+                }
+            }
+        } while (globalRunningQueries != 3);
+
+        QueryId firstDashboardQuery = createQuery(queryRunner, 0, dashboardSession(), LONG_LASTING_QUERY);
+
+        waitForQueryState(queryRunner, 0, firstDashboardQuery, QUEUED);
+        cancelQuery(queryRunner, 0, thirdAdhocQuery);
+        waitForQueryState(queryRunner, 0, firstDashboardQuery, RUNNING);
+    }
 }
