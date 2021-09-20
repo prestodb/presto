@@ -46,7 +46,7 @@ import static org.testng.Assert.fail;
 public class TestOrcRecordReaderDwrfStripeCaching
         extends AbstractTestDwrfStripeCaching
 {
-    private static final int READ_TAIL_SIZE = 64;
+    private static final int READ_TAIL_SIZE_IN_BYTES = 256;
 
     @Test(dataProvider = "Stripe cache for ALL stripes with mode BOTH")
     public void testBothAllStripes(File orcFile)
@@ -149,7 +149,7 @@ public class TestOrcRecordReaderDwrfStripeCaching
             OrcReader orcReader = new OrcReader(
                     orcDataSource,
                     DWRF,
-                    new StorageOrcFileTailSource(READ_TAIL_SIZE, true),
+                    new StorageOrcFileTailSource(READ_TAIL_SIZE_IN_BYTES, true),
                     dwrfAwareFactory,
                     NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
                     orcReaderOptions,
@@ -174,7 +174,7 @@ public class TestOrcRecordReaderDwrfStripeCaching
             OrcReader orcReader = new OrcReader(
                     orcDataSource,
                     DWRF,
-                    new StorageOrcFileTailSource(READ_TAIL_SIZE, false),
+                    new StorageOrcFileTailSource(READ_TAIL_SIZE_IN_BYTES, false),
                     dwrfAwareFactory,
                     NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
                     OrcReaderTestingUtils.createDefaultTestConfig(),
