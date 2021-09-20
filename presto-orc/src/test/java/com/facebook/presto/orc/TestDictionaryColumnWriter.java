@@ -301,6 +301,16 @@ public class TestDictionaryColumnWriter
     public void testDictionaryRetainedSizeWithDifferentSettings()
             throws IOException
     {
+        for (int ii = 0; ii < 5_000; ii++) {
+            runTest();
+            if (ii % 1000 == 0) {
+                System.out.println(ii);
+            }
+        }
+    }
+
+    public void runTest() throws IOException
+    {
         List<Long> values = generateRandomLongs(70_000);
 
         DirectConversionTester tester1 = new DirectConversionTester();
@@ -311,7 +321,6 @@ public class TestDictionaryColumnWriter
 
         assertTrue(retainedSizeWithoutRowGroupRetainedSize <= retainedSizeWithRowGroupRetainedSize, String.format("Retained memory with rowgroup=%d should be greater than without row group=%d.", retainedSizeWithRowGroupRetainedSize, retainedSizeWithoutRowGroupRetainedSize));
     }
-
     @Test
     public void testLongRandomValues()
             throws IOException
