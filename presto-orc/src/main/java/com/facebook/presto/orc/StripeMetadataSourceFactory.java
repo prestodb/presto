@@ -24,8 +24,8 @@ public interface StripeMetadataSourceFactory
     /**
      * Creates a factory always returning the same instance of the StripeMetadataSource.
      */
-    static StripeMetadataSourceFactory of(StripeMetadataSource src)
+    static StripeMetadataSourceFactory of(StripeMetadataSource source)
     {
-        return dwrfStripeCache -> src;
+        return dwrfStripeCache -> source;
     }
 }
