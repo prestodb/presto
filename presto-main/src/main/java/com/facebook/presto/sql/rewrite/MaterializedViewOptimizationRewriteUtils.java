@@ -42,12 +42,15 @@ public class MaterializedViewOptimizationRewriteUtils
         MaterializedViewCandidateExtractor materializedViewCandidateExtractor = new MaterializedViewCandidateExtractor(session, metadata);
         materializedViewCandidateExtractor.process(node);
         Set<QualifiedObjectName> materializedViewCandidates = materializedViewCandidateExtractor.getMaterializedViewCandidates();
-        if (materializedViewCandidates.isEmpty()) {
-            return node;
-        }
         // TODO: Select the most compatible and efficient materialized view for query rewrite optimization https://github.com/prestodb/presto/issues/16431
-        Query optimizedQuery = getQueryWithMaterializedViewOptimization(metadata, session, sqlParser, accessControl, node, materializedViewCandidates.iterator().next());
-        return optimizedQuery;
+        // TODO: Refactor query optimization code https://github.com/prestodb/presto/issues/16759
+        for (QualifiedObjectName candidate : materializedViewCandidates) {
+            Query optimizedQuery = getQueryWithMaterializedViewOptimization(metadata, session, sqlParser, accessControl, node, candidate);
+            if (node != optimizedQuery) {
+                return optimizedQuery;
+            }
+        }
+        return node;
     }
 
     private static Query getQueryWithMaterializedViewOptimization(
