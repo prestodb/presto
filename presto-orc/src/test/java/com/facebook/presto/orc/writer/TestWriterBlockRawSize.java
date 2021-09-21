@@ -291,7 +291,7 @@ public class TestWriterBlockRawSize
         int numBlocksPerRowGroup = 3;
         int numBlocksPerStripe = numBlocksPerRowGroup * 5;
         int numStripes = 4;
-        int numBlocksPerFile = numBlocksPerStripe * numStripes;
+        int numBlocksPerFile = numBlocksPerStripe * numStripes + 1;
 
         BlockBuilder blockBuilder = type.createBlockBuilder(null, NUM_ELEMENTS * 2);
         for (int i = 0; i < NUM_ELEMENTS; i++) {
@@ -323,10 +323,13 @@ public class TestWriterBlockRawSize
 
                 Footer footer = OrcTester.getFileMetadata(tempFile.getFile(), encoding).getFooter();
                 verifyValue(encoding, footer.getRawSize(), blockRawSize * numBlocksPerFile);
-                assertEquals(footer.getStripes().size(), numStripes);
+                assertEquals(footer.getStripes().size(), numStripes + 1);
 
+                int numBlocksRemaining = numBlocksPerFile;
                 for (StripeInformation stripeInfo : footer.getStripes()) {
-                    verifyValue(encoding, stripeInfo.getRawDataSize(), blockRawSize * numBlocksPerStripe);
+                    int numBlocksInStripe = Math.min(numBlocksRemaining, numBlocksPerStripe);
+                    verifyValue(encoding, stripeInfo.getRawDataSize(), blockRawSize * numBlocksInStripe);
+                    numBlocksRemaining -= numBlocksInStripe;
                 }
             }
         }
