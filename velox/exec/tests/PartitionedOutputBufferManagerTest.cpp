@@ -318,7 +318,7 @@ TEST_F(PartitionedOutputBufferManagerTest, outOfOrderAcks) {
   vector_size_t size = 100;
 
   std::string taskId = "t0";
-  initializeTask(taskId, 5, 1);
+  auto task = initializeTask(taskId, 5, 1);
 
   enqueue(taskId, 0, rowType, size);
   for (int i = 0; i < 10; i++) {
@@ -341,6 +341,8 @@ TEST_F(PartitionedOutputBufferManagerTest, outOfOrderAcks) {
 
   noMoreData(taskId);
   fetchEndMarker(taskId, 1, 10);
+  task->terminate(TaskState::kCanceled);
+  bufferManager_->removeTask(taskId);
 }
 
 TEST_F(PartitionedOutputBufferManagerTest, errorInQueue) {
