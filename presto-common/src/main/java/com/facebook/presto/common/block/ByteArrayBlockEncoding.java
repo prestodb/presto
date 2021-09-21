@@ -38,8 +38,9 @@ public class ByteArrayBlockEncoding
 
         encodeNullsAsBits(sliceOutput, block);
 
+        boolean mayHaveNull = block.mayHaveNull();
         for (int position = 0; position < positionCount; position++) {
-            if (!block.isNull(position)) {
+            if (!mayHaveNull || !block.isNull(position)) {
                 sliceOutput.writeByte(block.getByte(position));
             }
         }

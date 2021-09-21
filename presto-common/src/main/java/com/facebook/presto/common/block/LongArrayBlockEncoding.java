@@ -39,8 +39,9 @@ public class LongArrayBlockEncoding
 
         encodeNullsAsBits(sliceOutput, block);
 
+        boolean mayHaveNull = block.mayHaveNull();
         for (int position = 0; position < positionCount; position++) {
-            if (!block.isNull(position)) {
+            if (!mayHaveNull || !block.isNull(position)) {
                 sliceOutput.writeLong(block.getLong(position));
             }
         }
