@@ -15,6 +15,7 @@
  */
 #include "velox/serializers/PrestoSerializer.h"
 #include <gtest/gtest.h>
+#include "velox/functions/prestosql/TimestampWithTimeZoneType.h"
 #include "velox/vector/BaseVector.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/tests/VectorMaker.h"
@@ -95,7 +96,9 @@ class PrestoSerializerTest : public ::testing::Test {
   void assertEqualVectors(VectorPtr actual, VectorPtr expected) {
     ASSERT_EQ(actual->size(), expected->size());
     for (int i = 0; i < expected->size(); i++) {
-      ASSERT_TRUE(expected->equalValueAt(actual.get(), i, i)) << "at " << i;
+      ASSERT_TRUE(expected->equalValueAt(actual.get(), i, i))
+          << "at " << i << ". Expected: " << expected->toString(i)
+          << ", got: " << actual->toString(i);
     }
   }
 
@@ -180,6 +183,28 @@ TEST_F(PrestoSerializerTest, emptyMap) {
       [](vector_size_t row) { return row * 2; });
 
   testRoundTrip(mapVector);
+}
+
+TEST_F(PrestoSerializerTest, timestampWithTimeZone) {
+  auto timestamp = vectorMaker_->flatVector<int64_t>(
+      100, [](auto row) { return 10'000 + row; });
+  auto timezone =
+      vectorMaker_->flatVector<int16_t>(100, [](auto row) { return row % 37; });
+
+  auto vector = std::make_shared<RowVector>(
+      pool_.get(),
+      TIMESTAMP_WITH_TIME_ZONE(),
+      BufferPtr(nullptr),
+      100,
+      std::vector<VectorPtr>{timestamp, timezone});
+
+  testRoundTrip(vector);
+
+  // Add some nulls.
+  for (auto i = 0; i < 100; i += 7) {
+    vector->setNull(i, true);
+  }
+  testRoundTrip(vector);
 }
 
 TEST_F(PrestoSerializerTest, unknown) {

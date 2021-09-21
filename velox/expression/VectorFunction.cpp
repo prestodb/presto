@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 #include "velox/expression/VectorFunction.h"
-#include <shared_mutex>
 #include <unordered_map>
 #include "folly/Singleton.h"
 #include "folly/Synchronized.h"

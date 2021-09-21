@@ -38,6 +38,7 @@ add_library(
   ArrayIntersectExcept.cpp
   ArrayMinMax.cpp
   FilterFunctions.cpp
+  FromUnixTime.cpp
   ToUtf8.cpp
   Transform.cpp
   ElementAt.cpp
@@ -45,8 +46,14 @@ add_library(
   VectorArithmetic.cpp
   WidthBucketArray.cpp)
 
-target_link_libraries(velox_functions_prestosql velox_exec velox_functions_json
-                      velox_functions_lib velox_expression md5)
+target_link_libraries(
+  velox_functions_prestosql
+  velox_exec
+  velox_functions_json
+  velox_functions_lib
+  velox_expression
+  md5
+  velox_type_tz)
 
 set_property(TARGET velox_functions_prestosql PROPERTY JOB_POOL_COMPILE
                                                        high_memory_pool)

@@ -15,6 +15,7 @@
  */
 #include "velox/serializers/PrestoSerializer.h"
 #include <boost/crc.hpp>
+#include "velox/functions/prestosql/TimestampWithTimeZoneType.h"
 #include "velox/vector/BiasVector.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/FlatVector.h"
@@ -82,8 +83,8 @@ bool isChecksumBitSet(int8_t codec) {
   return (codec & kCheckSumBitMask) == kCheckSumBitMask;
 }
 
-std::string typeKindToEncodingName(TypeKind kind) {
-  switch (kind) {
+std::string typeToEncodingName(const TypePtr& type) {
+  switch (type->kind()) {
     case TypeKind::BOOLEAN:
       return "BYTE_ARRAY";
     case TypeKind::TINYINT:
@@ -109,7 +110,7 @@ std::string typeKindToEncodingName(TypeKind kind) {
     case TypeKind::MAP:
       return "MAP";
     case TypeKind::ROW:
-      return "ROW";
+      return isTimestampWithTimeZoneType(type) ? "LONG_ARRAY" : "ROW";
     case TypeKind::UNKNOWN:
       return "BYTE_ARRAY";
     default:
@@ -385,11 +386,58 @@ void readMapVector(
   readNulls(source, size, mapVector);
 }
 
+int64_t packTimestampWithTimeZone(int64_t timestamp, int16_t timezone) {
+  return timezone | (timestamp << 12);
+}
+
+void unpackTimestampWithTimeZone(
+    int64_t packed,
+    int64_t& timestamp,
+    int16_t& timezone) {
+  timestamp = packed >> 12;
+  timezone = packed & 0xfff;
+}
+
+void readTimestampWithTimeZone(
+    ByteStream* source,
+    velox::memory::MemoryPool* pool,
+    VectorPtr* result) {
+  VectorPtr timestamps;
+  read<int64_t>(source, BIGINT(), pool, &timestamps);
+
+  auto rawTimestamps = timestamps->asFlatVector<int64_t>()->mutableRawValues();
+
+  auto size = timestamps->size();
+
+  auto timezones = BaseVector::create(SMALLINT(), size, pool);
+  auto rawTimezones = timezones->asFlatVector<int16_t>()->mutableRawValues();
+
+  auto rawNulls = timestamps->rawNulls();
+  for (auto i = 0; i < size; ++i) {
+    if (!rawNulls || !bits::isBitNull(rawNulls, i)) {
+      unpackTimestampWithTimeZone(
+          rawTimestamps[i], rawTimestamps[i], rawTimezones[i]);
+    }
+  }
+
+  *result = std::make_shared<RowVector>(
+      pool,
+      TIMESTAMP_WITH_TIME_ZONE(),
+      timestamps->nulls(),
+      size,
+      std::vector<VectorPtr>{timestamps, timezones});
+}
+
 void readRowVector(
     ByteStream* source,
     std::shared_ptr<const Type> type,
     velox::memory::MemoryPool* pool,
     VectorPtr* result) {
+  if (isTimestampWithTimeZoneType(type)) {
+    readTimestampWithTimeZone(source, pool, result);
+    return;
+  }
+
   int32_t numChildren = source->read<int32_t>();
   RowVector* reused = (*result && result->unique())
       ? (*result)->template as<RowVector>()
@@ -478,7 +526,7 @@ std::string readLengthPrefixedString(ByteStream* source) {
 }
 
 void readAndCheckType(ByteStream* source, TypePtr type) {
-  auto kindEncoding = typeKindToEncodingName(type->kind());
+  auto kindEncoding = typeToEncodingName(type);
   std::string encoding = readLengthPrefixedString(source);
   VELOX_CHECK(
       encoding == kindEncoding,
@@ -551,7 +599,7 @@ class VectorStream {
         lengths_(streamArena),
         values_(streamArena) {
     streamArena->newTinyRange(50, &header_);
-    auto name = typeKindToEncodingName(type->kind());
+    auto name = typeToEncodingName(type);
     header_.size = name.size() + sizeof(int32_t);
     *reinterpret_cast<int32_t*>(header_.buffer) = name.size();
     memcpy(header_.buffer + sizeof(int32_t), &name[0], name.size());
@@ -559,6 +607,10 @@ class VectorStream {
     if (initialNumRows > 0) {
       switch (type_->kind()) {
         case TypeKind::ROW:
+          if (isTimestampWithTimeZoneType(type_)) {
+            values_.startWrite(initialNumRows * 4);
+            break;
+          } // else fall through
         case TypeKind::ARRAY:
         case TypeKind::MAP:
           hasLengths_ = true;
@@ -634,6 +686,13 @@ class VectorStream {
     out->write(reinterpret_cast<char*>(header_.buffer), header_.size);
     switch (type_->kind()) {
       case TypeKind::ROW:
+        if (isTimestampWithTimeZoneType(type_)) {
+          writeInt32(out, nullCount_ + nonNullCount_);
+          flushNulls(out);
+          values_.flush(out);
+          return;
+        }
+
         writeInt32(out, children_.size());
         for (auto& child : children_) {
           child->flush(out);
@@ -850,11 +909,36 @@ void serializeWrapped(
   }
 }
 
+void serializeTimestampWithTimeZone(
+    const RowVector* rowVector,
+    const folly::Range<const IndexRange*>& ranges,
+    VectorStream* stream) {
+  auto timestamps = rowVector->childAt(0)->as<SimpleVector<int64_t>>();
+  auto timezones = rowVector->childAt(1)->as<SimpleVector<int16_t>>();
+  for (const auto& range : ranges) {
+    for (auto i = range.begin; i < range.begin + range.size; ++i) {
+      if (rowVector->isNullAt(i)) {
+        stream->appendNull();
+      } else {
+        stream->appendNonNull();
+        stream->appendOne(packTimestampWithTimeZone(
+            timestamps->valueAt(i), timezones->valueAt(i)));
+      }
+    }
+  }
+}
+
 void serializeRowVector(
     const BaseVector* vector,
     const folly::Range<const IndexRange*>& ranges,
     VectorStream* stream) {
   auto rowVector = dynamic_cast<const RowVector*>(vector);
+
+  if (isTimestampWithTimeZoneType(vector->type())) {
+    serializeTimestampWithTimeZone(rowVector, ranges, stream);
+    return;
+  }
+
   std::vector<IndexRange> childRanges;
   for (int32_t i = 0; i < ranges.size(); ++i) {
     auto begin = ranges[i].begin;

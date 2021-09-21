@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "velox/functions/prestosql/TimestampWithTimeZoneType.h"
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
 
 using namespace facebook::velox;
@@ -54,4 +55,50 @@ TEST_F(DateTimeFunctionsTest, fromUnixtime) {
   testRoundTrip(Timestamp(-9999999999, 100000000));
   testRoundTrip(Timestamp(998474645, 321000000));
   testRoundTrip(Timestamp(998423705, 321000000));
+}
+
+TEST_F(DateTimeFunctionsTest, fromUnixtimeWithTimeZone) {
+  vector_size_t size = 37;
+
+  auto unixtimeAt = [](vector_size_t row) -> double {
+    return 1631800000.12345 + row * 11;
+  };
+
+  auto unixtimes = makeFlatVector<double>(size, unixtimeAt);
+
+  // Constant timezone parameter.
+  {
+    auto result = evaluate<RowVector>(
+        "from_unixtime(c0, '+01:00')", makeRowVector({unixtimes}));
+    ASSERT_TRUE(isTimestampWithTimeZoneType(result->type()));
+
+    auto expected = makeRowVector({
+        makeFlatVector<int64_t>(
+            size, [&](auto row) { return unixtimeAt(row) * 1'000; }),
+        makeConstant((int16_t)900, size),
+    });
+    assertEqualVectors(expected, result);
+  }
+
+  // Variable timezone parameter.
+  {
+    std::vector<int16_t> timezoneIds = {900, 960, 1020, 1080, 1140};
+    std::vector<std::string> timezoneNames = {
+        "+01:00", "+02:00", "+03:00", "+04:00", "+05:00"};
+
+    auto timezones = makeFlatVector<StringView>(
+        size, [&](auto row) { return StringView(timezoneNames[row % 5]); });
+
+    auto result = evaluate<RowVector>(
+        "from_unixtime(c0, c1)", makeRowVector({unixtimes, timezones}));
+    ASSERT_TRUE(isTimestampWithTimeZoneType(result->type()));
+
+    auto expected = makeRowVector({
+        makeFlatVector<int64_t>(
+            size, [&](auto row) { return unixtimeAt(row) * 1'000; }),
+        makeFlatVector<int16_t>(
+            size, [&](auto row) { return timezoneIds[row % 5]; }),
+    });
+    assertEqualVectors(expected, result);
+  }
 }
