@@ -1037,7 +1037,7 @@ int32_t HashTable<ignoreNullKeys>::listJoinResults(
     JoinResultIterator& iter,
     folly::Range<vector_size_t*> inputRows,
     folly::Range<char**> hits) {
-  VELOX_CHECK_EQ(inputRows.size(), hits.size());
+  VELOX_CHECK_LE(inputRows.size(), hits.size());
   int numOut = 0;
   auto maxOut = inputRows.size();
   while (iter.lastRow < iter.rows->size()) {

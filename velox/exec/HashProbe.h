@@ -171,6 +171,52 @@ class HashProbe : public Operator {
   // Rows of table found by join probe, later filtered by 'filter_'.
   std::vector<char*> outputRows_;
 
+  // Tracks probe side rows which had one or more matches on the build side, but
+  // didn't pass the filter.
+  class LeftJoinTracker {
+   public:
+    // Called for each row that the filter was evaluated on. Expects that probe
+    // side rows with multiple matches on the build side are next to each other.
+    template <typename TOnMiss>
+    void advance(vector_size_t row, bool passed, TOnMiss onMiss) {
+      if (currentRow != row) {
+        if (currentRow != -1 && !currentRowPassed) {
+          onMiss(currentRow);
+        }
+        currentRow = row;
+        currentRowPassed = false;
+      }
+      if (passed) {
+        currentRowPassed = true;
+      }
+    }
+
+    // Called when all rows from the current input batch were processed.
+    template <typename TOnMiss>
+    void finish(TOnMiss onMiss) {
+      if (!currentRowPassed) {
+        onMiss(currentRow);
+      }
+
+      currentRow = -1;
+      currentRowPassed = false;
+    }
+
+   private:
+    // Row number being processed.
+    vector_size_t currentRow{-1};
+
+    // True if currentRow has a match.
+    bool currentRowPassed{false};
+  };
+
+  /// For left join, true if we received new 'input_'.
+  bool newInputForLeftJoin_{false};
+
+  /// For left join, tracks the probe side rows which had matches on the build
+  /// side but didn't pass the filter.
+  LeftJoinTracker leftJoinTracker_;
+
   // Keeps track of returned results between successive batches of
   // output for a batch of input.
   BaseHashTable::JoinResultIterator results_;

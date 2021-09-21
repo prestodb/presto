@@ -71,6 +71,10 @@ class BaseHashTable {
       lastRow = 0;
     }
 
+    bool atEnd() const {
+      return lastRow == rows->size();
+    }
+
     const std::vector<vector_size_t>* rows;
     const std::vector<char*>* hits;
     char* nextHit{nullptr};
