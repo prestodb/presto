@@ -1837,6 +1837,74 @@ public class TestHiveLogicalPlanner
     }
 
     @Test
+    public void testBaseToViewConversionWithMultipleCandidates()
+    {
+        Session queryOptimizationWithMaterializedView = Session.builder(getSession())
+                .setSystemProperty(QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED, "true")
+                .build();
+        QueryRunner queryRunner = getQueryRunner();
+        String table = "orders_partitioned";
+        String view1 = "test_orders_view1";
+        String view2 = "test_orders_view2";
+        String view3 = "test_orders_view3";
+        try {
+            queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['ds']) AS " +
+                    "SELECT orderkey, orderpriority, orderdate, totalprice, '2020-01-01' as ds FROM orders WHERE orderkey < 1000 " +
+                    "UNION ALL " +
+                    "SELECT orderkey, orderpriority, orderdate, totalprice, '2020-01-02' as ds FROM orders WHERE orderkey > 1000", table));
+
+            assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds']) " +
+                    "AS SELECT orderkey, orderpriority, ds FROM %s", view1, table));
+            assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds']) " +
+                    "AS SELECT orderkey, orderdate, ds FROM %s", view2, table));
+            assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds']) " +
+                    "AS SELECT orderkey, totalprice, ds FROM %s", view3, table));
+
+            assertTrue(queryRunner.tableExists(getSession(), view1));
+            assertTrue(queryRunner.tableExists(getSession(), view2));
+            assertTrue(queryRunner.tableExists(getSession(), view3));
+
+            setReferencedMaterializedViews((DistributedQueryRunner) queryRunner, table, ImmutableList.of(view1, view2, view3));
+
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2020-01-01'", view1), 255);
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2020-01-02'", view1), 14745);
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2020-01-01'", view2), 255);
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2020-01-02'", view2), 14745);
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2020-01-01'", view3), 255);
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2020-01-02'", view3), 14745);
+
+            String baseQuery = format("SELECT orderkey, orderdate from %s where orderkey < 1000 ORDER BY orderkey", table);
+            String viewQuery = format("SELECT orderkey, orderdate from %s where orderkey < 1000 ORDER BY orderkey", view2);
+
+            // Try optimizing the base query when there is one compatible candidate from the referenced materialized views
+            MaterializedResult optimizedQueryResult = computeActual(queryOptimizationWithMaterializedView, baseQuery);
+            MaterializedResult baseQueryResult = computeActual(baseQuery);
+            assertEquals(optimizedQueryResult, baseQueryResult);
+
+            PlanMatchPattern expectedPattern = anyTree(
+                    filter("orderkey < BIGINT'1000'", PlanMatchPattern.constrainedTableScan(view2,
+                            ImmutableMap.of(),
+                            ImmutableMap.of("orderkey", "orderkey"))));
+
+            assertPlan(queryOptimizationWithMaterializedView, baseQuery, expectedPattern);
+            assertPlan(getSession(), viewQuery, expectedPattern);
+
+            // Try optimizing the base query when all candidates are incompatible
+            setReferencedMaterializedViews((DistributedQueryRunner) queryRunner, table, ImmutableList.of(view1, view3));
+            assertPlan(queryOptimizationWithMaterializedView, baseQuery, anyTree(
+                    filter("orderkey < BIGINT'1000'", PlanMatchPattern.constrainedTableScan(table,
+                            ImmutableMap.of(),
+                            ImmutableMap.of("orderkey", "orderkey")))));
+        }
+        finally {
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view1);
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view2);
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view3);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table);
+        }
+    }
+
+    @Test
     public void testBaseToViewConversionWithGroupBy()
     {
         Session queryOptimizationWithMaterializedView = Session.builder(getSession())
