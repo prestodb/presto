@@ -21,7 +21,9 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.StripeFooter;
 import com.facebook.presto.orc.writer.DictionaryColumnWriter;
+import com.facebook.presto.orc.writer.SliceDictionaryColumnWriter;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
@@ -47,11 +49,13 @@ import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DWRF_DIRECT;
+import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZSTD;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.cycle;
 import static com.google.common.collect.Iterables.limit;
 import static com.google.common.collect.Lists.newArrayList;
+import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.toIntExact;
@@ -65,8 +69,6 @@ public class TestDictionaryColumnWriter
     private static final int BATCH_ROWS = 1_000;
     private static final int STRIPE_MAX_ROWS = 15_000;
     private static final Random RANDOM = new Random();
-
-    private long retainedSizeInBytes;
 
     private static int megabytes(int size)
     {
@@ -299,17 +301,37 @@ public class TestDictionaryColumnWriter
 
     @Test
     public void testDictionaryRetainedSizeWithDifferentSettings()
-            throws IOException
     {
-        List<Long> values = generateRandomLongs(70_000);
+        DictionaryColumnWriter ignoredRowGroupWriter = getStringDictionaryColumnWriter(true);
+        DictionaryColumnWriter withRowGroupWriter = getStringDictionaryColumnWriter(false);
 
-        DirectConversionTester tester1 = new DirectConversionTester();
-        long retainedSizeWithoutRowGroupRetainedSize = testDictionaryWithMemoryAccounting(tester1, values, true);
+        int numEntries = 10_000;
+        int numBlocks = 10;
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, numEntries);
+        Slice slice = utf8Slice("SomeString");
+        for (int i = 0; i < numEntries; i++) {
+            VARCHAR.writeSlice(blockBuilder, slice);
+        }
 
-        DirectConversionTester tester2 = new DirectConversionTester();
-        long retainedSizeWithRowGroupRetainedSize = testDictionaryWithMemoryAccounting(tester2, values, false);
+        Block block = blockBuilder.build();
+        for (int i = 0; i < numBlocks; i++) {
+            writeBlock(ignoredRowGroupWriter, block);
+            writeBlock(withRowGroupWriter, block);
+        }
 
-        assertTrue(retainedSizeWithoutRowGroupRetainedSize <= retainedSizeWithRowGroupRetainedSize, String.format("Retained memory with rowgroup=%d should be greater than without row group=%d.", retainedSizeWithRowGroupRetainedSize, retainedSizeWithoutRowGroupRetainedSize));
+        long ignoredRowGroupBytes = ignoredRowGroupWriter.getRowGroupRetainedSizeInBytes();
+        long withRowGroupBytes = withRowGroupWriter.getRowGroupRetainedSizeInBytes();
+        long expectedDictionaryIndexSize = (numBlocks * numEntries * SIZE_OF_INT);
+
+        String message = String.format("Ignored bytes %s With bytes %s", ignoredRowGroupBytes, withRowGroupBytes);
+        assertTrue(ignoredRowGroupBytes + expectedDictionaryIndexSize <= withRowGroupBytes, message);
+    }
+
+    private void writeBlock(DictionaryColumnWriter writer, Block block)
+    {
+        writer.beginRowGroup();
+        writer.writeBlock(block);
+        writer.finishRowGroup();
     }
 
     @Test
@@ -333,6 +355,23 @@ public class TestDictionaryColumnWriter
                 .withRowGroupMaxRowCount(14_998)
                 .build();
         testDictionary(BIGINT, DWRF, writerOptions, directConversionTester, values);
+    }
+
+    private static DictionaryColumnWriter getStringDictionaryColumnWriter(boolean ignoreRowGroupSizes)
+    {
+        OrcEncoding orcEncoding = DWRF;
+        ColumnWriterOptions columnWriterOptions = ColumnWriterOptions.builder()
+                .setCompressionKind(SNAPPY)
+                .setIgnoreDictionaryRowGroupSizes(ignoreRowGroupSizes)
+                .build();
+        DictionaryColumnWriter writer = new SliceDictionaryColumnWriter(
+                COLUMN_ID,
+                VARCHAR,
+                columnWriterOptions,
+                Optional.empty(),
+                orcEncoding,
+                orcEncoding.createMetadataWriter());
+        return writer;
     }
 
     private List<Long> generateRandomLongs(int maxSize)
@@ -586,20 +625,6 @@ public class TestDictionaryColumnWriter
         }
     }
 
-    private long testDictionaryWithMemoryAccounting(DirectConversionTester directConversionTester, List<?> values, boolean memoryAccountingFlag)
-            throws IOException
-    {
-        OrcWriterOptions orcWriterOptions = OrcWriterOptions.builder()
-                .withStripeMaxRowCount(STRIPE_MAX_ROWS)
-                .withIntegerDictionaryEncodingEnabled(true)
-                .withStringDictionarySortingEnabled(true)
-                .setIgnoreDictionaryRowGroupSizes(memoryAccountingFlag)
-                .build();
-
-        testDictionary(BIGINT, DWRF, orcWriterOptions, directConversionTester, values);
-        return retainedSizeInBytes;
-    }
-
     private List<StripeFooter> testLongDictionary(DirectConversionTester directConversionTester, List<?> values)
             throws IOException
     {
@@ -679,7 +704,6 @@ public class TestDictionaryColumnWriter
                 index = end;
             }
 
-            retainedSizeInBytes = writer.getRetainedBytes();
             writer.close();
             writer.validate(new FileOrcDataSource(
                     tempFile.getFile(),
