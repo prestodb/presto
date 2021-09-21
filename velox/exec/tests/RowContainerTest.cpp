@@ -51,43 +51,87 @@ class RowContainerTest : public testing::Test {
     return batch;
   }
 
-  // Stores the input vector in Row Container, extracts it and compares.
-  void roundTrip(const VectorPtr& input) {
-    // Create row container.
-    std::vector<TypePtr> types{input->type()};
-    std::vector<TypePtr> dependents;
-    std::vector<std::unique_ptr<Aggregate>> emptyAggregates;
-    auto data = std::make_unique<RowContainer>(
-        types,
+  std::unique_ptr<RowContainer> makeRowContainer(
+      const std::vector<TypePtr>& keyTypes,
+      const std::vector<TypePtr>& dependentTypes) {
+    static const std::vector<std::unique_ptr<Aggregate>> kEmptyAggregates;
+    return std::make_unique<RowContainer>(
+        keyTypes,
         false,
-        emptyAggregates,
-        dependents,
+        kEmptyAggregates,
+        dependentTypes,
         true,
         true,
         true,
         true,
         mappedMemory_,
         ContainerRowSerde::instance());
+  }
+
+  void testExtractColumnForOddRows(
+      RowContainer& container,
+      const std::vector<char*>& rows,
+      int column,
+      const VectorPtr& expected) {
+    auto size = rows.size();
+
+    // Extract only odd rows.
+    std::vector<char*> oddRows(size, nullptr);
+    for (auto i = 1; i < size; i += 2) {
+      oddRows[i] = rows[i];
+    }
+
+    auto result = BaseVector::create(expected->type(), size, pool_.get());
+    container.extractColumn(oddRows.data(), size, column, result);
+    EXPECT_EQ(size, result->size());
+    for (size_t row = 0; row < size; ++row) {
+      if (row % 2 == 0) {
+        EXPECT_TRUE(result->isNullAt(row)) << "at " << row;
+      } else {
+        EXPECT_TRUE(expected->equalValueAt(result.get(), row, row))
+            << "at " << row << ": expected " << expected->toString(row)
+            << ", got " << result->toString();
+      }
+    }
+  }
+
+  void testExtractColumnForAllRows(
+      RowContainer& container,
+      const std::vector<char*>& rows,
+      int column,
+      const VectorPtr& expected) {
+    auto size = rows.size();
+
+    auto result = BaseVector::create(expected->type(), size, pool_.get());
+    container.extractColumn(rows.data(), size, column, result);
+    EXPECT_EQ(size, result->size());
+    for (size_t row = 0; row < size; ++row) {
+      EXPECT_TRUE(expected->equalValueAt(result.get(), row, row))
+          << "at " << row << ": expected " << expected->toString(row)
+          << ", got " << result->toString();
+    }
+  }
+
+  // Stores the input vector in Row Container, extracts it and compares.
+  void roundTrip(const VectorPtr& input) {
+    // Create row container.
+    std::vector<TypePtr> types{input->type()};
+    auto data = makeRowContainer(types, std::vector<TypePtr>{});
 
     // Store the vector in the rowContainer.
     RowContainer rowContainer(types, mappedMemory_);
-    SelectivityVector allRows(input->size());
-    std::vector<char*> rows(input->size());
+    auto size = input->size();
+    SelectivityVector allRows(size);
+    std::vector<char*> rows(size);
     DecodedVector decoded(*input, allRows);
-    for (size_t row = 0; row < input->size(); ++row) {
+    for (size_t row = 0; row < size; ++row) {
       rows[row] = rowContainer.newRow();
       rowContainer.store(decoded, row, rows[row], 0);
     }
 
-    // Extract to another vector.
-    auto result = BaseVector::create(types[0], input->size(), pool_.get());
-    rowContainer.extractColumn(rows.data(), input->size(), 0, result);
+    testExtractColumnForAllRows(rowContainer, rows, 0, input);
 
-    // Both vectors should have the same data.
-    EXPECT_EQ(input->size(), result->size());
-    for (size_t row = 0; row < input->size(); ++row) {
-      EXPECT_EQ(input->toString(row), result->toString(row));
-    }
+    testExtractColumnForOddRows(rowContainer, rows, 0, input);
   }
 
   std::unique_ptr<memory::MemoryPool> pool_;
@@ -186,7 +230,7 @@ TEST_F(RowContainerTest, types) {
           strings->set(i, StringView(chars));
         }
       });
-  auto& types = batch->type()->as<TypeKind::ROW>().children();
+  const auto& types = batch->type()->as<TypeKind::ROW>().children();
   std::vector<TypePtr> keys;
   // We have the same types twice, once as non-null keys, next as
   // nullable non-keys.
@@ -194,18 +238,7 @@ TEST_F(RowContainerTest, types) {
   std::vector<TypePtr> dependents;
   dependents.insert(
       dependents.begin(), types.begin() + types.size() / 2, types.end());
-  std::vector<std::unique_ptr<Aggregate>> emptyAggregates;
-  auto data = std::make_unique<RowContainer>(
-      keys,
-      false,
-      emptyAggregates,
-      dependents,
-      true,
-      true,
-      true,
-      true,
-      mappedMemory_,
-      ContainerRowSerde::instance());
+  auto data = makeRowContainer(keys, dependents);
 
   EXPECT_GT(data->nextOffset(), 0);
   EXPECT_GT(data->probedFlagOffset(), 0);
@@ -231,8 +264,7 @@ TEST_F(RowContainerTest, types) {
     } else {
       EXPECT_NE(data->columnAt(column).nullMask(), 0);
     }
-    DecodedVector decoded;
-    decoded.decode(*batch->childAt(column), allRows);
+    DecodedVector decoded(*batch->childAt(column), allRows);
     for (auto index = 0; index < kNumRows; ++index) {
       data->store(decoded, index, rows[index], column);
     }
@@ -240,6 +272,9 @@ TEST_F(RowContainerTest, types) {
   auto copy = std::static_pointer_cast<RowVector>(
       BaseVector::create(batch->type(), batch->size(), pool_.get()));
   for (auto column = 0; column < batch->childrenSize(); ++column) {
+    testExtractColumnForAllRows(*data, rows, column, batch->childAt(column));
+    testExtractColumnForOddRows(*data, rows, column, batch->childAt(column));
+
     auto extracted = copy->childAt(column);
     extracted->resize(kNumRows);
     data->extractColumn(rows.data(), rows.size(), column, extracted);
@@ -248,8 +283,7 @@ TEST_F(RowContainerTest, types) {
     auto columnType = batch->type()->as<TypeKind::ROW>().childAt(column);
     VectorHasher hasher(columnType, column);
     hasher.hash(*source, allRows, false, &hashes);
-    DecodedVector decoded;
-    decoded.decode(*extracted, allRows);
+    DecodedVector decoded(*extracted, allRows);
     std::vector<uint64_t> rowHashes(kNumRows);
     data->hash(
         column,

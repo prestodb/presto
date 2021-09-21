@@ -354,7 +354,7 @@ void RowContainer::extractComplexType(
   result->resize(numRows);
   for (int i = 0; i < numRows; ++i) {
     auto row = rows[i];
-    if (row[nullByte] & nullMask) {
+    if (!row || row[nullByte] & nullMask) {
       result->setNull(i, true);
     } else {
       prepareRead(row, offset, stream);
