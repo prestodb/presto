@@ -54,6 +54,15 @@ class HashProbe : public Operator {
       const RowTypePtr& probeType,
       const RowTypePtr& tableType);
 
+  // Check if output_ can be re-used and if not make a new one.
+  void prepareOutput(vector_size_t size);
+
+  // Populate output columns.
+  void fillOutput(vector_size_t size);
+
+  // Populate filter input columns.
+  void fillFilterInput(vector_size_t size);
+
   // Applies 'filter_' to 'outputRows_' and updates 'outputRows_' and
   // 'rowNumberMapping_'. Returns the number of passing rows.
   vector_size_t evalFilter(vector_size_t numRows);

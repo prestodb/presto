@@ -327,6 +327,36 @@ folly::Range<vector_size_t*> initializeRowNumberMapping(
 }
 } // namespace
 
+void HashProbe::prepareOutput(vector_size_t size) {
+  VectorPtr outputAsBase = std::move(output_);
+  BaseVector::ensureWritable(
+      SelectivityVector::empty(), outputType_, pool(), &outputAsBase);
+  output_ = std::static_pointer_cast<RowVector>(outputAsBase);
+  output_->resize(size);
+}
+
+void HashProbe::fillOutput(vector_size_t size) {
+  prepareOutput(size);
+
+  for (auto projection : identityProjections_) {
+    // Load input vector if it is being split into multiple batches. It is not
+    // safe to wrap unloaded LazyVector into two different dictionaries.
+    auto inputChild = size == outputRows_.size()
+        ? input_->loadedChildAt(projection.inputChannel)
+        : input_->childAt(projection.inputChannel);
+
+    output_->childAt(projection.outputChannel) =
+        wrapChild(size, rowNumberMapping_, inputChild);
+  }
+
+  extractColumns(
+      table_.get(),
+      folly::Range<char**>(outputRows_.data(), size),
+      tableResultProjections_,
+      pool(),
+      output_);
+}
+
 RowVectorPtr HashProbe::getOutput() {
   clearIdentityProjectedOutput();
   if (!input_) {
@@ -337,7 +367,7 @@ RowVectorPtr HashProbe::getOutput() {
 
   if (replacedWithDynamicFilter_) {
     stats_.addRuntimeStat("replacedWithDynamicFilterRows", inputSize);
-    auto output = fillOutput(inputSize, nullptr);
+    auto output = Operator::fillOutput(inputSize, nullptr);
     input_ = nullptr;
     return output;
   }
@@ -396,30 +426,9 @@ RowVectorPtr HashProbe::getOutput() {
       }
       continue;
     }
-    VectorPtr outputAsBase = std::move(output_);
-    BaseVector::ensureWritable(
-        SelectivityVector::empty(),
-        outputType_,
-        operatorCtx_->pool(),
-        &outputAsBase);
-    output_ = std::static_pointer_cast<RowVector>(outputAsBase);
-    extractColumns(
-        table_.get(),
-        folly::Range<char**>(outputRows_.data(), numOut),
-        tableResultProjections_,
-        operatorCtx_->pool(),
-        output_);
 
-    for (auto projection : identityProjections_) {
-      // Load input vector if it is being split into multiple batches. It is not
-      // safe to wrap unloaded LazyVector into two different dictionaries.
-      auto inputChild = numOut == outputRows_.size()
-          ? input_->loadedChildAt(projection.inputChannel)
-          : input_->childAt(projection.inputChannel);
+    fillOutput(numOut);
 
-      output_->childAt(projection.outputChannel) =
-          wrapChild(numOut, rowNumberMapping_, inputChild);
-    }
     if (isSemiOrAntiJoin) {
       input_ = nullptr;
     }
@@ -427,25 +436,29 @@ RowVectorPtr HashProbe::getOutput() {
   }
 }
 
+void HashProbe::fillFilterInput(vector_size_t size) {
+  if (!filterInput_) {
+    filterInput_ = std::static_pointer_cast<RowVector>(
+        BaseVector::create(filterInputType_, 1, pool()));
+  }
+  filterInput_->resize(size);
+  for (auto projection : filterProbeInputs_) {
+    filterInput_->childAt(projection.outputChannel) = wrapChild(
+        size, rowNumberMapping_, input_->childAt(projection.inputChannel));
+  }
+  extractColumns(
+      table_.get(),
+      folly::Range<char**>(outputRows_.data(), size),
+      filterBuildInputs_,
+      pool(),
+      filterInput_);
+}
+
 int32_t HashProbe::evalFilter(int32_t numRows) {
   if (!filter_) {
     return numRows;
   }
-  if (!filterInput_) {
-    filterInput_ = std::static_pointer_cast<RowVector>(
-        BaseVector::create(filterInputType_, 1, operatorCtx_->pool()));
-  }
-  filterInput_->resize(numRows);
-  for (auto projection : filterProbeInputs_) {
-    filterInput_->childAt(projection.outputChannel) = wrapChild(
-        numRows, rowNumberMapping_, input_->childAt(projection.inputChannel));
-  }
-  extractColumns(
-      table_.get(),
-      folly::Range<char**>(outputRows_.data(), numRows),
-      filterBuildInputs_,
-      operatorCtx_->pool(),
-      filterInput_);
+  fillFilterInput(numRows);
   filterRows_.resize(numRows);
   filterRows_.setAll();
   EvalCtx evalCtx(operatorCtx_->execCtx(), filter_.get(), filterInput_.get());
