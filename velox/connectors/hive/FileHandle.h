@@ -32,6 +32,7 @@
 #include "velox/common/caching/CachedFactory.h"
 #include "velox/common/caching/FileIds.h"
 #include "velox/common/file/File.h"
+#include "velox/core/Context.h"
 
 namespace facebook::velox {
 
@@ -61,7 +62,13 @@ using FileHandleCache = SimpleLRUCache<std::string, FileHandle>;
 // Creates FileHandles via the Generator interface the CachedFactory requires.
 class FileHandleGenerator {
  public:
+  FileHandleGenerator() {}
+  FileHandleGenerator(std::shared_ptr<const Config> properties)
+      : properties_(std::move(properties)) {}
   std::unique_ptr<FileHandle> operator()(const std::string& filename);
+
+ private:
+  const std::shared_ptr<const Config> properties_;
 };
 
 using FileHandleFactory = CachedFactory<

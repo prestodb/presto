@@ -28,7 +28,7 @@ void HiveConnectorTestBase::SetUp() {
   dataCache = dummyDataCache.get();
   auto hiveConnector =
       connector::getConnectorFactory(connector::hive::kHiveConnectorName)
-          ->newConnector(kHiveConnectorId, std::move(dummyDataCache));
+          ->newConnector(kHiveConnectorId, nullptr, std::move(dummyDataCache));
   connector::registerConnector(hiveConnector);
 }
 

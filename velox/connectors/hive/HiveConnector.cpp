@@ -263,6 +263,7 @@ void HiveDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
   VLOG(1) << "Adding split " << split_->toString();
 
   fileHandle_ = fileHandleFactory_->generate(split_->filePath);
+
   if (dataCache_) {
     auto dataCacheConfig = std::make_shared<dwio::common::DataCacheConfig>();
     dataCacheConfig->cache = dataCache_;
@@ -446,13 +447,14 @@ void HiveDataSource::setNullConstantValue(
 
 HiveConnector::HiveConnector(
     const std::string& id,
+    std::shared_ptr<const Config> properties,
     std::unique_ptr<DataCache> dataCache)
-    : Connector(id),
+    : Connector(id, properties),
       dataCache_(std::move(dataCache)),
       fileHandleFactory_(
           std::make_unique<SimpleLRUCache<std::string, FileHandle>>(
               FLAGS_file_handle_cache_mb << 20),
-          std::make_unique<FileHandleGenerator>()) {}
+          std::make_unique<FileHandleGenerator>(properties)) {}
 
 VELOX_REGISTER_CONNECTOR_FACTORY(std::make_shared<HiveConnectorFactory>())
 

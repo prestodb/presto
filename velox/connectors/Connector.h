@@ -158,12 +158,19 @@ class ConnectorQueryCtx {
 
 class Connector {
  public:
-  explicit Connector(const std::string& id) : id_(id) {}
+  explicit Connector(
+      const std::string& id,
+      std::shared_ptr<const Config> properties)
+      : id_(id), properties_(std::move(properties)) {}
 
   virtual ~Connector() = default;
 
   const std::string& connectorId() const {
     return id_;
+  }
+
+  const std::shared_ptr<const Config>& connectorProperties() const {
+    return properties_;
   }
 
   // TODO Generalize to specify TableHandle/Layout and ColumnHandles.
@@ -186,6 +193,7 @@ class Connector {
 
  private:
   const std::string id_;
+  const std::shared_ptr<const Config> properties_;
 };
 
 class ConnectorFactory {
@@ -200,6 +208,7 @@ class ConnectorFactory {
 
   virtual std::shared_ptr<Connector> newConnector(
       const std::string& id,
+      std::shared_ptr<const Config> properties,
       std::unique_ptr<DataCache> dataCache = nullptr) = 0;
 
  private:

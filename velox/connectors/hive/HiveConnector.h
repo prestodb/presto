@@ -202,6 +202,7 @@ class HiveConnector final : public Connector {
  public:
   explicit HiveConnector(
       const std::string& id,
+      std::shared_ptr<const Config> properties,
       std::unique_ptr<DataCache> dataCache);
 
   std::shared_ptr<DataSource> createDataSource(
@@ -260,8 +261,10 @@ class HiveConnectorFactory : public ConnectorFactory {
 
   std::shared_ptr<Connector> newConnector(
       const std::string& id,
+      std::shared_ptr<const Config> properties,
       std::unique_ptr<DataCache> dataCache = nullptr) override {
-    return std::make_shared<HiveConnector>(id, std::move(dataCache));
+    return std::make_shared<HiveConnector>(
+        id, properties, std::move(dataCache));
   }
 };
 
