@@ -573,7 +573,7 @@ public class LocalExecutionPlanner
         LocalExecutionPlanContext context = new LocalExecutionPlanContext(taskContext, tableWriteInfo);
         PhysicalOperation physicalOperation = plan.accept(new Visitor(session, stageExecutionDescriptor, remoteSourceFactory, pageSinkCommitRequired), context);
 
-        Function<Page, Page> pagePreprocessor = enforceLoadedLayoutProcessor(outputLayout, physicalOperation.getLayout());
+        Function<Page, Page> pagePreprocessor = enforceLayoutProcessor(outputLayout, physicalOperation.getLayout());
 
         List<Type> outputTypes = outputLayout.stream()
                 .map(VariableReferenceExpression::getType)
@@ -2813,7 +2813,7 @@ public class LocalExecutionPlanner
 
             List<OperatorFactory> operatorFactories = new ArrayList<>(source.getOperatorFactories());
             List<VariableReferenceExpression> expectedLayout = node.getInputs().get(0);
-            Function<Page, Page> pagePreprocessor = enforceLoadedLayoutProcessor(expectedLayout, source.getLayout());
+            Function<Page, Page> pagePreprocessor = enforceLayoutProcessor(expectedLayout, source.getLayout());
             operatorFactories.add(new LocalExchangeSinkOperatorFactory(
                     exchangeFactory,
                     subContext.getNextOperatorId(),
@@ -2900,7 +2900,7 @@ public class LocalExecutionPlanner
                 LocalExecutionPlanContext subContext = driverFactoryParameters.getSubContext();
 
                 List<VariableReferenceExpression> expectedLayout = node.getInputs().get(i);
-                Function<Page, Page> pagePreprocessor = enforceLoadedLayoutProcessor(expectedLayout, source.getLayout());
+                Function<Page, Page> pagePreprocessor = enforceLayoutProcessor(expectedLayout, source.getLayout());
                 List<OperatorFactory> operatorFactories = new ArrayList<>(source.getOperatorFactories());
 
                 operatorFactories.add(new LocalExchangeSinkOperatorFactory(
@@ -3222,7 +3222,7 @@ public class LocalExecutionPlanner
         };
     }
 
-    private static Function<Page, Page> enforceLoadedLayoutProcessor(List<VariableReferenceExpression> expectedLayout, Map<VariableReferenceExpression, Integer> inputLayout)
+    private static Function<Page, Page> enforceLayoutProcessor(List<VariableReferenceExpression> expectedLayout, Map<VariableReferenceExpression, Integer> inputLayout)
     {
         int[] channels = expectedLayout.stream()
                 .peek(variable -> checkArgument(inputLayout.containsKey(variable), "channel not found for variable: %s", variable))
@@ -3230,8 +3230,8 @@ public class LocalExecutionPlanner
                 .toArray();
 
         if (Arrays.equals(channels, range(0, inputLayout.size()).toArray())) {
-            // this is an identity mapping, simply ensuring that the page is fully loaded is sufficient
-            return PageChannelSelector.identitySelection();
+            // this is an identity mapping
+            return Function.identity();
         }
 
         return new PageChannelSelector(channels);
