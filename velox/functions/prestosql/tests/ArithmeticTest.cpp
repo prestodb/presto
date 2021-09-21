@@ -367,3 +367,16 @@ TEST_F(ArithmeticTest, bitwiseXor) {
   EXPECT_EQ(bitwiseXor(-4, 12), -16);
   EXPECT_EQ(bitwiseXor(60, 21), 41);
 }
+
+TEST_F(ArithmeticTest, radians) {
+  const auto radians = [&](std::optional<double> a) {
+    return evaluateOnce<double>("radians(c0)", a);
+  };
+
+  EXPECT_EQ(std::nullopt, radians(std::nullopt));
+  EXPECT_DOUBLE_EQ(3.1415926535897931, radians(180).value());
+  EXPECT_DOUBLE_EQ(1.0000736613927508, radians(57.3).value());
+  EXPECT_DOUBLE_EQ(0, radians(0).value());
+  EXPECT_DOUBLE_EQ(-3.1415926535897931, radians(-180).value());
+  EXPECT_DOUBLE_EQ(-1.0000736613927508, radians(-57.3).value());
+}

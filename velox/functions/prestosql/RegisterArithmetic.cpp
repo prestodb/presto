@@ -48,6 +48,7 @@ void registerArithmeticFunctions() {
   registerUnaryNumeric<udf_floor>({});
   registerUnaryNumeric<udf_abs>({});
   registerUnaryFloatingPoint<udf_negate>({});
+  registerFunction<udf_radians, double, double>({"radians"});
   registerUnaryNumeric<udf_round>({"round"});
   registerFunction<udf_round<int8_t>, int8_t, int8_t, int32_t>({"round"});
   registerFunction<udf_round<int16_t>, int16_t, int16_t, int32_t>({"round"});

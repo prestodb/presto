@@ -267,4 +267,11 @@ FOLLY_ALWAYS_INLINE bool call(int64_t& result, T a, T b) {
 }
 VELOX_UDF_END();
 
+VELOX_UDF_BEGIN(radians)
+FOLLY_ALWAYS_INLINE bool call(double& result, double a) {
+  result = a * (M_PI / 180);
+  return true;
+}
+VELOX_UDF_END();
+
 } // namespace facebook::velox::functions

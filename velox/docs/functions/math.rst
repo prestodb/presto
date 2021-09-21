@@ -47,6 +47,10 @@ Mathematical Functions
 
     Returns ``x`` raised to the power of ``p``.
 
+.. function:: radians(x) -> double
+
+    Converts angle x in degrees to radians.
+
 .. function:: rand() -> double
 
     This is an alias for :func:`random()`.
