@@ -33,6 +33,7 @@ import com.facebook.presto.orc.stream.LongOutputStreamV1;
 import com.facebook.presto.orc.stream.LongOutputStreamV2;
 import com.facebook.presto.orc.stream.PresentOutputStream;
 import com.facebook.presto.orc.stream.StreamDataOutput;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
@@ -411,6 +412,12 @@ public abstract class DictionaryColumnWriter
         }
         // for dictionary columns we report the data we expect to write to the output stream
         return getIndexBytes() + getDictionaryBytes();
+    }
+
+    @VisibleForTesting
+    public long getRowGroupRetainedSizeInBytes()
+    {
+        return rowGroupRetainedSizeInBytes;
     }
 
     @Override
