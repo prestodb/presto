@@ -169,16 +169,9 @@ folly::Optional<folly::dynamic> jsonExtract(
     auto jsonObj = folly::parseJson(json);
     return jsonExtractInternal(&jsonObj, path);
   } catch (const folly::json::parse_error&) {
-  }
-  return folly::none;
-}
-
-folly::Optional<folly::dynamic> jsonExtract(
-    const folly::dynamic& json,
-    folly::StringPiece path) {
-  try {
-    return jsonExtractInternal(&json, path);
-  } catch (const folly::json::parse_error&) {
+  } catch (const folly::ConversionError&) {
+    // Folly might throw a conversion error while parsing the input json. In
+    // this case, let it return null.
   }
   return folly::none;
 }
@@ -186,9 +179,14 @@ folly::Optional<folly::dynamic> jsonExtract(
 folly::Optional<folly::dynamic> jsonExtract(
     const std::string& json,
     const std::string& path) {
+  return jsonExtract(folly::StringPiece(json), folly::StringPiece(path));
+}
+
+folly::Optional<folly::dynamic> jsonExtract(
+    const folly::dynamic& json,
+    folly::StringPiece path) {
   try {
-    auto jsonObj = folly::parseJson(json);
-    return jsonExtractInternal(&jsonObj, path);
+    return jsonExtractInternal(&json, path);
   } catch (const folly::json::parse_error&) {
   }
   return folly::none;

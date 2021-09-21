@@ -70,6 +70,9 @@ void compareExceptions(
                      << ve1.message() << "\nand\n\t" << ve2.message();
       }
       return;
+    } catch (const std::exception& e2) {
+      LOG(WARNING) << "Two different exceptions were thrown:\n\t"
+                   << ve1.message() << "\nand\n\t" << e2.what();
     }
   } catch (const std::exception& e1) {
     try {

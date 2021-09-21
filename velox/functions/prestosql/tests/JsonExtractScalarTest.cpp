@@ -13,96 +13,90 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
 
-using namespace facebook::velox;
+namespace facebook::velox::functions::prestosql {
 
-class JsonExtractScalarTest : public functions::test::FunctionBaseTest {};
+namespace {
 
-TEST_F(JsonExtractScalarTest, constJsonPath) {
-  std::vector<std::string> testJsonData = {
-      "{\"key1\":{\"key3\": 456}, \"key2\": 123}",
-      "{\"key1\":\"value1\", \"key2\":\"value2\"}"};
-  auto result = evaluate<FlatVector<StringView>>(
-      "json_extract_scalar(c0, '$.key1.key3')",
-      makeRowVector({makeFlatVector(testJsonData)}));
-  EXPECT_EQ(result->valueAt(0).str(), "456") << "at 0";
-  EXPECT_TRUE(result->isNullAt(1)) << "at 1";
-}
-
-TEST_F(JsonExtractScalarTest, nonConstJsonPath) {
-  std::vector<std::string> testJsonData = {
-      "{\"key1\":\"value1\", \"key2\":\"value2\"}",
-      "{\"key1\":\"value1\", \"key2\": 123}",
-      "{\"key1\":\"value1\", \"key2\": [1, 2, 3]}",
-      "{\"key1\":{\"key3\": 456}, \"key2\": 123}",
-      "{\"key1\":{\"key3\": 456}, \"key2\": 123}"};
-  std::vector<std::string> testJsonPathData = {
-      "$.key1", "$.key3", "$.key2", "$.key1.key3", "$.key1"};
-
-  auto row = makeRowVector(
-      {makeFlatVector(testJsonData), makeFlatVector(testJsonPathData)});
-  auto result =
-      evaluate<FlatVector<StringView>>("json_extract_scalar(c0, c1)", row);
-  EXPECT_EQ(result->valueAt(0).str(), "value1") << "at 0";
-  EXPECT_TRUE(result->isNullAt(1)) << "at 1";
-  EXPECT_TRUE(result->isNullAt(2)) << "at 2";
-  EXPECT_EQ(result->valueAt(3).str(), "456") << "at 3";
-  EXPECT_TRUE(result->isNullAt(4)) << "at 4";
-}
-
-TEST_F(JsonExtractScalarTest, utf8Value) {
-  std::vector<std::string> testJsonData = {
-      "{\"key1\":\"I \\u2665 UTF-8\"}",
-      u8"{\"key1\":\"I \u2665 UTF-8\"}",
-      "{\"key1\":\"I \\uD834\\uDD1E playing in G-clef\"}",
-      u8"{\"key1\":\"I \U0001D11E playing in G-clef\"}"};
-  std::vector<std::string> testJsonPathData = {
-      "$.key1", "$.key1", "$.key1", "$.key1"};
-
-  auto row = makeRowVector(
-      {makeFlatVector(testJsonData), makeFlatVector(testJsonPathData)});
-  auto result =
-      evaluate<FlatVector<StringView>>("json_extract_scalar(c0, c1)", row);
-  EXPECT_EQ(result->valueAt(0).str(), u8"I \u2665 UTF-8") << "at 0";
-  EXPECT_EQ(result->valueAt(1).str(), u8"I \u2665 UTF-8") << "at 1";
-  EXPECT_EQ(result->valueAt(2).str(), u8"I \U0001D11E playing in G-clef")
-      << "at 2";
-  EXPECT_EQ(result->valueAt(3).str(), u8"I \U0001D11E playing in G-clef")
-      << "at 3";
-}
-
-TEST_F(JsonExtractScalarTest, invalidJsonPath) {
-  std::vector<std::string> testJsonData = {
-      "{\"key1\":\"value1\", \"key2\":\"value2\"}"};
-
-  auto row = makeRowVector({makeFlatVector(testJsonData)});
-  EXPECT_THROW(
-      evaluate<FlatVector<StringView>>("json_extract_scalar(c0, '')", row),
-      VeloxUserError);
-  EXPECT_THROW(
-      evaluate<FlatVector<StringView>>(
-          "json_extract_scalar(c0, '$.key1[')", row),
-      VeloxUserError);
-  EXPECT_THROW(
-      evaluate<FlatVector<StringView>>("json_extract_scalar(c0, '$.]')", row),
-      VeloxUserError);
-}
-
-TEST_F(JsonExtractScalarTest, jsonParseError) {
-  std::vector<std::string> testJsonData = {"", "invalidJson"};
-
-  auto row = makeRowVector({makeFlatVector(testJsonData)});
-  auto result = evaluate<FlatVector<StringView>>(
-      "json_extract_scalar(c0, '$.key1')", row);
-  EXPECT_TRUE(result->isNullAt(0)) << "at 0";
-  EXPECT_TRUE(result->isNullAt(1)) << "at 1";
-}
-
-TEST_F(JsonExtractScalarTest, emptyString) {
-  const auto json_extract_scalar = [&](std::optional<std::string> json,
-                                       std::optional<std::string> path) {
+class JsonExtractScalarTest : public functions::test::FunctionBaseTest {
+ public:
+  std::optional<std::string> json_extract_scalar(
+      std::optional<std::string> json,
+      std::optional<std::string> path) {
     return evaluateOnce<std::string>("json_extract_scalar(c0, c1)", json, path);
-  };
-  EXPECT_EQ(json_extract_scalar(R"({"a": ""})", "$.a"), "");
+  }
+};
+
+TEST_F(JsonExtractScalarTest, simple) {
+  // Scalars.
+  EXPECT_EQ(json_extract_scalar(R"(1)", "$"), "1");
+  EXPECT_EQ(json_extract_scalar(R"(123456)", "$"), "123456");
+  EXPECT_EQ(json_extract_scalar(R"("hello")", "$"), "hello");
+  EXPECT_EQ(json_extract_scalar(R"(1.1)", "$"), "1.1");
+  EXPECT_EQ(json_extract_scalar(R"("")", "$"), "");
+
+  // Simple lists.
+  EXPECT_EQ(json_extract_scalar(R"([1,2])", "$[0]"), "1");
+  EXPECT_EQ(json_extract_scalar(R"([1,2])", "$[1]"), "2");
+  EXPECT_EQ(json_extract_scalar(R"([1,2])", "$[2]"), std::nullopt);
+  EXPECT_EQ(json_extract_scalar(R"([1,2])", "$[999]"), std::nullopt);
+
+  // Simple maps.
+  EXPECT_EQ(json_extract_scalar(R"({"k1":"v1"})", "$.k1"), "v1");
+  EXPECT_EQ(json_extract_scalar(R"({"k1":"v1"})", "$.k2"), std::nullopt);
+  EXPECT_EQ(json_extract_scalar(R"({"k1":"v1"})", "$.k1.k3"), std::nullopt);
+  EXPECT_EQ(json_extract_scalar(R"({"k1":[0,1,2]})", "$.k1"), std::nullopt);
+  EXPECT_EQ(json_extract_scalar(R"({"k1":""})", "$.k1"), "");
+
+  // Nested
+  EXPECT_EQ(json_extract_scalar(R"({"k1":{"k2": 999}})", "$.k1.k2"), "999");
+  EXPECT_EQ(json_extract_scalar(R"({"k1":[1,2,3]})", "$.k1[0]"), "1");
+  EXPECT_EQ(json_extract_scalar(R"({"k1":[1,2,3]})", "$.k1[2]"), "3");
+  EXPECT_EQ(json_extract_scalar(R"([{"k1":"v1"}, 2])", "$[0].k1"), "v1");
+  EXPECT_EQ(json_extract_scalar(R"([{"k1":"v1"}, 2])", "$[1]"), "2");
+  EXPECT_EQ(
+      json_extract_scalar(
+          R"([{"k1":[{"k2": ["v1", "v2"]}]}])", "$[0].k1[0].k2[1]"),
+      "v2");
 }
+
+TEST_F(JsonExtractScalarTest, utf8) {
+  EXPECT_EQ(
+      json_extract_scalar(R"({"k1":"I \u2665 UTF-8"})", "$.k1"),
+      u8"I \u2665 UTF-8");
+  EXPECT_EQ(
+      json_extract_scalar(u8"{\"k1\":\"I \u2665 UTF-8\"}", "$.k1"),
+      u8"I \u2665 UTF-8");
+
+  EXPECT_EQ(
+      json_extract_scalar(
+          u8"{\"k1\":\"I \U0001D11E playing in G-clef\"}", "$.k1"),
+      u8"I \U0001D11E playing in G-clef");
+}
+
+TEST_F(JsonExtractScalarTest, invalidPath) {
+  EXPECT_THROW(json_extract_scalar(R"([0,1,2])", ""), VeloxUserError);
+  EXPECT_THROW(json_extract_scalar(R"([0,1,2])", "$[]"), VeloxUserError);
+  EXPECT_THROW(json_extract_scalar(R"([0,1,2])", "$[-1]"), VeloxUserError);
+  EXPECT_THROW(json_extract_scalar(R"({"k1":"v1"})", "$k1"), VeloxUserError);
+  EXPECT_THROW(json_extract_scalar(R"({"k1":"v1"})", "$.k1."), VeloxUserError);
+  EXPECT_THROW(json_extract_scalar(R"({"k1":"v1"})", "$.k1]"), VeloxUserError);
+}
+
+// TODO: Folly tries to convert scalar integers, and in case they are large
+// enough it overflows and throws conversion error. In this case, we do out best
+// and return NULL, but in Presto java the large integer is returned as-is as a
+// string.
+TEST_F(JsonExtractScalarTest, overflow) {
+  EXPECT_EQ(
+      json_extract_scalar(
+          R"(184467440737095516151844674407370955161518446744073709551615)",
+          "$"),
+      std::nullopt);
+}
+
+} // namespace
+
+} // namespace facebook::velox::functions::prestosql
