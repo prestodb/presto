@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
 
 import java.util.List;
 import java.util.Optional;
@@ -34,7 +35,7 @@ class PartitioningExchanger
     private final LocalExchangeMemoryManager memoryManager;
     private final PartitionFunction partitionFunction;
     private final int[] partitioningChannels;
-    private final int hashChannel; // when >= 0, this is the precomputed raw hash column to partition on
+    private final Optional<Integer> hashChannel;
     private final IntArrayList[] partitionAssignments;
     private final PageReleasedListener onPageReleased;
 
@@ -49,7 +50,7 @@ class PartitioningExchanger
         this.memoryManager = requireNonNull(memoryManager, "memoryManager is null");
         this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");
         this.partitioningChannels = Ints.toArray(requireNonNull(partitioningChannels, "partitioningChannels is null"));
-        this.hashChannel = requireNonNull(hashChannel, "hashChannel is null").orElse(-1);
+        this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
         this.onPageReleased = PageReleasedListener.forLocalExchangeMemoryManager(memoryManager);
 
         partitionAssignments = new IntArrayList[partitions.size()];
@@ -59,46 +60,36 @@ class PartitioningExchanger
     }
 
     @Override
-    public void accept(Page page)
+    public synchronized void accept(Page page)
     {
-        // extract the partitioning channel before entering the critical section
-        partitionPage(page, extractPartitioningChannels(page));
-    }
+        // reset the assignment lists
+        for (IntList partitionAssignment : partitionAssignments) {
+            partitionAssignment.clear();
+        }
 
-    private synchronized void partitionPage(Page page, Page partitioningChannelsPage)
-    {
-        // assign each row to a partition. The assignments lists are all expected to cleared by the previous iterations
+        // assign each row to a partition
+        Page partitioningChannelsPage = extractPartitioningChannels(page);
         for (int position = 0; position < partitioningChannelsPage.getPositionCount(); position++) {
             int partition = partitionFunction.getPartition(partitioningChannelsPage, position);
             partitionAssignments[partition].add(position);
         }
 
         // build a page for each partition
-        for (int partition = 0; partition < partitionAssignments.length; partition++) {
+        for (int partition = 0; partition < buffers.size(); partition++) {
             IntArrayList positions = partitionAssignments[partition];
-            int partitionSize = positions.size();
-            if (partitionSize == 0) {
-                continue;
+            if (!positions.isEmpty()) {
+                Page pageSplit = page.copyPositions(positions.elements(), 0, positions.size());
+                memoryManager.updateMemoryUsage(pageSplit.getRetainedSizeInBytes());
+                buffers.get(partition).accept(new PageReference(pageSplit, 1, onPageReleased));
             }
-            Page pageSplit;
-            if (partitionSize == page.getPositionCount()) {
-                pageSplit = page; // entire page will be sent to this partition, no copies necessary
-            }
-            else {
-                pageSplit = page.copyPositions(positions.elements(), 0, partitionSize);
-            }
-            // clear the assigned positions list for the next iteration to start empty
-            positions.clear();
-            memoryManager.updateMemoryUsage(pageSplit.getRetainedSizeInBytes());
-            buffers.get(partition).accept(new PageReference(pageSplit, 1, onPageReleased));
         }
     }
 
     private Page extractPartitioningChannels(Page inputPage)
     {
         // hash value is pre-computed, only needs to extract that channel
-        if (hashChannel >= 0) {
-            return inputPage.extractChannel(hashChannel);
+        if (hashChannel.isPresent()) {
+            return new Page(inputPage.getBlock(hashChannel.get()));
         }
 
         // extract partitioning channels
