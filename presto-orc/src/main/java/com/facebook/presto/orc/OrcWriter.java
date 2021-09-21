@@ -477,6 +477,7 @@ public class OrcWriter
         try {
             // add stripe data
             outputData.addAll(bufferStripeData(stripeStartOffset, flushReason));
+            rawSize += stripeRawSize;
             // if the file is being closed, add the file footer
             if (flushReason == CLOSED) {
                 outputData.addAll(bufferFileFooter());
@@ -491,7 +492,6 @@ public class OrcWriter
             dictionaryCompressionOptimizer.reset();
             rowGroupRowCount = 0;
             stripeRowCount = 0;
-            rawSize += stripeRawSize;
             stripeRawSize = 0;
             bufferedBytes = toIntExact(columnWriters.stream().mapToLong(ColumnWriter::getBufferedBytes).sum());
         }
