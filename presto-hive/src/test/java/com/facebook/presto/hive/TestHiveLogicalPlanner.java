@@ -102,6 +102,7 @@ import static com.facebook.presto.hive.HiveColumnHandle.isPushedDownSubfield;
 import static com.facebook.presto.hive.HiveMetadata.REFERENCED_MATERIALIZED_VIEWS;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveSessionProperties.COLLECT_COLUMN_STATISTICS_ON_WRITE;
+import static com.facebook.presto.hive.HiveSessionProperties.MATERIALIZED_VIEW_MISSING_PARTITIONS_THRESHOLD;
 import static com.facebook.presto.hive.HiveSessionProperties.PARQUET_DEREFERENCE_PUSHDOWN_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.PARTIAL_AGGREGATION_PUSHDOWN_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.PARTIAL_AGGREGATION_PUSHDOWN_FOR_VARIABLE_LENGTH_DATATYPES_ENABLED;
@@ -1434,6 +1435,74 @@ public class TestHiveLogicalPlanner
 
             assertPlan(getSession(), viewQuery, anyTree(
                     filter("orderkey < BIGINT'10000'", PlanMatchPattern.constrainedTableScan(table, ImmutableMap.of(), ImmutableMap.of("orderkey", "orderkey")))));
+        }
+        finally {
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table);
+        }
+    }
+
+    @Test
+    public void testMaterializedTooManyMissingPartitions()
+    {
+        String table = "orders_partitioned_not_materialized";
+        String view = "orders_partitioned_view_not_materialized";
+
+        QueryRunner queryRunner = getQueryRunner();
+        try {
+            queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['ds']) AS " +
+                    "SELECT orderkey, orderpriority, '2020-01-01' as ds FROM orders WHERE orderkey < 1000 " +
+                    "UNION ALL " +
+                    "SELECT orderkey, orderpriority, '2019-01-02' as ds FROM orders WHERE orderkey >= 1000 and orderkey < 2000 " +
+                    "UNION ALL " +
+                    "SELECT orderkey, orderpriority, '2019-02-02' as ds FROM orders WHERE orderkey >= 2000 and orderkey < 3000 " +
+                    "UNION ALL " +
+                    "SELECT orderkey, orderpriority, '2019-03-02' as ds FROM orders WHERE orderkey >= 3000 and orderkey < 4000 " +
+                    "UNION ALL " +
+                    "SELECT orderkey, orderpriority, '2019-04-02' as ds FROM orders WHERE orderkey >= 4000 and orderkey < 5000 " +
+                    "UNION ALL " +
+                    "SELECT orderkey, orderpriority, '2019-05-02' as ds FROM orders WHERE orderkey >= 5000 and orderkey < 6000 " +
+                    "UNION ALL " +
+                    "SELECT orderkey, orderpriority, '2019-06-02' as ds FROM orders WHERE orderkey >= 6000 and orderkey < 7000 " +
+                    "UNION ALL " +
+                    "SELECT orderkey, orderpriority, '2019-07-02' as ds FROM orders WHERE orderkey >= 7000 and orderkey < 8000 ", table));
+
+            assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds']) " +
+                    "AS SELECT orderkey, orderpriority, ds FROM %s", view, table));
+            assertTrue(getQueryRunner().tableExists(getQueryRunner().getDefaultSession(), view));
+
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds = '2020-01-01'", view), 255);
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds = '2019-01-02'", view), 248);
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds = '2019-02-02'", view), 248);
+
+            String viewQuery = format("SELECT orderkey from %s where orderkey < 10000 ORDER BY orderkey", view);
+            String baseQuery = format("SELECT orderkey from %s where orderkey < 10000 ORDER BY orderkey", table);
+
+            MaterializedResult viewTable = computeActual(viewQuery);
+            MaterializedResult baseTable = computeActual(baseQuery);
+            assertEquals(viewTable, baseTable);
+
+            // assert that when missing partition count > threshold, fallback to using base table to satisfy view query
+            Session session = Session.builder(getQueryRunner().getDefaultSession())
+                    .setCatalogSessionProperty(HIVE_CATALOG, MATERIALIZED_VIEW_MISSING_PARTITIONS_THRESHOLD, Integer.toString(2))
+                    .build();
+
+            assertPlan(session, viewQuery, anyTree(
+                    filter("orderkey < BIGINT'10000'",
+                            PlanMatchPattern.constrainedTableScan(table, ImmutableMap.of(), ImmutableMap.of("orderkey", "orderkey")))));
+
+            // assert that when count of missing partition  <= threshold, use available partitions from view
+            session = Session.builder(getQueryRunner().getDefaultSession())
+                    .setCatalogSessionProperty(HIVE_CATALOG, MATERIALIZED_VIEW_MISSING_PARTITIONS_THRESHOLD, Integer.toString(100))
+                    .build();
+
+            assertPlan(session, viewQuery, anyTree(
+                    filter("orderkey < BIGINT'10000'", PlanMatchPattern.constrainedTableScan(table,
+                        ImmutableMap.of("ds", multipleValues(createVarcharType(10), utf8Slices("2019-03-02", "2019-04-02", "2019-05-02", "2019-06-02", "2019-07-02"))),
+                        ImmutableMap.of("orderkey", "orderkey"))),
+                    filter("orderkey_17 < BIGINT'10000'", PlanMatchPattern.constrainedTableScan(view,
+                        ImmutableMap.of("ds", multipleValues(createVarcharType(10), utf8Slices("2020-01-01", "2019-01-02", "2019-02-02"))),
+                        ImmutableMap.of("orderkey_17", "orderkey")))));
         }
         finally {
             queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);

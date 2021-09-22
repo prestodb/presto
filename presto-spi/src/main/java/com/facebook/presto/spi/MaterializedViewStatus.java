@@ -22,6 +22,7 @@ import java.util.Map;
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.FULLY_MATERIALIZED;
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.NOT_MATERIALIZED;
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.PARTIALLY_MATERIALIZED;
+import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.TOO_MANY_PARTITIONS_MISSING;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
@@ -31,6 +32,7 @@ public class MaterializedViewStatus
     public enum MaterializedViewState
     {
         NOT_MATERIALIZED,
+        TOO_MANY_PARTITIONS_MISSING,
         PARTIALLY_MATERIALIZED,
         FULLY_MATERIALIZED
     }
@@ -89,6 +91,11 @@ public class MaterializedViewStatus
     public boolean isNotMaterialized()
     {
         return materializedViewState == NOT_MATERIALIZED;
+    }
+
+    public boolean isTooManyPartitionsMissing()
+    {
+        return materializedViewState == TOO_MANY_PARTITIONS_MISSING;
     }
 
     public boolean isPartiallyMaterialized()

@@ -195,6 +195,7 @@ public class HiveClientConfig
 
     private boolean executionBasedMemoryAccounting;
     private boolean enableLooseMemoryAccounting;
+    private int materializedViewMissingPartitionsThreshold = 100;
 
     public int getMaxInitialSplits()
     {
@@ -1653,5 +1654,18 @@ public class HiveClientConfig
     {
         this.enableLooseMemoryAccounting = enableLooseMemoryAccounting;
         return this;
+    }
+
+    @Config("hive.materialized-view-missing-partitions-threshold")
+    @ConfigDescription("Materialized views with missing partitions more than this threshold falls back to the base tables at read time")
+    public HiveClientConfig setMaterializedViewMissingPartitionsThreshold(int materializedViewMissingPartitionsThreshold)
+    {
+        this.materializedViewMissingPartitionsThreshold = materializedViewMissingPartitionsThreshold;
+        return this;
+    }
+
+    public int getMaterializedViewMissingPartitionsThreshold()
+    {
+        return this.materializedViewMissingPartitionsThreshold;
     }
 }
