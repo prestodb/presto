@@ -1,96 +1,96 @@
 <img src="static/logo.svg" alt="Velox logo" width="50%" align="center" />
 
-## Build Notes
+Velox is a C++ database acceleration library which provides reusable,
+extensible, and high-performance data processing components. These components
+can be reused to build compute engines focused on different analytical
+workloads, including batch, interactive, stream processing, and AI/ML.
+Velox was created by Facebook and it is currently developed in partnership with
+Intel, ByteDance, and Ahana.
 
-### Dependencies
-For the current set of dependencies please refer to scripts/setup-macos.sh, scripts/setup-linux.sh
+In common usage scenarios, Velox takes a fully optimized query plan as input
+and performs the described computation. Considering Velox does not provide a
+SQL parser, a dataframe layer, or a query optimizer, it is usually not meant
+to be used directly by end-users; rather, it is mostly used by developers
+integrating and optimizing their compute engines.
 
-## Building
-Run `make` in the root directory to compile the sources. For development, use
-`make debug` to build a non-optimized debug version.  Use `make unittest` to build
-and run tests.
+Velox provides the following high-level components:
 
-### Makefile targets
-A reminder of the available Makefile targets can be obtained using `make help`
-```
-    make help
-    all                     Build the release version
-    clean                   Delete all build artifacts
-    cmake                   Use CMake to create a Makefile build system
-    build                   Build the software based in BUILD_DIR and BUILD_TYPE variables
-    debug                   Build with debugging symbols
-    release                 Build the release version
-    unittest                Build with debugging and run unit tests
-    format-fix              Fix formatting issues in the current branch
-    format-check            Check for formatting issues on the current branch
-    header-fix              Fix license header issues in the current branch
-    header-check            Check for license header issues on the current branch
-    linux-container         Build the CircleCi linux container from scratch
-    help                    Show the help messages
-```
+* **Type**: a generic typing system that supports scalar, complex, and nested
+  types, such as structs, maps, arrays, tensors, etc.
+* **Vector**: an [Arrow-compatible columnar memory layout
+  module](https://facebookincubator.github.io/velox/develop/vectors.html),
+  which provides multiple encodings, such as Flat, Dictionary, Constant,
+  Sequence/RLE, and Bias, in addition to a lazy materialization pattern and
+  support for out-of-order writes.
+* **Expression Eval**: a [fully vectorized expression evaluation
+  engine](https://facebookincubator.github.io/velox/develop/expression-evaluation.html)
+  that allows expressions to be efficiently executed on top of Vector/Arrow
+  encoded data.
+* **Function Packages**: sets of vectorized function implementations following
+  the Presto and Spark semantic.
+* **Operators**: implementation of common data processing operators such as
+  scans, projection, filtering, groupBy, orderBy, shuffle, [hash
+  join](https://facebookincubator.github.io/velox/develop/joins.html), unnest,
+  and more.
+* **I/O**: a generic connector interface that allows different file formats
+  (ORC/DWRF and Parquet) and storage adapters (S3, HDFS, local files) to be
+  used.
+* **Network Serializers**: an interface where different wire protocols can be
+  implemented, used for network communication, supporting
+  [PrestoPage](https://prestodb.io/docs/current/develop/serialized-page.html)
+  and Spark's UnsafeRow.
+* **Resource Management**: a collection of primitives for handling
+  computational resources, such as [memory
+  arenas](https://facebookincubator.github.io/velox/develop/arena.html) and
+  buffer management, tasks, drivers, and thread pools for CPU and thread
+  execution, spilling, and caching.
 
-## CircleCi Continuous Integration
+Velox is extensible and allows developers to define their own engine-specific
+specializations, including:
 
-Details are in the [.circleci/REAME.md](.circleci)
+1. Custom types
+2. [Simple and vectorized functions](https://facebookincubator.github.io/velox/develop/scalar-functions.html)
+3. [Aggregate functions](https://facebookincubator.github.io/velox/develop/aggregate-functions.html)
+4. Operators
+5. File formats
+6. Storage adapters
+7. Network serializers
 
-## Code formatting, headers
+## Examples
 
-### Showing, Fixing and Passing Checks
+Examples of extensibility and integration with different component APIs [can be
+found here](velox/examples)
 
-Makefile targets exist for showing, fixing and checking formatting, license
-headers.  These targets are shortcuts for calling
-`./scripts/check.py`.
+## Documentation
 
-CircleCi runs `make format-check`, `make header-check` as
-part of our continious integration.  Pull requests should pass format-check and
-header-check without errors before being accepted.
+Developer guides detailing many aspects of the library, in addition to the list
+of available functions [can be found here.](https://facebookincubator.github.io/velox)
 
-Formatting issues found on the changed lines in the current commit can be
-displayed using `make format-show`.  These issues can be fixed by using `make
-format-fix`.  This will apply formatting changes to changed lines in the
-current commit.
+## Getting Started
 
-Header issues found on the changed files in the current commit can be displayed
-using `make header-show`.  These issues can be fixed by using `make
-header-fix`.  This will apply license header updates to files in the current
-commit.
-
-### Importing code
-
-Code imported from fbcode might pass `make format-check` as is and without
-change.  We are using the .clang-format config file that is used in fbcode.
-
-Use `make header-fix` to apply our open source license to imported code.
-
-An entire directory tree of files can be formatted and have license headers added
-using the `tree` variant of the format.sh commands:
-```
-    ./scripts/check.py format tree
-    ./scripts/check.py format tree --fix
-
-    ./scripts/check.py header tree
-    ./scripts/check.py header tree --fix
-```
-
-All the available formatting commands can be displayed by using
-`./scripts/check.py help`.
-
-There is not currently a mechanism to *opt out* files or directories from the
-checks.  When we need one it can be added.
-
-## Development Environment
+We provide scripts to help developers setup and install Velox dependencies.
 
 ### Setting up on macOS
 
-See `scripts/setup-macos.sh`
+See [scripts/setup-macos.sh](scripts/setup-macos.sh)
 
-After running the setup script add the cmake-format bin to your $PATH, maybe
-something like this in your ~/.profile:
+### Setting up on Linux (Ubuntu 20.04 or later)
 
-```
-export PATH=$HOME/bin:$HOME/Library/Python/3.7/bin:$PATH
-```
+See [scripts/setup-ubuntu.sh](scripts/setup-ubuntu.sh)
 
-### Setting up on Linux (CentOS 8 or later)
+### Building Velox
 
-See `scripts/setup-linux.sh`
+Run `make` in the root directory to compile the sources. For development, use
+`make debug` to build a non-optimized debug version, or `make release` to build
+an optimized version.  Use `make unittest` to build and run tests.
+
+## Contributing
+
+Check our [contributing guide](CONTRIBUTING.md) to learn about how to
+contribute to the project.
+
+## Community
+
+The main communication channel with the Velox OSS community is through the
+[the Velox-OSS Slack workspace](http://velox-oss.slack.com). Please don't
+hesitate in reaching out.

@@ -44,6 +44,45 @@ We actively welcome your pull requests.
 Before contributing to Velox, please review our coding style and best practices
 document in [`CODING_STYLE.md`](CODING_STYLE.md).
 
+## Code Formatting, Headers, and Licenses
+
+Our Makefile contains targets to help highlighting and fixing format, header or
+license issues. These targets are shortcuts for calling `./scripts/check.py`.
+
+Use `make header-fix` to apply our open source license headers to new files.
+Use `make format-check` to highlight formatting issues using clang-format.
+
+Formatting issues found on the changed lines in the current commit can be
+displayed using `make format-show`.  These issues can be fixed by using `make
+format-fix`. This command will apply formatting changes to modified lines in
+the current commit.
+
+Header issues found on the changed files in the current commit can be displayed
+using `make header-show`. These issues can be fixed by using `make header-fix`.
+This will apply license header updates to files in the current commit.
+
+An entire directory tree of files can be formatted and have license headers
+added using the `tree` variant of the format.sh commands:
+```
+    ./scripts/check.py format tree
+    ./scripts/check.py format tree --fix
+
+    ./scripts/check.py header tree
+    ./scripts/check.py header tree --fix
+```
+
+All the available formatting commands can be displayed by using
+`./scripts/check.py help`.
+
+## Continuous Integration and CircleCI
+
+Velox uses CircleCI as the continuous integration system, so please ensure your
+PR does not break any of these workflows. CircleCi runs `make format-check`,
+`make header-check` as part of our continuous integration. Pull requests should
+pass format-check and header-check without errors before being accepted.
+
+More details can be found at [.circleci/REAME.md](.circleci)
+
 ## Contributor License Agreement ("CLA")
 
 In order to accept your pull request, we need you to submit a CLA. You only need
