@@ -1343,7 +1343,7 @@ class StatementAnalyzer
                 MaterializedViewStatus materializedViewStatus)
         {
             String materializedViewCreateSql = connectorMaterializedViewDefinition.getOriginalSql();
-            if (materializedViewStatus.isNotMaterialized()) {
+            if (materializedViewStatus.isNotMaterialized() || materializedViewStatus.isTooManyPartitionsMissing()) {
                 return materializedViewCreateSql;
             }
 
