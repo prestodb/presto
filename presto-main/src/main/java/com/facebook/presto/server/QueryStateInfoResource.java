@@ -159,10 +159,9 @@ public class QueryStateInfoResource
                 return;
             }
             InternalNode resourceManagerNode = resourceManagers.next();
-            String scheme = isNullOrEmpty(xForwardedProto) ? uriInfo.getRequestUri().getScheme() : xForwardedProto;
 
             URI uri = uriInfo.getRequestUriBuilder()
-                    .scheme(scheme)
+                    .scheme(resourceManagerNode.getInternalUri().getScheme())
                     .host(resourceManagerNode.getHostAndPort().toInetAddress().getHostName())
                     .port(resourceManagerNode.getInternalUri().getPort())
                     .build();
