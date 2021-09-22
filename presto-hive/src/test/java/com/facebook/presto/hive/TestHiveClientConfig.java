@@ -154,6 +154,7 @@ public class TestHiveClientConfig
                 .setUndoMetastoreOperationsEnabled(true)
                 .setOptimizedPartitionUpdateSerializationEnabled(false)
                 .setPartitionLeaseDuration(new Duration(0, TimeUnit.SECONDS))
+                .setMaterializedViewMissingPartitionsThreshold(100)
                 .setLooseMemoryAccountingEnabled(false));
     }
 
@@ -270,6 +271,7 @@ public class TestHiveClientConfig
                 .put("hive.experimental-optimized-partition-update-serialization-enabled", "true")
                 .put("hive.partition-lease-duration", "4h")
                 .put("hive.loose-memory-accounting-enabled", "true")
+                .put("hive.materialized-view-missing-partitions-threshold", "50")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -381,6 +383,7 @@ public class TestHiveClientConfig
                 .setUndoMetastoreOperationsEnabled(false)
                 .setOptimizedPartitionUpdateSerializationEnabled(true)
                 .setPartitionLeaseDuration(new Duration(4, TimeUnit.HOURS))
+                .setMaterializedViewMissingPartitionsThreshold(50)
                 .setLooseMemoryAccountingEnabled(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
