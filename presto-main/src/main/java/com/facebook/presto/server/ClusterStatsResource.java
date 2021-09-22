@@ -47,7 +47,6 @@ import java.util.Optional;
 import static com.facebook.presto.server.security.RoleType.ADMIN;
 import static com.facebook.presto.server.security.RoleType.USER;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -187,10 +186,9 @@ public class ClusterStatsResource
                 return;
             }
             InternalNode resourceManagerNode = resourceManagers.next();
-            String scheme = isNullOrEmpty(xForwardedProto) ? uriInfo.getRequestUri().getScheme() : xForwardedProto;
 
             URI uri = uriInfo.getRequestUriBuilder()
-                    .scheme(scheme)
+                    .scheme(resourceManagerNode.getInternalUri().getScheme())
                     .host(resourceManagerNode.getHostAndPort().toInetAddress().getHostName())
                     .port(resourceManagerNode.getInternalUri().getPort())
                     .build();

@@ -31,7 +31,6 @@ import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.Encoded;
 import javax.ws.rs.GET;
-import javax.ws.rs.HeaderParam;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
@@ -52,7 +51,6 @@ import static com.facebook.airlift.http.client.JsonResponseHandler.createJsonRes
 import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
 import static com.facebook.presto.server.security.RoleType.ADMIN;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 
@@ -82,7 +80,6 @@ public class DistributedResourceGroupInfoResource
     @Path("{resourceGroupId: .+}")
     public void getResourceGroupInfos(
             @PathParam("resourceGroupId") String resourceGroupIdString,
-            @HeaderParam(X_FORWARDED_PROTO) String xForwardedProto,
             @Context UriInfo uriInfo,
             @Context HttpServletRequest servletRequest,
             @Suspended AsyncResponse asyncResponse)
@@ -93,7 +90,7 @@ public class DistributedResourceGroupInfoResource
         try {
             ImmutableList.Builder<ListenableFuture<ResourceGroupInfo>> resourceGroupInfoFutureBuilder = ImmutableList.builder();
             for (InternalNode coordinator : internalNodeManager.getCoordinators()) {
-                resourceGroupInfoFutureBuilder.add(getResourceGroupInfoFromCoordinator(xForwardedProto, uriInfo, coordinator));
+                resourceGroupInfoFutureBuilder.add(getResourceGroupInfoFromCoordinator(uriInfo, coordinator));
             }
             List<ListenableFuture<ResourceGroupInfo>> resourceGroupInfoFutureList = resourceGroupInfoFutureBuilder.build();
             Futures.whenAllComplete(resourceGroupInfoFutureList).call(() -> {
@@ -138,11 +135,11 @@ public class DistributedResourceGroupInfoResource
         return builder.build();
     }
 
-    private ListenableFuture<ResourceGroupInfo> getResourceGroupInfoFromCoordinator(String xForwardedProto, UriInfo uriInfo,
+    private ListenableFuture<ResourceGroupInfo> getResourceGroupInfoFromCoordinator(UriInfo uriInfo,
             InternalNode coordinatorNode)
             throws IOException
     {
-        String scheme = isNullOrEmpty(xForwardedProto) ? uriInfo.getRequestUri().getScheme() : xForwardedProto;
+        String scheme = uriInfo.getRequestUri().getScheme();
         URI uri = uriInfo.getRequestUriBuilder()
                 .queryParam("includeLocalInfoOnly", true)
                 .scheme(scheme)
