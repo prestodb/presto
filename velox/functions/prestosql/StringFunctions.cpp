@@ -62,13 +62,76 @@ bool prepareFlatResultsVector(
 }
 
 /**
+ * trim(string) -> varchar
+ *           Removes starting and ending whitespaces.
+ * Uses 2 pointers to walk through both leading and ending chars, reuses the
+ * internal buffers (zero-copy)
+ */
+class TrimFunction : public exec::VectorFunction {
+ public:
+  static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
+    // varchar -> varchar
+    return {exec::FunctionSignatureBuilder()
+                .returnType("varchar")
+                .argumentType("varchar")
+                .build()};
+  }
+
+  void apply(
+      const SelectivityVector& rows,
+      std::vector<VectorPtr>& args,
+      [[maybe_unused]] exec::Expr* caller,
+      exec::EvalCtx* context,
+      VectorPtr* result) const override {
+    // Check input type
+    VELOX_CHECK_EQ(args.size(), 1);
+    VELOX_CHECK_EQ(args[0]->typeKind(), TypeKind::VARCHAR);
+    prepareFlatResultsVector(result, rows, context);
+
+    // Prepare result
+    velox::FlatVector<velox::StringView>* flatResult =
+        (*result)->as<FlatVector<StringView>>();
+
+    // Process input vector
+    auto inputVector = args.at(0)->as<FlatVector<StringView>>();
+    auto rawValues = inputVector->rawValues();
+    rows.applyToSelected([&](auto row) {
+      velox::StringView input = rawValues[row];
+      auto* start = input.data();
+      // Check leading whitespaces
+      while (start < input.end() && isBlank(*start)) {
+        ++start;
+      }
+      // Check ending whitespaces
+      auto* end = input.end() - 1;
+      while (end >= start && isBlank(*end)) {
+        --end;
+      }
+      if (start <= end) {
+        flatResult->setNoCopy(row, StringView(start, end - start + 1));
+      } else {
+        flatResult->setNoCopy(row, StringView(""));
+      }
+    });
+    flatResult->acquireSharedStringBuffers(inputVector);
+  }
+
+ private:
+  bool isBlank(char p) const {
+    return p == '\n' || p == '\t' || p == '\r' || p == ' ';
+  }
+};
+
+/**
  * substr(string, start) -> varchar
  *           Returns the rest of string from the starting position start.
- * Positions start with 1. A negative starting position is interpreted as being
+ * Positions start with 1. A negative starting position is interpreted as
+ being
  * relative to the end of the string.
 
  * substr(string, start, length) -> varchar
- *           Returns a substring from string of length length from the starting
+ *           Returns a substring from string of length length from the
+ starting
  * position start. Positions start with 1. A negative starting position is
  * interpreted as being relative to the end of the string.
  */
@@ -191,8 +254,8 @@ class SubstrFunction : public exec::VectorFunction {
       exec::Expr* caller,
       exec::EvalCtx* context,
       VectorPtr* result) const {
-    // We use this flag to enable the version of the function in which length is
-    // not provided.
+    // We use this flag to enable the version of the function in which length
+    // is not provided.
     bool noLengthVector = (args.size() == 2);
     BaseVector* stringsVector = args[0].get();
     BaseVector* startsVector = args[1].get();
@@ -220,15 +283,16 @@ class SubstrFunction : public exec::VectorFunction {
     // inputs are constant! (2) We are not optimizing a case in which start is
     // constant and length is vector (3) We are not optimizing a case in which
     // start is vector and length is constant
-    // TODO: If turns out case 1..3 are popular we need to optimize them as well
+    // TODO: If turns out case 1..3 are popular we need to optimize them as
+    // well
     if (stringArgVectorEncoding == VectorEncoding::Simple::FLAT) {
       const StringView* rawStrings =
           stringsVector->as<FlatVector<StringView>>()->rawValues();
       if (startArgVectorEncoding == VectorEncoding::Simple::FLAT) {
         if (lengthArgVectorEncoding == VectorEncoding::Simple::FLAT) {
           const I* rawStarts = startsVector->as<FlatVector<I>>()->rawValues();
-          // Incrementing ref count of the string buffer of the input vector so
-          // that if the argument owner goes out of scope the string buffer
+          // Incrementing ref count of the string buffer of the input vector
+          // so that if the argument owner goes out of scope the string buffer
           // still remains in memory.
           (*result)->as<FlatVector<StringView>>()->acquireSharedStringBuffers(
               stringsVector->as<FlatVector<StringView>>());
@@ -773,6 +837,11 @@ VELOX_DECLARE_VECTOR_FUNCTION(
     udf_substr,
     SubstrFunction::signatures(),
     std::make_unique<SubstrFunction>());
+
+VELOX_DECLARE_VECTOR_FUNCTION(
+    udf_trim,
+    TrimFunction::signatures(),
+    std::make_unique<TrimFunction>());
 
 VELOX_DECLARE_VECTOR_FUNCTION(
     udf_upper,

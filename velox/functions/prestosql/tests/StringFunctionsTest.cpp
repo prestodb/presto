@@ -1230,6 +1230,43 @@ TEST_F(StringFunctionsTest, urlEncode) {
   EXPECT_EQ("test", urlEncode("test"));
 }
 
+TEST_F(StringFunctionsTest, trim) {
+  // Making input vector
+  auto strings = std::vector<std::string>{
+      "  facebook  ",
+      "  facebook",
+      "facebook  ",
+      "\n\nfacebook \n ",
+      " \n",
+      "",
+      "    ",
+      "  a  ",
+      "\u4FE1\u5FF5 \u7231 \u5E0C\u671B \u2028 ",
+      "\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ",
+      " \u4FE1\u5FF5 \u7231 \u5E0C\u671B ",
+      "  \u4FE1\u5FF5 \u7231 \u5E0C\u671B",
+      " \u2028 \u4FE1\u5FF5 \u7231 \u5E0C\u671B"};
+  auto row = makeRowVector({makeFlatVector(strings)});
+  auto result = evaluate<FlatVector<StringView>>("trim(c0)", row);
+
+  EXPECT_EQ("facebook", result->valueAt(0).getString());
+  EXPECT_EQ("facebook", result->valueAt(1).getString());
+  EXPECT_EQ("facebook", result->valueAt(2).getString());
+  EXPECT_EQ("facebook", result->valueAt(3).getString());
+  EXPECT_EQ("", result->valueAt(4).getString());
+  EXPECT_EQ("", result->valueAt(5).getString());
+  EXPECT_EQ("", result->valueAt(6).getString());
+  EXPECT_EQ("a", result->valueAt(7).getString());
+  EXPECT_EQ(
+      "\u4FE1\u5FF5 \u7231 \u5E0C\u671B \u2028",
+      result->valueAt(8).getString());
+  EXPECT_EQ("\u4FE1\u5FF5 \u7231 \u5E0C\u671B", result->valueAt(9).getString());
+  EXPECT_EQ(
+      "\u4FE1\u5FF5 \u7231 \u5E0C\u671B", result->valueAt(10).getString());
+  EXPECT_EQ(
+      "\u4FE1\u5FF5 \u7231 \u5E0C\u671B", result->valueAt(11).getString());
+}
+
 TEST_F(StringFunctionsTest, urlDecode) {
   const auto urlDecode = [&](std::optional<std::string> value) {
     return evaluateOnce<std::string>("url_decode(c0)", value);

@@ -75,9 +75,14 @@ String Functions
     position ``start``. Positions start with ``1``. A negative starting
     position is interpreted as being relative to the end of the string.
 
+.. function:: trim(string) -> varchar
+
+    Removes starting and ending whitespaces from ``string``.
+
 .. function:: upper(string) -> varchar
 
     Converts ``string`` to uppercase.
+
 
 Unicode Functions
 -----------------
