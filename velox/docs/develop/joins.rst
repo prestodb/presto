@@ -2,9 +2,9 @@
 Joins
 =====
 
-Velox supports inner, semi and anti hash joins using either partitioned or
-broadcast distribution strategies. Cross and left outer joins are coming soon.
-Right and full outer joins will follow.
+Velox supports inner, left, semi and anti hash joins using either partitioned or
+broadcast distribution strategies. Cross joins are coming soon. Right and full
+outer joins will follow.
 
 Join Implementation
 -------------------
@@ -18,11 +18,80 @@ values need to match, and an optional filter to apply to join results.
     :align: center
 
 The join type can be one of kInner, kLeft, kRight, kFull, kSemi, or kAnti.
-kLeft, kRight and kFull join types are not supported yet.
+kRight and kFull join types are not supported yet.
 
 Filter is optional. If specified it can be any expression over the results of
 the join. This expression will be evaluated using the same expression
 evaluation engine as used by the FilterProject operator and HiveConnector.
+
+Inner join with a filter is equivalent to a join operator followed by
+FilterProject operator, but left join with a filter is different. Left join
+returns all rows from the left side along with all the matches on the build
+side that pass the filter. The results also include rows from the left side for
+which there is no match on the build side or neither match passed the filter.
+
+To illustrate the difference between the left join with a filter and a left join
+followed by a filter consider the following data.
+
+Left side:
+
+==  =====
+id  value
+==  =====
+1   10
+2   20
+3   30
+4   40
+==  =====
+
+Right side:
+
+==  ====
+id  name
+==  ====
+2   'a'
+2   'b'
+3   'c'
+3   'd'
+3   'e'
+4   'f'
+==  ====
+
+The result of the left join on left.id = right.id is:
+
+====  =======  ======
+l.id  l.value  r.name
+====  =======  ======
+1     10       null
+2     20       'a'
+2     20       'b'
+3     30       'c'
+3     30       'd'
+3     30       'e'
+4     40       'f'
+====  =======  ======
+
+The result of the left join on left.id = right.id with a filter right.name IN
+('a', 'f') is:
+
+====  =======  ======
+l.id  l.value  r.name
+====  =======  ======
+1     10       null
+2     20       'a'
+3     30       null
+4     40       'f'
+====  =======  ======
+
+Compare this with the result of left join on left.id = right.id followed by
+filter right.name IN ('a', 'f'):
+
+====  =======  ======
+l.id  l.value  r.name
+====  =======  ======
+2     20       'a'
+4     40       'f'
+====  =======  ======
 
 To execute a plan with a join, Velox creates two separate pipelines. One
 pipeline processes the build side data and creates a hash table. The other
