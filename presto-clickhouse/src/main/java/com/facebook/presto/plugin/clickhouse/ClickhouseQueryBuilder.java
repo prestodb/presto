@@ -1,13 +1,4 @@
 package com.facebook.presto.plugin.clickhouse;
-/*
- * ----------------------------------------------------------------------
- * Copyright © 2014-2021 China Mobile (SuZhou) Software Technology Co.,Ltd.
- *
- * The programs can not be copied and/or distributed without the express
- * permission of China Mobile (SuZhou) Software Technology Co.,Ltd.
- *
- * ----------------------------------
- */
 
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.Range;
