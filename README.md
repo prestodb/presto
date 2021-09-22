@@ -94,3 +94,8 @@ contribute to the project.
 The main communication channel with the Velox OSS community is through the
 [the Velox-OSS Slack workspace](http://velox-oss.slack.com). Please don't
 hesitate in reaching out.
+
+## License
+
+Velox is licensed under the Apache 2.0 License. A copy of the license
+[can be found here.](LICENSE)
