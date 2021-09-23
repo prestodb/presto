@@ -110,10 +110,15 @@ jobs:
           paths:
             - .ccache/
       - run:
-          name: Run Unit Tests
+          name: "Run Unit Tests"
           command: |
             make unittest NUM_THREADS=16
           no_output_timeout: 1h
+      - run:
+          name: "Run Fuzzer Tests"
+          command: |
+            make fuzzertest
+          no_output_timeout: 5m
 
   format-check:
     executor: check
