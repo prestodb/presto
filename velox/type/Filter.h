@@ -235,7 +235,7 @@ class Filter {
   const FilterKind kind_;
 };
 
-// TODO Check if this filter is needed. The should not be passed down.
+/// TODO Check if this filter is needed. This should not be passed down.
 class AlwaysFalse final : public Filter {
  public:
   AlwaysFalse() : Filter(true, false, FilterKind::kAlwaysFalse) {}
@@ -290,6 +290,7 @@ class AlwaysFalse final : public Filter {
   }
 };
 
+/// TODO Check if this filter is needed. This should not be passed down.
 class AlwaysTrue final : public Filter {
  public:
   AlwaysTrue() : Filter(true, true, FilterKind::kAlwaysTrue) {}
@@ -353,6 +354,7 @@ class AlwaysTrue final : public Filter {
   }
 };
 
+/// Returns true if the value is null. Supports all data types.
 class IsNull final : public Filter {
  public:
   IsNull() : Filter(true, true, FilterKind::kIsNull) {}
@@ -409,6 +411,7 @@ class IsNull final : public Filter {
   std::unique_ptr<Filter> mergeWith(const Filter* other) const final;
 };
 
+/// Returns true if the value is not null. Supports all data types.
 class IsNotNull final : public Filter {
  public:
   IsNotNull() : Filter(true, false, FilterKind::kIsNotNull) {}
@@ -465,8 +468,13 @@ class IsNotNull final : public Filter {
   std::unique_ptr<Filter> mergeWith(const Filter* other) const final;
 };
 
+/// Tests whether boolean value is true or false or integral value is zero or
+/// not. Support boolean and integral data types.
 class BoolValue final : public Filter {
  public:
+  /// @param value The boolean value that passes the filter. If true, integral
+  /// values that are not zero are passing as well.
+  /// @param nullAllowed Null values are passing the filter if true.
   BoolValue(bool value, bool nullAllowed)
       : Filter(true, nullAllowed, FilterKind::kBoolValue), value_(value) {}
 
@@ -500,8 +508,15 @@ class BoolValue final : public Filter {
   const bool value_;
 };
 
+/// Range filter for integral data types. Supports open, closed and unbounded
+/// ranges, e.g. c >= 10, c <= 34, c BETWEEN 10 and 34. Open ranges can be
+/// implemented by using the value to the left or right of the end of the range,
+/// e.g. a < 10 is equivalent to a <= 9.
 class BigintRange final : public Filter {
  public:
+  /// @param lower Lower end of the range, inclusive.
+  /// @param lower Upper end of the range, inclusive.
+  /// @param nullAllowed Null values are passing the filter if true.
   BigintRange(int64_t lower, int64_t upper, bool nullAllowed)
       : Filter(true, nullAllowed, FilterKind::kBigintRange),
         lower_(lower),
@@ -598,8 +613,15 @@ class BigintRange final : public Filter {
   const bool isSingleValue_;
 };
 
+/// IN-list filter for integral data types. Implemented as a hash table. Good
+/// for large number of values that do not fit within a small range.
 class BigintValuesUsingHashTable final : public Filter {
  public:
+  /// @param min Minimum value.
+  /// @param max Maximum value.
+  /// @param values A list of unique values that pass the filter. Must contain
+  /// at least two entries.
+  /// @param nullAllowed Null values are passing the filter if true.
   BigintValuesUsingHashTable(
       int64_t min,
       int64_t max,
@@ -655,8 +677,15 @@ class BigintValuesUsingHashTable final : public Filter {
   bool containsEmptyMarker_ = false;
 };
 
+/// IN-list filter for integral data types. Implemented as a bitmask. Offers
+/// better performance than the hash table when the range of values is small.
 class BigintValuesUsingBitmask final : public Filter {
  public:
+  /// @param min Minimum value.
+  /// @param max Maximum value.
+  /// @param values A list of unique values that pass the filter. Must contain
+  /// at least two entries.
+  /// @param nullAllowed Null values are passing the filter if true.
   BigintValuesUsingBitmask(
       int64_t min,
       int64_t max,
@@ -690,6 +719,7 @@ class BigintValuesUsingBitmask final : public Filter {
   const int64_t max_;
 };
 
+/// Base class for range filters on floating point and string data types.
 class AbstractRange : public Filter {
  protected:
   AbstractRange(
@@ -712,9 +742,24 @@ class AbstractRange : public Filter {
   const bool upperExclusive_;
 };
 
+/// Range filter for floating point data types. Supports open, closed and
+/// unbounded ranges, e.g. c >= 10.3, c > 10.3, c <= 34.8, c < 34.8, c >= 10.3
+/// AND c < 34.8, c BETWEEN 10.3 and 34.8.
+/// @tparam T Floating point type: float or double.
 template <typename T>
 class FloatingPointRange final : public AbstractRange {
  public:
+  /// @param lower Lower end of the range.
+  /// @param lowerUnbounded True if lower end is negative infinity in which case
+  /// the value of lower is ignored.
+  /// @param lowerExclusive True if open range, e.g. lower value doesn't pass
+  /// the filter.
+  /// @param upper Upper end of the range.
+  /// @param upperUnbounded True if upper end is positive infinity in which case
+  /// the value of upper is ignored.
+  /// @param upperExclusive True if open range, e.g. upper value doesn't pass
+  /// the filter.
+  /// @param nullAllowed Null values are passing the filter if true.
   FloatingPointRange(
       T lower,
       bool lowerUnbounded,
@@ -940,8 +985,21 @@ inline __m256si FloatingPointRange<float>::test8x32(__m256i x) {
 using DoubleRange = FloatingPointRange<double>;
 using FloatRange = FloatingPointRange<float>;
 
+/// Range filter for string data type. Supports open, closed and
+/// unbounded ranges.
 class BytesRange final : public AbstractRange {
  public:
+  /// @param lower Lower end of the range.
+  /// @param lowerUnbounded True if lower end is "negative infinity" in which
+  /// case the value of lower is ignored.
+  /// @param lowerExclusive True if open range, e.g. lower value doesn't pass
+  /// the filter.
+  /// @param upper Upper end of the range.
+  /// @param upperUnbounded True if upper end is "positive infinity" in which
+  /// case the value of upper is ignored.
+  /// @param upperExclusive True if open range, e.g. upper value doesn't pass
+  /// the filter.
+  /// @param nullAllowed Null values are passing the filter if true.
   BytesRange(
       const std::string& lower,
       bool lowerUnbounded,
@@ -1006,8 +1064,12 @@ class BytesRange final : public AbstractRange {
   const bool singleValue_;
 };
 
+/// IN-list filter for string data type.
 class BytesValues final : public Filter {
  public:
+  /// @param values List of values that pass the filter. Must contain at least
+  /// one entry.
+  /// @param nullAllowed Null values are passing the filter if true.
   BytesValues(const std::vector<std::string>& values, bool nullAllowed)
       : Filter(true, nullAllowed, FilterKind::kBytesValues) {
     VELOX_CHECK(!values.empty(), "values must not be empty");
@@ -1046,8 +1108,14 @@ class BytesValues final : public Filter {
   folly::F14FastSet<uint32_t> lengths_;
 };
 
+/// Represents a combination of two of more range filters on integral types with
+/// OR semantics. The filter passes if at least one of the contained filters
+/// passes.
 class BigintMultiRange final : public Filter {
  public:
+  /// @param ranges List of range filters. Must contain at least two entries.
+  /// @param nullAllowed Null values are passing the filter if true. nullAllowed
+  /// flags in the 'ranges' filters are ignored.
   BigintMultiRange(
       std::vector<std::unique_ptr<BigintRange>> ranges,
       bool nullAllowed);
@@ -1079,8 +1147,18 @@ class BigintMultiRange final : public Filter {
   std::vector<int64_t> lowerBounds_;
 };
 
+/// Represents a combination of two of more filters with
+/// OR semantics. The filter passes if at least one of the contained filters
+/// passes.
 class MultiRange final : public Filter {
  public:
+  /// @param ranges List of range filters. Must contain at least two entries.
+  /// All entries must support the same data types.
+  /// @param nullAllowed Null values are passing the filter if true. nullAllowed
+  /// flags in the 'ranges' filters are ignored.
+  /// @param nanAllowed Not-a-Number floating point values are passing the
+  /// filter if true. Applies to floating point data types only. NaN values are
+  /// not further tested using contained filters.
   MultiRange(
       std::vector<std::unique_ptr<Filter>> filters,
       bool nullAllowed,
