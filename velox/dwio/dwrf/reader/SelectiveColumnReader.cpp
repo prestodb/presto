@@ -2711,7 +2711,8 @@ inline bool SelectiveStringDirectColumnReader::try8Consecutive(
       previousRow = targetRow + 1;
     }
     auto length = rawLengths_[rows[i]];
-    if (data + std::max<int32_t>(length, sizeof(__m128_u)) > bufferEnd_) {
+
+    if (data + bits::roundUp(length, 16) > bufferEnd_) {
       // Slow path if the string does not fit whole or if there is no
       // space for a 16 byte load.
       return false;
@@ -2733,10 +2734,9 @@ inline bool SelectiveStringDirectColumnReader::try8Consecutive(
         rawStringBuffer_ + rawUsed;
     *reinterpret_cast<__m128_u*>(rawStringBuffer_ + rawUsed) = first16;
     if (length > 16) {
-      simd::memcpy(
-          rawStringBuffer_ + rawUsed + 16,
-          data + 16,
-          bits::roundUp(length - 16, 16));
+      size_t copySize = bits::roundUp(length - 16, 16);
+      VELOX_CHECK_LE(data + copySize, bufferEnd_);
+      simd::memcpy(rawStringBuffer_ + rawUsed + 16, data + 16, copySize);
     }
     rawUsed += length;
     data += length;
