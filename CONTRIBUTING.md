@@ -53,7 +53,7 @@ Use `make header-fix` to apply our open source license headers to new files.
 Use `make format-check` to highlight formatting issues using clang-format.
 
 Formatting issues found on the changed lines in the current commit can be
-displayed using `make format-show`.  These issues can be fixed by using `make
+displayed using `make format-check`.  These issues can be fixed by using `make
 format-fix`. This command will apply formatting changes to modified lines in
 the current commit.
 
