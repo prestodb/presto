@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -103,10 +104,11 @@ public class ResourceManagerClusterStatusSender
     {
         QueryId queryId = queryExecution.getBasicQueryInfo().getQueryId();
         queries.computeIfAbsent(queryId, unused -> {
+            AtomicLong sequenceId = new AtomicLong();
             PeriodicTaskExecutor taskExecutor = new PeriodicTaskExecutor(
                     queryHeartbeatInterval.toMillis(),
                     executor,
-                    () -> sendQueryHeartbeat(queryExecution));
+                    () -> sendQueryHeartbeat(queryExecution, sequenceId.incrementAndGet()));
             taskExecutor.start();
             return taskExecutor;
         });
@@ -121,12 +123,12 @@ public class ResourceManagerClusterStatusSender
         });
     }
 
-    private void sendQueryHeartbeat(ManagedQueryExecution queryExecution)
+    private void sendQueryHeartbeat(ManagedQueryExecution queryExecution, long sequenceId)
     {
         BasicQueryInfo basicQueryInfo = queryExecution.getBasicQueryInfo();
         String nodeIdentifier = internalNodeManager.getCurrentNode().getNodeIdentifier();
         getResourceManagers().forEach(hostAndPort ->
-                resourceManagerClient.get(Optional.of(hostAndPort.toString())).queryHeartbeat(nodeIdentifier, basicQueryInfo));
+                resourceManagerClient.get(Optional.of(hostAndPort.toString())).queryHeartbeat(nodeIdentifier, basicQueryInfo, sequenceId));
     }
 
     private void sendNodeHeartbeat()
