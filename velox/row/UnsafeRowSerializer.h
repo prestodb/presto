@@ -19,7 +19,6 @@
 #include "velox/row/UnsafeRow.h"
 #include "velox/row/UnsafeRowParser.h"
 #include "velox/vector/ComplexVector.h"
-#include "velox/vector/DecodedVector.h"
 
 namespace facebook::velox::row {
 
@@ -188,28 +187,15 @@ struct UnsafeRowSerializer {
     // TODO: refactor to merge the decoding of a vector of fixed length,
     // Timestamp and StringView data.
     using NativeType = typename TypeTraits<Kind>::NativeType;
+    DCHECK_EQ(data->type()->kind(), Kind);
+    const auto& simple = static_cast<const SimpleVector<NativeType>&>(*data);
 
     VELOX_CHECK(data->isIndexInRange(idx));
 
-    NativeType val;
-    if (data->encoding() == VectorEncoding::Simple::FLAT) {
-      const auto& vec = *data->asFlatVector<NativeType>();
-      if (vec.isNullAt(idx)) {
-        return std::nullopt;
-      }
-      val = vec.valueAt(idx);
-    } else {
-      DecodedVector decoded;
-      SelectivityVector rows(data->size(), false);
-      rows.setValid(idx, true); // only validate the element at `idx`
-      decoded.decode(*data, rows);
-      if (decoded.isNullAt(idx)) {
-        return std::nullopt;
-      }
-      val = decoded.valueAt<NativeType>(idx);
+    if (simple.isNullAt(idx)) {
+      return std::nullopt;
     }
-
-    reinterpret_cast<NativeType*>(buffer)[0] = val;
+    *reinterpret_cast<NativeType*>(buffer) = simple.valueAt(idx);
     return 0;
   }
 
@@ -223,13 +209,8 @@ struct UnsafeRowSerializer {
   /// otherwise
   inline static std::optional<size_t>
   serializeStringView(const StringView& data, char* buffer, size_t idx = 0) {
-    // If either dest or src is an invalid or null pointer, the behavior of
-    // memcpy is undefined, even if count is zero, so check that data pointer
-    // is not null.
-    if (data.begin() == nullptr) {
-      return 0;
-    }
-    std::memcpy(buffer, data.begin(), data.size());
+    const char* const begin = data.data();
+    std::copy(begin, begin + data.size(), buffer);
     return data.size();
   }
 
@@ -244,30 +225,12 @@ struct UnsafeRowSerializer {
   inline static std::optional<size_t>
   serializeStringView(const VectorPtr& data, char* buffer, size_t idx) {
     VELOX_CHECK(data->isIndexInRange(idx));
+    const auto& simple = static_cast<const SimpleVector<StringView>&>(*data);
 
-    StringView val;
-    if (data->encoding() == VectorEncoding::Simple::FLAT) {
-      const auto& vec = *data->asFlatVector<StringView>();
-      if (vec.isNullAt(idx)) {
-        return std::nullopt;
-      }
-      val = vec.valueAt(idx);
-    } else {
-      DecodedVector decoded;
-      SelectivityVector rows(data->size(), false);
-      rows.setValid(idx, true);
-      decoded.decode(*data, rows);
-      if (decoded.isNullAt(idx)) {
-        return std::nullopt;
-      }
-      val = decoded.valueAt<StringView>(idx);
+    if (simple.isNullAt(idx)) {
+      return std::nullopt;
     }
-
-    auto size = val.size();
-    if (size > 0) {
-      std::memcpy(buffer, val.begin(), size);
-    }
-    return size;
+    return serializeStringView(simple.valueAt(idx), buffer, idx);
   }
 
   /// Template definition for unsupported types.
@@ -304,29 +267,14 @@ struct UnsafeRowSerializer {
   inline static std::optional<size_t>
   serializeTimestampSeconds(const VectorPtr& data, char* buffer, size_t idx) {
     using NativeType = typename TypeTraits<TypeKind::BIGINT>::NativeType;
+    const auto& simple = static_cast<SimpleVector<Timestamp>&>(*data);
 
     VELOX_CHECK(data->isIndexInRange(idx));
 
-    NativeType seconds;
-    if (data->encoding() == VectorEncoding::Simple::FLAT) {
-      const auto& vec = *data->asFlatVector<Timestamp>();
-      if (vec.isNullAt(idx)) {
-        return std::nullopt;
-      }
-      seconds = vec.valueAt(idx).getSeconds();
-    } else {
-      DecodedVector decoded;
-      SelectivityVector rows(data->size(), false);
-      rows.setValid(idx, true); // only validate the element at `idx`
-      decoded.decode(*data, rows);
-      if (decoded.isNullAt(idx)) {
-        return std::nullopt;
-      }
-      seconds = decoded.valueAt<Timestamp>(idx).getSeconds();
+    if (simple.isNullAt(idx)) {
+      return std::nullopt;
     }
-
-    reinterpret_cast<NativeType*>(buffer)[0] = seconds;
-    return 0;
+    return serializeTimestampSeconds(simple.valueAt(idx), buffer, idx);
   }
 
   /// Template definition for unsupported types.
