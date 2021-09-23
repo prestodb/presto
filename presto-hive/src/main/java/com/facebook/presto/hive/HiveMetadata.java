@@ -306,6 +306,7 @@ import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedDataPre
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.FULLY_MATERIALIZED;
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.NOT_MATERIALIZED;
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.PARTIALLY_MATERIALIZED;
+import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.TOO_MANY_PARTITIONS_MISSING;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_ANALYZE_PROPERTY;
@@ -2334,7 +2335,14 @@ public class HiveMetadata
 
         for (MaterializedDataPredicates dataPredicates : partitionsFromBaseTables.values()) {
             if (!dataPredicates.getPredicateDisjuncts().isEmpty()) {
-                return new MaterializedViewStatus(PARTIALLY_MATERIALIZED, partitionsFromBaseTables);
+                if (dataPredicates.getPredicateDisjuncts().stream()
+                        .mapToInt(tupleDomain -> tupleDomain.getDomains().isPresent() ? tupleDomain.getDomains().get().size() : 0)
+                        .sum() > HiveSessionProperties.getMaterializedViewMissingPartitionPredicateCountThreshold(session)) {
+                    return new MaterializedViewStatus(TOO_MANY_PARTITIONS_MISSING, partitionsFromBaseTables);
+                }
+                else {
+                    return new MaterializedViewStatus(PARTIALLY_MATERIALIZED, partitionsFromBaseTables);
+                }
             }
         }
 

@@ -124,6 +124,7 @@ public final class HiveSessionProperties
     public static final String PARTITION_LEASE_DURATION = "partition_lease_duration";
     public static final String CACHE_ENABLED = "cache_enabled";
     public static final String ENABLE_LOOSE_MEMORY_BASED_ACCOUNTING = "enable_loose_memory_based_accounting";
+    public static final String MATERIALIZED_VIEW_MISSING_PARTITION_PREDICATE_COUNT_THRESHOLD = "materialized_view_missing_partition_predicate_count_threshold";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -587,7 +588,12 @@ public final class HiveSessionProperties
                         ENABLE_LOOSE_MEMORY_BASED_ACCOUNTING,
                         "Enable loose memory accounting to avoid OOMing existing queries",
                         hiveClientConfig.isLooseMemoryAccountingEnabled(),
-                        false));
+                        false),
+                integerProperty(
+                        MATERIALIZED_VIEW_MISSING_PARTITION_PREDICATE_COUNT_THRESHOLD,
+                        "Max number of partitions allowed for missing predicates in the materialized view for query optimization",
+                        hiveClientConfig.getMaterializedViewMissingPartitionPredicateCountThreshold(),
+                        true));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -1026,5 +1032,10 @@ public final class HiveSessionProperties
     public static boolean isExecutionBasedMemoryAccountingEnabled(ConnectorSession session)
     {
         return session.getProperty(ENABLE_LOOSE_MEMORY_BASED_ACCOUNTING, Boolean.class);
+    }
+
+    public static int getMaterializedViewMissingPartitionPredicateCountThreshold(ConnectorSession session)
+    {
+        return session.getProperty(MATERIALIZED_VIEW_MISSING_PARTITION_PREDICATE_COUNT_THRESHOLD, Integer.class);
     }
 }

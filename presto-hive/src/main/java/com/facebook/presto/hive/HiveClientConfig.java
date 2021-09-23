@@ -196,6 +196,8 @@ public class HiveClientConfig
     private boolean executionBasedMemoryAccounting;
     private boolean enableLooseMemoryAccounting;
 
+    private int materializedViewMissingPartitionPredicateCountThreshold = 100;
+
     public int getMaxInitialSplits()
     {
         return maxInitialSplits;
@@ -1653,5 +1655,18 @@ public class HiveClientConfig
     {
         this.enableLooseMemoryAccounting = enableLooseMemoryAccounting;
         return this;
+    }
+
+    @Config("hive.materialized-view-missing-partition-predicate-count-threshold")
+    @ConfigDescription("Max number of partitions allowed for missing predicates in the materialized view for query optimization.")
+    public HiveClientConfig setMaterializedViewMissingPartitionPredicateCountThreshold(int materializedViewMissingPartitionPredicateCountThreshold)
+    {
+        this.materializedViewMissingPartitionPredicateCountThreshold = materializedViewMissingPartitionPredicateCountThreshold;
+        return this;
+    }
+
+    public int getMaterializedViewMissingPartitionPredicateCountThreshold()
+    {
+        return this.materializedViewMissingPartitionPredicateCountThreshold;
     }
 }
