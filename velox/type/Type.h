@@ -659,6 +659,8 @@ class RowType : public TypeBase<TypeKind::ROW> {
 
   uint32_t getChildIdx(const std::string& name) const;
 
+  std::optional<uint32_t> getChildIdxIfExists(const std::string& name) const;
+
   const std::string& nameOf(uint32_t idx) const {
     return names_.at(idx);
   }

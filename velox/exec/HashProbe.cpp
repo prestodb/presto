@@ -22,16 +22,6 @@
 namespace facebook::velox::exec {
 
 namespace {
-constexpr ChannelIndex kNoChannel = ~0;
-
-ChannelIndex childIndex(const RowType* type, const std::string& name) {
-  for (auto i = 0; i < type->size(); ++i) {
-    if (type->nameOf(i) == name) {
-      return i;
-    }
-  }
-  return kNoChannel;
-}
 
 // Returns the type for the hash table row. Build side keys first,
 // then dependent build side columns.
@@ -109,21 +99,20 @@ HashProbe::HashProbe(
 
   bool isIdentityProjection = true;
   for (auto i = 0; i < probeType->size(); ++i) {
-    auto input = probeType->childAt(i);
     auto name = probeType->nameOf(i);
-    auto outIndex = childIndex(outputType_.get(), name);
-    if (outIndex != kNoChannel) {
-      identityProjections_.emplace_back(i, outIndex);
-      if (outIndex != i) {
+    auto outIndex = outputType_->getChildIdxIfExists(name);
+    if (outIndex.has_value()) {
+      identityProjections_.emplace_back(i, outIndex.value());
+      if (outIndex.value() != i) {
         isIdentityProjection = false;
       }
     }
   }
 
   for (ChannelIndex i = 0; i < outputType_->size(); ++i) {
-    auto tableChannel = childIndex(tableType.get(), outputType_->nameOf(i));
-    if (tableChannel != kNoChannel) {
-      tableResultProjections_.emplace_back(tableChannel, i);
+    auto tableChannel = tableType->getChildIdxIfExists(outputType_->nameOf(i));
+    if (tableChannel.has_value()) {
+      tableResultProjections_.emplace_back(tableChannel.value(), i);
     }
   }
 
@@ -142,14 +131,14 @@ void HashProbe::initializeFilter(
   ChannelIndex filterChannel = 0;
   for (auto& field : filter_->expr(0)->distinctFields()) {
     const auto& name = field->field();
-    auto channel = childIndex(probeType.get(), name);
-    if (channel != kNoChannel) {
-      filterProbeInputs_.emplace_back(channel, filterChannel++);
+    auto channel = probeType->getChildIdxIfExists(name);
+    if (channel.has_value()) {
+      filterProbeInputs_.emplace_back(channel.value(), filterChannel++);
       continue;
     }
-    channel = childIndex(tableType.get(), name);
-    if (channel != kNoChannel) {
-      filterBuildInputs_.emplace_back(channel, filterChannel++);
+    channel = tableType->getChildIdxIfExists(name);
+    if (channel.has_value()) {
+      filterBuildInputs_.emplace_back(channel.value(), filterChannel++);
       continue;
     }
     VELOX_FAIL(
