@@ -156,7 +156,7 @@ TEST_F(LocalPartitionTest, partition) {
 
   CursorParameters params;
   params.planNode = op;
-  params.numThreads = 2;
+  params.maxDrivers = 2;
 
   uint32_t fileIndex = 0;
   auto task = ::assertQuery(
@@ -246,7 +246,7 @@ TEST_F(LocalPartitionTest, maxBufferSizePartition) {
 
   CursorParameters params;
   params.planNode = op;
-  params.numThreads = 2;
+  params.maxDrivers = 2;
   params.queryCtx = core::QueryCtx::create();
 
   // Set an artificially low buffer size limit to trigger blocking behavior.
@@ -388,7 +388,7 @@ TEST_F(LocalPartitionTest, multipleExchanges) {
 
   CursorParameters params;
   params.planNode = op;
-  params.numThreads = 2;
+  params.maxDrivers = 2;
 
   uint32_t fileIndex = 0;
   auto task = ::assertQuery(

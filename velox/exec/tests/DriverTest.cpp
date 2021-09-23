@@ -288,7 +288,7 @@ TEST_F(DriverTest, error) {
   Driver::testingJoinAndReinitializeExecutor(10);
   CursorParameters params;
   params.planNode = makeValuesFilterProject(rowType_, "m1 % 0", "", 100, 10);
-  params.numThreads = 20;
+  params.maxDrivers = 20;
   int32_t numRead = 0;
   try {
     readResults(params, ResultOperation::kRead, 1'000'000, &numRead);
@@ -313,7 +313,7 @@ TEST_F(DriverTest, cancel) {
       "m1 % 3 + m2 % 5 + m3 % 7 + m4 % 11 + m5 % 13 + m6 % 17 + m7 % 19",
       100,
       100'000);
-  params.numThreads = 10;
+  params.maxDrivers = 10;
   int32_t numRead = 0;
   try {
     readResults(params, ResultOperation::kCancel, 1'000'000, &numRead);
@@ -339,7 +339,7 @@ TEST_F(DriverTest, terminate) {
       "m1 % 3 + m2 % 5 + m3 % 7 + m4 % 11 + m5 % 13 + m6 % 17 + m7 % 19",
       100,
       100'000);
-  params.numThreads = 10;
+  params.maxDrivers = 10;
   int32_t numRead = 0;
   try {
     readResults(params, ResultOperation::kTerminate, 1'000'000, &numRead);
@@ -361,7 +361,7 @@ TEST_F(DriverTest, slow) {
       "m1 % 3 + m2 % 5 + m3 % 7 + m4 % 11 + m5 % 13 + m6 % 17 + m7 % 19",
       300,
       1'000);
-  params.numThreads = 10;
+  params.maxDrivers = 10;
   int32_t numRead = 0;
   readResults(params, ResultOperation::kReadSlow, 50'000, &numRead);
   EXPECT_GE(numRead, 50'000);
@@ -394,7 +394,7 @@ TEST_F(DriverTest, pause) {
       10'000,
       [](int64_t num) { return num % 10 > 0; },
       &hits);
-  params.numThreads = 10;
+  params.maxDrivers = 10;
   int32_t numRead = 0;
   readResults(params, ResultOperation::kPause, 370'000'000, &numRead);
   // Each thread will fully read the 1M rows in values.
@@ -428,7 +428,7 @@ TEST_F(DriverTest, yield) {
         2'000,
         [](int64_t num) { return num % 10 > 0; },
         &hits);
-    params[i].numThreads = kThreadsPerTask;
+    params[i].maxDrivers = kThreadsPerTask;
   }
   std::vector<std::thread> threads;
   threads.reserve(kNumTasks);
@@ -599,7 +599,7 @@ TEST_F(DriverTest, pauserNode) {
         [](int64_t num) { return num % 10 > 0; },
         &hits,
         true);
-    params[i].numThreads = kThreadsPerTask;
+    params[i].maxDrivers = kThreadsPerTask;
   }
   std::vector<std::thread> threads;
   threads.reserve(kNumTasks);

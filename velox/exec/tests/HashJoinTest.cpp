@@ -61,7 +61,7 @@ class HashJoinTest : public HiveConnectorTestBase {
                 filter,
                 allChannels(2 * (1 + keyTypes.size())))
             .planNode();
-    params.numThreads = numThreads;
+    params.maxDrivers = numThreads;
 
     createDuckDbTable("t", {leftBatch});
     createDuckDbTable("u", {rightBatch});

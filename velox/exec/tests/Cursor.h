@@ -24,7 +24,8 @@ struct CursorParameters {
   // Root node of the plan tree
   std::shared_ptr<const core::PlanNode> planNode;
   int32_t destination = 0;
-  int32_t numThreads = 1;
+  // Maximum number of drivers per pipeline.
+  int32_t maxDrivers = 1;
   // Optional, created if not present.
   std::shared_ptr<core::QueryCtx> queryCtx;
   uint64_t bufferedBytes = 512 * 1024;
@@ -104,7 +105,7 @@ class TaskCursor {
   }
 
  private:
-  int32_t numThreads_;
+  const int32_t maxDrivers_;
   bool started_ = false;
   std::shared_ptr<TaskQueue> queue_;
   std::shared_ptr<exec::Task> task_;

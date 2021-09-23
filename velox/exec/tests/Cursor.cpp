@@ -104,15 +104,15 @@ bool TaskQueue::hasNext() {
 
 int32_t TaskCursor::serial_;
 
-TaskCursor::TaskCursor(const CursorParameters& params) {
+TaskCursor::TaskCursor(const CursorParameters& params)
+    : maxDrivers_{params.maxDrivers} {
   std::shared_ptr<core::QueryCtx> queryCtx;
   if (params.queryCtx) {
     queryCtx = params.queryCtx;
   } else {
     queryCtx = core::QueryCtx::create();
   }
-  numThreads_ = params.numThreads;
-  queue_ = std::make_shared<TaskQueue>(params.numThreads, params.bufferedBytes);
+  queue_ = std::make_shared<TaskQueue>(maxDrivers_, params.bufferedBytes);
   // Captured as a shared_ptr by the consumer callback of task_.
   auto queue = queue_;
   task_ = std::make_shared<exec::Task>(
@@ -139,7 +139,7 @@ TaskCursor::TaskCursor(const CursorParameters& params) {
 bool TaskCursor::moveNext() {
   if (!started_) {
     started_ = true;
-    exec::Task::start(task_, numThreads_);
+    exec::Task::start(task_, maxDrivers_);
   }
   current_ = queue_->dequeue();
   if (task_->error()) {
