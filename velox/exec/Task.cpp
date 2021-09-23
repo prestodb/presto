@@ -125,6 +125,8 @@ void Task::start(std::shared_ptr<Task> self, uint32_t maxDrivers) {
       self->createLocalExchangeSources(exchangeId.value(), numDrivers);
     }
 
+    self->addHashJoinBridges(factory->needsHashJoinBridges());
+
     for (int32_t i = 0; i < numDrivers; ++i) {
       drivers.push_back(factory->createDriver(
           std::make_unique<DriverCtx>(self, i, pipeline, numDrivers),
@@ -444,14 +446,27 @@ bool Task::allPeersFinished(
   return false;
 }
 
-std::shared_ptr<JoinBridge> Task::findOrCreateJoinBridge(
+void Task::addHashJoinBridges(
+    const std::vector<core::PlanNodeId>& planNodeIds) {
+  std::lock_guard<std::mutex> l(mutex_);
+  for (const auto& planNodeId : planNodeIds) {
+    bridges_.emplace(planNodeId, std::make_shared<HashJoinBridge>());
+  }
+}
+
+std::shared_ptr<HashJoinBridge> Task::getHashJoinBridge(
     const core::PlanNodeId& planNodeId) {
   std::lock_guard<std::mutex> l(mutex_);
-  auto& bridge = bridges_[planNodeId];
-  if (!bridge) {
-    bridge = std::make_shared<JoinBridge>();
-    bridges_[planNodeId] = bridge;
-  }
+  auto it = bridges_.find(planNodeId);
+  VELOX_CHECK(
+      it != bridges_.end(),
+      "Hash join bridge for plan node ID not found: {}",
+      planNodeId);
+  auto bridge = std::dynamic_pointer_cast<HashJoinBridge>(it->second);
+  VELOX_CHECK_NOT_NULL(
+      bridge,
+      "Join bridge for plan node ID is not a hash join bridge: {}",
+      planNodeId);
   return bridge;
 }
 

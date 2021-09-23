@@ -262,6 +262,17 @@ struct DriverFactory {
 
     return std::nullopt;
   }
+
+  std::vector<core::PlanNodeId> needsHashJoinBridges() const {
+    std::vector<core::PlanNodeId> planNodeIds;
+    for (const auto& planNode : planNodes) {
+      if (auto joinNode =
+              std::dynamic_pointer_cast<const core::HashJoinNode>(planNode)) {
+        planNodeIds.emplace_back(joinNode->id());
+      }
+    }
+    return planNodeIds;
+  }
 };
 
 // Begins and ends a section where a thread is running but not

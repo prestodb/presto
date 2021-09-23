@@ -20,7 +20,7 @@
 
 namespace facebook::velox::exec {
 
-void JoinBridge::setHashTable(std::unique_ptr<BaseHashTable> table) {
+void HashJoinBridge::setHashTable(std::unique_ptr<BaseHashTable> table) {
   VELOX_CHECK(table, "setHashTable called with null table");
 
   std::lock_guard<std::mutex> l(mutex_);
@@ -30,7 +30,7 @@ void JoinBridge::setHashTable(std::unique_ptr<BaseHashTable> table) {
   notifyConsumersLocked();
 }
 
-void JoinBridge::setAntiJoinHasNullKeys() {
+void HashJoinBridge::setAntiJoinHasNullKeys() {
   std::lock_guard<std::mutex> l(mutex_);
   VELOX_CHECK(
       !table_,
@@ -40,20 +40,7 @@ void JoinBridge::setAntiJoinHasNullKeys() {
   notifyConsumersLocked();
 }
 
-void JoinBridge::notifyConsumersLocked() {
-  for (auto& promise : promises_) {
-    promise.setValue(true);
-  }
-  promises_.clear();
-}
-
-void JoinBridge::cancel() {
-  std::lock_guard<std::mutex> l(mutex_);
-  cancelled_ = true;
-  notifyConsumersLocked();
-}
-
-std::optional<JoinBridge::HashBuildResult> JoinBridge::tableOrFuture(
+std::optional<HashJoinBridge::HashBuildResult> HashJoinBridge::tableOrFuture(
     ContinueFuture* future) {
   std::lock_guard<std::mutex> l(mutex_);
   VELOX_CHECK(
@@ -61,7 +48,7 @@ std::optional<JoinBridge::HashBuildResult> JoinBridge::tableOrFuture(
   if (table_ || antiJoinHasNullKeys_) {
     return HashBuildResult{table_, antiJoinHasNullKeys_};
   }
-  promises_.emplace_back("JoinBridge::tableOrFuture");
+  promises_.emplace_back("HashJoinBridge::tableOrFuture");
   *future = promises_.back().getSemiFuture();
   return std::nullopt;
 }
@@ -213,7 +200,7 @@ void HashBuild::finish() {
 
   if (antiJoinHasNullKeys_) {
     operatorCtx_->task()
-        ->findOrCreateJoinBridge(planNodeId())
+        ->getHashJoinBridge(planNodeId())
         ->setAntiJoinHasNullKeys();
   } else {
     table_->prepareJoinTable(std::move(otherTables));
@@ -221,7 +208,7 @@ void HashBuild::finish() {
     addRuntimeStats();
 
     operatorCtx_->task()
-        ->findOrCreateJoinBridge(planNodeId())
+        ->getHashJoinBridge(planNodeId())
         ->setHashTable(std::move(table_));
   }
 }

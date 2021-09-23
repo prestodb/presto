@@ -177,7 +177,7 @@ BlockingReason HashProbe::isBlocked(ContinueFuture* future) {
   }
 
   auto hashBuildResult = operatorCtx_->task()
-                             ->findOrCreateJoinBridge(planNodeId())
+                             ->getHashJoinBridge(planNodeId())
                              ->tableOrFuture(future);
   if (!hashBuildResult.has_value()) {
     return BlockingReason::kWaitForJoinBuild;

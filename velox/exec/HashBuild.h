@@ -16,6 +16,7 @@
 #pragma once
 
 #include "velox/exec/HashTable.h"
+#include "velox/exec/JoinBridge.h"
 #include "velox/exec/Operator.h"
 #include "velox/exec/VectorHasher.h"
 #include "velox/expression/Expr.h"
@@ -26,16 +27,11 @@ namespace facebook::velox::exec {
 // multi-threaded probe pipeline. This is owned by shared_ptr by all the build
 // and probe Operator instances concerned. Corresponds to the Presto concept of
 // the same name.
-class JoinBridge {
+class HashJoinBridge : public JoinBridge {
  public:
   void setHashTable(std::unique_ptr<BaseHashTable> table);
 
   void setAntiJoinHasNullKeys();
-
-  // Sets this to a cancelled state and unblocks any waiting
-  // activity. This may happen asynchronously before or after the hash
-  // table has been set.
-  void cancel();
 
   // Represents the result of a HashBuild operator: a hash table. In case of an
   // anti join, a build side entry with a null in a join key makes the join
@@ -49,13 +45,8 @@ class JoinBridge {
   std::optional<HashBuildResult> tableOrFuture(ContinueFuture* future);
 
  private:
-  void notifyConsumersLocked();
-
-  std::mutex mutex_;
   std::shared_ptr<BaseHashTable> table_;
   bool antiJoinHasNullKeys_{false};
-  std::vector<VeloxPromise<bool>> promises_;
-  bool cancelled_{false};
 };
 
 // Builds a hash table for use in HashProbe. This is the final
