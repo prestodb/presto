@@ -24,6 +24,7 @@ import com.facebook.presto.hive.LocationHandle.WriteMode;
 import com.facebook.presto.hive.PartitionNotFoundException;
 import com.facebook.presto.hive.TableAlreadyExistsException;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.StandardErrorCode;
@@ -65,6 +66,7 @@ import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CORRUPTED_COLUMN_STATISTICS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_USER_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TABLE_DROPPED_DURING_QUERY;
 import static com.facebook.presto.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_NEW_DIRECTORY;
@@ -84,6 +86,7 @@ import static com.facebook.presto.hive.metastore.PrestoTableType.VIRTUAL_VIEW;
 import static com.facebook.presto.hive.metastore.Statistics.ReduceOperator.SUBTRACT;
 import static com.facebook.presto.hive.metastore.Statistics.merge;
 import static com.facebook.presto.hive.metastore.Statistics.reduce;
+import static com.facebook.presto.spi.ErrorType.USER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
@@ -1527,6 +1530,7 @@ public class SemiTransactionalHiveMetastore
             List<String> failedDeletionDescriptions = new ArrayList<>();
             List<Throwable> suppressedExceptions = new ArrayList<>();
             boolean anySucceeded = false;
+            ErrorCodeSupplier errorCode = HIVE_METASTORE_ERROR;
             for (IrreversibleMetastoreOperation deleteOperation : metastoreDeleteOperations) {
                 try {
                     deleteOperation.run();
@@ -1536,6 +1540,11 @@ public class SemiTransactionalHiveMetastore
                     if (metastoreDeleteOperations.size() == 1 && t instanceof TableNotFoundException) {
                         throw new PrestoException(HIVE_TABLE_DROPPED_DURING_QUERY,
                                 "The metastore delete operation failed: " + deleteOperation.getDescription());
+                    }
+                    if (t instanceof PrestoException) {
+                        if (((PrestoException) t).getErrorCode().getType() == USER_ERROR) {
+                            errorCode = HIVE_METASTORE_USER_ERROR;
+                        }
                     }
                     failedDeletionDescriptions.add(deleteOperation.getDescription());
                     // A limit is needed to avoid having a huge exception object. 5 was chosen arbitrarily.
@@ -1554,7 +1563,7 @@ public class SemiTransactionalHiveMetastore
                 }
                 Joiner.on("; ").appendTo(message, failedDeletionDescriptions);
 
-                PrestoException prestoException = new PrestoException(HIVE_METASTORE_ERROR, message.toString());
+                PrestoException prestoException = new PrestoException(errorCode, message.toString());
                 suppressedExceptions.forEach(prestoException::addSuppressed);
                 throw prestoException;
             }
