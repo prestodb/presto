@@ -31,8 +31,12 @@ VELOX_UDF_BEGIN(from_unixtime)
 FOLLY_ALWAYS_INLINE bool call(
     Timestamp& result,
     const arg_type<double>& unixtime) {
-  result = fromUnixtime(unixtime);
-  return true;
+  auto resultOptional = fromUnixtime(unixtime);
+  if (LIKELY(resultOptional.has_value())) {
+    result = resultOptional.value();
+    return true;
+  }
+  return false;
 }
 VELOX_UDF_END();
 

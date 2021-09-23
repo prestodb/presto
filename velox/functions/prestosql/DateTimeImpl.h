@@ -15,12 +15,13 @@
  */
 #pragma once
 
+#include <optional>
 #include "velox/type/Timestamp.h"
 
 namespace facebook::velox::functions {
 namespace {
 constexpr double kNanosecondsInSecond = 1'000'000'000;
-}
+} // namespace
 
 FOLLY_ALWAYS_INLINE double toUnixtime(const Timestamp& timestamp) {
   double result = timestamp.getSeconds();
@@ -28,7 +29,11 @@ FOLLY_ALWAYS_INLINE double toUnixtime(const Timestamp& timestamp) {
   return result;
 }
 
-FOLLY_ALWAYS_INLINE Timestamp fromUnixtime(double unixtime) {
+FOLLY_ALWAYS_INLINE std::optional<Timestamp> fromUnixtime(double unixtime) {
+  if (UNLIKELY(std::isinf(unixtime) || std::isnan(unixtime))) {
+    return std::nullopt;
+  }
+
   auto seconds = std::floor(unixtime);
   auto nanos = unixtime - seconds;
   return Timestamp(seconds, nanos * kNanosecondsInSecond);

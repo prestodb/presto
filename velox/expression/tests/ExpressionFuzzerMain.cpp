@@ -35,7 +35,7 @@ std::vector<CallableSignature> getAllSignatures() {
   std::vector<CallableSignature> functions;
 
   // TODO: Skipping buggy functions for now.
-  std::unordered_set<std::string> skipFunctions = {"from_unixtime"};
+  std::unordered_set<std::string> skipFunctions = {};
   auto keys = exec::AdaptedVectorFunctions().Keys();
 
   for (const auto& key : keys) {

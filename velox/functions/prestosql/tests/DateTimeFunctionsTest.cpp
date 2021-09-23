@@ -40,7 +40,7 @@ TEST_F(DateTimeFunctionsTest, toUnixtime) {
   EXPECT_EQ(998423705.321, toUnixtime(Timestamp(998423705, 321000000)));
 }
 
-TEST_F(DateTimeFunctionsTest, fromUnixtime) {
+TEST_F(DateTimeFunctionsTest, fromUnixtimeRountTrip) {
   const auto testRoundTrip = [&](std::optional<Timestamp> t) {
     auto r = evaluateOnce<Timestamp>("from_unixtime(to_unixtime(c0))", t);
     EXPECT_EQ(r->getSeconds(), t->getSeconds()) << "at " << t->toString();
@@ -101,4 +101,20 @@ TEST_F(DateTimeFunctionsTest, fromUnixtimeWithTimeZone) {
     });
     assertEqualVectors(expected, result);
   }
+}
+
+TEST_F(DateTimeFunctionsTest, fromUnixtime) {
+  const auto fromUnixtime = [&](std::optional<double> t) {
+    return evaluateOnce<Timestamp>("from_unixtime(c0)", t);
+  };
+
+  EXPECT_EQ(Timestamp(0, 0), fromUnixtime(0));
+  EXPECT_EQ(Timestamp(-1, 9000), fromUnixtime(-0.999991));
+  EXPECT_EQ(Timestamp(4000000000, 0), fromUnixtime(4000000000));
+  // double(123000000) to uint64_t conversion returns 123000144.
+  EXPECT_EQ(Timestamp(4000000000, 123000144), fromUnixtime(4000000000.123));
+  EXPECT_EQ(
+      std::nullopt, fromUnixtime(std::numeric_limits<double>::infinity()));
+  EXPECT_EQ(
+      std::nullopt, fromUnixtime(std::numeric_limits<double>::quiet_NaN()));
 }
