@@ -43,7 +43,10 @@ class HashAggregation : public Operator {
     return BlockingReason::kNotBlocked;
   }
 
-  void close() override {}
+  void close() override {
+    Operator::close();
+    groupingSet_.reset();
+  }
 
  private:
   static constexpr int32_t kOutputBatchSize = 10'000;
