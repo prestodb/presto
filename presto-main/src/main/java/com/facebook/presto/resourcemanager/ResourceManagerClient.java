@@ -28,7 +28,7 @@ import java.util.Map;
 public interface ResourceManagerClient
 {
     @ThriftMethod
-    void queryHeartbeat(String internalNode, BasicQueryInfo basicQueryInfo);
+    void queryHeartbeat(String internalNode, BasicQueryInfo basicQueryInfo, long sequenceId);
 
     @ThriftMethod
     List<ResourceGroupRuntimeInfo> getResourceGroupInfo(String excludingNode)
