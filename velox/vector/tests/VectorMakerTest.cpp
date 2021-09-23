@@ -195,18 +195,19 @@ TEST_F(VectorMakerTest, arrayVector) {
 }
 
 TEST_F(VectorMakerTest, nullableArrayVector) {
-  std::vector<std::vector<std::optional<int64_t>>> data = {
-      {std::nullopt},
-      {1, 2, 3},
-      {1024, std::nullopt, -99, -999},
-      {},
-      {std::nullopt, -1},
+  auto O = [](std::vector<std::optional<int64_t>> data) {
+    return std::make_optional(data);
+  };
+
+  std::vector<std::optional<std::vector<std::optional<int64_t>>>> data = {
+      O({std::nullopt}),
+      O({1, 2, 3}),
+      O({1024, std::nullopt, -99, -999}),
+      O({}),
+      O({std::nullopt, -1}),
   };
 
   auto arrayVector = maker_.arrayVectorNullable<int64_t>(data);
-
-  // The arrays themselves can't be null.
-  EXPECT_FALSE(arrayVector->mayHaveNulls());
 
   // Validate array sizes and offsets.
   EXPECT_EQ(5, arrayVector->size());
@@ -231,7 +232,7 @@ TEST_F(VectorMakerTest, nullableArrayVector) {
 
   vector_size_t idx = 0;
   for (const auto& item : data) {
-    for (auto i : item) {
+    for (auto i : item.value()) {
       if (i == std::nullopt) {
         EXPECT_TRUE(elementsVector->isNullAt(idx));
       } else {

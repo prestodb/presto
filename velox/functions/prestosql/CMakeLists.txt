@@ -44,7 +44,8 @@ add_library(
   ElementAt.cpp
   Subscript.cpp
   VectorArithmetic.cpp
-  WidthBucketArray.cpp)
+  WidthBucketArray.cpp
+  Reverse.cpp)
 
 target_link_libraries(
   velox_functions_prestosql

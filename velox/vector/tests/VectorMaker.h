@@ -416,18 +416,28 @@ class VectorMaker {
   /// nullable. Only null array elements are supported; not null arrays.
   template <typename T>
   ArrayVectorPtr arrayVectorNullable(
-      const std::vector<std::vector<std::optional<T>>>& data) {
+      const std::vector<std::optional<std::vector<std::optional<T>>>>& data) {
     vector_size_t size = data.size();
     BufferPtr offsets = AlignedBuffer::allocate<vector_size_t>(size, pool_);
     BufferPtr sizes = AlignedBuffer::allocate<vector_size_t>(size, pool_);
+    BufferPtr nulls = AlignedBuffer::allocate<uint64_t>(size, pool_);
 
     auto rawOffsets = offsets->asMutable<vector_size_t>();
     auto rawSizes = sizes->asMutable<vector_size_t>();
+    auto rawNulls = nulls->asMutable<uint64_t>();
+    bits::fillBits(rawNulls, 0, size, pool_);
 
     // Count number of elements.
     vector_size_t numElements = 0;
+    vector_size_t indexPtr = 0;
+    vector_size_t nullCount = 0;
     for (const auto& array : data) {
-      numElements += array.size();
+      numElements += array.has_value() ? array.value().size() : 0;
+      if (!array.has_value()) {
+        bits::setNull(rawNulls, indexPtr, true);
+        nullCount++;
+      }
+      indexPtr++;
     }
 
     // Create the underlying flat vector.
@@ -439,17 +449,19 @@ class VectorMaker {
     vector_size_t elementNullCount = 0;
 
     for (const auto& arrayValue : data) {
-      *rawSizes++ = arrayValue.size();
+      *rawSizes++ = arrayValue.has_value() ? arrayValue.value().size() : 0;
       *rawOffsets++ = currentIdx;
 
-      for (auto arrayElement : arrayValue) {
-        if (arrayElement == std::nullopt) {
-          bits::setNull(elementRawNulls, currentIdx, true);
-          ++elementNullCount;
-        } else {
-          flatVector->set(currentIdx, *arrayElement);
+      if (arrayValue.has_value()) {
+        for (auto arrayElement : arrayValue.value()) {
+          if (arrayElement == std::nullopt) {
+            bits::setNull(elementRawNulls, currentIdx, true);
+            ++elementNullCount;
+          } else {
+            flatVector->set(currentIdx, *arrayElement);
+          }
+          ++currentIdx;
         }
-        ++currentIdx;
       }
     }
     flatVector->setNullCount(elementNullCount);
@@ -457,12 +469,12 @@ class VectorMaker {
     return std::make_shared<ArrayVector>(
         pool_,
         ARRAY(CppToType<T>::create()),
-        nullptr,
+        nulls,
         size,
         offsets,
         sizes,
         flatVector,
-        0);
+        nullCount);
   }
 
   ArrayVectorPtr allNullArrayVector(

@@ -60,6 +60,7 @@ void registerVectorFunctions() {
   VELOX_REGISTER_VECTOR_FUNCTION(udf_concat, "concat");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_strpos, "strpos");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_replace, "replace");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_reverse, "reverse");
 
   exec::registerStatefulVectorFunction(
       "width_bucket", widthBucketArraySignature(), makeWidthBucketArray);

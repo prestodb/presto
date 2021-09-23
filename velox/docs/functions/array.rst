@@ -80,6 +80,10 @@ Array Functions
                       (s, x) -> CAST(ROW(x + s.sum, s.count + 1) AS ROW(sum DOUBLE, count INTEGER)),
                       s -> IF(s.count = 0, NULL, s.sum / s.count));
 
+.. function:: reverse(array(E)) -> array(E)
+
+    Returns an array which has the reversed order of the input array.
+
 .. function:: subscript(array(E), index) -> E
 
     Returns element of ``array`` at given ``index``. The index starts from one.
