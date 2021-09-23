@@ -36,7 +36,7 @@ void JoinBridge::setAntiJoinHasNullKeys() {
       !table_,
       "Only one of setAntiJoinHasNullKeys or setHashTable may be called");
 
-  antiJoinHashNullKeys_ = true;
+  antiJoinHasNullKeys_ = true;
   notifyConsumersLocked();
 }
 
@@ -58,8 +58,8 @@ std::optional<JoinBridge::HashBuildResult> JoinBridge::tableOrFuture(
   std::lock_guard<std::mutex> l(mutex_);
   VELOX_CHECK(
       !cancelled_, "Getting hash table after the build side is aborted");
-  if (table_ || antiJoinHashNullKeys_) {
-    return HashBuildResult{table_, antiJoinHashNullKeys_};
+  if (table_ || antiJoinHasNullKeys_) {
+    return HashBuildResult{table_, antiJoinHasNullKeys_};
   }
   promises_.emplace_back("JoinBridge::tableOrFuture");
   *future = promises_.back().getSemiFuture();

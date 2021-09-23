@@ -183,7 +183,7 @@ BlockingReason HashProbe::isBlocked(ContinueFuture* future) {
     return BlockingReason::kWaitForJoinBuild;
   }
 
-  if (hashBuildResult->antiJoinHashNullKeys) {
+  if (hashBuildResult->antiJoinHasNullKeys) {
     // Anti join with null keys on the build side always returns nothing.
     VELOX_CHECK(isAntiJoin(joinType_));
     isFinishing_ = true;

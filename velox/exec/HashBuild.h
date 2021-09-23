@@ -43,7 +43,7 @@ class JoinBridge {
   // processing all the input and without finishing building the hash table.
   struct HashBuildResult {
     std::shared_ptr<BaseHashTable> table;
-    bool antiJoinHashNullKeys;
+    bool antiJoinHasNullKeys;
   };
 
   std::optional<HashBuildResult> tableOrFuture(ContinueFuture* future);
@@ -53,7 +53,7 @@ class JoinBridge {
 
   std::mutex mutex_;
   std::shared_ptr<BaseHashTable> table_;
-  bool antiJoinHashNullKeys_{false};
+  bool antiJoinHasNullKeys_{false};
   std::vector<VeloxPromise<bool>> promises_;
   bool cancelled_{false};
 };
