@@ -37,6 +37,7 @@ import static com.facebook.presto.common.type.DateTimeEncoding.unpackZoneKey;
 import static com.facebook.presto.common.type.TimeZoneKey.MAX_TIME_ZONE_KEY;
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.common.type.TimeZoneKey.getTimeZoneKeys;
+import static com.facebook.presto.common.type.TimestampMicrosUtils.MICROS_PER_MILLI;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.teradata.functions.dateformat.DateFormatParser.Mode.FORMATTER;
@@ -121,7 +122,7 @@ public final class TeradataDateFunctions
             @SqlType(StandardTypes.VARCHAR) Slice dateTime,
             @SqlType(StandardTypes.VARCHAR) Slice formatString)
     {
-        return parseMillis(properties, dateTime, formatString);
+        return parseMillis(properties, dateTime, formatString) * MICROS_PER_MILLI;
     }
 
     private static long parseMillis(SqlFunctionProperties properties, Slice dateTime, Slice formatString)

@@ -51,6 +51,8 @@ import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -94,6 +96,8 @@ public class PrestoResultSet
                     })
             .toFormatter()
             .withOffsetParsed();
+
+    public static final java.time.format.DateTimeFormatter TIMESTAMP_MICROS_FORMATTER = java.time.format.DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSSSSS");
 
     private final Statement statement;
     private final StatementClient client;
@@ -327,7 +331,7 @@ public class PrestoResultSet
         ColumnInfo columnInfo = columnInfo(columnIndex);
         if (columnInfo.getColumnTypeName().equalsIgnoreCase("timestamp")) {
             try {
-                return new Timestamp(TIMESTAMP_FORMATTER.withZone(localTimeZone).parseMillis(String.valueOf(value)));
+                return parseTimestampMicros(localTimeZone, String.valueOf(value));
             }
             catch (IllegalArgumentException e) {
                 throw new SQLException("Invalid timestamp from server: " + value, e);
@@ -1870,5 +1874,12 @@ public class PrestoResultSet
             list.add(builder.build());
         }
         return list.build();
+    }
+
+    private static Timestamp parseTimestampMicros(DateTimeZone localTimeZone, String value)
+    {
+        ZoneId zoneId = ZoneId.of(localTimeZone.getID());
+        LocalDateTime localDateTime = TIMESTAMP_MICROS_FORMATTER.parse(value, LocalDateTime::from);
+        return Timestamp.from(localDateTime.atZone(zoneId).toInstant());
     }
 }
