@@ -16,11 +16,18 @@ package com.facebook.presto.bytecode;
 import com.google.common.base.CharMatcher;
 
 import java.io.StringWriter;
+import java.lang.invoke.CallSite;
+import java.lang.invoke.ConstantCallSite;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
+import java.lang.reflect.Method;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.time.ZoneOffset.UTC;
 
 public final class BytecodeUtils
@@ -58,5 +65,33 @@ public final class BytecodeUtils
         StringWriter writer = new StringWriter();
         new DumpBytecodeVisitor(writer).visitClass(classDefinition);
         return writer.toString();
+    }
+
+    public static final class Bootstrap
+    {
+        public static final Method BOOTSTRAP_METHOD;
+
+        static {
+            try {
+                BOOTSTRAP_METHOD = Bootstrap.class.getMethod("bootstrap", MethodHandles.Lookup.class, String.class, MethodType.class, long.class);
+            }
+            catch (NoSuchMethodException e) {
+                throw new AssertionError(e);
+            }
+        }
+
+        private Bootstrap() {}
+
+        public static CallSite bootstrap(MethodHandles.Lookup callerLookup, String name, MethodType type, long bindingId)
+        {
+            ClassLoader classLoader = callerLookup.lookupClass().getClassLoader();
+            checkArgument(classLoader instanceof DynamicClassLoader, "Expected %s's classloader to be of type %s", callerLookup.lookupClass().getName(), DynamicClassLoader.class.getName());
+
+            DynamicClassLoader dynamicClassLoader = (DynamicClassLoader) classLoader;
+            MethodHandle target = dynamicClassLoader.getCallSiteBindings().get(bindingId);
+            checkArgument(target != null, "Binding %s for function %s%s not found", bindingId, name, type.parameterList());
+
+            return new ConstantCallSite(target);
+        }
     }
 }
