@@ -42,7 +42,7 @@ public class TestPeriodicTaskExecutor
         executorService.shutdownNow();
     }
 
-    @Test
+    @Test(enabled = false)
     public void testTick()
             throws Exception
     {
