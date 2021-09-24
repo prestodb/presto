@@ -82,20 +82,9 @@ struct DriverCtx {
       int _pipelineId,
       int32_t numDrivers);
 
-  velox::memory::MemoryPool* FOLLY_NONNULL addOperatorUserPool() {
+  velox::memory::MemoryPool* FOLLY_NONNULL addOperatorPool() {
     opMemPools_.push_back(execCtx->pool()->addScopedChild("operator_ctx"));
     return opMemPools_.back().get();
-  }
-
-  velox::memory::MemoryPool* FOLLY_NONNULL
-  addOperatorSystemPool(velox::memory::MemoryPool* FOLLY_NONNULL userPool) {
-    auto poolPtr = userPool->addScopedChild("operator_ctx");
-    poolPtr->setMemoryUsageTracker(
-        userPool->getMemoryUsageTracker()->addChild(true));
-    auto pool = poolPtr.get();
-    opMemPools_.push_back(std::move(poolPtr));
-
-    return pool;
   }
 
   std::unique_ptr<connector::ConnectorQueryCtx> createConnectorQueryCtx(

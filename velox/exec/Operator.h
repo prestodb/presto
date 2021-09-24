@@ -154,17 +154,10 @@ struct OperatorStats {
 class OperatorCtx {
  public:
   explicit OperatorCtx(DriverCtx* driverCtx)
-      : driverCtx_(driverCtx), pool_(driverCtx_->addOperatorUserPool()) {}
+      : driverCtx_(driverCtx), pool_(driverCtx_->addOperatorPool()) {}
 
   velox::memory::MemoryPool* pool() const {
     return pool_;
-  }
-
-  velox::memory::MemoryPool* systemPool() const {
-    if (!systemMemPool_) {
-      systemMemPool_ = driverCtx_->addOperatorSystemPool(pool_);
-    }
-    return systemMemPool_;
   }
 
   memory::MappedMemory* mappedMemory() const;
@@ -196,9 +189,7 @@ class OperatorCtx {
   velox::memory::MemoryPool* pool_;
 
   // These members are created on demand.
-  mutable velox::memory::MemoryPool* systemMemPool_{nullptr};
   mutable std::shared_ptr<memory::MappedMemory> mappedMemory_;
-  mutable std::shared_ptr<memory::MappedMemory> recoverableMappedMemory_;
 };
 
 // Query operator
