@@ -83,7 +83,7 @@ public class TestDistributedQueryInfoResource
         client = null;
     }
 
-    @Test(timeOut = 220_000)
+    @Test(timeOut = 220_000, enabled = false)
     public void testGetAllQueryInfo()
             throws Exception
     {
