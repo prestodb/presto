@@ -647,7 +647,8 @@ public class PrestoSparkQueryExecutionFactory
                 succinctBytes(peakTotalMemoryReservationInBytes),
                 succinctBytes(peakTaskUserMemoryInBytes),
                 succinctBytes(peakTaskTotalMemoryInBytes),
-                succinctBytes(peakNodeTotalMemoryInBytes));
+                succinctBytes(peakNodeTotalMemoryInBytes),
+                session.getRuntimeStats());
 
         return new QueryInfo(
                 session.getQueryId(),
