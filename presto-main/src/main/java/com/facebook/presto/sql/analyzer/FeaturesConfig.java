@@ -126,6 +126,7 @@ public class FeaturesConfig
     private boolean joinSpillingEnabled = true;
     private boolean aggregationSpillEnabled = true;
     private boolean distinctAggregationSpillEnabled = true;
+    private boolean dedupBasedDistinctAggregationSpillEnabled;
     private boolean orderByAggregationSpillEnabled = true;
     private boolean windowSpillEnabled = true;
     private boolean orderBySpillEnabled = true;
@@ -938,6 +939,19 @@ public class FeaturesConfig
     public boolean isDistinctAggregationSpillEnabled()
     {
         return distinctAggregationSpillEnabled;
+    }
+
+    @Config("experimental.dedup-based-distinct-aggregation-spill-enabled")
+    @ConfigDescription("Dedup input data for Distinct Aggregates before spilling")
+    public FeaturesConfig setDedupBasedDistinctAggregationSpillEnabled(boolean dedupBasedDistinctAggregationSpillEnabled)
+    {
+        this.dedupBasedDistinctAggregationSpillEnabled = dedupBasedDistinctAggregationSpillEnabled;
+        return this;
+    }
+
+    public boolean isDedupBasedDistinctAggregationSpillEnabled()
+    {
+        return dedupBasedDistinctAggregationSpillEnabled;
     }
 
     @Config("experimental.order-by-aggregation-spill-enabled")

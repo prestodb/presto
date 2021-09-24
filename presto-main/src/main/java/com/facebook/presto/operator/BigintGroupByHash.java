@@ -165,6 +165,14 @@ public class BigintGroupByHash
     }
 
     @Override
+    public List<Page> getBufferedPages()
+    {
+        // This method is left unimplemented since it is not invoked from anywhere within code.
+        // Add an implementation, if needed in future
+        throw new UnsupportedOperationException("BigIntGroupByHash does not support getBufferedPages");
+    }
+
+    @Override
     public Work<GroupByIdBlock> getGroupIds(Page page)
     {
         currentPageSizeInBytes = page.getRetainedSizeInBytes();

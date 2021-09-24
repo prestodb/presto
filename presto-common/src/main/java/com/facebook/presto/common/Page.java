@@ -318,7 +318,7 @@ public final class Page
 
     public Page getLoadedPage(int channel)
     {
-        return wrapBlocksWithoutCopy(positionCount, new Block[]{this.blocks[channel].getLoadedBlock()});
+        return wrapBlocksWithoutCopy(positionCount, new Block[] {this.blocks[channel].getLoadedBlock()});
     }
 
     public Page getLoadedPage(int... channels)
@@ -377,7 +377,7 @@ public final class Page
 
     public Page extractChannel(int channel)
     {
-        return wrapBlocksWithoutCopy(positionCount, new Block[]{this.blocks[channel]});
+        return wrapBlocksWithoutCopy(positionCount, new Block[] {this.blocks[channel]});
     }
 
     public Page extractChannels(int[] channels)
@@ -401,6 +401,18 @@ public final class Page
         result[0] = column;
         System.arraycopy(blocks, 0, result, 1, blocks.length);
 
+        return wrapBlocksWithoutCopy(positionCount, result);
+    }
+
+    public Page dropColumn(int channelIndex)
+    {
+        if (channelIndex < 0 || channelIndex >= getChannelCount()) {
+            throw new IndexOutOfBoundsException(format("Invalid channel %d in page with %s channels", channelIndex, getChannelCount()));
+        }
+
+        Block[] result = new Block[getChannelCount() - 1];
+        System.arraycopy(blocks, 0, result, 0, channelIndex);
+        System.arraycopy(blocks, channelIndex + 1, result, channelIndex, getChannelCount() - channelIndex - 1);
         return wrapBlocksWithoutCopy(positionCount, result);
     }
 

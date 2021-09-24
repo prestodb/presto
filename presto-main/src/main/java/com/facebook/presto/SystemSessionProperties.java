@@ -125,6 +125,7 @@ public final class SystemSessionProperties
     public static final String JOIN_SPILL_ENABLED = "join_spill_enabled";
     public static final String AGGREGATION_SPILL_ENABLED = "aggregation_spill_enabled";
     public static final String DISTINCT_AGGREGATION_SPILL_ENABLED = "distinct_aggregation_spill_enabled";
+    public static final String DEDUP_BASED_DISTINCT_AGGREGATION_SPILL_ENABLED = "dedup_based_distinct_aggregation_spill_enabled";
     public static final String ORDER_BY_AGGREGATION_SPILL_ENABLED = "order_by_aggregation_spill_enabled";
     public static final String WINDOW_SPILL_ENABLED = "window_spill_enabled";
     public static final String ORDER_BY_SPILL_ENABLED = "order_by_spill_enabled";
@@ -629,6 +630,11 @@ public final class SystemSessionProperties
                         DISTINCT_AGGREGATION_SPILL_ENABLED,
                         "Enable spill for distinct aggregations if spill_enabled and aggregation_spill_enabled",
                         featuresConfig.isDistinctAggregationSpillEnabled(),
+                        false),
+                booleanProperty(
+                        DEDUP_BASED_DISTINCT_AGGREGATION_SPILL_ENABLED,
+                        "Perform deduplication of input data for distinct aggregates before spilling",
+                        featuresConfig.isDedupBasedDistinctAggregationSpillEnabled(),
                         false),
                 booleanProperty(
                         ORDER_BY_AGGREGATION_SPILL_ENABLED,
@@ -1504,6 +1510,11 @@ public final class SystemSessionProperties
     public static boolean isDistinctAggregationSpillEnabled(Session session)
     {
         return session.getSystemProperty(DISTINCT_AGGREGATION_SPILL_ENABLED, Boolean.class) && isAggregationSpillEnabled(session);
+    }
+
+    public static boolean isDedupBasedDistinctAggregationSpillEnabled(Session session)
+    {
+        return session.getSystemProperty(DEDUP_BASED_DISTINCT_AGGREGATION_SPILL_ENABLED, Boolean.class);
     }
 
     public static boolean isOrderByAggregationSpillEnabled(Session session)
