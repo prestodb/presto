@@ -155,7 +155,7 @@ public class TestRowExpressionFormatter
 
         // time
         constantExpression = constant(662727600000L, TIMESTAMP);
-        assertEquals(format(constantExpression), "TIMESTAMP'1991-01-01 00:00:00.000'");
+        assertEquals(format(constantExpression), "TIMESTAMP'1991-01-01 00:00:00.000000'");
         constantExpression = constant(7670L, DATE);
         assertEquals(format(constantExpression), "DATE'1991-01-01'");
 

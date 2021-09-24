@@ -77,6 +77,8 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.JsonType.JSON;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.TimestampMicrosUtils.microsToMillis;
+import static com.facebook.presto.common.type.TimestampMicrosUtils.millisToMicros;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
@@ -1483,7 +1485,7 @@ public class TestExpressionCompiler
                 Long millis = null;
                 if (left != null) {
                     millis = left.getMillis();
-                    expected = callExtractFunction(TEST_SESSION.toConnectorSession(), millis, field);
+                    expected = callExtractFunction(TEST_SESSION.toConnectorSession(), millisToMicros(millis), field);
                 }
                 DateTimeZone zone = getDateTimeZone(TEST_SESSION.getTimeZoneKey());
                 long zoneOffsetMinutes = millis != null ? MILLISECONDS.toMinutes(zone.getOffset(millis)) : 0;
@@ -1530,9 +1532,9 @@ public class TestExpressionCompiler
             case SECOND:
                 return DateTimeFunctions.secondFromTimestamp(value);
             case TIMEZONE_MINUTE:
-                return DateTimeFunctions.timeZoneMinuteFromTimestampWithTimeZone(packDateTimeWithZone(value, session.getSqlFunctionProperties().getTimeZoneKey()));
+                return DateTimeFunctions.timeZoneMinuteFromTimestampWithTimeZone(packDateTimeWithZone(microsToMillis(value), session.getSqlFunctionProperties().getTimeZoneKey()));
             case TIMEZONE_HOUR:
-                return DateTimeFunctions.timeZoneHourFromTimestampWithTimeZone(packDateTimeWithZone(value, session.getSqlFunctionProperties().getTimeZoneKey()));
+                return DateTimeFunctions.timeZoneHourFromTimestampWithTimeZone(packDateTimeWithZone(microsToMillis(value), session.getSqlFunctionProperties().getTimeZoneKey()));
         }
         throw new AssertionError("Unhandled field: " + field);
     }

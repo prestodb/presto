@@ -78,7 +78,7 @@ public class TestDateTimeFunctions
                 .setStartTime(new DateTime(2017, 3, 1, 14, 30, 0, 0, DATE_TIME_ZONE).getMillis())
                 .build();
         try (FunctionAssertions localAssertion = new FunctionAssertions(localSession)) {
-            localAssertion.assertFunctionString("LOCALTIMESTAMP", TimestampType.TIMESTAMP, "2017-03-01 14:30:00.000");
+            localAssertion.assertFunctionString("LOCALTIMESTAMP", TimestampType.TIMESTAMP, "2017-03-01 14:30:00.000000");
         }
     }
 

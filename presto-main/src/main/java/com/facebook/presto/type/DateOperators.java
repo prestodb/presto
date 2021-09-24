@@ -46,6 +46,7 @@ import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.common.function.OperatorType.XX_HASH_64;
 import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.TimestampMicrosUtils.millisToMicros;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.util.DateTimeUtils.parseDate;
 import static com.facebook.presto.util.DateTimeUtils.printDate;
@@ -120,10 +121,10 @@ public final class DateOperators
             // date is encoded as milliseconds at midnight in UTC
             // convert to midnight in the session timezone
             ISOChronology chronology = getChronology(properties.getTimeZoneKey());
-            return utcMillis - chronology.getZone().getOffset(utcMillis);
+            return millisToMicros(utcMillis - chronology.getZone().getOffset(utcMillis));
         }
         else {
-            return TimeUnit.DAYS.toMillis(value);
+            return millisToMicros(TimeUnit.DAYS.toMillis(value));
         }
     }
 

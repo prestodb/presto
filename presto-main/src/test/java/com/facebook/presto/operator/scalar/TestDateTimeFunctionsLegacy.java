@@ -20,6 +20,7 @@ import com.facebook.presto.common.type.TimestampType;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -77,7 +78,7 @@ public class TestDateTimeFunctionsLegacy
                 .setStartTime(new DateTime(2017, 3, 1, 14, 30, 0, 0, DATE_TIME_ZONE).getMillis())
                 .build();
         try (FunctionAssertions localAssertion = new FunctionAssertions(localSession)) {
-            localAssertion.assertFunctionString("LOCALTIMESTAMP", TimestampType.TIMESTAMP, "2017-03-01 14:30:00.000");
+            localAssertion.assertFunctionString("LOCALTIMESTAMP", TimestampType.TIMESTAMP, "2017-03-01 14:30:00.000000");
         }
     }
 
@@ -91,5 +92,17 @@ public class TestDateTimeFunctionsLegacy
             localAssertion.assertFunctionString("CURRENT_TIMESTAMP", TIMESTAMP_WITH_TIME_ZONE, "2017-03-01 14:30:00.000 " + DATE_TIME_ZONE.getID());
             localAssertion.assertFunctionString("NOW()", TIMESTAMP_WITH_TIME_ZONE, "2017-03-01 14:30:00.000 " + DATE_TIME_ZONE.getID());
         }
+    }
+
+    @Test
+    public void testTimestampFunctions()
+    {
+        // extra test case from spark
+        assertFunction("hour(null)", BIGINT, null);
+        assertFunction("hour(TIMESTAMP '2013-11-08 13:10:15')", BIGINT, 13L);
+        assertFunction("minute(null)", BIGINT, null);
+        assertFunction("minute(TIMESTAMP '2013-11-08 13:10:15')", BIGINT, 10L);
+        assertFunction("second(null)", BIGINT, null);
+        assertFunction("second(TIMESTAMP '2013-11-08 13:10:15')", BIGINT, 15L);
     }
 }

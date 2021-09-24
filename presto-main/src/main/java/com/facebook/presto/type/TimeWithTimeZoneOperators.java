@@ -48,6 +48,7 @@ import static com.facebook.presto.common.function.OperatorType.XX_HASH_64;
 import static com.facebook.presto.common.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.common.type.DateTimeEncoding.unpackZoneKey;
 import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.common.type.TimestampMicrosUtils.millisToMicros;
 import static com.facebook.presto.util.DateTimeUtils.parseTimeWithTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.printTimeWithTimeZone;
 import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
@@ -125,25 +126,14 @@ public final class TimeWithTimeZoneOperators
     {
         // This is exactly the same operation as for TIME WITH TIME ZONE -> TIMESTAMP, as the representations
         // of those types are aligned in range that is covered by TIME WITH TIME ZONE.
-        return castToTimestamp(properties, value);
+        return castTimeWithTimeZoneToMillis(properties, value);
     }
 
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.TIMESTAMP)
     public static long castToTimestamp(SqlFunctionProperties properties, @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long value)
     {
-        if (properties.isLegacyTimestamp()) {
-            return unpackMillisUtc(value);
-        }
-        else {
-            // This is hack that we need to use as the timezone interpretation depends on date (not only on time)
-            // TODO remove REFERENCE_TIMESTAMP_UTC when removing support for political time zones in TIME WIT TIME ZONE
-            long currentMillisOfDay = ChronoField.MILLI_OF_DAY.getFrom(Instant.ofEpochMilli(REFERENCE_TIMESTAMP_UTC).atZone(ZoneOffset.UTC));
-            long timeMillisUtcInCurrentDay = REFERENCE_TIMESTAMP_UTC - currentMillisOfDay + unpackMillisUtc(value);
-
-            ISOChronology chronology = getChronology(unpackZoneKey(value));
-            return unpackMillisUtc(value) + chronology.getZone().getOffset(timeMillisUtcInCurrentDay);
-        }
+        return millisToMicros(castTimeWithTimeZoneToMillis(properties, value));
     }
 
     @ScalarOperator(CAST)
@@ -224,5 +214,21 @@ public final class TimeWithTimeZoneOperators
     public static boolean indeterminate(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long value, @IsNull boolean isNull)
     {
         return isNull;
+    }
+
+    private static long castTimeWithTimeZoneToMillis(SqlFunctionProperties properties, @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long value)
+    {
+        if (properties.isLegacyTimestamp()) {
+            return unpackMillisUtc(value);
+        }
+        else {
+            // This is hack that we need to use as the timezone interpretation depends on date (not only on time)
+            // TODO remove REFERENCE_TIMESTAMP_UTC when removing support for poli/tical time zones in TIME WIT TIME ZONE
+            long currentMillisOfDay = ChronoField.MILLI_OF_DAY.getFrom(Instant.ofEpochMilli(REFERENCE_TIMESTAMP_UTC).atZone(ZoneOffset.UTC));
+            long timeMillisUtcInCurrentDay = REFERENCE_TIMESTAMP_UTC - currentMillisOfDay + unpackMillisUtc(value);
+
+            ISOChronology chronology = getChronology(unpackZoneKey(value));
+            return unpackMillisUtc(value) + chronology.getZone().getOffset(timeMillisUtcInCurrentDay);
+        }
     }
 }

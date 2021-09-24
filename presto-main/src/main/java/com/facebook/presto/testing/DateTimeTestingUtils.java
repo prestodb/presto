@@ -109,6 +109,18 @@ public final class DateTimeTestingUtils
         }
     }
 
+    public static SqlTimestamp sqlTimestampOfMicros(long micros, ConnectorSession session)
+    {
+        SqlFunctionProperties properties = session.getSqlFunctionProperties();
+
+        if (properties.isLegacyTimestamp()) {
+            return SqlTimestamp.ofMicrosLegacy(micros, properties.getTimeZoneKey());
+        }
+        else {
+            return SqlTimestamp.ofMicros(micros);
+        }
+    }
+
     public static SqlTime sqlTimeOf(
             int hourOfDay,
             int minuteOfHour,
