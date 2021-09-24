@@ -148,8 +148,16 @@ class BaseHashTable {
   /// distinct entries before needing to rehash.
   virtual void decideHashMode(int32_t numNew) = 0;
 
+  // Removes 'rows'  from the hash table and its RowContainer. 'rows' must exist
+  // and be unique.
+  virtual void erase(folly::Range<char**> rows) = 0;
+
   /// Returns a brief description for use in debugging.
   virtual std::string toString() = 0;
+
+  static void storeTag(uint8_t* tags, int32_t index, uint8_t tag) {
+    tags[index] = tag;
+  }
 
   const std::vector<std::unique_ptr<VectorHasher>>& hashers() const {
     return hashers_;
@@ -275,6 +283,8 @@ class HashTable : public BaseHashTable {
   void decideHashMode(int32_t numNew) override;
 
   // Moves the contents of 'tables' into 'this' and prepares 'this'
+
+  void erase(folly::Range<char**> rows) override;
   // for use in hash join probe. A hash join build side is prepared as
   // follows: 1. Each build side thread gets a random selection of the
   // build stream. Each accumulates rows into its own
@@ -370,6 +380,10 @@ class HashTable : public BaseHashTable {
   // content. Returns true if all hashers offer a mapping to value ids
   // for array or normalized key.
   bool analyze();
+  // Erases the entries of rows from the hash table and its RowContainer.
+  // 'hashes' must be computed according to 'hashMode_'.
+  void eraseWithHashes(folly::Range<char**> rows, uint64_t* hashes);
+
   const std::vector<std::unique_ptr<Aggregate>>& aggregates_;
   int8_t sizeBits_;
   bool isJoinBuild_ = false;

@@ -238,9 +238,9 @@ class VectorHasher {
     uniqueValuesStorage_.clear();
   }
 
-  uint64_t enableValueRange(uint64_t multiplier, int32_t reserve);
+  uint64_t enableValueRange(uint64_t multiplier, int64_t reserve);
 
-  uint64_t enableValueIds(uint64_t multiplier, int32_t reserve);
+  uint64_t enableValueIds(uint64_t multiplier, int64_t reserve);
 
   // Returns the number of distinct values in range and in distinct values mode.
   // kRangeTooLarge means that the mode is not applicable.

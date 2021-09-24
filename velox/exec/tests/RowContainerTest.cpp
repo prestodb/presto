@@ -253,7 +253,7 @@ TEST_F(RowContainerTest, types) {
   EXPECT_EQ(kNumRows, data->numRows());
   std::vector<char*> rows(kNumRows);
   RowContainerIterator iter;
-  EXPECT_EQ(data->listRows(&iter, kNumRows, rows.data()), kNumRows);
+  EXPECT_EQ(kNumRows, data->listRows(&iter, kNumRows, rows.data()));
   EXPECT_EQ(data->listRows(&iter, kNumRows, rows.data()), 0);
 
   SelectivityVector allRows(kNumRows);
@@ -269,6 +269,7 @@ TEST_F(RowContainerTest, types) {
       data->store(decoded, index, rows[index], column);
     }
   }
+  data->checkConsistency();
   auto copy = std::static_pointer_cast<RowVector>(
       BaseVector::create(batch->type(), batch->size(), pool_.get()));
   for (auto column = 0; column < batch->childrenSize(); ++column) {
@@ -314,4 +315,51 @@ TEST_F(RowContainerTest, types) {
       }
     }
   }
+}
+
+TEST_F(RowContainerTest, erase) {
+  constexpr int32_t kNumRows = 100;
+  auto data = makeRowContainer({SMALLINT()}, {SMALLINT()});
+
+  // The layout is expected to be smallint - 6 bytes of padding - 1 byte of bits
+  // - smallint - next pointer. The bits are a null flag for the second
+  // smallint, a probed flag and a free flag.
+  EXPECT_EQ(data->nextOffset(), 11);
+  // 2nd bit in first byte of flags.
+  EXPECT_EQ(data->probedFlagOffset(), 8 * 8 + 1);
+  std::unordered_set<char*> rowSet;
+  std::vector<char*> rows;
+  for (int i = 0; i < kNumRows; ++i) {
+    rows.push_back(data->newRow());
+    rowSet.insert(rows.back());
+  }
+  EXPECT_EQ(kNumRows, data->numRows());
+  std::vector<char*> rowsFromContainer(kNumRows);
+  RowContainerIterator iter;
+  EXPECT_EQ(
+      data->listRows(&iter, kNumRows, rowsFromContainer.data()), kNumRows);
+  EXPECT_EQ(0, data->listRows(&iter, kNumRows, rows.data()));
+  EXPECT_EQ(rows, rowsFromContainer);
+
+  std::vector<char*> erased;
+  for (auto i = 0; i < rows.size(); i += 2) {
+    erased.push_back(rows[i]);
+  }
+  data->eraseRows(folly::Range<char**>(erased.data(), erased.size()));
+  data->checkConsistency();
+
+  std::vector<char*> remaining(data->numRows());
+  iter.reset();
+  EXPECT_EQ(
+      remaining.size(),
+      data->listRows(&iter, data->numRows(), remaining.data()));
+  // We check that the next new rows reuse the erased rows.
+  for (auto i = 0; i < erased.size(); ++i) {
+    auto reused = data->newRow();
+    EXPECT_NE(rowSet.end(), rowSet.find(reused));
+  }
+  // The next row will be a new one.
+  auto newRow = data->newRow();
+  EXPECT_EQ(rowSet.end(), rowSet.find(newRow));
+  data->checkConsistency();
 }
