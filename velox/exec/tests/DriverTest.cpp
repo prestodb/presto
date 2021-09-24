@@ -201,6 +201,23 @@ class DriverTest : public OperatorTestBase {
     }
   }
 
+  // Checks that 'task' transits to finished state within a short
+  // time. The finish takes place on a different thread after all
+  // results are produced and the cursor is at end, so that we may
+  // sometimes arrive at the check before the state change.
+  void expectFinished(std::shared_ptr<Task> task) {
+    constexpr int32_t kMaxWait = 5;
+    TaskState state;
+    for (auto i = 0; i < kMaxWait; ++i) {
+      state = task->state();
+      if (state == kFinished) {
+        break;
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    EXPECT_EQ(state, kFinished);
+  }
+
  public:
   // Sets 'future' to a future that will be realized within a random
   // delay of a few ms.
@@ -400,7 +417,7 @@ TEST_F(DriverTest, pause) {
   // Each thread will fully read the 1M rows in values.
   EXPECT_EQ(numRead, 10 * hits);
   EXPECT_TRUE(stateFutures_.at(0).isReady());
-  EXPECT_EQ(tasks_[0]->state(), kFinished);
+  expectFinished(tasks_[0]);
   EXPECT_EQ(tasks_[0]->numDrivers(), 0);
   const auto taskStats = tasks_[0]->taskStats();
   ASSERT_EQ(taskStats.pipelineStats.size(), 1);
