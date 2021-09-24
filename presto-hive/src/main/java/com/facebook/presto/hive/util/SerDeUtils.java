@@ -62,6 +62,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.common.type.Chars.truncateToLengthAndTrimSpaces;
+import static com.facebook.presto.common.type.TimestampMicrosUtils.timestampToMicros;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Float.floatToRawIntBits;
@@ -292,7 +293,7 @@ public final class SerDeUtils
     private static long formatTimestampAsLong(Object object, TimestampObjectInspector inspector)
     {
         Timestamp timestamp = getTimestamp(object, inspector);
-        return timestamp.getTime();
+        return timestampToMicros(timestamp);
     }
 
     private static Timestamp getTimestamp(Object object, TimestampObjectInspector inspector)

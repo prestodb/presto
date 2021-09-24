@@ -63,6 +63,7 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.TimestampMicrosUtils.millisToMicros;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
@@ -309,7 +310,10 @@ class GenericHiveRecordCursor<K, V extends Writable>
             long hiveMillis = JVM_TIME_ZONE.convertUTCToLocal(parsedJvmMillis);
 
             // convert to UTC using the real time zone for the underlying data
-            return hiveTimeZone.convertLocalToUTC(hiveMillis, false);
+            long utcMillis = hiveTimeZone.convertLocalToUTC(hiveMillis, false);
+
+            long micros = (((Timestamp) value).getNanos() / 1000) % 1000;
+            return millisToMicros(utcMillis) + micros;
         }
         if (value instanceof Float) {
             return floatToRawIntBits(((Float) value));

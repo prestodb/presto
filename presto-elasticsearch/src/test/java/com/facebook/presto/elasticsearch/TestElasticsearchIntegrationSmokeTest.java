@@ -495,7 +495,7 @@ public class TestElasticsearchIntegrationSmokeTest
 
         MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
                 .row(true, 1.0f, 1.0d, 1, 1L, "cool", "some text", new byte[] {(byte) 0xCA, (byte) 0xFE},
-                        LocalDateTime.of(1970, 1, 1, 0, 0), "192.0.2.4", "2001:db8:0:1:1:1:1:1")
+                        LocalDateTime.of(1970, 01, 01, 0, 0, 0), "192.0.2.4", "2001:db8:0:1:1:1:1:1")
                 .build();
 
         assertEquals(rows.getMaterializedRows(), expected.getMaterializedRows());
@@ -689,7 +689,7 @@ public class TestElasticsearchIntegrationSmokeTest
 
         MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
                 .row(true, 1.0f, 1.0d, 1, 1L, "cool", "some text", new byte[] {(byte) 0xCA, (byte) 0xFE},
-                        LocalDateTime.of(1970, 1, 1, 0, 0), "192.0.2.4", "2001:db8:0:1:1:1:1:1")
+                        LocalDateTime.of(1970, 01, 01, 0, 0, 0), "192.0.2.4", "2001:db8:0:1:1:1:1:1")
                 .build();
 
         assertEquals(rows.getMaterializedRows(), expected.getMaterializedRows());
@@ -767,7 +767,7 @@ public class TestElasticsearchIntegrationSmokeTest
 
         MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
                 .row(true, 1.0f, 1.0d, 1, 1L, "cool", "some text", new byte[] {(byte) 0xCA, (byte) 0xFE},
-                        LocalDateTime.of(1970, 1, 1, 0, 0), "192.0.2.4", "2001:db8:0:1:1:1:1:1")
+                        LocalDateTime.of(1970, 01, 01, 0, 0, 0), "192.0.2.4", "2001:db8:0:1:1:1:1:1")
                 .build();
 
         assertEquals(rows.getMaterializedRows(), expected.getMaterializedRows());

@@ -884,7 +884,7 @@ public abstract class AbstractTestParquetReader
         ContiguousSet<Long> longValues = longsBetween(1_000_000, 1_001_000);
         ImmutableList.Builder<SqlTimestamp> expectedValues = new ImmutableList.Builder<>();
         for (Long value : longValues) {
-            expectedValues.add(new SqlTimestamp(value / 1000L, UTC_KEY));
+            expectedValues.add(SqlTimestamp.ofMicrosLegacy(value, UTC_KEY));
         }
         tester.testRoundTrip(javaTimestampObjectInspector, longValues, expectedValues.build(), TIMESTAMP, parquetSchema);
     }
@@ -1900,7 +1900,7 @@ public abstract class AbstractTestParquetReader
         int nanos = ((input % 1000) * 1_000_000);
 
         // add some junk nanos to the timestamp, which will be truncated
-        nanos += 888_888;
+        nanos += 888;
 
         if (nanos < 0) {
             nanos += 1_000_000_000;

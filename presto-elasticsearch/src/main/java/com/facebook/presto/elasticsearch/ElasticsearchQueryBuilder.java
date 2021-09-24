@@ -27,7 +27,6 @@ import org.elasticsearch.index.query.QueryStringQueryBuilder;
 import org.elasticsearch.index.query.RangeQueryBuilder;
 import org.elasticsearch.index.query.TermQueryBuilder;
 
-import java.time.Instant;
 import java.time.ZoneId;
 import java.util.HashSet;
 import java.util.Map;
@@ -40,6 +39,7 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.TimestampMicrosUtils.microsToInstant;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -158,7 +158,7 @@ public final class ElasticsearchQueryBuilder
         if (type.equals(TIMESTAMP)) {
             checkState(session.getSqlFunctionProperties().isLegacyTimestamp(), "New timestamp semantics not yet supported");
 
-            return Instant.ofEpochMilli((Long) value)
+            return microsToInstant((Long) value)
                     .atZone(ZoneId.of(session.getSqlFunctionProperties().getTimeZoneKey().getId()))
                     .toLocalDateTime()
                     .format(ISO_DATE_TIME);
