@@ -278,7 +278,8 @@ public class QueryStats
             DataSize peakTotalMemoryReservation,
             DataSize peakTaskUserMemory,
             DataSize peakTaskTotalMemory,
-            DataSize peakNodeTotalMemory)
+            DataSize peakNodeTotalMemory,
+            RuntimeStats runtimeStats)
     {
         int totalTasks = 0;
         int runningTasks = 0;
@@ -324,7 +325,7 @@ public class QueryStats
 
         ImmutableList.Builder<OperatorStats> operatorStatsSummary = ImmutableList.builder();
         boolean completeInfo = true;
-        RuntimeStats mergedRuntimeStats = new RuntimeStats();
+        RuntimeStats mergedRuntimeStats = RuntimeStats.copyOf(runtimeStats);
         for (StageInfo stageInfo : getAllStages(rootStage)) {
             StageExecutionStats stageExecutionStats = stageInfo.getLatestAttemptExecutionInfo().getStats();
             totalTasks += stageExecutionStats.getTotalTasks();

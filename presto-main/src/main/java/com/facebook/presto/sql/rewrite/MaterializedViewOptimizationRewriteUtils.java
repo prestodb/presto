@@ -28,6 +28,8 @@ import com.facebook.presto.sql.tree.Table;
 
 import java.util.Set;
 
+import static com.facebook.presto.common.RuntimeMetricName.OPTIMIZED_WITH_MATERIALIZED_VIEW;
+
 public class MaterializedViewOptimizationRewriteUtils
 {
     private MaterializedViewOptimizationRewriteUtils() {}
@@ -47,6 +49,7 @@ public class MaterializedViewOptimizationRewriteUtils
         for (QualifiedObjectName candidate : materializedViewCandidates) {
             Query optimizedQuery = getQueryWithMaterializedViewOptimization(metadata, session, sqlParser, accessControl, node, candidate);
             if (node != optimizedQuery) {
+                session.getRuntimeStats().addMetricValue(OPTIMIZED_WITH_MATERIALIZED_VIEW, 1);
                 return optimizedQuery;
             }
         }
