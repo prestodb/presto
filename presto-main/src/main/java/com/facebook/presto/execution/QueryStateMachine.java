@@ -472,7 +472,8 @@ public class QueryStateMachine
                 succinctBytes(getPeakTotalMemoryInBytes()),
                 succinctBytes(getPeakTaskUserMemory()),
                 succinctBytes(getPeakTaskTotalMemory()),
-                succinctBytes(getPeakNodeTotalMemory()));
+                succinctBytes(getPeakNodeTotalMemory()),
+                session.getRuntimeStats());
     }
 
     public VersionedMemoryPoolId getMemoryPool()
