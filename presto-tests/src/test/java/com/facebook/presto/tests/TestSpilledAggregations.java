@@ -65,7 +65,48 @@ public class TestSpilledAggregations
     public void testDistinctSpillingBasic()
     {
         // the sum() is necessary so that the aggregation isn't optimized into multiple aggregation nodes
-        assertQuery("SELECT custkey, sum(custkey), count(DISTINCT orderpriority) FILTER(WHERE orderkey > 5) FROM orders GROUP BY custkey ORDER BY 1");
+        assertQuery("SELECT custkey, sum(custkey), count(DISTINCT orderpriority) FROM orders GROUP BY custkey ORDER BY 1");
+    }
+
+    @Test
+    public void testDistinctSpillingBasicWithFilter()
+    {
+        // the sum() is necessary so that the aggregation isn't optimized into multiple aggregation nodes
+        assertQuery("SELECT custkey, sum(custkey), count(DISTINCT orderpriority) FILTER(WHERE orderkey > 10000) FROM orders GROUP BY custkey");
+    }
+
+    @Test
+    public void testDistinctSpillingWithoutActualSpill()
+    {
+        // This test uses Spillable Accumulator but does not trigger spill since data is too less to trigger spilling
+        assertQuery("SELECT custkey, orderdate, count(1), count(DISTINCT orderpriority) FROM orders where orderkey < 10000 and custkey = 1168 group by custkey, orderdate");
+    }
+
+    @Test
+    public void testDistinctSpillingWithNonContiguousMashChannel()
+    {
+        // This test uses a maskChannel whose position in the page is not contiguous with aggregateInputChannels
+        assertQuery("SELECT custkey, orderdate, count(1), count(DISTINCT orderpriority) FILTER(WHERE orderkey > 10000) FROM orders group by custkey, orderdate");
+    }
+
+    @Test
+    public void testDistinctSpillingWithFilterWithoutActualSpill()
+    {
+        // This test uses Spillable Accumulator with maskChannel but does not trigger spill since data is too less to trigger spilling
+        assertQuery("SELECT custkey, orderdate, count(1), count(DISTINCT orderpriority) FILTER(WHERE orderkey > 10000) FROM orders WHERE custkey = 1168 group by custkey, orderdate");
+
+        // With max aggregation function
+        assertQuery("SELECT custkey, orderdate, count(1), max(DISTINCT orderpriority) FILTER(WHERE orderkey > 10000) FROM orders WHERE custkey = 1168 group by custkey, orderdate");
+    }
+
+    @Test
+    public void testDistinctSpillingWithAllDataFilteredOut()
+    {
+        // This test uses Spillable Accumulator with maskChannel but does not trigger spill since data is too less to trigger spilling
+        assertQuery("SELECT custkey, orderdate, sum(orderkey), count(DISTINCT orderpriority) FILTER(WHERE false ) FROM orders GROUP BY custkey, orderdate");
+
+        // With max aggregation function
+        assertQuery("SELECT custkey, orderdate, sum(orderkey), max(DISTINCT orderpriority) FILTER(WHERE false) FROM orders GROUP BY custkey, orderdate");
     }
 
     @Test

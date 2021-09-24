@@ -147,6 +147,21 @@ public final class ColumnarRow
         return nullCheckBlock.getPositionCount();
     }
 
+    public int getNonNullPositionCount()
+    {
+        if (!nullCheckBlock.mayHaveNull()) {
+            return getPositionCount();
+        }
+
+        int count = 0;
+        for (int i = 0; i < getPositionCount(); i++) {
+            if (!isNull(i)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
     public boolean isNull(int position)
     {
         return nullCheckBlock.isNull(position);

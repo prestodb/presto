@@ -225,6 +225,25 @@ public class MultiChannelGroupByHash
     }
 
     @Override
+    public List<Page> getBufferedPages()
+    {
+        ImmutableList.Builder<Page> inputPages = ImmutableList.builder();
+        int numPages = channelBuilders.get(0).size();
+        for (int i = 0; i < numPages; i++) {
+            Block[] blocks = new Block[channels.length];
+            for (int channel = 0; channel < channels.length; channel++) {
+                blocks[channel] = ((BlockBuilder) channelBuilders.get(channel).get(i)).build();
+            }
+
+            Page page = new Page(blocks);
+            if (page.getPositionCount() > 0) {
+                inputPages.add(page);
+            }
+        }
+        return inputPages.build();
+    }
+
+    @Override
     public Work<GroupByIdBlock> getGroupIds(Page page)
     {
         currentPageSizeInBytes = page.getRetainedSizeInBytes();

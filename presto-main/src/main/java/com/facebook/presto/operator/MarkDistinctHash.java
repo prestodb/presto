@@ -60,6 +60,11 @@ public class MarkDistinctHash
         return groupByHash.getCapacity();
     }
 
+    public List<Page> getDistinctPages()
+    {
+        return groupByHash.getBufferedPages();
+    }
+
     private Block processNextGroupIds(GroupByIdBlock ids)
     {
         int positions = ids.getPositionCount();

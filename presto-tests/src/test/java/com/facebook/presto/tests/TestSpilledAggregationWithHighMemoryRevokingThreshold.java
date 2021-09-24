@@ -18,24 +18,17 @@ import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
-import org.testng.annotations.Test;
 
 import java.nio.file.Paths;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 
-public class TestDistributedSpilledQueries
-        extends AbstractTestQueries
+public class TestSpilledAggregationWithHighMemoryRevokingThreshold
+        extends TestSpilledAggregations
 {
     @Override
     protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        return localCreateQueryRunner();
-    }
-
-    public static QueryRunner localCreateQueryRunner()
             throws Exception
     {
         Session defaultSession = testSessionBuilder()
@@ -44,14 +37,16 @@ public class TestDistributedSpilledQueries
                 .setSystemProperty(SystemSessionProperties.TASK_CONCURRENCY, "2")
                 .setSystemProperty(SystemSessionProperties.AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT, "128kB")
                 .setSystemProperty(SystemSessionProperties.USE_MARK_DISTINCT, "false")
-                .setSystemProperty(SystemSessionProperties.DEDUP_BASED_DISTINCT_AGGREGATION_SPILL_ENABLED, "false")
+                .setSystemProperty(SystemSessionProperties.DEDUP_BASED_DISTINCT_AGGREGATION_SPILL_ENABLED, "true")
                 .build();
 
         ImmutableMap<String, String> extraProperties = ImmutableMap.<String, String>builder()
                 .put("experimental.spill-enabled", "true")
                 .put("experimental.spiller-spill-path", Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills").toString())
                 .put("experimental.spiller-max-used-space-threshold", "1.0")
-                .put("experimental.memory-revoking-threshold", "0.0") // revoke always
+                 // Use higher memory revoking threshold. This forces the logic to keep some data in memory and spill some to disk
+                 // and test code flows where data will be read from both the sources
+                .put("experimental.memory-revoking-threshold", "0.5")
                 .put("experimental.memory-revoking-target", "0.0")
                 .build();
 
@@ -66,13 +61,5 @@ public class TestDistributedSpilledQueries
             queryRunner.close();
             throw e;
         }
-    }
-
-    @Test(enabled = false)
-    @Override
-    public void testAssignUniqueId()
-    {
-        // TODO: disabled until https://github.com/prestodb/presto/issues/8926 is resolved
-        //       due to long running query test created many spill files on disk.
     }
 }
