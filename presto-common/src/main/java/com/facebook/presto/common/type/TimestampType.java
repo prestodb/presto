@@ -40,10 +40,10 @@ public final class TimestampType
         }
 
         if (properties.isLegacyTimestamp()) {
-            return new SqlTimestamp(block.getLong(position), properties.getTimeZoneKey());
+            return SqlTimestamp.ofMicrosLegacy(block.getLong(position), properties.getTimeZoneKey());
         }
         else {
-            return new SqlTimestamp(block.getLong(position));
+            return SqlTimestamp.ofMicros(block.getLong(position));
         }
     }
 
