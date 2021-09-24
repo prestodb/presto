@@ -85,6 +85,14 @@ class LocalExchangeSource {
   /// copied into the consumers memory pool.
   BlockingReason isFinished(ContinueFuture* future);
 
+  void close() {
+    queue_.withWLock([](auto& queue) {
+      while (!queue.empty()) {
+        queue.pop();
+      }
+    });
+  }
+
  private:
   LocalExchangeMemoryManager* memoryManager_;
   const int partition_;
@@ -155,6 +163,13 @@ class LocalPartition : public Operator {
   BlockingReason isBlocked(ContinueFuture* future) override;
 
   void finish() override;
+
+  void close() override {
+    Operator::close();
+    for (auto& source : localExchangeSources_) {
+      source->close();
+    }
+  }
 
  private:
   void calculateHashes();
