@@ -25,6 +25,7 @@ import com.facebook.presto.sql.tree.CallArgument;
 import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.CreateFunction;
+import com.facebook.presto.sql.tree.CreateFunctionSchema;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.CreateRole;
 import com.facebook.presto.sql.tree.CreateSchema;
@@ -37,6 +38,7 @@ import com.facebook.presto.sql.tree.DescribeInput;
 import com.facebook.presto.sql.tree.DescribeOutput;
 import com.facebook.presto.sql.tree.DropColumn;
 import com.facebook.presto.sql.tree.DropFunction;
+import com.facebook.presto.sql.tree.DropFunctionSchema;
 import com.facebook.presto.sql.tree.DropMaterializedView;
 import com.facebook.presto.sql.tree.DropRole;
 import com.facebook.presto.sql.tree.DropSchema;
@@ -597,6 +599,28 @@ public final class SqlFormatter
             builder.append(" AS ");
             process(node.getQuery(), indent);
 
+            return null;
+        }
+
+        @Override
+        protected Void visitCreateFunctionSchema(CreateFunctionSchema node, Integer indent)
+        {
+            builder.append("CREATE FUNCTION SCHEMA ");
+            if (node.isForce()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(formatName(node.getFunctionSchema()));
+            return null;
+        }
+
+        @Override
+        protected Void visitDropFunctionSchema(DropFunctionSchema node, Integer indent)
+        {
+            builder.append("DROP FUNCTION SCHEMA ");
+            if (node.isForce()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(formatName(node.getFunctionSchema()));
             return null;
         }
 

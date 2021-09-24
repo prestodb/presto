@@ -75,6 +75,10 @@ To create a new function namespace, insert into the
     INSERT INTO example_function_namespaces (catalog_name, schema_name)
     VALUES('example', 'test');
 
+or execute command in Presto::
+
+    CREATE FUNCTION SCHEMA IF EXISTS example.test;
+
 
 Configuration Reference
 -----------------------

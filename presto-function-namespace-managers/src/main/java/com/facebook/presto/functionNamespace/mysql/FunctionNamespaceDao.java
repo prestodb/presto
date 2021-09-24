@@ -271,6 +271,26 @@ public interface FunctionNamespaceDao
             @Bind("schema_name") String schemaName,
             @Bind("function_name") String functionName);
 
+    @SqlUpdate("INSERT INTO <function_namespaces_table> (\n" +
+            "        catalog_name,\n" +
+            "        schema_name\n" +
+            "    )\n" +
+            "VALUES\n" +
+            "    (\n" +
+            "        :catalog_name,\n" +
+            "        :schema_name\n" +
+            "    )")
+    void insertFunctionNamespace(
+            @Bind("catalog_name") String catalogName,
+            @Bind("schema_name") String schemaName);
+
+    @SqlUpdate("DELETE FROM <function_namespaces_table> \n" +
+            "WHERE catalog_name=:catalog_name\n" +
+            "AND schema_name=:schema_name")
+    void dropFunctionNamespace(
+            @Bind("catalog_name") String catalogName,
+            @Bind("schema_name") String schemaName);
+
     @SqlUpdate("INSERT INTO <sql_functions_table> (\n" +
             "        function_id_hash,\n" +
             "        function_id,\n" +

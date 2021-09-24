@@ -34,6 +34,7 @@ import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CreateFunction;
+import com.facebook.presto.sql.tree.CreateFunctionSchema;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.CreateRole;
 import com.facebook.presto.sql.tree.CreateSchema;
@@ -51,6 +52,7 @@ import com.facebook.presto.sql.tree.DescribeOutput;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.DropColumn;
 import com.facebook.presto.sql.tree.DropFunction;
+import com.facebook.presto.sql.tree.DropFunctionSchema;
 import com.facebook.presto.sql.tree.DropMaterializedView;
 import com.facebook.presto.sql.tree.DropRole;
 import com.facebook.presto.sql.tree.DropSchema;
@@ -1658,6 +1660,24 @@ public class TestSqlParser
                         " WITH (partitioned_by = ARRAY ['ds'], retention_days = 90)" +
                         " AS SELECT * FROM t",
                 new CreateMaterializedView(Optional.empty(), QualifiedName.of("mv"), query, true, properties1, Optional.of("A simple materialized view")));
+    }
+
+    @Test
+    public void testCreateFunctionSchema()
+    {
+        assertStatement("CREATE FUNCTION SCHEMA example.test",
+                new CreateFunctionSchema(QualifiedName.of("example", "test"), false));
+        assertStatement("CREATE FUNCTION SCHEMA IF EXISTS example.test",
+                new CreateFunctionSchema(QualifiedName.of("example", "test"), true));
+    }
+
+    @Test
+    public void testDropFunctionSchema()
+    {
+        assertStatement("DROP FUNCTION SCHEMA example.test",
+                new DropFunctionSchema(QualifiedName.of("example", "test"), false));
+        assertStatement("DROP FUNCTION SCHEMA IF EXISTS example.test",
+                new DropFunctionSchema(QualifiedName.of("example", "test"), true));
     }
 
     @Test

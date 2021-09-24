@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.function;
 
+import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.BlockEncodingSerde;
@@ -51,6 +52,18 @@ public interface FunctionNamespaceManager<F extends SqlFunction>
      * {@link #commit(FunctionNamespaceTransactionHandle)} is called.
      */
     void abort(FunctionNamespaceTransactionHandle transactionHandle);
+
+    /**
+     * Create the function namespace.
+     * TODO: Support transaction
+     */
+    default void createFunctionNamespace(CatalogSchemaName catalogSchemaName, boolean force) {};
+
+    /**
+     * Drop the function namespace.
+     * TODO: Support transaction
+     */
+    default void dropFunctionNamespace(CatalogSchemaName catalogSchemaName, boolean force) {};
 
     /**
      * Create or replace the specified function.

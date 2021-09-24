@@ -64,6 +64,7 @@ import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CreateFunction;
+import com.facebook.presto.sql.tree.CreateFunctionSchema;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
@@ -76,6 +77,7 @@ import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DropColumn;
 import com.facebook.presto.sql.tree.DropFunction;
+import com.facebook.presto.sql.tree.DropFunctionSchema;
 import com.facebook.presto.sql.tree.DropMaterializedView;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
@@ -770,6 +772,18 @@ class StatementAnalyzer
         private Query buildQueryWithPredicate(Query originalQuery, Expression predicate)
         {
             return simpleQuery(selectList(new AllColumns()), new TableSubquery(originalQuery), predicate);
+        }
+
+        @Override
+        protected Scope visitCreateFunctionSchema(CreateFunctionSchema node, Optional<Scope> scope)
+        {
+            return createAndAssignScope(node, scope);
+        }
+
+        @Override
+        protected Scope visitDropFunctionSchema(DropFunctionSchema node, Optional<Scope> scope)
+        {
+            return createAndAssignScope(node, scope);
         }
 
         @Override

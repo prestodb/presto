@@ -119,6 +119,32 @@ public class TestSqlFunctions
     }
 
     @Test
+    void testRemoteFunctionNamespace()
+    {
+        // check create function namespace
+        assertQuerySucceeds("CREATE FUNCTION SCHEMA example.test");
+        assertQuerySucceeds("CREATE FUNCTION SCHEMA IF EXISTS example.test");
+        assertQueryFails("CREATE FUNCTION SCHEMA example.test",
+                "Function schema already exists: example.test");
+
+        //check drop function namespace
+        assertQuerySucceeds("DROP FUNCTION SCHEMA example.test");
+        assertQuerySucceeds("DROP FUNCTION SCHEMA IF EXISTS example.test");
+        assertQueryFails("DROP FUNCTION SCHEMA example.test",
+                "Function schema not found: example.test");
+
+        // check unregisterd catalog
+        assertQueryFails("CREATE FUNCTION SCHEMA test.example",
+                "Catalog not found: test");
+        assertQueryFails("CREATE FUNCTION SCHEMA IF EXISTS test.example",
+                "Catalog not found: test");
+        assertQueryFails("DROP FUNCTION SCHEMA test.example",
+                "Catalog not found: test");
+        assertQueryFails("DROP FUNCTION SCHEMA IF EXISTS test.example",
+                "Catalog not found: test");
+    }
+
+    @Test
     public void testCreateFunctionInvalidFunctionName()
     {
         assertQueryFails(

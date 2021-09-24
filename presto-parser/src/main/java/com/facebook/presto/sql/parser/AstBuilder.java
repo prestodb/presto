@@ -36,6 +36,7 @@ import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CreateFunction;
+import com.facebook.presto.sql.tree.CreateFunctionSchema;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.CreateRole;
 import com.facebook.presto.sql.tree.CreateSchema;
@@ -55,6 +56,7 @@ import com.facebook.presto.sql.tree.DescribeOutput;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.DropColumn;
 import com.facebook.presto.sql.tree.DropFunction;
+import com.facebook.presto.sql.tree.DropFunctionSchema;
 import com.facebook.presto.sql.tree.DropMaterializedView;
 import com.facebook.presto.sql.tree.DropRole;
 import com.facebook.presto.sql.tree.DropSchema;
@@ -503,6 +505,30 @@ class AstBuilder
                 context.EXISTS() != null,
                 properties,
                 comment);
+    }
+
+    @Override
+    public Node visitCreateFunctionSchema(SqlBaseParser.CreateFunctionSchemaContext context)
+    {
+        QualifiedName qualifiedName = getQualifiedName(context.qualifiedName());
+        if (qualifiedName.getParts().size() != 2) {
+            throw new IllegalArgumentException("illegal function schema " + qualifiedName);
+        }
+        return new CreateFunctionSchema(getLocation(context),
+            qualifiedName,
+            context.EXISTS() != null);
+    }
+
+    @Override
+    public Node visitDropFunctionSchema(SqlBaseParser.DropFunctionSchemaContext context)
+    {
+        QualifiedName qualifiedName = getQualifiedName(context.qualifiedName());
+        if (qualifiedName.getParts().size() != 2) {
+            throw new IllegalArgumentException("illegal function schema " + qualifiedName);
+        }
+        return new DropFunctionSchema(getLocation(context),
+            qualifiedName,
+            context.EXISTS() != null);
     }
 
     @Override

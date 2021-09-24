@@ -85,6 +85,7 @@ import static com.facebook.presto.metadata.SessionFunctionHandle.SESSION_NAMESPA
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.EXPERIMENTAL;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
@@ -291,6 +292,26 @@ public class FunctionAndTypeManager
         Optional<FunctionNamespaceTransactionHandle> transactionHandle = session.getTransactionId().map(
                 id -> transactionManager.getFunctionNamespaceTransaction(id, functionName.getCatalogName()));
         return functionNamespaceManager.get().getFunctions(transactionHandle, functionName);
+    }
+
+    public void createFunctionNamespace(CatalogSchemaName catalogSchemaName, boolean force)
+    {
+        Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(catalogSchemaName);
+        if (!functionNamespaceManager.isPresent()) {
+            throw new PrestoException(NOT_FOUND, format("Catalog not found: %s", catalogSchemaName.getCatalogName()));
+        }
+        functionNamespaceManager.get()
+            .createFunctionNamespace(catalogSchemaName, force);
+    }
+
+    public void dropFunctionNamespace(CatalogSchemaName catalogSchemaName, boolean force)
+    {
+        Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(catalogSchemaName);
+        if (!functionNamespaceManager.isPresent()) {
+            throw new PrestoException(NOT_FOUND, format("Catalog not found: %s", catalogSchemaName.getCatalogName()));
+        }
+        functionNamespaceManager.get()
+            .dropFunctionNamespace(catalogSchemaName, force);
     }
 
     public void createFunction(SqlInvokedFunction function, boolean replace)

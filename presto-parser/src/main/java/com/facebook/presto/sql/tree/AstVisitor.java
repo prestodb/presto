@@ -617,6 +617,16 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    protected R visitCreateFunctionSchema(CreateFunctionSchema node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitDropFunctionSchema(DropFunctionSchema node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitCreateFunction(CreateFunction node, C context)
     {
         return visitStatement(node, context);

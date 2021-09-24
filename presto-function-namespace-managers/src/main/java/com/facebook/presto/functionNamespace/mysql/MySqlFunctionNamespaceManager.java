@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.functionNamespace.mysql;
 
+import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.UserDefinedType;
@@ -154,6 +155,40 @@ public class MySqlFunctionNamespaceManager
             throw new InvalidFunctionHandleException(functionHandle);
         }
         return sqlInvokedFunctionToImplementation(function.get());
+    }
+
+    @Override
+    public void createFunctionNamespace(CatalogSchemaName catalogSchemaName, boolean force)
+    {
+        checkCatalog(catalogSchemaName);
+        checkFieldLength("Catalog name", catalogSchemaName.getCatalogName(), MAX_CATALOG_NAME_LENGTH);
+        checkFieldLength("Schema name", catalogSchemaName.getSchemaName(), MAX_SCHEMA_NAME_LENGTH);
+        if (functionNamespaceDao.functionNamespaceExists(catalogSchemaName.getCatalogName(), catalogSchemaName.getSchemaName())) {
+            if (!force) {
+                throw new PrestoException(ALREADY_EXISTS, format("Function schema already exists: %s.%s",
+                    catalogSchemaName.getCatalogName(), catalogSchemaName.getSchemaName()));
+            }
+        }
+        else {
+            functionNamespaceDao.insertFunctionNamespace(catalogSchemaName.getCatalogName(),
+                    catalogSchemaName.getSchemaName());
+        }
+    }
+
+    @Override
+    public void dropFunctionNamespace(CatalogSchemaName catalogSchemaName, boolean force)
+    {
+        checkCatalog(catalogSchemaName);
+        if (functionNamespaceDao.functionNamespaceExists(catalogSchemaName.getCatalogName(), catalogSchemaName.getSchemaName())) {
+            checkFieldLength("Catalog name", catalogSchemaName.getCatalogName(), MAX_CATALOG_NAME_LENGTH);
+            checkFieldLength("Schema name", catalogSchemaName.getSchemaName(), MAX_SCHEMA_NAME_LENGTH);
+            functionNamespaceDao.dropFunctionNamespace(catalogSchemaName.getCatalogName(),
+                    catalogSchemaName.getSchemaName());
+        }
+        else if (!force) {
+            throw new PrestoException(NOT_FOUND, format("Function schema not found: %s.%s",
+                catalogSchemaName.getCatalogName(), catalogSchemaName.getSchemaName()));
+        }
     }
 
     @Override
