@@ -37,7 +37,7 @@ std::unique_ptr<SeekableInputStream> CachedBufferedInput::enqueue(
       RawFileCacheKey{fileNum_, region.offset}, region.length, id, CachePin()});
   tracker_->recordReference(id, region.length, groupId_);
   return std::make_unique<CacheInputStream>(
-      cache_, region, input_, fileNum_, tracker_, id, groupId_);
+      cache_, ioStats_.get(), region, input_, fileNum_, tracker_, id, groupId_);
 }
 
 bool CachedBufferedInput::isBuffered(uint64_t /*offset*/, uint64_t /*length*/)
@@ -78,7 +78,8 @@ void CachedBufferedInput::load(const dwio::common::LogType) {
   int32_t numNewLoads = 0;
   auto requests = std::move(requests_);
   for (auto& request : requests) {
-    if (tracker_->shouldPrefetch(request.trackingId, 3)) {
+    if (request.trackingId.empty() ||
+        tracker_->shouldPrefetch(request.trackingId, prefetchThreshold_)) {
       request.pin = cache_->findOrCreate(request.key, request.size, nullptr);
       if (request.pin.empty()) {
         // Already loading for another thread.
@@ -154,8 +155,11 @@ bool CachedBufferedInput::tryMerge(
 
     if (extension > 0) {
       first.length += extension;
-      if ((input_.getStats() != nullptr) && gap > 0) {
-        input_.getStats()->incRawOverreadBytes(gap);
+      if (gap > 0) {
+        ioStats_->incRawOverreadBytes(gap);
+        if (input_.getStats() != nullptr) {
+          input_.getStats()->incRawOverreadBytes(gap);
+        }
       }
     }
 
@@ -170,19 +174,25 @@ class DwrfFusedLoad : public cache::FusedLoad {
  public:
   void initialize(
       std::vector<CachePin>&& pins,
-      std::unique_ptr<AbstractInputStreamHolder> input) {
+      std::unique_ptr<AbstractInputStreamHolder> input,
+      std::shared_ptr<dwio::common::IoStatistics> ioStats) {
     input_ = std::move(input);
+    ioStats_ = std::move(ioStats);
+    // Initialize the base class last because as soon as the pins are
+    // placed and set to shared mode other threads can load 'this'.
     cache::FusedLoad::initialize(std::move(pins));
   }
 
-  void loadData() override {
+  void loadData(bool isPrefetch) override {
     auto& stream = input_->get();
     std::vector<folly::Range<char*>> buffers;
     uint64_t start = pins_[0].entry()->offset();
     uint64_t lastOffset = start;
+    uint64_t totalRead = 0;
     for (auto& pin : pins_) {
       auto& buffer = pin.entry()->data();
       uint64_t startOffset = pin.entry()->offset();
+      totalRead += pin.entry()->size();
       if (lastOffset < startOffset) {
         buffers.push_back(
             folly::Range<char*>(nullptr, startOffset - lastOffset));
@@ -205,18 +215,23 @@ class DwrfFusedLoad : public cache::FusedLoad {
       DWIO_ENSURE(offsetInRuns == size);
       lastOffset = startOffset + size;
     }
-
+    if (isPrefetch) {
+      ioStats_->prefetch().increment(totalRead);
+    } else {
+      ioStats_->read().increment(totalRead);
+    }
     stream.read(buffers, start, dwio::common::LogType::FILE);
   }
 
  private:
   std::unique_ptr<AbstractInputStreamHolder> input_;
+  std::shared_ptr<dwio::common::IoStatistics> ioStats_;
 };
 } // namespace
 
 void CachedBufferedInput::readRegion(std::vector<CachePin> pins) {
   auto load = std::make_shared<DwrfFusedLoad>();
-  load->initialize(std::move(pins), streamSource_());
+  load->initialize(std::move(pins), streamSource_(), ioStats_);
   fusedLoads_.push_back(load);
 }
 
@@ -226,6 +241,7 @@ std::unique_ptr<SeekableInputStream> CachedBufferedInput::read(
     dwio::common::LogType /*logType*/) const {
   return std::make_unique<CacheInputStream>(
       cache_,
+      ioStats_.get(),
       dwio::common::Region{offset, length},
       input_,
       fileNum_,

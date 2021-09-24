@@ -58,7 +58,8 @@ class TestInputStream : public common::InputStream {
   void checkData(const void* bytes, uint64_t offset, int32_t size) {
     for (auto i = 0; i < size; ++i) {
       char expected = seed_ + offset + i;
-      ASSERT_EQ(expected, reinterpret_cast<const char*>(bytes)[i]);
+      ASSERT_EQ(expected, reinterpret_cast<const char*>(bytes)[i])
+          << " at " << offset + i;
     }
   }
 
@@ -94,6 +95,7 @@ class CacheTest : public testing::Test {
   void SetUp() override {
     executor_ = std::make_unique<folly::IOThreadPoolExecutor>(10, 10);
     rng_.seed(1);
+    ioStats_ = std::make_shared<common::IoStatistics>();
   }
 
   void TearDown() override {
@@ -101,8 +103,8 @@ class CacheTest : public testing::Test {
   }
 
   void initializeCache(int64_t maxBytes) {
-    cache_ =
-        std::make_unique<AsyncDataCache>(MappedMemory::getInstance(), maxBytes);
+    cache_ = std::make_unique<AsyncDataCache>(
+        MappedMemory::createDefaultInstance(), maxBytes);
     for (auto i = 0; i < kMaxStreams; ++i) {
       streamIds_.push_back(std::make_unique<dwrf::StreamIdentifier>(
           i, i, 0, dwrf::StreamKind_DATA));
@@ -129,6 +131,7 @@ class CacheTest : public testing::Test {
 
   std::shared_ptr<common::InputStream>
   inputByPath(const std::string& path, uint64_t& fileId, uint64_t& groupId) {
+    std::lock_guard<std::mutex> l(mutex_);
     StringIdLease lease(fileIds(), path);
     fileId = lease.id();
     // 2 files in a group.
@@ -162,6 +165,7 @@ class CacheTest : public testing::Test {
         [inputStream]() {
           return std::make_unique<TestInputStreamHolder>(inputStream);
         },
+        ioStats_,
         executor_.get());
     data->file = dynamic_cast<TestInputStream*>(inputStream.get());
     for (auto i = 0; i < streamStarts_.size() - 1; ++i) {
@@ -282,11 +286,14 @@ class CacheTest : public testing::Test {
     }
   }
 
+  // Serializes 'pathToInput_' and 'fileIds_' in multithread test.
+  std::mutex mutex_;
   std::vector<StringIdLease> fileIds_;
   folly::F14FastMap<uint64_t, std::shared_ptr<common::InputStream>>
       pathToInput_;
   common::DataCacheConfig config_;
   std::unique_ptr<AsyncDataCache> cache_;
+  std::shared_ptr<common::IoStatistics> ioStats_;
   std::unique_ptr<folly::IOThreadPoolExecutor> executor_;
   std::unique_ptr<memory::MemoryPool> pool_{
       memory::getDefaultScopedMemoryPool()};

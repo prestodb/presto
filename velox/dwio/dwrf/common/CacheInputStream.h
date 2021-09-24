@@ -42,6 +42,7 @@ class CacheInputStream : public SeekableInputStream {
   static constexpr int32_t kDefaultLoadQuantum = 8 << 20; // 8MB
   CacheInputStream(
       cache::AsyncDataCache* cache,
+      dwio::common::IoStatistics* ioStats,
       const dwio::common::Region& region,
       dwio::common::InputStream& input,
       uint64_t fileNum,
@@ -62,6 +63,7 @@ class CacheInputStream : public SeekableInputStream {
   void loadPosition();
   void loadSync(dwio::common::Region region);
   cache::AsyncDataCache* const cache_;
+  dwio::common::IoStatistics* ioStats_;
   dwio::common::InputStream& input_;
   // The region of 'input' 'this' ranges over.
   const dwio::common::Region region_;

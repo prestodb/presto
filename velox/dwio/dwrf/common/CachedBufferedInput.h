@@ -21,7 +21,7 @@
 #include "velox/dwio/common/InputStream.h"
 #include "velox/dwio/dwrf/common/BufferedInput.h"
 
-#include <folly/executors/IOThreadPoolExecutor.h>
+#include <folly/Executor.h>
 
 namespace facebook::velox::dwrf {
 
@@ -52,13 +52,15 @@ class CachedBufferedInput : public BufferedInput {
       std::shared_ptr<cache::ScanTracker> tracker,
       uint64_t groupId,
       StreamSource streamSource,
-      folly::IOThreadPoolExecutor* executor)
+      std::shared_ptr<dwio::common::IoStatistics> ioStats,
+      folly::Executor* executor)
       : BufferedInput(input, pool, dataCacheConfig),
         cache_(cache),
         fileNum_(dataCacheConfig->filenum),
         tracker_(std::move(tracker)),
         groupId_(groupId),
         streamSource_(streamSource),
+        ioStats_(std::move(ioStats)),
         executor_(executor) {}
 
   ~CachedBufferedInput() override {
@@ -114,9 +116,15 @@ class CachedBufferedInput : public BufferedInput {
   std::shared_ptr<cache::ScanTracker> tracker_;
   const uint64_t groupId_;
   StreamSource streamSource_;
-  folly::IOThreadPoolExecutor* const executor_;
+  std::shared_ptr<dwio::common::IoStatistics> ioStats_;
+  folly::Executor* const executor_;
 
-  // Pins that are candidates for loading.
+  //  Percentage of reads over enqueues that qualifies a stream to be
+  //  coalesced with nearby streams and prefetched. Anything read less
+  //  frequently will be synchronously read on first use.
+  int32_t prefetchThreshold_ = 60;
+
+  // Regions that are candidates for loading.
   std::vector<CacheRequest> requests_;
   // Coalesced loads spanning multiple cache entries in one IO.
   std::vector<std::shared_ptr<cache::FusedLoad>> fusedLoads_;
@@ -129,11 +137,13 @@ class CachedBufferedInputFactory : public BufferedInputFactory {
       std::shared_ptr<cache::ScanTracker> tracker,
       uint64_t groupId,
       StreamSource streamSource,
-      folly::IOThreadPoolExecutor* executor)
+      std::shared_ptr<dwio::common::IoStatistics> ioStats,
+      folly::Executor* executor)
       : cache_(cache),
         tracker_(std::move(tracker)),
         groupId_(groupId),
         streamSource_(streamSource),
+        ioStats_(ioStats),
         executor_(executor) {}
 
   std::unique_ptr<BufferedInput> create(
@@ -148,6 +158,7 @@ class CachedBufferedInputFactory : public BufferedInputFactory {
         tracker_,
         groupId_,
         streamSource_,
+        ioStats_,
         executor_);
   }
 
@@ -163,6 +174,7 @@ class CachedBufferedInputFactory : public BufferedInputFactory {
   std::shared_ptr<cache::ScanTracker> tracker_;
   const uint64_t groupId_;
   StreamSource streamSource_;
-  folly::IOThreadPoolExecutor* executor_;
+  std::shared_ptr<dwio::common::IoStatistics> ioStats_;
+  folly::Executor* executor_;
 };
 } // namespace facebook::velox::dwrf

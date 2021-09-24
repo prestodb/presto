@@ -25,6 +25,7 @@ using velox::memory::MappedMemory;
 
 CacheInputStream::CacheInputStream(
     cache::AsyncDataCache* cache,
+    dwio::common::IoStatistics* ioStats,
     const dwio::common::Region& region,
     dwio::common::InputStream& input,
     uint64_t fileNum,
@@ -32,6 +33,7 @@ CacheInputStream::CacheInputStream(
     TrackingId trackingId,
     uint64_t groupId)
     : cache_(cache),
+      ioStats_(ioStats),
       input_(input),
       region_(region),
       fileNum_(fileNum),
@@ -137,10 +139,17 @@ void CacheInputStream::loadSync(dwio::common::Region region) {
     if (pin_.entry()->isExclusive()) {
       auto ranges = makeRanges(pin_.entry(), region.length);
       input_.read(ranges, region.offset, dwio::common::LogType::FILE);
+      ioStats_->read().increment(region.length);
       pin_.entry()->setValid(true);
       pin_.entry()->setExclusiveToShared();
     } else {
-      pin_.entry()->ensureLoaded(true);
+      if (pin_.entry()->dataValid()) {
+        if (!pin_.entry()->getAndClearFirstUseFlag()) {
+          ioStats_->ramHit().increment(pin_.entry()->size());
+        }
+      } else {
+        pin_.entry()->ensureLoaded(true);
+      }
     }
   } while (pin_.empty());
 }
@@ -149,9 +158,12 @@ void CacheInputStream::loadPosition() {
   auto offset = region_.offset;
   if (pin_.empty()) {
     auto loadRegion = region_;
+    // Quantize position to previous multiple of 'loadQuantum_'.
     loadRegion.offset += (position_ / loadQuantum_) * loadQuantum_;
-    loadRegion.length =
-        std::min<int32_t>(loadQuantum_, region_.length - position_);
+    // Set length to be the lesser of 'loadQuantum_' and distance to end of
+    // 'region_'
+    loadRegion.length = std::min<int32_t>(
+        loadQuantum_, region_.length - (loadRegion.offset - region_.offset));
     loadSync(loadRegion);
   }
   auto* entry = pin_.entry();

@@ -153,7 +153,6 @@ class AsyncDataCacheEntry {
   void setLoading(std::shared_ptr<FusedLoad> load) {
     VELOX_CHECK(isExclusive());
     load_ = std::move(load);
-    setExclusiveToShared();
   }
 
   // Call this after loading the data and before releasing the pin.
@@ -199,6 +198,15 @@ class AsyncDataCacheEntry {
 
   bool isPrefetch() const {
     return isPrefetch_;
+  }
+
+  // Distinguishes between a reuse of a cached entry from first
+  // retrieval of a prefetched entry. If this is false, we have an
+  // actual reuse of cached data.
+  bool getAndClearFirstUseFlag() {
+    bool value = isFirstUse_;
+    isFirstUse_ = false;
+    return value;
   }
 
   // True if 'data_' is fully loaded from the backing storage.
@@ -249,6 +257,11 @@ class AsyncDataCacheEntry {
   // hit. Allows catching a situation where prefetched entries get
   // evicted before they are hit.
   bool isPrefetch_{false};
+
+  // Set after first use of a prefetched entry. Cleared by
+  // getAndClearFirstUseFlag(). Does not require synchronization since used for
+  // statistics only.
+  bool isFirstUse_{false};
 
   // Represents a pending coalesced IO that is either loading this or
   // scheduled to load this. Setting/clearing requires the shard
@@ -347,6 +360,17 @@ class FusedLoad : public std::enable_shared_from_this<FusedLoad> {
     for (auto& pin : pins_) {
       pin.entry()->setLoading(shared_from_this());
     }
+    // All pins to be loaded together must be set in place before we
+    // make any available for other threads to load. Else a partial
+    // load could result. Do this inside the mutex so that when a load
+    // begins we do not have a mix of shared and exclusive pins. Note
+    // that a second reader will be continued right after the pin goes
+    // shared. The just continued thread will still have to get
+    // 'mutex_' before it can start a load.
+    std::lock_guard<std::mutex> l(mutex_);
+    for (auto& pin : pins_) {
+      pin.entry()->setExclusiveToShared();
+    }
   }
 
   virtual ~FusedLoad();
@@ -366,6 +390,10 @@ class FusedLoad : public std::enable_shared_from_this<FusedLoad> {
   LoadState state() const {
     return state_;
   }
+  // Used for testing and server status.
+  static int32_t numFusedLoads() {
+    return numFusedLoads_;
+  }
 
  protected:
   // Performs the data transfer part of the load. Subclasses will
@@ -374,7 +402,7 @@ class FusedLoad : public std::enable_shared_from_this<FusedLoad> {
   // is that a normal return will have filled all the pins with valid
   // data. A throw means that the data in the pins is undefined.  The
   // caller will release the pins in due time.
-  virtual void loadData() = 0;
+  virtual void loadData(bool isPrefetch) = 0;
 
   // Sets a final state and resumes waiting threads.
   void setEndState(LoadState endState);
@@ -395,6 +423,7 @@ class FusedLoad : public std::enable_shared_from_this<FusedLoad> {
   // entries in shared mode. The entries will block other readers until 'this'
   // lets go of the entries because 'load_' of the entry is set.
   std::vector<CachePin> pins_;
+  static std::atomic<int32_t> numFusedLoads_;
 };
 
 // Struct for CacheShard stats. Stats from all shards are added into
@@ -446,7 +475,7 @@ class ClockTimer {
   explicit ClockTimer(uint64_t& total)
       : total_(&total), start_(folly::hardware_timestamp()) {}
   ~ClockTimer() {
-    *total_ += start_ - folly::hardware_timestamp();
+    *total_ += folly::hardware_timestamp() - start_;
   }
 
  private:
@@ -538,7 +567,9 @@ class CacheShard {
 class AsyncDataCache : public memory::MappedMemory,
                        public std::enable_shared_from_this<AsyncDataCache> {
  public:
-  AsyncDataCache(memory::MappedMemory* mappedMemory, uint64_t maxBytes);
+  AsyncDataCache(
+      std::unique_ptr<memory::MappedMemory> mappedMemory,
+      uint64_t maxBytes);
 
   // Finds or creates a cache entry corresponding to 'key'. The entry
   // is returned in 'pin'. If the entry is new, it is pinned in
@@ -604,7 +635,9 @@ class AsyncDataCache : public memory::MappedMemory,
  private:
   static constexpr int32_t kNumShards = 4; // Must be power of 2.
   static constexpr int32_t kShardMask = kNumShards - 1;
-  memory::MappedMemory* const mappedMemory_;
+  // Keeps the id to file map alive as long as 'this' is live.
+  std::shared_ptr<StringIdMap> fileIds_;
+  std::unique_ptr<memory::MappedMemory> mappedMemory_;
   std::vector<std::unique_ptr<CacheShard>> shards_;
   int32_t shardCounter_{};
   std::atomic<memory::MachinePageCount> cachedPages_{0};

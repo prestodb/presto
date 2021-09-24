@@ -30,8 +30,8 @@ class AsyncDataCacheTest : public testing::Test {
  protected:
   static constexpr int32_t kNumFiles = 100;
   void initializeCache(int64_t maxBytes) {
-    cache_ =
-        std::make_shared<AsyncDataCache>(MappedMemory::getInstance(), maxBytes);
+    cache_ = std::make_shared<AsyncDataCache>(
+        MappedMemory::createDefaultInstance(), maxBytes);
     for (auto i = 0; i < kNumFiles; ++i) {
       auto name = fmt::format("testing_file_{}", i);
       filenames_.push_back(StringIdLease(fileIds(), name));
@@ -107,7 +107,7 @@ class AsyncDataCacheTest : public testing::Test {
 
 class TestingFusedLoad : public FusedLoad {
  public:
-  void loadData() override {
+  void loadData(bool /*isPrefetch*/) override {
     for (auto& pin : pins_) {
       auto& buffer = pin.entry()->data();
       AsyncDataCacheTest::initializeContents(
@@ -197,6 +197,8 @@ TEST_F(AsyncDataCacheTest, pin) {
   pin = cache_->findOrCreate(key, kSize, &wait);
   EXPECT_FALSE(pin.entry()->dataValid());
   EXPECT_TRUE(pin.entry()->isShared());
+  EXPECT_TRUE(pin.entry()->getAndClearFirstUseFlag());
+  EXPECT_FALSE(pin.entry()->getAndClearFirstUseFlag());
   pin.entry()->ensureLoaded(true);
   checkContents(pin.entry()->data());
   otherPin = pin;

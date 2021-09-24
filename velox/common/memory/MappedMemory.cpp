@@ -263,9 +263,15 @@ MappedMemory* MappedMemory::getInstance() {
   if (instance_) {
     return instance_.get();
   }
-  instance_ = std::make_unique<MappedMemoryImpl>();
+  instance_ = createDefaultInstance();
   return instance_.get();
 }
+
+// static
+std::unique_ptr<MappedMemory> MappedMemory::createDefaultInstance() {
+  return std::make_unique<MappedMemoryImpl>();
+}
+
 std::shared_ptr<MappedMemory> MappedMemory::addChild(
     std::shared_ptr<MemoryUsageTracker> tracker) {
   return std::make_shared<ScopedMappedMemory>(this, tracker);

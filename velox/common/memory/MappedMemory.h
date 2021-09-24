@@ -159,6 +159,10 @@ class MappedMemory {
   virtual ~MappedMemory() {}
   static MappedMemory* getInstance();
 
+  // Creates a default MappedMemory instance but does not set this to process
+  // default.
+  static std::unique_ptr<MappedMemory> createDefaultInstance();
+
   /// Allocates one or more runs that add up to at least 'numPages',
   /// with the smallest run being at least 'minSizeClass'
   /// pages. 'minSizeClass' must be <= the size of the largest size

@@ -67,8 +67,14 @@ void AsyncDataCacheEntry::addReference() {
 }
 
 void AsyncDataCacheEntry::ensureLoaded(bool wait) {
-  auto load = load_;
   VELOX_CHECK(isShared());
+  if (dataValid_) {
+    return;
+  }
+  // Copy the shared_ptr to 'load_' so that another loader will not clear
+  // it if it gets in first. Competing loaders get serialized on the
+  // mutex of 'load'.
+  auto load = load_;
   if (load) {
     if (wait) {
       folly::SemiFuture<bool> waitFuture(false);
@@ -127,6 +133,7 @@ CachePin CacheShard::findOrCreate(
       found->touch();
       // The entry is in a readable state. Add a pin.
       if (found->isPrefetch_) {
+        found->isFirstUse_ = true;
         found->setPrefetch(false);
       } else {
         ++numHit_;
@@ -196,8 +203,12 @@ CachePin CacheShard::initEntry(
   return pin;
 }
 
+//  static
+std::atomic<int32_t> FusedLoad::numFusedLoads_{0};
+
 FusedLoad::~FusedLoad() {
   cancel();
+  --numFusedLoads_;
 }
 
 bool FusedLoad::loadOrFuture(folly::SemiFuture<bool>* wait) {
@@ -221,7 +232,8 @@ bool FusedLoad::loadOrFuture(folly::SemiFuture<bool>* wait) {
   }
   // Outside of 'mutex_'.
   try {
-    loadData();
+    // If wait is not set this counts as prefetch.
+    loadData(!wait);
     for (auto& pin : pins_) {
       pin.entry()->setValid();
     }
@@ -405,8 +417,13 @@ void CacheShard::updateStats(CacheStats& stats) {
   stats.allocClocks += allocClocks_;
 }
 
-AsyncDataCache::AsyncDataCache(MappedMemory* mappedMemory, uint64_t maxBytes)
-    : mappedMemory_(mappedMemory), cachedPages_(0), maxBytes_(maxBytes) {
+AsyncDataCache::AsyncDataCache(
+    std::unique_ptr<MappedMemory> mappedMemory,
+    uint64_t maxBytes)
+    : fileIds_(fileIdsShared()),
+      mappedMemory_(std::move(mappedMemory)),
+      cachedPages_(0),
+      maxBytes_(maxBytes) {
   for (auto i = 0; i < kNumShards; ++i) {
     shards_.push_back(std::make_unique<CacheShard>(this));
   }
