@@ -16,7 +16,7 @@ import java.util.logging.Logger;
  */
 public class BalancedClickhouseDriver implements Driver {
     private final String url;
-    private BalancedClickhouseDataSource dataSource;
+    private final BalancedClickhouseDataSource dataSource;
 
     public BalancedClickhouseDriver(final String url, Properties properties) {
         this.url = url;
@@ -26,19 +26,19 @@ public class BalancedClickhouseDriver implements Driver {
     @Override
     public Connection connect(String url, Properties info) throws SQLException {
         if (!acceptsURL(url)) {
-            throw new SQLException("TODO");
+            throw new SQLException("url not accept.");
         }
 
         return dataSource.getConnection();
     }
 
     @Override
-    public boolean acceptsURL(String url) throws SQLException {
+    public boolean acceptsURL(String url) {
         return this.url.equals(url);
     }
 
     @Override
-    public DriverPropertyInfo[] getPropertyInfo(String url, Properties info) throws SQLException {
+    public DriverPropertyInfo[] getPropertyInfo(String url, Properties info) {
         return new DriverPropertyInfo[0];
     }
 
