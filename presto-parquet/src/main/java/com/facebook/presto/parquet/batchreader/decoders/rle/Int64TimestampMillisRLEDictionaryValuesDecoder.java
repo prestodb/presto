@@ -13,23 +13,24 @@
  */
 package com.facebook.presto.parquet.batchreader.decoders.rle;
 
-import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.Int64TimestampMicrosValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.Int64TimestampMillisValuesDecoder;
 import com.facebook.presto.parquet.dictionary.LongDictionary;
 import org.apache.parquet.io.ParquetDecodingException;
 
 import java.io.IOException;
 import java.io.InputStream;
 
+import static com.facebook.presto.common.type.TimestampMicrosUtils.millisToMicros;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
-public class Int64TimestampMicrosRLEDictionaryValuesDecoder
+public class Int64TimestampMillisRLEDictionaryValuesDecoder
         extends BaseRLEBitPackedDecoder
-        implements Int64TimestampMicrosValuesDecoder
+        implements Int64TimestampMillisValuesDecoder
 {
     private final LongDictionary dictionary;
 
-    public Int64TimestampMicrosRLEDictionaryValuesDecoder(int bitWidth, InputStream inputStream, LongDictionary dictionary)
+    public Int64TimestampMillisRLEDictionaryValuesDecoder(int bitWidth, InputStream inputStream, LongDictionary dictionary)
     {
         super(Integer.MAX_VALUE, bitWidth, inputStream);
         this.dictionary = dictionary;
@@ -53,7 +54,8 @@ public class Int64TimestampMicrosRLEDictionaryValuesDecoder
             switch (mode) {
                 case RLE: {
                     final int rleValue = currentValue;
-                    final long rleDictionaryValue = dictionary.decodeToLong(rleValue);
+                    // final long rleDictionaryValue = MICROSECONDS.toMillis(dictionary.decodeToLong(rleValue));
+                    final long rleDictionaryValue = millisToMicros(dictionary.decodeToLong(rleValue));
                     while (destinationIndex < endIndex) {
                         values[destinationIndex++] = rleDictionaryValue;
                     }
@@ -64,7 +66,8 @@ public class Int64TimestampMicrosRLEDictionaryValuesDecoder
                     final LongDictionary localDictionary = dictionary;
                     for (int srcIndex = currentBuffer.length - currentCount; destinationIndex < endIndex; srcIndex++) {
                         long dictionaryValue = localDictionary.decodeToLong(localBuffer[srcIndex]);
-                        values[destinationIndex++] = dictionaryValue;
+                        // values[destinationIndex++] = MICROSECONDS.toMillis(dictionaryValue);
+                        values[destinationIndex++] = millisToMicros(dictionaryValue);
                     }
                     break;
                 }

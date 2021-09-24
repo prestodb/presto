@@ -22,17 +22,20 @@ import com.facebook.presto.parquet.batchreader.decoders.delta.BinaryDeltaValuesD
 import com.facebook.presto.parquet.batchreader.decoders.delta.Int32DeltaBinaryPackedValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.delta.Int64DeltaBinaryPackedValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.delta.Int64TimestampMicrosDeltaBinaryPackedValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.delta.Int64TimestampMillisDeltaBinaryPackedValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.BinaryPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.BooleanPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.Int32PlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.Int64PlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.Int64TimestampMicrosPlainValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.plain.Int64TimestampMillisPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.TimestampPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.BinaryRLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.BooleanRLEValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.Int32RLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.Int64RLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.Int64TimestampMicrosRLEDictionaryValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.rle.Int64TimestampMillisRLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.TimestampRLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.dictionary.BinaryBatchDictionary;
 import com.facebook.presto.parquet.batchreader.dictionary.TimestampDictionary;
@@ -61,6 +64,7 @@ import static com.facebook.presto.parquet.ParquetErrorCode.PARQUET_IO_READ_ERROR
 import static com.facebook.presto.parquet.ParquetErrorCode.PARQUET_UNSUPPORTED_COLUMN_TYPE;
 import static com.facebook.presto.parquet.ParquetErrorCode.PARQUET_UNSUPPORTED_ENCODING;
 import static com.facebook.presto.parquet.ParquetTypeUtils.isTimeStampMicrosType;
+import static com.facebook.presto.parquet.ParquetTypeUtils.isTimestampMillisType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static org.apache.parquet.bytes.BytesUtils.getWidthFromMaxInt;
@@ -103,6 +107,9 @@ public class Decoders
                     if (isTimeStampMicrosType(columnDescriptor)) {
                         return new Int64TimestampMicrosPlainValuesDecoder(buffer, offset, length);
                     }
+                    else if (isTimestampMillisType(columnDescriptor)) {
+                        return new Int64TimestampMillisPlainValuesDecoder(buffer, offset, length);
+                    }
                 }
                 case DOUBLE:
                     return new Int64PlainValuesDecoder(buffer, offset, length);
@@ -134,6 +141,9 @@ public class Decoders
                     if (isTimeStampMicrosType(columnDescriptor)) {
                         return new Int64TimestampMicrosRLEDictionaryValuesDecoder(bitWidth, inputStream, (LongDictionary) dictionary);
                     }
+                    else if (isTimestampMillisType(columnDescriptor)) {
+                        return new Int64TimestampMillisRLEDictionaryValuesDecoder(bitWidth, inputStream, (LongDictionary) dictionary);
+                    }
                 }
                 case DOUBLE: {
                     return new Int64RLEDictionaryValuesDecoder(bitWidth, inputStream, (LongDictionary) dictionary);
@@ -160,6 +170,9 @@ public class Decoders
                 case INT64: {
                     if (isTimeStampMicrosType(columnDescriptor)) {
                         return new Int64TimestampMicrosDeltaBinaryPackedValuesDecoder(valueCount, inputStream);
+                    }
+                    else if (isTimestampMillisType(columnDescriptor)) {
+                        return new Int64TimestampMillisDeltaBinaryPackedValuesDecoder(valueCount, inputStream);
                     }
                 }
                 case DOUBLE: {

@@ -33,6 +33,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 
+import static com.facebook.presto.common.type.TimestampMicrosUtils.millisToMicros;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -140,7 +141,7 @@ public class TestParquetUtils
                     NanoTime nanoTime = NanoTimeUtils.getNanoTime(new Timestamp(millisValue), false);
                     writer.writeLong(nanoTime.getTimeOfDayNanos());
                     writer.writeInteger(nanoTime.getJulianDay());
-                    addedValues.add(millisValue);
+                    addedValues.add(millisToMicros(millisValue));
                 }
                 break;
             }

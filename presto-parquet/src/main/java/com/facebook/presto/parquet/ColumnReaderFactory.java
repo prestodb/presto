@@ -25,6 +25,8 @@ import com.facebook.presto.parquet.batchreader.Int64FlatBatchReader;
 import com.facebook.presto.parquet.batchreader.Int64NestedBatchReader;
 import com.facebook.presto.parquet.batchreader.Int64TimestampMicrosFlatBatchReader;
 import com.facebook.presto.parquet.batchreader.Int64TimestampMicrosNestedBatchReader;
+import com.facebook.presto.parquet.batchreader.Int64TimestampMillisFlatBatchReader;
+import com.facebook.presto.parquet.batchreader.Int64TimestampMillisNestedBatchReader;
 import com.facebook.presto.parquet.batchreader.TimestampFlatBatchReader;
 import com.facebook.presto.parquet.batchreader.TimestampNestedBatchReader;
 import com.facebook.presto.parquet.reader.AbstractColumnReader;
@@ -36,6 +38,7 @@ import com.facebook.presto.parquet.reader.IntColumnReader;
 import com.facebook.presto.parquet.reader.LongColumnReader;
 import com.facebook.presto.parquet.reader.LongDecimalColumnReader;
 import com.facebook.presto.parquet.reader.LongTimestampMicrosColumnReader;
+import com.facebook.presto.parquet.reader.LongTimestampMillisColumnReader;
 import com.facebook.presto.parquet.reader.ShortDecimalColumnReader;
 import com.facebook.presto.parquet.reader.TimestampColumnReader;
 import com.facebook.presto.spi.PrestoException;
@@ -44,9 +47,11 @@ import java.util.Optional;
 
 import static com.facebook.presto.parquet.ParquetTypeUtils.createDecimalType;
 import static com.facebook.presto.parquet.ParquetTypeUtils.isTimeStampMicrosType;
+import static com.facebook.presto.parquet.ParquetTypeUtils.isTimestampMillisType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static org.apache.parquet.schema.OriginalType.DECIMAL;
 import static org.apache.parquet.schema.OriginalType.TIMESTAMP_MICROS;
+import static org.apache.parquet.schema.OriginalType.TIMESTAMP_MILLIS;
 
 public class ColumnReaderFactory
 {
@@ -69,6 +74,9 @@ public class ColumnReaderFactory
                     if (isTimeStampMicrosType(descriptor)) {
                         return isNested ? new Int64TimestampMicrosNestedBatchReader(descriptor) : new Int64TimestampMicrosFlatBatchReader(descriptor);
                     }
+                    else if (isTimestampMillisType(descriptor)) {
+                        return isNested ? new Int64TimestampMillisNestedBatchReader(descriptor) : new Int64TimestampMillisFlatBatchReader(descriptor);
+                    }
                 case DOUBLE:
                     return isNested ? new Int64NestedBatchReader(descriptor) : new Int64FlatBatchReader(descriptor);
                 case INT96:
@@ -86,6 +94,9 @@ public class ColumnReaderFactory
             case INT64:
                 if (TIMESTAMP_MICROS.equals(descriptor.getPrimitiveType().getOriginalType())) {
                     return new LongTimestampMicrosColumnReader(descriptor);
+                }
+                else if (TIMESTAMP_MILLIS.equals(descriptor.getPrimitiveType().getOriginalType())) {
+                    return new LongTimestampMillisColumnReader(descriptor);
                 }
                 return createDecimalColumnReader(descriptor).orElse(new LongColumnReader(descriptor));
             case INT96:
