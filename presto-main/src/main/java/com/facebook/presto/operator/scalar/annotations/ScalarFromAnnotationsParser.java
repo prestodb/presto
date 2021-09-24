@@ -18,6 +18,7 @@ import com.facebook.presto.operator.ParametricImplementationsGroup;
 import com.facebook.presto.operator.annotations.FunctionsParserHelper;
 import com.facebook.presto.operator.scalar.ParametricScalar;
 import com.facebook.presto.operator.scalar.annotations.ParametricScalarImplementation.SpecializedSignature;
+import com.facebook.presto.spi.function.CodegenScalarFunction;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.Signature;
@@ -88,7 +89,7 @@ public final class ScalarFromAnnotationsParser
         for (Method method : FunctionsParserHelper.findPublicMethods(
                 annotated,
                 ImmutableSet.of(SqlType.class, ScalarFunction.class, ScalarOperator.class),
-                ImmutableSet.of(SqlInvokedScalarFunction.class))) {
+                ImmutableSet.of(SqlInvokedScalarFunction.class, CodegenScalarFunction.class))) {
             checkCondition((method.getAnnotation(ScalarFunction.class) != null) || (method.getAnnotation(ScalarOperator.class) != null),
                     FUNCTION_IMPLEMENTATION_ERROR, "Method [%s] annotated with @SqlType is missing @ScalarFunction or @ScalarOperator", method);
             for (ScalarImplementationHeader header : ScalarImplementationHeader.fromAnnotatedElement(method)) {
