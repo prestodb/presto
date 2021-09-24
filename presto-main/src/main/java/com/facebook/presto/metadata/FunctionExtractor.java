@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.operator.scalar.annotations.CodegenScalarFromAnnotationsParser;
 import com.facebook.presto.operator.scalar.annotations.ScalarFromAnnotationsParser;
 import com.facebook.presto.operator.scalar.annotations.SqlInvokedScalarFromAnnotationsParser;
 import com.facebook.presto.operator.window.WindowAnnotationsParser;
@@ -65,6 +66,7 @@ public final class FunctionExtractor
 
         List<SqlFunction> scalarFunctions = ImmutableList.<SqlFunction>builder()
                 .addAll(ScalarFromAnnotationsParser.parseFunctionDefinitions(clazz))
+                .addAll(CodegenScalarFromAnnotationsParser.parseFunctionDefinitions(clazz))
                 .addAll(SqlInvokedScalarFromAnnotationsParser.parseFunctionDefinitions(clazz))
                 .build();
         checkArgument(!scalarFunctions.isEmpty(), "Class [%s] does not define any scalar functions", clazz.getName());
