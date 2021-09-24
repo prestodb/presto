@@ -70,6 +70,7 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.TimestampMicrosUtils.millisToMicros;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
@@ -322,7 +323,8 @@ public class TestSelectiveOrcReader
             throws Exception
     {
         testRoundTripNumeric(limit(cycle(concat(intsBetween(0, 18), intsBetween(0, 18), ImmutableList.of(NUM_ROWS, 20_000, 400_000, NUM_ROWS, 20_000))), NUM_ROWS),
-                toBigintValues(new long[] {0, 5, 10, 15, 20_000}, true));
+                toBigintValues(new long[] {0, 5, 10, 15, 20_000}, true),
+                toBigintValues(new long[] {0, 5_000, 10_000, 15_000, 20_000_000}, true));
     }
 
     @Test
@@ -1121,6 +1123,23 @@ public class TestSelectiveOrcReader
     private void testRoundTripNumeric(Iterable<? extends Number> values, TupleDomainFilter filter)
             throws Exception
     {
+        final TupleDomainFilter timestampFilter;
+        if (filter instanceof BigintRange) {
+            BigintRange range = (BigintRange) filter;
+            timestampFilter = BigintRange.of(
+                    millisToMicros(range.getLower()),
+                    Math.max(millisToMicros(range.getUpper()), 1L << 60),
+                    range.testNull());
+        }
+        else {
+            throw new IllegalArgumentException("Unsupported TupleDomainFilter");
+        }
+        testRoundTripNumeric(values, filter, timestampFilter);
+    }
+
+    private void testRoundTripNumeric(Iterable<? extends Number> values, TupleDomainFilter filter, TupleDomainFilter timestampFilter)
+            throws Exception
+    {
         List<Long> longValues = ImmutableList.copyOf(values).stream()
                 .map(Number::longValue)
                 .collect(toList());
@@ -1150,7 +1169,7 @@ public class TestSelectiveOrcReader
 
         tester.testRoundTrip(DATE, dateValues, toSubfieldFilters(filter));
 
-        tester.testRoundTrip(TIMESTAMP, timestamps, toSubfieldFilters(filter));
+        tester.testRoundTrip(TIMESTAMP, timestamps, toSubfieldFilters(timestampFilter));
 
         List<Integer> reversedIntValues = new ArrayList<>(intValues);
         Collections.reverse(reversedIntValues);

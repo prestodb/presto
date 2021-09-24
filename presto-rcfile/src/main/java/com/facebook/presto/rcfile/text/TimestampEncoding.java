@@ -27,6 +27,9 @@ import org.joda.time.format.DateTimeFormatterBuilder;
 import org.joda.time.format.DateTimeParser;
 import org.joda.time.format.DateTimePrinter;
 
+import static com.facebook.presto.common.type.TimestampMicrosUtils.microsToMillis;
+import static com.facebook.presto.common.type.TimestampMicrosUtils.millisToMicros;
+
 public class TimestampEncoding
         implements TextColumnEncoding
 {
@@ -67,7 +70,7 @@ public class TimestampEncoding
                 output.writeBytes(nullSequence);
             }
             else {
-                long millis = type.getLong(block, position);
+                long millis = microsToMillis(type.getLong(block, position));
                 buffer.setLength(0);
                 dateTimeFormatter.printTo(buffer, millis);
                 for (int index = 0; index < buffer.length(); index++) {
@@ -81,7 +84,7 @@ public class TimestampEncoding
     @Override
     public void encodeValueInto(int depth, Block block, int position, SliceOutput output)
     {
-        long millis = type.getLong(block, position);
+        long millis = microsToMillis(type.getLong(block, position));
         buffer.setLength(0);
         dateTimeFormatter.printTo(buffer, millis);
         for (int index = 0; index < buffer.length(); index++) {
@@ -103,7 +106,7 @@ public class TimestampEncoding
                 builder.appendNull();
             }
             else {
-                type.writeLong(builder, parseTimestamp(slice, offset, length));
+                type.writeLong(builder, millisToMicros(parseTimestamp(slice, offset, length)));
             }
         }
         return builder.build();
@@ -113,7 +116,7 @@ public class TimestampEncoding
     public void decodeValueInto(int depth, BlockBuilder builder, Slice slice, int offset, int length)
     {
         long millis = parseTimestamp(slice, offset, length);
-        type.writeLong(builder, millis);
+        type.writeLong(builder, millisToMicros(millis));
     }
 
     private long parseTimestamp(Slice slice, int offset, int length)

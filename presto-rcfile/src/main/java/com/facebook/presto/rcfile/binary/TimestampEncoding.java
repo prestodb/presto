@@ -21,6 +21,8 @@ import com.facebook.presto.rcfile.EncodeOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 
+import static com.facebook.presto.common.type.TimestampMicrosUtils.microsToMillis;
+import static com.facebook.presto.common.type.TimestampMicrosUtils.millisToMicros;
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.decodeVIntSize;
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.isNegativeVInt;
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.readVInt;
@@ -45,7 +47,7 @@ public class TimestampEncoding
     {
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (!block.isNull(position)) {
-                writeTimestamp(output, type.getLong(block, position));
+                writeTimestamp(output, microsToMillis(type.getLong(block, position)));
             }
             encodeOutput.closeEntry();
         }
@@ -54,7 +56,7 @@ public class TimestampEncoding
     @Override
     public void encodeValueInto(Block block, int position, SliceOutput output)
     {
-        writeTimestamp(output, type.getLong(block, position));
+        writeTimestamp(output, microsToMillis(type.getLong(block, position)));
     }
 
     @Override
@@ -69,7 +71,7 @@ public class TimestampEncoding
             if (length != 0) {
                 int offset = columnData.getOffset(i);
                 long millis = getTimestamp(slice, offset);
-                type.writeLong(builder, millis);
+                type.writeLong(builder, millisToMicros(millis));
             }
             else {
                 builder.appendNull();
@@ -104,7 +106,7 @@ public class TimestampEncoding
     public void decodeValueInto(BlockBuilder builder, Slice slice, int offset, int length)
     {
         long millis = getTimestamp(slice, offset);
-        type.writeLong(builder, millis);
+        type.writeLong(builder, millisToMicros(millis));
     }
 
     private static boolean hasNanosVInt(byte b)

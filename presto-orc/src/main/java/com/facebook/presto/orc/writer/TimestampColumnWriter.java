@@ -45,6 +45,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.TimestampMicrosUtils.microsToMillis;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
@@ -135,7 +136,7 @@ public class TimestampColumnWriter
         int blockNonNullValueCount = 0;
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (!block.isNull(position)) {
-                long value = type.getLong(block, position);
+                long value = microsToMillis(type.getLong(block, position));
 
                 // It is a flaw in ORC encoding that uses normal integer division to compute seconds,
                 // and floor modulus to compute nano seconds.

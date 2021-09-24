@@ -18,6 +18,7 @@ import org.joda.time.DateTimeZone;
 
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -30,7 +31,8 @@ public class DecodeTimestampOptions
 
     public DecodeTimestampOptions(DateTimeZone hiveStorageTimeZone, boolean enableMicroPrecision)
     {
-        TimeUnit timeUnit = enableMicroPrecision ? MICROSECONDS : MILLISECONDS;
+        checkArgument(enableMicroPrecision, "enableMicroPrecision must be true");
+        TimeUnit timeUnit = MICROSECONDS;
 
         requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
 
