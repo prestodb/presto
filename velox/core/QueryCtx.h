@@ -262,13 +262,11 @@ class QueryCtx : public Context {
 // Represents the state of one thread of query execution.
 class ExecCtx : public Context {
  public:
-  ExecCtx(std::unique_ptr<velox::memory::MemoryPool> pool, QueryCtx* queryCtx)
-      : Context{ContextScope::QUERY},
-        pool_(std::move(pool)),
-        queryCtx_(queryCtx) {}
+  ExecCtx(memory::MemoryPool* pool, QueryCtx* queryCtx)
+      : Context{ContextScope::QUERY}, pool_(pool), queryCtx_(queryCtx) {}
 
-  velox::memory::MemoryPool* pool() {
-    return pool_.get();
+  velox::memory::MemoryPool* pool() const {
+    return pool_;
   }
 
   QueryCtx* queryCtx() const {
@@ -310,7 +308,7 @@ class ExecCtx : public Context {
 
  private:
   // Pool for all Buffers for this thread
-  std::unique_ptr<velox::memory::MemoryPool> pool_;
+  memory::MemoryPool* pool_;
   QueryCtx* queryCtx_;
   // A pool of preallocated DecodedVectors for use by expressions and operators.
   std::vector<std::unique_ptr<DecodedVector>> decodedVectorPool_;

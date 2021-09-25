@@ -187,7 +187,7 @@ int main(int argc, char** argv) {
   // Create memory pool and other query-related structures.
   auto queryCtx = core::QueryCtx::create();
   auto pool = memory::getDefaultScopedMemoryPool();
-  core::ExecCtx execCtx{std::move(pool), queryCtx.get()};
+  core::ExecCtx execCtx{pool.get(), queryCtx.get()};
 
   // Next, we need to generate an input batch of data (rowVector). We create a
   // small batch of `vectorSize` rows, and three columns:

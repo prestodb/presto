@@ -124,12 +124,13 @@ class CodegenBenchmark : public CodegenTestCore {
   CodegenBenchmark() {
     CodegenTestCore::init();
     queryCtx = std::make_shared<core::QueryCtx>();
-    execCtx = std::make_unique<core::ExecCtx>(
-        memory::getDefaultScopedMemoryPool(), queryCtx_.get());
+    pool = memory::getDefaultScopedMemoryPool();
+    execCtx = std::make_unique<core::ExecCtx>(pool.get(), queryCtx_.get());
   }
 
   std::vector<BenchmarkInfo> templateBenchmarkInfo;
   std::shared_ptr<core::QueryCtx> queryCtx;
+  std::unique_ptr<memory::MemoryPool> pool;
   std::unique_ptr<core::ExecCtx> execCtx;
   std::vector<BenchmarkInfo> benchmarkInfos;
   bool reusePlanNode = true;

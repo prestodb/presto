@@ -339,7 +339,9 @@ class ExpressionFuzzer {
       signaturesMap_;
 
   std::shared_ptr<core::QueryCtx> queryCtx_{core::QueryCtx::create()};
-  core::ExecCtx execCtx_{memory::getDefaultScopedMemoryPool(), queryCtx_.get()};
+  std::unique_ptr<memory::MemoryPool> pool_{
+      memory::getDefaultScopedMemoryPool()};
+  core::ExecCtx execCtx_{pool_.get(), queryCtx_.get()};
 
   test::VectorMaker vectorMaker_{execCtx_.pool()};
   VectorFuzzer vectorFuzzer_;

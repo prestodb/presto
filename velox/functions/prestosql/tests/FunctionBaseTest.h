@@ -466,13 +466,15 @@ class FunctionBaseTest : public testing::Test {
         name, signature, rowType, parse::parseExpr(body), execCtx_.pool());
   }
 
-  memory::MemoryPool* pool() {
-    return execCtx_.pool();
+  memory::MemoryPool* pool() const {
+    return pool_.get();
   }
 
   std::shared_ptr<core::QueryCtx> queryCtx_{core::QueryCtx::create()};
-  core::ExecCtx execCtx_{memory::getDefaultScopedMemoryPool(), queryCtx_.get()};
-  velox::test::VectorMaker vectorMaker_{execCtx_.pool()};
+  std::unique_ptr<memory::MemoryPool> pool_{
+      memory::getDefaultScopedMemoryPool()};
+  core::ExecCtx execCtx_{pool_.get(), queryCtx_.get()};
+  velox::test::VectorMaker vectorMaker_{pool_.get()};
 };
 
 } // namespace facebook::velox::functions::test

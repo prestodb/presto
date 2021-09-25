@@ -103,11 +103,9 @@ TEST(TestConcat, EvalConcatFunction) {
   in2->addNulls(nullptr, rows);
 
   std::vector<VectorPtr> in{in1, in2};
-  auto queryCtx_ = std::make_shared<core::QueryCtx>();
-  auto execCtx_ = std::make_unique<core::ExecCtx>(
-      memory::getDefaultScopedMemoryPool(), queryCtx_.get());
-  exec::EvalCtx context(execCtx_.get(), nullptr, inRowVector->as<RowVector>());
-
+  auto queryCtx = std::make_shared<core::QueryCtx>();
+  auto execCtx = std::make_unique<core::ExecCtx>(pool_.get(), queryCtx.get());
+  exec::EvalCtx context(execCtx.get(), nullptr, inRowVector->as<RowVector>());
   GeneratedVectorFunction<GeneratedVectorFunctionConfigDouble> vectorFunction;
 
   vectorFunction.setRowType(outRowType);
@@ -197,9 +195,8 @@ TEST(TestBooEvalVectorFunction, EvalBoolExpression) {
   auto pool_ = memory::getDefaultScopedMemoryPool();
   auto pool = pool_.get();
   const size_t vectorSize = 1000;
-  auto queryCtx_ = std::make_shared<core::QueryCtx>();
-  auto execCtx_ = std::make_unique<core::ExecCtx>(
-      memory::getDefaultScopedMemoryPool(), queryCtx_.get());
+  auto queryCtx = std::make_shared<core::QueryCtx>();
+  auto execCtx = std::make_unique<core::ExecCtx>(pool, queryCtx.get());
 
   auto inRowType =
       ROW({"a", "b"},
@@ -237,7 +234,7 @@ TEST(TestBooEvalVectorFunction, EvalBoolExpression) {
   vectorFunction.setRowType(outRowType);
 
   // Eval
-  exec::EvalCtx context(execCtx_.get(), nullptr, inRowVector->as<RowVector>());
+  exec::EvalCtx context(execCtx.get(), nullptr, inRowVector->as<RowVector>());
   std::vector<VectorPtr> inputs{inputVector1, inputVector2};
   vectorFunction.apply(rows, inputs, nullptr, &context, &outRowVector);
 

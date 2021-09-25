@@ -97,6 +97,17 @@ class Task {
     return taskId_;
   }
 
+  velox::memory::MemoryPool* FOLLY_NONNULL addDriverPool() {
+    driverPools_.push_back(pool_->addScopedChild("driver_root"));
+    auto* driverPool = driverPools_.back().get();
+    auto parentTracker = pool_->getMemoryUsageTracker();
+    if (parentTracker) {
+      driverPool->setMemoryUsageTracker(parentTracker->addChild());
+    }
+
+    return driverPool;
+  }
+
   static void start(std::shared_ptr<Task> self, uint32_t maxDrivers);
 
   // Resumes execution of 'self' after a successful pause. All 'drivers_' must
@@ -430,6 +441,11 @@ class Task {
 
   TaskStats taskStats_;
   std::unique_ptr<velox::memory::MemoryPool> pool_;
+
+  // Keep driver memory pools alive for the duration of the task to allow for
+  // sharing vectors across drivers without copy.
+  std::vector<std::unique_ptr<velox::memory::MemoryPool>> driverPools_;
+
   std::vector<std::shared_ptr<MergeSource>> localMergeSources_;
 
   struct LocalExchange {

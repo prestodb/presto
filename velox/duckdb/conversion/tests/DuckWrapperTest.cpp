@@ -21,13 +21,6 @@ using namespace facebook::velox::duckdb;
 
 class BaseDuckWrapperTest : public testing::Test {
  public:
-  void SetUp() override {
-    queryCtx_ = core::QueryCtx::create();
-    execCtx_ = std::make_unique<core::ExecCtx>(
-        memory::getDefaultScopedMemoryPool(), queryCtx_.get());
-    db_ = std::make_unique<DuckDBWrapper>(execCtx_.get());
-  }
-
   template <class T>
   void verifyUnaryResult(
       const std::string& query,
@@ -71,9 +64,13 @@ class BaseDuckWrapperTest : public testing::Test {
         << "Query failed: " << result->errorMessage();
   }
 
-  std::unique_ptr<DuckDBWrapper> db_;
-  std::shared_ptr<core::QueryCtx> queryCtx_;
-  std::unique_ptr<core::ExecCtx> execCtx_;
+  std::shared_ptr<core::QueryCtx> queryCtx_{core::QueryCtx::create()};
+  std::unique_ptr<memory::MemoryPool> pool_{
+      memory::getDefaultScopedMemoryPool()};
+  std::unique_ptr<core::ExecCtx> execCtx_{
+      std::make_unique<core::ExecCtx>(pool_.get(), queryCtx_.get())};
+  std::unique_ptr<DuckDBWrapper> db_{
+      std::make_unique<DuckDBWrapper>(execCtx_.get())};
 };
 
 TEST_F(BaseDuckWrapperTest, simpleSelect) {

@@ -67,19 +67,13 @@ DriverCtx::DriverCtx(
     int32_t _numDrivers)
     : task(_task),
       execCtx(std::make_unique<core::ExecCtx>(
-          task->pool()->addScopedChild("driver_root"),
+          task->addDriverPool(),
           task->queryCtx().get())),
       expressionEvaluator(
           std::make_unique<SimpleExpressionEvaluator>(execCtx.get())),
       driverId(_driverId),
       pipelineId(_pipelineId),
-      numDrivers(_numDrivers) {
-  auto parentTracker = task->pool()->getMemoryUsageTracker();
-  if (parentTracker) {
-    execCtx->pool()->setMemoryUsageTracker(
-        std::move(parentTracker->addChild()));
-  }
-}
+      numDrivers(_numDrivers) {}
 
 std::unique_ptr<connector::ConnectorQueryCtx>
 DriverCtx::createConnectorQueryCtx(const std::string& connectorId) const {

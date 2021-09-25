@@ -69,7 +69,7 @@ int main(int argc, char** argv) {
   // Optionally, one can control the per-thread memory cap by passing it as an
   // argument to getDefaultScopedMemoryPool() - no limit by default.
   auto pool = memory::getDefaultScopedMemoryPool();
-  core::ExecCtx execCtx{std::move(pool), queryCtx.get()};
+  core::ExecCtx execCtx{pool.get(), queryCtx.get()};
 
   // Next, let's create an expression tree to be executed in this example. On a
   // high-level, our expression tree will have the following structure:

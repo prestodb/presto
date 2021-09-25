@@ -105,8 +105,7 @@ class CodegenTestCore {
             eventSequence_);
     pool_ = memory::getDefaultScopedMemoryPool();
     queryCtx_ = std::make_shared<core::QueryCtx>();
-    execCtx_ = std::make_unique<core::ExecCtx>(
-        memory::getDefaultScopedMemoryPool(), queryCtx_.get());
+    execCtx_ = std::make_unique<core::ExecCtx>(pool_.get(), queryCtx_.get());
 
     exec::test::registerTypeResolver();
     functions::registerFunctions();
