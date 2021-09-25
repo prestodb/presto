@@ -100,12 +100,11 @@ class LeastGreatestFunction : public exec::VectorFunction {
     rows.applyToSelected(
         [&](vector_size_t row) { flatResult.setNull(row, true); });
 
-    exec::LocalSelectivityVector cmpRowsHolder(context, nrows);
+    exec::LocalSelectivityVector cmpRows(context, nrows);
     exec::LocalDecodedVector decodedVectorHolder(context);
     // Column-wise process: one argument at a time.
     for (size_t i = 0; i < nargs; i++) {
       // Only compare with non-null elements of each argument
-      auto* cmpRows = cmpRowsHolder.get();
       *cmpRows = rows;
       if (auto* rawNulls = args[i]->flatRawNulls(rows)) {
         cmpRows->deselectNulls(rawNulls, 0, nrows);
@@ -116,8 +115,8 @@ class LeastGreatestFunction : public exec::VectorFunction {
         cmpAndReplace(flatResult, *args[i]->as<FlatVector<T>>(), *cmpRows);
       } else {
         // Slow path: decode this argument
-        decodedVectorHolder.get()->decode(*(args[i].get()), rows);
-        cmpAndReplace(flatResult, **decodedVectorHolder, *cmpRows);
+        decodedVectorHolder.get()->decode(*args[i], rows);
+        cmpAndReplace(flatResult, *decodedVectorHolder, *cmpRows);
       }
     }
   }

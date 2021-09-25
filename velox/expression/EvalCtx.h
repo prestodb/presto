@@ -285,6 +285,26 @@ class LocalSelectivityVector {
     return vector_.get();
   }
 
+  SelectivityVector& operator*() {
+    VELOX_DCHECK_NOT_NULL(vector_, "get(size) must be called.");
+    return *vector_;
+  }
+
+  const SelectivityVector& operator*() const {
+    VELOX_DCHECK_NOT_NULL(vector_, "get(size) must be called.");
+    return *vector_;
+  }
+
+  SelectivityVector* operator->() {
+    VELOX_DCHECK_NOT_NULL(vector_, "get(size) must be called.");
+    return vector_.get();
+  }
+
+  const SelectivityVector* operator->() const {
+    VELOX_DCHECK_NOT_NULL(vector_, "get(size) must be called.");
+    return vector_.get();
+  }
+
  private:
   core::ExecCtx* const context_;
   std::unique_ptr<SelectivityVector> vector_ = nullptr;
@@ -326,11 +346,23 @@ class LocalDecodedVector {
   }
 
   // Must either use the constructor that provides data or call get() first.
-  DecodedVector* operator*() const {
+  DecodedVector& operator*() {
+    VELOX_DCHECK_NOT_NULL(vector_, "get() must be called.");
+    return *vector_;
+  }
+
+  const DecodedVector& operator*() const {
+    VELOX_DCHECK_NOT_NULL(vector_, "get() must be called.");
+    return *vector_;
+  }
+
+  DecodedVector* operator->() {
+    VELOX_DCHECK_NOT_NULL(vector_, "get() must be called.");
     return vector_.get();
   }
 
-  DecodedVector* operator->() const {
+  const DecodedVector* operator->() const {
+    VELOX_DCHECK_NOT_NULL(vector_, "get() must be called.");
     return vector_.get();
   }
 
