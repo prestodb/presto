@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/exec/HashAggregation.h"
+#include "velox/exec/Aggregate.h"
 #include "velox/exec/Task.h"
 
 namespace facebook::velox::exec {
@@ -117,6 +118,7 @@ HashAggregation::HashAggregation(
       std::move(args),
       std::move(constantLists),
       aggregationNode->ignoreNullKeys(),
+      isRawInput(aggregationNode->step()),
       operatorCtx_.get());
 }
 

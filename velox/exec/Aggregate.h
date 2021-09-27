@@ -79,7 +79,11 @@ class Aggregate {
       folly::Range<const vector_size_t*> /*indices*/,
       const VectorPtr& /*initialState*/) = 0;
 
-  // Updates the accumulator in 'groups' with the values in 'args'.
+  // Single Aggregate instance is able to take both raw data and
+  // intermediate result as input based on the assumption that Partial
+  // accumulator and Final accumulator are of the same type.
+  //
+  // Updates partial accumulators from raw input data.
   // @param groups Pointers to the start of the group rows. These are aligned
   // with the 'args', e.g. data in the i-th row of the 'args' goes to the i-th
   // group. The groups may repeat if different rows go into the same group.
@@ -87,35 +91,63 @@ class Aggregate {
   // contiguous if the aggregation has mask or is configured to drop null
   // grouping keys. The latter would be the case when aggregation is followed
   // by the join on the grouping keys.
-  // @param args Data to add to the accumulators.
+  // @param args Raw input.
   // @param mayPushdown True if aggregation can be pushdown down via LazyVector.
   // The pushdown can happen only if this flag is true and 'args' is a single
   // LazyVector.
-  void update(
+  virtual void updatePartial(
       char** groups,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
-      bool mayPushdown) {
-    isRawInput_ ? updatePartial(groups, rows, args, mayPushdown)
-                : updateFinal(groups, rows, args, mayPushdown);
-  }
+      bool mayPushdown) = 0;
 
-  // Updates the single accumulator used for global aggregation.
-  // @param group Pointer to the start of the group row.
-  // @param rows Rows of the 'args' to add to the accumulators. These may not
-  // be contiguous if the aggregation has mask.
-  // @param args Data to add to the accumulators.
+  // Updates final accumulators from intermediate results.
+  // @param groups Pointers to the start of the group rows. These are aligned
+  // with the 'args', e.g. data in the i-th row of the 'args' goes to the i-th
+  // group. The groups may repeat if different rows go into the same group.
+  // @param rows Rows of the 'args' to add to the accumulators. These may not be
+  // contiguous if the aggregation has mask or is configured to drop null
+  // grouping keys. The latter would be the case when aggregation is followed
+  // by the join on the grouping keys.
+  // @param args Intermediate results produced by extractAccumulators().
   // @param mayPushdown True if aggregation can be pushdown down via LazyVector.
   // The pushdown can happen only if this flag is true and 'args' is a single
   // LazyVector.
-  void updateSingleGroup(
+  virtual void updateFinal(
+      char** groups,
+      const SelectivityVector& rows,
+      const std::vector<VectorPtr>& args,
+      bool mayPushdown) = 0;
+
+  // Updates the single partial accumulator from raw input data for global
+  // aggregation.
+  // @param group Pointer to the start of the group row.
+  // @param rows Rows of the 'args' to add to the accumulators. These may not
+  // be contiguous if the aggregation has mask.
+  // @param args Raw input to add to the accumulators.
+  // @param mayPushdown True if aggregation can be pushdown down via LazyVector.
+  // The pushdown can happen only if this flag is true and 'args' is a single
+  // LazyVector.
+  virtual void updateSingleGroupPartial(
       char* group,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
-      bool mayPushdown) {
-    isRawInput_ ? updateSingleGroupPartial(group, rows, args, mayPushdown)
-                : updateSingleGroupFinal(group, rows, args, mayPushdown);
-  }
+      bool mayPushdown) = 0;
+
+  // Updates the single final accumulator from intermediate results for global
+  // aggregation.
+  // @param group Pointer to the start of the group row.
+  // @param rows Rows of the 'args' to add to the accumulators. These may not
+  // be contiguous if the aggregation has mask.
+  // @param args Intermediate results produced by extractAccumulators().
+  // @param mayPushdown True if aggregation can be pushdown down via LazyVector.
+  // The pushdown can happen only if this flag is true and 'args' is a single
+  // LazyVector.
+  virtual void updateSingleGroupFinal(
+      char* group,
+      const SelectivityVector& rows,
+      const std::vector<VectorPtr>& args,
+      bool mayPushdown) = 0;
 
   // Finalizes the state in groups. Defaults to no op for cases like
   // sum and max.
@@ -153,39 +185,6 @@ class Aggregate {
       const TypePtr& resultType);
 
  protected:
-  // Updates partial accumulators from raw input data.
-  // @param args Raw input.
-  virtual void updatePartial(
-      char** groups,
-      const SelectivityVector& rows,
-      const std::vector<VectorPtr>& args,
-      bool mayPushdown) = 0;
-
-  // Updates final accumulators from intermediate results.
-  // @param args Intermediate results produced by extractAccumulators().
-  virtual void updateFinal(
-      char** groups,
-      const SelectivityVector& rows,
-      const std::vector<VectorPtr>& args,
-      bool mayPushdown) = 0;
-
-  // Updates partial accumulators from raw input data for global aggregation.
-  // @param args Raw input to add to the accumulators.
-  virtual void updateSingleGroupPartial(
-      char* group,
-      const SelectivityVector& rows,
-      const std::vector<VectorPtr>& args,
-      bool mayPushdown) = 0;
-
-  // Updates final accumulators from intermediate results for global
-  // aggregation.
-  // @param args Intermediate results produced by extractAccumulators().
-  virtual void updateSingleGroupFinal(
-      char* group,
-      const SelectivityVector& rows,
-      const std::vector<VectorPtr>& args,
-      bool mayPushdown) = 0;
-
   bool isNull(char* group) const {
     return numNulls_ && (group[nullByte_] & nullMask_);
   }

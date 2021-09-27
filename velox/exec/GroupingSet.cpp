@@ -50,9 +50,11 @@ GroupingSet::GroupingSet(
     std::vector<std::vector<ChannelIndex>>&& channelLists,
     std::vector<std::vector<VectorPtr>>&& constantLists,
     bool ignoreNullKeys,
+    bool isRawInput,
     OperatorCtx* operatorCtx)
     : hashers_(std::move(hashers)),
       isGlobal_(hashers_.empty()),
+      isRawInput_(isRawInput),
       aggregates_(std::move(aggregates)),
       aggrMaskChannels_(std::move(aggrMaskChannels)),
       channelLists_(std::move(channelLists)),
@@ -93,8 +95,13 @@ void GroupingSet::addInput(const RowVectorPtr& input, bool mayPushdown) {
       const SelectivityVector& rows = getSelectivityVector(i);
       const bool canPushdown =
           mayPushdown && mayPushdown_[i] && areAllLazyNotLoaded(tempVectors_);
-      aggregates_[i]->updateSingleGroup(
-          lookup_->hits[0], rows, tempVectors_, canPushdown);
+      if (isRawInput_) {
+        aggregates_[i]->updateSingleGroupPartial(
+            lookup_->hits[0], rows, tempVectors_, canPushdown);
+      } else {
+        aggregates_[i]->updateSingleGroupFinal(
+            lookup_->hits[0], rows, tempVectors_, canPushdown);
+      }
     }
     tempVectors_.clear();
     return;
@@ -168,8 +175,13 @@ void GroupingSet::addInput(const RowVectorPtr& input, bool mayPushdown) {
     const bool canPushdown = (&rows != &activeRows_) && mayPushdown &&
         mayPushdown_[i] && areAllLazyNotLoaded(tempVectors_);
     populateTempVectors(i, input);
-    aggregates_[i]->update(
-        lookup_->hits.data(), rows, tempVectors_, canPushdown);
+    if (isRawInput_) {
+      aggregates_[i]->updatePartial(
+          lookup_->hits.data(), rows, tempVectors_, canPushdown);
+    } else {
+      aggregates_[i]->updateFinal(
+          lookup_->hits.data(), rows, tempVectors_, canPushdown);
+    }
   }
   tempVectors_.clear();
 }
