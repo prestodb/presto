@@ -15,6 +15,7 @@
  */
 
 #include "velox/common/file/File.h"
+#include "velox/common/file/FileSystems.h"
 
 #include "gtest/gtest.h"
 
@@ -88,13 +89,15 @@ TEST(LocalFile, WriteAndRead) {
 }
 
 TEST(LocalFile, ViaRegistry) {
+  filesystems::registerLocalFileSystem();
   const char filename[] = "/tmp/test";
   remove(filename);
+  auto lfs = filesystems::getFileSystem(filename, nullptr);
   {
-    auto writeFile = generateWriteFile(filename);
+    auto writeFile = lfs->openFileForWrite(filename);
     writeFile->append("snarf");
   }
-  auto readFile = generateReadFile(filename);
+  auto readFile = lfs->openFileForRead(filename);
   ASSERT_EQ(readFile->size(), 5);
   Arena arena;
   ASSERT_EQ(readFile->pread(0, 5, &arena), "snarf");

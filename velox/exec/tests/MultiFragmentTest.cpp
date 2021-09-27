@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/common/caching/DataCache.h"
+#include "velox/common/file/FileSystems.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/dwio/common/DataSink.h"
 #include "velox/dwio/dwrf/test/utils/BatchMaker.h"
@@ -37,6 +38,7 @@ class MultiFragmentTest : public OperatorTestBase {
     rowType_ =
         ROW({"c0", "c1", "c2", "c3", "c4", "c5"},
             {BIGINT(), INTEGER(), SMALLINT(), REAL(), DOUBLE(), VARCHAR()});
+    filesystems::registerLocalFileSystem();
     auto dataCache = std::make_unique<SimpleLRUDataCache>(/*size=*/1 << 30);
     auto hiveConnector =
         connector::getConnectorFactory(kHiveConnectorName)

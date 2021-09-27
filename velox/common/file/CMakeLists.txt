@@ -14,7 +14,7 @@
 
 # for generated headers
 include_directories(.)
-add_library(file File.cpp)
+add_library(file File.cpp FileSystems.cpp FileSystems.h)
 target_link_libraries(file velox_exception ${GTEST_BOTH_LIBRARIES} ${GLOG}
                       ${FOLLY_WITH_DEPENDENCIES} ${FMT})
 

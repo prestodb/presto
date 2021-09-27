@@ -15,12 +15,17 @@
  */
 
 #include "velox/exec/tests/HiveConnectorTestBase.h"
+#include "velox/common/file/FileSystems.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/dwio/dwrf/test/utils/BatchMaker.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/exec/tests/QueryAssertions.h"
 
 namespace facebook::velox::exec::test {
+
+HiveConnectorTestBase::HiveConnectorTestBase() {
+  filesystems::registerLocalFileSystem();
+}
 
 void HiveConnectorTestBase::SetUp() {
   OperatorTestBase::SetUp();

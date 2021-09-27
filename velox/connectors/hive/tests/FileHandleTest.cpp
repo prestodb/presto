@@ -20,11 +20,14 @@
 #include "gtest/gtest.h"
 #include "velox/common/caching/SimpleLRUCache.h"
 #include "velox/common/file/File.h"
+#include "velox/common/file/FileSystems.h"
 #include "velox/common/memory/Arena.h"
 
 using namespace facebook::velox;
 
 TEST(FileHandleTest, localFile) {
+  filesystems::registerLocalFileSystem();
+
   // TODO: use the appropriate test directory.
   // Use unique name for each process/thread execution to prevent cross
   // process/thread race condition

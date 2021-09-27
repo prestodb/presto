@@ -19,92 +19,12 @@
 #include <fmt/format.h>
 #include <glog/logging.h>
 #include <memory>
-#include <mutex>
 #include <stdexcept>
 
 #include <fcntl.h>
 #include <folly/portability/SysUio.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 
 namespace facebook::velox {
-
-namespace {
-
-std::vector<std::function<void()>>& lazyRegistrations() {
-  // Meyers singleton.
-  static std::vector<std::function<void()>>* lazyRegs =
-      new std::vector<std::function<void()>>();
-  return *lazyRegs;
-}
-std::once_flag lazyRegistrationFlag;
-
-using RegisteredReadFiles = std::vector<std::pair<
-    std::function<bool(std::string_view)>,
-    std::function<std::unique_ptr<ReadFile>(std::string_view)>>>;
-
-RegisteredReadFiles& registeredReadFiles() {
-  // Meyers singleton.
-  static RegisteredReadFiles* files = new RegisteredReadFiles();
-  return *files;
-}
-
-using RegisteredWriteFiles = std::vector<std::pair<
-    std::function<bool(std::string_view)>,
-    std::function<std::unique_ptr<WriteFile>(std::string_view)>>>;
-
-RegisteredWriteFiles& registeredWriteFiles() {
-  // Meyers singleton.
-  static RegisteredWriteFiles* files = new RegisteredWriteFiles();
-  return *files;
-}
-
-} // namespace
-
-void lazyRegisterFileClass(std::function<void()> lazy_registration) {
-  lazyRegistrations().push_back(lazy_registration);
-}
-
-void registerFileClass(
-    std::function<bool(std::string_view)> filenameMatcher,
-    std::function<std::unique_ptr<ReadFile>(std::string_view)> readGenerator,
-    std::function<std::unique_ptr<WriteFile>(std::string_view)>
-        writeGenerator) {
-  registeredReadFiles().emplace_back(filenameMatcher, readGenerator);
-  registeredWriteFiles().emplace_back(filenameMatcher, writeGenerator);
-}
-
-std::unique_ptr<ReadFile> generateReadFile(std::string_view filename) {
-  std::call_once(lazyRegistrationFlag, []() {
-    for (auto registration : lazyRegistrations()) {
-      registration();
-    }
-  });
-  const auto& files = registeredReadFiles();
-  for (const auto& p : files) {
-    if (p.first(filename)) {
-      return p.second(filename);
-    }
-  }
-  throw std::runtime_error(fmt::format(
-      "No registered read file matched with filename '{}'", filename));
-}
-
-std::unique_ptr<WriteFile> generateWriteFile(std::string_view filename) {
-  std::call_once(lazyRegistrationFlag, []() {
-    for (auto registration : lazyRegistrations()) {
-      registration();
-    }
-  });
-  const auto& files = registeredWriteFiles();
-  for (const auto& p : files) {
-    if (p.first(filename)) {
-      return p.second(filename);
-    }
-  }
-  throw std::runtime_error(fmt::format(
-      "No registered write file matched with filename '{}'", filename));
-}
 
 std::string_view InMemoryReadFile::pread(
     uint64_t offset,
@@ -277,44 +197,4 @@ void LocalWriteFile::flush() {
 uint64_t LocalWriteFile::size() const {
   return ftell(file_);
 }
-
-// Register the local Files.
-namespace {
-
-struct LocalFileRegistrar {
-  LocalFileRegistrar() {
-    lazyRegisterFileClass([this]() { this->ActuallyRegister(); });
-  }
-
-  void ActuallyRegister() {
-    // Note: presto behavior is to prefix local paths with 'file:'.
-    // Check for that prefix and prune to absolute regular paths as needed.
-    std::function<bool(std::string_view)> filename_matcher =
-        [](std::string_view filename) {
-          return filename.find("/") == 0 || filename.find("file:") == 0;
-        };
-    std::function<std::unique_ptr<ReadFile>(std::string_view)> read_generator =
-        [](std::string_view filename) {
-          if (filename.find("file:") == 0) {
-            return std::make_unique<LocalReadFile>(filename.substr(5));
-          } else {
-            return std::make_unique<LocalReadFile>(filename);
-          }
-        };
-    std::function<std::unique_ptr<WriteFile>(std::string_view)>
-        write_generator = [](std::string_view filename) {
-          if (filename.find("file:") == 0) {
-            return std::make_unique<LocalWriteFile>(filename.substr(5));
-          } else {
-            return std::make_unique<LocalWriteFile>(filename);
-          }
-        };
-    registerFileClass(filename_matcher, read_generator, write_generator);
-  }
-};
-
-const LocalFileRegistrar localFileRegistrar;
-
-} // namespace
-
 } // namespace facebook::velox

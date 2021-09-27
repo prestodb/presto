@@ -23,10 +23,6 @@
 //
 // All functions are not threadsafe -- external locking is required, even
 // for const member functions.
-//
-// We provide a registration method for read and write files so the appropriate
-// type of file can be constructed based on a filename. See the
-// (register|generate)ReadFile and (register|generate)WriteFile functions.
 
 #pragma once
 
@@ -135,30 +131,6 @@ class WriteFile {
   // Current file size, i.e. the sum of all previous Appends.
   virtual uint64_t size() const = 0;
 };
-
-// We expect that programs will perform these registrations lazily at static
-// link time, e.g. via the lazyRegisterFileClass function. This function takes
-// a std::function that will itself call the registerFileClass function. We do
-// it lazily to get around the fact that many libraries need folly::init to
-// have been called before they will work properly. Basically as a user you
-// shouldn't have to worry about these register functions -- all you will need
-// to use is the generate functions below.
-//
-// The registration function take three parameters: a
-// std::function<bool(std::string_view)> that says whether the registered
-// File subclass should be used for that filename, and lambdas that generate
-// the actual Read/Write file. Each registered type is tried in the order it was
-// registered, so keep this in mind if multiple types could match the same
-// filename.
-void lazyRegisterFileClass(std::function<void()> lazy_registration);
-void registerFileClass(
-    std::function<bool(std::string_view)> filenameMatcher,
-    std::function<std::unique_ptr<ReadFile>(std::string_view)> readGenerator,
-    std::function<std::unique_ptr<WriteFile>(std::string_view)> writeGenerator);
-
-// Returns a read/write file of type appropriate for filename.
-std::unique_ptr<ReadFile> generateReadFile(std::string_view filename);
-std::unique_ptr<WriteFile> generateWriteFile(std::string_view filename);
 
 // We currently do a simple implementation for the in-memory files
 // that simply resizes a string as needed. If there ever gets used in
