@@ -45,14 +45,26 @@ public class RowBlock
     /**
      * Create a row block directly from columnar nulls and field blocks.
      */
-    public static Block fromFieldBlocks(int positionCount, Optional<boolean[]> rowIsNull, Block[] fieldBlocks)
+    public static Block fromFieldBlocks(int positionCount, Optional<boolean[]> rowIsNullOptional, Block[] fieldBlocks)
     {
+        boolean[] rowIsNull = rowIsNullOptional.orElse(null);
         int[] fieldBlockOffsets = new int[positionCount + 1];
-        for (int position = 0; position < positionCount; position++) {
-            fieldBlockOffsets[position + 1] = fieldBlockOffsets[position] + (rowIsNull.isPresent() && rowIsNull.get()[position] ? 0 : 1);
+        if (rowIsNull == null) {
+            // Fast-path create identity field block offsets from position only
+            for (int position = 0; position < fieldBlockOffsets.length; position++) {
+                fieldBlockOffsets[position] = position;
+            }
         }
-        validateConstructorArguments(0, positionCount, rowIsNull.orElse(null), fieldBlockOffsets, fieldBlocks);
-        return new RowBlock(0, positionCount, rowIsNull.orElse(null), fieldBlockOffsets, fieldBlocks);
+        else {
+            // Check for nulls when computing field block offsets
+            fieldBlockOffsets[0] = 0;
+            for (int position = 0; position < positionCount; position++) {
+                fieldBlockOffsets[position + 1] = fieldBlockOffsets[position] + (rowIsNull[position] ? 0 : 1);
+            }
+        }
+
+        validateConstructorArguments(0, positionCount, rowIsNull, fieldBlockOffsets, fieldBlocks);
+        return new RowBlock(0, positionCount, rowIsNull, fieldBlockOffsets, fieldBlocks);
     }
 
     /**
@@ -143,6 +155,19 @@ public class RowBlock
     protected boolean[] getRowIsNull()
     {
         return rowIsNull;
+    }
+
+    @Override
+    public boolean mayHaveNull()
+    {
+        return rowIsNull != null;
+    }
+
+    @Override
+    public boolean isNull(int position)
+    {
+        checkReadablePosition(position);
+        return rowIsNull != null && rowIsNull[position + startOffset];
     }
 
     @Override
