@@ -15,4 +15,4 @@
 add_library(velox_hive_connector OBJECT HiveConnector.cpp FileHandle.cpp)
 
 target_link_libraries(velox_hive_connector velox_connector
-                      velox_dwio_dwrf_reader velox_dwio_dwrf_writer file)
+                      velox_dwio_dwrf_reader velox_dwio_dwrf_writer velox_file)
