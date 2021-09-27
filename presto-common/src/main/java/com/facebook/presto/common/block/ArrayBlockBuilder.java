@@ -135,10 +135,24 @@ public class ArrayBlockBuilder
         return 0;
     }
 
+    @Nullable
     @Override
     protected boolean[] getValueIsNull()
     {
-        return valueIsNull;
+        return hasNullValue ? valueIsNull : null;
+    }
+
+    @Override
+    public boolean mayHaveNull()
+    {
+        return hasNullValue;
+    }
+
+    @Override
+    public boolean isNull(int position)
+    {
+        checkReadablePosition(position);
+        return hasNullValue && valueIsNull[position];
     }
 
     @Override
