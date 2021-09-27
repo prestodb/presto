@@ -175,6 +175,7 @@
         <module>presto-cluster-ttl-providers</module>
         <module>presto-google-sheets</module>
         <module>presto-hive-function-namespace</module>
+        <module>presto-delta</module>
     </modules>
 
     <dependencyManagement>
@@ -1937,6 +1938,18 @@
                         <artifactId>RoaringBitmap</artifactId>
                     </exclusion>
                 </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>io.delta</groupId>
+                <artifactId>delta-standalone_2.12</artifactId>
+                <version>0.3.0</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-delta</artifactId>
+                <version>${project.version}</version>
             </dependency>
 
             <!-- force newer version to be used for dependencies -->

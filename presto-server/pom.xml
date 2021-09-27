@@ -355,6 +355,15 @@
             <type>zip</type>
             <scope>provided</scope>
         </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-delta</artifactId>
+            <version>${project.version}</version>
+            <type>zip</type>
+            <scope>provided</scope>
+        </dependency>
+
     </dependencies>
 
     <build>
