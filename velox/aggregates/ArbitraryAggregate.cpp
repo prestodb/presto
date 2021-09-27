@@ -32,10 +32,7 @@ class ArbitraryAggregate : public SimpleNumericAggregate<T, T, T> {
   using BaseAggregate = SimpleNumericAggregate<T, T, T>;
 
  public:
-  explicit ArbitraryAggregate(
-      core::AggregationNode::Step step,
-      TypePtr resultType)
-      : BaseAggregate(step, resultType) {}
+  explicit ArbitraryAggregate(TypePtr resultType) : BaseAggregate(resultType) {}
 
   int32_t accumulatorFixedWidthSize() const override {
     return sizeof(T);
@@ -146,10 +143,8 @@ class ArbitraryAggregate : public SimpleNumericAggregate<T, T, T> {
 // seen. Arbitrary (x) will produce partial and final aggregations of type x.
 class NonNumericArbitrary : public exec::Aggregate {
  public:
-  explicit NonNumericArbitrary(
-      core::AggregationNode::Step step,
-      const TypePtr& resultType)
-      : exec::Aggregate(step, resultType) {}
+  explicit NonNumericArbitrary(const TypePtr& resultType)
+      : exec::Aggregate(resultType) {}
 
   // We use singleValueAccumulator to save the results for each group. This
   // struct will allow us to save variable-width value.
@@ -283,27 +278,22 @@ bool registerArbitraryAggregate(const std::string& name) {
         auto inputType = argTypes[0];
         switch (inputType->kind()) {
           case TypeKind::TINYINT:
-            return std::make_unique<ArbitraryAggregate<int8_t>>(
-                step, inputType);
+            return std::make_unique<ArbitraryAggregate<int8_t>>(inputType);
           case TypeKind::SMALLINT:
-            return std::make_unique<ArbitraryAggregate<int16_t>>(
-                step, inputType);
+            return std::make_unique<ArbitraryAggregate<int16_t>>(inputType);
           case TypeKind::INTEGER:
-            return std::make_unique<ArbitraryAggregate<int32_t>>(
-                step, inputType);
+            return std::make_unique<ArbitraryAggregate<int32_t>>(inputType);
           case TypeKind::BIGINT:
-            return std::make_unique<ArbitraryAggregate<int64_t>>(
-                step, inputType);
+            return std::make_unique<ArbitraryAggregate<int64_t>>(inputType);
           case TypeKind::REAL:
-            return std::make_unique<ArbitraryAggregate<float>>(step, inputType);
+            return std::make_unique<ArbitraryAggregate<float>>(inputType);
           case TypeKind::DOUBLE:
-            return std::make_unique<ArbitraryAggregate<double>>(
-                step, inputType);
+            return std::make_unique<ArbitraryAggregate<double>>(inputType);
           case TypeKind::VARCHAR:
           case TypeKind::ARRAY:
           case TypeKind::MAP:
           case TypeKind::ROW:
-            return std::make_unique<NonNumericArbitrary>(step, inputType);
+            return std::make_unique<NonNumericArbitrary>(inputType);
           default:
             VELOX_FAIL(
                 "Unknown input type for {} aggregation {}",

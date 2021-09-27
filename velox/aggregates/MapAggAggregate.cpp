@@ -29,8 +29,7 @@ struct MapAccumulator {
 // https://prestodb.io/docs/current/functions/aggregate.html
 class MapAggAggregate : public exec::Aggregate {
  public:
-  explicit MapAggAggregate(core::AggregationNode::Step step, TypePtr resultType)
-      : Aggregate(step, resultType) {}
+  explicit MapAggAggregate(TypePtr resultType) : Aggregate(resultType) {}
 
   int32_t accumulatorFixedWidthSize() const override {
     return sizeof(MapAccumulator);
@@ -279,7 +278,7 @@ bool registerMapAggAggregate(const std::string& name) {
             name);
         TypePtr returnType =
             rawInput ? MAP(argTypes[0], argTypes[1]) : argTypes[0];
-        return std::make_unique<MapAggAggregate>(step, returnType);
+        return std::make_unique<MapAggAggregate>(returnType);
       });
   return true;
 }

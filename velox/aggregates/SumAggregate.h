@@ -26,8 +26,7 @@ class SumAggregate
       SimpleNumericAggregate<TInput, TAccumulator, ResultType>;
 
  public:
-  explicit SumAggregate(core::AggregationNode::Step step, TypePtr resultType)
-      : BaseAggregate(step, resultType) {}
+  explicit SumAggregate(TypePtr resultType) : BaseAggregate(resultType) {}
 
   int32_t accumulatorFixedWidthSize() const override {
     return sizeof(TAccumulator);
@@ -158,29 +157,23 @@ bool registerSumAggregate(const std::string& name) {
         auto inputType = argTypes[0];
         switch (inputType->kind()) {
           case TypeKind::TINYINT:
-            return std::make_unique<T<int8_t, int64_t, int64_t>>(
-                step, BIGINT());
+            return std::make_unique<T<int8_t, int64_t, int64_t>>(BIGINT());
           case TypeKind::SMALLINT:
-            return std::make_unique<T<int16_t, int64_t, int64_t>>(
-                step, BIGINT());
+            return std::make_unique<T<int16_t, int64_t, int64_t>>(BIGINT());
           case TypeKind::INTEGER:
-            return std::make_unique<T<int32_t, int64_t, int64_t>>(
-                step, BIGINT());
+            return std::make_unique<T<int32_t, int64_t, int64_t>>(BIGINT());
           case TypeKind::BIGINT:
-            return std::make_unique<T<int64_t, int64_t, int64_t>>(
-                step, BIGINT());
+            return std::make_unique<T<int64_t, int64_t, int64_t>>(BIGINT());
           case TypeKind::REAL:
             if (resultType->kind() == TypeKind::REAL) {
-              return std::make_unique<T<float, double, float>>(
-                  step, resultType);
+              return std::make_unique<T<float, double, float>>(resultType);
             }
-            return std::make_unique<T<float, double, double>>(step, DOUBLE());
+            return std::make_unique<T<float, double, double>>(DOUBLE());
           case TypeKind::DOUBLE:
             if (resultType->kind() == TypeKind::REAL) {
-              return std::make_unique<T<double, double, float>>(
-                  step, resultType);
+              return std::make_unique<T<double, double, float>>(resultType);
             }
-            return std::make_unique<T<double, double, double>>(step, DOUBLE());
+            return std::make_unique<T<double, double, double>>(DOUBLE());
           default:
             VELOX_CHECK(
                 false,

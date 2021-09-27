@@ -28,10 +28,8 @@ class BoolAndOrAggregate : public SimpleNumericAggregate<bool, bool, bool> {
   using BaseAggregate = SimpleNumericAggregate<bool, bool, bool>;
 
  public:
-  explicit BoolAndOrAggregate(
-      core::AggregationNode::Step step,
-      bool initialValue)
-      : BaseAggregate(step, BOOLEAN()), initialValue_(initialValue) {}
+  explicit BoolAndOrAggregate(bool initialValue)
+      : BaseAggregate(BOOLEAN()), initialValue_(initialValue) {}
 
   int32_t accumulatorFixedWidthSize() const override {
     return sizeof(bool);
@@ -84,8 +82,7 @@ class BoolAndOrAggregate : public SimpleNumericAggregate<bool, bool, bool> {
 
 class BoolAndAggregate final : public BoolAndOrAggregate {
  public:
-  explicit BoolAndAggregate(core::AggregationNode::Step step)
-      : BoolAndOrAggregate(step, /* initialValue = */ true) {}
+  explicit BoolAndAggregate() : BoolAndOrAggregate(/* initialValue = */ true) {}
 
   void updatePartial(
       char** groups,
@@ -136,8 +133,7 @@ class BoolAndAggregate final : public BoolAndOrAggregate {
 
 class BoolOrAggregate final : public BoolAndOrAggregate {
  public:
-  explicit BoolOrAggregate(core::AggregationNode::Step step)
-      : BoolAndOrAggregate(step, /* initialValue = */ false) {}
+  explicit BoolOrAggregate() : BoolAndOrAggregate(/* initialValue = */ false) {}
 
   void updatePartial(
       char** groups,
@@ -203,7 +199,7 @@ bool registerBoolAggregate(const std::string& name) {
             "Unknown input type for {} aggregation {}",
             name,
             inputType->kindName());
-        return std::make_unique<T>(step);
+        return std::make_unique<T>();
       });
   return true;
 }

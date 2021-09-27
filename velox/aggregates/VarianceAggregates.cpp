@@ -133,8 +133,8 @@ struct VarSampResultAccessor {
 template <typename T, typename TResultAccessor>
 class VarianceAggregate : public exec::Aggregate {
  public:
-  VarianceAggregate(core::AggregationNode::Step step, TypePtr resultType)
-      : exec::Aggregate(step, resultType) {}
+  explicit VarianceAggregate(TypePtr resultType)
+      : exec::Aggregate(resultType) {}
 
   int32_t accumulatorFixedWidthSize() const override {
     return sizeof(VarianceAccumulator);
@@ -419,8 +419,8 @@ template <typename T>
 class StdDevPopAggregate
     : public VarianceAggregate<T, StdDevPopResultAccessor> {
  public:
-  StdDevPopAggregate(core::AggregationNode::Step step, TypePtr resultType)
-      : VarianceAggregate<T, StdDevPopResultAccessor>(step, resultType) {}
+  explicit StdDevPopAggregate(TypePtr resultType)
+      : VarianceAggregate<T, StdDevPopResultAccessor>(resultType) {}
 };
 
 // Implements 'Sample Standard Deviation' aggregate.
@@ -429,8 +429,8 @@ template <typename T>
 class StdDevSampAggregate
     : public VarianceAggregate<T, StdDevSampResultAccessor> {
  public:
-  StdDevSampAggregate(core::AggregationNode::Step step, TypePtr resultType)
-      : VarianceAggregate<T, StdDevSampResultAccessor>(step, resultType) {}
+  explicit StdDevSampAggregate(TypePtr resultType)
+      : VarianceAggregate<T, StdDevSampResultAccessor>(resultType) {}
 };
 
 // Implements 'Population Variance' aggregate.
@@ -438,8 +438,8 @@ class StdDevSampAggregate
 template <typename T>
 class VarPopAggregate : public VarianceAggregate<T, VarPopResultAccessor> {
  public:
-  VarPopAggregate(core::AggregationNode::Step step, TypePtr resultType)
-      : VarianceAggregate<T, VarPopResultAccessor>(step, resultType) {}
+  explicit VarPopAggregate(TypePtr resultType)
+      : VarianceAggregate<T, VarPopResultAccessor>(resultType) {}
 };
 
 // Implements 'Sample Variance' aggregate.
@@ -447,8 +447,8 @@ class VarPopAggregate : public VarianceAggregate<T, VarPopResultAccessor> {
 template <typename T>
 class VarSampAggregate : public VarianceAggregate<T, VarSampResultAccessor> {
  public:
-  VarSampAggregate(core::AggregationNode::Step step, TypePtr resultType)
-      : VarianceAggregate<T, VarSampResultAccessor>(step, resultType) {}
+  explicit VarSampAggregate(TypePtr resultType)
+      : VarianceAggregate<T, VarSampResultAccessor>(resultType) {}
 };
 
 // Registration code
@@ -486,15 +486,15 @@ bool registerVarianceAggregate(const std::string& name) {
         if (exec::isRawInput(step)) {
           switch (inputType->kind()) {
             case TypeKind::SMALLINT:
-              return std::make_unique<TClass<int16_t>>(step, resultType);
+              return std::make_unique<TClass<int16_t>>(resultType);
             case TypeKind::INTEGER:
-              return std::make_unique<TClass<int32_t>>(step, resultType);
+              return std::make_unique<TClass<int32_t>>(resultType);
             case TypeKind::BIGINT:
-              return std::make_unique<TClass<int64_t>>(step, resultType);
+              return std::make_unique<TClass<int64_t>>(resultType);
             case TypeKind::REAL:
-              return std::make_unique<TClass<float>>(step, resultType);
+              return std::make_unique<TClass<float>>(resultType);
             case TypeKind::DOUBLE:
-              return std::make_unique<TClass<double>>(step, resultType);
+              return std::make_unique<TClass<double>>(resultType);
             default:
               VELOX_FAIL(
                   "Unknown input type for {} aggregation {}",
@@ -507,7 +507,7 @@ bool registerVarianceAggregate(const std::string& name) {
               inputType,
               "Input type for final aggregation must be "
               "(count:bigint, mean:double, m2:double) struct");
-          return std::make_unique<TClass<int64_t>>(step, resultType);
+          return std::make_unique<TClass<int64_t>>(resultType);
         }
       });
   return true;

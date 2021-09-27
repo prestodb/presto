@@ -203,11 +203,8 @@ struct TDigestAccumulator {
 template <typename T>
 class ApproxPercentileAggregate : public exec::Aggregate {
  public:
-  ApproxPercentileAggregate(
-      core::AggregationNode::Step step,
-      bool hasWeight,
-      const TypePtr& resultType)
-      : exec::Aggregate(step, resultType), hasWeight_{hasWeight} {}
+  ApproxPercentileAggregate(bool hasWeight, const TypePtr& resultType)
+      : exec::Aggregate(resultType), hasWeight_{hasWeight} {}
 
   int32_t accumulatorFixedWidthSize() const override {
     return sizeof(TDigestAccumulator);
@@ -547,7 +544,7 @@ bool registerApproxPercentile(const std::string& name) {
 
         if (step == core::AggregationNode::Step::kIntermediate) {
           return std::make_unique<ApproxPercentileAggregate<double>>(
-              step, false, VARBINARY());
+              false, VARBINARY());
         }
 
         auto aggResultType =
@@ -556,22 +553,22 @@ bool registerApproxPercentile(const std::string& name) {
         switch (type->kind()) {
           case TypeKind::TINYINT:
             return std::make_unique<ApproxPercentileAggregate<int8_t>>(
-                step, hasWeight, aggResultType);
+                hasWeight, aggResultType);
           case TypeKind::SMALLINT:
             return std::make_unique<ApproxPercentileAggregate<int16_t>>(
-                step, hasWeight, aggResultType);
+                hasWeight, aggResultType);
           case TypeKind::INTEGER:
             return std::make_unique<ApproxPercentileAggregate<int32_t>>(
-                step, hasWeight, aggResultType);
+                hasWeight, aggResultType);
           case TypeKind::BIGINT:
             return std::make_unique<ApproxPercentileAggregate<int64_t>>(
-                step, hasWeight, aggResultType);
+                hasWeight, aggResultType);
           case TypeKind::REAL:
             return std::make_unique<ApproxPercentileAggregate<float>>(
-                step, hasWeight, aggResultType);
+                hasWeight, aggResultType);
           case TypeKind::DOUBLE:
             return std::make_unique<ApproxPercentileAggregate<double>>(
-                step, hasWeight, aggResultType);
+                hasWeight, aggResultType);
           default:
             VELOX_USER_FAIL(
                 "Unsupported input type for {} aggregation {}",

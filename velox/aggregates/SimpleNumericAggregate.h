@@ -26,10 +26,7 @@ namespace facebook::velox::aggregate {
 template <typename TInput, typename TAccumulator, typename TResult>
 class SimpleNumericAggregate : public exec::Aggregate {
  protected:
-  explicit SimpleNumericAggregate(
-      core::AggregationNode::Step step,
-      TypePtr resultType)
-      : Aggregate(step, resultType) {}
+  explicit SimpleNumericAggregate(TypePtr resultType) : Aggregate(resultType) {}
 
  public:
   void finalize(char** /* unused */, int32_t /* unused */) override {}

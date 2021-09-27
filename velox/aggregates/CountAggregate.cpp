@@ -24,8 +24,7 @@ class CountAggregate : public SimpleNumericAggregate<bool, int64_t, int64_t> {
   using BaseAggregate = SimpleNumericAggregate<bool, int64_t, int64_t>;
 
  public:
-  explicit CountAggregate(core::AggregationNode::Step step)
-      : BaseAggregate(step, BIGINT()) {}
+  explicit CountAggregate() : BaseAggregate(BIGINT()) {}
 
   int32_t accumulatorFixedWidthSize() const override {
     return sizeof(int64_t);
@@ -143,10 +142,10 @@ bool registerCountAggregate(const std::string& name) {
         VELOX_CHECK_LE(
             argTypes.size(), 1, "{} takes at most one argument", name);
         if (exec::isRawInput(step)) {
-          return std::make_unique<CountAggregate>(step);
+          return std::make_unique<CountAggregate>();
         } else {
           return std::make_unique<SumAggregate<int64_t, int64_t, int64_t>>(
-              step, BIGINT());
+              BIGINT());
         }
       });
   return true;

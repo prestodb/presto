@@ -33,8 +33,7 @@ bool isPartialOutput(core::AggregationNode::Step step);
 
 class Aggregate {
  protected:
-  explicit Aggregate(core::AggregationNode::Step step, TypePtr resultType)
-      : isRawInput_{isRawInput(step)}, resultType_(resultType) {}
+  explicit Aggregate(TypePtr resultType) : resultType_(resultType) {}
 
  public:
   virtual ~Aggregate() {}
@@ -231,7 +230,6 @@ class Aggregate {
     }
   }
 
-  const bool isRawInput_;
   const TypePtr resultType_;
 
   // Byte position of null flag in group row.
