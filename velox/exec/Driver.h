@@ -243,6 +243,7 @@ struct DriverFactory {
     return std::nullopt;
   }
 
+  /// Returns plan node IDs of all HashJoinNode's in the pipeline.
   std::vector<core::PlanNodeId> needsHashJoinBridges() const {
     std::vector<core::PlanNodeId> planNodeIds;
     for (const auto& planNode : planNodes) {
@@ -252,6 +253,19 @@ struct DriverFactory {
       }
     }
     return planNodeIds;
+  }
+
+  /// Returns plan node IDs of all CrossJoinNode's in the pipeline.
+  std::vector<core::PlanNodeId> needsCrossJoinBridges() const {
+    std::vector<core::PlanNodeId> joinNodeIds;
+    for (const auto& planNode : planNodes) {
+      if (auto joinNode =
+              std::dynamic_pointer_cast<const core::CrossJoinNode>(planNode)) {
+        joinNodeIds.emplace_back(joinNode->id());
+      }
+    }
+
+    return joinNodeIds;
   }
 };
 

@@ -182,6 +182,10 @@ class PlanBuilder {
       const std::vector<ChannelIndex>& output,
       core::JoinType joinType = core::JoinType::kInner);
 
+  PlanBuilder& crossJoin(
+      const std::shared_ptr<core::PlanNode>& build,
+      const std::vector<ChannelIndex>& output);
+
   PlanBuilder& unnest(
       const std::vector<std::string>& replicateColumns,
       const std::vector<std::string>& unnestColumns,

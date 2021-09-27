@@ -168,4 +168,13 @@ HashJoinNode::HashJoinNode(
     }
   }
 }
+
+CrossJoinNode::CrossJoinNode(
+    const PlanNodeId& id,
+    std::shared_ptr<const PlanNode> left,
+    std::shared_ptr<const PlanNode> right,
+    RowTypePtr outputType)
+    : PlanNode(id),
+      sources_({std::move(left), std::move(right)}),
+      outputType_(std::move(outputType)) {}
 } // namespace facebook::velox::core

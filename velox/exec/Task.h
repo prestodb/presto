@@ -64,6 +64,7 @@ struct TaskStats {
 
 class JoinBridge;
 class HashJoinBridge;
+class CrossJoinBridge;
 
 class Task {
  public:
@@ -278,11 +279,18 @@ class Task {
   // Adds HashJoinBridge's for all the specified plan node IDs.
   void addHashJoinBridges(const std::vector<core::PlanNodeId>& planNodeIds);
 
+  // Adds CrossJoinBridge's for all the specified plan node IDs.
+  void addCrossJoinBridges(const std::vector<core::PlanNodeId>& planNodeIds);
+
   // Returns a HashJoinBridge for 'planNodeId'. This is used for synchronizing
   // start of probe with completion of build for a join that has a
   // separate probe and build. 'id' is the PlanNodeId shared between
   // the probe and build Operators of the join.
   std::shared_ptr<HashJoinBridge> getHashJoinBridge(
+      const core::PlanNodeId& planNodeId);
+
+  // Returns a CrossJoinBridge for 'planNodeId'.
+  std::shared_ptr<CrossJoinBridge> getCrossJoinBridge(
       const core::PlanNodeId& planNodeId);
 
   // Sets the CancelPool of the QueryCtx to a terminate requested

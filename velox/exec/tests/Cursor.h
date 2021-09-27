@@ -26,6 +26,9 @@ struct CursorParameters {
   int32_t destination = 0;
   // Maximum number of drivers per pipeline.
   int32_t maxDrivers = 1;
+  // Number of drivers for the pipeline that produces task results. Cannot
+  // exceed numThreads, but can be less.
+  std::optional<int32_t> numResultDrivers;
   // Optional, created if not present.
   std::shared_ptr<core::QueryCtx> queryCtx;
   uint64_t bufferedBytes = 512 * 1024;

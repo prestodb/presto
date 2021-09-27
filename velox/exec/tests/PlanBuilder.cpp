@@ -448,6 +448,17 @@ PlanBuilder& PlanBuilder::hashJoin(
   return *this;
 }
 
+PlanBuilder& PlanBuilder::crossJoin(
+    const std::shared_ptr<core::PlanNode>& build,
+    const std::vector<ChannelIndex>& output) {
+  auto resultType = concat(planNode_->outputType(), build->outputType());
+  auto outputType = extract(resultType, output);
+
+  planNode_ = std::make_shared<core::CrossJoinNode>(
+      nextPlanNodeId(), std::move(planNode_), build, outputType);
+  return *this;
+}
+
 PlanBuilder& PlanBuilder::unnest(
     const std::vector<std::string>& replicateColumns,
     const std::vector<std::string>& unnestColumns,

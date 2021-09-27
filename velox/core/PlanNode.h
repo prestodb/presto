@@ -841,6 +841,32 @@ class HashJoinNode : public PlanNode {
   const RowTypePtr outputType_;
 };
 
+// Cross join.
+class CrossJoinNode : public PlanNode {
+ public:
+  CrossJoinNode(
+      const PlanNodeId& id,
+      std::shared_ptr<const PlanNode> left,
+      std::shared_ptr<const PlanNode> right,
+      RowTypePtr outputType);
+
+  const std::vector<std::shared_ptr<const PlanNode>>& sources() const override {
+    return sources_;
+  }
+
+  const RowTypePtr& outputType() const override {
+    return outputType_;
+  }
+
+  std::string_view name() const override {
+    return "cross join";
+  }
+
+ private:
+  const std::vector<std::shared_ptr<const PlanNode>> sources_;
+  const RowTypePtr outputType_;
+};
+
 // Represents the 'SortBy' node in the plan.
 class OrderByNode : public PlanNode {
  public:

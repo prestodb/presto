@@ -16,6 +16,8 @@ add_library(
   Aggregate.cpp
   AllocationPool.cpp
   ContainerRowSerde.cpp
+  CrossJoinBuild.cpp
+  CrossJoinProbe.cpp
   Driver.cpp
   EnforceSingleRow.cpp
   Exchange.cpp

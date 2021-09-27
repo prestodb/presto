@@ -112,7 +112,10 @@ TaskCursor::TaskCursor(const CursorParameters& params)
   } else {
     queryCtx = core::QueryCtx::create();
   }
-  queue_ = std::make_shared<TaskQueue>(maxDrivers_, params.bufferedBytes);
+  auto numProducers = params.numResultDrivers.has_value()
+      ? params.numResultDrivers.value()
+      : params.maxDrivers;
+  queue_ = std::make_shared<TaskQueue>(numProducers, params.bufferedBytes);
   // Captured as a shared_ptr by the consumer callback of task_.
   auto queue = queue_;
   task_ = std::make_shared<exec::Task>(

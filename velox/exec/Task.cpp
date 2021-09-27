@@ -16,6 +16,7 @@
 #include "velox/exec/Task.h"
 #include "velox/codegen/Codegen.h"
 #include "velox/common/time/Timer.h"
+#include "velox/exec/CrossJoinBuild.h"
 #include "velox/exec/Exchange.h"
 #include "velox/exec/HashBuild.h"
 #include "velox/exec/LocalPlanner.h"
@@ -126,6 +127,7 @@ void Task::start(std::shared_ptr<Task> self, uint32_t maxDrivers) {
     }
 
     self->addHashJoinBridges(factory->needsHashJoinBridges());
+    self->addCrossJoinBridges(factory->needsCrossJoinBridges());
 
     for (int32_t i = 0; i < numDrivers; ++i) {
       drivers.push_back(factory->createDriver(
@@ -454,6 +456,14 @@ void Task::addHashJoinBridges(
   }
 }
 
+void Task::addCrossJoinBridges(
+    const std::vector<core::PlanNodeId>& planNodeIds) {
+  std::lock_guard<std::mutex> l(mutex_);
+  for (const auto& planNodeId : planNodeIds) {
+    bridges_.emplace(planNodeId, std::make_shared<CrossJoinBridge>());
+  }
+}
+
 std::shared_ptr<HashJoinBridge> Task::getHashJoinBridge(
     const core::PlanNodeId& planNodeId) {
   std::lock_guard<std::mutex> l(mutex_);
@@ -466,6 +476,22 @@ std::shared_ptr<HashJoinBridge> Task::getHashJoinBridge(
   VELOX_CHECK_NOT_NULL(
       bridge,
       "Join bridge for plan node ID is not a hash join bridge: {}",
+      planNodeId);
+  return bridge;
+}
+
+std::shared_ptr<CrossJoinBridge> Task::getCrossJoinBridge(
+    const core::PlanNodeId& planNodeId) {
+  std::lock_guard<std::mutex> l(mutex_);
+  auto it = bridges_.find(planNodeId);
+  VELOX_CHECK(
+      it != bridges_.end(),
+      "Join bridge for plan node ID not found:{}",
+      planNodeId);
+  auto bridge = std::dynamic_pointer_cast<CrossJoinBridge>(it->second);
+  VELOX_CHECK_NOT_NULL(
+      bridge,
+      "Join bridge for plan node ID is not a cross join bridge: {}",
       planNodeId);
   return bridge;
 }

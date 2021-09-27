@@ -32,6 +32,7 @@ target_link_libraries(
 
 add_executable(
   velox_exec_test
+  CrossJoinTest.cpp
   DriverTest.cpp
   EnforceSingleRowTest.cpp
   FilterProjectTest.cpp
