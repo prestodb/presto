@@ -401,7 +401,7 @@ public class ParquetPageSourceFactory
         return Optional.of(type);
     }
 
-    private static boolean checkSchemaMatch(org.apache.parquet.schema.Type parquetType, Type type)
+    public static boolean checkSchemaMatch(org.apache.parquet.schema.Type parquetType, Type type)
     {
         String prestoType = type.getTypeSignature().getBase();
         if (parquetType instanceof GroupType) {
