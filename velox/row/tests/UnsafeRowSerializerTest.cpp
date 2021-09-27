@@ -1165,4 +1165,31 @@ TEST_F(UnsafeRowSerializerTests, rowVarLength) {
   EXPECT_TRUE(checkVariableLength(bytes1, 13 * 8 - 4, *expected1));
 }
 
+TEST_F(UnsafeRowSerializerTests, LazyVector) {
+  VectorPtr lazyVector0 = vectorMaker_->lazyFlatVector<StringView>(
+      1, [](vector_size_t i) { return StringView("Hello, World!", 13); });
+
+  auto serialized0 =
+      UnsafeRowDynamicSerializer::serialize(VARCHAR(), lazyVector0, buffer_, 0);
+  EXPECT_TRUE(checkVariableLength(serialized0, 13, u8"Hello, World!"));
+
+  VectorPtr lazyVector1 =
+      vectorMaker_->lazyFlatVector<Timestamp>(1, [](vector_size_t i) {
+        return Timestamp((int64_t)std::numeric_limits<int64_t>::max(), 0);
+      });
+
+  auto serialized1 = UnsafeRowDynamicSerializer::serialize(
+      TIMESTAMP(), lazyVector1, buffer_, 0);
+  int64_t expected1 = std::numeric_limits<int64_t>::max();
+  EXPECT_TRUE(checkFixedLength(serialized1, 0, &expected1));
+
+  VectorPtr lazyVector2 = vectorMaker_->lazyFlatVector<int32_t>(
+      1, [](vector_size_t i) { return 0x01010101; });
+
+  auto serialized2 =
+      UnsafeRowSerializer::serialize<IntegerType>(lazyVector2, buffer_, 0);
+  int intVal = 0x01010101;
+  EXPECT_TRUE(checkFixedLength(serialized2, 0, &intVal));
+}
+
 } // namespace facebook::velox::row

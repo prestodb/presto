@@ -184,11 +184,12 @@ struct UnsafeRowSerializer {
   template <TypeKind Kind>
   inline static std::optional<size_t>
   serializeFixedLength(const VectorPtr& data, char* buffer, size_t idx) {
+    auto* rawData = data->loadedVector();
     // TODO: refactor to merge the decoding of a vector of fixed length,
     // Timestamp and StringView data.
     using NativeType = typename TypeTraits<Kind>::NativeType;
     DCHECK_EQ(data->type()->kind(), Kind);
-    const auto& simple = static_cast<const SimpleVector<NativeType>&>(*data);
+    const auto& simple = static_cast<const SimpleVector<NativeType>&>(*rawData);
 
     VELOX_CHECK(data->isIndexInRange(idx));
 
@@ -224,8 +225,10 @@ struct UnsafeRowSerializer {
   /// otherwise
   inline static std::optional<size_t>
   serializeStringView(const VectorPtr& data, char* buffer, size_t idx) {
+    auto* rawData = data->loadedVector();
+
     VELOX_CHECK(data->isIndexInRange(idx));
-    const auto& simple = static_cast<const SimpleVector<StringView>&>(*data);
+    const auto& simple = static_cast<const SimpleVector<StringView>&>(*rawData);
 
     if (simple.isNullAt(idx)) {
       return std::nullopt;
@@ -266,8 +269,10 @@ struct UnsafeRowSerializer {
   /// otherwise
   inline static std::optional<size_t>
   serializeTimestampSeconds(const VectorPtr& data, char* buffer, size_t idx) {
+    auto* rawData = data->loadedVector();
+
     using NativeType = typename TypeTraits<TypeKind::BIGINT>::NativeType;
-    const auto& simple = static_cast<SimpleVector<Timestamp>&>(*data);
+    const auto& simple = static_cast<SimpleVector<Timestamp>&>(*rawData);
 
     VELOX_CHECK(data->isIndexInRange(idx));
 
