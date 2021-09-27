@@ -241,7 +241,7 @@ public class TestRowBlock
         // null rows are handled by assertPositionValue
         requireNonNull(row, "row is null");
 
-        assertFalse(rowBlock.isNullUnchecked(internalPosition));
+        assertFalse(rowBlock.mayHaveNull() && rowBlock.isNullUnchecked(internalPosition));
         SingleRowBlock singleRowBlock = (SingleRowBlock) rowBlock.getBlockUnchecked(internalPosition);
         assertEquals(singleRowBlock.getPositionCount(), row.size());
 
