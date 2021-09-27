@@ -98,14 +98,20 @@ class Task {
   }
 
   velox::memory::MemoryPool* FOLLY_NONNULL addDriverPool() {
-    driverPools_.push_back(pool_->addScopedChild("driver_root"));
-    auto* driverPool = driverPools_.back().get();
+    childPools_.push_back(pool_->addScopedChild("driver_root"));
+    auto* driverPool = childPools_.back().get();
     auto parentTracker = pool_->getMemoryUsageTracker();
     if (parentTracker) {
       driverPool->setMemoryUsageTracker(parentTracker->addChild());
     }
 
     return driverPool;
+  }
+
+  velox::memory::MemoryPool* FOLLY_NONNULL
+  addOperatorPool(velox::memory::MemoryPool* FOLLY_NONNULL driverPool) {
+    childPools_.push_back(driverPool->addScopedChild("operator_ctx"));
+    return childPools_.back().get();
   }
 
   static void start(std::shared_ptr<Task> self, uint32_t maxDrivers);
@@ -442,9 +448,9 @@ class Task {
   TaskStats taskStats_;
   std::unique_ptr<velox::memory::MemoryPool> pool_;
 
-  // Keep driver memory pools alive for the duration of the task to allow for
-  // sharing vectors across drivers without copy.
-  std::vector<std::unique_ptr<velox::memory::MemoryPool>> driverPools_;
+  // Keep driver and operator memory pools alive for the duration of the task to
+  // allow for sharing vectors across drivers without copy.
+  std::vector<std::unique_ptr<velox::memory::MemoryPool>> childPools_;
 
   std::vector<std::shared_ptr<MergeSource>> localMergeSources_;
 

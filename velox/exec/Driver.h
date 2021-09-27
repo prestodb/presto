@@ -82,19 +82,10 @@ struct DriverCtx {
       int _pipelineId,
       int32_t numDrivers);
 
-  velox::memory::MemoryPool* FOLLY_NONNULL addOperatorPool() {
-    opMemPools_.push_back(execCtx->pool()->addScopedChild("operator_ctx"));
-    return opMemPools_.back().get();
-  }
+  velox::memory::MemoryPool* FOLLY_NONNULL addOperatorPool();
 
   std::unique_ptr<connector::ConnectorQueryCtx> createConnectorQueryCtx(
       const std::string& connectorId) const;
-
- private:
-  // Lifetime of operator memory pools is same as the driverCtx, since some
-  // buffers allocated within an operator context may still be referenced by
-  // other operators.
-  std::vector<std::unique_ptr<velox::memory::MemoryPool>> opMemPools_;
 };
 
 class Driver {
@@ -270,10 +261,10 @@ struct DriverFactory {
 // the contending threads go suspended and each in turn enters a
 // global critical section. When running the arbitration strategy, a
 // thread can stop and restart Tasks, including its own. When a Task
-// is stopped, its drivers are blocked or suspended and the strategy thread can
-// alter the Task's memory including spilling or killing the whole Task. Other
-// threads waiting to run the arbitration, are in a suspended state which also
-// means that they are instantaneously killable or spillable.
+// is stopped, its drivers are blocked or suspended and the strategy thread
+// can alter the Task's memory including spilling or killing the whole Task.
+// Other threads waiting to run the arbitration, are in a suspended state
+// which also means that they are instantaneously killable or spillable.
 class SuspendedSection {
  public:
   explicit SuspendedSection(Driver* FOLLY_NONNULL driver);

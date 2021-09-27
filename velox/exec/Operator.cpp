@@ -22,6 +22,9 @@
 
 namespace facebook::velox::exec {
 
+OperatorCtx::OperatorCtx(DriverCtx* driverCtx)
+    : driverCtx_(driverCtx), pool_(driverCtx_->addOperatorPool()) {}
+
 std::vector<Operator::PlanNodeTranslator>& Operator::translators() {
   static std::vector<PlanNodeTranslator> translators;
   return translators;

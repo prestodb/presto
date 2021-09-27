@@ -153,8 +153,7 @@ struct OperatorStats {
 
 class OperatorCtx {
  public:
-  explicit OperatorCtx(DriverCtx* driverCtx)
-      : driverCtx_(driverCtx), pool_(driverCtx_->addOperatorPool()) {}
+  explicit OperatorCtx(DriverCtx* driverCtx);
 
   velox::memory::MemoryPool* pool() const {
     return pool_;

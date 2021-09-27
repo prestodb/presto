@@ -75,6 +75,10 @@ DriverCtx::DriverCtx(
       pipelineId(_pipelineId),
       numDrivers(_numDrivers) {}
 
+velox::memory::MemoryPool* FOLLY_NONNULL DriverCtx::addOperatorPool() {
+  return task->addOperatorPool(execCtx->pool());
+}
+
 std::unique_ptr<connector::ConnectorQueryCtx>
 DriverCtx::createConnectorQueryCtx(const std::string& connectorId) const {
   return std::make_unique<connector::ConnectorQueryCtx>(
