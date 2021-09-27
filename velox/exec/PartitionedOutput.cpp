@@ -16,7 +16,6 @@
 
 #include "velox/exec/PartitionedOutput.h"
 #include "velox/exec/PartitionedOutputBufferManager.h"
-#include "velox/expression/Expr.h"
 
 namespace facebook::velox::exec {
 
@@ -109,10 +108,6 @@ void PartitionedOutput::initializeDestinations() {
     for (int i = 0; i < numDestinations_; ++i) {
       destinations_.push_back(std::make_unique<Destination>(taskId, i, memory));
     }
-    for (auto channel : keyChannels_) {
-      hashers_.push_back(
-          VectorHasher::create(input_->childAt(channel)->type(), channel));
-    }
   }
 }
 
@@ -124,24 +119,11 @@ void PartitionedOutput::initializeSizeBuffers() {
     for (auto i = numOld; i < numInput; ++i) {
       topLevelRanges_[i] = IndexRange{i, 1};
     }
-    hashes_.resize(numInput);
     rowSize_.resize(numInput);
     sizePointers_.resize(numInput);
     // Set all the size pointers since 'rowSize_' may have been reallocated.
     for (vector_size_t i = 0; i < numInput; ++i) {
       sizePointers_[i] = &rowSize_[i];
-    }
-  }
-}
-
-void PartitionedOutput::calculateHashes() {
-  if (!keyChannels_.empty()) {
-    auto numInput = input_->size();
-    rows_.resize(numInput);
-    rows_.setAll();
-    for (auto i = 0; i < keyChannels_.size(); ++i) {
-      hashers_[i]->hash(
-          *input_->childAt(keyChannels_[i]), rows_, i > 0, &hashes_);
     }
   }
 }
@@ -168,8 +150,6 @@ void PartitionedOutput::addInput(RowVectorPtr input) {
 
   initializeSizeBuffers();
 
-  calculateHashes();
-
   estimateRowSizes();
 
   for (auto& destination : destinations_) {
@@ -180,8 +160,9 @@ void PartitionedOutput::addInput(RowVectorPtr input) {
   if (numDestinations_ == 1) {
     destinations_[0]->addRows(IndexRange{0, numInput});
   } else {
+    partitionFunction_->partition(*input_, partitions_);
     if (replicateNullsAndAny_) {
-      collectNullRows(rows_);
+      collectNullRows();
 
       vector_size_t start = 0;
       if (!replicatedAny_) {
@@ -193,32 +174,39 @@ void PartitionedOutput::addInput(RowVectorPtr input) {
         start = 1;
       }
       for (auto i = start; i < numInput; ++i) {
-        if (rows_.isValid(i)) {
+        if (nullRows_.isValid(i)) {
           for (auto& destination : destinations_) {
             destination->addRow(i);
           }
         } else {
-          destinations_[hashes_[i] % numDestinations_]->addRow(i);
+          destinations_[partitions_[i]]->addRow(i);
         }
       }
     } else {
       for (vector_size_t i = 0; i < numInput; ++i) {
-        destinations_[hashes_[i] % numDestinations_]->addRow(i);
+        destinations_[partitions_[i]]->addRow(i);
       }
     }
   }
 }
 
-void PartitionedOutput::collectNullRows(SelectivityVector& nullRows) {
-  nullRows.clearAll();
-  for (const auto& hasher : hashers_) {
-    auto rawNulls = hasher->decodedVector().nulls();
-    if (rawNulls) {
+void PartitionedOutput::collectNullRows() {
+  auto size = input_->size();
+  rows_.resize(size);
+  rows_.setAll();
+
+  nullRows_.resize(size);
+  nullRows_.clearAll();
+
+  for (auto i : keyChannels_) {
+    auto& keyVector = input_->childAt(i);
+    if (keyVector->mayHaveNulls()) {
+      auto* rawNulls = keyVector->flatRawNulls(rows_);
       bits::orWithNegatedBits(
-          nullRows.asMutableRange().bits(), rawNulls, 0, nullRows.size());
+          nullRows_.asMutableRange().bits(), rawNulls, 0, size);
     }
   }
-  nullRows.updateBounds();
+  nullRows_.updateBounds();
 }
 
 RowVectorPtr PartitionedOutput::getOutput() {

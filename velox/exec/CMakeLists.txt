@@ -25,6 +25,7 @@ add_library(
   GroupingSet.cpp
   HashAggregation.cpp
   HashBuild.cpp
+  HashPartitionFunction.cpp
   HashProbe.cpp
   HashStringAllocator.cpp
   HashTable.cpp

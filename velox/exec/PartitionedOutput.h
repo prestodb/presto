@@ -17,7 +17,6 @@
 
 #include "velox/exec/Operator.h"
 #include "velox/exec/PartitionedOutputBufferManager.h"
-#include "velox/exec/VectorHasher.h"
 
 namespace facebook::velox::exec {
 
@@ -109,13 +108,23 @@ class PartitionedOutput : public Operator {
         keyChannels_(toChannels(planNode->inputType(), planNode->keys())),
         numDestinations_(planNode->numPartitions()),
         replicateNullsAndAny_(planNode->isReplicateNullsAndAny()),
+        partitionFunction_(
+            numDestinations_ == 1 ? nullptr
+                                  : planNode->partitionFunctionFactory()()),
         outputChannels_(calculateOutputChannels(
             planNode->inputType(),
             planNode->outputType())),
         future_(false),
         bufferManager_(PartitionedOutputBufferManager::getInstance(
             operatorCtx_->task()->queryCtx()->host())) {
-    VELOX_CHECK(numDestinations_ > 1 || keyChannels_.empty());
+    if (numDestinations_ > 1 && !planNode->isBroadcast()) {
+      // TODO Add proper support for round-robin partitioning and enable the
+      // checks below. VELOX_CHECK(!keyChannels_.empty());
+      // VELOX_CHECK_NOT_NULL(partitionFunction_);
+    } else {
+      VELOX_CHECK(keyChannels_.empty());
+      VELOX_CHECK_NULL(partitionFunction_);
+    }
     VELOX_CHECK_GT(outputType_->size(), 0);
   }
 
@@ -152,12 +161,10 @@ class PartitionedOutput : public Operator {
 
   void initializeSizeBuffers();
 
-  void calculateHashes();
-
   void estimateRowSizes();
 
-  /// Collect all rows with null keys into the provided SelectivityVector.
-  void collectNullRows(SelectivityVector& nullRows);
+  /// Collect all rows with null keys into nullRows_.
+  void collectNullRows();
 
   static constexpr uint64_t kMaxDestinationSize = 1024 * 1024; // 1MB
   static constexpr uint64_t kMinDestinationSize = 16 * 1024; // 16 KB
@@ -165,25 +172,26 @@ class PartitionedOutput : public Operator {
   const std::vector<ChannelIndex> keyChannels_;
   const int numDestinations_;
   const bool replicateNullsAndAny_;
+  std::unique_ptr<core::PartitionFunction> partitionFunction_;
   // Empty if column order in the output is exactly the same as in input.
   const std::vector<ChannelIndex> outputChannels_;
   BlockingReason blockingReason_{BlockingReason::kNotBlocked};
   ContinueFuture future_;
   bool isFinished_{false};
-  std::vector<std::unique_ptr<VectorHasher>> hashers_;
   // top-level row numbers used as input to
   // VectorStreamGroup::estimateSerializedSize member variable is used to avoid
   // re-allocating memory
   std::vector<IndexRange> topLevelRanges_;
   std::vector<vector_size_t*> sizePointers_;
   std::vector<vector_size_t> rowSize_;
-  std::vector<uint64_t> hashes_;
   std::vector<std::unique_ptr<Destination>> destinations_;
   bool replicatedAny_{false};
   std::weak_ptr<exec::PartitionedOutputBufferManager> bufferManager_;
 
   // Reusable memory.
   SelectivityVector rows_;
+  SelectivityVector nullRows_;
+  std::vector<uint32_t> partitions_;
 };
 
 } // namespace facebook::velox::exec

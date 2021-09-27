@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 #include "velox/exec/tests/PlanBuilder.h"
-#include <boost/algorithm/string.hpp>
-#include <gtest/gtest.h>
 #include <velox/exec/Aggregate.h>
+#include <velox/exec/HashPartitionFunction.h>
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/parse/Expressions.h"
 #include "velox/parse/ExpressionsParser.h"
@@ -355,12 +354,28 @@ PlanBuilder& PlanBuilder::partitionedOutput(
     const std::vector<ChannelIndex>& outputLayout) {
   auto outputType = toRowType(planNode_->outputType(), outputLayout);
   auto keys = fields(keyIndices);
+  core::PartitionFunctionFactory partitionFunctionFactory;
+  if (keys.empty()) {
+    partitionFunctionFactory =
+        []() -> std::unique_ptr<core::PartitionFunction> {
+      VELOX_UNREACHABLE();
+    };
+  } else {
+    partitionFunctionFactory =
+        [numPartitions,
+         inputType = planNode_->outputType(),
+         keyIndices]() -> std::unique_ptr<core::PartitionFunction> {
+      return std::make_unique<exec::HashPartitionFunction>(
+          numPartitions, inputType, keyIndices);
+    };
+  }
   planNode_ = std::make_shared<core::PartitionedOutputNode>(
       nextPlanNodeId(),
       keys,
       numPartitions,
       false,
       replicateNullsAndAny,
+      std::move(partitionFunctionFactory),
       outputType,
       planNode_);
   return *this;
@@ -369,14 +384,8 @@ PlanBuilder& PlanBuilder::partitionedOutput(
 PlanBuilder& PlanBuilder::partitionedOutputBroadcast(
     const std::vector<ChannelIndex>& outputLayout) {
   auto outputType = toRowType(planNode_->outputType(), outputLayout);
-  planNode_ = std::make_shared<core::PartitionedOutputNode>(
-      nextPlanNodeId(),
-      std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>{},
-      1,
-      true,
-      false,
-      outputType,
-      planNode_);
+  planNode_ = core::PartitionedOutputNode::broadcast(
+      nextPlanNodeId(), 1, outputType, planNode_);
   return *this;
 }
 
