@@ -72,8 +72,13 @@ void registerArithmeticFunctions() {
       {"clamp"});
   registerFunction<udf_clamp<float>, float, float, float, float>({"clamp"});
   registerFunction<udf_ln, double, double>({"ln"});
+  registerFunction<udf_cos, double, double>({"cos"});
+  registerFunction<udf_cosh, double, double>({"cosh"});
   registerFunction<udf_acos, double, double>({"acos"});
+  registerFunction<udf_sin, double, double>({"sin"});
   registerFunction<udf_asin, double, double>({"asin"});
+  registerFunction<udf_tan, double, double>({"tan"});
+  registerFunction<udf_tanh, double, double>({"tanh"});
   registerFunction<udf_atan, double, double>({"atan"});
   registerFunction<udf_atan2, double, double, double>({"atan2"});
   registerFunction<udf_sqrt, double, double>({"sqrt"});

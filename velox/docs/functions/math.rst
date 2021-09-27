@@ -105,3 +105,24 @@ Trigonometric Functions
 .. function:: atan2(y, x) -> double
 
     Returns the arc tangent of ``y / x``.
+
+.. function:: cos(x) -> double
+
+    Returns the cosine of ``x``.
+
+.. function:: cosh(x) -> double
+
+    Returns the hyperbolic cosine of ``x``.
+
+.. function:: sin(x) -> double
+
+    Returns the sine of ``x``.
+
+.. function:: tan(x) -> double
+
+    Returns the tangent of ``x``.
+
+.. function:: tanh(x) -> double
+
+    Returns the hyperbolic tangent of ``x``.
+

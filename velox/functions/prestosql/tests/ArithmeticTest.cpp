@@ -177,6 +177,30 @@ TEST_F(ArithmeticTest, ln) {
   EXPECT_EQ(std::nullopt, ln(std::nullopt));
 }
 
+TEST_F(ArithmeticTest, cos) {
+  const auto cosEval = [&](std::optional<double> a) {
+    return evaluateOnce<double>("cos(c0)", a);
+  };
+
+  for (double value : kDoubleValues) {
+    EXPECT_EQ(std::cos(value), cosEval(value));
+  }
+
+  EXPECT_EQ(std::nullopt, cosEval(std::nullopt));
+}
+
+TEST_F(ArithmeticTest, cosh) {
+  const auto coshEval = [&](std::optional<double> a) {
+    return evaluateOnce<double>("cosh(c0)", a);
+  };
+
+  for (double value : kDoubleValues) {
+    EXPECT_EQ(std::cosh(value), coshEval(value));
+  }
+
+  EXPECT_EQ(std::nullopt, coshEval(std::nullopt));
+}
+
 TEST_F(ArithmeticTest, acos) {
   const auto acosEval = [&](std::optional<double> a) {
     return evaluateOnce<double>("acos(c0)", a);
@@ -195,6 +219,18 @@ TEST_F(ArithmeticTest, acos) {
   EXPECT_EQ(std::nullopt, acosEval(std::nullopt));
 }
 
+TEST_F(ArithmeticTest, sin) {
+  const auto sinEval = [&](std::optional<double> a) {
+    return evaluateOnce<double>("sin(c0)", a);
+  };
+
+  for (double value : kDoubleValues) {
+    EXPECT_EQ(std::sin(value), sinEval(value));
+  }
+
+  EXPECT_EQ(std::nullopt, sinEval(std::nullopt));
+}
+
 TEST_F(ArithmeticTest, asin) {
   const auto asinEval = [&](std::optional<double> a) {
     return evaluateOnce<double>("asin(c0)", a);
@@ -211,6 +247,30 @@ TEST_F(ArithmeticTest, asin) {
   }
 
   EXPECT_EQ(std::nullopt, asinEval(std::nullopt));
+}
+
+TEST_F(ArithmeticTest, tan) {
+  const auto tanEval = [&](std::optional<double> a) {
+    return evaluateOnce<double>("tan(c0)", a);
+  };
+
+  for (double value : kDoubleValues) {
+    EXPECT_EQ(std::tan(value), tanEval(value));
+  }
+
+  EXPECT_EQ(std::nullopt, tanEval(std::nullopt));
+}
+
+TEST_F(ArithmeticTest, tanh) {
+  const auto tanhEval = [&](std::optional<double> a) {
+    return evaluateOnce<double>("tanh(c0)", a);
+  };
+
+  for (double value : kDoubleValues) {
+    EXPECT_EQ(std::tanh(value), tanhEval(value));
+  }
+
+  EXPECT_EQ(std::nullopt, tanhEval(std::nullopt));
 }
 
 TEST_F(ArithmeticTest, atan) {
