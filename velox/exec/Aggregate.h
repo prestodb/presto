@@ -68,16 +68,6 @@ class Aggregate {
       char** groups,
       folly::Range<const vector_size_t*> indices) = 0;
 
-  // Initializes null flags and accumulators for newly encountered groups from
-  // partial results.
-  // @param groups Pointers to the start of the new group rows.
-  // @param indices Indices into 'groups' of the new entries.
-  // @param initialState Partial results extracted from `extractAccumulators`.
-  virtual void initializeNewGroups(
-      char** /*groups*/,
-      folly::Range<const vector_size_t*> /*indices*/,
-      const VectorPtr& /*initialState*/) = 0;
-
   // Single Aggregate instance is able to take both raw data and
   // intermediate result as input based on the assumption that Partial
   // accumulator and Final accumulator are of the same type.

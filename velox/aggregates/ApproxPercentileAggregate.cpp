@@ -220,13 +220,6 @@ class ApproxPercentileAggregate : public exec::Aggregate {
     }
   }
 
-  void initializeNewGroups(
-      char** /*groups*/,
-      folly::Range<const vector_size_t*> /*indices*/,
-      const VectorPtr& /*initialState*/) override {
-    VELOX_NYI();
-  }
-
   void destroy(folly::Range<char**> groups) override {
     for (auto group : groups) {
       auto accumulator = value<TDigestAccumulator>(group);

@@ -43,13 +43,6 @@ class MapAggAggregate : public exec::Aggregate {
     }
   }
 
-  void initializeNewGroups(
-      char** /*groups*/,
-      folly::Range<const vector_size_t*> /*indices*/,
-      const VectorPtr& /*initialState*/) override {
-    VELOX_NYI();
-  }
-
   void finalize(char** groups, int32_t numGroups) override {
     for (auto i = 0; i < numGroups; i++) {
       value<MapAccumulator>(groups[i])->keys.finalize(allocator_);

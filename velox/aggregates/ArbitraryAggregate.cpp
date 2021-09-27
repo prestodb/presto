@@ -44,13 +44,6 @@ class ArbitraryAggregate : public SimpleNumericAggregate<T, T, T> {
     exec::Aggregate::setAllNulls(groups, indices);
   }
 
-  void initializeNewGroups(
-      char** /*groups*/,
-      folly::Range<const vector_size_t*> /*indices*/,
-      const VectorPtr& /*initialState*/) override {
-    VELOX_NYI();
-  }
-
   void extractValues(char** groups, int32_t numGroups, VectorPtr* result)
       override {
     BaseAggregate::doExtractValues(groups, numGroups, result, [&](char* group) {
@@ -160,13 +153,6 @@ class NonNumericArbitrary : public exec::Aggregate {
     for (auto i : indices) {
       new (groups[i] + offset_) SingleValueAccumulator();
     }
-  }
-
-  void initializeNewGroups(
-      char** /*groups*/,
-      folly::Range<const vector_size_t*> /*indices*/,
-      const VectorPtr& /*initialState*/) override {
-    VELOX_NYI();
   }
 
   void finalize(char** /* groups */, int32_t /* numGroups */) override {}

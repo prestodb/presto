@@ -69,13 +69,6 @@ class BoolAndOrAggregate : public SimpleNumericAggregate<bool, bool, bool> {
     }
   }
 
-  void initializeNewGroups(
-      char** /*groups*/,
-      folly::Range<const vector_size_t*> /*indices*/,
-      const VectorPtr& /*initialState*/) override {
-    VELOX_NYI();
-  }
-
  protected:
   const bool initialValue_;
 };
