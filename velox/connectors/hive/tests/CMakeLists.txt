@@ -11,14 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+add_executable(velox_hive_connector_test HivePartitionFunctionTest.cpp)
+add_test(velox_hive_connector_test velox_hive_connector_test)
 
-add_library(velox_hive_connector OBJECT HiveConnector.cpp FileHandle.cpp)
-
-target_link_libraries(velox_hive_connector velox_connector
-                      velox_dwio_dwrf_reader velox_dwio_dwrf_writer velox_file)
-
-add_library(velox_hive_partition_function HivePartitionFunction.cpp)
-
-target_link_libraries(velox_hive_partition_function velox_core)
-
-add_subdirectory(tests)
+target_link_libraries(velox_hive_connector_test velox_hive_partition_function
+                      velox_vector_test_lib ${GTEST_BOTH_LIBRARIES})
