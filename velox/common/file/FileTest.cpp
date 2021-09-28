@@ -16,6 +16,7 @@
 
 #include "velox/common/file/File.h"
 #include "velox/common/file/FileSystems.h"
+#include "velox/exec/tests/TempFilePath.h"
 
 #include "gtest/gtest.h"
 
@@ -77,8 +78,8 @@ TEST(InMemoryFile, writeAndRead) {
 }
 
 TEST(LocalFile, WriteAndRead) {
-  // TODO: use the appropriate test directory.
-  const char filename[] = "/tmp/test";
+  auto tempFile = ::exec::test::TempFilePath::create();
+  const auto& filename = tempFile->path.c_str();
   remove(filename);
   {
     LocalWriteFile writeFile(filename);

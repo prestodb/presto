@@ -16,26 +16,21 @@
 
 #include "velox/connectors/hive/FileHandle.h"
 
-#include <string>
 #include "gtest/gtest.h"
 #include "velox/common/caching/SimpleLRUCache.h"
 #include "velox/common/file/File.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/memory/Arena.h"
+#include "velox/exec/tests/TempFilePath.h"
 
 using namespace facebook::velox;
 
 TEST(FileHandleTest, localFile) {
   filesystems::registerLocalFileSystem();
 
-  // TODO: use the appropriate test directory.
-  // Use unique name for each process/thread execution to prevent cross
-  // process/thread race condition
-  auto pid = getpid();
-  auto tid = pthread_self();
-  const std::string filename =
-      "/tmp/test" + std::to_string(pid) + "_" + std::to_string(tid);
-  remove(filename.data());
+  auto tempFile = ::exec::test::TempFilePath::create();
+  const auto& filename = tempFile->path;
+  remove(filename.c_str());
 
   {
     LocalWriteFile writeFile(filename);
@@ -51,5 +46,5 @@ TEST(FileHandleTest, localFile) {
   ASSERT_EQ(fileHandle->file->pread(0, 3, &arena), "foo");
 
   // Clean up
-  remove(filename.data());
+  remove(filename.c_str());
 }
