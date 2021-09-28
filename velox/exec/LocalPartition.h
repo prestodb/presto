@@ -172,11 +172,10 @@ class LocalPartition : public Operator {
   }
 
  private:
-  void calculateHashes();
-
   const std::vector<std::shared_ptr<LocalExchangeSource>> localExchangeSources_;
   const size_t numPartitions_;
   const std::vector<ChannelIndex> keyChannels_;
+  std::unique_ptr<core::PartitionFunction> partitionFunction_;
   // Empty if column order in the output is exactly the same as in input.
   const std::vector<ChannelIndex> outputChannels_;
 
@@ -184,11 +183,9 @@ class LocalPartition : public Operator {
   std::vector<BlockingReason> blockingReasons_;
   std::vector<ContinueFuture> futures_;
 
-  std::vector<std::unique_ptr<VectorHasher>> hashers_;
-
   /// Reusable memory for hash calculation.
   SelectivityVector allRows_;
-  std::vector<uint64_t> hashes_;
+  std::vector<uint32_t> partitions_;
 };
 
 } // namespace facebook::velox::exec

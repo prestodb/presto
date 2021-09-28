@@ -109,19 +109,16 @@ class PartitionedOutput : public Operator {
         numDestinations_(planNode->numPartitions()),
         replicateNullsAndAny_(planNode->isReplicateNullsAndAny()),
         partitionFunction_(
-            numDestinations_ == 1 ? nullptr
-                                  : planNode->partitionFunctionFactory()()),
+            numDestinations_ == 1
+                ? nullptr
+                : planNode->partitionFunctionFactory()(numDestinations_)),
         outputChannels_(calculateOutputChannels(
             planNode->inputType(),
             planNode->outputType())),
         future_(false),
         bufferManager_(PartitionedOutputBufferManager::getInstance(
             operatorCtx_->task()->queryCtx()->host())) {
-    if (numDestinations_ > 1 && !planNode->isBroadcast()) {
-      // TODO Add proper support for round-robin partitioning and enable the
-      // checks below. VELOX_CHECK(!keyChannels_.empty());
-      // VELOX_CHECK_NOT_NULL(partitionFunction_);
-    } else {
+    if (numDestinations_ == 1 || planNode->isBroadcast()) {
       VELOX_CHECK(keyChannels_.empty());
       VELOX_CHECK_NULL(partitionFunction_);
     }

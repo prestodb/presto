@@ -338,6 +338,26 @@ RowTypePtr toRowType(
   }
   return ROW(std::move(names), std::move(types));
 }
+
+core::PartitionFunctionFactory createPartitionFunctionFactory(
+    const RowTypePtr& inputType,
+    const std::vector<ChannelIndex>& keyIndices,
+    const std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>&
+        keys) {
+  if (keys.empty()) {
+    return
+        [](auto /*numPartitions*/) -> std::unique_ptr<core::PartitionFunction> {
+          VELOX_UNREACHABLE();
+        };
+  } else {
+    return [inputType, keyIndices](
+               auto numPartitions) -> std::unique_ptr<core::PartitionFunction> {
+      return std::make_unique<exec::HashPartitionFunction>(
+          numPartitions, inputType, keyIndices);
+    };
+  }
+}
+
 } // namespace
 
 PlanBuilder& PlanBuilder::partitionedOutput(
@@ -354,21 +374,8 @@ PlanBuilder& PlanBuilder::partitionedOutput(
     const std::vector<ChannelIndex>& outputLayout) {
   auto outputType = toRowType(planNode_->outputType(), outputLayout);
   auto keys = fields(keyIndices);
-  core::PartitionFunctionFactory partitionFunctionFactory;
-  if (keys.empty()) {
-    partitionFunctionFactory =
-        []() -> std::unique_ptr<core::PartitionFunction> {
-      VELOX_UNREACHABLE();
-    };
-  } else {
-    partitionFunctionFactory =
-        [numPartitions,
-         inputType = planNode_->outputType(),
-         keyIndices]() -> std::unique_ptr<core::PartitionFunction> {
-      return std::make_unique<exec::HashPartitionFunction>(
-          numPartitions, inputType, keyIndices);
-    };
-  }
+  auto partitionFunctionFactory =
+      createPartitionFunctionFactory(planNode_->outputType(), keyIndices, keys);
   planNode_ = std::make_shared<core::PartitionedOutputNode>(
       nextPlanNodeId(),
       keys,
@@ -396,8 +403,10 @@ PlanBuilder& PlanBuilder::localPartition(
   auto inputType = sources[0]->outputType();
   auto outputType = toRowType(inputType, outputLayout);
   auto keys = fields(inputType, keyIndices);
+  auto partitionFunctionFactory =
+      createPartitionFunctionFactory(inputType, keyIndices, keys);
   planNode_ = std::make_shared<core::LocalPartitionNode>(
-      nextPlanNodeId(), keys, outputType, sources);
+      nextPlanNodeId(), keys, partitionFunctionFactory, outputType, sources);
   return *this;
 }
 
