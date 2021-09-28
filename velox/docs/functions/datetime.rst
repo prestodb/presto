@@ -11,6 +11,10 @@ Date and Time Functions
     Returns the UNIX timestamp ``unixtime`` as a timestamp with time zone
     using ``string`` for the time zone.
 
+.. function:: millisecond(timestamp) -> int64
+
+    Returns the millisecond of the second from ``timestamp``.
+
 .. function:: to_unixtime(timestamp) -> double
 
     Returns ``timestamp`` as a UNIX timestamp.

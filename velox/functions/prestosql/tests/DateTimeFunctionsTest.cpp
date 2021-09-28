@@ -16,6 +16,7 @@
 
 #include "velox/functions/prestosql/TimestampWithTimeZoneType.h"
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
+#include "velox/type/Timestamp.h"
 
 using namespace facebook::velox;
 
@@ -117,4 +118,15 @@ TEST_F(DateTimeFunctionsTest, fromUnixtime) {
       std::nullopt, fromUnixtime(std::numeric_limits<double>::infinity()));
   EXPECT_EQ(
       std::nullopt, fromUnixtime(std::numeric_limits<double>::quiet_NaN()));
+}
+
+TEST_F(DateTimeFunctionsTest, millisecond) {
+  const auto millisecond = [&](std::optional<Timestamp> timestamp) {
+    return evaluateOnce<int64_t>("millisecond(c0)", timestamp);
+  };
+  EXPECT_EQ(std::nullopt, millisecond(std::nullopt));
+  EXPECT_EQ(0, millisecond(Timestamp(0, 0)));
+  EXPECT_EQ(0, millisecond(Timestamp(4000000000, 0)));
+  EXPECT_EQ(123, millisecond(Timestamp(-1, 123000000)));
+  EXPECT_EQ(12300, millisecond(Timestamp(-1, 12300000000)));
 }
