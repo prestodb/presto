@@ -137,16 +137,10 @@ BlockingReason LocalExchangeSource::next(
       return BlockingReason::kWaitForExchange;
     }
 
-    // TODO Avoid the copy. The data was allocated from the producer's memory
-    // pool and may go away before it is fully processed by the consumer.
-    auto sourceVector = queue.front();
-    *data = std::static_pointer_cast<RowVector>(
-        BaseVector::create(sourceVector->type(), sourceVector->size(), pool));
-    (*data)->copy(sourceVector.get(), 0, 0, sourceVector->size());
-
+    *data = queue.front();
     queue.pop();
 
-    memoryManager_->decreaseMemoryUsage(sourceVector->retainedSize());
+    memoryManager_->decreaseMemoryUsage((*data)->retainedSize());
 
     if (noMoreProducers_ && pendingProducers_ == 0 && queue.empty()) {
       producerPromises = std::move(producerPromises_);
