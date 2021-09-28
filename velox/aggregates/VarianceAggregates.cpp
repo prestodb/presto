@@ -178,7 +178,6 @@ class VarianceAggregate : public exec::Aggregate {
     }
   }
 
- protected:
   void updatePartial(
       char** groups,
       const SelectivityVector& rows,

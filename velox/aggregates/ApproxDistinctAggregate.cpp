@@ -175,7 +175,6 @@ class ApproxDistinctAggregate : public exec::Aggregate {
 
   void destroy(folly::Range<char**> /*groups*/) override {}
 
- protected:
   void updatePartial(
       char** groups,
       const SelectivityVector& rows,
