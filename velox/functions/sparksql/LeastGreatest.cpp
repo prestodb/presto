@@ -13,22 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/functions/sparksql/LeastGreatest.h"
 
 #include "velox/expression/EvalCtx.h"
 #include "velox/expression/Expr.h"
-#include "velox/expression/VectorFunction.h"
+#include "velox/functions/sparksql/Comparisons.h"
 #include "velox/type/Type.h"
-
-#include "velox/functions/sparksql/LeastGreatest.h"
 
 namespace facebook::velox::functions::sparksql {
 namespace {
 
-enum CompareType { MIN, MAX };
+template <typename Cmp, TypeKind kind>
+class LeastGreatestFunction final : public exec::VectorFunction {
+  using T = typename TypeTraits<kind>::NativeType;
 
-template <CompareType type>
-class LeastGreatestFunction : public exec::VectorFunction {
- public:
   bool isDefaultNullBehavior() const override {
     return false;
   }
@@ -39,52 +37,6 @@ class LeastGreatestFunction : public exec::VectorFunction {
       exec::Expr* caller,
       exec::EvalCtx* context,
       VectorPtr* result) const override {
-    VELOX_CHECK(args.size() >= 2);
-    for (size_t i = 1; i < args.size(); i++) {
-      VELOX_CHECK(args[i]->typeKind() == args[0]->typeKind());
-    }
-
-    switch (args[0]->typeKind()) {
-      case TypeKind::TINYINT:
-        applyTyped<int8_t>(rows, args, caller, context, result);
-        break;
-      case TypeKind::SMALLINT:
-        applyTyped<int16_t>(rows, args, caller, context, result);
-        break;
-      case TypeKind::INTEGER:
-        applyTyped<int32_t>(rows, args, caller, context, result);
-        break;
-      case TypeKind::BIGINT:
-        applyTyped<int64_t>(rows, args, caller, context, result);
-        break;
-      case TypeKind::REAL:
-        applyTyped<float>(rows, args, caller, context, result);
-        break;
-      case TypeKind::DOUBLE:
-        applyTyped<double>(rows, args, caller, context, result);
-        break;
-      case TypeKind::BOOLEAN:
-        applyTyped<bool>(rows, args, caller, context, result);
-        break;
-      case TypeKind::VARCHAR:
-        applyTyped<StringView>(rows, args, caller, context, result);
-        break;
-      case TypeKind::TIMESTAMP:
-        applyTyped<Timestamp>(rows, args, caller, context, result);
-        break;
-      default:
-        VELOX_CHECK(false, "Bad type for least/greatest");
-    }
-  }
-
- private:
-  template <typename T>
-  void applyTyped(
-      const SelectivityVector& rows,
-      const std::vector<VectorPtr>& args,
-      exec::Expr* caller,
-      exec::EvalCtx* context,
-      VectorPtr* result) const {
     auto isFlatVector = [](const VectorPtr vp) -> bool {
       return vp->encoding() == VectorEncoding::Simple::FLAT;
     };
@@ -121,63 +73,69 @@ class LeastGreatestFunction : public exec::VectorFunction {
     }
   }
 
-  template <typename T>
   inline T getValue(const FlatVector<T>& v, vector_size_t i) const {
     return v.valueAt(i);
   }
 
-  template <typename T>
   inline T getValue(const DecodedVector& v, vector_size_t i) const {
     return v.valueAt<T>(i);
   }
 
-  template <typename T>
-  static bool isNaN(const T& value) {
-    if constexpr (std::is_floating_point<T>::value) {
-      // In C++ NaN is not comparable (i.e. all comparisons return false)
-      // to any value (including itself).
-      return std::isnan(value);
-    } else {
-      return false;
-    }
-  }
-
-  template <typename T, typename VecType>
+  template <typename VecType>
   void cmpAndReplace(
       FlatVector<T>& dst,
       const VecType& src,
       SelectivityVector& rows) const {
+    const Cmp cmp;
     rows.applyToSelected([&](vector_size_t row) {
-      const auto srcVal = getValue<T>(src, row);
-      const auto dstVal = getValue<T>(dst, row);
-
-      if (dst.isNullAt(row)) {
+      const auto srcVal = getValue(src, row);
+      if (dst.isNullAt(row) || cmp(srcVal, getValue(dst, row))) {
         dst.set(row, srcVal);
-      } else {
-        // NaN is treated as the largest number
-        if constexpr (type == CompareType::MIN) {
-          if (isNaN(dstVal)) {
-            dst.set(row, srcVal);
-          } else if (!isNaN(srcVal)) {
-            dst.set(row, std::min(dstVal, srcVal));
-          }
-        } else {
-          if (isNaN(srcVal)) {
-            dst.set(row, srcVal);
-          } else if (!isNaN(dstVal)) {
-            dst.set(row, std::max(dstVal, srcVal));
-          }
-        }
       }
     });
   }
 };
+
+template <template <typename> class Cmp>
+std::shared_ptr<exec::VectorFunction> makeImpl(
+    const std::string& functionName,
+    const std::vector<exec::VectorFunctionArg>& args) {
+  VELOX_CHECK_GE(args.size(), 2);
+  for (size_t i = 1; i < args.size(); i++) {
+    VELOX_CHECK(*args[i].type == *args[0].type);
+  }
+
+  switch (args[0].type->kind()) {
+#define SCALAR_CASE(kind)                            \
+  case TypeKind::kind:                               \
+    return std::make_shared<LeastGreatestFunction<   \
+        Cmp<TypeTraits<TypeKind::kind>::NativeType>, \
+        TypeKind::kind>>();
+    SCALAR_CASE(BOOLEAN);
+    SCALAR_CASE(TINYINT);
+    SCALAR_CASE(SMALLINT);
+    SCALAR_CASE(INTEGER);
+    SCALAR_CASE(BIGINT);
+    SCALAR_CASE(REAL);
+    SCALAR_CASE(DOUBLE);
+    SCALAR_CASE(VARCHAR);
+    SCALAR_CASE(VARBINARY);
+    SCALAR_CASE(TIMESTAMP);
+#undef SCALAR_CASE
+    default:
+      VELOX_NYI(
+          "{} does not support arguments of type {}",
+          functionName,
+          args[0].type->kind());
+  }
+}
+
 } // namespace
 
 std::shared_ptr<exec::VectorFunction> makeLeast(
-    const std::string& /**/,
-    const std::vector<exec::VectorFunctionArg>& /**/) {
-  return std::make_shared<LeastGreatestFunction<CompareType::MIN>>();
+    const std::string& functionName,
+    const std::vector<exec::VectorFunctionArg>& args) {
+  return makeImpl<Less>(functionName, args);
 }
 
 std::vector<std::shared_ptr<exec::FunctionSignature>> leastSignatures() {
@@ -192,20 +150,13 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> leastSignatures() {
 }
 
 std::shared_ptr<exec::VectorFunction> makeGreatest(
-    const std::string& /**/,
-    const std::vector<exec::VectorFunctionArg>& /**/) {
-  return std::make_shared<LeastGreatestFunction<CompareType::MAX>>();
+    const std::string& functionName,
+    const std::vector<exec::VectorFunctionArg>& args) {
+  return makeImpl<Greater>(functionName, args);
 }
 
 std::vector<std::shared_ptr<exec::FunctionSignature>> greatestSignatures() {
-  // T, T... -> T
-  return {exec::FunctionSignatureBuilder()
-              .typeVariable("T")
-              .returnType("T")
-              .argumentType("T")
-              .argumentType("T")
-              .variableArity()
-              .build()};
+  return leastSignatures();
 }
 
 } // namespace facebook::velox::functions::sparksql

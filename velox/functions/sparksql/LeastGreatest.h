@@ -16,6 +16,10 @@
 
 #pragma once
 
+#include <memory>
+
+#include "velox/expression/VectorFunction.h"
+
 namespace facebook::velox::functions::sparksql {
 
 /// Supported Types:
