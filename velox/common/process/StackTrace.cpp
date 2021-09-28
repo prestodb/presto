@@ -41,9 +41,7 @@
 
 using namespace std;
 
-namespace facebook {
-namespace velox {
-namespace process {
+namespace facebook::velox::process {
 
 StackTrace::StackTrace(int32_t skipFrames) {
   create(skipFrames);
@@ -189,6 +187,4 @@ string StackTrace::demangle(const char* mangled) {
   return folly::demangle(mangled).toStdString();
 }
 
-} // namespace process
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox::process

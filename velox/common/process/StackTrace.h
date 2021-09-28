@@ -21,9 +21,7 @@
 #include <string>
 #include <vector>
 
-namespace facebook {
-namespace velox {
-namespace process {
+namespace facebook::velox::process {
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -90,6 +88,4 @@ class StackTrace {
 };
 
 ///////////////////////////////////////////////////////////////////////////////
-} // namespace process
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox::process

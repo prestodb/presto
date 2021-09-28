@@ -15,6 +15,7 @@
  */
 
 #include "velox/common/file/FileSystems.h"
+#include <folly/synchronization/CallOnce.h>
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/file/File.h"
 #include "velox/core/Context.h"
@@ -24,6 +25,7 @@ namespace facebook::velox::filesystems {
 constexpr std::string_view kFileScheme("file:");
 
 namespace {
+
 using RegisteredFileSystems = std::vector<std::pair<
     std::function<bool(std::string_view)>,
     std::function<std::shared_ptr<FileSystem>(std::shared_ptr<const Config>)>>>;
@@ -33,6 +35,7 @@ RegisteredFileSystems& registeredFileSystems() {
   static RegisteredFileSystems* fss = new RegisteredFileSystems();
   return *fss;
 }
+
 } // namespace
 
 void registerFileSystem(
@@ -55,6 +58,9 @@ std::shared_ptr<FileSystem> getFileSystem(
 }
 
 namespace {
+
+folly::once_flag localFSRegistrationFlag;
+
 // Implement Local FileSystem.
 class LocalFileSystem : public FileSystem {
  public:
@@ -94,7 +100,13 @@ class LocalFileSystem : public FileSystem {
       std::shared_ptr<FileSystem>(std::shared_ptr<const Config>)>
   fileSystemGenerator() {
     return [](std::shared_ptr<const Config> properties) {
-      return std::make_shared<LocalFileSystem>(properties);
+      // One instance of Local FileSystem is sufficient.
+      // Initialize on first access and reuse after that.
+      static std::shared_ptr<FileSystem> lfs;
+      folly::call_once(localFSRegistrationFlag, [&properties]() {
+        lfs = std::make_shared<LocalFileSystem>(properties);
+      });
+      return lfs;
     };
   }
 };
