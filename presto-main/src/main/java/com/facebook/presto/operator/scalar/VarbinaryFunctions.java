@@ -252,6 +252,14 @@ public final class VarbinaryFunctions
         return computeHash(Hashing.md5(), slice);
     }
 
+    @Description("compute a hash equivalent to MurmurHash3_x64_128 (Murmur3F) in C++")
+    @ScalarFunction("murmur3_x64_128")
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice murmur3X64128(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        return computeHash(Hashing.murmur3_128(), slice);
+    }
+
     @Description("compute sha1 hash")
     @ScalarFunction
     @SqlType(StandardTypes.VARBINARY)
