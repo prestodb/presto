@@ -20,6 +20,14 @@ Array Functions
         SELECT array_except(ARRAY [1, 2, 2], ARRAY [1, 3, 4]); -- [2]
         SELECT array_except(ARRAY [1, NULL, NULL], ARRAY [1, 1, NULL]); -- []
 
+.. function:: array_distinct(array(E)) -> array(E)
+
+    Remove duplicate values from the input array. ::
+
+        SELECT array_distinct(ARRAY [1, 2, 3]); -- [1, 2, 3]
+        SELECT array_distinct(ARRAY [1, 2, 1]); -- [1, 2]
+        SELECT array_distinct(ARRAY [1, NULL, NULL]); -- [1, NULL]
+
 .. function:: array_max(array(E)) -> E
 
     Returns the maximum value of input array. ::
