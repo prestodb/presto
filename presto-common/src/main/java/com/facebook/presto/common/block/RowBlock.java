@@ -57,9 +57,16 @@ public class RowBlock
         }
         else {
             // Check for nulls when computing field block offsets
-            fieldBlockOffsets[0] = 0;
+            int currentOffset = 0;
             for (int position = 0; position < positionCount; position++) {
-                fieldBlockOffsets[position + 1] = fieldBlockOffsets[position] + (rowIsNull[position] ? 0 : 1);
+                fieldBlockOffsets[position] = currentOffset;
+                currentOffset += (rowIsNull[position] ? 0 : 1);
+            }
+            // fieldBlockOffsets is positionCount + 1 in length
+            fieldBlockOffsets[positionCount] = currentOffset;
+            if (currentOffset == positionCount) {
+                // No nulls encountered, discard the null mask
+                rowIsNull = null;
             }
         }
 
