@@ -57,7 +57,7 @@ class SumAggregate
         });
   }
 
-  void updatePartial(
+  void addRawInput(
       char** groups,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
@@ -65,7 +65,7 @@ class SumAggregate
     updateInternal<TAccumulator>(groups, rows, args, mayPushdown);
   }
 
-  void updateFinal(
+  void addIntermediateResults(
       char** groups,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
@@ -73,7 +73,7 @@ class SumAggregate
     updateInternal<ResultType>(groups, rows, args, mayPushdown);
   }
 
-  void updateSingleGroupPartial(
+  void addSingleGroupRawInput(
       char* group,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
@@ -88,7 +88,7 @@ class SumAggregate
         0);
   }
 
-  void updateSingleGroupFinal(
+  void addSingleGroupIntermediateResults(
       char* group,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,

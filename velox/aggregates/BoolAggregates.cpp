@@ -77,7 +77,7 @@ class BoolAndAggregate final : public BoolAndOrAggregate {
  public:
   explicit BoolAndAggregate() : BoolAndOrAggregate(/* initialValue = */ true) {}
 
-  void updatePartial(
+  void addRawInput(
       char** groups,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
@@ -90,15 +90,15 @@ class BoolAndAggregate final : public BoolAndOrAggregate {
         mayPushdown);
   }
 
-  void updateFinal(
+  void addIntermediateResults(
       char** groups,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    return updatePartial(groups, rows, args, mayPushdown);
+    return addRawInput(groups, rows, args, mayPushdown);
   }
 
-  void updateSingleGroupPartial(
+  void addSingleGroupRawInput(
       char* group,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
@@ -115,12 +115,12 @@ class BoolAndAggregate final : public BoolAndOrAggregate {
         this->initialValue_);
   }
 
-  void updateSingleGroupFinal(
+  void addSingleGroupIntermediateResults(
       char* group,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    updateSingleGroupPartial(group, rows, args, mayPushdown);
+    addSingleGroupRawInput(group, rows, args, mayPushdown);
   }
 };
 
@@ -128,7 +128,7 @@ class BoolOrAggregate final : public BoolAndOrAggregate {
  public:
   explicit BoolOrAggregate() : BoolAndOrAggregate(/* initialValue = */ false) {}
 
-  void updatePartial(
+  void addRawInput(
       char** groups,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
@@ -141,15 +141,15 @@ class BoolOrAggregate final : public BoolAndOrAggregate {
         mayPushdown);
   }
 
-  void updateFinal(
+  void addIntermediateResults(
       char** groups,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    updatePartial(groups, rows, args, mayPushdown);
+    addRawInput(groups, rows, args, mayPushdown);
   }
 
-  void updateSingleGroupPartial(
+  void addSingleGroupRawInput(
       char* group,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
@@ -166,12 +166,12 @@ class BoolOrAggregate final : public BoolAndOrAggregate {
         this->initialValue_);
   }
 
-  void updateSingleGroupFinal(
+  void addSingleGroupIntermediateResults(
       char* group,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    updateSingleGroupPartial(group, rows, args, mayPushdown);
+    addSingleGroupRawInput(group, rows, args, mayPushdown);
   }
 };
 

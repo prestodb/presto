@@ -57,7 +57,7 @@ class CountIfAggregate : public exec::Aggregate {
     }
   }
 
-  void updatePartial(
+  void addRawInput(
       char** groups,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
@@ -90,7 +90,7 @@ class CountIfAggregate : public exec::Aggregate {
     }
   }
 
-  void updateFinal(
+  void addIntermediateResults(
       char** groups,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
@@ -110,7 +110,7 @@ class CountIfAggregate : public exec::Aggregate {
     });
   }
 
-  void updateSingleGroupPartial(
+  void addSingleGroupRawInput(
       char* group,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
@@ -148,7 +148,7 @@ class CountIfAggregate : public exec::Aggregate {
     addToGroup(group, numTrue);
   }
 
-  void updateSingleGroupFinal(
+  void addSingleGroupIntermediateResults(
       char* group,
       const SelectivityVector& /*rows*/,
       const std::vector<VectorPtr>& args,

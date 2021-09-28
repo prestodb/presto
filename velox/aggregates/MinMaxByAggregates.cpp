@@ -101,7 +101,7 @@ class MinMaxByAggregate : public exec::Aggregate {
 
  protected:
   template <typename MayUpdate>
-  void updatePartial(
+  void addRawInput(
       char** groups,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
@@ -149,7 +149,7 @@ class MinMaxByAggregate : public exec::Aggregate {
   }
 
   template <typename MayUpdate>
-  void updateFinal(
+  void addIntermediateResults(
       char** groups,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
@@ -197,7 +197,7 @@ class MinMaxByAggregate : public exec::Aggregate {
   }
 
   template <typename MayUpdate>
-  void updateSingleGroupPartial(
+  void addSingleGroupRawInput(
       char* group,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
@@ -248,7 +248,7 @@ class MinMaxByAggregate : public exec::Aggregate {
   // will produce the Value associated with the maximum/minimum of
   // comparisonValue over all structs.
   template <typename MayUpdate>
-  void updateSingleGroupFinal(
+  void addSingleGroupIntermediateResults(
       char* group,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
@@ -336,45 +336,45 @@ class MaxByAggregate : public MinMaxByAggregate<T, U> {
   explicit MaxByAggregate(TypePtr resultType)
       : MinMaxByAggregate<T, U>(resultType, std::numeric_limits<U>::min()) {}
 
-  void updatePartial(
+  void addRawInput(
       char** groups,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /*unused*/) override {
-    MinMaxByAggregate<T, U>::updatePartial(
+    MinMaxByAggregate<T, U>::addRawInput(
         groups, rows, args, [](U& currentValue, U newValue) {
           return newValue > currentValue;
         });
   }
 
-  void updateFinal(
+  void addIntermediateResults(
       char** groups,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /*mayPushdown*/) override {
-    MinMaxByAggregate<T, U>::updateFinal(
+    MinMaxByAggregate<T, U>::addIntermediateResults(
         groups, rows, args, [](U& currentValue, U newValue) {
           return newValue > currentValue;
         });
   }
 
-  void updateSingleGroupPartial(
+  void addSingleGroupRawInput(
       char* group,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /*unused*/) override {
-    MinMaxByAggregate<T, U>::updateSingleGroupPartial(
+    MinMaxByAggregate<T, U>::addSingleGroupRawInput(
         group, rows, args, [](U& currentValue, U newValue) {
           return newValue > currentValue;
         });
   }
 
-  void updateSingleGroupFinal(
+  void addSingleGroupIntermediateResults(
       char* group,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /*mayPushdown*/) override {
-    MinMaxByAggregate<T, U>::updateSingleGroupFinal(
+    MinMaxByAggregate<T, U>::addSingleGroupIntermediateResults(
         group, rows, args, [](U& currentValue, U newValue) {
           return newValue > currentValue;
         });
@@ -387,45 +387,45 @@ class MinByAggregate : public MinMaxByAggregate<T, U> {
   explicit MinByAggregate(TypePtr resultType)
       : MinMaxByAggregate<T, U>(resultType, std::numeric_limits<U>::max()) {}
 
-  void updatePartial(
+  void addRawInput(
       char** groups,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /*unused*/) override {
-    MinMaxByAggregate<T, U>::updatePartial(
+    MinMaxByAggregate<T, U>::addRawInput(
         groups, rows, args, [](U& currentValue, U newValue) {
           return newValue < currentValue;
         });
   }
 
-  void updateFinal(
+  void addIntermediateResults(
       char** groups,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /*mayPushdown*/) override {
-    MinMaxByAggregate<T, U>::updateFinal(
+    MinMaxByAggregate<T, U>::addIntermediateResults(
         groups, rows, args, [](U& currentValue, U newValue) {
           return newValue < currentValue;
         });
   }
 
-  void updateSingleGroupPartial(
+  void addSingleGroupRawInput(
       char* group,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /*unused*/) override {
-    MinMaxByAggregate<T, U>::updateSingleGroupPartial(
+    MinMaxByAggregate<T, U>::addSingleGroupRawInput(
         group, rows, args, [](U& currentValue, U newValue) {
           return newValue < currentValue;
         });
   }
 
-  void updateSingleGroupFinal(
+  void addSingleGroupIntermediateResults(
       char* group,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /*mayPushdown*/) override {
-    MinMaxByAggregate<T, U>::updateSingleGroupFinal(
+    MinMaxByAggregate<T, U>::addSingleGroupIntermediateResults(
         group, rows, args, [](U& currentValue, U newValue) {
           return newValue < currentValue;
         });

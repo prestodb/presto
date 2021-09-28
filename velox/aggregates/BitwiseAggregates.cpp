@@ -50,20 +50,20 @@ class BitwiseAndOrAggregate : public SimpleNumericAggregate<T, T, T> {
     });
   }
 
-  void updateFinal(
+  void addIntermediateResults(
       char** groups,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    this->updatePartial(groups, rows, args, mayPushdown);
+    this->addRawInput(groups, rows, args, mayPushdown);
   }
 
-  void updateSingleGroupFinal(
+  void addSingleGroupIntermediateResults(
       char* group,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    this->updateSingleGroupPartial(group, rows, args, mayPushdown);
+    this->addSingleGroupRawInput(group, rows, args, mayPushdown);
   }
 
  protected:
@@ -78,7 +78,7 @@ class BitwiseOrAggregate : public BitwiseAndOrAggregate<T> {
             resultType,
             /* initialValue = */ 0) {}
 
-  void updatePartial(
+  void addRawInput(
       char** groups,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
@@ -91,7 +91,7 @@ class BitwiseOrAggregate : public BitwiseAndOrAggregate<T> {
         mayPushdown);
   }
 
-  void updateSingleGroupPartial(
+  void addSingleGroupRawInput(
       char* group,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
@@ -116,7 +116,7 @@ class BitwiseAndAggregate : public BitwiseAndOrAggregate<T> {
             resultType,
             /* initialValue = */ -1) {}
 
-  void updatePartial(
+  void addRawInput(
       char** groups,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
@@ -129,7 +129,7 @@ class BitwiseAndAggregate : public BitwiseAndOrAggregate<T> {
         mayPushdown);
   }
 
-  void updateSingleGroupPartial(
+  void addSingleGroupRawInput(
       char* group,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,

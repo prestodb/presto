@@ -99,7 +99,7 @@ class MaxAggregate : public MinMaxAggregate<T, ResultType> {
     }
   }
 
-  void updatePartial(
+  void addRawInput(
       char** groups,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
@@ -121,15 +121,15 @@ class MaxAggregate : public MinMaxAggregate<T, ResultType> {
         mayPushdown);
   }
 
-  void updateFinal(
+  void addIntermediateResults(
       char** groups,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    updatePartial(groups, rows, args, mayPushdown);
+    addRawInput(groups, rows, args, mayPushdown);
   }
 
-  void updateSingleGroupPartial(
+  void addSingleGroupRawInput(
       char* group,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
@@ -144,12 +144,12 @@ class MaxAggregate : public MinMaxAggregate<T, ResultType> {
         kInitialValue_);
   }
 
-  void updateSingleGroupFinal(
+  void addSingleGroupIntermediateResults(
       char* group,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    updateSingleGroupPartial(group, rows, args, mayPushdown);
+    addSingleGroupRawInput(group, rows, args, mayPushdown);
   }
 
  private:
@@ -173,7 +173,7 @@ class MinAggregate : public MinMaxAggregate<T, ResultType> {
     }
   }
 
-  void updatePartial(
+  void addRawInput(
       char** groups,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
@@ -195,15 +195,15 @@ class MinAggregate : public MinMaxAggregate<T, ResultType> {
         mayPushdown);
   }
 
-  void updateFinal(
+  void addIntermediateResults(
       char** groups,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    updatePartial(groups, rows, args, mayPushdown);
+    addRawInput(groups, rows, args, mayPushdown);
   }
 
-  void updateSingleGroupPartial(
+  void addSingleGroupRawInput(
       char* group,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
@@ -218,12 +218,12 @@ class MinAggregate : public MinMaxAggregate<T, ResultType> {
         kInitialValue_);
   }
 
-  void updateSingleGroupFinal(
+  void addSingleGroupIntermediateResults(
       char* group,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    updateSingleGroupPartial(group, rows, args, mayPushdown);
+    addSingleGroupRawInput(group, rows, args, mayPushdown);
   }
 
  private:
@@ -359,7 +359,7 @@ class NonNumericMaxAggregate : public NonNumericMinMaxAggregateBase {
   explicit NonNumericMaxAggregate(const TypePtr& resultType)
       : NonNumericMinMaxAggregateBase(resultType) {}
 
-  void updatePartial(
+  void addRawInput(
       char** groups,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
@@ -369,15 +369,15 @@ class NonNumericMaxAggregate : public NonNumericMinMaxAggregateBase {
     });
   }
 
-  void updateFinal(
+  void addIntermediateResults(
       char** groups,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    updatePartial(groups, rows, args, mayPushdown);
+    addRawInput(groups, rows, args, mayPushdown);
   }
 
-  void updateSingleGroupPartial(
+  void addSingleGroupRawInput(
       char* group,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
@@ -387,12 +387,12 @@ class NonNumericMaxAggregate : public NonNumericMinMaxAggregateBase {
     });
   }
 
-  void updateSingleGroupFinal(
+  void addSingleGroupIntermediateResults(
       char* group,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    updateSingleGroupPartial(group, rows, args, mayPushdown);
+    addSingleGroupRawInput(group, rows, args, mayPushdown);
   }
 };
 
@@ -401,7 +401,7 @@ class NonNumericMinAggregate : public NonNumericMinMaxAggregateBase {
   explicit NonNumericMinAggregate(const TypePtr& resultType)
       : NonNumericMinMaxAggregateBase(resultType) {}
 
-  void updatePartial(
+  void addRawInput(
       char** groups,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
@@ -411,15 +411,15 @@ class NonNumericMinAggregate : public NonNumericMinMaxAggregateBase {
     });
   }
 
-  void updateFinal(
+  void addIntermediateResults(
       char** groups,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    updatePartial(groups, rows, args, mayPushdown);
+    addRawInput(groups, rows, args, mayPushdown);
   }
 
-  void updateSingleGroupPartial(
+  void addSingleGroupRawInput(
       char* group,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
@@ -429,12 +429,12 @@ class NonNumericMinAggregate : public NonNumericMinMaxAggregateBase {
     });
   }
 
-  void updateSingleGroupFinal(
+  void addSingleGroupIntermediateResults(
       char* group,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    updateSingleGroupPartial(group, rows, args, mayPushdown);
+    addSingleGroupRawInput(group, rows, args, mayPushdown);
   }
 };
 

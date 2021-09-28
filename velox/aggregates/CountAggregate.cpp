@@ -46,7 +46,7 @@ class CountAggregate : public SimpleNumericAggregate<bool, int64_t, int64_t> {
     });
   }
 
-  void updatePartial(
+  void addRawInput(
       char** groups,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
@@ -74,7 +74,7 @@ class CountAggregate : public SimpleNumericAggregate<bool, int64_t, int64_t> {
     }
   }
 
-  void updateFinal(
+  void addIntermediateResults(
       char** /*groups*/,
       const SelectivityVector& /*rows*/,
       const std::vector<VectorPtr>& /*args*/,
@@ -82,7 +82,7 @@ class CountAggregate : public SimpleNumericAggregate<bool, int64_t, int64_t> {
     VELOX_UNREACHABLE();
   }
 
-  void updateSingleGroupPartial(
+  void addSingleGroupRawInput(
       char* group,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
@@ -110,7 +110,7 @@ class CountAggregate : public SimpleNumericAggregate<bool, int64_t, int64_t> {
     }
   }
 
-  void updateSingleGroupFinal(
+  void addSingleGroupIntermediateResults(
       char* /*group*/,
       const SelectivityVector& /*rows*/,
       const std::vector<VectorPtr>& /*args*/,

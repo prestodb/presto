@@ -51,7 +51,7 @@ class ArbitraryAggregate : public SimpleNumericAggregate<T, T, T> {
     });
   }
 
-  void updatePartial(
+  void addRawInput(
       char** groups,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
@@ -83,15 +83,15 @@ class ArbitraryAggregate : public SimpleNumericAggregate<T, T, T> {
     }
   }
 
-  void updateFinal(
+  void addIntermediateResults(
       char** groups,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    updatePartial(groups, rows, args, mayPushdown);
+    addRawInput(groups, rows, args, mayPushdown);
   }
 
-  void updateSingleGroupPartial(
+  void addSingleGroupRawInput(
       char* group,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
@@ -117,12 +117,12 @@ class ArbitraryAggregate : public SimpleNumericAggregate<T, T, T> {
     }
   }
 
-  void updateSingleGroupFinal(
+  void addSingleGroupIntermediateResults(
       char* group,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    updateSingleGroupPartial(group, rows, args, mayPushdown);
+    addSingleGroupRawInput(group, rows, args, mayPushdown);
   }
 
  private:
@@ -187,7 +187,7 @@ class NonNumericArbitrary : public exec::Aggregate {
     }
   }
 
-  void updatePartial(
+  void addRawInput(
       char** groups,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
@@ -211,15 +211,15 @@ class NonNumericArbitrary : public exec::Aggregate {
     });
   }
 
-  void updateFinal(
+  void addIntermediateResults(
       char** groups,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    updatePartial(groups, rows, args, mayPushdown);
+    addRawInput(groups, rows, args, mayPushdown);
   }
 
-  void updateSingleGroupPartial(
+  void addSingleGroupRawInput(
       char* group,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
@@ -243,12 +243,12 @@ class NonNumericArbitrary : public exec::Aggregate {
     });
   }
 
-  void updateSingleGroupFinal(
+  void addSingleGroupIntermediateResults(
       char* group,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    updateSingleGroupPartial(group, rows, args, mayPushdown);
+    addSingleGroupRawInput(group, rows, args, mayPushdown);
   }
 };
 

@@ -84,7 +84,7 @@ class Aggregate {
   // @param mayPushdown True if aggregation can be pushdown down via LazyVector.
   // The pushdown can happen only if this flag is true and 'args' is a single
   // LazyVector.
-  virtual void updatePartial(
+  virtual void addRawInput(
       char** groups,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
@@ -102,7 +102,7 @@ class Aggregate {
   // @param mayPushdown True if aggregation can be pushdown down via LazyVector.
   // The pushdown can happen only if this flag is true and 'args' is a single
   // LazyVector.
-  virtual void updateFinal(
+  virtual void addIntermediateResults(
       char** groups,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
@@ -117,7 +117,7 @@ class Aggregate {
   // @param mayPushdown True if aggregation can be pushdown down via LazyVector.
   // The pushdown can happen only if this flag is true and 'args' is a single
   // LazyVector.
-  virtual void updateSingleGroupPartial(
+  virtual void addSingleGroupRawInput(
       char* group,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
@@ -132,7 +132,7 @@ class Aggregate {
   // @param mayPushdown True if aggregation can be pushdown down via LazyVector.
   // The pushdown can happen only if this flag is true and 'args' is a single
   // LazyVector.
-  virtual void updateSingleGroupFinal(
+  virtual void addSingleGroupIntermediateResults(
       char* group,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,

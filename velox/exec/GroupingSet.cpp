@@ -96,10 +96,10 @@ void GroupingSet::addInput(const RowVectorPtr& input, bool mayPushdown) {
       const bool canPushdown =
           mayPushdown && mayPushdown_[i] && areAllLazyNotLoaded(tempVectors_);
       if (isRawInput_) {
-        aggregates_[i]->updateSingleGroupPartial(
+        aggregates_[i]->addSingleGroupRawInput(
             lookup_->hits[0], rows, tempVectors_, canPushdown);
       } else {
-        aggregates_[i]->updateSingleGroupFinal(
+        aggregates_[i]->addSingleGroupIntermediateResults(
             lookup_->hits[0], rows, tempVectors_, canPushdown);
       }
     }
@@ -176,10 +176,10 @@ void GroupingSet::addInput(const RowVectorPtr& input, bool mayPushdown) {
         mayPushdown_[i] && areAllLazyNotLoaded(tempVectors_);
     populateTempVectors(i, input);
     if (isRawInput_) {
-      aggregates_[i]->updatePartial(
+      aggregates_[i]->addRawInput(
           lookup_->hits.data(), rows, tempVectors_, canPushdown);
     } else {
-      aggregates_[i]->updateFinal(
+      aggregates_[i]->addIntermediateResults(
           lookup_->hits.data(), rows, tempVectors_, canPushdown);
     }
   }

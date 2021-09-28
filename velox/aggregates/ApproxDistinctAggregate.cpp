@@ -175,7 +175,7 @@ class ApproxDistinctAggregate : public exec::Aggregate {
 
   void destroy(folly::Range<char**> /*groups*/) override {}
 
-  void updatePartial(
+  void addRawInput(
       char** groups,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
@@ -198,7 +198,7 @@ class ApproxDistinctAggregate : public exec::Aggregate {
     });
   }
 
-  void updateFinal(
+  void addIntermediateResults(
       char** groups,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
@@ -220,7 +220,7 @@ class ApproxDistinctAggregate : public exec::Aggregate {
     });
   }
 
-  void updateSingleGroupPartial(
+  void addSingleGroupRawInput(
       char* group,
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
@@ -242,7 +242,7 @@ class ApproxDistinctAggregate : public exec::Aggregate {
     });
   }
 
-  void updateSingleGroupFinal(
+  void addSingleGroupIntermediateResults(
       char* group,
       const SelectivityVector& row,
       const std::vector<VectorPtr>& args,
