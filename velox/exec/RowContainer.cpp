@@ -65,7 +65,11 @@ RowContainer::RowContainer(
   // is followed by a free bit which is set if the row is in a free
   // list. The accumulators come next, with size given by
   // Aggregate::accumulatorFixedWidthSize(). Dependent fields follow.
-  // These are non-key columns for hash join or order by.
+  // These are non-key columns for hash join or order by. If there are variable
+  // length columns or accumulators, i.e. ones that allocate extra space, this
+  // space is tracked by a uint32_t after the dependent columns. If this is a
+  // hash join build side, the pointer to the next row with the same key is
+  // after the optional row size.
   //
   // In most cases, rows are prefixed with a normalized_key_t at index
   // -1, 8 bytes below the pointer. This space is reserved for a 64
@@ -76,12 +80,14 @@ RowContainer::RowContainer(
   // the extra field.
   int32_t offset = 0;
   int32_t nullOffset = 0;
+  bool isVariableWidth = false;
   for (auto& type : keyTypes_) {
     typeKinds_.push_back(type->kind());
     types_.push_back(type);
     offsets_.push_back(offset);
     offset += typeKindSize(type->kind());
     nullOffsets_.push_back(nullOffset);
+    isVariableWidth |= !type->isFixedWidth();
     if (nullableKeys) {
       ++nullOffset;
     }
@@ -96,6 +102,7 @@ RowContainer::RowContainer(
     offset += aggregate->accumulatorFixedWidthSize();
     nullOffsets_.push_back(nullOffset);
     ++nullOffset;
+    isVariableWidth |= !aggregate->isFixedSize();
   }
   for (auto& type : dependentTypes) {
     types_.push_back(type);
@@ -104,7 +111,13 @@ RowContainer::RowContainer(
     offset += typeKindSize(type->kind());
     nullOffsets_.push_back(nullOffset);
     ++nullOffset;
+    isVariableWidth |= !type->isFixedWidth();
   }
+  if (isVariableWidth) {
+    rowSizeOffset_ = offset;
+    offset += sizeof(uint32_t);
+  }
+
   if (hasProbedFlag) {
     nullOffsets_.push_back(nullOffset);
     probedFlagOffset_ = nullOffset + firstAggregateOffset * 8;
@@ -121,6 +134,9 @@ RowContainer::RowContainer(
 
   // Fixup the offset of aggregates to make space for null flags.
   int32_t nullBytes = bits::nbytes(nullOffsets_.size());
+  if (rowSizeOffset_) {
+    rowSizeOffset_ += nullBytes;
+  }
   for (int32_t i = 0; i < aggregates_.size() + dependentTypes.size(); ++i) {
     offsets_[i + firstAggregate] += nullBytes;
     nullOffset = nullOffsets_[i + firstAggregate];
@@ -129,7 +145,8 @@ RowContainer::RowContainer(
       aggregates_[i]->setOffsets(
           offsets_[i + firstAggregate],
           nullByte(nullOffset),
-          nullMask(nullOffset));
+          nullMask(nullOffset),
+          rowSizeOffset_);
     }
   }
   if (hasNext) {
@@ -152,6 +169,9 @@ RowContainer::RowContainer(
       }
     }
   }
+  if (hasProbedFlag) {
+    bits::clearBit(initialNulls_.data(), probedFlagOffset_ - nullOffsets_[0]);
+  }
   normalizedKeySize_ = hasNormalizedKeys_ ? sizeof(normalized_key_t) : 0;
   for (auto i = 0; i < offsets_.size(); ++i) {
     rowColumns_.emplace_back(
@@ -164,7 +184,6 @@ RowContainer::RowContainer(
 char* RowContainer::newRow() {
   char* row;
   ++numRows_;
-
   if (firstFreeRow_) {
     row = firstFreeRow_;
     VELOX_CHECK(bits::isBitSet(row, freeFlagOffset_));
@@ -192,6 +211,9 @@ char* RowContainer::initializeRow(char* row, bool reuse) {
         row + nullByte(nullOffsets_[0]),
         initialNulls_.data(),
         initialNulls_.size());
+  }
+  if (rowSizeOffset_) {
+    variableRowSize(row) = 0;
   }
   return row;
 }
@@ -269,9 +291,10 @@ void RowContainer::freeAggregates(folly::Range<char**> rows) {
 int32_t RowContainer::listRows(
     RowContainerIterator* iter,
     int32_t maxRows,
+    uint64_t maxBytes,
     char** rows) {
   int32_t count = 0;
-
+  uint64_t totalBytes = 0;
   auto numAllocations = rows_.numAllocations();
   if (iter->allocationIndex == 0 && iter->runIndex == 0 &&
       iter->rowOffset == 0) {
@@ -303,7 +326,11 @@ int32_t RowContainer::listRows(
           --count;
           continue;
         }
-        if (count == maxRows) {
+        totalBytes += rowSize;
+        if (rowSizeOffset_) {
+          totalBytes += variableRowSize(rows[count - 1]);
+        }
+        if (count == maxRows || totalBytes > maxBytes) {
           iter->rowOffset = row;
           iter->runIndex = runIndex;
           iter->allocationIndex = i;
