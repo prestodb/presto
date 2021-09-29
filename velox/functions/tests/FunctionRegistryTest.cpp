@@ -29,6 +29,10 @@ namespace facebook::velox {
 namespace {
 
 VELOX_UDF_BEGIN(func_one)
+
+// Set func_one as non-deterministic.
+static constexpr bool is_deterministic = false;
+
 FOLLY_ALWAYS_INLINE bool call(
     out_type<velox::Varchar>& /* result */,
     const arg_type<velox::Varchar>& /* arg1 */) {
@@ -54,6 +58,22 @@ FOLLY_ALWAYS_INLINE bool call(
 }
 VELOX_UDF_END();
 
+VELOX_UDF_BEGIN(func_four)
+FOLLY_ALWAYS_INLINE bool call(
+    out_type<velox::Varchar>& /* result */,
+    const arg_type<velox::Varchar>& /* arg1 */) {
+  return true;
+}
+VELOX_UDF_END();
+
+VELOX_UDF_BEGIN(func_five)
+FOLLY_ALWAYS_INLINE bool call(
+    int64_t& /* result */,
+    const int64_t& /* arg1 */) {
+  return true;
+}
+VELOX_UDF_END();
+
 class VectorFuncOne : public velox::exec::VectorFunction {
  public:
   void apply(
@@ -65,7 +85,7 @@ class VectorFuncOne : public velox::exec::VectorFunction {
 
   static std::vector<std::shared_ptr<velox::exec::FunctionSignature>>
   signatures() {
-    // varchar) -> bigint
+    // varchar -> bigint
     return {velox::exec::FunctionSignatureBuilder()
                 .returnType("bigint")
                 .argumentType("varchar")
@@ -130,6 +150,11 @@ class VectorFuncFour : public velox::exec::VectorFunction {
                 .argumentType("map(K,V)")
                 .build()};
   }
+
+  // Make it non-deterministic.
+  bool isDeterministic() const override {
+    return false;
+  }
 };
 
 VELOX_DECLARE_VECTOR_FUNCTION(
@@ -153,13 +178,22 @@ VELOX_DECLARE_VECTOR_FUNCTION(
     std::make_unique<VectorFuncFour>());
 
 inline void registerTestFunctions() {
-  registerFunction<udf_func_one, Varchar, Varchar>({"func_one"});
+  // If no alias is specified, ensure it will fallback to the struct name.
+  registerFunction<udf_func_one, Varchar, Varchar>();
+
+  // func_two has two signatures.
   registerFunction<udf_func_two<int64_t, int32_t>, int64_t, int64_t, int32_t>(
       {"func_two"});
   registerFunction<udf_func_two<int64_t, int16_t>, int64_t, int64_t, int16_t>(
       {"func_two"});
+
+  // func_three has two aliases.
   registerFunction<udf_func_three, Array<int64_t>, Array<int64_t>>(
-      {"func_three"});
+      {"func_three_alias1", "func_three_alias2"});
+
+  // We swap func_four and func_five while registering.
+  registerFunction<udf_func_four, Varchar, Varchar>({"func_five"});
+  registerFunction<udf_func_five, int64_t, int64_t>({"func_four"});
 
   VELOX_REGISTER_VECTOR_FUNCTION(udf_vector_func_one, "vector_func_one");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_vector_func_two, "vector_func_two");
@@ -177,11 +211,15 @@ class FunctionRegistryTest : public ::testing::Test {
 
 TEST_F(FunctionRegistryTest, getFunctionSignatures) {
   auto functionSignatures = getFunctionSignatures();
-  ASSERT_EQ(functionSignatures.size(), 7);
+  ASSERT_EQ(functionSignatures.size(), 10);
 
   ASSERT_EQ(functionSignatures.count("func_one"), 1);
   ASSERT_EQ(functionSignatures.count("func_two"), 1);
-  ASSERT_EQ(functionSignatures.count("func_three"), 1);
+  ASSERT_EQ(functionSignatures.count("func_three"), 0);
+  ASSERT_EQ(functionSignatures.count("func_three_alias1"), 1);
+  ASSERT_EQ(functionSignatures.count("func_three_alias2"), 1);
+  ASSERT_EQ(functionSignatures.count("func_four"), 1);
+  ASSERT_EQ(functionSignatures.count("func_five"), 1);
   ASSERT_EQ(functionSignatures.count("vector_func_one"), 1);
   ASSERT_EQ(functionSignatures.count("vector_func_two"), 1);
   ASSERT_EQ(functionSignatures.count("vector_func_three"), 1);
@@ -189,7 +227,9 @@ TEST_F(FunctionRegistryTest, getFunctionSignatures) {
 
   ASSERT_EQ(functionSignatures["func_one"].size(), 1);
   ASSERT_EQ(functionSignatures["func_two"].size(), 2);
-  ASSERT_EQ(functionSignatures["func_three"].size(), 1);
+  ASSERT_EQ(functionSignatures["func_three"].size(), 0);
+  ASSERT_EQ(functionSignatures["func_three_alias1"].size(), 1);
+  ASSERT_EQ(functionSignatures["func_three_alias2"].size(), 1);
   ASSERT_EQ(functionSignatures["vector_func_one"].size(), 1);
   ASSERT_EQ(functionSignatures["vector_func_two"].size(), 1);
   ASSERT_EQ(functionSignatures["vector_func_three"].size(), 1);
@@ -208,7 +248,7 @@ TEST_F(FunctionRegistryTest, getFunctionSignatures) {
       exec::FunctionSignatureBuilder()
           .returnType("bigint")
           .argumentType("bigint")
-          .argumentType("smallint")
+          .argumentType("integer")
           .build()
           ->toString());
 
@@ -217,15 +257,39 @@ TEST_F(FunctionRegistryTest, getFunctionSignatures) {
       exec::FunctionSignatureBuilder()
           .returnType("bigint")
           .argumentType("bigint")
-          .argumentType("integer")
+          .argumentType("smallint")
           .build()
           ->toString());
 
   ASSERT_EQ(
-      functionSignatures["func_three"].at(0)->toString(),
+      functionSignatures["func_three_alias1"].at(0)->toString(),
       exec::FunctionSignatureBuilder()
           .returnType("array(bigint)")
           .argumentType("array(bigint)")
+          .build()
+          ->toString());
+
+  ASSERT_EQ(
+      functionSignatures["func_three_alias2"].at(0)->toString(),
+      exec::FunctionSignatureBuilder()
+          .returnType("array(bigint)")
+          .argumentType("array(bigint)")
+          .build()
+          ->toString());
+
+  ASSERT_EQ(
+      functionSignatures["func_four"].at(0)->toString(),
+      exec::FunctionSignatureBuilder()
+          .returnType("bigint")
+          .argumentType("bigint")
+          .build()
+          ->toString());
+
+  ASSERT_EQ(
+      functionSignatures["func_five"].at(0)->toString(),
+      exec::FunctionSignatureBuilder()
+          .returnType("varchar")
+          .argumentType("varchar")
           .build()
           ->toString());
 

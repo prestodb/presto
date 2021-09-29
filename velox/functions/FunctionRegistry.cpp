@@ -47,7 +47,7 @@ void populateSimpleFunctionSignatures(FunctionSignatureMap& map) {
   for (const auto& key : keys) {
     auto scalarFunction = core::ScalarFunctions().Create(key);
     auto argTypes = scalarFunction->argTypes();
-    const auto& functionName = scalarFunction->getName();
+    const auto& functionName = key.name();
 
     auto returnTypeSignature =
         typeToTypeSignature(scalarFunction->returnType());
@@ -89,17 +89,16 @@ FunctionSignatureMap getFunctionSignatures() {
 std::shared_ptr<const Type> resolveFunction(
     const std::string& functionName,
     const std::vector<TypePtr>& argTypes) {
-  // Check if ScalarFunctions has this function name + signature
+  // Check if ScalarFunctions has this function name + signature.
   auto key = core::FunctionKey(functionName, argTypes);
   if (core::ScalarFunctions().Has(key)) {
     auto scalarFunction = core::ScalarFunctions().Create(key);
     return scalarFunction->returnType();
   }
 
-  // Check if VectorFunctions has this function name + signature
-  auto vectorFunctionSignatures =
-      exec::getVectorFunctionSignatures(functionName);
-  if (vectorFunctionSignatures.has_value()) {
+  // Check if VectorFunctions has this function name + signature.
+  if (auto vectorFunctionSignatures =
+          exec::getVectorFunctionSignatures(functionName)) {
     for (const auto& signature : vectorFunctionSignatures.value()) {
       exec::SignatureBinder binder(*signature, argTypes);
       if (binder.tryBind()) {
