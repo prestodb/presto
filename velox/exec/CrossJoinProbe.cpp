@@ -93,6 +93,8 @@ RowVectorPtr CrossJoinProbe::getOutput() {
     return nullptr;
   }
 
+  const auto inputSize = input_->size();
+
   // TODO Use query-level configuration property.
   static const vector_size_t kOutputBatchSize = 1'000;
 
@@ -101,8 +103,7 @@ RowVectorPtr CrossJoinProbe::getOutput() {
   if (buildSize > kOutputBatchSize) {
     probeCnt = 1;
   } else {
-    probeCnt =
-        std::min(kOutputBatchSize / buildSize, input_->size() - probeRow_);
+    probeCnt = std::min(kOutputBatchSize / buildSize, inputSize - probeRow_);
   }
 
   auto size = probeCnt * buildSize;
@@ -114,7 +115,7 @@ RowVectorPtr CrossJoinProbe::getOutput() {
         rawIndices + (i + 1) * buildSize,
         probeRow_ + i);
   }
-  fillOutput(size, indices);
+  auto output = fillOutput(size, indices);
 
   BufferPtr buildIndices = nullptr;
   if (probeCnt > 1) {
@@ -137,11 +138,11 @@ RowVectorPtr CrossJoinProbe::getOutput() {
       buildVector = BaseVector::wrapInDictionary(
           BufferPtr(nullptr), buildIndices, size, buildVector);
     }
-    output_->childAt(projection.outputChannel) = buildVector;
+    output->childAt(projection.outputChannel) = buildVector;
   }
 
   probeRow_ += probeCnt;
-  if (probeRow_ == input_->size()) {
+  if (probeRow_ == inputSize) {
     probeRow_ = 0;
     ++buildIndex_;
     if (buildIndex_ == buildData_->size()) {
@@ -149,7 +150,7 @@ RowVectorPtr CrossJoinProbe::getOutput() {
       input_.reset();
     }
   }
-  return output_;
+  return output;
 }
 
 void CrossJoinProbe::close() {

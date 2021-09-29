@@ -231,7 +231,6 @@ LocalPartition::LocalPartition(
           planNode->outputType())},
       blockingReasons_{numPartitions_} {
   VELOX_CHECK(numPartitions_ == 1 || !keyChannels_.empty());
-  VELOX_CHECK_GT(outputType_->size(), 0);
 
   for (auto& source : localExchangeSources_) {
     source->addProducer();

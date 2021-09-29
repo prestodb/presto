@@ -122,7 +122,6 @@ class PartitionedOutput : public Operator {
       VELOX_CHECK(keyChannels_.empty());
       VELOX_CHECK_NULL(partitionFunction_);
     }
-    VELOX_CHECK_GT(outputType_->size(), 0);
   }
 
   void addInput(RowVectorPtr input) override;

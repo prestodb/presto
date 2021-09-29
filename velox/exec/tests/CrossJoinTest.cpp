@@ -178,3 +178,45 @@ TEST_F(CrossJoinTest, lazyVectors) {
 
   assertQuery(op, "SELECT * FROM t, u WHERE t.c0 + u.c0 < 100");
 }
+
+// Test cross join with a build side that has rows, but no columns.
+TEST_F(CrossJoinTest, zeroColumnBuild) {
+  auto leftVectors = {
+      makeRowVector({sequence<int32_t>(10)}),
+      makeRowVector({sequence<int32_t>(100, 10)}),
+      makeRowVector({sequence<int32_t>(1'000, 10 + 100)}),
+      makeRowVector({sequence<int32_t>(7, 10 + 100 + 1'000)}),
+  };
+
+  auto rightVectors = {
+      makeRowVector({sequence<int32_t>(5)}),
+      //      vectorMaker_.rowVector(ROW({}, {}), 5),
+  };
+
+  createDuckDbTable("t", {leftVectors});
+
+  // Build side has > 1 row.
+  auto op =
+      PlanBuilder(10)
+          .values({leftVectors})
+          .crossJoin(
+              PlanBuilder(0).values({rightVectors}).project({}).planNode(), {0})
+          .planNode();
+
+  assertQuery(
+      op, "SELECT t.* FROM t, (SELECT * FROM UNNEST (ARRAY[0, 1, 2, 3, 4])) u");
+
+  // Build side has exactly 1 row.
+  op = PlanBuilder(10)
+           .values({leftVectors})
+           .crossJoin(
+               PlanBuilder(0)
+                   .values({rightVectors})
+                   .filter("c0 = 1")
+                   .project({})
+                   .planNode(),
+               {0})
+           .planNode();
+
+  assertQuery(op, "SELECT * FROM t");
+}
