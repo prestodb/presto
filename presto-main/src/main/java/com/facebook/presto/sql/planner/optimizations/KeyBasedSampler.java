@@ -187,14 +187,15 @@ public class KeyBasedSampler
             PlanNode left = node.getLeft();
             PlanNode right = node.getRight();
 
-            PlanNode leftRewritten = rewriteWith(this, left);
-            PlanNode rightRewritten = rewriteWith(this, right);
+            PlanNode rewrittenLeft = rewriteWith(this, left);
+            PlanNode rewrittenRight = rewriteWith(this, right);
 
             // If at leasst one of them is unchanged means it had no join. So one side has a table scan.
             // So we apply filter on both sides.
-            if (left == leftRewritten || right == rightRewritten) {
-                // Find the best equijoin clause so we sample both sides the same way optimally
+            if (left == rewrittenLeft || right == rewrittenRight) {
+                // Sample both sides if at least one side is not already sampled
 
+                // Find the best equijoin clause so we sample both sides the same way optimally
                 // First see if there is a int/bigint key
                 Optional<JoinNode.EquiJoinClause> equiJoinClause = node.getCriteria().stream()
                         .filter(x -> TypeUtils.isIntegralType(x.getLeft().getType().getTypeSignature(), functionAndTypeManager))
@@ -207,14 +208,13 @@ public class KeyBasedSampler
                 }
 
                 if (equiJoinClause.isPresent()) {
-                    // If one side rewritten, that means one side has another join but not the other side.
-                    leftRewritten = addSamplingFilter(left, Optional.of(equiJoinClause.get().getLeft()), functionAndTypeManager);
-                    rightRewritten = addSamplingFilter(right, Optional.of(equiJoinClause.get().getRight()), functionAndTypeManager);
+                    rewrittenLeft = addSamplingFilter(rewrittenLeft, Optional.of(equiJoinClause.get().getLeft()), functionAndTypeManager);
+                    rewrittenRight = addSamplingFilter(rewrittenRight, Optional.of(equiJoinClause.get().getRight()), functionAndTypeManager);
                 }
             }
 
             // We always return new from join so others won't be applied if not needed.
-            return replaceChildren(node, ImmutableList.of(leftRewritten, rightRewritten));
+            return replaceChildren(node, ImmutableList.of(rewrittenLeft, rewrittenRight));
         }
 
         @Override

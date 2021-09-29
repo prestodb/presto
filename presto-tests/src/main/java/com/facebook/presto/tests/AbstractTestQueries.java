@@ -5868,4 +5868,16 @@ public abstract class AbstractTestQueries
 
         assertQueryFails(sessionWithKeyBasedSampling, "select count(1) from orders join lineitem using(orderkey)", "Sampling function: blah not cannot be resolved");
     }
+
+    @Test
+    public void testSamplingJoinChain()
+    {
+        Session sessionWithKeyBasedSampling = Session.builder(getSession())
+                .setSystemProperty(KEY_BASED_SAMPLING_ENABLED, "true")
+                .build();
+        String query = "select count(1) FROM lineitem l left JOIN orders o ON l.orderkey = o.orderkey JOIN customer c ON o.custkey = c.custkey";
+
+        assertQuery(query, "select 60175");
+        assertQuery(sessionWithKeyBasedSampling, query, "select 16185");
+    }
 }
