@@ -15,9 +15,13 @@
  */
 #pragma once
 
-#include <velox/type/Type.h>
+#include <memory>
+#include <optional>
+#include <string>
+#include <vector>
 
 namespace facebook::velox::exec {
+
 // A type name (e.g. K or V in map(K, V)) and optionally constraints, e.g.
 // orderable, sortable, etc.
 class TypeVariableConstraint {
@@ -149,14 +153,7 @@ class FunctionSignatureBuilder {
     return *this;
   }
 
-  std::shared_ptr<FunctionSignature> build() {
-    VELOX_CHECK(returnType_.has_value());
-    return std::make_shared<FunctionSignature>(
-        std::move(typeVariableConstants_),
-        returnType_.value(),
-        std::move(argumentTypes_),
-        variableArity_);
-  }
+  std::shared_ptr<FunctionSignature> build();
 
  private:
   std::vector<TypeVariableConstraint> typeVariableConstants_;

@@ -16,6 +16,7 @@
 #pragma once
 
 #include "velox/expression/FunctionSignature.h"
+#include "velox/type/Type.h"
 
 namespace facebook::velox::exec {
 
@@ -42,12 +43,16 @@ class SignatureBinder {
     return tryResolveType(signature_.returnType());
   }
 
+  TypePtr tryResolveType(const exec::TypeSignature& typeSignature) const;
+
+  static TypePtr tryResolveType(
+      const exec::TypeSignature& typeSignature,
+      const std::unordered_map<std::string, TypePtr>& bindings);
+
  private:
   bool tryBind(
       const exec::TypeSignature& typeSignature,
       const TypePtr& actualType);
-
-  TypePtr tryResolveType(const exec::TypeSignature& typeSignature) const;
 
   const exec::FunctionSignature& signature_;
   const std::vector<TypePtr>& actualTypes_;

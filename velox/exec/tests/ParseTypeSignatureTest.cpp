@@ -16,6 +16,7 @@
 #include <gtest/gtest.h>
 
 #include "velox/expression/FunctionSignature.h"
+#include "velox/type/Type.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;

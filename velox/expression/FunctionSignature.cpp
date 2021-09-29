@@ -16,6 +16,7 @@
 #include "velox/expression/FunctionSignature.h"
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/trim.hpp>
+#include "velox/common/base/Exceptions.h"
 #include "velox/expression/VectorFunction.h"
 
 namespace facebook::velox::exec {
@@ -172,4 +173,14 @@ FunctionSignature::FunctionSignature(
       variableArity_{variableArity} {
   validate(typeVariableConstants_, returnType_, argumentTypes_);
 }
+
+std::shared_ptr<FunctionSignature> FunctionSignatureBuilder::build() {
+  VELOX_CHECK(returnType_.has_value());
+  return std::make_shared<FunctionSignature>(
+      std::move(typeVariableConstants_),
+      returnType_.value(),
+      std::move(argumentTypes_),
+      variableArity_);
+}
+
 } // namespace facebook::velox::exec
