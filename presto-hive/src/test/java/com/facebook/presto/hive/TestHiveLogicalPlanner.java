@@ -1632,6 +1632,50 @@ public class TestHiveLogicalPlanner
     }
 
     @Test
+    public void testMaterializedViewForExcept()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        String table = "test_customer_except";
+        String view = "test_customer_view_except";
+        try {
+            computeActual(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['nationkey']) " +
+                    "AS SELECT custkey, name, address, nationkey FROM customer", table));
+
+            String baseQuery = format(
+                    "SELECT name, custkey, nationkey FROM %s WHERE custkey < 1000 EXCEPT " +
+                            "SELECT name, custkey, nationkey FROM %s WHERE custkey > 900", table, table);
+
+            assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['nationkey']) " +
+                    "AS %s", view, baseQuery));
+
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE nationkey < 10", view), 380);
+
+            String viewQuery = format("SELECT name, custkey, nationkey from %s ORDER BY name", view);
+            baseQuery = format("%s ORDER BY name", baseQuery);
+
+            MaterializedResult viewTable = computeActual(viewQuery);
+            MaterializedResult baseTable = computeActual(baseQuery);
+            assertEquals(viewTable, baseTable);
+
+            assertPlan(getSession(), viewQuery, anyTree(
+                    anyTree(
+                            anyTree(
+                                    filter("custkey < BIGINT'1000'", PlanMatchPattern.constrainedTableScan(table,
+                                    ImmutableMap.of("nationkey", multipleValues(BIGINT, ImmutableList.of(10L, 11L, 12L, 13L, 14L, 15L, 16L, 17L, 18L, 19L, 20L, 21L, 22L, 23L, 24L))),
+                                    ImmutableMap.of("custkey", "custkey")))),
+                            anyTree(
+                                    filter("custkey_21 > BIGINT'900'", PlanMatchPattern.constrainedTableScan(table,
+                                    ImmutableMap.of("nationkey", multipleValues(BIGINT, ImmutableList.of(10L, 11L, 12L, 13L, 14L, 15L, 16L, 17L, 18L, 19L, 20L, 21L, 22L, 23L, 24L))),
+                                    ImmutableMap.of("custkey_21", "custkey"))))),
+                    PlanMatchPattern.constrainedTableScan(view, ImmutableMap.of())));
+        }
+        finally {
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table);
+        }
+    }
+
+    @Test
     public void testMaterializedViewForUnionAllWithMultipleTables()
     {
         QueryRunner queryRunner = getQueryRunner();
