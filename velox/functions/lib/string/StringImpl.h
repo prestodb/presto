@@ -221,7 +221,7 @@ FOLLY_ALWAYS_INLINE void replaceInPlace(
     TInOutString& string,
     const TInString& replaced,
     const TInString& replacement) {
-  assert(replacement.size() <= replaced.size() && "invlaid inplace replace");
+  assert(replacement.size() <= replaced.size() && "invalid inplace replace");
 
   auto outputSize = stringCore::replace(
       string.data(),

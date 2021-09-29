@@ -16,27 +16,14 @@
 
 #pragma once
 
-#include "velox/type/Type.h"
+#include "velox/functions/FunctionRegistry.h"
 
 namespace facebook::velox::test {
-
-// Represents one available function signature.
-struct CallableSignature {
-  // Function name.
-  std::string name;
-
-  // Input arguments and return type.
-  std::vector<TypePtr> args;
-  TypePtr returnType;
-
-  // Convenience print function.
-  std::string toString() const;
-};
 
 // Generates random expressions based on `signatures` and random input data (via
 // VectorFuzzer). Generates `steps` distinct expressions.
 void expressionFuzzer(
-    std::vector<CallableSignature> signatures,
+    FunctionSignatureMap signatureMap,
     size_t steps,
     size_t seed);
 

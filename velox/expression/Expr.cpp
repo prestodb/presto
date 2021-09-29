@@ -160,12 +160,7 @@ void Expr::evalSimplified(
   if (remainingRows->hasSelections()) {
     evalSimplifiedImpl(*remainingRows, context, result);
   }
-
-  // If there's no output vector yet, return a null constant.
-  if (*result == nullptr) {
-    *result =
-        BaseVector::createNullConstant(type(), rows.size(), context->pool());
-  }
+  addNulls(rows, remainingRows->asRange().bits(), context, result);
 }
 
 void Expr::evalSimplifiedImpl(
@@ -215,8 +210,7 @@ void Expr::evalSimplifiedImpl(
   vectorFunction_->apply(remainingRows, inputValues_, this, context, result);
 
   // Make sure the returned vector has its null bitmap properly set.
-  (*result)->addNulls(
-      remainingRows.asRange().bits(), SelectivityVector((*result)->size()));
+  addNulls(rows, remainingRows.asRange().bits(), context, result);
   inputValues_.clear();
 }
 

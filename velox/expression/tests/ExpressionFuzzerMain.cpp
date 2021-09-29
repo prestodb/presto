@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include "velox/core/FunctionRegistry.h"
-#include "velox/expression/VectorFunctionRegistry.h"
 #include "velox/expression/tests/ExpressionFuzzer.h"
+#include "velox/functions/FunctionRegistry.h"
 #include "velox/functions/prestosql/CoreFunctions.h"
+#include "velox/functions/prestosql/VectorFunctions.h"
 
 DEFINE_int64(
     seed,
@@ -27,48 +27,15 @@ DEFINE_int64(
 
 DEFINE_int32(steps, 1, "Number of expressions to generate.");
 
-namespace facebook::velox::test {
-
-// Fetches all available function signatures.
-// TODO: Only simple functions for now.
-std::vector<CallableSignature> getAllSignatures() {
-  std::vector<CallableSignature> functions;
-
-  // TODO: Skipping buggy functions for now.
-  std::unordered_set<std::string> skipFunctions = {};
-  auto keys = exec::AdaptedVectorFunctions().Keys();
-
-  for (const auto& key : keys) {
-    auto func = facebook::velox::core::ScalarFunctions().Create(key);
-
-    if (!func->isDeterministic()) {
-      LOG(WARNING) << "Skipping non-deterministic function: " << key.name();
-      continue;
-    }
-
-    if (skipFunctions.count(key.name()) > 0) {
-      LOG(WARNING) << "Skipping known buggy function: " << key.name();
-      continue;
-    }
-
-    CallableSignature temp{key.name(), key.types(), func->returnType()};
-    functions.emplace_back(temp);
-  }
-  return functions;
-}
-
-} // namespace facebook::velox::test
-
 using namespace facebook::velox;
 
 int main(int argc, char** argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
   google::InitGoogleLogging(argv[0]);
 
-  // TODO: Only simple functions for now.
   functions::registerFunctions();
-  auto signatures = test::getAllSignatures();
+  functions::registerVectorFunctions();
 
-  test::expressionFuzzer(std::move(signatures), FLAGS_steps, FLAGS_seed);
+  test::expressionFuzzer(getFunctionSignatures(), FLAGS_steps, FLAGS_seed);
   return 0;
 }

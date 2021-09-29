@@ -19,7 +19,11 @@
 #include <exception>
 
 #include "velox/common/base/Exceptions.h"
+#include "velox/core/FunctionRegistry.h"
 #include "velox/expression/Expr.h"
+#include "velox/expression/FunctionSignature.h"
+#include "velox/expression/SignatureBinder.h"
+#include "velox/expression/VectorFunction.h"
 #include "velox/expression/tests/ExpressionFuzzer.h"
 #include "velox/expression/tests/VectorFuzzer.h"
 #include "velox/type/Type.h"
@@ -39,6 +43,15 @@ DEFINE_int32(
 namespace facebook::velox::test {
 
 namespace {
+
+using exec::SignatureBinder;
+
+// TODO: List of the functions that at some point crash or fail and need to
+// be fixed before we can enable.
+static std::unordered_set<std::string> kSkipFunctions = {
+    "strpos",
+    "replace",
+};
 
 // Called if at least one of the ptrs has an exception.
 void compareExceptions(
@@ -109,6 +122,36 @@ void compareVectors(const VectorPtr& vec1, const VectorPtr& vec2) {
   LOG(INFO) << "All results match.";
 }
 
+/// Returns if `functionName` with the given `argTypes` is deterministic.
+/// Returns std::nullopt if the function was not found.
+std::optional<bool> isDeterministic(
+    const std::string& functionName,
+    const std::vector<TypePtr>& argTypes) {
+  // Check if this is a scalar function.
+  auto key = core::FunctionKey(functionName, argTypes);
+  if (core::ScalarFunctions().Has(key)) {
+    auto scalarFunction = core::ScalarFunctions().Create(key);
+    return scalarFunction->isDeterministic();
+  }
+
+  // Vector functions are a bit more complicated. We need to fetch the list of
+  // available signatures and check if any of them bind given the current input
+  // arg types. If it binds (if there's a match), we fetch the function and
+  // return the isDeterministic bool.
+  if (auto vectorFunctionSignatures =
+          exec::getVectorFunctionSignatures(functionName)) {
+    for (const auto& signature : *vectorFunctionSignatures) {
+      if (exec::SignatureBinder(*signature, argTypes).tryBind()) {
+        if (auto vectorFunction =
+                exec::getVectorFunction(functionName, argTypes, {})) {
+          return vectorFunction->isDeterministic();
+        }
+      }
+    }
+  }
+  return std::nullopt;
+}
+
 VectorFuzzer::Options getFuzzerOptions() {
   VectorFuzzer::Options opts;
   opts.vectorSize = FLAGS_batch_size;
@@ -118,31 +161,97 @@ VectorFuzzer::Options getFuzzerOptions() {
   return opts;
 }
 
-} // namespace
+// Represents one available function signature.
+struct CallableSignature {
+  // Function name.
+  std::string name;
 
-std::string CallableSignature::toString() const {
-  std::string buf = name;
-  buf.append("( ");
-  for (const auto& arg : args) {
-    buf.append(arg->toString());
-    buf.append(" ");
+  // Input arguments and return type.
+  std::vector<TypePtr> args;
+  TypePtr returnType;
+
+  // Convenience print function.
+  std::string toString() const {
+    std::string buf = name;
+    buf.append("( ");
+    for (const auto& arg : args) {
+      buf.append(arg->toString());
+      buf.append(" ");
+    }
+    buf.append(") -> ");
+    buf.append(returnType->toString());
+    return buf;
   }
-  buf.append(") -> ");
-  buf.append(returnType->toString());
-  return buf;
+};
+
+std::optional<CallableSignature> processSignature(
+    const std::string& functionName,
+    const exec::FunctionSignature& signature) {
+  // Don't support functions with parametrized signatures or variable number of
+  // arguments yet.
+  if (!signature.typeVariableConstants().empty() || signature.variableArity()) {
+    LOG(WARNING) << "Skipping unsupported signature: " << functionName
+                 << signature.toString();
+    return std::nullopt;
+  }
+
+  CallableSignature callable{
+      .name = functionName,
+      .args = {},
+      .returnType =
+          SignatureBinder::tryResolveType(signature.returnType(), {})};
+  VELOX_CHECK_NOT_NULL(callable.returnType);
+
+  // For now, ensure that this function only takes (and returns) primitives
+  // types.
+  bool onlyPrimitiveTypes = callable.returnType->isPrimitiveType();
+
+  // Process each argument and figure out its type.
+  for (const auto& arg : signature.argumentTypes()) {
+    auto resolvedType = SignatureBinder::tryResolveType(arg, {});
+    VELOX_CHECK_NOT_NULL(resolvedType);
+
+    onlyPrimitiveTypes &= resolvedType->isPrimitiveType();
+    callable.args.emplace_back(resolvedType);
+  }
+
+  if (onlyPrimitiveTypes) {
+    if (isDeterministic(callable.name, callable.args).value()) {
+      return callable;
+    } else {
+      LOG(WARNING) << "Skipping non-deterministic function: "
+                   << callable.toString();
+    }
+  } else {
+    LOG(WARNING) << "Skipping '" << callable.toString()
+                 << "' because it contains non-primitive types.";
+  }
+  return std::nullopt;
 }
 
 class ExpressionFuzzer {
  public:
-  ExpressionFuzzer(
-      std::vector<CallableSignature> signatures,
-      size_t initialSeed)
-      : signatures_(std::move(signatures)),
-        vectorFuzzer_(getFuzzerOptions(), execCtx_.pool()) {
+  ExpressionFuzzer(FunctionSignatureMap signatureMap, size_t initialSeed)
+      : vectorFuzzer_(getFuzzerOptions(), execCtx_.pool()) {
     seed(initialSeed);
 
+    // Process each available signature for every function.
+    for (const auto& function : signatureMap) {
+      if (kSkipFunctions.count(function.first) > 0) {
+        LOG(INFO) << "Skipping buggy function: " << function.first;
+        continue;
+      }
+
+      for (const auto& signature : function.second) {
+        if (auto callableFunction =
+                processSignature(function.first, *signature)) {
+          signatures_.emplace_back(*callableFunction);
+        }
+      }
+    }
+
     // Generates signaturesMap, which maps a given type to the function
-    // signature that return it.
+    // signature that returns it.
     for (const auto& it : signatures_) {
       signaturesMap_[it.returnType->kind()].push_back(&it);
     }
@@ -332,7 +441,7 @@ class ExpressionFuzzer {
   folly::Random::DefaultGenerator rng_;
   size_t currentSeed_{0};
 
-  const std::vector<CallableSignature> signatures_;
+  std::vector<CallableSignature> signatures_;
 
   // Maps a given type to the functions that return that type.
   std::unordered_map<TypeKind, std::vector<const CallableSignature*>>
@@ -351,11 +460,13 @@ class ExpressionFuzzer {
   std::vector<TypePtr> inputRowTypes_;
 };
 
+} // namespace
+
 void expressionFuzzer(
-    std::vector<CallableSignature> signatures,
+    FunctionSignatureMap signatureMap,
     size_t steps,
     size_t seed) {
-  ExpressionFuzzer(std::move(signatures), seed).go(steps);
+  ExpressionFuzzer(std::move(signatureMap), seed).go(steps);
 }
 
 } // namespace facebook::velox::test
