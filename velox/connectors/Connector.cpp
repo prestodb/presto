@@ -73,4 +73,32 @@ std::shared_ptr<Connector> getConnector(const std::string& connectorId) {
   return it->second;
 }
 
+folly::Synchronized<
+    std::unordered_map<std::string_view, std::weak_ptr<cache::ScanTracker>>>
+    Connector::trackers_;
+
+// static
+void Connector::unregisterTracker(cache::ScanTracker* tracker) {
+  trackers_.withWLock([&](auto& trackers) { trackers.erase(tracker->id()); });
+}
+
+std::shared_ptr<cache::ScanTracker> Connector::getTracker(
+    const std::string& scanId) {
+  return trackers_.withWLock([&](auto& trackers) -> auto {
+    auto it = trackers.find(scanId);
+    if (it == trackers.end()) {
+      auto newTracker =
+          std::make_shared<cache::ScanTracker>(scanId, unregisterTracker);
+      trackers[newTracker->id()] = newTracker;
+      return newTracker;
+    }
+    std::shared_ptr<cache::ScanTracker> tracker = it->second.lock();
+    if (!tracker) {
+      tracker = std::make_shared<cache::ScanTracker>(scanId, unregisterTracker);
+      trackers[tracker->id()] = tracker;
+    }
+    return tracker;
+  });
+}
+
 } // namespace facebook::velox::connector

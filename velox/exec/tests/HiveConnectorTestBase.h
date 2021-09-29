@@ -20,6 +20,8 @@
 #include "velox/exec/tests/TempFilePath.h"
 #include "velox/type/tests/SubfieldFiltersBuilder.h"
 
+#include <folly/executors/IOThreadPoolExecutor.h>
+
 namespace facebook::velox::exec::test {
 
 static const std::string kHiveConnectorId = "test-hive";
@@ -27,42 +29,12 @@ static const std::string kHiveConnectorId = "test-hive";
 using ColumnHandleMap =
     std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>;
 
-// A dummy cache that always misses. This class is for testing purpose only.
-class DummyDataCache : public DataCache {
- public:
-  bool put(std::string_view /* key */, std::string_view /* value */) override {
-    putCount++;
-    return false;
-  }
-
-  bool get(std::string_view /* key */, uint64_t /* size */, void* /* buf */)
-      override {
-    getCount++;
-    return false;
-  }
-
-  bool get(std::string_view /* key */, std::string* /* value */) override {
-    getCount++;
-    return false;
-  }
-
-  int64_t currentSize() const final {
-    return 0;
-  }
-
-  int64_t maxSize() const final {
-    return 0;
-  }
-
-  size_t putCount{0};
-  size_t getCount{0};
-};
-
 class HiveConnectorTestBase : public OperatorTestBase {
  public:
   HiveConnectorTestBase();
   void SetUp() override;
 
+ public:
   void TearDown() override;
 
   void writeToFile(
@@ -73,7 +45,9 @@ class HiveConnectorTestBase : public OperatorTestBase {
   void writeToFile(
       const std::string& filePath,
       const std::string& name,
-      const std::vector<RowVectorPtr>& vectors);
+      const std::vector<RowVectorPtr>& vectors,
+      std::shared_ptr<dwrf::Config> config =
+          std::make_shared<facebook::velox::dwrf::Config>());
 
   std::vector<RowVectorPtr> makeVectors(
       const std::shared_ptr<const RowType>& rowType,
@@ -149,7 +123,12 @@ class HiveConnectorTestBase : public OperatorTestBase {
   static void
   addSplit(Task* task, const core::PlanNodeId& planNodeId, exec::Split&& split);
 
-  DummyDataCache* dataCache;
+  memory::MappedMemory* mappedMemory() {
+    return memory::MappedMemory::getInstance();
+  }
+
+  SimpleLRUDataCache* dataCache;
+  std::unique_ptr<folly::IOThreadPoolExecutor> executor_;
 };
 
 } // namespace facebook::velox::exec::test

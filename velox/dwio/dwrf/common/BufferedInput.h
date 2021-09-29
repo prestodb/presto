@@ -80,6 +80,14 @@ class BufferedInput {
     return false;
   }
 
+  // True if caller should enqueue and load regions for stripe
+  // metadata after reading a file footer. The stripe footers are
+  // likely to be hit and should be read ahead of demand if
+  // BufferedInput has background load.
+  virtual bool shouldPrefetchStripes() const {
+    return false;
+  }
+
  protected:
   dwio::common::InputStream& input_;
 

@@ -16,6 +16,7 @@
 #pragma once
 
 #include <gtest/gtest.h>
+#include "velox/common/caching/AsyncDataCache.h"
 #include "velox/core/Expressions.h"
 #include "velox/core/PlanNode.h"
 #include "velox/exec/tests/QueryAssertions.h"
@@ -28,6 +29,8 @@ class OperatorTestBase : public testing::Test {
  protected:
   OperatorTestBase();
   ~OperatorTestBase() override;
+
+  void SetUp() override;
 
   static void SetUpTestCase();
 
@@ -216,5 +219,12 @@ class OperatorTestBase : public testing::Test {
       memory::getDefaultScopedMemoryPool()};
   DuckDbQueryRunner duckDbQueryRunner_;
   velox::test::VectorMaker vectorMaker_{pool_.get()};
+
+  // Parametrized subclasses set this to choose the cache code path.
+  bool useAsyncCache_{true};
+
+  // Used as default MappedMemory if 'useAsyncCache_' is true. Created on first
+  // use.
+  static std::unique_ptr<cache::AsyncDataCache> asyncDataCache_;
 };
 } // namespace facebook::velox::exec::test

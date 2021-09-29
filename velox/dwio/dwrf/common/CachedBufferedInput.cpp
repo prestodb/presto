@@ -29,6 +29,11 @@ using memory::MappedMemory;
 std::unique_ptr<SeekableInputStream> CachedBufferedInput::enqueue(
     dwio::common::Region region,
     const StreamIdentifier* si = nullptr) {
+  if (region.length == 0) {
+    return std::make_unique<SeekableArrayInputStream>(
+        static_cast<const char*>(nullptr), 0);
+  }
+
   TrackingId id;
   if (si) {
     id = TrackingId(si->node, si->kind);

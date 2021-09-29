@@ -95,7 +95,7 @@ ReaderBase::ReaderBase(
   input_ = bufferedInputFactory_->create(*stream_, pool, dataCacheConfig);
 
   // We may have cached the tail before, in which case we can skip the read.
-  if (dataCacheConfig) {
+  if (dataCacheConfig && dataCacheConfig->cache) {
     const std::string tailKey = TailKey(dataCacheConfig->filenum);
     std::string tail;
     if (dataCacheConfig->cache->get(tailKey, &tail)) {
@@ -204,14 +204,25 @@ ReaderBase::ReaderBase(
   }
 
   // Insert the tail in the data cache so we can skip the disk read next time.
-  if (dataCacheConfig) {
+  if (dataCacheConfig && dataCacheConfig->cache) {
     std::unique_ptr<char[]> tail(new char[tailSize]);
     input_->read(fileLength_ - tailSize, tailSize, LogType::FOOTER)
         ->readFully(tail.get(), tailSize);
     const std::string tailKey = TailKey(dataCacheConfig->filenum);
     dataCacheConfig->cache->put(tailKey, {tail.get(), tailSize});
   }
-
+  if (input_->shouldPrefetchStripes()) {
+    auto numStripes = getFooter().stripes_size();
+    for (auto i = 0; i < numStripes; i++) {
+      const auto& stripe = getFooter().stripes(i);
+      input_->enqueue(
+          {stripe.offset() + stripe.indexlength() + stripe.datalength(),
+           stripe.footerlength()});
+    }
+    if (numStripes) {
+      input_->load(LogType::FOOTER);
+    }
+  }
   // initialize file decrypter
   handler_ = DecryptionHandler::create(*footer_, factory);
 }

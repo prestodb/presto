@@ -27,6 +27,15 @@ uint64_t FileHandleSizer::operator()(const FileHandle& fileHandle) {
   return fileHandle.file->memoryUsage();
 }
 
+namespace {
+// The group tracking is at the level of the directory, i.e. Hive partition.
+std::string groupName(const std::string& filename) {
+  const char* slash = strrchr(filename.c_str(), '/');
+  return slash ? std::string(filename.data(), slash - filename.data())
+               : filename;
+}
+} // namespace
+
 std::unique_ptr<FileHandle> FileHandleGenerator::operator()(
     const std::string& filename) {
   auto fileHandle = std::make_unique<FileHandle>();
@@ -34,6 +43,7 @@ std::unique_ptr<FileHandle> FileHandleGenerator::operator()(
   fileHandle->file = filesystems::getFileSystem(filename, properties_)
                          ->openFileForRead(filename);
   fileHandle->uuid = StringIdLease(fileIds(), filename);
+  fileHandle->groupId = StringIdLease(fileIds(), groupName(filename));
   VLOG(1) << "Generating file handle for: " << filename
           << " uuid: " << fileHandle->uuid.id();
   // TODO: build the hash map/etc per file type -- presumably after reading

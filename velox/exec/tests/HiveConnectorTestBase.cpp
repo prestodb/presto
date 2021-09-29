@@ -20,7 +20,6 @@
 #include "velox/dwio/dwrf/test/utils/BatchMaker.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/exec/tests/QueryAssertions.h"
-
 namespace facebook::velox::exec::test {
 
 HiveConnectorTestBase::HiveConnectorTestBase() {
@@ -29,15 +28,25 @@ HiveConnectorTestBase::HiveConnectorTestBase() {
 
 void HiveConnectorTestBase::SetUp() {
   OperatorTestBase::SetUp();
-  auto dummyDataCache = std::make_unique<DummyDataCache>();
-  dataCache = dummyDataCache.get();
-  auto hiveConnector =
-      connector::getConnectorFactory(connector::hive::kHiveConnectorName)
-          ->newConnector(kHiveConnectorId, nullptr, std::move(dummyDataCache));
-  connector::registerConnector(hiveConnector);
+  if (useAsyncCache_) {
+    executor_ = std::make_unique<folly::IOThreadPoolExecutor>(3);
+    auto hiveConnector =
+        connector::getConnectorFactory(connector::hive::kHiveConnectorName)
+            ->newConnector(kHiveConnectorId, nullptr, nullptr, executor_.get());
+    connector::registerConnector(hiveConnector);
+  } else {
+    auto dataCache = std::make_unique<SimpleLRUDataCache>(1UL << 30);
+    auto hiveConnector =
+        connector::getConnectorFactory(connector::hive::kHiveConnectorName)
+            ->newConnector(kHiveConnectorId, nullptr, std::move(dataCache));
+    connector::registerConnector(hiveConnector);
+  }
 }
 
 void HiveConnectorTestBase::TearDown() {
+  if (executor_) {
+    executor_->join();
+  }
   connector::unregisterConnector(kHiveConnectorId);
   OperatorTestBase::TearDown();
 }
@@ -52,9 +61,10 @@ void HiveConnectorTestBase::writeToFile(
 void HiveConnectorTestBase::writeToFile(
     const std::string& filePath,
     const std::string& name,
-    const std::vector<RowVectorPtr>& vectors) {
+    const std::vector<RowVectorPtr>& vectors,
+    std::shared_ptr<dwrf::Config> config) {
   facebook::velox::dwrf::WriterOptions options;
-  options.config = std::make_shared<facebook::velox::dwrf::Config>();
+  options.config = config;
   options.schema = vectors[0]->type();
   auto sink = std::make_unique<facebook::dwio::common::FileSink>(filePath);
   facebook::velox::dwrf::Writer writer{

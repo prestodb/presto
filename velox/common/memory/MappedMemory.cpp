@@ -252,10 +252,15 @@ bool MappedMemoryImpl::checkConsistency() {
   throw std::runtime_error("Not implemented");
 }
 
+MappedMemory* MappedMemory::customInstance_;
 std::unique_ptr<MappedMemory> MappedMemory::instance_;
 std::mutex MappedMemory::initMutex_;
 
+// static
 MappedMemory* MappedMemory::getInstance() {
+  if (customInstance_) {
+    return customInstance_;
+  }
   if (instance_) {
     return instance_.get();
   }
@@ -270,6 +275,11 @@ MappedMemory* MappedMemory::getInstance() {
 // static
 std::unique_ptr<MappedMemory> MappedMemory::createDefaultInstance() {
   return std::make_unique<MappedMemoryImpl>();
+}
+
+// static
+void MappedMemory::setDefaultInstance(MappedMemory* instance) {
+  customInstance_ = instance;
 }
 
 std::shared_ptr<MappedMemory> MappedMemory::addChild(

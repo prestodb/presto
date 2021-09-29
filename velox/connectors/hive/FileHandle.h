@@ -33,6 +33,7 @@
 #include "velox/common/caching/FileIds.h"
 #include "velox/common/file/File.h"
 #include "velox/core/Context.h"
+#include "velox/dwio/common/InputStream.h"
 
 namespace facebook::velox {
 
@@ -44,6 +45,11 @@ struct FileHandle {
   // the identifier in downstream data caching structures. This saves a lot of
   // memory compared to using the filename as the identifier.
   StringIdLease uuid;
+
+  // Id for the group of files this belongs to, e.g. its
+  // directory. Used for coarse granularity access tracking, for
+  // example to decide placing on SSD.
+  StringIdLease groupId;
 
   // We'll want to have a hash map here to record the identifier->byte range
   // mappings. Different formats may have different identifiers, so we may need
