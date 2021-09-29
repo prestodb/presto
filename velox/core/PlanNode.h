@@ -609,53 +609,6 @@ class LocalMergeNode : public PlanNode {
   const std::vector<SortOrder> sortingOrders_;
 };
 
-/// Hash partitions data using specified keys. The number of partitions is
-/// determined by the parallelism of the upstream pipeline. Can be used to
-/// gather data from multiple sources. The order of columns in the output may be
-/// different from input.
-class LocalPartitionNode : public PlanNode {
- public:
-  LocalPartitionNode(
-      const PlanNodeId& id,
-      std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>> keys,
-      RowTypePtr outputType,
-      std::vector<std::shared_ptr<const PlanNode>> sources)
-      : PlanNode(id),
-        sources_{std::move(sources)},
-        keys_{std::move(keys)},
-        outputType_{std::move(outputType)} {
-    VELOX_CHECK_GT(
-        sources_.size(),
-        0,
-        "Local repartitioning node requires at least one source");
-  }
-
-  const RowTypePtr& outputType() const override {
-    return outputType_;
-  }
-
-  const std::vector<std::shared_ptr<const PlanNode>>& sources() const override {
-    return sources_;
-  }
-
-  const RowTypePtr& inputType() const {
-    return sources_[0]->outputType();
-  }
-
-  const std::vector<std::shared_ptr<const FieldAccessTypedExpr>>& keys() const {
-    return keys_;
-  }
-
-  std::string_view name() const override {
-    return "local repartitioning";
-  }
-
- private:
-  const std::vector<std::shared_ptr<const PlanNode>> sources_;
-  const std::vector<std::shared_ptr<const FieldAccessTypedExpr>> keys_;
-  const RowTypePtr outputType_;
-};
-
 /// Calculates partition number for each row of the specified vector.
 class PartitionFunction {
  public:
@@ -670,7 +623,67 @@ class PartitionFunction {
 };
 
 using PartitionFunctionFactory =
-    std::function<std::unique_ptr<PartitionFunction>()>;
+    std::function<std::unique_ptr<PartitionFunction>(int numPartitions)>;
+
+/// Partitions data using specified partition function. The number of partitions
+/// is determined by the parallelism of the upstream pipeline. Can be used to
+/// gather data from multiple sources. The order of columns in the output may be
+/// different from input.
+class LocalPartitionNode : public PlanNode {
+ public:
+  LocalPartitionNode(
+      const PlanNodeId& id,
+      PartitionFunctionFactory partitionFunctionFactory,
+      RowTypePtr outputType,
+      std::vector<std::shared_ptr<const PlanNode>> sources)
+      : PlanNode(id),
+        sources_{std::move(sources)},
+        partitionFunctionFactory_{std::move(partitionFunctionFactory)},
+        outputType_{std::move(outputType)} {
+    VELOX_CHECK_GT(
+        sources_.size(),
+        0,
+        "Local repartitioning node requires at least one source");
+  }
+
+  static std::shared_ptr<LocalPartitionNode> single(
+      const PlanNodeId& id,
+      RowTypePtr outputType,
+      std::vector<std::shared_ptr<const PlanNode>> sources) {
+    return std::make_shared<LocalPartitionNode>(
+        id,
+        [](auto /*numPartitions*/) -> std::unique_ptr<PartitionFunction> {
+          VELOX_UNREACHABLE();
+        },
+        std::move(outputType),
+        std::move(sources));
+  }
+
+  const RowTypePtr& outputType() const override {
+    return outputType_;
+  }
+
+  const std::vector<std::shared_ptr<const PlanNode>>& sources() const override {
+    return sources_;
+  }
+
+  const RowTypePtr& inputType() const {
+    return sources_[0]->outputType();
+  }
+
+  const PartitionFunctionFactory& partitionFunctionFactory() const {
+    return partitionFunctionFactory_;
+  }
+
+  std::string_view name() const override {
+    return "local repartitioning";
+  }
+
+ private:
+  const std::vector<std::shared_ptr<const PlanNode>> sources_;
+  const PartitionFunctionFactory partitionFunctionFactory_;
+  const RowTypePtr outputType_;
+};
 
 class PartitionedOutputNode : public PlanNode {
  public:
@@ -717,7 +730,9 @@ class PartitionedOutputNode : public PlanNode {
         numPartitions,
         true,
         false,
-        []() -> std::unique_ptr<PartitionFunction> { VELOX_UNREACHABLE(); },
+        [](auto /*numPartitions*/) -> std::unique_ptr<PartitionFunction> {
+          VELOX_UNREACHABLE();
+        },
         std::move(outputType),
         std::move(source));
   }
@@ -733,7 +748,9 @@ class PartitionedOutputNode : public PlanNode {
         1,
         false,
         false,
-        []() -> std::unique_ptr<PartitionFunction> { VELOX_UNREACHABLE(); },
+        [](auto /*numPartitions*/) -> std::unique_ptr<PartitionFunction> {
+          VELOX_UNREACHABLE();
+        },
         std::move(outputType),
         std::move(source));
   }
