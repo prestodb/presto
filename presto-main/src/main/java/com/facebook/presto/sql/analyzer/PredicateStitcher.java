@@ -18,6 +18,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.AstVisitor;
+import com.facebook.presto.sql.tree.Except;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.Node;
@@ -137,6 +138,14 @@ public class PredicateStitcher
                 .map(relation -> (Relation) process(relation, context))
                 .collect(toImmutableList());
         return new Union(rewrittenRelations, node.isDistinct());
+    }
+
+    @Override
+    protected Node visitExcept(Except node, PredicateStitcherContext context)
+    {
+        Relation rewrittenLeft = (Relation) process(node.getLeft(), context);
+        Relation rewrittenRight = (Relation) process(node.getRight(), context);
+        return new Except(rewrittenLeft, rewrittenRight, node.isDistinct());
     }
 
     @Override
