@@ -47,7 +47,7 @@ class Destination {
   BlockingReason advance(
       uint64_t maxBytes,
       const std::vector<vector_size_t>& sizes,
-      const RowVectorPtr& input,
+      const RowVectorPtr& output,
       PartitionedOutputBufferManager& bufferManager,
       bool* atEnd,
       ContinueFuture* future);
